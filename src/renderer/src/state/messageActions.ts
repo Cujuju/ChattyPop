@@ -46,7 +46,7 @@ function copyImage(src: string): Promise<void> {
 function pressedNote(target: EventTarget | null, m: ArchiveMessage): AttachmentNote | undefined {
   const el = target instanceof Element ? target.closest<HTMLElement>('[data-note-part]') : null;
   if (!el) return undefined;
-  return [...m.attachments, ...m.embeds].flatMap((x) => x.notes ?? []).find((n) => n.part === el.dataset.notePart && n.pluginId === el.dataset.notePlugin);
+  return [m, ...m.attachments, ...m.embeds].flatMap((x) => x.notes ?? []).find((n) => n.part === el.dataset.notePart && n.pluginId === el.dataset.notePlugin);
 }
 
 export type { MessageMenuScope };

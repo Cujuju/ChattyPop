@@ -276,6 +276,8 @@ export interface ArchiveMessage {
   /** Earlier versions, oldest first; the current text is `content`. */
   revisions: { content: string; editedTs: number | null; seenAt: number }[];
   attachments: ArchiveAttachment[];
+  /** Notes on the text of links no card of it shows (a linked post's translation), drawn under its text. */
+  notes: AttachmentNote[];
   /** Notes plugins attached to this message. */
   annotations: MessageAnnotation[];
   /** Chips from Jev's per-message questions that have a label for their stored answer (tags, classes…). */

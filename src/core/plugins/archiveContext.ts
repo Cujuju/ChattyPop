@@ -87,7 +87,7 @@ export interface PluginArchive {
   parts: {
     /** Each message's parts (media of every kind, embeds' text), in the order it shows them; one with none is left out. */
     of(messageIds: readonly string[]): Map<string, MessagePart[]>;
-    /** As images.onShown: a message was stored or updated, or a link it shares gained images. Must only note work. */
+    /** As images.onShown: a message was stored or updated, or a link it shares gained images or text. Must only note work. */
     onShown(fn: (messageId: string) => void): void;
   };
   images: {

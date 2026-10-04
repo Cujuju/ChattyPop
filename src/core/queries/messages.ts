@@ -109,6 +109,10 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
   return hydrate(db, rows);
 }
 
+/** The notes on the message's own link texts (partKey.linkText): no attachment or card draws them. */
+const linkTextNotes = (notes: Map<string, AttachmentNote[]> | undefined): AttachmentNote[] =>
+  [...(notes ?? [])].flatMap(([part, list]) => (part.startsWith(partKey.linkText('')) ? list : []));
+
 /** Each embed with the notes of its parts; a part drawn on two embeds (one file) has its notes on the first. */
 function withEmbedNotes(embeds: ArchiveEmbed[], notes: Map<string, AttachmentNote[]> | undefined): ArchiveEmbed[] {
   if (!notes) return embeds;
@@ -206,6 +210,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       stickers: stickersFrom(r.stickersJson),
       revisions: revisions.filter((v) => v.messageId === r.id).map(({ content, editedTs, seenAt }) => ({ content, editedTs, seenAt })),
       attachments: attachments.filter((a) => a.messageId === r.id).map(({ messageId: _m, ...a }) => ({ ...a, notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [] })),
+      notes: linkTextNotes(notes.get(r.id)),
       annotations: annotations.filter((a) => a.messageId === r.id).map(({ messageId: _m, ...a }) => a),
       labels: labels.get(r.id) ?? [],
       flags: r.flags ?? 0,

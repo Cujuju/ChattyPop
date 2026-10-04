@@ -19,7 +19,7 @@ import { Markdown } from '@/ui/Markdown';
 import { isEmojiOnly } from '@/ui/mdParse';
 import { swipeLeftToAct } from '@/ui/touch';
 import { rowMenuTarget } from '@/ui/VirtualRows';
-import { Attachment } from './Attachment';
+import { Attachment, Note } from './Attachment';
 import { AuthorName } from './AuthorName';
 import { MessageActionBar } from './MessageActionBar';
 import { presentedParts } from './ownedParts';
@@ -265,6 +265,8 @@ function MessageBody(props: { message: ArchiveMessage; editing: boolean }) {
           </div>
         )}
       </For>
+      {/* Notes on links no card shows (a linked post's translation). */}
+      <For each={presentedParts(m().notes ?? [], pluginPresents)}>{(n) => <Note note={n} />}</For>
       <For each={m().attachments}>{(a) => <Attachment attachment={a} messageLink={messageLink(m())} />}</For>
       <Stickers stickers={m().stickers} />
       <Embeds embeds={m().embeds} mentions={m().mentions} />

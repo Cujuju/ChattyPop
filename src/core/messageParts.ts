@@ -1,10 +1,13 @@
 // Every part of a message a plugin can make text for: its media (attachments, its embeds' images and videos, the images
-// plugins found for its links) and its embeds' text. Part keys tie a plugin's notes and derived text to what they are of.
+// plugins found for its links), its embeds' text and the text of links no card shows. Part keys tie a plugin's notes and
+// derived text to what they are of.
 import { embedShowsPictures, embedVideoHasSound, mediaKind, mediaSize } from '@shared/media';
 import type { ArchiveEmbed, MediaSize } from '@shared/types/archive';
 import type { Db } from './db';
+import { normalizeUrl } from './derive/links';
 import { archivePayloads } from './plugins/archivePayloads';
 import { embedsFrom } from './queries/messageExtras';
+import { linkTextSql } from './queries/messageText';
 
 export type MessagePartSource = 'attachment' | 'embed' | 'link';
 export type MediaPartKind = 'image' | 'audio' | 'video';
@@ -32,10 +35,10 @@ export interface MediaPart {
   attachment: StoredAttachment | null;
 }
 
-/** An embed's own words (title and description). */
+/** An embed card's words (embedText), or the text of a link no card shows. */
 export interface TextPart {
   key: string;
-  source: 'embed';
+  source: 'embed' | 'link';
   kind: 'text';
   text: string;
 }
@@ -49,11 +52,16 @@ export const partKey = {
   link: (url: string): string => `link:${url}`,
   /** `index`: the embed's place in the message's embeds as the Archive draws them (embedsFrom). */
   embedText: (index: number): string => `embed-text:${index}`,
+  /** A link's text (a fetched post, else its preview) when none of the message's cards shows that link. */
+  linkText: (url: string): string => `link-text:${url}`,
 };
 
-/** An embed's words to read or translate, or null when it has none. */
-export function embedText(e: Pick<ArchiveEmbed, 'title' | 'description'>): string | null {
-  const text = [e.title, e.description].filter((s): s is string => !!s?.trim()).join('\n');
+/**
+ * An embed's words to read or translate, or null when it has none. `postText`: its link's fetched post (a plugin's
+ * link text), which replaces the card's clipped description.
+ */
+export function embedText(e: Pick<ArchiveEmbed, 'title' | 'description'>, postText: string | null = null): string | null {
+  const text = [e.title, postText ?? e.description].filter((s): s is string => !!s?.trim()).join('\n');
   return text || null;
 }
 
@@ -87,9 +95,24 @@ export function messageParts(db: Db, ids: readonly string[]): Map<string, Messag
     const attachment = { id: a.id, filename: a.filename, status: a.status, sha256: a.sha256 };
     add(a.messageId, { key: partKey.attachment(a.id), source: 'attachment', kind, url: a.url, size: mediaSize(a), attachment });
   }
+  // Each message's links: a plugin's text for it (a fetched post), and the text read for it (that, else the preview).
+  const links = db
+    .prepare(
+      `SELECT ml.message_id AS messageId, l.url,
+              (SELECT t.text FROM link_texts t WHERE t.url = l.url AND t.text != '' ORDER BY t.rowid LIMIT 1) AS post,
+              ${linkTextSql('l')} AS text
+       FROM message_links ml JOIN links l ON l.id = ml.link_id
+       WHERE ml.message_id IN (SELECT value FROM json_each(?)) ORDER BY ml.link_id`,
+    )
+    .all(idsJson) as { messageId: string; url: string; post: string | null; text: string | null }[];
+  /** `${messageId} ${url}` of the links a card of the message shows. */
+  const carded = new Set<string>();
   for (const [messageId, p] of archivePayloads(db, ids)) {
     embedsFrom(p.embedsJson).forEach((e, index) => {
-      const text = embedText(e);
+      const url = e.url ? normalizeUrl(e.url) : null;
+      const link = url ? links.find((l) => l.messageId === messageId && l.url === url) : undefined;
+      if (link) carded.add(`${messageId} ${link.url}`);
+      const text = embedText(e, link?.post ?? null);
       if (text) add(messageId, { key: partKey.embedText(index), source: 'embed', kind: 'text', text });
       const media = (kind: MediaPartKind, url: string, size: MediaSize | null): void =>
         add(messageId, { key: partKey.embed(url), source: 'embed', kind, url, size, attachment: null });
@@ -101,6 +124,9 @@ export function messageParts(db: Db, ids: readonly string[]): Map<string, Messag
       }
       if (e.videoUrl && embedVideoHasSound(e.type)) media('video', e.videoUrl, e.videoSize);
     });
+  }
+  for (const l of links) {
+    if (l.text && !carded.has(`${l.messageId} ${l.url}`)) add(l.messageId, { key: partKey.linkText(l.url), source: 'link', kind: 'text', text: l.text });
   }
   const linked = db
     .prepare(

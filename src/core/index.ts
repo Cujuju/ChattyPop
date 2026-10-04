@@ -329,6 +329,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
           for (const id of storeLinkText(archiveDb, url, pluginId, text, record)) {
             const m = textMessage(archiveDb, id);
             if (m) linkedText(m, addedTextArrival(archiveDb, id, Date.now()));
+            pluginHost.imagesShown(id); // its parts' text changed: readers (Translation) look again
           }
         },
         storeLinkImages: (pluginId, url, images, record) => {

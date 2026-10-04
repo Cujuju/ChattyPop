@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ARRIVAL } from '../src/core/arrival';
 import { partNotes, registerAttachmentNotes, registerPartNotes, unregisterAttachmentNotes } from '../src/core/attachmentNotes';
-import { partTexts, storeDerivedText, tagDerivedParts } from '../src/core/derivedText';
+import { partTexts, storeDerivedText, storeLinkText, tagDerivedParts } from '../src/core/derivedText';
 import { embedPartKeys, messageParts } from '../src/core/messageParts';
 import type { ArchiveEmbed } from '../src/shared/types/archive';
 import { messagesByIds } from '../src/core/queries/messages';
@@ -88,5 +88,40 @@ describe('derived text by part', () => {
       ['transcription', 'attachment:a1'],
       ['transcription', 'attachment:a2'],
     ]);
+  });
+});
+
+describe('link text', () => {
+  const POST = 'https://x.com/i/status/42';
+  /** A tweet shared bare (its card hidden), and the embed fixer's reply carrying its card. */
+  function shared() {
+    const db = tempDb();
+    const archive = seedArchive(db, [{ id: 'c1' }]);
+    const bare = rawMessage('c1', Date.now(), 'https://x.com/someone/status/42', { flags: 4 } as never);
+    const card = rawMessage('c1', Date.now() + 1, '[Tweet](<https://x.com/i/status/42>)', {
+      embeds: [{ type: 'rich', url: 'https://fxtwitter.com/i/status/42', title: 'someone', description: '詳細は… 💬 22 🔁 302' }],
+    } as never);
+    archive.ingestMessages([bare, card], ARRIVAL.gateway);
+    storeLinkText(db, POST, 'links', '詳細は分からないけどHEAT的な競技');
+    return { db, bare: bare.id, card: card.id };
+  }
+  afterEach(() => unregisterAttachmentNotes('probe'));
+
+  it('is the whole card’s text where a card shows the link, else a part of its own', () => {
+    const { db, bare, card } = shared();
+    const parts = messageParts(db, [bare, card]);
+    expect(parts.get(card)!.filter((p) => p.kind === 'text')).toEqual([
+      { key: 'embed-text:0', source: 'embed', kind: 'text', text: 'someone\n詳細は分からないけどHEAT的な競技' },
+    ]);
+    expect(parts.get(bare)!.filter((p) => p.kind === 'text')).toEqual([
+      { key: `link-text:${POST}`, source: 'link', kind: 'text', text: '詳細は分からないけどHEAT的な競技' },
+    ]);
+  });
+
+  it('draws its notes under the message text', () => {
+    const { db, bare } = shared();
+    registerPartNotes('probe', 1, (ids) => new Map(ids.map((m) => [m, new Map([[`link-text:${POST}`, { kind: 'translation', state: 'done', label: 'translation', text: 'HEAT-like' }]])])));
+    const [m] = messagesByIds(db, [bare]);
+    expect(m!.notes.map((n) => [n.part, n.text])).toEqual([[`link-text:${POST}`, 'HEAT-like']]);
   });
 });
