@@ -87,7 +87,7 @@ export { IS_WINDOWS, exeName, findExecutable, resolveCli, type Launch } from '@c
 export { signedInCli, type CliSpec } from '@core/ai/cliProvider';
 
 export { toJson } from '@core/db';
-export { sumCosts } from '@core/ai/decisions';
+export { carriedQuestion, sumCosts } from '@core/ai/decisions';
 export { assertRange, clampCount } from '@core/queries/messageText';
 export { specMatch } from '@core/jev/queries';
 export { customQuestion } from '@core/jev/questions';

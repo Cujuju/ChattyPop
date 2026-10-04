@@ -1,14 +1,14 @@
 import { errorMessage } from '@shared/errors';
 import { MS_PER_DAY } from '@shared/units';
 import { clipMessage } from '../ai/clip';
-import { answerValue, type Answer, type DecisionProvider, type Question } from '../ai/decisions';
+import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type Question } from '../ai/decisions';
 import { isLocalOnly } from '../channelPolicy';
 import type { PluginDb } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
 import { MESSAGE_TEXT_SQL } from '../queries/messageText';
 import { plainNameSql } from '../queries/names';
 import type { TextMessage } from '../arrival';
-import { BATCH_STATE, batchKey, carriedQuestion } from './messageBatch';
+import { BATCH_STATE, batchKey } from './messageBatch';
 
 /**
  * Jev judges only messages from the last day onward. Older backfill would land as already-read history,

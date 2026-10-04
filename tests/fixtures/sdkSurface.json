@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -142,6 +142,7 @@
       "actionRange",
       "assertRange",
       "boundDecider",
+      "carriedQuestion",
       "chosenModel",
       "clampCount",
       "clipMessage",

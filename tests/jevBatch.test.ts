@@ -1,9 +1,9 @@
 // Re-runs and catch-up judge many messages per Jev request. Jev's questions run independently, so each carries its own
 // message's state in its instructions and the request's state is empty; answers land on the right message.
 import { describe, expect, it } from 'vitest';
-import type { Question } from '../src/core/ai/decisions';
+import { carriedQuestion, type Question } from '../src/core/ai/decisions';
 import { ARRIVAL } from '../src/core/arrival';
-import { BATCH_STATE, batchKey, carriedQuestion } from '../src/core/jev/messageBatch';
+import { BATCH_STATE, batchKey } from '../src/core/jev/messageBatch';
 import { MessageJudge } from '../src/core/jev/messageJudge';
 import { textMessage } from '../src/core/queries/messageText';
 import type { JevRequest } from './fakeJev';
@@ -91,7 +91,7 @@ describe('batched Jev judgments', () => {
   });
 });
 
-describe('a question carrying its message', () => {
+describe('a question carrying its record', () => {
   const state = { earlier: [], message: 'ann: hi' };
   it("sets the message's state beside the question text, keeping values already carried there", () => {
     expect(carriedQuestion({ type: 'score', instructions: 'How urgent is `message`?', criteria: ['calm', 'urgent'] }, state)).toMatchObject({
@@ -101,7 +101,9 @@ describe('a question carrying its message', () => {
     expect(carriedQuestion(withVars, state)).toEqual({ ...withVars, instructions: { ...state, topic: 'keyboards', question: 'Is `message` about `topic`?' } });
   });
 
-  it("can't carry it when the question names no state field, has no question text, or already uses a field's name", () => {
+  it("can't carry it when the question names none of the record's fields, has no question text, or already uses a field's name", () => {
+    expect(carriedQuestion({ type: 'noul', instructions: 'Is `link` spam?' }, { link: { url: 'u' } })).toMatchObject({ instructions: { link: { url: 'u' }, question: 'Is `link` spam?' } });
+    expect(carriedQuestion({ type: 'noul', instructions: 'Is `link` spam?' }, state)).toBeNull();
     expect(carriedQuestion({ type: 'noul', instructions: 'Is this a question?' }, state)).toBeNull();
     expect(carriedQuestion({ type: 'noul', instructions: ['Is `message` a question?'] }, state)).toBeNull();
     expect(carriedQuestion({ type: 'noul', instructions: { message: 'x', question: 'Is `message` a question?' } }, state)).toBeNull();
