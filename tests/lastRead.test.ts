@@ -15,6 +15,8 @@ const OTHER = '200000000000000002';
 const T0 = Date.UTC(2026, 8, 1);
 /** The end of the previous app session: the mark of a channel never opened. */
 const LAST_SEEN = T0 + 2 * MS_PER_MIN;
+/** The signed-in account; rawMessage's default author is someone else. */
+const SELF = 'u-self';
 
 let db: Db;
 let archive: Archive;
@@ -23,12 +25,12 @@ beforeEach(() => {
   archive = seedArchive(db, [{ id: GENERAL }, { id: OTHER }], { guilds: [{ id: GUILD, name: 'Guild' }] });
 });
 
-const post = (minute: number, channelId = GENERAL) => {
-  const m = rawMessage(channelId, T0 + minute * MS_PER_MIN, `at ${minute}`);
+const post = (minute: number, channelId = GENERAL, authorId?: string) => {
+  const m = rawMessage(channelId, T0 + minute * MS_PER_MIN, `at ${minute}`, authorId ? { author: { id: authorId, username: authorId, global_name: null } } : {});
   archive.ingestMessages([m], ARRIVAL.gateway);
   return m;
 };
-const newCount = (channelId: string): number | undefined => directory(db, LAST_SEEN).flatMap((g) => g.channels).find((c) => c.id === channelId)?.newCount;
+const newCount = (channelId: string): number | undefined => directory(db, LAST_SEEN, SELF).flatMap((g) => g.channels).find((c) => c.id === channelId)?.newCount;
 
 describe('last read: which messages are unread', () => {
   it('counts from the end of the last session while a channel was never opened, first unread the oldest after it', () => {
@@ -36,35 +38,45 @@ describe('last read: which messages are unread', () => {
     const first = post(3);
     post(4);
     post(5, OTHER);
-    expect(unreadMark(db, GENERAL, LAST_SEEN)).toEqual({ channelId: GENERAL, count: 2, firstId: first.id, firstTs: T0 + 3 * MS_PER_MIN });
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)).toEqual({ channelId: GENERAL, count: 2, firstId: first.id, firstTs: T0 + 3 * MS_PER_MIN });
   });
 
   it('matches the sidebar new count', () => {
     post(3);
     post(4);
-    expect(unreadMark(db, GENERAL, LAST_SEEN)?.count).toBe(newCount(GENERAL));
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)?.count).toBe(newCount(GENERAL));
   });
 
   it('marking returns what was unread, then nothing until a newer message arrives', () => {
     const first = post(3);
-    expect(markViewed(db, GENERAL, T0 + 10 * MS_PER_MIN, LAST_SEEN)).toMatchObject({ count: 1, firstId: first.id });
-    expect(markViewed(db, GENERAL, T0 + 11 * MS_PER_MIN, LAST_SEEN)).toBeNull();
+    expect(markViewed(db, GENERAL, T0 + 10 * MS_PER_MIN, LAST_SEEN, SELF)).toMatchObject({ count: 1, firstId: first.id });
+    expect(markViewed(db, GENERAL, T0 + 11 * MS_PER_MIN, LAST_SEEN, SELF)).toBeNull();
     expect(newCount(GENERAL)).toBe(0);
     const later = post(12);
-    expect(unreadMark(db, GENERAL, LAST_SEEN)).toMatchObject({ count: 1, firstId: later.id });
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)).toMatchObject({ count: 1, firstId: later.id });
   });
 
   it('a mark counts from itself, not the session fallback', () => {
     post(1);
-    markViewed(db, GENERAL, T0, LAST_SEEN);
-    expect(unreadMark(db, GENERAL, LAST_SEEN)?.count).toBe(1);
+    markViewed(db, GENERAL, T0, LAST_SEEN, SELF);
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)?.count).toBe(1);
+  });
+
+  it("never counts the owner's own messages, in the banner or the sidebar", () => {
+    post(3, GENERAL, SELF);
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)).toBeNull();
+    expect(newCount(GENERAL)).toBe(0);
+    const theirs = post(4);
+    post(5, GENERAL, SELF);
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)).toMatchObject({ count: 1, firstId: theirs.id });
+    expect(newCount(GENERAL)).toBe(1);
   });
 
   it('moves one channel only', () => {
     post(3);
     post(4, OTHER);
-    markViewed(db, GENERAL, T0 + 10 * MS_PER_MIN, LAST_SEEN);
-    expect(unreadMark(db, OTHER, LAST_SEEN)?.count).toBe(1);
+    markViewed(db, GENERAL, T0 + 10 * MS_PER_MIN, LAST_SEEN, SELF);
+    expect(unreadMark(db, OTHER, LAST_SEEN, SELF)?.count).toBe(1);
   });
 });
 

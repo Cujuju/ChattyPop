@@ -85,7 +85,7 @@ export function archiveHandlers(o: {
     directory: () => directory(o.ready().db, o.lastSeenAt(), o.selfId()),
     markChannelViewed: (channelId) => {
       const db = o.ready().db;
-      const unread = markViewed(db, channelId, Date.now(), o.lastSeenAt());
+      const unread = markViewed(db, channelId, Date.now(), o.lastSeenAt(), o.selfId());
       // Read here is read on Discord: main acknowledges it, as Discord's client does for a channel it shows.
       const messageId = newestMessageId(db, channelId);
       if (messageId) o.emit({ type: 'channel-read', channelId, messageId });
@@ -95,7 +95,7 @@ export function archiveHandlers(o: {
       const db = o.ready().db;
       const last = dmLastMessageId(db, channelId, o.selfId());
       if (last === undefined) throw new Error('Not a direct message of the account signed in.');
-      markViewed(db, channelId, Date.now(), o.lastSeenAt());
+      markViewed(db, channelId, Date.now(), o.lastSeenAt(), o.selfId());
       // Discord's newest, not the newest stored: an unarchived DM acks too.
       const messageId = last ?? newestMessageId(db, channelId);
       if (messageId) o.emit({ type: 'channel-read', channelId, messageId });

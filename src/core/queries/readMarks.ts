@@ -3,13 +3,21 @@ import type { UnreadMark } from '@shared/contract';
 import type { Db } from '../db';
 import { visibleMessageSql } from './privacy';
 
-/** Visible messages newer than the channel's mark, else than `@unseen` (never opened): the directory's newCount rule. */
-const UNREAD_SQL = `m.channel_id = @channelId AND ${visibleMessageSql('m')}
-  AND m.ts > COALESCE((SELECT viewed_at FROM channels WHERE id = @channelId), @unseen)`;
+/**
+ * Message `m` is unread: newer than its channel's mark (`viewedAt`), else than `@unseen` (never opened), and not the
+ * owner's own (`@self`; '' while the account is unknown, when every message counts). Every unread count uses it.
+ */
+export const unreadSql = (m: string, viewedAt: string): string => `${m}.ts > COALESCE(${viewedAt}, @unseen) AND ${m}.author_id IS NOT @self`;
 
-/** What is unread in a channel; null when nothing is. `unseenSince`: the fallback mark, the end of the previous app session. */
-export function unreadMark(db: Db, channelId: string, unseenSince: number): UnreadMark | null {
-  const params = { channelId, unseen: unseenSince };
+/** Visible unread messages of `@channelId`: the directory's newCount rule. */
+const UNREAD_SQL = `m.channel_id = @channelId AND ${visibleMessageSql('m')} AND ${unreadSql('m', '(SELECT viewed_at FROM channels WHERE id = @channelId)')}`;
+
+/**
+ * What is unread in a channel for the owner `selfId`; null when nothing is. `unseenSince`: the fallback mark, the end of
+ * the previous app session.
+ */
+export function unreadMark(db: Db, channelId: string, unseenSince: number, selfId: string | null): UnreadMark | null {
+  const params = { channelId, unseen: unseenSince, self: selfId ?? '' };
   // The message order messagePage uses: ts, then snowflake.
   const first = db.prepare(`SELECT m.id, m.ts FROM messages m WHERE ${UNREAD_SQL} ORDER BY m.ts, length(m.id), m.id LIMIT 1`).get(params) as
     | { id: string; ts: number }
@@ -20,9 +28,9 @@ export function unreadMark(db: Db, channelId: string, unseenSince: number): Unre
 }
 
 /** Moves the channel's mark to `at` and returns what was unread before it moved, in one transaction. */
-export function markViewed(db: Db, channelId: string, at: number, unseenSince: number): UnreadMark | null {
+export function markViewed(db: Db, channelId: string, at: number, unseenSince: number, selfId: string | null): UnreadMark | null {
   return db.transaction(() => {
-    const unread = unreadMark(db, channelId, unseenSince);
+    const unread = unreadMark(db, channelId, unseenSince, selfId);
     db.prepare('UPDATE channels SET viewed_at = ? WHERE id = ?').run(at, channelId);
     return unread;
   })();
