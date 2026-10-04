@@ -9,6 +9,7 @@ import type { PrivateChannelFacts } from './dms';
 import type { ContentKind } from './messageContent';
 import type { OpenRouterKeyBalance, OpenRouterKeyEntry, OpenRouterKeyInfo } from './openrouter';
 import type { PluginInfo, PluginRange } from './plugins';
+import type { SearchSort } from './searchQuery';
 import type { AbsentPlugin } from './pluginRestore';
 import type { JevQueryOverrides, JevRerunRequest, JevRerunResult } from './jevQueries';
 import type { ProviderId } from './settings';
@@ -169,7 +170,8 @@ export interface CoreMethods {
   messagePage(q: MessagePageQuery): ArchiveMessage[];
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */
   messageById(messageId: string): ArchiveMessage | null;
-  searchMessages(text: string, limit: number): SearchHit[];
+  /** The first `limit` matches in `sort` order. */
+  searchMessages(text: string, limit: number, sort: SearchSort): SearchHit[];
   /** One person's footprint in the archive; null when the archive has never seen them. */
   personProfile(userId: string): PersonProfile | null;
   /** The last Discord profile of a person, as seen in a server (null outside one); null before the first fetch. */

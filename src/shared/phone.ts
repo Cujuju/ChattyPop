@@ -80,6 +80,7 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingView>> = {
   [SETTINGS_KEYS.appearance]: true,
   [SETTINGS_KEYS.privacyMode]: true,
   [SETTINGS_KEYS.savedSearches]: true,
+  [SETTINGS_KEYS.searchSort]: true,
   [SETTINGS_KEYS.discordSidebar]: true,
   [SETTINGS_KEYS.archiveDensity]: true,
   // Each provider's switch and model, and the Jev switches; not the Ollama address or how Jev connects.

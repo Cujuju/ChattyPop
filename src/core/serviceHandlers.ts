@@ -1,5 +1,6 @@
 // Core methods that each forward to one service, looked up at call time (services exist once the archive opens).
 import { pluginCallResult } from '@shared/pluginCall';
+import { normalizeSearchSort } from '@shared/searchQuery';
 import type { CoreMethods } from '@shared/contract';
 import type { Db } from './db';
 import type { PluginHost } from './plugins/host';
@@ -33,7 +34,7 @@ export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
 ): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'conversation' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
-  searchMessages: (text, limit) => searchMessages(db(), text, limit),
+  searchMessages: (text, limit, sort) => searchMessages(db(), text, limit, normalizeSearchSort(sort)),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
   storeDiscordProfile: (f) => storeProfile(db(), f),

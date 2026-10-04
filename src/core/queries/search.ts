@@ -1,6 +1,6 @@
 // Archive search conditions and FTS results, including registered plugin tokens.
 import { SEARCH_MATCH_END, SEARCH_MATCH_START, type SearchHit } from '@shared/contract';
-import { mentionedUserId, parseSearchQuery, type HasKind, type IsKind, type SearchTerm } from '@shared/searchQuery';
+import { mentionedUserId, parseSearchQuery, type HasKind, type IsKind, type SearchSort, type SearchTerm } from '@shared/searchQuery';
 import type { Db } from '../db';
 import { searchTokenKeys, searchTokenCondition } from '../searchTokens';
 import { THREAD_KINDS_SQL } from './channelScope';
@@ -14,6 +14,8 @@ import { visibleMessageSql } from './privacy';
 const SNIPPET_TOKENS = 14;
 /** Snippet length for filter-only searches (no words to centre on). */
 const PLAIN_SNIPPET_CHARS = 160;
+/** Time direction per sort; relevance has no score without words, so a filter-only search lists newest first. */
+const TIME_ORDER: Readonly<Record<SearchSort, 'ASC' | 'DESC'>> = { newest: 'DESC', oldest: 'ASC', relevance: 'DESC' };
 
 /**
  * User text → FTS5 query: each word is a quoted phrase (so FTS operators and punctuation in the text are literal),
@@ -103,8 +105,8 @@ export function parseSearch(text: string): SearchFilters {
 /** A hit as selected: its mentions still JSON. */
 type HitRow = Omit<SearchHit, 'mentions'> & { mentionsJson: string | null };
 
-/** Best matches first (bm25) for words; newest first when only filters are given. */
-export function searchMessages(db: Db, text: string, limit: number): SearchHit[] {
+/** The first `limit` matches in `sort` order: by time, or best first (bm25) when there are words to score. */
+export function searchMessages(db: Db, text: string, limit: number, sort: SearchSort): SearchHit[] {
   const f = parseSearch(text);
   const q = ftsQuery(f.words);
   if (!q && !f.where.length) return [];
@@ -116,8 +118,8 @@ export function searchMessages(db: Db, text: string, limit: number): SearchHit[]
     const hits = (fts: string, from: string): string =>
       `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score
        ${from} ${joins} WHERE ${fts} MATCH ?${filters}`;
-    // Text, derived-text (transcript) and linked-text (embed, fetched post) hits, best first; a message matching more
-    // than one is listed once, with its best hit.
+    // Text, derived-text (transcript) and linked-text (embed, fetched post) hits; a message matching more than one is
+    // listed once, with its best hit. Ordered before the limit, so a time sort finds the newest or oldest matches.
     const sources = [
       hits('fts_messages', 'FROM fts_messages f JOIN messages m ON m.seq = f.rowid'),
       hits('fts_derived_texts', 'FROM fts_derived_texts fd JOIN derived_texts d ON d.seq = fd.rowid JOIN messages m ON m.id = d.message_id'),
@@ -127,13 +129,13 @@ export function searchMessages(db: Db, text: string, limit: number): SearchHit[]
       .prepare(
         `SELECT messageId, channelId, channelName, authorName, ts, mentionsJson, snippet, MIN(score) AS score FROM (
            ${sources.join(' UNION ALL ')}
-         ) GROUP BY messageId ORDER BY score LIMIT ?`,
+         ) GROUP BY messageId ORDER BY ${sort === 'relevance' ? 'score' : `ts ${TIME_ORDER[sort]}`} LIMIT ?`,
       )
       .all(...sources.flatMap(() => [q, ...f.params]), limit) as (HitRow & { score: number })[];
     return rows.map(({ score: _score, mentionsJson, ...hit }) => ({ ...hit, mentions: mentionsFrom(mentionsJson) }));
   }
   const rows = db
-    .prepare(`${select}, m.content AS snippet FROM messages m ${joins} WHERE 1${filters} ORDER BY m.ts DESC LIMIT ?`)
+    .prepare(`${select}, m.content AS snippet FROM messages m ${joins} WHERE 1${filters} ORDER BY m.ts ${TIME_ORDER[sort]} LIMIT ?`)
     .all(...f.params, limit) as HitRow[];
   // Cut here, not in SQL, so Discord tokens stay whole.
   return rows.map(({ mentionsJson, ...hit }) => ({ ...hit, snippet: snippet(hit.snippet ?? '', null, PLAIN_SNIPPET_CHARS), mentions: mentionsFrom(mentionsJson) }));

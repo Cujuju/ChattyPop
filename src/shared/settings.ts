@@ -17,6 +17,8 @@ export const SETTINGS_KEYS = {
   privacyMode: 'privacyMode',
   /** Saved archive searches: query strings in the owner's order (normalizeSavedSearches). */
   savedSearches: 'savedSearches',
+  /** Archive search results' order (normalizeSearchSort). */
+  searchSort: 'search.sort',
   /** The Archive's row density (state/archive.ts). */
   archiveDensity: 'archive.density',
   /** The chosen panel layout, the owner's own layouts, folded panels and the folded sidebar (state/layout.ts). */

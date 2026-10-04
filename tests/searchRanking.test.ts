@@ -2,6 +2,7 @@
 // the latest query's answer lands. A ranker's failure or null answer keeps the full-text order.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SearchHit } from '@shared/contract';
+import type { SearchSort } from '@shared/searchQuery';
 
 /** A core call the test answers when it chooses. */
 interface Pending<T> {
@@ -18,15 +19,23 @@ const env = vi.hoisted(() => ({
 const pending = <T>(list: Pending<T>[]) => (...args: unknown[]) => new Promise<T>((resolve, reject) => list.push({ args, resolve, reject }));
 vi.mock('@/api', () => ({ api: { core: { searchMessages: pending(env.searches), rankSearch: pending(env.ranks) } } }));
 vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: () => undefined }));
-vi.mock('@plugin-sdk/renderer/settings', () => ({ createSetting: () => [() => [], () => undefined] }));
+vi.mock('@plugin-sdk/renderer/settings', async () => {
+  const { createSignal } = await import('solid-js');
+  return { createSetting: <T,>(_key: string, fallback: T) => createSignal(fallback) };
+});
 
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const statePath = '../src/renderer/src/state/search';
-const { querySearch, searchHits } = (await import(statePath)) as { querySearch(text: string): void; searchHits(): SearchHit[] };
+const { querySearch, searchHits, setSearchSort } = (await import(statePath)) as {
+  querySearch(text: string): void;
+  searchHits(): SearchHit[];
+  setSearchSort(sort: SearchSort): void;
+};
 
-/** The search store's pauses: typing, then the longer one before rankers run. */
+/** The search store's pauses (typing, then the longer one before rankers run) and its result limit. */
 const QUERY_DEBOUNCE_MS = 150;
 const RANK_PAUSE_MS = 1000;
+const RESULT_LIMIT = 30;
 
 const hit = (id: string): SearchHit => ({ messageId: id, channelId: 'c', channelName: 'c', authorName: 'a', ts: 1, snippet: id, mentions: {} });
 const FULL_TEXT = ['a', 'b', 'c'].map(hit);
@@ -43,6 +52,7 @@ async function searchFor(text: string): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  setSearchSort('relevance');
   env.searches.length = 0;
   env.ranks.length = 0;
 });
@@ -104,5 +114,15 @@ describe('search ranking', () => {
     querySearch('plans t');
     await vi.advanceTimersByTimeAsync(RANK_PAUSE_MS);
     expect(env.ranks).toHaveLength(0);
+  });
+
+  it('asks in the chosen order, searches again when it changes, and ranks only by relevance', async () => {
+    setSearchSort('newest');
+    await searchFor('plans');
+    await vi.advanceTimersByTimeAsync(RANK_PAUSE_MS);
+    expect(env.ranks).toHaveLength(0);
+    setSearchSort('oldest');
+    await vi.advanceTimersByTimeAsync(QUERY_DEBOUNCE_MS);
+    expect(env.searches.map((s) => s.args)).toEqual([['plans', RESULT_LIMIT, 'oldest']]);
   });
 });

@@ -77,7 +77,7 @@ describe(
           params: [value],
         }));
         const h = start((ctx) => ctx.search.token('probe', read));
-        expect(searchMessages(h.db, `probe:${h.raw.id}`, 10).map((m) => m.messageId)).toEqual([h.raw.id]);
+        expect(searchMessages(h.db, `probe:${h.raw.id}`, 10, 'relevance').map((m) => m.messageId)).toEqual([h.raw.id]);
         const injection = "x' OR 1=1 --";
         expect(parseSearch(`-probe:"${injection}"`)).toEqual({
           words: '',

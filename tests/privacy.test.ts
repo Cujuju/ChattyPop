@@ -78,7 +78,7 @@ describe('messages in privacy mode', () => {
 
   it('shows everything while off', () => {
     expect(messagePage(db, { channelId: GENERAL, limit: 10 })).toHaveLength(4);
-    expect(searchMessages(db, 'hello', 10)).toHaveLength(5);
+    expect(searchMessages(db, 'hello', 10, 'relevance')).toHaveLength(5);
     expect(shownLinks()).toEqual(['https://example.com/shared', 'https://example.com/mods']); // Discord's own links aren't listed
   });
 
@@ -86,7 +86,7 @@ describe('messages in privacy mode', () => {
     setMode(true);
     expect(messagePage(db, { channelId: GENERAL, limit: 10 }).map((m) => m.content)).toEqual(['plain hello', 'hello https://example.com/shared']);
     expect(messagePage(db, { channelId: MODS, limit: 10 })).toEqual([]);
-    expect(searchMessages(db, 'hello', 10).map((h) => h.channelId)).toEqual([GENERAL, GENERAL]);
+    expect(searchMessages(db, 'hello', 10, 'relevance').map((h) => h.channelId)).toEqual([GENERAL, GENERAL]);
     // A link first shared in a hidden channel is gone too.
     expect(shownLinks()).toEqual(['https://example.com/shared']);
   });

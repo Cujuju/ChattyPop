@@ -1,7 +1,7 @@
 import { api } from '@/api';
 import { createSignal } from 'solid-js';
 import type { SearchHit } from '@shared/contract';
-import { normalizeSavedSearches } from '@shared/searchQuery';
+import { DEFAULT_SEARCH_SORT, normalizeSavedSearches, normalizeSearchSort, type SearchSort } from '@shared/searchQuery';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { onAppEvent } from './events';
 import { createSetting } from '@plugin-sdk/renderer/settings';
@@ -20,6 +20,8 @@ export const [searchText, setSearchText] = createSignal('');
 export const [searchHits, setSearchHits] = createSignal<SearchHit[]>([]);
 /** The dropdown is open (it covers the chat area, so the native Discord view must hide). */
 export const [searchOpen, setSearchOpen] = createSignal(false);
+/** The results' order; Relevance alone lets plugins' search rankers reorder them. */
+export const [searchSort, storeSearchSort] = createSetting<SearchSort>(SETTINGS_KEYS.searchSort, DEFAULT_SEARCH_SORT, normalizeSearchSort);
 /** Bumped to move focus into the search field (frame/Search follows it). */
 export const [searchFocusRequests, setSearchFocusRequests] = createSignal(0);
 
@@ -35,8 +37,8 @@ let rankTimer: ReturnType<typeof setTimeout> | undefined;
 let latest = 0;
 
 /**
- * Updates the query: full-text results arrive after a short pause and show at once; after a longer one the active
- * rankers may reorder them. Answers to a query no longer the latest are dropped; a ranker's failure keeps the order.
+ * Updates the query: full-text results arrive in the chosen order after a short pause and show at once; sorted by
+ * relevance, after a longer one the active rankers may reorder them. Answers to a query no longer the latest are dropped; a ranker's failure keeps the order.
  */
 export function querySearch(text: string): void {
   setSearchText(text);
@@ -47,11 +49,12 @@ export function querySearch(text: string): void {
     setSearchHits([]);
     return;
   }
+  const sort = searchSort();
   timer = setTimeout(() => {
-    void api.core.searchMessages(text, RESULT_LIMIT).then((hits) => {
+    void api.core.searchMessages(text, RESULT_LIMIT, sort).then((hits) => {
       if (ticket !== latest) return;
       setSearchHits(hits);
-      if (hits.length < 2) return; // nothing to reorder
+      if (sort !== 'relevance' || hits.length < 2) return; // a time order stands; one hit has nothing to reorder
       rankTimer = setTimeout(() => {
         void api.core.rankSearch(text, hits).then(
           (ranked) => void (ranked && ticket === latest && setSearchHits(ranked)),
@@ -60,6 +63,12 @@ export function querySearch(text: string): void {
       }, RANK_PAUSE_MS);
     });
   }, QUERY_DEBOUNCE_MS);
+}
+
+/** Changes the results' order and searches again in it. */
+export function setSearchSort(sort: SearchSort): void {
+  storeSearchSort(sort);
+  if (searchText().trim()) querySearch(searchText());
 }
 
 export const [savedSearches, setSavedSearches] = createSetting<string[]>(SETTINGS_KEYS.savedSearches, [], normalizeSavedSearches);

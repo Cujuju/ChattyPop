@@ -152,6 +152,13 @@
   fill: currentColor;
 }
 
+/* Above results: the sort order, at the trailing edge. */
+.sort {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--cp-space-5) var(--cp-space-2);
+}
+
 /* An operator that can't apply, shown above the results instead of being dropped silently. */
 .problem {
   padding: var(--cp-space-2) var(--cp-space-5);

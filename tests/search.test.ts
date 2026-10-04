@@ -1,7 +1,7 @@
 // Search syntax and archive filtering.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SEARCH_MATCH_END, SEARCH_MATCH_START } from '@shared/contract';
-import { normalizeSavedSearches, parsePeriod, parseSearchQuery } from '@shared/searchQuery';
+import { normalizeSavedSearches, normalizeSearchSort, parsePeriod, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import type { Archive } from '../src/core/archive';
 import type { Db } from '../src/core/db';
 import { storeLinkText } from '../src/core/derivedText';
@@ -54,13 +54,18 @@ describe('search query syntax', () => {
     expect(normalizeSavedSearches([' from:theo ', 'from:theo', '', 3, 'has:link'])).toEqual(['from:theo', 'has:link']);
     expect(normalizeSavedSearches('nope')).toEqual([]);
   });
+
+  it('reads an unknown sort as newest first', () => {
+    expect(normalizeSearchSort('oldest')).toBe('oldest');
+    expect(normalizeSearchSort('sideways')).toBe('newest');
+  });
 });
 
 describe('search operators against the archive', () => {
   let db: Db;
   let archive: Archive;
   const hits = (q: string): string[] =>
-    searchMessages(db, q, 50)
+    searchMessages(db, q, 50, 'relevance')
       .map((h) => h.snippet.replaceAll(SEARCH_MATCH_START, '').replaceAll(SEARCH_MATCH_END, ''))
       .sort();
 
@@ -92,10 +97,20 @@ describe('search operators against the archive', () => {
   it('filters by server, edit and deletion state', () => {
     expect(hits('alpha server:markets')).toEqual(['alpha four', 'alpha three']);
     expect(hits('alpha is:edited')).toEqual(['alpha three']);
-    const [four] = searchMessages(db, 'four', 1);
+    const [four] = searchMessages(db, 'four', 1, 'relevance');
     archive.markDeleted('c2', four!.messageId, sept(21));
     expect(hits('alpha is:deleted')).toEqual(['alpha four']);
     expect(hits('alpha -is:deleted')).toEqual(['alpha one', 'alpha three', 'alpha two']);
+  });
+
+  it('orders matches by time before the limit, newest or oldest first; relevance without words lists newest first', () => {
+    const inOrder = (q: string, sort: SearchSort, limit = 50): string[] =>
+      searchMessages(db, q, limit, sort).map((h) => h.snippet.replaceAll(SEARCH_MATCH_START, '').replaceAll(SEARCH_MATCH_END, ''));
+    expect(inOrder('alpha', 'newest')).toEqual(['alpha four', 'alpha three', 'alpha two', 'alpha one']);
+    expect(inOrder('alpha', 'oldest', 2)).toEqual(['alpha one', 'alpha two']);
+    expect(inOrder('alpha', 'newest', 2)).toEqual(['alpha four', 'alpha three']);
+    expect(inOrder('server:markets', 'oldest')).toEqual(['alpha three', 'alpha four']);
+    expect(inOrder('server:markets', 'relevance')).toEqual(['alpha four', 'alpha three']);
   });
 
   it('bounds by before:, after: and during: in local time', () => {
@@ -112,7 +127,7 @@ describe('search reads what a message links to', () => {
   const TWEET = 'Turns out “the project” is just Coach Zorbington building a secret Minecraft city';
   let db: Db;
   let archive: Archive;
-  const found = (q: string): string[] => searchMessages(db, q, 50).map((h) => h.messageId).sort();
+  const found = (q: string): string[] => searchMessages(db, q, 50, 'relevance').map((h) => h.messageId).sort();
   const fts = (): number => db.prepare('SELECT COUNT(*) FROM fts_links').pluck().get() as number;
 
   beforeEach(() => {
@@ -128,7 +143,7 @@ describe('search reads what a message links to', () => {
     });
     archive.ingestMessages([shared, fixer], ARRIVAL.gateway);
     expect(found('coach zorbington')).toEqual([shared.id, fixer.id].sort());
-    const [hit] = searchMessages(db, 'minecraft', 1);
+    const [hit] = searchMessages(db, 'minecraft', 1, 'relevance');
     expect(hit!.snippet).toContain(`${SEARCH_MATCH_START}Minecraft${SEARCH_MATCH_END}`);
   });
 

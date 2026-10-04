@@ -1,18 +1,21 @@
 // Archive search field and its panel: the query builder, a filter's value picker, or results with operator feedback.
 import { For, Match, Show, Switch, createEffect, createMemo, on } from 'solid-js';
+import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { SEARCH_MATCH_END, SEARCH_MATCH_START, type SearchHit } from '@shared/contract';
 import { plainDiscordText } from '@shared/discordText';
 import { channelById } from '@/state/directory';
 import { searchTokens } from '@/plugins/slots';
-import { parseSearchQuery } from '@shared/searchQuery';
+import { SEARCH_SORTS, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import { openArchive } from '@/state/archive';
-import { isSavedSearch, querySearch, savedSearches, searchFocusRequests, searchHits, searchOpen, searchText, setSearchOpen, toggleSavedSearch } from '@/state/search';
+import { isSavedSearch, querySearch, savedSearches, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
 import { shortDateTime } from '@/ui/format';
 import { createListNav } from '@/ui/listNav';
 import { pendingFilter, searchFilters, withFilter, withValue } from './searchFilters';
 import { AddFilterStrip, FilterList, ValuePicker } from './SearchBuilder';
 import { Icon } from '@/ui/icons';
 import styles from './Search.module.css';
+
+const SORT_LABELS: Readonly<Record<SearchSort, string>> = { newest: 'Newest', oldest: 'Oldest', relevance: 'Relevance' };
 
 /** A hit's text with its matches marked; Discord tokens as words (a token split by a match mark stays raw). Delimiters are control characters, so plain splitting is safe. */
 function Snippet(props: { text: string; mentions: Record<string, string> }) {
@@ -125,6 +128,12 @@ export function Search() {
             <Match when={pending()}>{(f) => <ValuePicker {...nav} filter={f()} onPick={(c) => edit(withValue(searchText(), c.value))} />}</Match>
             <Match when={mode() === 'results'}>
               <AddFilterStrip filters={filters()} onFilter={(f) => edit(withFilter(searchText(), f.key))} />
+              {/* mousedown kept from the buttons: focus (and the panel) stays in the field. */}
+              <li class={styles.sort} role="presentation" onMouseDown={(e) => e.preventDefault()}>
+                <SegGroup role="radiogroup" ariaLabel="Sort results" value={searchSort()} onChange={setSearchSort}>
+                  <For each={SEARCH_SORTS}>{(s) => <SegButton value={s} label={SORT_LABELS[s]} size="xs" />}</For>
+                </SegGroup>
+              </li>
               <For each={problems()}>
                 {(p) => (
                   <li class={styles.problem} role="presentation">

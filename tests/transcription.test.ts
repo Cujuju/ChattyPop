@@ -43,8 +43,8 @@ describe('transcripts reach search, rules and the Archive', () => {
     const db = tempDb();
     const v = voiceMessage(seedArchive(db, [{ id: 'c1' }]), { content: 'lighthouse plans' });
     transcribe(db, v, 'meet at the lighthouse');
-    expect(searchMessages(db, 'lighthouse', 10).map((h) => h.messageId)).toEqual([v.messageId]);
-    expect(searchMessages(db, 'meet', 10).map((h) => h.messageId)).toEqual([v.messageId]);
+    expect(searchMessages(db, 'lighthouse', 10, 'relevance').map((h) => h.messageId)).toEqual([v.messageId]);
+    expect(searchMessages(db, 'meet', 10, 'relevance').map((h) => h.messageId)).toEqual([v.messageId]);
   });
 
   it('a rule matches a transcript of a message older than the rule, as history', async () => {

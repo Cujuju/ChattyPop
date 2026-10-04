@@ -1,5 +1,12 @@
 // Archive search query syntax: free words plus `key:value` operators, each negatable with a leading '-'.
 // Shared so the renderer shows problems as the owner types, and core builds SQL from the same parse.
+import { oneOf } from './normalize';
+
+/** Result orders: by time either way, or best match first (full-text score, then plugins' search rankers). */
+export const SEARCH_SORTS = ['newest', 'oldest', 'relevance'] as const;
+export type SearchSort = (typeof SEARCH_SORTS)[number];
+export const DEFAULT_SEARCH_SORT: SearchSort = 'newest';
+export const normalizeSearchSort = (v: unknown): SearchSort => oneOf(SEARCH_SORTS, v, DEFAULT_SEARCH_SORT);
 
 /** What `has:` can require of a message. */
 export const HAS_KINDS = ['link', 'file', 'image', 'video', 'audio', 'voice', 'embed', 'sticker', 'poll', 'forward'] as const;
