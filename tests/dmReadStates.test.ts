@@ -4,7 +4,7 @@
 // leaves out, and drops a row with nothing to say. A partial READY merges; a READY for another account starts over.
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import type { ReadStateCount } from '@shared/contract';
+import type { ReadStateCount, ReadStateScope } from '@shared/contract';
 import { MUTED_FOREVER } from '@shared/discord';
 import { putReadStates } from '../src/core/queries/readStates';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
@@ -22,8 +22,8 @@ const id = (n: number): string => String(500000000000000000n + BigInt(n));
 
 function setup() {
   const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-  const sent: { counts: ReadStateCount[]; replace: boolean }[] = [];
-  new ReadStates(tap as unknown as GatewayTap, { post: async () => undefined } as never, (counts, replace) => void sent.push({ counts, replace }), () => undefined, () => NOW);
+  const sent: { counts: ReadStateCount[]; scope: ReadStateScope }[] = [];
+  new ReadStates(tap as unknown as GatewayTap, { post: async () => undefined } as never, (counts, scope) => void sent.push({ counts, scope }), () => undefined, () => NOW);
   const send = (t: string, d: unknown): void => void tap.emit('dispatch', { t, s: null, d });
   const last = (channelId: string): ReadStateCount | undefined => sent.flatMap((s) => s.counts).findLast((c) => c.channelId === channelId);
   return { send, sent, last };
@@ -41,7 +41,7 @@ describe("main's DM read and mute projection", () => {
   it("READY sends every DM's last read message and mute end; server channels only their count", () => {
     const s = setup();
     s.send('READY', ready([{ channel_id: MUTED_DM, muted: true, mute_config: { end_time: null } }]));
-    expect(s.sent.at(-1)?.replace).toBe(true);
+    expect(s.sent.at(-1)?.scope).toBe('replace');
     expect(s.last(DM)).toEqual({ channelId: DM, mentionCount: 2, ackId: id(4), muteEndsMs: null });
     // No read state for it: its count and last read stay unknown, so core keeps what it has.
     expect(s.last(MUTED_DM)).toEqual({ channelId: MUTED_DM, muteEndsMs: MUTED_FOREVER });
@@ -87,7 +87,7 @@ describe("main's DM read and mute projection", () => {
       user_guild_settings: { entries: [{ guild_id: GUILD }], partial: true },
       read_state: { entries: [{ id: GENERAL, last_message_id: id(10), mention_count: 0 }], partial: true },
     });
-    expect(s.sent.at(-1)?.replace).toBe(false);
+    expect(s.sent.at(-1)?.scope).toBe('merge');
     expect(s.last(MUTED_DM)?.muteEndsMs).toBe(MUTED_FOREVER);
     expect(s.last(DM)).toMatchObject({ mentionCount: 2, ackId: id(4) });
   });
@@ -102,7 +102,7 @@ describe("main's DM read and mute projection", () => {
       read_state: { entries: [], partial: true },
     });
     const sent = s.sent.at(-1)!;
-    expect(sent.replace).toBe(true);
+    expect(sent.scope).toBe('reset');
     expect(sent.counts).toEqual([{ channelId: DM }]);
   });
 
@@ -117,7 +117,7 @@ describe("main's DM read and mute projection", () => {
   it('a READY that leaves its read_state out is partial: it replaces nothing', () => {
     const s = setup();
     s.send('READY', { ...ready([]), read_state: undefined });
-    expect(s.sent.at(-1)?.replace).toBe(false);
+    expect(s.sent.at(-1)?.scope).toBe('merge');
   });
 
   it('a DM made after READY (CHANNEL_CREATE, or a message with no server) is a DM from then on', () => {
@@ -138,16 +138,32 @@ describe("core's read states", () => {
 
   it('keeps a DM field a count leaves out, clears one sent as null, and drops an empty row', () => {
     const db = tempDb();
-    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: id(1), muteEndsMs: MUTED_FOREVER }, { channelId: GENERAL, mentionCount: 3 }], true);
+    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: id(1), muteEndsMs: MUTED_FOREVER }, { channelId: GENERAL, mentionCount: 3 }], 'reset');
     expect(rows(db)).toEqual([
       { id: GENERAL, m: 3, ack: null, mute: null },
       { id: DM, m: 0, ack: id(1), mute: MUTED_FOREVER },
     ]);
-    putReadStates(db, [{ channelId: DM, mentionCount: 1 }], false);
+    putReadStates(db, [{ channelId: DM, mentionCount: 1 }], 'merge');
     expect(rows(db)).toContainEqual({ id: DM, m: 1, ack: id(1), mute: MUTED_FOREVER });
-    putReadStates(db, [{ channelId: DM, muteEndsMs: null }], false);
+    putReadStates(db, [{ channelId: DM, muteEndsMs: null }], 'merge');
     expect(rows(db)).toContainEqual({ id: DM, m: 1, ack: id(1), mute: null });
-    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: null, muteEndsMs: null }, { channelId: GENERAL, mentionCount: 0 }], false);
+    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: null, muteEndsMs: null }, { channelId: GENERAL, mentionCount: 0 }], 'merge');
     expect(rows(db)).toEqual([]);
+  });
+
+  it("READY's replace keeps a listed DM's mute it doesn't know and drops what it doesn't list; a reset forgets both", () => {
+    const db = tempDb();
+    putReadStates(db, [{ channelId: DM, mentionCount: 1, ackId: id(1), muteEndsMs: MUTED_FOREVER }, { channelId: GENERAL, mentionCount: 3 }], 'merge');
+    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: id(2) }], 'replace');
+    expect(rows(db)).toEqual([{ id: DM, m: 0, ack: id(2), mute: MUTED_FOREVER }]);
+    putReadStates(db, [{ channelId: DM, mentionCount: 0, ackId: id(2) }], 'reset');
+    expect(rows(db)).toEqual([{ id: DM, m: 0, ack: id(2), mute: null }]);
+  });
+
+  it('a READY entry that leaves a field out keeps the cached one', () => {
+    const s = setup();
+    s.send('READY', ready([]));
+    s.send('READY', { ...ready([]), read_state: { entries: [{ id: DM, mention_count: 1 }], partial: false } });
+    expect(s.last(DM)).toMatchObject({ mentionCount: 1, ackId: id(4) });
   });
 });

@@ -43,7 +43,7 @@ beforeEach(() => {
 
 describe('directory: DMs', () => {
   it("fills each DM's block from the gateway's list and read states", () => {
-    putReadStates(db, [{ channelId: DM, mentionCount: 1, ackId: idAt(0), muteEndsMs: MUTED_FOREVER }], false);
+    putReadStates(db, [{ channelId: DM, mentionCount: 1, ackId: idAt(0), muteEndsMs: MUTED_FOREVER }], 'merge');
     expect(block(DM)).toEqual({
       recipients: [{ id: BOB.id, name: 'Bob', avatar: 'b0b' }],
       rosterKnown: true,

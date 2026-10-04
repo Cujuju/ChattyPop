@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AppEvent, ReadStateCount } from '@shared/contract';
+import type { AppEvent, ReadStateCount, ReadStateScope } from '@shared/contract';
 import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
@@ -28,8 +28,12 @@ function setup() {
   const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
   const posts: { path: string; json: unknown }[] = [];
   let fail = false;
+  /** While set, posts wait on it: an ack in flight. */
+  let held: Promise<void> | null = null;
   const api = {
-    post: async (path: string, json: unknown) => {
+    post: async (path: string, json: unknown, opts?: { guard?: () => void }) => {
+      await held;
+      opts?.guard?.();
       posts.push({ path, json });
       if (fail) throw new Error('Discord said no');
     },
@@ -39,8 +43,8 @@ function setup() {
   const states = new ReadStates(
     tap as unknown as GatewayTap,
     api as never,
-    (changed: ReadStateCount[], replace: boolean) => {
-      if (replace) counts.clear();
+    (changed: ReadStateCount[], scope: ReadStateScope) => {
+      if (scope !== 'merge') counts.clear();
       // An absent count keeps the stored one, as core does.
       for (const c of changed) if (c.mentionCount !== undefined) counts.set(c.channelId, c.mentionCount);
     },
@@ -59,7 +63,15 @@ function setup() {
   const message = (n: number, m: Partial<PingMessage> = {}): void =>
     send('MESSAGE_CREATE', { id: id(n), channel_id: GENERAL, guild_id: GUILD, type: 0, author: { id: 'u1' }, mentions: [], mention_roles: [], mention_everyone: false, ...m });
   const dm = (n: number, m: Partial<PingMessage> = {}): void => message(n, { channel_id: DM, guild_id: undefined, ...m });
-  return { states, send, ready, message, dm, counts, posts, errors, failPosts: () => void (fail = true) };
+  const hold = (): (() => void) => {
+    let release!: () => void;
+    held = new Promise((r) => (release = r));
+    return () => {
+      held = null;
+      release();
+    };
+  };
+  return { states, send, ready, message, dm, counts, posts, errors, hold, failPosts: () => void (fail = true) };
 }
 
 describe("Discord's read states: the sidebar's mention count", () => {
@@ -147,13 +159,14 @@ describe("Discord's read states: the sidebar's mention count", () => {
 });
 
 describe("Discord's read states: reading a channel in ChattyPop", () => {
-  it('acknowledges it on Discord once, as its client does, and clears the count', () => {
+  it('acknowledges it on Discord once, as its client does, and clears the count', async () => {
     const s = setup();
     s.ready();
     s.message(11, { mentions: [{ id: ME }] });
     s.states.ack(GENERAL, id(11));
     s.states.ack(GENERAL, id(11));
     s.states.ack(GENERAL, id(10));
+    await new Promise((r) => setTimeout(r));
     expect(s.posts).toEqual([{ path: `channels/${GENERAL}/messages/${id(11)}/ack`, json: { token: null } }]);
     expect(s.counts.get(GENERAL)).toBe(0);
   });
@@ -168,6 +181,59 @@ describe("Discord's read states: reading a channel in ChattyPop", () => {
     expect(s.counts.get(GENERAL)).toBe(1);
     expect(s.errors).toEqual(['Discord said no']);
   });
+
+  const settle = () => new Promise((r) => setTimeout(r));
+
+  it('a read up to a message keeps counting the pings after it', () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    s.message(12, { mentions: [{ id: ME }] });
+    s.states.ack(GENERAL, id(11));
+    expect(s.counts.get(GENERAL)).toBe(1);
+  });
+
+  it('a refused read puts back its count with the pings that came while it was sending', async () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    const release = s.hold();
+    s.failPosts();
+    s.states.ack(GENERAL, id(11));
+    s.message(12, { mentions: [{ id: ME }] });
+    expect(s.counts.get(GENERAL)).toBe(1);
+    release();
+    await settle();
+    expect(s.counts.get(GENERAL)).toBe(2);
+    // Back where it was, the same read can go again.
+    s.states.ack(GENERAL, id(11));
+    await settle();
+    expect(s.posts).toHaveLength(2);
+  });
+
+  it('sends one read per channel at a time; newer reads meanwhile go as one, the newest', async () => {
+    const s = setup();
+    s.ready();
+    const release = s.hold();
+    s.states.ack(GENERAL, id(11));
+    s.states.ack(GENERAL, id(12));
+    s.states.ack(GENERAL, id(13));
+    release();
+    await settle();
+    await settle();
+    expect(s.posts.map((p) => p.path)).toEqual([`channels/${GENERAL}/messages/${id(11)}/ack`, `channels/${GENERAL}/messages/${id(13)}/ack`]);
+  });
+
+  it('never sends a read once another account has signed in', async () => {
+    const s = setup();
+    s.ready();
+    const release = s.hold();
+    s.states.ack(GENERAL, id(11));
+    s.send('READY', { user: { id: '900000000000000002' }, read_state: { entries: [], partial: false } });
+    release();
+    await settle();
+    expect(s.posts).toEqual([]);
+  });
 });
 
 describe("Discord's read states: the stored counts", () => {
@@ -181,9 +247,9 @@ describe("Discord's read states: the stored counts", () => {
 
   it("the sidebar shows the stored count; READY replaces every channel's", () => {
     expect(mentionCount()).toBe(0);
-    putReadStates(db, [{ channelId: GENERAL, mentionCount: 3 }], false);
+    putReadStates(db, [{ channelId: GENERAL, mentionCount: 3 }], 'merge');
     expect(mentionCount()).toBe(3);
-    putReadStates(db, [], true);
+    putReadStates(db, [], 'replace');
     expect(mentionCount()).toBe(0);
   });
 

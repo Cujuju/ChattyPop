@@ -26,7 +26,7 @@ import type {
   PlanUsageWindow,
   ProviderStatus,
 } from './types/ai';
-import type { ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, SearchHit, SyncState, UnreadMark } from './types/archive';
+import type { ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadMark } from './types/archive';
 import type { MentionCandidate, PersonMatch, PersonName, PersonProfile } from './types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
 import type { ArchivedGatewayEvent } from './types/ipc';
@@ -165,8 +165,8 @@ export interface CoreMethods {
   replaceGuildRoles(guildId: string, roles: RawRole[]): void;
   /** Server owners, channel overwrites and the owner's roles, as main reads them from the gateway (READY is too large to forward). */
   applyAccessFacts(f: AccessFacts): void;
-  /** Discord's unread mention counts as main keeps them; `replace`: every channel's (READY), the rest drop to zero. */
-  putReadStates(counts: ReadStateCount[], replace: boolean): void;
+  /** Discord's unread mention counts as main keeps them, landing as `scope` says. */
+  putReadStates(counts: ReadStateCount[], scope: ReadStateScope): void;
   /** Main added or removed the owner's reaction on Discord: the archive shows it before the gateway echo (which then changes nothing). */
   applyOwnReaction(r: OwnerReaction): void;
   syncState(channelId: string): SyncState;

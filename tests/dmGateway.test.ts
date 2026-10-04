@@ -290,11 +290,11 @@ describe("main's read state updates", () => {
     const { handlers, events } = core();
     a.setChannelPolicy(GROUP, { hideInPrivacy: true });
     setSetting(db, SETTINGS_KEYS.privacyMode, true);
-    handlers.putReadStates([{ channelId: DM, mentionCount: 1 }, { channelId: GROUP, mentionCount: 4 }], false);
+    handlers.putReadStates([{ channelId: DM, mentionCount: 1 }, { channelId: GROUP, mentionCount: 4 }], 'merge');
     expect(changed).toEqual([]);
     expect(events).toEqual([{ type: 'read-states-changed', states: [{ channelId: DM, mentionCount: 1 }] }]);
     // READY's replace every channel's: the list is read again.
-    handlers.putReadStates([], true);
+    handlers.putReadStates([], 'replace');
     expect(changed).toEqual(['']);
   });
 });

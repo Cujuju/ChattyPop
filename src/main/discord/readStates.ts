@@ -1,6 +1,6 @@
 // Discord's read states (docs.discord.food → Read State): each channel's last read message and unread mention count, as
 // Discord's own client keeps them from its gateway traffic, and acknowledging a channel read from ChattyPop.
-import type { ReadStateCount } from '@shared/contract';
+import type { ReadStateCount, ReadStateScope } from '@shared/contract';
 import { DM_CHANNEL_TYPES, MUTED_FOREVER, compareSnowflakes } from '@shared/discord';
 import type { DiscordApi } from './api';
 import type { GatewayTap } from './gatewayTap';
@@ -58,10 +58,17 @@ const mutedNow = (m: RawMute, now: number): boolean => {
 };
 
 interface ReadState {
-  /** Discord's last acknowledged message; null when the channel was never read; absent while unknown. */
+  /** The last acknowledged message (ours while an ack is sending); null when the channel was never read; absent while unknown. */
   ackId?: string | null;
-  mentions: number;
+  /** Mentions whose messages aren't known (READY's or a MESSAGE_ACK's count): taken to be at or before any later ack. */
+  counted: number;
+  /** Messages this session that pinged the owner, newer than `ackId`. */
+  pings: string[];
 }
+
+
+const mentionsOf = (s: ReadState): number => s.counted + s.pings.length;
+const UNREAD: ReadState = { counted: 0, pings: [] };
 
 /**
  * Each channel's unread mention count, kept as Discord's client keeps it: READY's read states, then +1 for each new
@@ -75,6 +82,10 @@ export class ReadStates {
   /** A MESSAGE_ACK's field names were noted this session (they are undocumented). */
   private ackSeen = false;
   private readonly states = new Map<string, ReadState>();
+  /** Discord's state from before an ack of ours, by channel, while it is sending: a failure returns to it. */
+  private readonly rollbacks = new Map<string, ReadState>();
+  /** Channels with an ack in flight, each with the newer message to ack once it lands (null: none). */
+  private readonly sending = new Map<string, string | null>();
   /** The owner's roles, by server. */
   private readonly roles = new Map<string, Set<string>>();
   /** The owner's notification settings, by server ('' = DMs). */
@@ -88,8 +99,8 @@ export class ReadStates {
   constructor(
     tap: GatewayTap,
     private readonly api: Pick<DiscordApi, 'post'>,
-    /** Counts changed; `replace`: these are every channel's (READY), others drop to zero. */
-    private readonly onCounts: (counts: ReadStateCount[], replace: boolean) => void,
+    /** Counts changed; `scope`: merged, or every channel's (READY), others dropping to zero ('reset': a new account's). */
+    private readonly onCounts: (counts: ReadStateCount[], scope: ReadStateScope) => void,
     /** Session-health notes (diagnostics.log): counts and field names only, never ids or content. */
     private readonly diag: (event: string, data: Record<string, unknown>) => void,
     private readonly now: () => number = Date.now,
@@ -97,16 +108,46 @@ export class ReadStates {
     tap.on('dispatch', ({ t, d }) => this.apply(t, d));
   }
 
-  /** Marks `channelId` read up to `messageId` on Discord, as its client does when the channel is viewed. */
+  /**
+   * Marks `channelId` read up to `messageId` on Discord, as its client does when the channel is viewed. Shown at once:
+   * pings after it keep counting. One ack per channel is in flight; newer ones coalesce into the next. A failure returns
+   * to Discord's state, with the pings that came meanwhile.
+   */
   ack(channelId: string, messageId: string): void {
-    const before = this.states.get(channelId);
-    if (before?.ackId && compareSnowflakes(messageId, before.ackId) <= 0) return;
-    this.put(channelId, { ackId: messageId, mentions: 0 });
-    // token: the old ack token, which Discord's read state service ignores and answers null.
-    this.api.post(`channels/${channelId}/messages/${messageId}/ack`, { token: null }).catch((err: unknown) => {
+    const before = this.states.get(channelId) ?? UNREAD;
+    if (before.ackId && compareSnowflakes(messageId, before.ackId) <= 0) return;
+    if (!this.rollbacks.has(channelId)) this.rollbacks.set(channelId, before);
+    this.put(channelId, { ackId: messageId, counted: 0, pings: before.pings.filter((id) => compareSnowflakes(id, messageId) > 0) });
+    if (this.sending.has(channelId)) {
+      this.sending.set(channelId, messageId);
+      return;
+    }
+    void this.send(channelId, messageId, this.self);
+  }
+
+  private async send(channelId: string, messageId: string, self: string | null): Promise<void> {
+    this.sending.set(channelId, null);
+    try {
+      // token: the old ack token, which Discord's read state service ignores and answers null. The guard keeps an ack
+      // from going out after another account signed in.
+      await this.api.post(`channels/${channelId}/messages/${messageId}/ack`, { token: null }, {
+        guard: () => {
+          if (this.self !== self) throw new Error('Another Discord account signed in.');
+        },
+      });
+    } catch (err) {
       this.diag('read-state-ack-failed', { message: err instanceof Error ? err.message : String(err) });
-      if (before && this.states.get(channelId)?.ackId === messageId) this.put(channelId, before);
-    });
+      const back = this.rollbacks.get(channelId);
+      // A newer ack queued covers this one; with none, Discord's state stands.
+      if (!this.sending.get(channelId) && back && self === this.self) {
+        this.rollbacks.delete(channelId);
+        this.put(channelId, back);
+      }
+    }
+    const next = this.sending.get(channelId);
+    if (next && self === this.self) return this.send(channelId, next, self);
+    this.sending.delete(channelId);
+    this.rollbacks.delete(channelId);
   }
 
   /** Discord's answer to a settings write (a DM mute): applied as the gateway's update for it, which may come later. */
@@ -137,7 +178,7 @@ export class ReadStates {
         const updates = (Array.isArray(d) ? d : [d]) as RawGuildSettings[];
         for (const s of updates) this.settings.set(s.guild_id ?? '', s);
         // DM overrides changed: every DM's mute is sent again, so a dropped override unmutes it.
-        if (updates.some((s) => !s.guild_id)) this.onCounts([...this.dms].map((id) => this.count(id)), false);
+        if (updates.some((s) => !s.guild_id)) this.onCounts([...this.dms].map((id) => this.count(id)), 'merge');
         return;
       }
       case 'CHANNEL_CREATE': {
@@ -145,14 +186,14 @@ export class ReadStates {
         if (!DM_CHANNEL_TYPES.has(c.type)) return;
         // A DM (re)opened: its read state and mute, cached since READY, reach core now.
         this.dms.add(c.id);
-        this.onCounts([this.count(c.id)], false);
+        this.onCounts([this.count(c.id)], 'merge');
         return;
       }
       case 'MESSAGE_ACK': {
         const a = d as { channel_id: string; message_id: string; mention_count?: number };
         if (!this.ackSeen) this.diag('read-state-ack-fields', { fields: Object.keys(a) });
         this.ackSeen = true;
-        this.put(a.channel_id, { ackId: a.message_id, mentions: typeof a.mention_count === 'number' ? a.mention_count : 0 });
+        this.confirm(a.channel_id, { ackId: a.message_id, counted: typeof a.mention_count === 'number' ? a.mention_count : 0, pings: [] });
         return;
       }
       case 'MESSAGE_CREATE': {
@@ -190,20 +231,28 @@ export class ReadStates {
     if (!privateChannels.partial) this.dms.clear();
     for (const c of privateChannels.entries) this.dms.add(c.id);
     const { entries, partial } = entriesOf<RawReadState>(d['read_state']);
+    const cached = new Map(this.states);
     if (!partial) this.states.clear();
+    this.rollbacks.clear();
     for (const r of entries) {
       if ((r.read_state_type ?? CHANNEL_READ_STATE) !== CHANNEL_READ_STATE) continue;
-      this.states.set(r.id, { ackId: r.last_message_id ?? null, mentions: r.mention_count ?? 0 });
+      // A field an entry leaves out keeps what was cached for it.
+      const was = cached.get(r.id);
+      const ackId = 'last_message_id' in r ? (r.last_message_id ?? null) : was?.ackId;
+      this.states.set(r.id, {
+        ...(ackId !== undefined ? { ackId } : {}),
+        ...(typeof r.mention_count === 'number' ? { counted: r.mention_count, pings: [] } : { counted: was?.counted ?? 0, pings: was?.pings ?? [] }),
+      });
     }
     // After a switch core's stored states are the last account's: all of them go.
-    this.onCounts(this.counts(), !partial || switched);
+    this.onCounts(this.counts(), switched ? 'reset' : partial ? 'merge' : 'replace');
     this.diag('read-states-ready', {
       fields: Object.keys(d),
       readState: Array.isArray(d['read_state']) ? 'array' : typeof d['read_state'],
       entries: entries.length,
       entryFields: Object.keys(entries[0] ?? {}),
       partial,
-      mentioned: [...this.states.values()].filter((s) => s.mentions > 0).length,
+      mentioned: [...this.states.values()].filter((s) => mentionsOf(s) > 0).length,
       serversWithRoles: this.roles.size,
       settings: this.settings.size,
     });
@@ -221,13 +270,17 @@ export class ReadStates {
   }
 
   private message(m: PingMessage): void {
-    const state: ReadState = this.states.get(m.channel_id) ?? { mentions: 0 };
+    const state = this.states.get(m.channel_id) ?? UNREAD;
     if (this.self !== null && m.author?.id === this.self) {
-      if (m.type !== POLL_RESULT_MESSAGE) this.put(m.channel_id, { ackId: m.id, mentions: 0 });
+      if (m.type !== POLL_RESULT_MESSAGE) this.confirm(m.channel_id, { ackId: m.id, counted: 0, pings: [] });
       return;
     }
     if (state.ackId && compareSnowflakes(m.id, state.ackId) <= 0) return;
-    if (this.pings(m)) this.put(m.channel_id, { ...state, mentions: state.mentions + 1 });
+    if (!this.pings(m)) return;
+    // An ack sending may fail: the state it returns to counts this ping too.
+    const back = this.rollbacks.get(m.channel_id);
+    if (back && !(back.ackId && compareSnowflakes(m.id, back.ackId) <= 0)) this.rollbacks.set(m.channel_id, { ...back, pings: [...back.pings, m.id] });
+    this.put(m.channel_id, { ...state, pings: [...state.pings, m.id] });
   }
 
   /** Discord's rule for a new message counting as a mention (docs.discord.food → Read State → Message Create). */
@@ -247,7 +300,13 @@ export class ReadStates {
 
   private put(channelId: string, state: ReadState): void {
     this.states.set(channelId, state);
-    this.onCounts([this.count(channelId)], false);
+    this.onCounts([this.count(channelId)], 'merge');
+  }
+
+  /** Discord's own word on a channel (its ack, or the owner's message): an ack of ours sending has nothing to return to. */
+  private confirm(channelId: string, state: ReadState): void {
+    this.rollbacks.delete(channelId);
+    this.put(channelId, state);
   }
 
   /**
@@ -256,7 +315,7 @@ export class ReadStates {
    */
   private count(channelId: string): ReadStateCount {
     const s = this.states.get(channelId);
-    const count: ReadStateCount = { channelId, ...(s ? { mentionCount: s.mentions } : {}) };
+    const count: ReadStateCount = { channelId, ...(s ? { mentionCount: mentionsOf(s) } : {}) };
     if (!this.dms.has(channelId)) return count;
     if (s?.ackId !== undefined) count.ackId = s.ackId;
     const dmSettings = this.settings.get('');

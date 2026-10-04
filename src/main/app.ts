@@ -132,7 +132,7 @@ void app.whenReady().then(() => {
   const readStates = new ReadStates(
     discord.tap,
     discordApi,
-    (counts, replace) => void core.call('putReadStates', counts, replace),
+    (counts, scope) => void core.call('putReadStates', counts, scope),
     diag,
   );
   core.on('event', (e) => {

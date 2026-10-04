@@ -152,11 +152,11 @@ export function archiveHandlers(o: {
       // A change to who can see a channel reports itself, as name data does (nameWrites.ts).
       applyAccessFacts(o.ready().db, f, Date.now());
     },
-    putReadStates: (counts, replace) => {
+    putReadStates: (counts, scope) => {
       const db = o.ready().db;
-      putReadStates(db, counts, replace);
+      putReadStates(db, counts, scope);
       // READY's replace every channel's: the list is read again. Others patch rows in place, never for a hidden channel.
-      if (replace) return o.noteChanged('');
+      if (scope !== 'merge') return o.noteChanged('');
       const visible = visibleChannelIds(db, counts.map((c) => c.channelId));
       const states = counts.filter((c) => visible.has(c.channelId));
       if (states.length) o.emit({ type: 'read-states-changed', states });

@@ -338,6 +338,12 @@ export interface ReadStateCount {
   muteEndsMs?: number | null;
 }
 
+/**
+ * How a batch of read states lands: 'merge' patches the listed channels; 'replace' (READY) lists every channel, so the
+ * rest have none, and a listed channel keeps what its count leaves out; 'reset' (another account) also forgets that.
+ */
+export type ReadStateScope = 'merge' | 'replace' | 'reset';
+
 export interface MessagePageQuery {
   channelId: string;
   limit: number;
