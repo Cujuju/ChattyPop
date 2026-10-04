@@ -86,8 +86,10 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
     const anchor = db.prepare('SELECT ts FROM messages WHERE id = ?').get(q.around) as { ts: number } | undefined;
     if (!anchor) return messagePage(db, { channelId: q.channelId, limit: q.limit });
     const half = Math.ceil(q.limit / 2);
-    const older = db.prepare(`${select} AND m.ts <= ? ${newestFirst} LIMIT ?`).all(q.channelId, anchor.ts, half) as Row[];
-    const newer = db.prepare(`${select} AND m.ts > ? ${oldestFirst} LIMIT ?`).all(q.channelId, anchor.ts, q.limit - half) as Row[];
+    // The anchor and older in one half, newer in the other: the same order as before/after, so ties keep the anchor.
+    const at = [anchor.ts, anchor.ts, q.around, q.around, q.around];
+    const older = db.prepare(`${select} AND NOT ${newerThan} ${newestFirst} LIMIT ?`).all(q.channelId, ...at, half) as Row[];
+    const newer = db.prepare(`${select} AND ${newerThan} ${oldestFirst} LIMIT ?`).all(q.channelId, ...at, q.limit - half) as Row[];
     rows = [...older.reverse(), ...newer];
   } else if (q.before) {
     const anchor = db.prepare('SELECT ts FROM messages WHERE id = ?').get(q.before) as { ts: number } | undefined;

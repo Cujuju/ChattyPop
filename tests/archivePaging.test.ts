@@ -11,11 +11,12 @@ import { createPagedList } from '../src/renderer/src/state/paged';
 
 const CHANNEL = '200000000000000001';
 let db: Db;
+let archive: ReturnType<typeof seedArchive>;
 const at = (n: number): number => Date.now() - 1000 * MS_PER_S + n * MS_PER_S;
 
 beforeEach(() => {
   db = tempDb();
-  const archive = seedArchive(db, [{ id: CHANNEL, name: 'general', guildId: '100000000000000001' }]);
+  archive = seedArchive(db, [{ id: CHANNEL, name: 'general', guildId: '100000000000000001' }]);
   archive.ingestMessages(Array.from({ length: 25 }, (_, i) => rawMessage(CHANNEL, at(i), `m${i}`)), ARRIVAL.gateway);
 });
 
@@ -39,6 +40,14 @@ describe('archive paging toward the newest', () => {
     expect(new Set(contents).size).toBe(contents.length);
     const first = Number(contents[0]!.slice(1));
     expect(contents).toEqual(Array.from({ length: 25 - first }, (_, i) => `m${first + i}`));
+  });
+
+  it('keeps the anchor of a window around a message when many share its time', () => {
+    const base = rawMessage(CHANNEL, at(30), 'tie0');
+    const ties = Array.from({ length: 12 }, (_, i) => ({ ...base, id: (BigInt(base.id) + BigInt(i)).toString(), content: `tie${i}` }));
+    archive.ingestMessages(ties, ARRIVAL.gateway);
+    const page = messagePage(db, { channelId: CHANNEL, limit: 6, around: ties[1]!.id });
+    expect(page.map((m) => m.content)).toEqual(['m24', 'tie0', 'tie1', 'tie2', 'tie3', 'tie4']);
   });
 
   it('reads nothing after the newest, or after an unknown id', () => {
