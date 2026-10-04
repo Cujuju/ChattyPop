@@ -216,7 +216,7 @@ export function ArchiveView() {
           <div ref={footer.observe} class={styles.footer}>
             <TypingLine />
             <For each={chatFooterItems(HOST_FOOTER)}>
-              {(item) => <item.Component channel={postable()!} measure={footer.observe} onSend={() => void jumpToNewest()} />}
+              {(item) => <item.Component channel={postable()!} measure={footer.observe}/>}
             </For>
           </div>
         </Show>

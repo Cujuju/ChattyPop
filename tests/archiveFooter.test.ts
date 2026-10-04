@@ -33,7 +33,7 @@ const { HOST_FOOTER } = (await import(footerPath)) as { HOST_FOOTER: readonly It
 
 const footerOf = (entries: readonly Entry[]): Item[] =>
   messageSlots(() => entries, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin)))).chatFooter(HOST_FOOTER);
-const PROPS = { channel: { id: 'c1', name: 'general' }, measure: () => undefined, onSend: () => undefined };
+const PROPS = { channel: { id: 'c1', name: 'general' }, measure: () => undefined };
 const name = (file: string): string => basename(file).replace(/\.(tsx?|css)$/, '');
 const sourceFiles = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? sourceFiles(join(dir, e.name)) : [join(dir, e.name)]));

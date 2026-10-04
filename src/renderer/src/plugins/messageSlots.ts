@@ -11,8 +11,6 @@ export interface ChatFooterProps {
   channel: DirectoryChannel;
   /** Reports the item's root when it lies over the log's bottom: the log ends that far above it (the tallest, if several). */
   measure(el: HTMLElement): void;
-  /** A message is on its way: the log shows the newest. */
-  onSend(): void;
 }
 
 /** An item under the Archive view's log (the message box). */
