@@ -13,7 +13,7 @@ export const isComposeIntent = (v: unknown): v is ComposeIntent => (COMPOSE_INTE
 
 /** Pushed to the renderer; the renderer never polls. */
 export type AppEvent =
-  | { type: 'archive-changed'; channelIds: string[]; /** Names or their styling (members, roles) changed: views re-read the names they show. */ namesChanged?: true }
+  | { type: 'archive-changed'; channelIds: string[]; /** Names or their styling (members, roles) changed: views re-read the names they show. */ namesChanged?: true; /** The servers whose names changed; absent when any server's may have. */ nameGuildIds?: string[] }
   | { type: 'sync-progress'; channelId: string; phase: 'catch-up' | 'backfill' | 'reverify' | 'idle' | 'paused' | 'error'; fetched: number; message?: string }
   /** `optedIn`: a channel now archived, which main syncs; main-only (sharedEvent drops it). */
   | { type: 'opt-in-changed'; optedIn?: string }

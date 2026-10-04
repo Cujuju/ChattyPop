@@ -191,6 +191,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `,
   // The message part a derived text is of (messageParts partKey): another plugin (translation) reads texts per part.
   'ALTER TABLE derived_texts ADD COLUMN part TEXT;',
+  // When a member's timeout ends (epoch ms); a timed-out owner can't mention @everyone (shared/permissions.ts).
+  'ALTER TABLE members ADD COLUMN timed_out_until INTEGER;',
 ];
 
 /**

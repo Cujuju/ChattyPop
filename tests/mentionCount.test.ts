@@ -193,7 +193,6 @@ describe("Discord's read states: the stored counts", () => {
       ready: () => ({ db, archive }),
       emit: (e) => events.push(e),
       noteChanged: () => {},
-      noteNamesChanged: () => {},
       backfillFromMs: () => 0,
       selfId: () => ME,
       lastSeenAt: () => 0,

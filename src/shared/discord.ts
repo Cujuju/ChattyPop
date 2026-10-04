@@ -55,6 +55,8 @@ export interface RawMember {
   nick?: string | null;
   /** The member's role ids (never @everyone); absent when the payload doesn't carry them. */
   roles?: string[];
+  /** When their timeout ends (ISO time); null when not timed out, absent when the payload doesn't say. */
+  communication_disabled_until?: string | null;
 }
 
 /** A server role. `color`: 0xRRGGBB, 0 for none; `icon`: image hash (cdn role-icons/<id>/<hash>). */

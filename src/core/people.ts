@@ -35,15 +35,32 @@ export function upsertUser(db: Db, u: RawUser): void {
   });
 }
 
+/** A timeout's end as epoch ms; null for none or an unreadable time. */
+function timeoutEnd(iso: string | null | undefined): number | null {
+  const at = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(at) ? at : null;
+}
+
 /** `seenAt`: when the payload was true; an older payload (a message ingested late) never overwrites a newer one. */
 export function putMember(db: Db, guildId: string | null, userId: string, mem: RawMember, seenAt: number): void {
   if (!guildId) return;
-  // A payload without roles (some member-list items) keeps the stored ones. A newer one than their leaving means they rejoined.
+  // A payload without roles or a timeout (some member-list items) keeps the stored ones. A newer one than their leaving
+  // means they rejoined.
   db.prepare(
-    `INSERT INTO members (guild_id, user_id, nick, roles, updated_at) VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(guild_id, user_id) DO UPDATE SET nick = excluded.nick, roles = COALESCE(excluded.roles, members.roles), updated_at = excluded.updated_at, left_at = NULL
+    `INSERT INTO members (guild_id, user_id, nick, roles, timed_out_until, updated_at) VALUES (@guildId, @userId, @nick, @roles, @timedOutUntil, @seenAt)
+     ON CONFLICT(guild_id, user_id) DO UPDATE SET nick = excluded.nick, roles = COALESCE(excluded.roles, members.roles),
+       timed_out_until = CASE WHEN @timeoutKnown THEN excluded.timed_out_until ELSE members.timed_out_until END,
+       updated_at = excluded.updated_at, left_at = NULL
      WHERE excluded.updated_at >= members.updated_at`,
-  ).run(guildId, userId, mem.nick ?? null, mem.roles ? JSON.stringify(mem.roles) : null, seenAt);
+  ).run({
+    guildId,
+    userId,
+    nick: mem.nick ?? null,
+    roles: mem.roles ? JSON.stringify(mem.roles) : null,
+    timedOutUntil: timeoutEnd(mem.communication_disabled_until),
+    timeoutKnown: mem.communication_disabled_until !== undefined ? 1 : 0,
+    seenAt,
+  });
 }
 
 /** They left the server (GUILD_MEMBER_REMOVE) at `seenAt`: kept for their old messages, no longer a member. */

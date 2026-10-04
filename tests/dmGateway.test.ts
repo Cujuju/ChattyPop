@@ -261,7 +261,6 @@ function core() {
     ready: () => ({ db, archive: a }),
     emit: (e) => void events.push(e),
     noteChanged: (id) => void changed.push(id),
-    noteNamesChanged: () => undefined,
     backfillFromMs: () => 0,
     selfId: () => SELF,
     lastSeenAt: () => 0,

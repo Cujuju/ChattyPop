@@ -8,6 +8,7 @@ import { setSetting, type Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
 import { personNames } from '../src/core/queries/personNames';
 import { watchNameWrites } from '../src/core/nameWrites';
+import { applyAccessFacts } from '../src/core/access';
 import { ARRIVAL } from '../src/core/arrival';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
@@ -80,21 +81,31 @@ describe('person names as Discord draws them in a place', () => {
 });
 
 describe('writes that change a shown name report themselves', () => {
-  it('counts nickname, role, style and server feature changes, not unchanged rewrites', () => {
+  it('counts nickname, role, style and server feature changes by server, not unchanged rewrites', () => {
     const namesWritten = watchNameWrites(db);
-    expect(namesWritten()).toBe(false);
+    expect(namesWritten()).toBeNull();
     archive.upsertMembers(GUILD, [{ user: alice, nick: 'Al', roles: [MOD.id] }]);
-    expect(namesWritten()).toBe(false);
+    expect(namesWritten()).toBeNull();
     archive.upsertMembers(GUILD, [{ user: alice, nick: 'Ally', roles: [MOD.id] }]);
-    expect(namesWritten()).toBe(true);
-    expect(namesWritten()).toBe(false);
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
+    expect(namesWritten()).toBeNull();
     archive.applyRoleChange({ kind: 'put', guildId: GUILD, role: { ...MOD, color: 0x3498db } });
-    expect(namesWritten()).toBe(true);
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
     archive.upsertGuilds([{ id: GUILD, name: 'Guild', features: ['ENHANCED_ROLE_COLORS'] }]);
-    expect(namesWritten()).toBe(true);
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
+    // A user's own name shows in every server.
     archive.ingestMessages([rawMessage(GENERAL, T0 + 2, 'renamed', { author: { ...alice, global_name: 'Alicia' } })], ARRIVAL.gateway);
-    expect(namesWritten()).toBe(true);
+    expect(namesWritten()).toEqual({ guildIds: null });
     archive.ingestMessages([rawMessage(GENERAL, T0 + 3, 'same', { author: { ...alice, global_name: 'Alicia' } })], ARRIVAL.gateway);
-    expect(namesWritten()).toBe(false);
+    expect(namesWritten()).toBeNull();
+  });
+
+  it("counts a change to who can see a channel (a server's owner, a channel's overwrites), not the same facts again", () => {
+    const namesWritten = watchNameWrites(db);
+    const facts = { owners: [{ guildId: GUILD, name: null, ownerId: SELF }], overwrites: [{ channelId: GENERAL, overwrites: [{ id: GUILD, type: 0, allow: '0', deny: '1024' }] }], members: [] };
+    applyAccessFacts(db, facts, T0);
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
+    applyAccessFacts(db, facts, T0 + 1);
+    expect(namesWritten()).toBeNull();
   });
 });

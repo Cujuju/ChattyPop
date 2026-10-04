@@ -18,6 +18,6 @@ export function applyAccessFacts(db: Db, f: AccessFacts, seenAt: number): void {
       else owner.run(o.ownerId, o.guildId);
     }
     for (const c of f.overwrites) overwrites.run(JSON.stringify(c.overwrites), c.channelId);
-    for (const m of f.members) putMember(db, m.guildId, m.userId, { nick: m.nick, roles: m.roles }, seenAt);
+    for (const m of f.members) putMember(db, m.guildId, m.userId, { nick: m.nick, roles: m.roles, communication_disabled_until: m.communicationDisabledUntil }, seenAt);
   })();
 }

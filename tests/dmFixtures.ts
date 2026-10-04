@@ -44,7 +44,6 @@ export function dmArchive(o: { autoArchiveSinceMs?: number } = {}) {
       ready: () => ({ db, archive: a }),
       emit: (e) => void events.push(e),
       noteChanged: () => undefined,
-      noteNamesChanged: () => undefined,
       backfillFromMs: () => 0,
       selfId: () => self,
       lastSeenAt: () => 0,

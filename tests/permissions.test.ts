@@ -7,7 +7,7 @@ import { MemberRequests } from '../src/main/discord/memberRequests';
 import { applyAccessFacts } from '../src/core/access';
 import { seedArchive, tempDb } from './helpers';
 
-const { VIEW_CHANNEL, ADMINISTRATOR, MENTION_EVERYONE } = PERMISSIONS;
+const { VIEW_CHANNEL, ADMINISTRATOR, MENTION_EVERYONE, SEND_MESSAGES, SEND_MESSAGES_IN_THREADS } = PERMISSIONS;
 const bits = (b: bigint): string => b.toString();
 const ctx = (overwrites: RawOverwrite[], roles: [string, bigint][] = []): PermissionContext => ({
   guildId: 'g',
@@ -20,18 +20,40 @@ const ow = (id: string, type: number, allow: bigint, deny: bigint): RawOverwrite
 describe("Discord's channel permissions", () => {
   it('gives the owner and Administrator everything, whatever the overwrites', () => {
     const hidden = ctx([ow('g', 0, 0n, VIEW_CHANNEL)], [['admin', ADMINISTRATOR]]);
-    expect(can(hidden, 'owner', [], VIEW_CHANNEL)).toBe(true);
-    expect(can(hidden, 'u', ['admin'], VIEW_CHANNEL | MENTION_EVERYONE)).toBe(true);
-    expect(can(hidden, 'u', [], VIEW_CHANNEL)).toBe(false);
+    expect(can(hidden, 'owner', { roles: [] }, VIEW_CHANNEL)).toBe(true);
+    expect(can(hidden, 'u', { roles: ['admin'] }, VIEW_CHANNEL | MENTION_EVERYONE)).toBe(true);
+    expect(can(hidden, 'u', { roles: [] }, VIEW_CHANNEL)).toBe(false);
   });
 
   it("applies @everyone's overwrite, then the member's roles' (allow beating deny), then the member's own", () => {
     const c = ctx([ow('g', 0, 0n, VIEW_CHANNEL), ow('a', 0, VIEW_CHANNEL, 0n), ow('b', 0, 0n, VIEW_CHANNEL), ow('x', 1, 0n, VIEW_CHANNEL)]);
-    expect(can(c, 'u', ['a'], VIEW_CHANNEL)).toBe(true);
-    expect(can(c, 'u', ['a', 'b'], VIEW_CHANNEL)).toBe(true);
-    expect(can(c, 'u', ['b'], VIEW_CHANNEL)).toBe(false);
-    expect(can(c, 'x', ['a'], VIEW_CHANNEL)).toBe(false);
-    expect(channelPermissions(ctx([], [['m', MENTION_EVERYONE]]), 'u', ['m'])).toBe(VIEW_CHANNEL | MENTION_EVERYONE);
+    expect(can(c, 'u', { roles: ['a'] }, VIEW_CHANNEL)).toBe(true);
+    expect(can(c, 'u', { roles: ['a', 'b'] }, VIEW_CHANNEL)).toBe(true);
+    expect(can(c, 'u', { roles: ['b'] }, VIEW_CHANNEL)).toBe(false);
+    expect(can(c, 'x', { roles: ['a'] }, VIEW_CHANNEL)).toBe(false);
+    expect(channelPermissions(ctx([], [['m', SEND_MESSAGES | MENTION_EVERYONE]]), 'u', { roles: ['m'] })).toBe(VIEW_CHANNEL | SEND_MESSAGES | MENTION_EVERYONE);
+  });
+
+  it('takes @everyone away from a member who may not send there: in a thread, by Send Messages in Threads', () => {
+    const pinger = ctx([], [['m', MENTION_EVERYONE]]);
+    expect(can(pinger, 'u', { roles: ['m'] }, MENTION_EVERYONE)).toBe(false);
+    const muted = ctx([ow('g', 0, 0n, SEND_MESSAGES)], [['m', SEND_MESSAGES | MENTION_EVERYONE]]);
+    expect(can(muted, 'u', { roles: ['m'] }, MENTION_EVERYONE)).toBe(false);
+    const sender = ctx([], [['m', SEND_MESSAGES | MENTION_EVERYONE]]);
+    expect(can(sender, 'u', { roles: ['m'] }, MENTION_EVERYONE)).toBe(true);
+    expect(can({ ...sender, thread: true }, 'u', { roles: ['m'] }, MENTION_EVERYONE)).toBe(false);
+    const threadSender = ctx([], [['m', SEND_MESSAGES_IN_THREADS | MENTION_EVERYONE]]);
+    expect(can({ ...threadSender, thread: true }, 'u', { roles: ['m'] }, MENTION_EVERYONE)).toBe(true);
+  });
+
+  it('leaves a timed-out member only seeing and reading, until the timeout ends; not the owner or Administrator', () => {
+    const NOW = 1_000_000;
+    const c = ctx([], [['m', SEND_MESSAGES | MENTION_EVERYONE], ['admin', ADMINISTRATOR]]);
+    expect(can(c, 'u', { roles: ['m'], timedOutUntil: NOW + 1 }, VIEW_CHANNEL, NOW)).toBe(true);
+    expect(can(c, 'u', { roles: ['m'], timedOutUntil: NOW + 1 }, MENTION_EVERYONE, NOW)).toBe(false);
+    expect(can(c, 'u', { roles: ['m'], timedOutUntil: NOW - 1 }, MENTION_EVERYONE, NOW)).toBe(true);
+    expect(can(c, 'u', { roles: ['admin'], timedOutUntil: NOW + 1 }, MENTION_EVERYONE, NOW)).toBe(true);
+    expect(can(c, 'owner', { roles: [], timedOutUntil: NOW + 1 }, MENTION_EVERYONE, NOW)).toBe(true);
   });
 });
 
@@ -53,6 +75,11 @@ describe('who can see a channel, from the gateway', () => {
     ]);
     expect(access.read('GUILD_CREATE', { id: 'g3', members: [{ user: { id: 'x' }, roles: ['rx'] }, { user: { id: 'me' }, roles: ['r3'] }] })?.members).toEqual([
       { guildId: 'g3', userId: 'me', nick: null, roles: ['r3'] },
+    ]);
+    // The owner's timeout rides along, to take @everyone away while it lasts.
+    const until = '2026-10-04T12:00:00.000Z';
+    expect(access.read('READY_SUPPLEMENTAL', { guilds: [{ id: 'g4' }], merged_members: [[{ user_id: 'me', roles: [], communication_disabled_until: until }]] })?.members).toEqual([
+      { guildId: 'g4', userId: 'me', nick: null, roles: [], communicationDisabledUntil: until },
     ]);
 
     const db = tempDb();

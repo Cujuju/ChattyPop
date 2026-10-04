@@ -1,5 +1,6 @@
 // What the composer's `@` lists: the archive's answer, kept fresh as Discord sends the members it is asked for.
 import { createSignal } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import type { MentionCandidate } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import { api } from '@/api';
@@ -10,11 +11,23 @@ const MENTION_SUGGESTIONS_MAX = 10;
 /** Discord's client waits this long after a keystroke before searching members (its member search debounce). */
 const MEMBER_REQUEST_DEBOUNCE_MS = 200;
 
-const [membersVersion, setMembersVersion] = createSignal(0);
-/** Changes when members or roles do (a member search's answer among them): open lists read again. */
-export { membersVersion };
+/** Bumped by every name change; and by those that may touch every server (a user's own name); and per server. */
+const [anyVersion, setAnyVersion] = createSignal(0);
+const [everyServerVersion, setEveryServerVersion] = createSignal(0);
+const [serverVersions, setServerVersions] = createStore<Record<string, number>>({});
+
+/**
+ * Changes when members, roles or access do (a member search's answer among them): open lists read again. With
+ * `guildId`, only for changes that may touch that server; without, for any.
+ */
+export const membersVersion = (guildId?: string): number =>
+  guildId === undefined ? anyVersion() : everyServerVersion() + (serverVersions[guildId] ?? 0);
+
 onAppEvent('archive-changed', (e) => {
-  if (e.namesChanged) setMembersVersion((v) => v + 1);
+  if (!e.namesChanged) return;
+  setAnyVersion((v) => v + 1);
+  if (!e.nameGuildIds) return void setEveryServerVersion((v) => v + 1);
+  for (const id of e.nameGuildIds) setServerVersions(id, (v) => (v ?? 0) + 1);
 });
 
 /** Who can see the channel, then @everyone, @here and roles, matching `query`: best match first. */

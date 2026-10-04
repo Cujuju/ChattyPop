@@ -51,8 +51,6 @@ export function archiveHandlers(o: {
   emit: (e: AppEvent) => void;
   /** An archive write touched this channel ('' = none in particular); coalesced into one UI refresh. */
   noteChanged: (channelId: string) => void;
-  /** Who can see a channel changed (open @ lists re-ask); name data reports itself (nameWrites.ts). Coalesced with noteChanged. */
-  noteNamesChanged: () => void;
   /** Start of the history window sync fills. */
   backfillFromMs: () => number;
   /** The signed-in user; null until main has said. */
@@ -151,9 +149,8 @@ export function archiveHandlers(o: {
       archive().applyRoleChange({ kind: 'replace', guildId, roles });
     },
     applyAccessFacts: (f) => {
+      // A change to who can see a channel reports itself, as name data does (nameWrites.ts).
       applyAccessFacts(o.ready().db, f, Date.now());
-      // Who can see a channel changed: open @ lists re-ask.
-      o.noteNamesChanged();
     },
     putReadStates: (counts, replace) => {
       const db = o.ready().db;

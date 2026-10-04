@@ -146,7 +146,6 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
       emit({ type: 'archive-changed', channelIds: [channelId] });
       host.archiveChanged([channelId]);
     },
-    noteNamesChanged: () => emit({ type: 'archive-changed', channelIds: [''], namesChanged: true }),
     backfillFromMs: () => 0,
     selfId: () => self,
     lastSeenAt: () => lastSeen,

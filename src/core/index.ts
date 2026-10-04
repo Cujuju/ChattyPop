@@ -55,7 +55,8 @@ import { addedTextArrival, textMessage } from './queries/messageText';
 import { allMuted } from './queries/notificationMute';
 import { storeDerivedText, storeLinkText } from './derivedText';
 import { storeLinkImages } from './messageImages';
-import { watchNameWrites } from './nameWrites';
+import { watchNameWrites, type NameChange } from './nameWrites';
+import { forgetMentionPools } from './queries/mentions';
 
 /** Coalesces bursts of archive writes into one UI refresh. */
 const CHANGE_EVENT_DEBOUNCE_MS = 250;
@@ -103,12 +104,17 @@ function emit(event: AppEvent): void {
 
 const changed = new Set<string>();
 let namesChanged = false;
+/** The servers whose names changed since the last event; null once any server's may have. */
+let nameGuilds: Set<string> | null = new Set();
 let changeTimer: NodeJS.Timeout | undefined;
 function noteChanged(channelId: string): void {
   changed.add(channelId);
+  forgetMentionPools(channelId);
   changeTimer ??= setTimeout(() => {
-    emit({ type: 'archive-changed', channelIds: [...changed], ...(namesChanged ? { namesChanged: true } : {}) });
+    const names = namesChanged ? { namesChanged: true as const, ...(nameGuilds ? { nameGuildIds: [...nameGuilds] } : {}) } : {};
+    emit({ type: 'archive-changed', channelIds: [...changed], ...names });
     namesChanged = false;
+    nameGuilds = new Set();
     // '' marks a change to no channel (disk use, a plugin's own refresh): plugins hear only about messages.
     const channelIds = [...changed].filter((id) => id !== '');
     if (channelIds.length) plugins?.archiveChanged(channelIds);
@@ -117,12 +123,14 @@ function noteChanged(channelId: string): void {
   }, CHANGE_EVENT_DEBOUNCE_MS);
 }
 
-/** True when a request changed name data (nameWrites.ts); set once the archive is open. */
-let namesWritten: (() => boolean) | undefined;
+/** What name data a request changed (nameWrites.ts); set once the archive is open. */
+let namesWritten: (() => NameChange | null) | undefined;
 
-/** Members or roles changed: the names views show, and their colours and marks, may differ. */
-function noteNamesChanged(): void {
+/** Members, roles or access changed in `change`'s servers: the names views show, and who an @ list offers, may differ. */
+function noteNamesChanged(change: NameChange): void {
   namesChanged = true;
+  if (!change.guildIds) nameGuilds = null;
+  else for (const g of change.guildIds) nameGuilds?.add(g);
   noteChanged('');
 }
 
@@ -215,7 +223,6 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     ready,
     emit,
     noteChanged,
-    noteNamesChanged,
     backfillFromMs,
     selfId: () => self?.id ?? null,
     lastSeenAt: () => previousSessionSeenAt,
@@ -376,6 +383,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
   } catch (err) {
     reply({ id: data.id, ok: false, error: errorMessage(err) });
   } finally {
-    if (namesWritten?.()) noteNamesChanged();
+    const names = namesWritten?.();
+    if (names) noteNamesChanged(names);
   }
 });

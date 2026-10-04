@@ -11,10 +11,10 @@ interface GatewayGuild {
   owner_id?: string;
   properties?: { name?: string; owner_id?: string };
   channels?: RawChannel[];
-  members?: { user?: { id: string }; nick?: string | null; roles?: string[] }[];
+  members?: { user?: { id: string }; nick?: string | null; roles?: string[]; communication_disabled_until?: string | null }[];
 }
 
-type MergedMember = { user_id: string; nick?: string | null; roles?: string[] };
+type MergedMember = { user_id: string; nick?: string | null; roles?: string[]; communication_disabled_until?: string | null };
 
 function addChannels(f: AccessFacts, channels: RawChannel[]): void {
   for (const c of channels) if (c.permission_overwrites) f.overwrites.push({ channelId: c.id, overwrites: c.permission_overwrites });
@@ -51,7 +51,7 @@ export class GatewayAccess {
         const g = d as GatewayGuild;
         addGuild(f, g);
         const me = g.members?.find((m) => m.user?.id === this.self);
-        if (this.self && me?.roles) f.members.push({ guildId: g.id, userId: this.self, nick: me.nick ?? null, roles: me.roles });
+        if (this.self && me?.roles) f.members.push({ guildId: g.id, userId: this.self, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
         return f;
       }
       case 'GUILD_UPDATE':
@@ -70,7 +70,7 @@ export class GatewayAccess {
   private addMerged(f: AccessFacts, guilds: { id: string }[], merged: MergedMember[][] | undefined): void {
     guilds.forEach((g, i) => {
       const me = merged?.[i]?.find((m) => m.user_id === this.self);
-      if (me?.roles) f.members.push({ guildId: g.id, userId: me.user_id, nick: me.nick ?? null, roles: me.roles });
+      if (me?.roles) f.members.push({ guildId: g.id, userId: me.user_id, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
     });
   }
 }

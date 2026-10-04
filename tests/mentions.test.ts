@@ -4,7 +4,9 @@ import { DM_CHANNEL_TYPE, GROUP_DM_CHANNEL_TYPE, type RawRole } from '@shared/di
 import { PERMISSIONS, PRIVATE_THREAD_TYPE } from '@shared/permissions';
 import { applyAccessFacts } from '../src/core/access';
 import type { Db } from '../src/core/db';
-import { mentionCandidates } from '../src/core/queries/mentions';
+import { forgetMentionPools, mentionCandidates } from '../src/core/queries/mentions';
+import { watchNameWrites } from '../src/core/nameWrites';
+import { MS_PER_HOUR } from '@shared/units';
 import { ARRIVAL } from '../src/core/arrival';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
@@ -13,7 +15,7 @@ const OWNER = 'own';
 const perms = (...bits: bigint[]): string => bits.reduce((a, b) => a | b, 0n).toString();
 const ROLES: RawRole[] = [
   // The server's own @everyone role: everyone sees channels unless an overwrite says otherwise.
-  { id: 'g1', name: '@everyone', position: 0, mentionable: true, permissions: perms(PERMISSIONS.VIEW_CHANNEL) },
+  { id: 'g1', name: '@everyone', position: 0, mentionable: true, permissions: perms(PERMISSIONS.VIEW_CHANNEL, PERMISSIONS.SEND_MESSAGES) },
   { id: 'rMods', name: 'Mods', position: 5, color: 0xf47fff, mentionable: true, permissions: '0' },
   { id: 'rAdmin', name: 'Admin', position: 8, mentionable: false, permissions: perms(PERMISSIONS.ADMINISTRATOR) },
   { id: 'rPing', name: 'Pingers', position: 1, mentionable: false, permissions: perms(PERMISSIONS.MENTION_EVERYONE) },
@@ -145,6 +147,39 @@ describe('what @ offers in a channel, as Discord does', () => {
     expect(labels(db, 'c1', 'ton', 1)).toEqual(['tonyhist']);
     archive.upsertMembers('g1', [member('3', 'ton', [])] as never);
     expect(labels(db, 'c1', 'ton', 1)).toEqual(['ton']);
+  });
+
+  it('offers no @everyone, @here or unmentionable role where the owner may not send, or while timed out', () => {
+    const sendDenied = seed(['rPing']);
+    const deny = { id: 'g1', type: 0, allow: '0', deny: perms(PERMISSIONS.SEND_MESSAGES) };
+    applyAccessFacts(sendDenied, { owners: [], overwrites: [{ channelId: 'c1', overwrites: [deny] }], members: [] }, Date.now());
+    expect(labels(sendDenied, 'c1', 'every')).toEqual([]);
+    expect(labels(sendDenied, 'c1', 'tonn')).toEqual(['tonyadmin']);
+
+    const timedOut = seed(['rPing']);
+    const timeout = (until: number) => ({ owners: [], overwrites: [], members: [{ guildId: 'g1', userId: SELF, nick: null, roles: ['rPing'], communicationDisabledUntil: new Date(until).toISOString() }] });
+    applyAccessFacts(timedOut, timeout(Date.now() + MS_PER_HOUR), Date.now());
+    expect(labels(timedOut, 'c1', 'every')).toEqual([]);
+    applyAccessFacts(timedOut, timeout(Date.now() - MS_PER_HOUR), Date.now() + 1);
+    expect(labels(timedOut, 'c1', 'every')).toEqual(['@everyone']);
+  });
+
+  it("keeps a channel's people between keystrokes, read again once its messages or any name or access data change", () => {
+    const db = seed();
+    watchNameWrites(db);
+    const archive = seedArchive(db, []);
+    expect(labels(db, 'c1', '', 2)).toEqual(['ton', 'tonyhist']);
+    // A new message is seen once core reports the channel changed.
+    archive.ingestMessages([rawMessage('c1', 5, 'e', author('7', 'tonya'))], ARRIVAL.gateway);
+    expect(labels(db, 'c1', '', 2)).toEqual(['ton', 'tonyhist']);
+    forgetMentionPools('c1');
+    expect(labels(db, 'c1', '', 2)).toEqual(['tonya', 'ton']);
+    // Names and access report themselves.
+    archive.upsertMembers('g1', [member('12', 'tonynew', [])] as never);
+    expect(labels(db, 'c1', 'tonynew')).toEqual(['tonynew']);
+    const hide = { id: '12', type: 1, allow: '0', deny: perms(PERMISSIONS.VIEW_CHANNEL) };
+    applyAccessFacts(db, { owners: [], overwrites: [{ channelId: 'c1', overwrites: [hide] }], members: [] }, Date.now());
+    expect(labels(db, 'c1', 'tonynew')).toEqual([]);
   });
 
   it("reads a channel's posters from an index, not its every message", () => {
