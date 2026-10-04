@@ -1,0 +1,116 @@
+/* Cozy Archive layout: avatar | name + time heading a group of consecutive messages from one author.
+   Layered on MessageRow.module.css .row (shared body styles); [data-density] makes these rules outrank it regardless of load order.
+   Hooks: .row[data-grouped='true']. Rows are height-measured: spacing is padding only. */
+.row[data-density='cozy'] {
+  grid-template-columns: var(--cp-chat-avatar) minmax(0, 1fr);
+  align-items: start;
+  --row-pad-top: var(--cp-space-6);
+  column-gap: var(--cp-space-6);
+  padding-top: var(--row-pad-top);
+  padding-bottom: var(--cp-space-1);
+  border-bottom: 0;
+}
+
+/* Continuation: tight to the message above, same gutter width so text stays aligned. */
+.row[data-density='cozy'][data-grouped='true'] {
+  --row-pad-top: var(--cp-space-1);
+  padding-top: var(--row-pad-top);
+}
+
+.avatar {
+  width: var(--cp-chat-avatar);
+  height: var(--cp-chat-avatar);
+  margin-top: var(--cp-space-1);
+  object-fit: cover;
+}
+
+/* An avatar with a decoration: the frame (--cp-avatar-decoration, larger than the avatar) centred over it, letting clicks
+   through; its animated copy replaces the still one while the message is hovered. */
+.decorated {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-self: start;
+}
+
+.decoration {
+  position: absolute;
+  top: calc(var(--cp-space-1) + (var(--cp-chat-avatar) - var(--cp-avatar-decoration)) / 2);
+  width: var(--cp-avatar-decoration);
+  height: var(--cp-avatar-decoration);
+  max-width: none;
+  pointer-events: none;
+}
+
+.decoration[data-animated],
+.row:hover .decoration:not([data-animated]) {
+  display: none;
+}
+
+.row:hover .decoration[data-animated] {
+  display: block;
+}
+
+/* Avatar with something under it (a shared link's platform badge): stacked and centred in the avatar column. */
+.gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+/* Continuation rows show their time in the gutter, on the text's baseline, only on hover or focus.
+   Centred under the avatar; justify-self lets a time wider than the gutter overflow evenly on both sides. */
+.gutterTime {
+  align-self: first baseline;
+  justify-self: center;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  text-align: center;
+  white-space: nowrap;
+  visibility: hidden;
+}
+
+.row[data-density='cozy']:hover .gutterTime,
+.row[data-density='cozy']:focus-within .gutterTime {
+  visibility: visible;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+.name {
+  min-width: 0;
+  min-height: var(--cp-hit-min); /* it opens the person: a tap target on the phone */
+  overflow: hidden;
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  white-space: nowrap;
+}
+
+/* Clicking an author's name or avatar opens their Person window. */
+.name,
+.avatar {
+  cursor: pointer;
+}

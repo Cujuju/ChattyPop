@@ -1,0 +1,95 @@
+/* Floating window frame, layered on the caller's surface class (e.g. Settings .dialog): non-modal, so no backdrop.
+   Position and size are inline (dragged, resized, restored); this file sets the frame's behaviour only.
+   Hooks: the first <header> inside is the drag handle; .grip[data-edge] are the edge and corner resize bands. */
+.window {
+  position: fixed;
+  inset: auto;
+  z-index: var(--cp-z-window);
+  min-width: var(--cp-window-min-w);
+  min-height: var(--cp-window-min-h);
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+.window > header {
+  cursor: move;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.window > header button {
+  cursor: default;
+}
+
+
+/* Resize bands, over the content at the very edge (above sticky parts inside the window). */
+.grip {
+  position: absolute;
+  z-index: var(--cp-z-resize);
+}
+
+.grip[data-edge='n'],
+.grip[data-edge='s'] {
+  left: var(--cp-window-grip-corner);
+  right: var(--cp-window-grip-corner);
+  height: var(--cp-window-grip);
+  cursor: ns-resize;
+}
+
+.grip[data-edge='e'],
+.grip[data-edge='w'] {
+  top: var(--cp-window-grip-corner);
+  bottom: var(--cp-window-grip-corner);
+  width: var(--cp-window-grip);
+  cursor: ew-resize;
+}
+
+.grip[data-edge='n'] {
+  top: 0;
+}
+
+.grip[data-edge='s'] {
+  bottom: 0;
+}
+
+.grip[data-edge='e'] {
+  right: 0;
+}
+
+.grip[data-edge='w'] {
+  left: 0;
+}
+
+.grip[data-edge='ne'],
+.grip[data-edge='nw'],
+.grip[data-edge='se'],
+.grip[data-edge='sw'] {
+  width: var(--cp-window-grip-corner);
+  height: var(--cp-window-grip-corner);
+}
+
+.grip[data-edge='ne'] {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.grip[data-edge='sw'] {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+
+.grip[data-edge='nw'] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.grip[data-edge='se'] {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}

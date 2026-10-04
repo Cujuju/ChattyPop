@@ -1,0 +1,127 @@
+/* Look vocabulary: text (docs/plugin-architecture.md §14). One role, .text; its data attributes pick from the type ramp and
+   the text tones, and an unset attribute inherits. One role owns an element's colour: no data-tone where another role colours it.
+   Look only: no layout property here, so a plugin's structural module and this file never set the same property. */
+
+.text[data-size='2xs'] {
+  font-size: var(--cp-text-2xs);
+}
+
+.text[data-size='xs'] {
+  font-size: var(--cp-text-xs);
+}
+
+.text[data-size='sm'] {
+  font-size: var(--cp-text-sm);
+}
+
+.text[data-size='md'] {
+  font-size: var(--cp-text-md);
+}
+
+.text[data-size='base'] {
+  font-size: var(--cp-text-base);
+}
+
+.text[data-size='lg'] {
+  font-size: var(--cp-text-lg);
+}
+
+.text[data-size='xl'] {
+  font-size: var(--cp-text-xl);
+}
+
+.text[data-weight='medium'] {
+  font-weight: var(--cp-weight-medium);
+}
+
+.text[data-weight='semibold'] {
+  font-weight: var(--cp-weight-semibold);
+}
+
+.text[data-line='none'] {
+  line-height: var(--cp-leading-none);
+}
+
+.text[data-line='tight'] {
+  line-height: var(--cp-leading-tight);
+}
+
+.text[data-line='normal'] {
+  line-height: var(--cp-leading-normal);
+}
+
+.text[data-line='relaxed'] {
+  line-height: var(--cp-leading-relaxed);
+}
+
+/* One-line row meta (who / where / when): badges and dots centre on it. */
+.text[data-line='meta'] {
+  line-height: var(--cp-meta-line-h);
+}
+
+/* Inline chips: citations, verdict flags. */
+.text[data-line='chip'] {
+  line-height: var(--cp-badge-line-h);
+}
+
+/* Count pills. */
+.text[data-line='pill'] {
+  line-height: var(--cp-badge-h);
+}
+
+.text[data-case='upper'] {
+  text-transform: uppercase;
+}
+
+/* Section labels; label-sm for inline labels and badges. */
+.text[data-tracking='label'] {
+  letter-spacing: var(--cp-tracking-label);
+}
+
+.text[data-tracking='label-sm'] {
+  letter-spacing: var(--cp-tracking-label-sm);
+}
+
+/* A title's tracking, e.g. a code read off the screen. */
+.text[data-tracking='title'] {
+  letter-spacing: var(--cp-tracking-title);
+}
+
+/* The UI face, also inside a mono context. */
+.text[data-font='sans'] {
+  font-family: var(--cp-font-sans);
+}
+
+/* The code face: something typed character by character (a pairing code). */
+.text[data-font='mono'] {
+  font-family: var(--cp-font-mono);
+}
+
+.text[data-figures='tabular'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.text[data-tone='primary'] {
+  color: var(--cp-text-1);
+}
+
+.text[data-tone='secondary'] {
+  color: var(--cp-text-2);
+}
+
+.text[data-tone='muted'] {
+  color: var(--cp-text-muted);
+}
+
+.text[data-tone='accent'] {
+  color: var(--cp-accent);
+}
+
+.text[data-tone='danger'] {
+  color: var(--cp-danger);
+}
+
+/* The nearest [data-section]'s colour (theme/identity.css). */
+.text[data-tone='section'] {
+  color: var(--cp-section);
+}

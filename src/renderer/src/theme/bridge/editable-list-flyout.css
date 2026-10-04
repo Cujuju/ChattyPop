@@ -1,0 +1,24 @@
+/* @cujuju/solidjs-editable-list-flyout: declares its defaults on the element, unlayered, so :root alone would lose. */
+
+:root [data-cuj-elf] {
+  --cuj-elf-popover-bg: var(--cp-surface-3);
+  --cuj-elf-popover-fg: var(--cp-text-1);
+  --cuj-elf-popover-border: var(--cp-border-w) solid var(--cp-border);
+  --cuj-elf-popover-radius: var(--cp-radius-md);
+  --cuj-elf-popover-shadow: var(--cp-shadow-popover);
+  --cuj-elf-popover-padding: var(--cp-space-3) 0;
+  --cuj-elf-rail-color: var(--cp-accent);
+  --cuj-elf-list-gap: var(--cp-space-1);
+  --cuj-elf-footer-margin-top: var(--cp-space-3);
+  --cuj-elf-footer-padding-y: var(--cp-space-3);
+  --cuj-elf-footer-padding-x: var(--cp-space-4);
+  --cuj-elf-footer-radius: var(--cp-radius-sm);
+  --cuj-elf-footer-border-style: var(--cp-border-w) dashed var(--cp-border);
+  --cuj-elf-footer-fg: var(--cp-text-muted);
+  --cuj-elf-footer-fg-hover: var(--cp-text-1);
+  --cuj-elf-footer-bg-hover: var(--cp-surface-hover);
+  --cuj-elf-footer-input-bg: var(--cp-surface-0);
+  --cuj-elf-footer-input-border: var(--cp-border-w) solid var(--cp-accent);
+  --cuj-elf-scrollbar-thumb: var(--cp-scrollbar-thumb);
+  --cuj-elf-scrollbar-thumb-hover: var(--cp-scrollbar-thumb-hover);
+}

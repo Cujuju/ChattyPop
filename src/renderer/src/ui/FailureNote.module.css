@@ -1,0 +1,31 @@
+/* A failed action's reason on its own line (with cp-error), a dismiss cross at its end. */
+.note {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-4);
+  line-height: var(--cp-leading-normal);
+}
+
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  border-radius: var(--cp-radius-xs);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-icon-sm);
+}
+
+.dismiss:hover {
+  color: var(--cp-text-1);
+}

@@ -1,0 +1,44 @@
+/* @cujuju/solidjs-accordion-dock */
+
+:root {
+  --acc-bg: var(--cp-surface-0);
+  --acc-header-bg: var(--cp-surface-2);
+  --acc-header-bg-hover: var(--cp-surface-3);
+  --acc-header-bg-open: var(--cp-surface-4);
+  --acc-border: var(--cp-border);
+  --acc-text: var(--cp-text-1);
+  --acc-text-muted: var(--cp-text-muted);
+  --acc-accent: var(--cp-accent);
+  --acc-radius: var(--cp-radius-sm);
+  --acc-btn-radius: var(--cp-radius-sm);
+  --acc-pill-radius: var(--cp-radius-sm);
+  --acc-header-height: var(--cp-row-h);
+  --acc-header-pad-x: var(--cp-space-3);
+  --acc-content-pad: var(--cp-space-4);
+  --acc-card-gap: var(--cp-space-3);
+  --acc-indent: var(--cp-space-6);
+  --acc-gap: var(--cp-space-2);
+  --acc-gap-sm: var(--cp-space-1);
+  --acc-gap-xs: var(--cp-space-px);
+  --acc-title-size: var(--cp-text-md);
+  --acc-title-weight: var(--cp-weight-semibold);
+  --acc-col-width: var(--cp-sidebar-w);
+  --acc-splitter-hit: var(--cp-splitter-size);
+  --acc-icon-size: var(--cp-icon-sm);
+  --acc-pin-size: var(--cp-icon-sm);
+  --acc-rail-pin-size: var(--cp-icon-xs);
+  --acc-btn-size: var(--cp-chip-h);
+  --acc-badge-dot-size: var(--cp-dot);
+  --acc-badge-size: var(--cp-text-xs);
+  --acc-badge-pad-x: var(--cp-space-2);
+  --acc-badge-line: var(--cp-badge-line-h);
+  --acc-badge-success: var(--cp-success);
+  --acc-badge-warning: var(--cp-accent);
+  --acc-badge-danger: var(--cp-danger);
+  --acc-duration: var(--cp-duration-base);
+  --acc-open-duration: var(--cp-duration-slow);
+  --acc-flyout-in-duration: var(--cp-duration-base);
+  --acc-flyout-shadow: var(--cp-shadow-flyout);
+  --acc-focus-ring-width: var(--cp-focus-ring-width);
+  --acc-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+}

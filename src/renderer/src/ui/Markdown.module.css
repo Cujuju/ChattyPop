@@ -1,0 +1,141 @@
+/* Discord-flavoured markdown inside message text and embed descriptions. Blocks are spans (content sits in a <p>),
+   laid out as blocks here. Hooks: .h[data-level], .spoiler[data-shown], .emoji[data-jumbo]. */
+.p,
+.h,
+.subtext,
+.li,
+.quote,
+.codeblock {
+  display: block;
+}
+
+.p + .p,
+.p + .h,
+.h + .p {
+  margin-top: var(--cp-space-2);
+}
+
+.h {
+  margin: var(--cp-space-3) 0 var(--cp-space-1);
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+}
+
+.h[data-level='1'] {
+  font-size: var(--cp-text-xl);
+}
+
+.h[data-level='2'] {
+  font-size: var(--cp-text-lg);
+}
+
+.h[data-level='3'] {
+  font-size: var(--cp-text-base);
+}
+
+.subtext {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+}
+
+.li {
+  position: relative;
+  padding-left: var(--cp-space-6);
+}
+
+.li::before {
+  content: '•';
+  position: absolute;
+  left: var(--cp-space-2);
+  color: var(--cp-text-muted);
+}
+
+/* Discord's quote: a rounded bar on the left, text beside it. */
+.quote {
+  margin: var(--cp-space-1) 0;
+  padding-left: var(--cp-space-5);
+  border-left: var(--cp-space-1) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-xs);
+}
+
+.code,
+.codeblock {
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-0);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-code);
+}
+
+.code {
+  padding: 0 var(--cp-space-2);
+  border: var(--cp-border-w) solid var(--cp-border-faint);
+}
+
+.codeblock {
+  margin: var(--cp-space-2) 0;
+  padding: var(--cp-space-4) var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  color: var(--cp-link);
+}
+
+.link:hover {
+  color: var(--cp-link-hover);
+  text-decoration: underline;
+}
+
+/* Mentions: accent-tinted pill, like Discord's highlighted mentions. */
+.mention {
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-accent-wash);
+  color: var(--cp-accent);
+  font-weight: var(--cp-weight-medium);
+}
+
+.timestamp {
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-surface-4);
+}
+
+/* Spoiler: hidden behind a solid block until clicked. */
+.spoiler {
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-surface-5);
+  cursor: pointer;
+}
+
+.spoiler[data-shown='false'] {
+  color: transparent;
+}
+
+.spoiler[data-shown='false'] > * {
+  visibility: hidden;
+}
+
+.spoiler[data-shown='true'] {
+  background: var(--cp-surface-4);
+  cursor: auto;
+}
+
+.emoji {
+  display: inline-block;
+  width: var(--cp-emoji-inline);
+  height: var(--cp-emoji-inline);
+  vertical-align: middle;
+  object-fit: contain;
+  border: 0;
+}
+
+.emoji[data-jumbo='true'] {
+  width: var(--cp-emoji-jumbo);
+  height: var(--cp-emoji-jumbo);
+}

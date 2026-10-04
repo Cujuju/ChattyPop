@@ -1,0 +1,66 @@
+/* Quick reactions atop a message's menu (QuickReactions): a row of emoji squares, then More. Desktop: small squares in
+   the popover. Phone: the sheet's row fills its width with larger squares, as in Discord's app. */
+.row {
+  display: flex;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-1) var(--cp-space-2);
+}
+
+.emoji {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-quick-reaction);
+  height: var(--cp-quick-reaction);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-muted);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.emoji:hover,
+.emoji:focus-visible {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+/* The owner already reacted with it: selected, as their reaction chip shows. */
+.emoji[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 var(--cp-border-w) var(--cp-accent);
+  background: var(--cp-accent-wash);
+}
+
+.glyph {
+  font-size: var(--cp-quick-reaction-glyph);
+  line-height: var(--cp-leading-none);
+}
+
+.image,
+.icon {
+  width: var(--cp-quick-reaction-glyph);
+  height: var(--cp-quick-reaction-glyph);
+  object-fit: contain;
+}
+
+/* The squares share the sheet's width, up to their full size. */
+:global(html[data-surface='companion']) .row {
+  justify-content: space-between;
+  padding: 0;
+}
+
+:global(html[data-surface='companion']) .emoji {
+  flex: 1 1 0;
+  width: auto;
+  max-width: var(--cp-quick-reaction-phone);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--cp-radius-lg);
+}
+
+:global(html[data-surface='companion']) .glyph,
+:global(html[data-surface='companion']) .image,
+:global(html[data-surface='companion']) .icon {
+  width: var(--cp-quick-reaction-phone-glyph);
+  height: var(--cp-quick-reaction-phone-glyph);
+  font-size: var(--cp-quick-reaction-phone-glyph);
+}

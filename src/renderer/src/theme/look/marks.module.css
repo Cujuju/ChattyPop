@@ -1,0 +1,157 @@
+/* Look vocabulary: badges, tags, status flags, citations, mentions, dots, avatars, icons and list marks (docs/plugin-architecture.md §14).
+   Look only. Hooks: .tag[data-tint], .status[data-tint], .dot[data-fill], .lineIcon[data-tone], .pullDisc[data-state='armed']. */
+
+/* Identity badge: filled with its identity colour (--cp-platform, from [data-platform]), dark label. */
+.platformBadge {
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-platform);
+  color: var(--cp-text-on-accent);
+}
+
+/* Unread count pill in the accent. */
+.countBadge {
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+/* A mark over chrome, cut out of the control under it by a ring in the chrome's ground. */
+.chromeCutout {
+  box-shadow: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-0);
+}
+
+/* Tinted micro tag, as chat tags are (--cp-tag-color, as MessageRow reads it). muted by default; section: the nearest
+   [data-section]'s colour; ai: AI output (Jev). */
+.tag {
+  --cp-tag-color: var(--cp-text-muted);
+  border-radius: var(--cp-radius-sm);
+  background: color-mix(in srgb, var(--cp-tag-color) var(--cp-section-tile-mix), transparent);
+  color: var(--cp-tag-color);
+}
+
+.tag[data-tint='section'] {
+  --cp-tag-color: var(--cp-section);
+}
+
+.tag[data-tint='ai'] {
+  --cp-tag-color: var(--cp-section-summary);
+}
+
+/* A finding that wants a second look: the accent wash by default; danger for a contradiction; neutral for nothing to check. */
+.status {
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-accent-wash);
+  color: var(--cp-accent);
+}
+
+.status[data-tint='danger'] {
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+}
+
+.status[data-tint='neutral'] {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-muted);
+}
+
+/* A reference to a source message, in the info tint. */
+.citation {
+  border: var(--cp-border-w) solid var(--cp-cite-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-cite-bg);
+  color: var(--cp-cite-text);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.citation:hover {
+  border-color: var(--cp-info);
+  color: var(--cp-link-hover);
+}
+
+.citation:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* A person named in text, their name in its own colour (PersonName): a wash under the pointer says it opens them. */
+.mention {
+  border-radius: var(--cp-radius-xs);
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.mention:hover {
+  background: var(--cp-surface-hover);
+}
+
+.mention:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Status dot. ring: a hollow muted ring (read); section: filled with the nearest [data-section]'s colour (unread);
+   accent: filled with the accent (on). */
+.dot {
+  border-radius: var(--cp-radius-full);
+}
+
+.dot[data-fill='ring'] {
+  border: var(--cp-border-w) solid var(--cp-text-muted);
+}
+
+.dot[data-fill='section'] {
+  border: var(--cp-border-w) solid var(--cp-section);
+  background: var(--cp-section);
+}
+
+.dot[data-fill='accent'] {
+  background: var(--cp-accent);
+}
+
+/* A person's avatar; the ground shows while the image loads. */
+.avatar {
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-4);
+}
+
+/* A 24-unit line icon stroked in the text colour; data-tone='accent' strokes it in the accent (the phone's bell while it gets notifications). */
+.lineIcon {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lineIcon[data-tone='accent'] {
+  stroke: var(--cp-accent);
+}
+
+/* Pull to refresh: a floating disc, accent once letting go reloads (armed). */
+.pullDisc {
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-muted);
+  box-shadow: var(--cp-shadow-popover);
+}
+
+.pullDisc[data-state='armed'] {
+  color: var(--cp-accent);
+}
+
+/* Its arrow winds up with the pull: --pull-progress (0–1), set by the component. */
+.pullArrow {
+  rotate: calc(var(--pull-progress) * var(--cp-pull-wind));
+}
+
+/* A numbered point (::before carries the counter): the number in the nearest [data-section]'s colour. */
+.numbered::before {
+  color: var(--cp-section);
+  font-weight: var(--cp-weight-semibold);
+  line-height: inherit;
+}
+
+/* A hairline through a centred label: ::before and ::after are the rule, in a tile wash of the section colour. */
+.labelledRule::before,
+.labelledRule::after {
+  background: color-mix(in srgb, var(--cp-section) var(--cp-section-tile-mix), transparent);
+}

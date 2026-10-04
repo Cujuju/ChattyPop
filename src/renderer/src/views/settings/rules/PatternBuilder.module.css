@@ -1,0 +1,108 @@
+/* Keyword pattern builder (mode switch, word lists, the generated regex) and tester. Labels, hints, checks and buttons
+   are cp-* (theme/shared-controls.css); word-list chips are TermChips.module.css. */
+.builder,
+.tester {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+/* Sized like the rule page's other field hints. */
+.builder :global(.cp-hint) {
+  margin: 0;
+  font-size: var(--cp-text-2xs);
+  line-height: var(--cp-leading-relaxed);
+}
+
+.tester {
+  padding-top: var(--cp-space-4);
+  border-top: var(--cp-border-w) solid var(--cp-border-faint);
+}
+
+.input {
+  width: 100%;
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+}
+
+.mono,
+.code,
+.slash {
+  font-family: var(--cp-font-mono);
+}
+
+.code {
+  display: block;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-1);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.linkButton {
+  align-self: flex-start;
+  color: var(--cp-link);
+  font-size: var(--cp-text-xs);
+}
+
+.linkButton:hover {
+  color: var(--cp-link-hover);
+}
+
+.regexRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.slash {
+  color: var(--cp-text-muted);
+  white-space: nowrap;
+}
+
+/* Sample text with each match marked in the section colour. */
+.sample,
+.previewText {
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.hit {
+  border-radius: var(--cp-radius-sm);
+  background: color-mix(in srgb, var(--cp-section-rules) var(--cp-section-tile-mix), transparent);
+  color: var(--cp-text-1);
+}
+
+.previewList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.previewHit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  width: 100%;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  text-align: left;
+}
+
+.previewHit:hover {
+  background: var(--cp-surface-hover);
+}
+
+.previewMeta {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+}

@@ -1,0 +1,12 @@
+/* @cujuju/solidjs-glass and @cujuju/solidjs-glass-menu */
+
+:root {
+  --cujuju-glass-menu-text: var(--cp-text-1);
+  --cujuju-glass-menu-text-secondary: var(--cp-text-2);
+  --cujuju-glass-menu-text-muted: var(--cp-text-muted);
+  --cujuju-glass-menu-border: var(--cp-border);
+  --cujuju-glass-menu-surface-raised: var(--cp-surface-4);
+  --cujuju-glass-menu-input-bg: var(--cp-surface-3);
+  --glass-menu-scrollbar-thumb: var(--cp-scrollbar-thumb);
+  --glass-menu-scrollbar-thumb-hover: var(--cp-scrollbar-thumb-hover);
+}

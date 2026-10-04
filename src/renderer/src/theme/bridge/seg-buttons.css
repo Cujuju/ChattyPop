@@ -1,0 +1,74 @@
+/* @cujuju/solidjs-seg-buttons: colour via its variables, geometry via rules below.
+   F2 segmented control: a recessed track with borderless segments; the selected one is a raised neutral step.
+   Accent is not spent here: it belongs to the primary action, selection and unread. */
+
+:root {
+  --seg-active-bg: var(--cp-surface-5);
+  --seg-active-border: var(--cp-surface-5);
+  --seg-active-text: var(--cp-text-1);
+  --seg-active-weight: var(--cp-weight-semibold);
+  --seg-inactive-bg: transparent; /* the group container carries the track */
+  --seg-inactive-border: transparent;
+  --seg-inactive-text: var(--cp-text-muted);
+  --seg-hover-bg: var(--cp-surface-hover);
+  --seg-hover-text: var(--cp-text-1);
+  --seg-disabled-opacity: var(--cp-opacity-disabled);
+  --seg-focus-ring-color: var(--cp-focus-ring-color);
+  --seg-focus-ring: var(--cp-focus-ring);
+  --seg-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+  --seg-radius: var(--cp-radius-sm);
+  --cp-seg-track-w: var(--cp-border-w); /* the track's edge; a group wearing cp-stroke sets it to the stroke's */
+}
+
+/* Track: one bordered container; the package draws connected bordered buttons instead. The button heights below subtract
+   its edge, so the whole group keeps its token height whatever edge it wears. */
+.csb-group {
+  align-items: center;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-1);
+  border: var(--cp-seg-track-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-1);
+  font-family: var(--cp-font-sans);
+}
+
+/* A group with cp-stroke (the layout switcher): the message box's edge around the same recessed track. */
+.csb-group.cp-stroke {
+  --cp-seg-track-w: var(--cp-stroke-w);
+  --cp-stroke-fill: var(--cp-surface-1);
+}
+
+/* :nth-child(n) matches every button; it lifts specificity above the package's end-cap rules. */
+:root .csb-group > .csb-btn:nth-child(n),
+:root .csb-group > * > .csb-btn:nth-child(n) {
+  /* Column: the package's zero-height bold-width ghost (::after) sits under the label instead of beside it, so labels centre. */
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: 0;
+  line-height: var(--cp-leading-none);
+  border-radius: var(--seg-radius);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Size steps in tokens; the package hard-codes rem padding and 10px text. Heights exclude the track's padding and border, so the whole group matches the token. */
+:root .csb-btn-xs {
+  height: calc(var(--cp-chip-h) - 2 * var(--cp-space-1) - 2 * var(--cp-seg-track-w));
+  padding-inline: var(--cp-space-3);
+  font-size: var(--cp-control-text);
+}
+
+:root .csb-btn-sm {
+  height: calc(var(--cp-btn-h-sm) - 2 * var(--cp-space-1) - 2 * var(--cp-seg-track-w));
+  padding-inline: var(--cp-space-4);
+  font-size: var(--cp-control-text);
+}
+
+:root .csb-btn-md {
+  height: calc(var(--cp-btn-h) - 2 * var(--cp-space-1) - 2 * var(--cp-seg-track-w));
+  padding-inline: var(--cp-space-5);
+  font-size: var(--cp-control-text);
+}

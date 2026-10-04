@@ -1,0 +1,15 @@
+/* A scannable QR code: fixed size, dark on light in every theme. */
+.qr {
+  display: block;
+  width: var(--cp-qr-size);
+  height: var(--cp-qr-size);
+  border-radius: var(--cp-radius-sm);
+}
+
+.light {
+  fill: var(--cp-qr-light);
+}
+
+.dark {
+  fill: var(--cp-qr-dark);
+}

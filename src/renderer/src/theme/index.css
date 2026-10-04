@@ -1,0 +1,37 @@
+/* Theme entry. Order: toolkit stylesheets (layered defaults), tokens and sizes, bundled faces, themes, one bridge file per toolkit package,
+   base rules, native form controls, identity maps, then the shared cp-* classes.
+   Layers, lowest first: toolkit defaults, the reset and focus ring (base.css), the shared cp-* classes. Every unlayered rule
+   (bridge files, CSS modules) beats all three, so a module overrides a cp-* class whatever the load order.
+   Bridge order matches the former single file; editable-list-row must follow editable-list-flyout. */
+@layer cujuju-defaults, cp-base, cp-shared;
+@import '@cujuju/solidjs-seg-buttons/style.css';
+@import './tokens.css';
+@import './sizes.css';
+@import './fonts.css';
+@import './nameFonts.css';
+/* Themes after the default tokens: each overrides them on [data-theme='<id>'] (Settings → Appearance). */
+@import './themes/spotlight.css';
+@import './themes/tide.css';
+@import './themes/paper.css';
+@import './themes/daylight.css';
+/* Phone metrics after the themes: they re-scope size tokens on the phone surface. */
+@import './phone.css';
+@import './bridge/shared.css';
+@import './bridge/seg-buttons.css';
+@import './bridge/accordion-dock.css';
+@import './bridge/collapsible.css';
+@import './bridge/kv-tooltip.css';
+@import './bridge/pill-date-picker.css';
+@import './bridge/pill-number-picker.css';
+@import './bridge/pill-toggle.css';
+@import './bridge/tri-state-chip.css';
+@import './bridge/chip-flyout.css';
+@import './bridge/glass-menu.css';
+@import './bridge/select-flyout.css';
+@import './bridge/editable-list-flyout.css';
+@import './bridge/editable-list-row.css';
+@import './base.css';
+@import './forms.css';
+@import './identity.css';
+@import './shared-controls.css';
+@import './shared-layout.css';

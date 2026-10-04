@@ -1,0 +1,129 @@
+/* An author's name with Discord's marks after it (AuthorName): the name in the member's role colour (--role-color,
+   inline per author) else the default name colour; then APP, the server tag chip and the role icon, at Discord's sizes.
+   Hooks: .name[data-role-color='true']. */
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-author-mark-gap);
+  color: var(--cp-text-1);
+}
+
+.text {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--cp-weight-medium); /* Discord's name weight */
+  text-overflow: ellipsis;
+}
+
+.name[data-role-color='true'] .text {
+  color: var(--role-color);
+}
+
+/* Enhanced Role Styles, as Discord draws them: the stops repeat across the name (--cp-name-gradient-size) and scroll while
+   its message is hovered; a holographic name (three stops) also glows then, through a blurred copy (data-text) behind it. */
+.name[data-gradient] .text {
+  position: relative;
+  z-index: 0;
+  background: linear-gradient(to right, var(--role-color-1), var(--role-color-2), var(--role-color-1));
+  background-size: var(--cp-name-gradient-size) auto;
+  background-clip: text;
+  filter: var(--cp-name-gradient-filter);
+  -webkit-text-fill-color: transparent;
+}
+
+.name[data-gradient='3'] .text {
+  background-image: linear-gradient(to right, var(--role-color-1), var(--role-color-2), var(--role-color-3), var(--role-color-1));
+}
+
+:global(article):hover .name[data-gradient] .text {
+  animation: name-gradient-scroll var(--cp-name-gradient-duration) linear infinite;
+}
+
+@keyframes name-gradient-scroll {
+  from {
+    background-position: 0 center;
+  }
+  to {
+    background-position: var(--cp-name-gradient-size) center;
+  }
+}
+
+.name[data-gradient='3'] .text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: inherit;
+  background-clip: text;
+  filter: blur(var(--cp-name-glow-blur));
+  opacity: 0;
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+  -webkit-text-fill-color: transparent;
+}
+
+:global(article):hover .name[data-gradient='3'] .text::after {
+  opacity: var(--cp-name-glow-opacity);
+}
+
+/* Hover underlines the name alone, as Discord does. */
+.name:hover .text {
+  text-decoration: underline;
+}
+
+.app,
+.tag,
+.roleIcon,
+.roleEmoji {
+  flex: 0 0 auto;
+}
+
+.app {
+  display: inline-flex;
+  align-items: center;
+  height: var(--cp-app-tag-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-app-tag-bg);
+  color: var(--cp-app-tag-fg);
+  font-size: var(--cp-app-tag-text);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-none);
+}
+
+/* A verified app's check, tucked into the chip's left padding as Discord sets it. */
+.check {
+  width: var(--cp-app-tag-check);
+  height: var(--cp-app-tag-check);
+  margin-left: var(--cp-app-tag-check-inset);
+}
+
+.tag {
+  display: inline-flex;
+  margin-left: var(--cp-tag-chip-offset);
+  align-items: center;
+  gap: var(--cp-space-1);
+  height: var(--cp-tag-chip-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-tag-bg);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-none);
+}
+
+.badge {
+  width: var(--cp-tag-badge);
+  height: var(--cp-tag-badge);
+}
+
+.roleIcon {
+  width: var(--cp-role-icon);
+  height: var(--cp-role-icon);
+  object-fit: contain;
+}
+
+.roleEmoji {
+  font-size: var(--cp-role-emoji);
+  line-height: var(--cp-leading-none);
+}

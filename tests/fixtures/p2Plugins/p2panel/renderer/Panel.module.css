@@ -1,0 +1,7 @@
+.row {
+  display: flex;
+  gap: var(--cp-space-2);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}

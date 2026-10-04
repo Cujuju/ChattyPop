@@ -1,0 +1,29 @@
+/* @cujuju/solidjs-pill-date-picker */
+
+:root {
+  --pdp-bg: var(--cp-surface-3);
+  --pdp-border: var(--cp-border);
+  --pdp-text: var(--cp-text-1);
+  --pdp-text-muted: var(--cp-text-muted);
+  --pdp-radius: var(--cp-radius-sm);
+  --pdp-disabled-opacity: var(--cp-opacity-disabled);
+  --pdp-focus-ring-color: var(--cp-focus-ring-color);
+  --pdp-focus-ring: var(--cp-focus-ring);
+  --pdp-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+  --pdp-hover-bg: var(--cp-surface-hover);
+  --pdp-popout-z: var(--cp-z-popover);
+  --pdp-popout-bg: var(--cp-surface-3);
+  --pdp-popout-border: var(--cp-border);
+  --pdp-popout-shadow: var(--cp-shadow-popover);
+  --pdp-row-hover-bg: var(--cp-surface-hover);
+  --pdp-row-selected-bg: var(--cp-surface-4);
+  --pdp-row-adjusted-bg: var(--cp-accent-wash);
+  --pdp-row-adjusted-note: var(--cp-accent);
+  --pdp-rail-color: var(--cp-accent);
+  --pdp-scrollbar-thumb: var(--cp-scrollbar-thumb);
+  --pdp-scrollbar-thumb-hover: var(--cp-scrollbar-thumb-hover);
+  --pdp-dte-expiring: var(--cp-danger);
+  --pdp-dte-urgent: var(--cp-accent);
+  --pdp-dte-near: var(--cp-text-1);
+  --pdp-dte-far: var(--cp-text-muted);
+}

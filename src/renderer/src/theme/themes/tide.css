@@ -1,0 +1,92 @@
+/* Theme 'tide': soft slate, rounded cards spaced on the ground, pastel sections, Atkinson Hyperlegible type one
+   step larger for easy reading. Primary panels lift (brighter card, section ring, shadow, filled icon); reference
+   panels recede toward the ground with a muted header.
+   Contrast (WCAG 2.x, sRGB) checked 2026-09-25, all >= 4.5:1:
+   text-1 / text-2 / text-muted on surface-0..5: 13.8-8.9 / 10.0-6.4 / 7.3-4.7; on primary card 11.0 / - / 5.8;
+   on reference card 13.2 / - / 6.9; text-on-accent on accent 8.9; info on cite-bg 8.2;
+   sections on surface-3 6.6-9.2; text-on-accent on each section (badge, filled tile) 8.8-12.4. */
+
+[data-theme='tide'] {
+  --cp-ground: #1a2130;
+  --cp-surface-0: #1a2130; /* chrome sits on the ground, so only the cards read as surfaces */
+  --cp-surface-1: #1f2736;
+  --cp-surface-2: #222b3b;
+  --cp-surface-3: #252f40;
+  --cp-surface-4: #2e394d;
+  --cp-surface-5: #34405a;
+  --cp-surface-cited: #2a3450;
+
+  --cp-border: #334058;
+  --cp-border-subtle: #2b3549;
+  --cp-border-faint: #262f41;
+  --cp-border-strong: #46546f;
+
+  --cp-text-1: #e9eef6;
+  --cp-text-2: #c4ccd9;
+  --cp-text-muted: #a4afc1;
+  --cp-text-on-accent: #0d1628;
+
+  --cp-accent: #86b8ff;
+  --cp-accent-hover: #a3c9ff;
+  --cp-accent-2: #b7e38a;
+  --cp-info: #8fd3ff;
+  --cp-link-hover: #bfe6ff;
+  --cp-cite-bg: #1d3148;
+  --cp-cite-border: #335679;
+
+  --cp-section-summary: #c3a6ff;
+  --cp-section-provider: #7fe3d0;
+  --cp-section-rules: #b7e38a;
+  --cp-section-alerts: #ff9fb0;
+  --cp-section-links: #8fd3ff;
+  --cp-section-chat: #a9b8ff;
+  --cp-section-plans: #ffc98a;
+  --cp-section-tags: #f2a7e0;
+
+  --cp-font-sans: 'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, sans-serif;
+  --cp-font-mono: 'Atkinson Hyperlegible Mono', 'Cascadia Mono', Consolas, monospace;
+  --cp-text-md: 14px; /* body sizes one step up: Atkinson's legibility is the point of this theme */
+  --cp-text-base: 15px;
+
+  --cp-radius-sm: 5px;
+  --cp-radius-md: 7px;
+  --cp-radius-lg: 12px;
+
+  /* Rounded cards spaced on the ground; headers sit on the card itself, no band, rule or stripe. */
+  --cp-layout-pad: 10px;
+  --cp-panel-gap: 10px;
+  --cp-panel-divider-w: 0px;
+  --cp-panel-handle: transparent;
+  --cp-panel-handle-hover: var(--cp-accent-wash-strong);
+  --cp-panel-radius: 14px;
+  --cp-header-h: 44px;
+  --cp-header-band: transparent;
+  --cp-section-wash-mix: 0%;
+  --cp-header-stripe-h: 0px;
+  --cp-header-tile: 26px;
+  --cp-header-icon: var(--cp-icon-lg);
+}
+
+/* Primary: brighter card, section ring and shadow, filled icon, larger title. */
+[data-theme='tide'] [data-importance='primary'] {
+  --cp-surface-1: #28324a;
+  --cp-surface-3: #28324a;
+  --cp-panel-ring-mix: 45%;
+  --cp-panel-shadow: 0 6px 20px rgb(0 0 0 / 22%);
+  --cp-header-tile: 30px;
+  --cp-header-tile-mix: 100%;
+  --cp-header-icon-mix: 0%;
+  --cp-header-icon: 17px;
+  --cp-header-title-size: 17px;
+}
+
+/* Reference: card recedes toward the ground; no tile, muted icon and title. */
+[data-theme='tide'] [data-importance='reference'] {
+  --cp-surface-1: #1d2533;
+  --cp-surface-3: #1d2533;
+  --cp-header-tile-mix: 0%;
+  --cp-header-icon-mix: 0%;
+  --cp-header-icon-base: var(--cp-text-muted);
+  --cp-header-title-color: var(--cp-text-muted);
+  --cp-header-title-size: var(--cp-text-md);
+}

@@ -1,0 +1,49 @@
+/* Discord's in-place message editor (MessageEditor): the composer's rounded field in place of the text, with
+   "escape to cancel • enter to save" under it. Field look is theme/forms.css. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  align-self: stretch;
+}
+
+/* Grows with its text (field-sizing) up to the composer's cap. */
+.input {
+  min-height: var(--cp-composer-btn);
+  max-height: var(--cp-composer-input-max-h);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: none;
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-3);
+  font-size: var(--cp-text-base);
+  line-height: var(--cp-leading-relaxed);
+  field-sizing: content;
+  resize: none;
+}
+
+.input:hover,
+.input:focus-visible {
+  border: none;
+}
+
+/* The phone's rows turn off selection for their long-press menu; the field needs it back. */
+:global(html[data-surface='companion']) .root .input {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.hint {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+}
+
+.link {
+  color: var(--cp-link);
+}
+
+.link:hover {
+  color: var(--cp-link-hover);
+  text-decoration: underline;
+}

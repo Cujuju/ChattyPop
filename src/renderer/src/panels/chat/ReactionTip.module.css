@@ -1,0 +1,42 @@
+/* A reaction's who-reacted tip, as Discord's: the emoji large beside the names, floating above its pill.
+   Placed by ReactionTip (fixed left/top: the pill's centre and top edge). */
+.tip {
+  position: fixed;
+  z-index: var(--cp-z-tooltip);
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-6);
+  max-width: var(--cp-reaction-tip-max-w);
+  padding: var(--cp-space-5) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-3);
+  box-shadow: var(--cp-shadow-popover);
+  transform: translate(-50%, calc(-100% - var(--cp-reaction-tip-gap)));
+  pointer-events: none;
+}
+
+.emoji {
+  flex: none;
+  width: var(--cp-reaction-tip-emoji);
+  height: var(--cp-reaction-tip-emoji);
+  object-fit: contain;
+}
+
+.unicode {
+  flex: none;
+  font-size: var(--cp-reaction-tip-emoji);
+  line-height: var(--cp-leading-none);
+}
+
+.text {
+  margin: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-base);
+  line-height: var(--cp-leading-tight);
+}
+
+.name {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}

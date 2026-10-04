@@ -1,0 +1,43 @@
+/* On/off switch: a track with a knob; on = the success colour. input.…[type] outranks theme/forms.css's app-wide
+   checkbox look, which this replaces; disabled and focus states come from forms.css and base.css. */
+input.switch[type='checkbox'] {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--cp-switch-w);
+  height: var(--cp-switch-h);
+  margin: 0;
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+  appearance: none;
+  cursor: pointer;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+input.switch[type='checkbox']::before {
+  display: none;
+}
+
+input.switch[type='checkbox']::after {
+  position: absolute;
+  top: var(--cp-space-px);
+  left: var(--cp-space-px);
+  width: calc(var(--cp-switch-h) - 2 * var(--cp-space-px) - 2 * var(--cp-border-w));
+  height: calc(var(--cp-switch-h) - 2 * var(--cp-space-px) - 2 * var(--cp-border-w));
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-text-2);
+  content: '';
+  transition: transform var(--cp-duration-fast) var(--cp-ease);
+}
+
+input.switch[type='checkbox']:checked {
+  border-color: var(--cp-success);
+  background: var(--cp-success);
+}
+
+input.switch[type='checkbox']:checked::after {
+  background: var(--cp-text-on-accent);
+  transform: translateX(calc(var(--cp-switch-w) - var(--cp-switch-h)));
+}

@@ -1,0 +1,18 @@
+# Hoisted node_modules: electron-builder resolves runtime deps from a flat tree.
+nodeLinker: hoisted
+
+allowBuilds:
+  # Ships Node-API prebuilds in its tarball; the implicit node-gyp build is not needed.
+  better-sqlite3-multiple-ciphers: false
+  electron: true
+  # Squirrel installer helper; ChattyPop packages with NSIS/dir.
+  electron-winstaller: false
+  esbuild: true
+
+# Our own packages, published 2026-10-03, are younger than pnpm's minimum release age (1 day); drop these once older.
+minimumReleaseAgeExclude:
+  - '@cujuju/solidjs-color-picker@0.3.0'
+  - '@cujuju/solidjs-pill-number-picker@0.5.1'
+  - '@cujuju/solidjs-seg-buttons@0.3.0'
+  - '@cujuju/solidjs-virtual-log@0.1.0'
+  - '@cujuju/solidjs-hooks@2.1.0'

@@ -1,0 +1,6 @@
+/* @cujuju/solidjs-chip-flyout: sets tri-state-chip variables on its chip container, so :root alone would lose. */
+
+:root .cujuju-cf-chips {
+  --ctc-padding: var(--cp-space-2) var(--cp-space-4);
+  --ctc-font-weight: var(--cp-weight-regular);
+}

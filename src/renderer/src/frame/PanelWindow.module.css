@@ -1,0 +1,5 @@
+/* A panel in its own window. Look only; geometry is inline (PanelWindow.tsx). Unset --cp-window-paint (built-in
+   themes): transparent, the body's surface shows as before. A custom gradient theme veils the gradient here. */
+.frame {
+  background: var(--cp-window-paint, transparent);
+}

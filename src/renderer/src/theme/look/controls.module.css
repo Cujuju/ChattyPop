@@ -1,0 +1,279 @@
+/* Look vocabulary: interactive rows, chips, segments, buttons and links (docs/plugin-architecture.md §14). Look only.
+   States are ARIA attributes where one exists (aria-pressed, aria-checked, aria-current), else data attributes.
+   Hooks: .row[data-hover='raise'], .row[data-press], .row[data-state='dimmed'], .button[data-variant],
+   .link[data-underline='always']. Order matters: a state rule follows the hover rule it overrides. */
+
+/* List row: a hover wash that fades in. raise: a rounded tile that lifts to surface-4; press: a pressed wash;
+   dimmed: past or inactive. */
+.row {
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.row:hover {
+  background: var(--cp-surface-hover);
+}
+
+.row[data-hover='raise'] {
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+}
+
+.row[data-hover='raise']:hover {
+  background: var(--cp-surface-4);
+}
+
+.row[data-press]:active {
+  background: var(--cp-surface-active);
+}
+
+.row[data-state='dimmed'] {
+  opacity: var(--cp-opacity-disabled);
+}
+
+/* A settings row showing its current value, with a native control laid unseen over it (.coverControl): a pressed
+   wash, and that control's focus ring drawn on the row. */
+.valueRow:active {
+  background: var(--cp-surface-active);
+}
+
+.valueRow:has(:focus-visible) {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* The native control over a value row: unseen, so the row's own text shows the value; a tap still opens its picker. */
+.coverControl {
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* A choice in a popover checklist: lifts at once, no fade. */
+.option {
+  border-radius: var(--cp-radius-sm);
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--cp-surface-4);
+}
+
+/* A control flush in a row draws its focus ring inside, so focusing never grows it. */
+.insetFocus:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Raised pill toggle; pressed takes the nearest [data-section]'s colour on a tile wash of it. */
+.chip {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-4);
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.chip:hover {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-5);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--cp-section);
+  background: color-mix(in srgb, var(--cp-section) var(--cp-section-tile-mix), transparent);
+}
+
+.chip:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Ghost filter chip; pressed takes its identity colour (--cp-platform, from [data-platform]) on a wash of it. */
+.filterChip {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.filterChip:hover {
+  color: var(--cp-text-1);
+  background: var(--cp-surface-hover);
+}
+
+.filterChip[aria-pressed='true'] {
+  border-color: var(--cp-platform);
+  background: color-mix(in srgb, var(--cp-platform) var(--cp-platform-wash-mix), transparent);
+  color: var(--cp-platform);
+}
+
+.filterChip:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Segmented control: a recessed track (.segments) of options (.segment); the checked one is raised. */
+.segments {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-1);
+}
+
+.segment {
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.segment:hover {
+  color: var(--cp-text-1);
+  background: var(--cp-surface-hover);
+}
+
+.segment[aria-checked='true'] {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-medium);
+}
+
+.segment:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Thumb-sized button: primary is the accent action, raised the neutral one. */
+.button {
+  border: 0;
+  border-radius: var(--cp-radius-md);
+}
+
+.button[data-variant='primary'] {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.button[data-variant='raised'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+/* A square around a line icon; a pressed wash on touch. */
+.iconButton {
+  border: 0;
+  border-radius: var(--cp-radius-md);
+  background: transparent;
+  color: var(--cp-text-muted);
+}
+
+.iconButton:active {
+  background: var(--cp-surface-active);
+}
+
+.iconButton:focus-visible {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Navigation entry; the current one (aria-current='page') is raised. */
+.navItem {
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-2);
+}
+
+.navItem:active {
+  background: var(--cp-surface-active);
+}
+
+.navItem[aria-current='page'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.navItem:focus-visible {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Inline link: underlined on hover, or always. */
+.link {
+  color: var(--cp-link);
+}
+
+.link[data-underline='always'] {
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--cp-link-hover);
+  text-decoration: underline;
+}
+
+/* Muted text that is secretly a link (a row's who / where / when): brightens and underlines on hover. */
+.quietLink {
+  color: var(--cp-text-muted);
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.quietLink:hover {
+  color: var(--cp-text-2);
+  text-decoration: underline;
+}
+
+.quietLink:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* A filled badge that is a button: lightens on hover, keeping its colour. */
+.badgeButton {
+  cursor: pointer;
+  transition: filter var(--cp-duration-fast) var(--cp-ease);
+}
+
+.badgeButton:hover {
+  filter: brightness(var(--cp-badge-hover-brightness));
+}
+
+.badgeButton:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* A quiet pill that is a button (a person's tag, which searches for it): its edge and text brighten on hover.
+   chip: the profile's role chip shape, where it sits in the same window as roles. */
+.pillButton {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-2);
+  cursor: pointer;
+}
+
+.pillButton[data-shape='chip'] {
+  border-radius: var(--cp-role-chip-radius);
+}
+
+.pillButton:hover {
+  border-color: var(--cp-border);
+  color: var(--cp-text-1);
+}
+
+/* A label that toggles the control inside it (a model's "Use" choice). */
+.toggleLabel {
+  cursor: pointer;
+}
+
+/* A cell in a picker grid (an emoji): washed on hover and focus. */
+.pickCell {
+  border-radius: var(--cp-radius-sm);
+}
+
+.pickCell:hover,
+.pickCell:focus-visible {
+  background: var(--cp-surface-hover);
+}

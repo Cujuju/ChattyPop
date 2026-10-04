@@ -1,0 +1,211 @@
+/* Settings cards: titled groups of rows (name and hint left, control right), figure tiles and notes. Used by
+   SettingsLayout.tsx (Card, Row, Stat, settingsControl). Notes and stat labels are cp-note/cp-stat-label
+   (theme/shared-layout.css). */
+.card {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-6) var(--cp-space-7) var(--cp-space-2);
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.cardMeta {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-6) var(--cp-space-7);
+}
+
+.row + .row {
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-8);
+}
+
+.rowLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+}
+
+/* The hint runs under the name and control, across the row; it stops short of very long lines. */
+.rowHint {
+  max-width: var(--cp-settings-hint-max-w);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+  text-wrap: pretty;
+}
+
+/* Shrinks no further than its widest item, so a button group wraps in a narrow window instead of overflowing. */
+.rowControl {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.rowBelow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding-top: var(--cp-space-3);
+}
+
+/* Controls in rows: sized to their content, not the column. */
+.select {
+  width: var(--cp-settings-control-w);
+}
+
+.wide {
+  width: 100%;
+}
+
+.number {
+  width: var(--cp-settings-number-w);
+  text-align: right;
+}
+
+.unit {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--cp-settings-stat-min-w), 1fr));
+  gap: var(--cp-space-5);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  padding: var(--cp-space-5) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.statValue {
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statNote {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* A follow-up setting inside a row (e.g. the age for older messages): no second inset or divider. */
+.rowBelow > .row {
+  padding: 0;
+  border-top: 0;
+}
+
+/* A note straight in a card, or in a group of its rows (an element carrying hooks around them): the rows' inset. */
+.card > :global(.cp-note),
+.group > :global(.cp-note) {
+  padding: var(--cp-space-2) var(--cp-space-7);
+}
+
+/* Closing the card: the rows' bottom inset. */
+.card > :global(.cp-note):last-child,
+.group:last-child > :global(.cp-note):last-child {
+  padding-bottom: var(--cp-space-6);
+}
+
+/* Free content inside a card (a picker, a list): the rows' inset. */
+.cardBody {
+  padding: var(--cp-space-4) var(--cp-space-7) var(--cp-space-7);
+}
+
+/* A time field is wider than a number. */
+.number[type='time'] {
+  width: auto;
+}
+
+/* A card's form (InlineForm, with .cardBody): fields and their button on one line, notes under them. */
+.inlineForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+}
+
+.inlineFields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cp-space-4);
+}
+
+/* Fields share the line; each wraps below a number field's width. */
+.field {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  min-width: var(--cp-settings-number-w);
+}
+
+.field > input {
+  width: 100%;
+}
+
+.fieldLabel {
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+}
+
+/* The submit button stands as tall as the fields beside it. */
+.inlineFields > button {
+  height: var(--cp-btn-h);
+}
+
+/* An InlineForm in a row's follow-up: the row's inset already applies. */
+.rowBelow > .inlineForm {
+  padding: 0;
+}
+
+/* A button group with nothing to offer takes no room. */
+.buttons:empty {
+  display: none;
+}

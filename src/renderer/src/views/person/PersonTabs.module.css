@@ -1,0 +1,366 @@
+/* The Person window's archive column: the Archive block, then a tab bar that sticks while its list scrolls and wraps
+   in a narrow window. The column is the width container its rows read. Rows are the look vocabulary's row role; stat
+   tiles its card role; this file holds their layout. */
+.main {
+  container-type: inline-size;
+  min-width: 0;
+  padding-bottom: var(--cp-space-8);
+}
+
+/* Beside the rail (same breakpoint as PersonView.module.css) the column scrolls on its own. */
+@container (width >= 604px) {
+  .main {
+    overflow-y: auto;
+  }
+}
+
+.archive {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: 0 var(--cp-panel-pad-x) var(--cp-space-7);
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cp-space-6);
+  margin: 0;
+  padding: var(--cp-space-6) 0 var(--cp-space-3);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.range {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-regular);
+  text-align: right;
+}
+
+/* Figure tiles sharing the row; they wrap, the last row stretching. */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-4);
+  margin: 0;
+}
+
+/* The figure over its label (a <dt> comes first in the markup). */
+.stat {
+  display: flex;
+  flex: 1 1 var(--cp-profile-stat-min-w);
+  flex-direction: column-reverse;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  padding: var(--cp-space-3) var(--cp-space-5);
+}
+
+.stat > dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.stat > dd {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xl);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+.nicknames {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* A nickname as its server draws it (AuthorName: role colour, font); one without a place stays plain. */
+.nick {
+  font-size: inherit;
+}
+
+span.nick {
+  color: var(--cp-text-2);
+}
+
+/* A plugin's person section, set off from the archive's own lines by a rule. One that renders nothing takes no space. */
+.pluginSection {
+  display: none;
+}
+
+.pluginSection:has(> *) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  margin-top: var(--cp-space-3);
+  padding-top: var(--cp-space-6);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* On the window's ground, so a list scrolls under it: the tabs, then the back-to-top button's column at the right end. */
+.tabBar {
+  position: sticky;
+  top: 0;
+  z-index: var(--cp-z-sticky);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 0 var(--cp-space-4) 0 var(--cp-panel-pad-x);
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-3);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--cp-space-7);
+}
+
+.tab {
+  white-space: nowrap;
+  margin-bottom: calc(-1 * var(--cp-border-w));
+  padding: var(--cp-space-5) 0;
+  border: none;
+  border-bottom: var(--cp-profile-tab-underline) solid transparent;
+  background: none;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-medium);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--cp-text-1);
+}
+
+.tab[aria-selected='true'] {
+  border-bottom-color: var(--cp-text-1);
+  color: var(--cp-text-1);
+}
+
+/* Back to top, shown while the column is scrolled: an icon in a square the height of a body button, centred on the
+   first row of tabs (a tab's padding, then its line). */
+.toTop {
+  display: inline-grid;
+  place-content: center;
+  align-self: start;
+  width: var(--cp-btn-h);
+  height: var(--cp-btn-h);
+  margin-top: calc(var(--cp-space-5) + (1lh - var(--cp-btn-h)) / 2);
+  font-size: var(--cp-text-base);
+  cursor: pointer;
+}
+
+.toTop:disabled {
+  visibility: hidden;
+}
+
+.toTop:hover {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+}
+
+.toTopIcon {
+  width: var(--cp-jump-icon);
+  height: var(--cp-jump-icon);
+}
+
+.count {
+  margin-left: var(--cp-space-3);
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-2xs);
+}
+
+/* Inset by a row's own padding less, so row text lines up with the Archive block. */
+.panel {
+  min-width: 0;
+  padding: var(--cp-space-4) var(--cp-space-4) 0;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-4);
+}
+
+.list,
+.people {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Mutual servers and friends: as many columns as fit. */
+.people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--cp-profile-person-min-w), 1fr));
+  gap: var(--cp-space-1) var(--cp-space-7);
+}
+
+/* Where they post: one grid, so every row's count and date line up. A row is server icon, channel, count, date chip. */
+.places {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.places > li,
+.place {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.place {
+  --guild-icon-size: var(--cp-avatar-md);
+  align-items: center;
+  column-gap: var(--cp-space-5);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  font-size: var(--cp-text-md);
+  text-align: left;
+}
+
+/* Behind a row, a faint bar of its share of their busiest place (--v, 0–1, inline); the hover wash shows over the rest. */
+.places .place,
+.places .place:hover {
+  background-image: linear-gradient(to right, var(--cp-profile-share-bar) calc(var(--v) * 100%), transparent 0);
+}
+
+/* A place outside a server (a DM): a person glyph in the icon's box. */
+.placeless {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-avatar-md);
+  height: var(--cp-avatar-md);
+  color: var(--cp-text-muted);
+}
+
+.placeCount {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.placeFigure {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+}
+
+/* When they last posted there, on the stat tiles' ground: every chip as wide as the widest. */
+.placeLast {
+  padding: var(--cp-space-1) var(--cp-space-3);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* A link: its text wraps on the left; platform and date stay on one line on the right. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--cp-space-1) var(--cp-space-6);
+  width: 100%;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  font-size: var(--cp-text-md);
+  text-align: left;
+}
+
+/* A server or friend: icon, then name and nickname or username. */
+.person {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--cp-space-4);
+}
+
+/* Name left, nickname right; a pair too long for one line puts the nickname under the name. */
+.personText {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cp-space-1) var(--cp-space-4);
+  min-width: 0;
+}
+
+.personText > .rowMeta {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+}
+
+.friendAvatar {
+  width: var(--cp-avatar-sm);
+  height: var(--cp-avatar-sm);
+  object-fit: cover;
+}
+
+.rowMain {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.rowMeta {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* A column under 420px (a narrow window, or just past the rail's breakpoint): the figures sit three to a row, so
+   the five never leave one alone, and a row's meta drops under its text. */
+@container (width < 420px) {
+  .stat {
+    flex-basis: calc((100% - 2 * var(--cp-space-4)) / 3);
+  }
+
+  .row:not(.person) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row:not(.person) > .rowMeta {
+    text-align: left;
+  }
+
+  /* The count and date drop under the channel, beside the icon's column. */
+  .places {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .place {
+    row-gap: var(--cp-space-1);
+  }
+
+  .place > .rowMain {
+    grid-column: 2 / -1;
+  }
+
+  .placeCount {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .placeLast {
+    grid-column: 3;
+    justify-self: start;
+  }
+}

@@ -1,0 +1,16 @@
+/* @cujuju/solidjs-kv-tooltip */
+
+:root {
+  --kv-bg: var(--cp-surface-3);
+  --kv-border: var(--cp-border);
+  --kv-key-color: var(--cp-text-muted);
+  --kv-value-color: var(--cp-text-1);
+  --kv-separator-color: var(--cp-border-subtle);
+  --kv-radius: var(--cp-radius-md);
+  --kv-shadow: var(--cp-shadow-popover);
+  --kv-padding: var(--cp-space-3) var(--cp-space-4);
+  --kv-key-font-size: var(--cp-text-xs);
+  --kv-value-font-size: var(--cp-text-sm);
+  --kv-gap: var(--cp-space-4);
+  --kv-line-height: var(--cp-leading-relaxed);
+}

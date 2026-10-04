@@ -1,0 +1,240 @@
+/* Per-component dimensions. Theme-independent: no theme overrides these, so they sit on :root only. */
+:root {
+  /* Layout: app frame */
+  --cp-topbar-h: 48px;
+  --cp-statusbar-h: 28px;
+  --cp-sidebar-w: 232px;
+  --cp-search-w: 420px;
+  --cp-splitter-size: 10px;
+  --cp-resize-grab: 8px; /* pointer hit area centred on a 1px split divider; takes no layout space */
+  --cp-dialog-w: 760px; /* settings: tab list plus a ~580px section column */
+  --cp-dialog-h: 640px; /* fixed, so switching settings tabs never resizes the dialog */
+  --cp-dialog-nav-w: 180px; /* settings tab list */
+  --cp-settings-min-w: calc(var(--cp-dialog-nav-w) + var(--cp-window-min-w)); /* tab list plus a usable section column */
+  --cp-dialog-inset: 48px; /* minimum gap between a dialog and the window edge */
+  --cp-forward-w: 480px; /* Forward window: one column of destinations, server names beside them */
+  --cp-forward-h: 640px; /* ten destinations in view above the message and its note */
+  --cp-forward-preview-lines: 3; /* the forwarded message's text before it is cut */
+  --cp-forward-min-h: 440px; /* header, search, three destinations and the whole compose band */
+  --cp-switcher-w: 480px; /* channel switcher: a channel name and its server on one line */
+  --cp-switcher-h: 440px; /* about ten channels under the search field */
+  --cp-grip-w: 40px;
+  --cp-grip-h: 2px;
+  --cp-qr-size: 176px; /* pairing QR: a phone camera reads it from arm's length */
+  --cp-toolbar-scroll-room: 100lvh; /* phone companion page scroll: a full screen, more than any browser toolbar travels */
+  --cp-screen-visible-h: 100dvh; /* phone companion in a browser tab: the visible area, which follows the toolbars */
+
+  /* Glyphs drawn in CSS */
+  --cp-chevron-size: 5px; /* disclosure chevron box */
+  --cp-chevron-closed: rotate(-45deg); /* border-drawn chevron pointing right */
+  --cp-chevron-open: rotate(45deg); /* pointing down */
+  --cp-check-shape: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 80% 0, 40% 62%); /* checkbox tick */
+
+  /* Layout: panels. One header height everywhere; sub-headers (filter bars) one step shorter. */
+  --cp-panel-header-h: 36px;
+  --cp-panel-subheader-h: 32px;
+  --cp-panel-pad-x: var(--cp-space-7); /* panel header and body inset */
+  --cp-sidebar-pad-x: var(--cp-space-6); /* sidebar inset, one step tighter than panels */
+  --cp-tab-indicator-h: 2px; /* selected tab underline */
+  --cp-insight-h-default: 404px;
+  --cp-links-col-w: 264px;
+  --cp-chat-time-col-w: 56px;
+  --cp-chat-author-col-w: 120px;
+  --cp-attachment-w: 420px;
+  --cp-attachment-max-h: 320px; /* inline image preview in a message row */
+  --cp-link-title-lines: 2; /* plain title clamp when a link has no preview title */
+
+  --cp-link-desc-lines: 4; /* preview description in the Links panel */
+  --cp-link-media-max-h: 280px; /* preview image or GIF in the Links panel */
+  --cp-link-thumb: 80px; /* side thumbnail in the Links panel */
+  --cp-link-brief-w: 340px; /* preview card in a short list of links (a person's): fits beside the Person window's rail */
+  --cp-link-brief-desc-lines: 2; /* its description */
+  --cp-link-brief-media-max-h: 180px; /* its image or GIF */
+  --cp-link-brief-thumb: 56px; /* its side thumbnail */
+  --cp-filter-select-max-w: 280px; /* feed filter selects, so a long channel name cannot push the range picker off the bar */
+  --cp-alert-rule-max-w: 20ch; /* alert row rule chip: fits a three-word rule name; longer names truncate so channel and author keep room */
+
+  /* Layout: controls */
+  --cp-chip-h: 20px; /* inline citation / status chips */
+  --cp-seg-h: 22px; /* segmented buttons, keyword chips */
+  --cp-btn-h-sm: 24px; /* header buttons and selects */
+  --cp-row-h: 28px; /* sidebar rows */
+  --cp-row-h-sm: 24px; /* thread rows nested under a sidebar channel */
+  --cp-btn-h: 28px; /* fields, body buttons, top bar controls */
+  --cp-btn-h-lg: var(--cp-btn-h); /* alias kept for modules */
+  --cp-badge-line-h: 16px;
+  --cp-meta-line-h: 18px; /* one-line row meta (who/where/when); badges and dots centre on it */
+  --cp-badge-h: 18px; /* 'N new' pill in a panel header */
+  --cp-badge-w: 30px; /* platform badge, fixed so titles align across rows ('WEB' is the widest) */
+  --cp-new-marker-w: 2px; /* accent edge on an unseen row */
+  --cp-mention-bar-w: 2px; /* leading bar on a message that pings the owner, Discord's width */
+  --cp-meter-h: 6px;
+  --cp-meter-h-sm: 4px;
+  --cp-usage-provider-min-w: 232px; /* a Plan usage provider column in a wide slot: label, bar, %, reset */
+  --cp-percent-w: 4ch; /* mono '100%' readout, reserved so shorter values don't nudge neighbours */
+  --cp-meter-warn-pct: 80; /* usage at or above this reads in accent, not success (unitless, matches meter value 0-100) */
+  --cp-progress-h: 2px; /* indeterminate progress track */
+  --cp-progress-sweep-w: 40%; /* width of the moving highlight on that track */
+  --cp-dot: 6px;
+  --cp-dot-lg: 8px;
+  --cp-icon-xs: 10px;
+  --cp-icon-sm: 12px;
+  --cp-icon-md: 14px;
+  --cp-icon-lg: 16px;
+  --cp-jump-icon: 20px; /* the arrow of a jump button that is an icon alone (back to top, jump to newest): reads at a glance */
+  --cp-icon-line: 1px; /* a line icon's stroke on screen, at every icon size (base.css) */
+  --cp-section-tile: 22px; /* icon tile heading a panel */
+  --cp-header-title-line-h: 20px; /* panel title line; the meta beside it wraps below this and is hidden */
+  --cp-avatar-sm: 22px; /* server avatar in a sidebar row: the phone drawer's thumb size, on the desktop too */
+  --cp-avatar-md: 32px; /* a destination in a picker list (Forward): server icon or DM avatar beside two lines */
+  --cp-avatar-xs: 20px; /* inline with a line of text: a quoted message's author */
+  --cp-avatar-stack: 22px; /* a group DM's member face: two overlap corner to corner in an --cp-avatar-md box */
+  --cp-avatar-stack-sm: 15px; /* the same pair in an --cp-avatar-sm box: the DM chat bar */
+  --cp-dm-row-h: 44px; /* a sidebar DM row: an --cp-avatar-md face beside its name and preview lines */
+  --cp-field-h-lg: 36px; /* a dialog's leading search field */
+  --cp-token-field-min-w: 8ch; /* the New message To field's text after its chips: room to type a name before it wraps */
+  --cp-radio: 16px; /* a picker row's choice mark */
+  --cp-radio-dot: 6px; /* the dot inside a chosen mark */
+  --cp-rail-w: 56px; /* collapsed sidebar */
+  --cp-menu-min-w: 200px; /* right-click menu */
+  --cp-search-list-max-h: 320px; /* searchable select's option list */
+  --cp-log-end-pad: 24px; /* space after the last row of the Links panel, so it never meets the edge (the Archive's composer clears its own) */
+  --cp-rail-tile: 36px; /* channel tile and server icon cell in the rail */
+  --cp-chat-avatar: 36px; /* author avatar heading a cozy Archive group */
+  --cp-avatar-decoration: calc(var(--cp-chat-avatar) * 1.2); /* the frame around it: Discord draws decorations at 1.2x the avatar */
+  /* The Person window: Discord's profile as a rail beside the archive's view of the person. */
+  --cp-profile-card-w: 300px; /* the profile rail, Discord's profile width */
+  --cp-profile-banner-h: 88px; /* the avatar's height: a person with no banner image gets no blank block */
+  --cp-profile-banner-h-folded: 48px; /* the rail folded into a header, in a window too narrow for the rail beside a list */
+  --cp-profile-avatar: 88px; /* hangs half over the banner */
+  --cp-profile-avatar-folded: 64px; /* beside the name in the folded header */
+  --cp-profile-avatar-ring: 6px; /* the rail's colour around it, cutting into the banner */
+  --cp-profile-decoration-scale: 1.2; /* Discord draws decorations at 1.2x the avatar */
+  --cp-profile-detail-min-w: 150px; /* a detail (member since, friends since) in the folded header's columns */
+  --cp-profile-stat-min-w: 72px; /* narrowest Archive figure tile: five share a row beside the rail at the default window width */
+  --cp-profile-person-min-w: 200px; /* a mutual server or friend (icon, name, username) before the list takes another column */
+  --cp-profile-name: 24px; /* display name */
+  --cp-profile-name-leading: 32px;
+  --cp-profile-badge: 22px; /* a badge after the username */
+  --cp-profile-since-icon: 16px; /* the Discord or server icon by a member-since date; the Message button's icon */
+  --cp-profile-button-h: 32px; /* the Message button */
+  --cp-profile-button-radius: 8px;
+  --cp-role-chip-h: 24px; /* a role in the profile's Roles list */
+  --cp-role-chip-radius: 8px;
+  --cp-role-dot: 12px; /* the role's colour */
+  --cp-profile-tab-underline: 2px; /* under the open tab */
+  --cp-alert-avatar: var(--cp-chat-avatar); /* alert row author: same size as the Archive, so people read the same */
+  --cp-emoji-inline: 1.6em; /* custom emoji inside message text, relative to the text size */
+  --cp-emoji-jumbo: 48px; /* emoji in a message that is only emoji */
+  --cp-text-code: 0.875em; /* inline and block code, relative to the surrounding text */
+  --cp-embed-max-w: 520px; /* embed card and its media */
+  --cp-embed-desc-lines: 4; /* lines of a link or video preview's description */
+  --cp-embed-thumb: 80px; /* thumbnail beside an embed's text */
+  --cp-embed-gallery-ratio: 3 / 2; /* a multi-photo embed's gallery box: about Discord's, two portrait crops side by side */
+  --cp-sticker: 160px; /* sticker art, Discord's display size */
+  --cp-author-mark-gap: var(--cp-space-2); /* between an author's name and the marks after it (Discord: 4px) */
+  --cp-role-icon: 20px; /* role icon after an author's name, Discord's size */
+  --cp-role-emoji: 16px; /* a unicode role icon's glyph, about the image icon's box */
+  --cp-tag-chip-h: 16px; /* server tag chip after an author's name, Discord's size */
+  --cp-tag-chip-offset: var(--cp-space-1); /* added to the mark gap: Discord sets the chip 6px from the name */
+  --cp-tag-badge: 14px; /* the badge inside it */
+  --cp-app-tag-h: 15px; /* APP tag after an app's name, Discord's size */
+  --cp-app-tag-text: 12.8px; /* its label, Discord's size */
+  --cp-app-tag-check: 16px; /* a verified app's check in it, Discord's size */
+  --cp-app-tag-check-inset: -3px; /* the check eats into the chip's left padding, as Discord's does */
+  --cp-reaction-h: 24px; /* reaction pill */
+  --cp-reaction-emoji: 16px; /* emoji inside a reaction pill */
+  --cp-reaction-tip-emoji: 40px; /* The emoji in a reaction's who-reacted tip (Discord's, estimated from its tooltip) */
+  --cp-reaction-tip-max-w: 280px; /* the tip wraps its names past this */
+  --cp-reaction-tip-gap: 8px; /* between the tip and its pill */
+  --cp-emoji-pick: 28px; /* a custom emoji in a plugin's reaction picker */
+  --cp-composer-input-max-h: 240px; /* Archive composer text grows to about ten lines, then scrolls */
+  --cp-thumb-btn: 38px; /* a thumb-sized control, on every surface: composer buttons, the phone's top bar */
+  --cp-thumb-icon: 26px; /* the icon in one: 6px clear of the button's edge */
+  --cp-composer-h: 56px; /* the message box at one line, Discord's: its 22px line with 17px above and below, its edge included */
+  --cp-stroke-w: 1.5px; /* the gradient edge (cp-stroke): a hairline that still reads as colour */
+  --cp-composer-radius: 16px; /* the box's corners: rounder than a popover, short of a pill, so a multi-line box still reads as a box */
+  --cp-composer-send-inset: calc((var(--cp-composer-h) - var(--cp-composer-send)) / 2 - var(--cp-stroke-w)); /* Send's gap to the box's edge, the same on every side: what centres it in a one-line box, inside the stroke */
+  --cp-composer-send-radius: calc(var(--cp-composer-radius) - var(--cp-composer-send-inset) - var(--cp-stroke-w)); /* Send's corners concentric with the box's outer edge: its radius less Send's distance from it (the inset inside the stroke, plus the stroke) */
+  --cp-composer-btn: var(--cp-thumb-btn); /* attach / GIF / sticker / emoji; the phone shows attach and emoji only */
+  --cp-composer-icon: var(--cp-thumb-icon);
+  --cp-composer-send: var(--cp-composer-btn); /* Send's square; the phone takes Discord's (phone.css) */
+  --cp-composer-send-icon: var(--cp-composer-icon);
+  --cp-header-primary-icon: var(--cp-btn-h-sm); /* a panel header's primary action as an icon (Summarize); the phone takes Send's size */
+  --cp-composer-file: 112px; /* attached-file preview tile */
+  --cp-typing-h: 20px; /* the "is typing…" line above the message box: one line of xs text, 4px above and below */
+  --cp-picker-w: 424px; /* GIF / sticker / emoji picker: nine emoji or four stickers a row */
+  --cp-picker-h: 440px;
+  --cp-picker-emoji: 36px; /* emoji cell in the picker */
+  --cp-picker-emoji-glyph: 26px; /* the emoji inside it */
+  --cp-picker-sticker: 88px; /* sticker cell in the picker */
+  --cp-picker-gif-cols: 2; /* GIF columns in the picker (unitless) */
+  --cp-command-menu-max-h: 420px; /* slash command menu: about six two-line commands, then it scrolls */
+  --cp-command-app-icon: 32px; /* app icon beside each command, Discord's size */
+  --cp-command-rail-mark: 28px; /* a group's mark in the menu's side rail */
+  --cp-command-pill-h: calc(var(--cp-composer-btn) - 2 * var(--cp-space-3)); /* option pill in the command bar: one text line, so the bar keeps the textarea's height */
+  --cp-command-pill-input-min-w: 2ch; /* an empty pill's field stays a tap target (its size attribute follows the text) */
+  --cp-command-pill-file-max-w: 24ch; /* a file pill's name: longer names truncate so the other options keep room */
+  --cp-command-tail-min-w: 6ch; /* the bar's end field: room to type an option name before it wraps to its own line */
+  --cp-command-chip-h: var(--cp-seg-h); /* an optional option to add, in the list above the command bar */
+  --cp-bot-modal-w: 440px; /* a bot's pop-up form, Discord's width */
+  --cp-delete-quote-max-h: 240px; /* the delete dialog's quoted message: about eleven body lines, then it scrolls */
+  --cp-component-media-max-h: 320px; /* an image in a bot message's gallery or section */
+  --cp-component-thumb: 84px; /* a section's thumbnail beside its text */
+  --cp-emoji-picker-h: 168px; /* the picker's scrolling grid: about five rows */
+  --cp-option-name-w: 128px; /* pick-one option name beside its meaning in the Jev question builder */
+  --cp-level-badge: 22px; /* numbered score level in the Jev question builder's ladder */
+  --cp-jevq-list-w: 280px; /* Settings → Jev → Queries: the query list beside the editor */
+  --cp-switch-w: 28px; /* on/off switch track */
+  --cp-switch-h: 16px;
+  --cp-settings-rail-w: 240px; /* Settings pages: the section list beside the open section */
+  --cp-settings-control-w: 240px; /* a select or field on the right of a settings row */
+  --cp-settings-number-w: 72px; /* a number field (days, GB, hours) on a settings row */
+  --cp-settings-stat-min-w: 140px; /* narrowest figure tile (sizes, costs) before tiles wrap */
+  --cp-settings-hint-max-w: 72ch; /* a settings row's explanation: readable line length in wide windows */
+  --cp-settings-key-action-w: 72px; /* the button after a key field (Clear, Default): fits "Default" in a cp-button, so both match */
+  --cp-settings-key-w: 96px; /* a shortcut's key field: fits "Press a key" at text-sm */
+  --cp-settings-key-col-min-w: 300px; /* narrowest shortcut column: two fit a usual card, one in a narrow window */
+  --cp-rules-split-min-h: 420px; /* Rules list and page: a few rules and rows before the panel itself scrolls */
+  --cp-rules-rail-w: 272px; /* the rule list beside the open rule */
+  --cp-rules-label-w: 150px; /* a rule page row's label column */
+  --cp-rules-page-max-w: 880px; /* the open rule's steps: readable width in a wide panel */
+  --cp-rules-picker-w: 300px; /* an Add picker's search and list */
+  --cp-rules-template-min-w: 220px; /* narrowest new-rule starting point before the grid wraps */
+
+  /* Phone surfaces (pair.css, the companion, its fields in forms.css): sized for a thumb, not a mouse */
+  --cp-phone-text: 16px; /* body and field text; iOS zooms into any field set smaller */
+  --cp-touch-h: 44px; /* buttons and rows on a phone: Apple's default control size (phone.css holds the rest) */
+  --cp-phone-row-h: 44px; /* a tappable list row (drawer channels): the iOS list row height */
+  --cp-hit-min: 0px; /* smallest tap target for a compact control (a citation chip, a badge button); the phone takes Apple's 28pt */
+  --cp-bezel-gap: var(--cp-space-4); /* space around a bezeled control (field, message box); the phone takes Apple's 12pt */
+  --cp-edge-fade-h: var(--cp-space-6); /* a bar's ground fading out over the content past its edge, in place of a rule */
+  /* That fade's mask, from the bar's edge outward: eased, steep at the bar and flat where it ends, so no end line shows. */
+  --cp-edge-fade-ramp:
+    rgb(0 0 0 / 100%), rgb(0 0 0 / 74%) 19%, rgb(0 0 0 / 54%) 34%, rgb(0 0 0 / 38%) 47%, rgb(0 0 0 / 19%) 65%, rgb(0 0 0 / 8%) 80%,
+    rgb(0 0 0 / 2%) 91%, rgb(0 0 0 / 0%);
+  --cp-swipe-mark: 32px; /* the reply circle a message swipe reveals */
+  --cp-swipe-mark-min-scale: 0.5; /* its size at the swipe's start; full size at the commit point */
+  --cp-swipe-mark-armed-scale: 1.15; /* past the commit point: a pop saying release will reply */
+  --cp-drawer-w: 320px; /* channels and plan usage drawer */
+  --cp-drawer-max-w: 85vw; /* leaves a strip of the app showing, to tap and close it */
+  --cp-sheet-max-h: 85vh; /* the message menu's sheet: the app stays in view above it, as in Discord's */
+  --cp-sheet-grabber-w: 36px; /* the sheet's drag handle: iOS's grabber */
+  --cp-sheet-grabber-h: 5px;
+  --cp-quick-reaction: 32px; /* a quick reaction atop the desktop's message menu */
+  --cp-quick-reaction-glyph: 20px;
+  --cp-action-bar-clearance: 2px; /* the hover bar's gap above the hovered message's first line (its name, reply or text) */
+  --cp-action-bar-h: calc(var(--cp-quick-reaction) + 2 * var(--cp-space-1) + 2 * var(--cp-stroke-w)); /* the hover bar: a square, its padding and stroke */
+  --cp-action-bar-radius: calc(var(--cp-composer-radius) * var(--cp-action-bar-h) / var(--cp-composer-h)); /* the composer's corner-to-height ratio, at the bar's height */
+  --cp-quick-reaction-phone: 52px; /* largest on the phone's sheet; narrower phones share their width among six and More */
+  --cp-quick-reaction-phone-glyph: 30px;
+  --cp-pull-wind: 270deg; /* pull-to-refresh arrow's turn from first pull to the reload point */
+  --cp-pair-w: 380px; /* column width on a wide screen; phones get their full width */
+  --cp-pair-icon: 72px;
+  --cp-pair-icon-radius: 22%; /* iOS home-screen icon corner, so the mark reads as the installed app */
+  --cp-pair-title: 26px;
+  --cp-pair-step: 28px; /* numbered step disc */
+  --cp-pair-code-h: 64px;
+  --cp-pair-code-text: 32px; /* the six digits, readable at arm's length while typing */
+  --cp-pair-code-tracking: 0.3em; /* spaces the digits so each one is checkable at a glance */
+}

@@ -1,0 +1,80 @@
+/* Settings window: the shared window surface (ui/WindowChrome.module.css), a tab list, and the selected section.
+   Hooks: .tab[aria-selected], .divider (between tab groups). */
+/* With ui/WindowChrome.module.css .dialog. */
+.dialog {
+  /* Tab list plus a usable section column; the Jev windows keep the plain window minimum. */
+  --cp-window-min-w: var(--cp-settings-min-w);
+}
+
+/* Tab list beside the selected section; only the section scrolls. */
+.main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 var(--cp-dialog-nav-w);
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-4) var(--cp-space-3);
+  border-right: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+  overflow-y: auto;
+}
+
+/* Tab: sidebar-row idiom, icon then label. */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  flex: 0 0 auto;
+  height: var(--cp-row-h);
+  padding: 0 var(--cp-space-4);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  text-align: left;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tab:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.tab:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Selected tab: raised ground, accent edge and icon. */
+.tab[aria-selected='true'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+  box-shadow: inset var(--cp-new-marker-w) 0 0 var(--cp-accent);
+}
+
+.tabIcon {
+  flex: 0 0 auto;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+}
+
+.tab[aria-selected='true'] .tabIcon {
+  color: var(--cp-accent);
+}
+
+/* Hairline between tab groups. */
+.divider {
+  flex: 0 0 auto;
+  height: var(--cp-border-w);
+  margin: var(--cp-space-2) var(--cp-space-4);
+  background: var(--cp-border-subtle);
+}

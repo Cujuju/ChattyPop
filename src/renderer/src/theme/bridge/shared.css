@@ -1,0 +1,52 @@
+/* Host tokens read across @cujuju/solidjs-* packages, mapped onto --cp- tokens. Unlayered so it beats @layer cujuju-defaults. */
+/* Derived toolkit variables (color-mix chains, JS-set sizes) are left alone. */
+
+:root {
+  --color-text: var(--cp-text-1);
+  --color-text-primary: var(--cp-text-1);
+  --color-text-secondary: var(--cp-text-2);
+  --color-text-muted: var(--cp-text-muted);
+  --color-text-dim: var(--cp-text-muted);
+  --color-text-on-overlay: var(--cp-text-1);
+  --color-surface: var(--cp-surface-3);
+  --color-surface-base: var(--cp-surface-3);
+  --color-surface-input: var(--cp-surface-3);
+  --color-surface-raised: var(--cp-surface-4);
+  --color-surface-hover: var(--cp-surface-hover);
+  --color-border: var(--cp-border);
+  --color-border-base: var(--cp-border);
+  --color-divider-strong: var(--cp-border-strong);
+  --color-primary: var(--cp-accent);
+  --color-primary-alpha-10: var(--cp-accent-wash);
+  --color-primary-alpha-20: var(--cp-accent-wash-strong);
+  --color-accent-soft: var(--cp-accent-wash);
+  --color-success: var(--cp-success);
+  --color-success-alpha-15: var(--cp-success-bg);
+  --color-success-alpha-20: var(--cp-success-bg);
+  --color-success-alpha-25: var(--cp-success-bg-hover);
+  --color-danger: var(--cp-danger);
+  --color-danger-alpha-10: var(--cp-danger-bg);
+  --color-danger-alpha-15: var(--cp-danger-bg);
+  --color-danger-alpha-25: var(--cp-danger-bg-hover);
+  --color-white-alpha-8: var(--cp-surface-hover);
+  --color-white-alpha-10: var(--cp-border-subtle);
+  --color-white-alpha-15: var(--cp-border);
+  --color-white-alpha-20: var(--cp-border-strong);
+  --font-size-2xs: var(--cp-text-2xs);
+  --font-size-xs: var(--cp-text-xs);
+  --font-size-sm: var(--cp-text-sm);
+  --font-size-base: var(--cp-text-base);
+  --font-size-md: var(--cp-text-lg);
+  --height-btn: var(--cp-btn-h);
+  --radius-xs: var(--cp-radius-xs);
+  --radius-sm: var(--cp-radius-sm);
+  --radius-md: var(--cp-radius-md);
+  --radius-xl: var(--cp-radius-md);
+  --radius-btn: var(--cp-radius-sm);
+  --spacing-xs: var(--cp-space-2);
+  --spacing-sm: var(--cp-space-4);
+  --transition-speed: var(--cp-duration-base);
+  --transition-speed-fast: var(--cp-duration-fast);
+  --z-flyout: var(--cp-z-popover);
+  --z-top: var(--cp-z-top);
+}

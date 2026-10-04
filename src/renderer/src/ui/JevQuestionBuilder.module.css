@@ -1,0 +1,223 @@
+/* Jev question builder: kind, question, and the answers' meanings (yes/no, options or levels). Its condition is
+   JevQuestionField.module.css. Compact in the rule and tag editors; [data-roomy] is Settings → Jev → Queries: labelled
+   sections, a segmented type control (toolkit SegGroup), meanings side by side. Fields take the app-wide look from
+   theme/forms.css. Hooks: .level[data-counts='true'], .meaningLabel[data-answer='yes']. */
+.builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.builder[data-roomy] {
+  gap: var(--cp-space-5);
+}
+
+/* With cp-label. */
+.label {
+  margin-bottom: var(--cp-space-1);
+}
+
+/* Roomy: the legend is the page's own title, so it only names the group for screen readers. */
+.builder[data-roomy] > .label {
+  position: absolute;
+  width: var(--cp-space-px);
+  height: var(--cp-space-px);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-6);
+  padding-top: var(--cp-space-4);
+}
+
+.sectionLabel {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+}
+
+/* The question itself: the thing being edited, set one step larger than the fields around it. */
+.question {
+  padding: var(--cp-space-5) var(--cp-space-6);
+  font-size: var(--cp-text-lg);
+  line-height: var(--cp-leading-normal);
+  field-sizing: content;
+  resize: none;
+}
+
+/* Hints (cp-hint) inside a roomy builder, including the condition's (JevQuestionField), are a step smaller. */
+.builder[data-roomy] :global(.cp-hint) {
+  font-size: var(--cp-text-xs);
+}
+
+/* Yes / no meanings: stacked in narrow editors, side by side when roomy. */
+.meanings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+}
+
+.builder[data-roomy] .meanings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cp-space-5);
+}
+
+.meaning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.meaningLabel {
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.meaningLabel[data-answer='yes'] {
+  color: var(--cp-success);
+}
+
+.meaning .input {
+  resize: vertical;
+  line-height: var(--cp-leading-normal);
+}
+
+/* Pick-one options: tick (when the condition uses it), name, meaning, remove. */
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-4);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+}
+
+.optionName {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  width: var(--cp-option-name-w);
+}
+
+.optionName > .input[readonly] {
+  padding-right: var(--cp-space-8);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-mono);
+}
+
+.lock {
+  position: absolute;
+  top: 50%;
+  right: var(--cp-space-4);
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+  color: var(--cp-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* Score levels as a ladder, lowest first; levels the condition counts are washed in the accent and badged. */
+.ladder {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  list-style: none;
+}
+
+.level {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-4) var(--cp-space-5);
+  background: var(--cp-surface-3);
+}
+
+.level + .level {
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* Text that wraps and grows to fit (option meanings, level text) rather than scrolling out of a one-line field. */
+.grow {
+  field-sizing: content;
+  line-height: var(--cp-leading-normal);
+  resize: none;
+}
+
+.level[data-counts='true'] {
+  background: var(--cp-accent-wash);
+}
+
+.levelNo {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--cp-level-badge);
+  height: var(--cp-level-badge);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.level[data-counts='true'] .levelNo {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.levelTag {
+  flex: 0 0 auto;
+  color: var(--cp-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+/* With cp-button. */
+.button {
+  align-self: flex-start;
+}
+
+.row > .button,
+.level > .button {
+  align-self: auto;
+}

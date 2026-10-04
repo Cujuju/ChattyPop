@@ -1,0 +1,45 @@
+/* Jev check and Ask Jev: form and results inside the shared window surface (ui/WindowChrome.module.css).
+   Hints, errors and buttons are cp-* (theme/shared-controls.css). */
+/* With cp-field. */
+.field {
+  align-items: flex-start;
+  align-self: stretch;
+}
+
+.label {
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+}
+
+/* Field look is app-wide in theme/forms.css; only width here. */
+.input {
+  width: 100%;
+}
+
+/* With cp-button. */
+.button {
+  gap: var(--cp-space-3);
+}
+
+/* Facts: two-column definition list. */
+.facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--cp-space-2) var(--cp-space-6);
+  align-items: baseline;
+  align-self: stretch;
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+}
+
+.facts > dt {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+.facts > dd {
+  color: var(--cp-text-1);
+  overflow-wrap: anywhere;
+}

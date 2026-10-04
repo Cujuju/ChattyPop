@@ -1,0 +1,25 @@
+/* Panel without an implementation: an F2 panel header over a calm empty body. Ground comes from the layout slot. */
+.root {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* F2 panel header label: mono, uppercase, tracked, muted. */
+.title {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: var(--cp-panel-header-h);
+  padding: 0 var(--cp-space-7);
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-regular);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}

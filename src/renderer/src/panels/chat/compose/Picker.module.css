@@ -1,0 +1,75 @@
+/* The emoji tabs a picker shows (the reaction picker here; a posting plugin's expression picker too): tabs, a search
+   field and a scrolling body of titled sections. */
+.tabs {
+  display: flex;
+  padding: var(--cp-space-4) var(--cp-space-4) 0;
+}
+
+/* With cp-stroke, the message box's edge, over the field's own well. */
+.search {
+  --cp-stroke-fill: var(--cp-surface-0);
+  flex: 0 0 auto;
+  margin: var(--cp-space-4);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--cp-space-4) var(--cp-space-4);
+  overflow-y: auto;
+}
+
+/* Sections off screen skip layout and paint: the emoji tab holds a few thousand cells. */
+.section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--cp-picker-h);
+}
+
+.sectionTitle {
+  position: sticky;
+  top: 0;
+  z-index: var(--cp-z-sticky);
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-2);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.emojiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--cp-picker-emoji));
+}
+
+.emoji {
+  display: grid;
+  place-items: center;
+  width: var(--cp-picker-emoji);
+  height: var(--cp-picker-emoji);
+  border-radius: var(--cp-radius-md);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.emoji:hover:not(:disabled) {
+  background: var(--cp-surface-hover);
+}
+
+/* Locked by the plan (Nitro), as Discord shows them. */
+.emoji:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.emojiImg {
+  width: var(--cp-picker-emoji-glyph);
+  height: var(--cp-picker-emoji-glyph);
+  object-fit: contain;
+}
+
+.emojiChar {
+  font-size: var(--cp-picker-emoji-glyph);
+  line-height: var(--cp-leading-none);
+}

@@ -1,0 +1,14 @@
+/* Reaction picker (ReactionPicker): the composer picker's look, as a floating popover at the point Add reaction was
+   chosen. ReactionPicker sets left/top/max-height to keep it inside what shows of the window; the body scrolls. */
+.root {
+  position: fixed;
+  z-index: var(--cp-z-popover);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--cp-picker-w), calc(100vw - 2 * var(--cp-space-4)));
+  height: var(--cp-picker-h);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+  box-shadow: var(--cp-shadow-flyout);
+}

@@ -1,0 +1,18 @@
+/* @cujuju/solidjs-collapsible */
+
+:root {
+  --cl-arrow-color-open: var(--cp-text-muted);
+  --cl-arrow-color-closed: var(--cp-accent);
+  --cl-title-color: var(--cp-text-muted);
+  --cl-title-size: var(--cp-text-xs);
+  --cl-title-weight: var(--cp-weight-regular);
+  --cl-title-tracking: var(--cp-tracking-label);
+  --cl-count-color: var(--cp-text-muted);
+  --cl-panel-bg: var(--cp-surface-3);
+  --cl-panel-border: var(--cp-border);
+  --cl-panel-radius: var(--cp-radius-md);
+  --cl-animation-duration: var(--cp-duration-slow);
+  --cl-focus-ring-color: var(--cp-focus-ring-color);
+  --cl-focus-ring: var(--cp-focus-ring);
+  --cl-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+}

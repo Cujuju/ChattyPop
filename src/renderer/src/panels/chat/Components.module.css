@@ -1,0 +1,229 @@
+/* A bot message's buttons, select menus and layout blocks, drawn like Discord's; the command line above an app's reply;
+   the still-thinking and only-you-can-see-this notes. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  max-width: var(--cp-embed-max-w);
+  margin-top: var(--cp-space-2);
+}
+
+.root[data-busy='true'] {
+  opacity: var(--cp-opacity-disabled);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-6);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+  text-decoration: none;
+}
+
+.button[data-style='primary'] {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.button[data-style='success'] {
+  background: var(--cp-success);
+  color: var(--cp-text-on-accent);
+}
+
+.button[data-style='danger'] {
+  background: var(--cp-danger);
+  color: var(--cp-text-on-accent);
+}
+
+/* Hover tints whatever colour the style gave the button. */
+.button:hover:not(:disabled) {
+  background-image: linear-gradient(var(--cp-surface-hover), var(--cp-surface-hover));
+}
+
+.button:disabled,
+.button[aria-disabled='true'] {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.emoji {
+  width: var(--cp-reaction-emoji);
+  height: var(--cp-reaction-emoji);
+  line-height: 1;
+}
+
+.select {
+  width: 100%;
+  height: var(--cp-btn-h);
+}
+
+.multi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+}
+
+.multiLegend {
+  padding: 0 var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.multi > :global(.cp-button) {
+  align-self: flex-end;
+}
+
+.optionHint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.entitySelect {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-3);
+}
+
+.entitySelect > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.text {
+  min-width: 0;
+}
+
+.section {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-6);
+}
+
+.sectionBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.mediaButton {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--cp-radius-md);
+}
+
+.media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb {
+  flex: 0 0 auto;
+  width: var(--cp-component-thumb);
+  height: var(--cp-component-thumb);
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(var(--gallery-cols, 1), 1fr);
+  gap: var(--cp-space-2);
+}
+
+.gallery[data-count='2'] {
+  --gallery-cols: 2;
+}
+
+.gallery[data-count='3'] {
+  --gallery-cols: 3;
+}
+
+.galleryItem {
+  max-height: var(--cp-component-media-max-h);
+}
+
+/* Pixel size known (--media-w/--media-h): its height is reserved before the file loads, so the row doesn't grow. */
+.galleryItem .media[data-sized='true'] {
+  height: auto;
+  aspect-ratio: var(--media-w) / var(--media-h);
+}
+
+.file {
+  padding: var(--cp-space-4) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+  color: var(--cp-link);
+}
+
+.separator {
+  width: 100%;
+  margin: var(--cp-space-2) 0;
+  border: 0;
+  border-top: var(--cp-border-w) solid transparent;
+}
+
+.separator[data-divider='true'] {
+  border-top-color: var(--cp-border);
+}
+
+.separator[data-large='true'] {
+  margin: var(--cp-space-6) 0;
+}
+
+/* A container: a card with the app's accent colour down its left edge, as embeds have. */
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-6);
+  border-left: var(--cp-space-2) solid var(--component-accent, var(--cp-border-strong));
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.interaction {
+  margin: 0 0 var(--cp-space-1);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.interactionUser {
+  color: var(--cp-text-2);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.interactionCommand {
+  color: var(--cp-link);
+}
+
+.thinking {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-style: italic;
+}
+
+.ephemeral {
+  margin: var(--cp-space-2) 0 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}

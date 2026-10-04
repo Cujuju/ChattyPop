@@ -1,0 +1,168 @@
+/* Search panel query builder: filter rows, the value picker, the syntax tip and the add-filter strip.
+   Rows sit in Search.module.css's .results grid; hooks: [role='option'][aria-selected='true']. */
+
+/* Filter row: its token, then what it finds. */
+.filter {
+  display: grid;
+  grid-template-columns: subgrid;
+  align-items: center;
+  column-gap: var(--cp-space-5);
+  padding: var(--cp-space-2) var(--cp-space-5);
+  border-radius: var(--cp-radius-sm);
+  cursor: pointer;
+}
+
+.filter[aria-selected='true'] {
+  background: var(--cp-surface-4);
+}
+
+/* `key:value` as it will read in the field: the key in accent, the value a muted placeholder. */
+.token {
+  display: inline-flex;
+  align-items: baseline;
+  justify-self: stretch;
+  padding: var(--cp-space-1) var(--cp-space-3);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-sm);
+  line-height: var(--cp-leading-tight);
+  white-space: nowrap;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.filter[aria-selected='true'] .token {
+  border-color: var(--cp-border-strong);
+}
+
+.tokenKey {
+  color: var(--cp-accent);
+}
+
+.tokenValue {
+  color: var(--cp-text-muted);
+}
+
+.filterDesc {
+  min-width: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Value picker: the pending filter, then its values as pills. */
+.valueHead {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-3) var(--cp-space-5) var(--cp-space-2);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-5) var(--cp-space-3);
+  list-style: none;
+}
+
+.choice {
+  padding: var(--cp-space-1) var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+  line-height: var(--cp-leading-normal);
+  cursor: pointer;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.choice[aria-selected='true'] {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent-wash);
+}
+
+/* Syntax tip closing the builder, and the free-text value hint. */
+.tip {
+  margin-top: var(--cp-space-2);
+  padding: var(--cp-space-3) var(--cp-space-5) var(--cp-space-2);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+.valueHead + .tip {
+  margin-top: 0;
+  border-top: 0;
+}
+
+.tip code {
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-mono);
+}
+
+/* Above results: every filter key as a small pill, one scrolling line. */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin-bottom: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-5) var(--cp-space-3);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Fades the trailing pills out, so the line reads as scrollable. */
+  mask-image: linear-gradient(to right, black calc(100% - var(--cp-space-8)), transparent);
+}
+
+.stripLabel {
+  flex: 0 0 auto;
+  margin-right: var(--cp-space-1);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.stripChip {
+  flex: 0 0 auto;
+  padding: var(--cp-space-1) var(--cp-space-3);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-xs);
+  cursor: pointer;
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.stripChip:hover {
+  border-color: var(--cp-border);
+  color: var(--cp-accent);
+}
+
+/* Phone: rows and pills at touch size. */
+:global(html[data-surface='companion']) .filter {
+  min-height: var(--cp-row-h);
+}
+
+:global(html[data-surface='companion']) .choice,
+:global(html[data-surface='companion']) .stripChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cp-hit-min);
+}

@@ -1,0 +1,97 @@
+/* Channel switcher (ChannelSwitcher.tsx), inside the shared window surface (ui/WindowChrome.module.css): a search
+   field over the scrolling channels (name | server). Only the list scrolls. */
+.window {
+  width: min(var(--cp-switcher-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  height: min(var(--cp-switcher-h), calc(100vh - 2 * var(--cp-dialog-inset)));
+  min-width: var(--cp-window-min-w);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-space-7) 0;
+}
+
+/* Search: a tall well with its glyph inside. */
+.search {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--cp-space-5);
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+  pointer-events: none;
+}
+
+.search:focus-within .searchIcon {
+  color: var(--cp-accent);
+}
+
+.searchField {
+  width: 100%;
+  height: var(--cp-field-h-lg);
+  padding-left: calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-text-base);
+}
+
+.list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-height: 0;
+  margin: 0 calc(-1 * var(--cp-space-3));
+  padding: 0 var(--cp-space-3) var(--cp-space-4);
+  overflow-y: auto;
+}
+
+.empty {
+  padding: var(--cp-space-8) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  text-align: center;
+}
+
+/* A channel: name, then its server muted at the end. Hover and the arrow-key row wash. */
+.row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-radius: var(--cp-radius-md);
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.row:hover,
+.row[data-active='true'] {
+  background: var(--cp-surface-hover);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.place {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+  white-space: nowrap;
+}

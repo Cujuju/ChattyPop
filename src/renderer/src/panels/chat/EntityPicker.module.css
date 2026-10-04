@@ -1,0 +1,102 @@
+/* People / role / channel picker: chosen ones as chips inside a field, matches in a list that opens above it (it sits
+   near the bottom, in the composer or a bot message). */
+.root {
+  position: relative;
+}
+
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-height: var(--cp-btn-h);
+  padding: var(--cp-space-1) var(--cp-space-3);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-1);
+}
+
+.field[data-disabled='true'] {
+  opacity: var(--cp-opacity-disabled);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  height: var(--cp-chip-h);
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-accent-wash);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+}
+
+.chipRemove {
+  color: var(--cp-text-muted);
+}
+
+.chipRemove:hover {
+  color: var(--cp-text-1);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--cp-chip-h);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.input:hover,
+.input:focus-visible {
+  border: 0;
+  outline: none;
+}
+
+.list {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  z-index: var(--cp-z-popover);
+  max-height: var(--cp-search-list-max-h);
+  margin: 0 0 var(--cp-space-2);
+  overflow-y: auto;
+  list-style: none;
+}
+
+/* Near the top of the log it opens downward instead (EntityPicker picks the roomier side). */
+.list[data-below='true'] {
+  top: 100%;
+  bottom: auto;
+  margin: var(--cp-space-2) 0 0;
+}
+
+.option,
+.empty {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  font-size: var(--cp-text-sm);
+}
+
+.option {
+  cursor: pointer;
+}
+
+.option[aria-selected='true'] {
+  background: var(--cp-surface-5);
+}
+
+.optionLabel {
+  color: var(--cp-text-1);
+}
+
+.optionHint,
+.empty {
+  color: var(--cp-text-muted);
+}

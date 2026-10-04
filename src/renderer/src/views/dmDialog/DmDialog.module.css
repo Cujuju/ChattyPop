@@ -1,0 +1,16 @@
+/* Rename a group, or confirm leaving one (DmDialog.tsx): a bot form's width, as tall as its content, actions at the foot. */
+.window {
+  width: min(var(--cp-bot-modal-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  height: auto;
+  min-width: var(--cp-window-min-w);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+}
+
+.form > :global(.cp-actions) {
+  justify-content: flex-end;
+}

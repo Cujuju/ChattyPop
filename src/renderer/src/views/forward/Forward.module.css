@@ -1,0 +1,306 @@
+/* Forward window (ForwardWindow), inside the shared window surface (ui/WindowChrome.module.css):
+   .pick: a search field over the scrolling destinations (avatar | name and server | choice mark);
+   .compose: the quoted message, the note, and Cancel / Forward. Only the destination list scrolls. */
+.window {
+  width: min(var(--cp-forward-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  height: min(var(--cp-forward-h), calc(100vh - 2 * var(--cp-dialog-inset)));
+  min-width: var(--cp-window-min-w);
+  min-height: var(--cp-forward-min-h);
+}
+
+.form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pick {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-space-7) 0;
+}
+
+/* Search: a tall well with its glyph inside, leading the window. */
+.search {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--cp-space-5);
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+  pointer-events: none;
+}
+
+.search:focus-within .searchIcon {
+  color: var(--cp-accent);
+}
+
+.searchField {
+  width: 100%;
+  height: var(--cp-field-h-lg);
+  padding-left: calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-text-base);
+}
+
+.targets {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-height: 0;
+  margin: 0 calc(-1 * var(--cp-space-3));
+  padding: 0 var(--cp-space-3) var(--cp-space-4);
+  overflow-y: auto;
+}
+
+.empty {
+  padding: var(--cp-space-8) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  text-align: center;
+}
+
+/* A destination: avatar | name over server | choice mark. Hover and the arrow-key row wash; the chosen one glows. */
+.target {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-radius: var(--cp-radius-md);
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.target:hover,
+.target[data-active='true'] {
+  background: var(--cp-surface-hover);
+}
+
+.target[aria-selected='true'] {
+  background: var(--cp-accent-wash);
+}
+
+.target[aria-disabled='true'] {
+  cursor: default;
+}
+
+/* Server icon (a rounded square, GuildIcon at this size) or a DM's face (a circle). */
+.avatar {
+  --cp-avatar-sm: var(--cp-avatar-md);
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-avatar-md);
+  height: var(--cp-avatar-md);
+}
+
+.face,
+.initial {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-5);
+}
+
+.face {
+  object-fit: cover;
+}
+
+/* A group DM without its own icon: the group mark on the same chip. */
+.groupMark {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+.initial {
+  display: grid;
+  place-content: center;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  text-transform: uppercase;
+}
+
+.names {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  line-height: var(--cp-leading-tight);
+}
+
+.name,
+.place {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-medium);
+}
+
+.sigil {
+  margin-right: var(--cp-space-2);
+  color: var(--cp-text-muted);
+}
+
+.place {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Choice mark: an empty ring, filled with the accent and a dot when chosen. */
+.radio {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-radio);
+  height: var(--cp-radio);
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-full);
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.target:hover .radio {
+  border-color: var(--cp-text-muted);
+}
+
+.target[aria-selected='true'] .radio {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+.target[aria-selected='true'] .radio::after {
+  content: '';
+  width: var(--cp-radio-dot);
+  height: var(--cp-radio-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-text-on-accent);
+}
+
+.target[aria-selected='true'] .name {
+  color: var(--cp-accent);
+}
+
+/* The message, the note and the buttons, on a band below the list. */
+.compose {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+/* The forwarded message, quoted on the accent bar as Discord marks a forward. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: var(--cp-space-4) var(--cp-space-6);
+  border-left: var(--cp-space-1) solid var(--cp-accent);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+}
+
+.previewHead {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.previewAvatar {
+  flex: 0 0 auto;
+  width: var(--cp-avatar-xs);
+  height: var(--cp-avatar-xs);
+  border-radius: var(--cp-radius-full);
+  object-fit: cover;
+}
+
+.previewAuthor {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewTime {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.previewText {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--cp-forward-preview-lines);
+}
+
+.previewExtras {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.note {
+  width: 100%;
+  border-radius: var(--cp-radius-md);
+  font-size: var(--cp-text-md);
+  resize: none;
+}
+
+.error {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cp-space-4);
+}
+
+/* Both footer buttons at the search field's height, icon beside label. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-3);
+  height: var(--cp-field-h-lg);
+  padding: 0 var(--cp-space-8);
+  font-size: var(--cp-text-md);
+}
+
+.submitIcon {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}

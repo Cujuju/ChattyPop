@@ -1,0 +1,287 @@
+/* ChattyPop design tokens: 'Night Console', navy-slate grounds with a colour per section. Prefix --cp-. Every themeable literal lives here; per-component dimensions are in sizes.css. */
+/* Contrast (WCAG 2.x, sRGB) checked 2026-09-25. All pairs below are >= 4.5:1. */
+/* text-1 #e6e9ee on surface-0..5: 15.8 / 15.3 / 14.6 / 14.0 / 12.6 / 10.5 */
+/* text-2 #c5ccd6 on surface-1 / 2 / 4 / 5: 11.5 / 11.0 / 9.5 / 7.9 */
+/* text-muted #98a2ae on surface-0..5: 7.4 / 7.2 / 6.9 / 6.6 / 5.9 / 5.0 */
+/* info #6cc7e6 on cite-bg 8.2, on surface-1 9.7; link-hover #9ddcf0 on surface-1 12.3 */
+/* accent #f0b34a on surface-1 10.0, on surface-3 9.1; text-on-accent #10131a on accent 10.0, on accent-hover 11.3 */
+/* success #6fce8a on success-bg 6.5, on surface-0 9.9; danger #f0a0a0 on danger-bg 7.2 */
+/* accent-2 #b5d17a on surface-1 10.9; author-4 #c39cf0 on surface-1 8.3, on surface-cited 7.2; text-muted on surface-cited 6.2 */
+/* platform colours on surface-3 / 4: youtube 6.3 / 5.7, reddit 7.5 / 6.7, instagram 8.1 / 7.3, tiktok 11.0 / 9.9, twitch 7.6 / 6.8 */
+/* section colours on surface-2 / 3, and text-on-accent on each (header badge): summary 7.8 / 7.5, 8.2; provider 9.9 / 9.5, 10.4;
+   rules 10.8 / 10.3, 11.3; alerts 7.9 / 7.6, 8.3; links 8.4 / 8.1, 8.8; chat 7.4 / 7.1, 7.8 */
+
+/* The default theme. [data-theme='night'] also scopes it to an element, e.g. a theme preview inside another theme.
+   Other themes (themes/*.css) override these on [data-theme='<id>'], set on <html> by Settings → Appearance. */
+:root,
+[data-theme='night'] {
+  /* Native controls, scrollbars and form widgets follow this; light themes set light. */
+  --cp-color-scheme: dark;
+
+  /* QR codes: dark on light in every theme (no theme overrides these); phone cameras read inverted codes poorly. */
+  --cp-qr-dark: #000000;
+  --cp-qr-light: #ffffff;
+
+  /* Grounds and surfaces, darkest to lightest */
+  --cp-ground: #090b10; /* window ground behind all panels */
+  /* Paints: background values (not colours) a custom gradient theme (theme/customTheme.ts) sets to show its gradient:
+     --cp-ground-paint, --cp-body-paint, --cp-chrome-paint, --cp-panel-paint, --cp-window-paint. Unset here: each use
+     site falls back to its colour token, resolved on the painted element, so scoped surfaces (data-importance) apply.
+     Colour mixes read the colour tokens, never these. */
+  --cp-surface-0: #0c0f15; /* chrome: top bar, sidebar, status bar, splitter */
+  --cp-surface-1: #10131a; /* app base, chat panel, segmented-control track */
+  --cp-surface-2: #141822; /* bands: sub-headers, provider row, quoted original, search field */
+  --cp-surface-3: #171c26; /* panels, controls, inputs, popovers */
+  --cp-surface-4: #1f2532; /* raised controls, selected rows */
+  --cp-surface-5: #2b3242; /* selected segment, neutral chips, kbd, meter tracks */
+  --cp-surface-cited: #1a2130; /* message row referenced by a summary citation */
+  /* A message that pings the owner: Discord's gold wash and leading bar, the same in every theme (as in Discord), and
+     apart from the accent, which themes recolour and which means selection. */
+  --cp-mention: #f0b232;
+  --cp-mention-bg: color-mix(in srgb, var(--cp-mention) 10%, transparent);
+  --cp-mention-bg-menu: color-mix(in srgb, var(--cp-mention) 18%, transparent); /* its menu is open */
+  --cp-mention-bar: var(--cp-mention);
+  --cp-surface-hover: color-mix(in srgb, var(--cp-text-1) 6%, transparent);
+  --cp-surface-active: color-mix(in srgb, var(--cp-text-1) 10%, transparent); /* pressed ghost control */
+
+  /* Borders */
+  --cp-border-w: 1px;
+  --cp-border: #262d3b;
+  --cp-border-subtle: #1f2531; /* list row dividers, chip edges, control tracks */
+  --cp-border-faint: #181d27; /* chat message dividers */
+  --cp-border-strong: #3a4356; /* grips, quoted-original dashed border, hovered control edges */
+
+  /* Text levels */
+  --cp-text-1: #e6e9ee;
+  --cp-text-2: #c5ccd6;
+  --cp-text-muted: #98a2ae;
+  --cp-text-on-accent: #10131a;
+
+  /* Accent (primary) and secondary accent. Accent is reserved for: the primary action, selection, unread, focus. */
+  --cp-accent: #f0b34a;
+  --cp-accent-hover: #f5c26a; /* primary button hover */
+  --cp-accent-wash: color-mix(in srgb, var(--cp-accent) 12%, transparent);
+  --cp-accent-wash-strong: color-mix(in srgb, var(--cp-accent) 22%, transparent);
+  --cp-accent-2: #b5d17a;
+
+  /* Info, links, citation chip */
+  --cp-info: #6cc7e6;
+  --cp-link: var(--cp-info);
+  --cp-link-hover: #9ddcf0;
+  --cp-cite-bg: #15252c;
+  --cp-cite-border: #2f4b56;
+  --cp-cite-text: var(--cp-info);
+
+  /* Danger / deleted */
+  --cp-danger: #f0a0a0;
+  --cp-danger-bg: #3d1f1f;
+  --cp-danger-bg-hover: color-mix(in srgb, var(--cp-danger) 30%, transparent);
+  --cp-danger-border: #4a3535;
+
+  /* Edited */
+  --cp-edited-bg: var(--cp-surface-5);
+  --cp-edited-text: var(--cp-text-1);
+  --cp-edited-original-bg: var(--cp-surface-2);
+  --cp-edited-original-border: var(--cp-border-strong);
+  --cp-edited-original-text: var(--cp-text-2);
+
+  /* Success */
+  --cp-success: #6fce8a;
+  --cp-success-bg: #173a2a;
+  --cp-success-bg-hover: color-mix(in srgb, var(--cp-success) 30%, transparent);
+
+  /* Platform identity colours: link badges and feed filter chips. Muted to sit with the palette; each is distinct at chip size.
+     identity.css resolves --cp-platform from [data-platform]; modules read only --cp-platform. */
+  --cp-platform-youtube: #f07a7a;
+  --cp-platform-reddit: #f0965a;
+  --cp-platform-x: var(--cp-text-2);
+  --cp-platform-instagram: #e89ad0;
+  --cp-platform-bluesky: var(--cp-info);
+  --cp-platform-tiktok: #7ee0d6;
+  --cp-platform-twitch: #c39cf0;
+  --cp-platform-threads: var(--cp-text-1);
+  --cp-platform-other: var(--cp-text-muted);
+  --cp-platform: var(--cp-platform-other); /* fallback when no data-platform is set */
+  --cp-platform-wash-mix: 14%; /* platform colour share in a badge or selected chip ground */
+
+  /* Section identity: each panel's icon, header wash and stripe. identity.css resolves --cp-section from [data-section]
+     (panel ids); modules read only --cp-section. Hues are spaced round the wheel at similar lightness. */
+  --cp-section-channels: var(--cp-accent);
+  --cp-section-sync-status: var(--cp-success);
+  --cp-section-summary: #b79cff; /* violet: AI output */
+  --cp-section-provider: #4fd6c0; /* teal: plan meters */
+  --cp-section-alerts: #ff8a9a; /* rose */
+  --cp-section-links: #5cbcf5; /* sky */
+  --cp-section-chat: #8ea2ff; /* periwinkle */
+  --cp-section-plans: #f5b86b; /* apricot: dates and commitments */
+  --cp-section-tags: #e58fd0; /* orchid: labels the owner defines */
+  --cp-section-rules: #a9d86e; /* lime: Topics' hue, which Rules took over */
+  --cp-section-stats: #f2d45c; /* gold: counts and charts */
+  --cp-section: var(--cp-text-muted); /* fallback when no data-section is set */
+  --cp-section-wash-mix: 13%; /* section colour share at the leading edge of a header band */
+  --cp-section-wash-stop: 65%; /* where that wash has faded to the plain band */
+  --cp-section-tile-mix: 20%; /* section colour share in the icon tile */
+  --cp-section-stripe-h: 2px; /* coloured rule along a header's top edge */
+
+  /* Panel frame and header. Themes rescope these (and surfaces, text) per [data-importance] to make primary panels
+     stand out. --cp-section resolves per panel, so section-dependent values are shares here; the mix is in the modules. */
+  --cp-layout-pad: 0px; /* inset round the whole layout */
+  --cp-panel-gap: 0px; /* space between neighbouring panels; 0: they meet at a divider */
+  --cp-panel-divider-w: var(--cp-border-w); /* line between neighbouring panels */
+  --cp-panel-handle: var(--cp-border); /* resize handle between panels, at rest */
+  --cp-panel-handle-hover: var(--cp-accent);
+  --cp-panel-radius: 0px;
+  --cp-panel-ring-mix: 0%; /* section share of a 1px ring round the panel */
+  --cp-panel-shadow: var(--cp-shadow-none);
+  --cp-header-h: var(--cp-panel-header-h);
+  --cp-header-band: var(--cp-surface-2); /* header ground the section wash fades into */
+  --cp-header-wash-end-mix: 0%; /* section share at the wash's far end; equal to --cp-section-wash-mix: a flat tint */
+  --cp-header-stripe-h: var(--cp-section-stripe-h);
+  --cp-header-inset: var(--cp-space-6); /* header content's leading inset, where its icon tile starts */
+  --cp-header-tile: var(--cp-section-tile);
+  --cp-header-tile-mix: var(--cp-section-tile-mix); /* 100%: a filled tile */
+  --cp-header-icon: var(--cp-icon-md);
+  --cp-header-grow: 0px; /* added to the header tile; the phone raises it (phone.css) */
+  --cp-header-icon-grow: 0px; /* added to header icons, likewise */
+  --cp-header-icon-mix: 100%; /* section share of the icon colour; the rest is --cp-header-icon-base */
+  --cp-header-icon-base: var(--cp-text-on-accent);
+  --cp-header-title-size: var(--cp-text-base);
+  --cp-header-title-color: var(--cp-text-1);
+
+  /* Marks after an author's name, as Discord draws them (AuthorName); the name itself takes the member's role colour. */
+  --cp-tag-bg: color-mix(in srgb, var(--cp-text-muted) 20%, transparent); /* server tag chip: Discord's muted wash */
+  --cp-profile-card-bg: var(--cp-surface-2); /* The profile card, darker than the window as in Discord */
+  --cp-profile-banner-bg: var(--cp-surface-5); /* a banner with no image or colour of its own */
+  --cp-role-chip-bg: color-mix(in srgb, var(--cp-text-muted) 12%, transparent); /* a role in the profile's Roles list */
+  --cp-profile-share-bar: color-mix(in srgb, var(--cp-accent) 10%, transparent); /* behind a Where they post row, its share of their messages: faint, under the hover wash's strength */
+  --cp-app-tag-bg: #5865f2; /* APP tag: Discord's blurple, so it reads as the same mark as in the live client */
+  --cp-app-tag-fg: #ffffff;
+  /* A gradient role name (Enhanced Role Styles), Discord's values: stops repeat every size, scroll one size per duration. */
+  --cp-name-gradient-size: 100px;
+  --cp-name-gradient-duration: 1.5s;
+  --cp-name-gradient-filter: none; /* light themes darken it, as Discord's light theme does */
+  --cp-name-glow-blur: 4px; /* a holographic name's glow while its message is hovered */
+  --cp-name-glow-opacity: 0.7;
+
+  /* Focus ring */
+  --cp-focus-ring-width: 1px;
+  --cp-focus-ring-color: var(--cp-accent);
+  --cp-focus-ring: var(--cp-focus-ring-width) solid var(--cp-focus-ring-color);
+  --cp-focus-ring-offset: 1px;
+  --cp-focus-ring-offset-inset: -1px; /* controls that must not grow on focus */
+
+  /* Selection */
+  --cp-selection-bg: color-mix(in srgb, var(--cp-accent) 30%, transparent);
+  --cp-selection-text: var(--cp-text-1);
+
+  /* Scrollbars */
+  --cp-scrollbar-thumb: var(--cp-surface-5);
+  --cp-scrollbar-thumb-hover: var(--cp-border-strong);
+  --cp-scrollbar-track: transparent;
+
+  /* Opacity */
+  --cp-opacity-disabled: 0.4;
+  --cp-badge-hover-brightness: 1.15; /* a clickable badge lightens on hover, keeping its section colour */
+
+  /* Font families. UI: Windows' own Segoe UI (hinted for small sizes); the Variable cut is used where installed (Win 11).
+     Mono is for code only. Segoe UI has no 500 weight: medium renders as regular on Windows. */
+  --cp-font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --cp-font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'SF Mono', Menlo,
+    'DejaVu Sans Mono', ui-monospace, monospace;
+
+  /* Type scale. Numerals are tabular app-wide (base.css). */
+  --cp-text-3xs: 10px; /* right-click menu section headings */
+  --cp-text-2xs: 11px; /* micro badges: platform badge, 'backfill' tag, watermark */
+  --cp-text-xs: 12px; /* chips, status bar, row meta, header actions */
+  --cp-text-meta: var(--cp-text-xs); /* citation chips, row meta (alias kept for modules) */
+  --cp-text-sm: var(--cp-text-xs); /* controls, timestamps (alias kept for modules) */
+  --cp-control-text: var(--cp-text-xs); /* a compact control's label: segments, panel-header actions */
+  --cp-text-md: 13px; /* channel rows, author names, list titles */
+  --cp-text-base: 14px; /* body, panel titles */
+  --cp-text-lg: 15px; /* headline, dialog title */
+  --cp-composer-text: var(--cp-text-base); /* the message box's text: the log's message size, so a draft reads as it will post */
+  --cp-composer-line-h: 22px; /* its line, Discord's */
+  --cp-text-xl: 18px; /* dialog heading */
+
+  /* Line height and tracking */
+  --cp-leading-none: 1; /* single glyph buttons */
+  --cp-leading-tight: 1.3;
+  --cp-leading-normal: 1.45;
+  --cp-leading-relaxed: 1.5;
+  --cp-tracking-label: 0.1em; /* uppercase section labels */
+  --cp-tracking-label-sm: 0.06em; /* uppercase inline labels and badges */
+  --cp-tracking-title: 0.01em;
+
+  /* Weights */
+  --cp-weight-regular: 400;
+  --cp-weight-medium: 500;
+  --cp-weight-semibold: 600;
+
+  /* Spacing scale */
+  --cp-space-px: 1px;
+  --cp-space-1: 2px;
+  --cp-space-2: 4px;
+  --cp-space-3: 6px;
+  --cp-space-4: 8px;
+  --cp-space-5: 10px;
+  --cp-space-6: 12px;
+  --cp-space-7: 16px;
+  --cp-space-8: 24px;
+
+  /* Radii: one step per element class */
+  --cp-radius-xs: 2px; /* checkboxes, inline marks, meter bars */
+  --cp-radius-sm: 3px; /* controls, chips, rows, inputs */
+  --cp-radius-md: 4px; /* grouped containers, icon buttons, cards, control tracks */
+  --cp-radius-lg: 6px; /* popovers, menus, dialogs */
+  --cp-radius-pill: 999px;
+  --cp-radius-full: 50%;
+
+  /* Elevation. F2 is flat; only popovers and flyouts cast shadows */
+  --cp-backdrop: color-mix(in srgb, var(--cp-ground) 70%, transparent); /* behind modal dialogs */
+  --cp-frost: color-mix(in srgb, var(--cp-surface-0) 20%, transparent); /* light frosted glass over scrolling content (the composer): mostly the blur, a faint tint */
+  --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
+  --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
+  --cp-lightbox-backdrop: color-mix(in srgb, var(--cp-ground) 92%, transparent); /* behind the image viewer: the image is the only thing to see */
+  --cp-shadow-none: none;
+  --cp-shadow-popover: 0 6px 18px rgb(0 0 0 / 45%);
+  --cp-shadow-flyout: 0 8px 24px rgb(0 0 0 / 45%);
+  --cp-shadow-dialog: 0 16px 48px rgb(0 0 0 / 55%);
+  --cp-ring-cutout-w: 2px; /* gap ring around a notification dot, in the control's own ground */
+  --cp-ring-cutout: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-3);
+  --cp-glow-success: 0 0 6px var(--cp-success); /* live capture indicator */
+
+  /* The gradient edge (cp-stroke, shared-controls.css): the theme's two chroma colours, dimmed toward the element's own
+     fill until focus is inside. The message box, the hover bar, the archive search and the layout switcher wear it. */
+  --cp-stroke: linear-gradient(90deg, var(--cp-accent), var(--cp-link));
+  --cp-stroke-idle-mix: 55%; /* of the stroke's colours over the element's fill while idle */
+  --cp-stroke-fill: var(--cp-surface-3); /* the fill inside the stroke; an element on another ground sets its own */
+  /* The message box (Composer) besides: a shadow that lifts it off the glass, and a glow while focused. */
+  --cp-composer-shadow: var(--cp-shadow-popover);
+  --cp-composer-glow: 0 0 12px color-mix(in srgb, var(--cp-accent) 35%, transparent);
+
+  /* Motion */
+  --cp-duration-instant: 0ms;
+  --cp-duration-fast: 120ms;
+  --cp-duration-base: 150ms;
+  --cp-duration-slow: 180ms;
+  --cp-ease: ease;
+  --cp-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --cp-duration-sweep: 1400ms; /* indeterminate progress, one pass */
+
+  /* Z-index layers */
+  --cp-z-base: 0;
+  --cp-z-edge-fade: 1; /* a panel header's fade: over the panel's content, under the sticky top bar and its search results */
+  --cp-z-log-overlay: 1; /* a log's own overlays (the jump pill): over the composer's glass, which paints after the log */
+  --cp-z-topbar-fade: 2; /* the desktop top bar's fade: over the panel headers under it, still under windows and popovers */
+  --cp-z-sticky: 10;
+  --cp-z-resize: 20; /* split resize handles, above anything sticky inside a panel */
+  --cp-z-drop: 30; /* panel drop zones while a panel header is dragged, above resize handles */
+  --cp-z-window: 500; /* floating windows (Settings, Jev); each raise adds its stack rank, far below popovers */
+  --cp-window-min-w: 360px; /* narrowest a floating window resizes to: a form column stays usable */
+  --cp-window-min-h: 240px; /* shortest: header plus a few rows */
+  --cp-window-grip: 6px; /* invisible resize band along each floating-window edge: easy to hit, thin enough not to cover controls */
+  --cp-window-grip-corner: 14px; /* square corner grips, larger so a diagonal resize is easy to start */
+  --cp-z-popover: 1000;
+  --cp-z-tooltip: 1100;
+  --cp-z-top: 9999;
+}

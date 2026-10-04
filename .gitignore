@@ -1,0 +1,16 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# iPhone shell: generated offline page
+/mobile/www/
+
+# Local, per-machine
+.claude/
+CLAUDE.local.md
+.env*

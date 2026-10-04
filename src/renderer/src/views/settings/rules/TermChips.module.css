@@ -1,0 +1,46 @@
+/* A word list: chips then a borderless input, wrapping inside one field-looking box. Also ChipField, which plugins use
+   through the SDK kit. */
+.terms {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-1);
+}
+
+.terms:focus-within {
+  border-color: var(--cp-section-rules);
+}
+
+.term {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: 0 var(--cp-space-2) 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-pill);
+  background: color-mix(in srgb, var(--cp-section-rules) var(--cp-section-tile-mix), transparent);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-badge-line-h);
+  white-space: nowrap;
+}
+
+.termRemove {
+  color: var(--cp-text-muted);
+  line-height: var(--cp-leading-none);
+}
+
+.termRemove:hover {
+  color: var(--cp-text-1);
+}
+
+.termInput {
+  flex: 1 1 auto;
+  min-width: var(--cp-space-8);
+  border: 0;
+  background: transparent;
+  outline: none;
+}

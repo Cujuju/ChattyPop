@@ -1,0 +1,109 @@
+/* Image viewer: a dark full-window backdrop with the image centred at its full resolution, shrunk only to fit. */
+.dialog {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.dialog::backdrop {
+  background: var(--cp-lightbox-backdrop);
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-4);
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: var(--cp-space-8);
+}
+
+.image {
+  max-width: 100%;
+  max-height: calc(100% - var(--cp-btn-h) * 2);
+  object-fit: contain;
+  border-radius: var(--cp-radius-md);
+  box-shadow: var(--cp-shadow-dialog);
+  /* Zoom (createZoom.ts): translate + scale from the top-left, eased except while a finger or the mouse drives it.
+     The image takes every touch gesture, so a pinch zooms it rather than the page. */
+  transform-origin: 0 0;
+  transition: transform var(--cp-duration-base) var(--cp-ease-out);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: zoom-in;
+}
+
+.image[data-gesturing='true'] {
+  transition: none;
+}
+
+/* Zoomed past its box it paints under the caption and close button, which follow it in the DOM, so it can always be closed. */
+.image[data-zoomed='true'] {
+  cursor: grab;
+}
+
+.image[data-zoomed='true'][data-gesturing='true'] {
+  cursor: grabbing;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-6);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+}
+
+.name {
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.open {
+  color: var(--cp-link);
+}
+
+.open:hover {
+  color: var(--cp-link-hover);
+  text-decoration: underline;
+}
+
+.close {
+  position: fixed;
+  top: var(--cp-space-7);
+  right: var(--cp-space-7);
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-btn-h);
+  height: var(--cp-btn-h);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-base);
+  line-height: var(--cp-leading-none);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.close:hover {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.close:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}

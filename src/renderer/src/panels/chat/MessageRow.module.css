@@ -1,0 +1,275 @@
+/* Archive message row (MessageRow, Attachment's revisions), F2's chat log. Rows are absolutely positioned and
+   height-measured: vertical spacing is padding, never margin.
+   Hooks: .row[data-deleted|data-edited|data-focused|data-mention|data-menu='true'],
+   swipe to reply (ui/touch.ts swipeLeftToAct): .row[data-swipe='drag'|data-armed='true'], --swipe-x, --swipe-p. */
+/* Log grid: time | author | body; the first line of each shares one baseline. ui/LogParts.module.css .day spans it.
+   A swipe moves the row with the finger and springs it back on release; `translate` is none at rest, so a row is no
+   containing block then. Vertical pans stay the browser's scroll; sideways ones reach the swipe. */
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--cp-chat-time-col-w) var(--cp-chat-author-col-w) minmax(0, 1fr);
+  /* The row's top padding, also read by the hover bar (MessageActionBar) to sit just above the first line. */
+  --row-pad-top: var(--cp-space-4);
+  column-gap: var(--cp-space-6);
+  padding: var(--row-pad-top) var(--cp-panel-pad-x);
+  align-items: first baseline;
+  font-size: var(--cp-text-base);
+  touch-action: pan-y pinch-zoom;
+  translate: var(--swipe-x, none);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    translate var(--cp-duration-base) var(--cp-ease-out);
+}
+
+/* Lit under a mouse (the Alerts rows' wash; a tap lights nothing), when keys select it (its log row focused: the same
+   wash, never on a phone) and while its menu is open (right click, long press). */
+@media (hover: hover) {
+  .row:hover,
+  :global([data-row-key]:focus-visible) .row {
+    background: var(--cp-surface-hover);
+  }
+}
+
+.row[data-menu='true'] {
+  background: var(--cp-surface-hover);
+}
+
+/* It pings the owner (@mention, pinging reply, @everyone / @here): Discord's wash and leading bar. */
+.row[data-mention='true'] {
+  background: var(--cp-mention-bg);
+  box-shadow: inset var(--cp-mention-bar-w) 0 0 var(--cp-mention-bar);
+}
+
+@media (hover: hover) {
+  .row[data-mention='true']:hover,
+  :global([data-row-key]:focus-visible) .row[data-mention='true'] {
+    background: var(--cp-mention-bg-menu);
+  }
+}
+
+.row[data-mention='true'][data-menu='true'] {
+  background: var(--cp-mention-bg-menu);
+}
+
+/* The finger leads while it is down. */
+.row[data-swipe='drag'] {
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* The reply circle: held at the row's resting trailing edge (it undoes the row's travel), growing in with the swipe. */
+.swipeMark {
+  position: absolute;
+  top: 50%;
+  right: var(--cp-panel-pad-x);
+  display: grid;
+  place-items: center;
+  width: var(--cp-swipe-mark);
+  height: var(--cp-swipe-mark);
+  margin-top: calc(var(--cp-swipe-mark) / -2);
+  border-radius: 50%;
+  background: var(--cp-surface-3);
+  color: var(--cp-text-muted);
+  opacity: var(--swipe-p, 0);
+  translate: calc(-1 * var(--swipe-x, 0px));
+  transform: scale(calc(var(--cp-swipe-mark-min-scale) + (1 - var(--cp-swipe-mark-min-scale)) * var(--swipe-p, 0)));
+  pointer-events: none;
+  transition:
+    opacity var(--cp-duration-base) var(--cp-ease-out),
+    translate var(--cp-duration-base) var(--cp-ease-out),
+    transform var(--cp-duration-base) var(--cp-ease-out),
+    scale var(--cp-duration-fast) var(--cp-ease-out),
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.swipeMark svg {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+/* While dragging it tracks the finger; only the armed pop and its colour animate. */
+.row[data-swipe='drag'] .swipeMark {
+  transition:
+    scale var(--cp-duration-fast) var(--cp-ease-out),
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Past the commit point: release will reply. */
+.row[data-armed='true'] .swipeMark {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  scale: var(--cp-swipe-mark-armed-scale);
+}
+
+/* Phone: a long press opens the message menu (ui/touch.ts), so it must not start iOS's text selection or image callout.
+   The menu's Copy group copies the text. Safari needs the prefix. */
+:global(html[data-surface='companion']) .row,
+:global(html[data-surface='companion']) .row * {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Fields in a row (an app's pickers, the editor) keep native text selection; the long press skips them (ui/touch.ts). */
+:global(html[data-surface='companion']) .row :is(input, textarea) {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Citation target: F2's 'cited' treatment, an info edge on the leading side. */
+.row[data-focused='true'] {
+  background: var(--cp-surface-cited);
+  box-shadow: inset var(--cp-new-marker-w) 0 0 var(--cp-cite-border);
+}
+
+.time {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+}
+
+/* Author in semibold; AuthorName colours it as Discord does. */
+.author {
+  min-width: 0;
+  min-height: var(--cp-hit-min); /* it opens the person: a tap target on the phone */
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact: reply line above the body in the body column. */
+.compactMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.content {
+  align-self: stretch;
+  color: var(--cp-text-1);
+  line-height: var(--cp-leading-relaxed);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Deleted: the kept original sits in a dashed danger frame under the note. */
+.row[data-deleted='true'] .content {
+  padding: var(--cp-space-2) var(--cp-space-4);
+  border: var(--cp-border-w) dashed var(--cp-danger-border);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-2);
+}
+
+/* Jev's labels (tags, classes…): small chips above the text, tags coloured by kind so a scan picks out plans and decisions. */
+.labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* With look.tag: its tint is --cp-tag-color. */
+.tag {
+  padding: 0 var(--cp-space-2);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.tag[data-tag='announcement'] {
+  --cp-tag-color: var(--cp-section-links);
+}
+
+.tag[data-tag='decision'] {
+  --cp-tag-color: var(--cp-section-summary);
+}
+
+.tag[data-tag='plan'] {
+  --cp-tag-color: var(--cp-section-rules);
+}
+
+.tag[data-tag='question'] {
+  --cp-tag-color: var(--cp-section-alerts);
+}
+
+/* The owner's own tags; one added by hand is outlined, one Jev applied is filled only. */
+.tag[data-own] {
+  --cp-tag-color: var(--cp-section-tags);
+}
+
+.tag[data-own='manual'] {
+  box-shadow: inset 0 0 0 var(--cp-border-w) var(--cp-tag-color);
+}
+
+.deletedNote {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  line-height: var(--cp-badge-line-h);
+  white-space: nowrap;
+}
+
+/* Edited marker: quiet note after the text. The markup's leading space (kept by pre-wrap) is the gap. */
+.editedMark {
+  display: inline-block;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  line-height: var(--cp-badge-line-h);
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+/* Earlier revision: 'was' beside the old text in F2's dashed quoted-original box. */
+.revision {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--cp-space-4);
+  align-items: baseline;
+  align-self: stretch;
+  padding: var(--cp-space-2) var(--cp-space-4);
+  border: var(--cp-border-w) dashed var(--cp-edited-original-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-edited-original-bg);
+}
+
+.revisionLabel {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.revisionText {
+  color: var(--cp-edited-original-text);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Clicking an author opens their Person window. */
+.author {
+  cursor: pointer;
+}

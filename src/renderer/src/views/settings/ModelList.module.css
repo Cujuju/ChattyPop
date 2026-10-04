@@ -1,0 +1,13 @@
+/* A provider's model rows (ModelList): structure only; rows and notes are SettingsCard.module.css, the look the theme's. */
+
+/* A model's "Use" choice, at the end of its row. */
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+/* The filter field of a long list, in its row's control slot. */
+.filter {
+  width: var(--cp-settings-control-w);
+}

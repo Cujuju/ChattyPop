@@ -1,0 +1,213 @@
+/* Shared cp-* layout classes: panel frame, the Settings page frame and rail (also used by Jev queries),
+   notes, the condition card and sidebar parts. Same layer and usage as shared-controls.css. Hooks: .cp-rail-item[data-current],
+   .cp-rail-item[data-muted], .cp-note[data-kind='error']. */
+@layer cp-shared {
+  /* Panel root: a column under the shared header that never scrolls itself. */
+  .cp-panel {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* The panel's scrolling body, inset like the header. */
+  .cp-panel-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    padding: var(--cp-space-6) var(--cp-panel-pad-x) var(--cp-space-7);
+    overflow-y: auto;
+  }
+
+  /* Empty-state note at the top of a panel body. */
+  .cp-panel-empty {
+    padding: var(--cp-space-6) var(--cp-panel-pad-x);
+    color: var(--cp-text-muted);
+    font-size: var(--cp-text-md);
+    line-height: var(--cp-leading-normal);
+  }
+
+  /* Settings page: a head, then a rail of sections beside the open one, in one bordered frame. */
+  .cp-settings-page {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--cp-space-6);
+    min-height: 0;
+    container-type: inline-size;
+  }
+
+  .cp-settings-title {
+    margin: 0;
+    color: var(--cp-text-1);
+    font-size: var(--cp-text-xl);
+    font-weight: var(--cp-weight-semibold);
+    letter-spacing: var(--cp-tracking-title);
+  }
+
+  .cp-settings-split {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    border: var(--cp-border-w) solid var(--cp-border);
+    border-radius: var(--cp-radius-md);
+    background: var(--cp-surface-1);
+  }
+
+  .cp-settings-rail {
+    display: flex;
+    flex: 0 0 var(--cp-settings-rail-w);
+    flex-direction: column;
+    gap: var(--cp-space-1);
+    min-height: 0;
+    padding: var(--cp-space-4) 0;
+    overflow-y: auto;
+    border-right: var(--cp-border-w) solid var(--cp-border);
+    background: var(--cp-surface-2);
+  }
+
+  /* Below this the rail plus a usable section column don't fit (rail 240 + section ~400). */
+  @container (width < 640px) {
+    .cp-settings-split {
+      flex-direction: column;
+    }
+
+    .cp-settings-rail {
+      display: none;
+    }
+  }
+
+  /* Group colour swatch; --group comes from [data-group] (identity.css). */
+  .cp-group-swatch {
+    flex: 0 0 auto;
+    width: var(--cp-dot-lg);
+    height: var(--cp-dot-lg);
+    border-radius: var(--cp-radius-xs);
+    background: var(--group, var(--cp-text-muted));
+  }
+
+  /* Rail entry (SettingsLayout RailItem): a button with label and meta, and an optional control beside it. */
+  .cp-rail-item {
+    display: flex;
+    align-items: center;
+    gap: var(--cp-space-4);
+    margin: 0 var(--cp-space-4);
+    padding-right: var(--cp-space-4);
+    border-radius: var(--cp-radius-sm);
+    transition: background-color var(--cp-duration-fast) var(--cp-ease);
+  }
+
+  .cp-rail-item:hover {
+    background: var(--cp-surface-hover);
+  }
+
+  .cp-rail-item[data-current] {
+    background: var(--cp-surface-5);
+  }
+
+  .cp-rail-button {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--cp-space-1);
+    min-width: 0;
+    padding: var(--cp-space-4) var(--cp-space-5);
+    border: 0;
+    border-radius: var(--cp-radius-sm);
+    background: transparent;
+    color: var(--cp-text-1);
+    font-family: var(--cp-font-sans);
+    text-align: left;
+  }
+
+  .cp-rail-button:focus-visible {
+    outline-offset: var(--cp-focus-ring-offset-inset);
+  }
+
+  /* Names wrap rather than cut off: a feature's full name is what tells it apart. */
+  .cp-rail-label {
+    font-size: var(--cp-text-md);
+    line-height: var(--cp-leading-tight);
+  }
+
+  .cp-rail-item[data-current] .cp-rail-label {
+    font-weight: var(--cp-weight-semibold);
+  }
+
+  .cp-rail-item[data-muted] .cp-rail-label {
+    color: var(--cp-text-muted);
+  }
+
+  .cp-rail-meta {
+    overflow: hidden;
+    color: var(--cp-text-muted);
+    font-size: var(--cp-text-2xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cp-rail-aside {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+  }
+
+  /* A paragraph of explanation; .cp-note-error (or data-kind='error') in the danger colour. */
+  .cp-note {
+    margin: 0;
+    color: var(--cp-text-muted);
+    font-size: var(--cp-text-xs);
+    line-height: var(--cp-leading-normal);
+    text-wrap: pretty;
+  }
+
+  .cp-note[data-kind='error'],
+  .cp-note-error {
+    color: var(--cp-danger);
+  }
+
+  /* Micro label over a figure or block. */
+  .cp-stat-label {
+    color: var(--cp-text-muted);
+    font-size: var(--cp-text-2xs);
+    font-weight: var(--cp-weight-semibold);
+    letter-spacing: var(--cp-tracking-label);
+    text-transform: uppercase;
+  }
+
+  /* Card holding a condition or a follow-up action (Jev question condition, run on past messages): its layout; the recessed
+     look is look.card (theme/look), beside it. */
+  .cp-condition {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cp-space-4);
+    padding: var(--cp-space-6) var(--cp-space-7);
+  }
+
+  /* Sidebar server heading (channel list and Browse). */
+  .cp-sidebar-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--cp-space-3);
+    width: 100%;
+    height: var(--cp-row-h);
+    margin-top: var(--cp-space-2);
+    padding: 0 var(--cp-space-2);
+    color: var(--cp-text-1);
+    font-size: var(--cp-text-md);
+    font-weight: var(--cp-weight-semibold);
+    text-align: left;
+    overflow: hidden;
+  }
+
+  /* Micro tag on a row; each use sets its colour. */
+  .cp-micro-tag {
+    flex: 0 0 auto;
+    font-size: var(--cp-text-2xs);
+    letter-spacing: var(--cp-tracking-label-sm);
+    text-transform: uppercase;
+  }
+}

@@ -1,0 +1,33 @@
+/* Chat panel. Ground comes from the layout slot; header is ui/PanelHeader; this file paints the live slot. */
+.root {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Live segment marker: a success dot before the label. Needs class={styles.live} on the Live SegButton.
+   Segments lay out as a column (theme/bridge/seg-buttons.css), so the dot is positioned in reserved leading padding. */
+/* Group + button classes outrank the bridge's size-step padding (:root .csb-btn-sm). */
+:global(.csb-group) > .live:global(.csb-btn) {
+  position: relative;
+  padding-inline-start: calc(var(--cp-space-4) + var(--cp-dot) + var(--cp-space-3));
+}
+
+.live::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: var(--cp-space-4);
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-success);
+  transform: translateY(-50%);
+}
+
+/* The native Discord view is painted over this. No border or padding: its box is the view's bounds. */
+.liveSlot {
+  min-width: 0;
+  min-height: 0;
+  background: var(--cp-surface-1);
+}

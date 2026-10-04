@@ -1,0 +1,53 @@
+{
+  "name": "chattypop",
+  "private": true,
+  "description": "Discord archive, AI summaries, topic alerts and media-link feed.",
+  "license": "MIT",
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "package": "electron-vite build && electron-builder --win --dir",
+    "test": "vitest run",
+    "dist": "electron-vite build && electron-builder --win nsis",
+    "release": "electron-vite build && electron-builder --win nsis --publish always",
+    "plugin:release-changed": "node scripts/runTs.mjs scripts/pluginReleaseChanged.ts",
+    "plugin:check": "node scripts/runTs.mjs scripts/pluginCheck.ts",
+    "shell:sync": "vite build --config mobile/vite.config.ts && cap sync ios"
+  },
+  "packageManager": "pnpm@12.5.1",
+  "dependencies": {
+    "@cujuju/solidjs-color-picker": "0.3.0",
+    "@cujuju/solidjs-pill-number-picker": "0.5.1",
+    "@cujuju/solidjs-seg-buttons": "0.3.0",
+    "@cujuju/solidjs-virtual-log": "0.1.0",
+    "better-sqlite3-multiple-ciphers": "13.0.3",
+    "electron-updater": "6.8.9",
+    "emojibase-data": "17.0.0",
+    "linkifyjs": "4.3.3",
+    "lottie-web": "5.13.0",
+    "solid-js": "1.9.15",
+    "tar": "7.5.22",
+    "uqr": "0.1.3"
+  },
+  "devDependencies": {
+    "@babel/parser": "7.29.9",
+    "@capacitor/cli": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/ios": "8.5.2",
+    "@capacitor/keyboard": "8.0.5",
+    "@capacitor/push-notifications": "8.1.2",
+    "@capacitor/status-bar": "8.0.3",
+    "@types/node": "^24.13.6",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "typescript": "7.0.2",
+    "vite": "7.3.6",
+    "vite-plugin-solid": "2.11.14",
+    "vitest": "5.0.1"
+  }
+}

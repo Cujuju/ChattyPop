@@ -1,0 +1,174 @@
+/* Base styles for the renderer. Reset uses :where() so any component rule wins on specificity. */
+
+/* Reset and focus ring sit in layer cp-base (order in index.css): the shared cp-* classes (layer cp-shared) must beat them. */
+@layer cp-base {
+  /* Reset */
+  :where(*, *::before, *::after) {
+    box-sizing: border-box;
+  }
+
+  :where(body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, ol, ul, pre) {
+    margin: 0;
+  }
+
+  :where(ol, ul) {
+    padding: 0;
+    list-style: none;
+  }
+
+  :where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* Buttons start as plain boxes: no UA grey ground or bevel, so a row turned into a button never looks pressed. */
+  :where(button) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: inherit;
+    cursor: pointer;
+  }
+
+  :where(img, svg, video, canvas) {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* A named icon (ui/icons.tsx, ui/solidIcons.tsx) sits in text like a glyph: 1em, centred on the line, unshrunk.
+     A module class that sizes it wins. */
+  :where(svg.cp-icon) {
+    display: inline-block;
+    flex: none;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+  }
+
+  /* Every 24-unit line icon draws one line weight at any size: the stroke is in screen pixels (non-scaling), so a
+     14px and a 26px icon match. Beats a module's or an attribute's width, which would scale with the icon. */
+  svg[viewBox='0 0 24 24'] :is(path, circle, ellipse, line, polyline, polygon, rect) {
+    stroke-width: var(--cp-icon-line);
+    vector-effect: non-scaling-stroke;
+  }
+
+  :where(a) {
+    color: var(--cp-link);
+    text-decoration: none;
+  }
+
+  :where(a):hover {
+    color: var(--cp-link-hover);
+  }
+
+  :where(code, pre, samp) {
+    font-family: var(--cp-font-mono);
+  }
+}
+
+/* Desktop app sizing: the page never scrolls; panels own their scroll regions. */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Phone companion in a browser tab: browsers retract their toolbars only while the page itself scrolls, so the page
+   gets scroll room and the app shell (Companion.module.css) stays pinned to the visible area. A home-screen app or
+   the iPhone shell has no toolbars and keeps the rules above. data-display: companion/shell.ts. */
+html[data-surface='companion'][data-display='browser'],
+html[data-surface='companion'][data-display='browser'] body,
+html[data-surface='companion'][data-display='browser'] #root {
+  height: auto;
+  overflow: visible;
+}
+
+html[data-surface='companion'][data-display='browser'] #root {
+  min-height: calc(100lvh + var(--cp-toolbar-scroll-room));
+}
+
+/* Phone: a double tap acts at once instead of zooming, as in a native app; pinch zoom and scrolling stay. The
+   viewport meta's user-scalable=no covers the iPhone shell alone; iOS web apps ignore it, so this rule is the one that holds. */
+html[data-surface='companion'] {
+  touch-action: manipulation;
+}
+
+html {
+  background: var(--cp-ground-paint, var(--cp-ground));
+  color-scheme: var(--cp-color-scheme);
+}
+
+body {
+  background: var(--cp-body-paint, var(--cp-surface-1));
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-regular);
+  line-height: var(--cp-leading-normal);
+  font-variant-numeric: tabular-nums; /* counts, times and percentages align in every column */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Safari (the phone) reads only the prefixed property; the build adds no prefixes. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Message and input text stays selectable; chrome is not. */
+:where(p, input, textarea, [contenteditable]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+@layer cp-base {
+  /* Focus ring, keyboard only */
+  :focus-visible {
+    outline: var(--cp-focus-ring);
+    outline-offset: var(--cp-focus-ring-offset);
+  }
+
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* A log row (solidjs-virtual-log: the archive's and plugins' logs) never draws one: focus returns to it after a dialog,
+     which the phone draws as a ring. A row selected by keys shows its hover wash instead (MessageRow.module.css). */
+  [data-row-key]:focus-visible {
+    outline: none;
+  }
+}
+
+::selection {
+  background: var(--cp-selection-bg);
+  color: var(--cp-selection-text);
+}
+
+/* Scrollbars: standard properties only; Chromium ignores ::-webkit-scrollbar once these are set. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--cp-scrollbar-thumb) var(--cp-scrollbar-track);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cp-duration-fast: var(--cp-duration-instant);
+    --cp-duration-base: var(--cp-duration-instant);
+    --cp-duration-slow: var(--cp-duration-instant);
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: var(--cp-duration-instant) !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: var(--cp-duration-instant) !important;
+    scroll-behavior: auto !important;
+  }
+}

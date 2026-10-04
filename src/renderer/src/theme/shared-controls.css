@@ -1,0 +1,187 @@
+/* Shared cp-* classes: form controls, accessibility, floating surfaces. Components put the class beside their module
+   class (class={`cp-button ${styles.save}`}); the module adds or overrides properties. Layer cp-shared (index.css) sits
+   above the reset and below every unlayered rule, so a module's override wins whatever the load order. */
+@layer cp-shared {
+  /* Secondary and danger buttons: raised neutral. */
+  .cp-button,
+  .cp-danger {
+    display: inline-flex;
+    align-items: center;
+    height: var(--cp-btn-h-sm);
+    padding: 0 var(--cp-space-5);
+    border: var(--cp-border-w) solid var(--cp-border);
+    border-radius: var(--cp-radius-sm);
+    background: var(--cp-surface-4);
+    color: var(--cp-text-1);
+    font-family: var(--cp-font-sans);
+    font-size: var(--cp-text-xs);
+    white-space: nowrap;
+    transition:
+      border-color var(--cp-duration-fast) var(--cp-ease),
+      background-color var(--cp-duration-fast) var(--cp-ease);
+  }
+
+  .cp-button:hover:not(:disabled) {
+    border-color: var(--cp-border-strong);
+    background: var(--cp-surface-5);
+  }
+
+  .cp-danger {
+    border-color: var(--cp-danger-border);
+    background: var(--cp-danger-bg);
+    color: var(--cp-danger);
+  }
+
+  .cp-danger:hover:not(:disabled) {
+    background: var(--cp-danger-bg-hover);
+  }
+
+  /* Save and other main actions: the accent button. */
+  .cp-primary {
+    height: var(--cp-btn-h-sm);
+    padding: 0 var(--cp-space-6);
+    border: 0;
+    border-radius: var(--cp-radius-sm);
+    background: var(--cp-accent);
+    color: var(--cp-text-on-accent);
+    font-family: var(--cp-font-sans);
+    font-size: var(--cp-text-xs);
+    font-weight: var(--cp-weight-semibold);
+    white-space: nowrap;
+    transition: background-color var(--cp-duration-fast) var(--cp-ease);
+  }
+
+  /* With .cp-primary: field height, for a primary that closes a form footer. */
+  .cp-primary-lg {
+    height: var(--cp-btn-h-lg);
+    padding: 0 var(--cp-space-7);
+  }
+
+  .cp-primary:hover:not(:disabled) {
+    background: var(--cp-accent-hover);
+  }
+
+  .cp-button:disabled,
+  .cp-danger:disabled,
+  .cp-primary:disabled {
+    opacity: var(--cp-opacity-disabled);
+    cursor: not-allowed;
+  }
+
+  .cp-button:focus-visible,
+  .cp-danger:focus-visible,
+  .cp-primary:focus-visible {
+    outline-offset: var(--cp-focus-ring-offset-inset);
+  }
+
+  .cp-error {
+    color: var(--cp-danger);
+    font-family: var(--cp-font-sans);
+    font-size: var(--cp-text-xs);
+  }
+
+  .cp-hint {
+    color: var(--cp-text-muted);
+    font-size: var(--cp-text-md);
+    line-height: var(--cp-leading-normal);
+    text-wrap: pretty;
+  }
+
+  /* A labelled field: small uppercase label above its control. */
+  .cp-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cp-space-2);
+  }
+
+  .cp-label {
+    color: var(--cp-text-muted);
+    font-family: var(--cp-font-sans);
+    font-size: var(--cp-text-2xs);
+    letter-spacing: var(--cp-tracking-label);
+    text-transform: uppercase;
+  }
+
+  /* A checkbox with its text, and a wrapping row of them. */
+  .cp-check {
+    display: flex;
+    align-items: center;
+    gap: var(--cp-space-4);
+    color: var(--cp-text-2);
+    font-size: var(--cp-text-md);
+    cursor: pointer;
+  }
+
+  .cp-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cp-space-2) var(--cp-space-6);
+  }
+
+  .cp-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--cp-space-3);
+    padding-top: var(--cp-space-2);
+  }
+
+  /* Read by screen readers, not drawn. Pinned to its containing block's corner: left at its place in a scrolled list
+     with no positioned ancestor, it would stretch the page's scroll height. */
+  .cp-visually-hidden {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    width: var(--cp-space-px);
+    height: var(--cp-space-px);
+    margin: calc(-1 * var(--cp-space-px));
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Floating surface over panels: menus, dropdowns, result lists. Position and size belong to the component. */
+  .cp-popover {
+    padding: var(--cp-space-2);
+    border: var(--cp-border-w) solid var(--cp-border);
+    border-radius: var(--cp-radius-lg);
+    background: var(--cp-surface-3);
+    box-shadow: var(--cp-shadow-popover);
+  }
+
+  /* Border-drawn disclosure chevron, pointing down. */
+  .cp-chevron {
+    flex: 0 0 auto;
+    width: var(--cp-chevron-size);
+    height: var(--cp-chevron-size);
+    margin-top: calc(-1 * var(--cp-space-1));
+    border-right: var(--cp-border-w) solid var(--cp-text-muted);
+    border-bottom: var(--cp-border-w) solid var(--cp-text-muted);
+    transform: var(--cp-chevron-open);
+  }
+}
+
+/* The gradient edge: the message box's stroke (--cp-stroke), dimmed toward the element's own fill while idle, full with
+   focus inside. The fill (--cp-stroke-fill, tokens.css; an element sets its own) is painted under the stroke's box, so the
+   element stays opaque; a border can't take a gradient directly. Unlayered, and its states at (0,2,0): it must beat the
+   native field rules (forms.css), whose hover and focus would otherwise colour the transparent border. Radius, shadow and
+   size stay the element's. */
+.cp-stroke,
+.cp-stroke:is(:hover, :focus-visible) {
+  border: var(--cp-stroke-w) solid transparent;
+  background:
+    linear-gradient(var(--cp-stroke-fill), var(--cp-stroke-fill)) padding-box,
+    linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--cp-accent) var(--cp-stroke-idle-mix), var(--cp-stroke-fill)),
+        color-mix(in srgb, var(--cp-link) var(--cp-stroke-idle-mix), var(--cp-stroke-fill))
+      )
+      border-box;
+}
+
+.cp-stroke:focus-within {
+  background:
+    linear-gradient(var(--cp-stroke-fill), var(--cp-stroke-fill)) padding-box,
+    var(--cp-stroke) border-box;
+}

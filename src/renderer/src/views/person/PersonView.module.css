@@ -1,0 +1,30 @@
+/* Person window inside the shared window surface (ui/WindowChrome.module.css): Discord's profile as a rail beside the
+   archive column, each scrolling on its own. The body is the width container both read (ProfileCard, PersonTabs). */
+.body {
+  container-type: inline-size;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.notice {
+  margin: 0;
+  padding: var(--cp-space-7) var(--cp-panel-pad-x);
+}
+
+/* Folded: the rail is a header over the archive column and the two scroll as one. */
+.columns {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 604px: the rail (--cp-profile-card-w) beside a 304px list column, the narrowest a channel row reads in. */
+@container (width >= 604px) {
+  .columns {
+    display: grid;
+    grid-template-columns: var(--cp-profile-card-w) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+}

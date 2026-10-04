@@ -1,0 +1,90 @@
+/* Theme 'paper': warm off-white paper with near-black ink, for long reading with little glare. Atkinson
+   Hyperlegible type (its faces are declared in fonts.css) one step larger, relaxed line height, rounded cards spaced on
+   the ground. Every panel carries equal weight.
+   Contrast (WCAG 2.x, sRGB) checked 2026-09-27, all >= 4.5:1 (tests/themeContrast.test.ts holds them):
+   text-1 / text-2 / text-muted on surface-0..5: 16.3-11.7 / 10.3-7.5 / 6.7-4.9; text-on-accent on accent 6.4;
+   info on cite-bg 5.7; sections on surface-2 / 3 5.1-6.5, text-on-accent on each 6.0-6.9; platforms on surface-4 >= 4.7. */
+
+[data-theme='paper'] {
+  --cp-color-scheme: light;
+
+  --cp-ground: #e9e4da;
+  --cp-surface-0: #efebe3;
+  --cp-surface-1: #f6f3ed;
+  --cp-surface-2: #f1ede5;
+  --cp-surface-3: #fbf9f5; /* panels and inputs: the lightest paper */
+  --cp-surface-4: #e8e2d6;
+  --cp-surface-5: #ddd5c6;
+  --cp-surface-cited: #f3ead3;
+
+  --cp-border: #d6cfc2;
+  --cp-border-subtle: #e3ddd2;
+  --cp-border-faint: #ece7de;
+  --cp-border-strong: #b9b0a0;
+
+  --cp-text-1: #1f1b16;
+  --cp-text-2: #433c33;
+  --cp-text-muted: #5f564a;
+  --cp-text-on-accent: #ffffff;
+
+  --cp-accent: #0e6a64;
+  --cp-accent-hover: #0b5752;
+  --cp-accent-2: #4d6b12;
+  --cp-info: #1b5f93;
+  --cp-link-hover: #134a73;
+  --cp-cite-bg: #e3edf5;
+  --cp-cite-border: #b9cfe2;
+  --cp-name-gradient-filter: brightness(0.85); /* gradient role names, darkened as on Discord's light theme */
+
+  --cp-danger: #a8281f;
+  --cp-danger-bg: #f8e1dc;
+  --cp-danger-border: #e8b9b0;
+  --cp-success: #1e6b3a;
+  --cp-success-bg: #dcefe1;
+
+  --cp-platform-youtube: #b52b2b;
+  --cp-platform-reddit: #a84300;
+  --cp-platform-instagram: #a3337a;
+  --cp-platform-tiktok: #0f6e68;
+  --cp-platform-twitch: #6b3fbf;
+
+  --cp-section-summary: #6a3fc0;
+  --cp-section-provider: #0d6e62;
+  --cp-section-alerts: #b3263f;
+  --cp-section-links: #1565a8;
+  --cp-section-chat: #3f51b5;
+  --cp-section-plans: #8a5200;
+  --cp-section-tags: #9c2f86;
+  --cp-section-rules: #3f6b12;
+  --cp-section-stats: #7a6000;
+  --cp-section-wash-mix: 9%; /* a light tint: strong washes muddy paper */
+  --cp-section-tile-mix: 14%;
+
+  --cp-shadow-popover: 0 6px 18px rgb(60 45 20 / 16%);
+  --cp-shadow-flyout: 0 8px 24px rgb(60 45 20 / 18%);
+  --cp-shadow-dialog: 0 16px 48px rgb(60 45 20 / 24%);
+  --cp-lightbox-backdrop: rgb(24 20 15 / 92%); /* dark behind images, whatever the theme */
+
+  --cp-font-sans: 'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, sans-serif;
+  --cp-font-mono: 'Atkinson Hyperlegible Mono', 'Cascadia Mono', Consolas, monospace;
+  --cp-text-xs: 12.5px;
+  --cp-text-md: 14px;
+  --cp-text-base: 15px;
+  --cp-leading-normal: 1.55;
+  --cp-leading-relaxed: 1.6;
+
+  --cp-radius-sm: 4px;
+  --cp-radius-md: 6px;
+  --cp-radius-lg: 10px;
+
+  /* Cards spaced on the ground; headers on the card itself, no band stripe. */
+  --cp-layout-pad: 8px;
+  --cp-panel-gap: 8px;
+  --cp-panel-divider-w: 0px;
+  --cp-panel-handle: transparent;
+  --cp-panel-handle-hover: var(--cp-accent-wash-strong);
+  --cp-panel-radius: 10px;
+  --cp-panel-shadow: 0 1px 3px rgb(60 45 20 / 10%);
+  --cp-header-band: var(--cp-surface-3);
+  --cp-header-stripe-h: 0px;
+}

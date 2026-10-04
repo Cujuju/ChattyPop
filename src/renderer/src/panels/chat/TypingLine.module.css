@@ -1,0 +1,27 @@
+/* "A is typing…" atop the Archive footer column: small, muted, names heavier. Its height is kept while empty, so the
+   box never moves as it comes and goes. */
+.typing {
+  box-sizing: border-box;
+  height: var(--cp-typing-h);
+  margin: 0 var(--cp-composer-inset-right) 0 var(--cp-composer-inset-left);
+  padding: 0 var(--cp-space-3);
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-typing-h);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--cp-text-2);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* Phone: the line sits midway in its slot (--cp-composer-typing-slot), a pixel high so the x-height, not the line box,
+   reads centred. */
+:global(html[data-surface='companion']) .typing {
+  margin-top: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 - var(--cp-space-px));
+  margin-bottom: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 + var(--cp-space-px));
+}

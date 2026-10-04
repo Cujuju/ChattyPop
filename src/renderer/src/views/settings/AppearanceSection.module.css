@@ -1,0 +1,143 @@
+/* Settings → Appearance. Theme picker: one card per theme; the preview carries data-theme, so its swatches and sample
+   read that theme's tokens. Hook: .themePreview[data-theme]. */
+.themeList {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: var(--cp-space-4);
+}
+
+.themeOption {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+  cursor: pointer;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.themeOption:hover {
+  border-color: var(--cp-border-strong);
+}
+
+.themeOption:has(input:checked) {
+  border-color: var(--cp-accent);
+}
+
+.themeText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.providerName {
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  cursor: pointer;
+}
+
+.themePreview {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex: 0 0 auto;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+}
+
+/* The custom theme's card: its gradient under the panel veil, as panels wear it. */
+.themePreview[data-gradient] {
+  background:
+    linear-gradient(var(--cp-panel-paint), var(--cp-panel-paint)),
+    var(--cp-custom-gradient);
+}
+
+.themeSample {
+  margin-right: var(--cp-space-2);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-none);
+}
+
+.themeSwatch,
+.themeAccent {
+  width: var(--cp-dot-lg);
+  height: var(--cp-dot-lg);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-section);
+}
+
+.themeAccent {
+  width: var(--cp-icon-lg);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent);
+}
+
+/* Custom gradient card: the gradient as a strip (its image arrives as --cp-custom-gradient), then the stops' pickers. */
+.gradientStrip {
+  height: var(--cp-btn-h);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-custom-gradient);
+}
+
+.stop {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--cp-btn-h-sm); /* the settings buttons' height, so a stop lines up with Add colour */
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  overflow: hidden;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.stop:hover {
+  border-color: var(--cp-border-strong);
+}
+
+/* The stop clips its corners, so its swatch's and remove's focus rings sit inside. */
+.stop :focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* A picker's swatch: its wrapper sized by the swatch alone, so it centres in a control row. */
+.field {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Remove, joined to its stop's swatch: a ghost segment behind a divider. */
+.stopRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cp-btn-h-sm);
+  padding: 0;
+  border: 0;
+  border-left: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.stopRemove:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+/* Panel colours: each row's name and icon in the colour that panel wears. */
+.panelName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-section);
+}

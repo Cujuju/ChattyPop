@@ -1,0 +1,120 @@
+/* Platform identity, app-wide: any element with data-platform resolves --cp-platform to its role colour. */
+[data-platform='youtube'] {
+  --cp-platform: var(--cp-platform-youtube);
+}
+
+[data-platform='reddit'] {
+  --cp-platform: var(--cp-platform-reddit);
+}
+
+[data-platform='x'] {
+  --cp-platform: var(--cp-platform-x);
+}
+
+[data-platform='instagram'] {
+  --cp-platform: var(--cp-platform-instagram);
+}
+
+[data-platform='bluesky'] {
+  --cp-platform: var(--cp-platform-bluesky);
+}
+
+[data-platform='tiktok'] {
+  --cp-platform: var(--cp-platform-tiktok);
+}
+
+[data-platform='twitch'] {
+  --cp-platform: var(--cp-platform-twitch);
+}
+
+[data-platform='threads'] {
+  --cp-platform: var(--cp-platform-threads);
+}
+
+[data-platform='other'] {
+  --cp-platform: var(--cp-platform-other);
+}
+
+/* Section identity, app-wide: any element with data-section (a panel id) resolves --cp-section to its colour. */
+[data-section='channels'] {
+  --cp-section: var(--cp-section-channels);
+}
+
+[data-section='sync-status'] {
+  --cp-section: var(--cp-section-sync-status);
+}
+
+[data-section='summary'] {
+  --cp-section: var(--cp-section-summary);
+}
+
+[data-section='provider'] {
+  --cp-section: var(--cp-section-provider);
+}
+
+[data-section='alerts'] {
+  --cp-section: var(--cp-section-alerts);
+}
+
+[data-section='links'] {
+  --cp-section: var(--cp-section-links);
+}
+
+[data-section='chat'] {
+  --cp-section: var(--cp-section-chat);
+}
+
+[data-section='plans'] {
+  --cp-section: var(--cp-section-plans);
+}
+
+[data-section='tags'] {
+  --cp-section: var(--cp-section-tags);
+}
+
+[data-section='rules'] {
+  --cp-section: var(--cp-section-rules);
+}
+
+[data-section='stats'] {
+  --cp-section: var(--cp-section-stats);
+}
+
+/* Plugin panels share one neutral identity: the plugin, not the host, decides what they are. */
+[data-section='plugin'] {
+  --cp-section: var(--cp-text-2);
+}
+
+/* Jev groups reuse the colour of the panel each feeds, as --group. Settings → Jev sections (SettingsLayout rail). */
+[data-group='Alerts'] {
+  --group: var(--cp-section-alerts);
+}
+
+[data-group='Summaries'] {
+  --group: var(--cp-section-summary);
+}
+
+[data-group='Links'] {
+  --group: var(--cp-section-links);
+}
+
+[data-group='Messages & search'] {
+  --group: var(--cp-section-tags);
+}
+
+[data-group='Tools'] {
+  --group: var(--cp-section-provider);
+}
+
+/* Settings → Jev → Queries groups ('Alerts' and 'Summaries' as above). */
+[data-group='Messages'] {
+  --group: var(--cp-section-tags);
+}
+
+[data-group='Links & search'] {
+  --group: var(--cp-section-links);
+}
+
+[data-group='Jev check'] {
+  --group: var(--cp-section-provider);
+}

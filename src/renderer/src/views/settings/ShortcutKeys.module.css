@@ -1,0 +1,122 @@
+/* Settings → Desktop → Shortcuts: the list of shortcut keys (ShortcutKeys.tsx), one line each, in columns. Notes are
+   cp-note (theme/shared-layout.css). */
+
+/* A row's key field and its button: fixed widths, so fields align and buttons match across rows. */
+.keyControl {
+  display: grid;
+  grid-template-columns: var(--cp-settings-control-w) var(--cp-settings-key-action-w);
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.keyControl > input {
+  width: 100%;
+  cursor: pointer;
+}
+
+.keyControl > button {
+  justify-content: center;
+}
+
+/* Follows the card's rows: their inset and hairline, closing the card. */
+.keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-6) var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.keysHint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+}
+
+/* Columns of shortcuts; one column below two minimum widths. */
+.keyList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--cp-settings-key-col-min-w), 1fr));
+  gap: var(--cp-space-2) var(--cp-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name left, reset and key at the right edge; notes wrap to a line of their own beneath. */
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  min-width: 0;
+}
+
+.key > :global(.cp-note) {
+  flex-basis: 100%;
+}
+
+.keyName {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keyOrigin {
+  margin-left: var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Rules' quiet icon button, at the header-button size so the line stays one field tall. */
+.keyReset {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cp-btn-h-sm);
+  height: var(--cp-btn-h-sm);
+  padding: 0;
+  border: none;
+  border-radius: var(--cp-radius-md);
+  background: none;
+  color: var(--cp-text-2);
+  cursor: pointer;
+}
+
+.keyReset:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.keyReset > svg {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
+
+/* The field look comes from forms.css; this sizes it. */
+.keyField {
+  flex: none;
+  width: var(--cp-settings-key-w);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Same box as the field, as a flat key cap: fixed, not editable. */
+.keyFixed {
+  flex: none;
+  width: var(--cp-settings-key-w);
+  height: var(--cp-btn-h);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  line-height: calc(var(--cp-btn-h) - 2 * var(--cp-border-w));
+  text-align: center;
+}

@@ -1,0 +1,107 @@
+/* Settings sections' own controls, beside the cards of SettingsCard.module.css. The window is SettingsDialog.module.css;
+   Appearance and Jev queries have their own modules. Check controls take their look from theme/forms.css;
+   buttons, hints and errors are cp-* (theme/shared-controls.css). */
+
+/* A usage chip (plan window, key model) with an optional action inside it. */
+.usageWindow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-height: var(--cp-chip-h);
+  padding: var(--cp-space-1) var(--cp-space-1) var(--cp-space-1)
+    var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+}
+
+/* With cp-button: room between an icon and its text. */
+.button {
+  gap: var(--cp-space-3);
+}
+
+/* A chip's own action (e.g. 'Remove' a model from a key) sits inside the chip at chip scale. Unlayered, so it would also
+   beat cp-button's hover; the hover rule below restores it. */
+.usageWindow > .button {
+  height: calc(var(--cp-chip-h) - 2 * var(--cp-space-1));
+  padding: 0 var(--cp-space-3);
+  border-color: transparent;
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+}
+
+.usageWindow > .button:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-5);
+}
+
+/* Field look is app-wide in theme/forms.css; only width here. */
+.input {
+  width: 100%;
+}
+
+/* Plugins: the restart notice over every section, tinted with the accent so it reads as the next step,
+   not a warning. */
+.notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4) var(--cp-space-7);
+  padding: var(--cp-space-5) var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-accent-wash-strong);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-accent-wash);
+}
+
+.noticeText {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.noticeTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* Its restart error takes a line of its own. */
+.notice > :global(.cp-note) {
+  flex-basis: 100%;
+}
+
+/* The restore notice's plugin list: a card on a line of its own. */
+.noticeBody {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+/* A plugin's name and its status pill. */
+.pluginName {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-4);
+}
+
+/* With look.status: a micro pill, as chat tags are. */
+.status {
+  padding: 0 var(--cp-space-3);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* A row hint of several lines (a description, then its versions). */
+.hintLine {
+  display: block;
+}

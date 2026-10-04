@@ -1,0 +1,106 @@
+/* Look vocabulary: grounds, cards, rules between regions, and dialog surfaces (docs/plugin-architecture.md §14). Look only.
+   Hooks: .ruleBelow[data-rule='subtle'], .fadeBelow::after, .fadeAbove::before. */
+
+/* The window ground behind everything. */
+.ground {
+  background: var(--cp-ground-paint, var(--cp-ground));
+}
+
+/* Chrome: top bars, drawers. */
+.chrome {
+  background: var(--cp-chrome-paint, var(--cp-surface-0));
+}
+
+/* The app base a section sits on. */
+.base {
+  background: var(--cp-surface-1);
+}
+
+/* Recessed card holding a form or a tool. */
+.card {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+/* A notice set apart from the content around it. */
+.banner {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+}
+
+/* A band heading a group of rows. */
+.band {
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-2);
+}
+
+/* What needs the reader, set apart in the wash of the nearest [data-section]'s colour. */
+.wash {
+  border-radius: var(--cp-radius-md);
+  background: color-mix(in srgb, var(--cp-section) var(--cp-section-wash-mix), transparent);
+}
+
+/* A rule under a region (a filter bar, a chart's baseline); subtle between list rows. */
+.ruleBelow {
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+}
+
+.ruleBelow[data-rule='subtle'] {
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* A rule over a region stacked under another; subtle within a popover. */
+.ruleAbove {
+  border-top: var(--cp-border-w) solid var(--cp-border);
+}
+
+.ruleAbove[data-rule='subtle'] {
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* A chrome bar's edge without a rule: its ::after (below) or ::before (above) lies over the content past the edge,
+   the chrome ground fading out. The component places the box (--cp-edge-fade-h tall). */
+.fadeBelow::after {
+  background: inherit;
+  mask-image: linear-gradient(to bottom, var(--cp-edge-fade-ramp));
+}
+
+.fadeAbove::before {
+  background: inherit;
+  mask-image: linear-gradient(to top, var(--cp-edge-fade-ramp));
+}
+
+/* Bottom sheet: a modal dialog rising from the screen's bottom edge. */
+.sheet {
+  border: 0;
+  border-top: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0;
+  background: var(--cp-surface-1);
+  color: var(--cp-text-1);
+  box-shadow: var(--cp-shadow-dialog);
+}
+
+/* Side drawer: a modal dialog sliding in from the start edge; its closed position is the component's (structure). */
+.drawer {
+  border: 0;
+  border-right: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-0);
+  color: var(--cp-text-1);
+  box-shadow: var(--cp-shadow-dialog);
+  transition:
+    transform var(--cp-duration-slow) var(--cp-ease-out),
+    overlay var(--cp-duration-slow) allow-discrete,
+    display var(--cp-duration-slow) allow-discrete;
+}
+
+.sheet::backdrop,
+.drawer::backdrop {
+  background: var(--cp-backdrop);
+}
+
+/* A container focused on opening (autofocus) draws no ring; its controls do. */
+.silentFocus:focus {
+  outline: none;
+}

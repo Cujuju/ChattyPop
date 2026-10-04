@@ -1,0 +1,63 @@
+/* Look vocabulary: charts and meters (docs/plugin-architecture.md §14). Look only. Bars, cells and share rows read --v
+   (0–1, the value's share of the largest), set on the element by the component. */
+
+/* A chart bar in the nearest [data-section]'s colour, rounded at the top; the text colour under the pointer. */
+.chartBar {
+  border-radius: var(--cp-radius-xs) var(--cp-radius-xs) 0 0;
+  background: var(--cp-section);
+}
+
+.chartBar:hover {
+  background: var(--cp-text-1);
+}
+
+/* A heatmap cell: the section colour's share follows --v. */
+.heatCell {
+  border-radius: var(--cp-radius-xs);
+  background: color-mix(in srgb, var(--cp-section) calc(var(--v) * 100%), var(--cp-surface-2));
+}
+
+/* A ranked row over a faint bar of its share (--v); as a button, outlined under the pointer and on focus. */
+.shareBar {
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--cp-section) var(--cp-section-tile-mix), transparent) calc(var(--v) * 100%),
+    transparent 0
+  );
+}
+
+button.shareBar {
+  cursor: pointer;
+}
+
+button.shareBar:hover,
+button.shareBar:focus-visible {
+  outline: var(--cp-border-w) solid var(--cp-border);
+}
+
+/* A <meter>: a rounded track, the fill in the nearest [data-section]'s colour, the accent from its `high` mark. */
+.meter {
+  appearance: none;
+  border: 0;
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+}
+
+.meter::-webkit-meter-bar {
+  border: 0;
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+}
+
+.meter::-webkit-meter-optimum-value {
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-section);
+}
+
+.meter::-webkit-meter-suboptimum-value,
+.meter::-webkit-meter-even-less-good-value {
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent);
+}

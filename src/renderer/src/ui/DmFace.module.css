@@ -1,0 +1,83 @@
+/* A DM's face (DmFace.tsx) at --cp-avatar-md, in DM rows, the collapsed rail and the Archive picker row for a DM. */
+
+.face {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-avatar-md);
+  height: var(--cp-avatar-md);
+}
+
+.photo,
+.initial {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-5);
+}
+
+.photo {
+  object-fit: cover;
+}
+
+.initial {
+  display: grid;
+  place-content: center;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+  text-transform: uppercase;
+}
+
+.groupMark {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+/* A group without its own icon: two members, top-left over bottom-right, cut out from the row's ground. */
+.stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.stacked {
+  position: absolute;
+  width: var(--cp-avatar-stack);
+  height: var(--cp-avatar-stack);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-5);
+  box-shadow: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-0);
+  object-fit: cover;
+}
+
+.stacked:first-child {
+  top: 0;
+  left: 0;
+}
+
+.stacked:last-child {
+  right: 0;
+  bottom: 0;
+}
+
+/* Small (the Archive picker row): the same face in an --cp-avatar-sm box. */
+.face[data-size='sm'] {
+  width: var(--cp-avatar-sm);
+  height: var(--cp-avatar-sm);
+}
+
+.face[data-size='sm'] .stacked {
+  width: var(--cp-avatar-stack-sm);
+  height: var(--cp-avatar-stack-sm);
+}
+
+.face[data-size='sm'] .initial {
+  font-size: var(--cp-text-2xs);
+}
+
+.face[data-size='sm'] .groupMark {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}

@@ -1,0 +1,307 @@
+/* Discord's profile as the Person window's rail: banner, avatar hanging over it in a ring of the rail's colour, then the
+   person, scrolling on its own. Folded (the window too narrow for the rail beside a list, PersonView.module.css) it is a
+   header: avatar beside the name, details in columns.
+   Inline hooks: --banner-color (their accent colour), --role-color per role. Own hooks: --avatar, --banner-h, --pad-x. */
+.card {
+  --avatar: var(--cp-profile-avatar-folded);
+  --banner-h: var(--cp-profile-banner-h-folded);
+  --pad-x: var(--cp-panel-pad-x);
+  min-width: 0;
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-profile-card-bg);
+}
+
+.banner {
+  position: relative;
+  height: var(--banner-h);
+  background: var(--banner-color, var(--cp-profile-banner-bg));
+}
+
+.bannerImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-6);
+  padding: 0 var(--pad-x);
+}
+
+/* The ring's edge sits outside the text's left edge, so the avatar itself lines up with it. */
+.avatarStack {
+  position: relative;
+  flex: none;
+  width: calc(var(--avatar) + 2 * var(--cp-profile-avatar-ring));
+  height: calc(var(--avatar) + 2 * var(--cp-profile-avatar-ring));
+  margin: calc(-1 * var(--cp-space-8)) 0 0 calc(-1 * var(--cp-profile-avatar-ring));
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-profile-card-bg);
+}
+
+.avatar {
+  position: absolute;
+  inset: var(--cp-profile-avatar-ring);
+  width: var(--avatar);
+  height: var(--avatar);
+  object-fit: cover;
+}
+
+.decoration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--avatar) * var(--cp-profile-decoration-scale));
+  height: calc(var(--avatar) * var(--cp-profile-decoration-scale));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: var(--cp-space-4);
+}
+
+.name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--cp-text-1);
+  font-size: var(--cp-profile-name);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-profile-name-leading);
+}
+
+.userRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+}
+
+.username {
+  overflow-wrap: anywhere;
+}
+
+.pronouns {
+  color: var(--cp-text-muted);
+}
+
+.pronouns::before {
+  content: '• ';
+}
+
+.badge {
+  width: var(--cp-profile-badge);
+  height: var(--cp-profile-badge);
+}
+
+.actions {
+  display: flex;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-6) var(--pad-x) 0;
+}
+
+/* Folded, the button spans the header. */
+.messageButton {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-3);
+  height: var(--cp-profile-button-h);
+  padding: 0 var(--cp-space-6);
+  border-radius: var(--cp-profile-button-radius);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-medium);
+  cursor: pointer;
+}
+
+.buttonIcon,
+.sinceIcon {
+  width: var(--cp-profile-since-icon);
+  height: var(--cp-profile-since-icon);
+  flex: none;
+}
+
+/* Bio, dates, roles, note and connections: as many columns as fit; .wide ones take the whole row. */
+.details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--cp-profile-detail-min-w), 1fr));
+  gap: var(--cp-space-7);
+  padding: var(--cp-space-7) var(--pad-x);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.bio {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.label {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-medium);
+}
+
+.value,
+.since {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  white-space: pre-wrap;
+}
+
+/* Folded, the two dates stack: a detail column is too narrow for both on a line. */
+.since {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+}
+
+.dot {
+  display: none;
+  color: var(--cp-text-muted);
+}
+
+.sinceItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.sinceGuild {
+  --guild-icon-size: var(--cp-profile-since-icon);
+}
+
+.roles,
+.connections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A long role name wraps inside its chip. */
+.role {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-height: var(--cp-role-chip-h);
+  padding: 0 var(--cp-space-4) 0 var(--cp-space-3);
+  border-radius: var(--cp-role-chip-radius);
+  background: var(--cp-role-chip-bg);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.roleDot {
+  flex: none;
+  width: var(--cp-role-dot);
+  height: var(--cp-role-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-text-muted);
+}
+
+.role[data-role-color='true'] .roleDot {
+  background: var(--role-color);
+}
+
+.connections {
+  column-gap: var(--cp-space-7);
+}
+
+.connection {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-3);
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+}
+
+.platform {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  text-transform: capitalize;
+}
+
+.verified {
+  color: var(--cp-text-muted);
+}
+
+.stale {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* The rail (same breakpoint as PersonView.module.css): full sizes, the person stacked, one column of details. */
+@container (width >= 604px) {
+  .card {
+    --avatar: var(--cp-profile-avatar);
+    --banner-h: var(--cp-profile-banner-h);
+    --pad-x: var(--cp-space-8);
+    overflow-y: auto;
+    border-right: var(--cp-border-w) solid var(--cp-border);
+    border-bottom: 0;
+  }
+
+  .head {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  /* Half over the banner. */
+  .avatarStack {
+    margin-top: calc((var(--avatar) + 2 * var(--cp-profile-avatar-ring)) / -2);
+  }
+
+  .actions {
+    padding-top: var(--cp-space-7);
+  }
+
+  .messageButton {
+    flex: none;
+  }
+
+  /* Both dates on a line, a dot between them. */
+  .since {
+    flex-flow: row wrap;
+    align-items: center;
+  }
+
+  .dot {
+    display: inline;
+  }
+
+  .details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--cp-space-8);
+    padding: var(--cp-space-8) var(--pad-x);
+  }
+}

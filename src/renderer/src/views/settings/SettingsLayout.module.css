@@ -1,0 +1,92 @@
+/* Settings pages: a head (title, one line of purpose, page actions), then either a rail of sections beside the open
+   one (SectionsPage) or a single body (Page). Page frame, title, split, rail and rail entries are the cp-settings- and cp-rail-
+   classes (theme/shared-layout.css), shared with Jev queries; cards, rows and notes are SettingsCard.module.css.
+   Hook: [data-group] (Jev group colour, theme/identity.css). */
+/* Title and page actions share the first row; the lede runs the full width under both. */
+.head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-7);
+}
+
+.lede {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  text-wrap: pretty;
+}
+
+.headRight {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.railGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: var(--cp-space-5) var(--cp-space-7) var(--cp-space-2);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+/* Narrow windows: a picker replaces the rail. */
+.picker {
+  display: none;
+}
+
+/* Below this the rail plus a usable section column don't fit (rail 240 + section ~400); cp-settings-rail hides there. */
+@container (width < 640px) {
+  .picker {
+    display: block;
+    padding: var(--cp-space-5) var(--cp-space-7);
+    border-bottom: var(--cp-border-w) solid var(--cp-border);
+    background: var(--cp-surface-2);
+  }
+}
+
+/* The open section. */
+.detail {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-7);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-space-8) var(--cp-space-8);
+  overflow-y: auto;
+}
+
+/* The open section's title, and its outside link (a provider's site) at the row's right end. */
+.detailHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+}
+
+.detailTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* A page with one body: its cards stack in a readable column. */
+.single {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-7);
+  min-height: 0;
+  overflow-y: auto;
+}

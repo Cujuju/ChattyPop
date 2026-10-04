@@ -1,0 +1,242 @@
+/* Pages that load before the app: the phone's pairing page (the companion plugin's main/pairPage.ts inlines this) and the iPhone
+   shell's offline page (mobile/). Only tokens, sizes and themes: no faces (each theme's stack falls back to system
+   type) and no app reset. <html> may carry data-theme. Phone first: one column, thumb-sized controls, clear of
+   notches and home bars. */
+@import './tokens.css';
+@import './sizes.css';
+@import './themes/spotlight.css';
+@import './themes/tide.css';
+@import './themes/paper.css';
+@import './themes/daylight.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: var(--cp-color-scheme);
+  background: var(--cp-ground);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.pair {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  margin: 0;
+  padding: max(var(--cp-space-8), env(safe-area-inset-top)) max(var(--cp-space-7), env(safe-area-inset-right))
+    max(var(--cp-space-8), env(safe-area-inset-bottom)) max(var(--cp-space-7), env(safe-area-inset-left));
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-phone-text);
+  line-height: var(--cp-leading-relaxed);
+}
+
+.pair-main {
+  display: grid;
+  gap: var(--cp-space-8);
+  width: 100%;
+  max-width: var(--cp-pair-w);
+}
+
+.pair-head {
+  display: grid;
+  justify-items: center;
+  gap: var(--cp-space-4);
+  text-align: center;
+}
+
+.pair-icon {
+  width: var(--cp-pair-icon);
+  height: var(--cp-pair-icon);
+  margin-bottom: var(--cp-space-4);
+  border-radius: var(--cp-pair-icon-radius);
+}
+
+.pair-head h1 {
+  margin: 0;
+  font-size: var(--cp-pair-title);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+  letter-spacing: var(--cp-tracking-title);
+}
+
+.pair-head p {
+  margin: 0;
+  color: var(--cp-text-muted);
+}
+
+.pair-steps {
+  display: grid;
+  gap: var(--cp-space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.pair-steps li {
+  display: grid;
+  grid-template-columns: var(--cp-pair-step) minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--cp-space-6);
+  color: var(--cp-text-2);
+  counter-increment: step;
+}
+
+.pair-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-content: center;
+  width: var(--cp-pair-step);
+  height: var(--cp-pair-step);
+  border-radius: var(--cp-radius-full);
+  /* Accent wash, not a surface: light themes' surfaces sit too close to the ground to read as a disc. */
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.pair-steps strong {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.pair-alert {
+  margin: 0;
+  padding: var(--cp-space-6) var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-danger-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+}
+
+.pair-form {
+  display: grid;
+  gap: var(--cp-space-6);
+  margin: 0;
+  padding: var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-1);
+}
+
+.pair-form label {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.pair-code {
+  width: 100%;
+  height: var(--cp-pair-code-h);
+  margin: 0;
+  padding: 0;
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-pair-code-text);
+  font-weight: var(--cp-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--cp-pair-code-tracking);
+  /* Tracking also follows the last digit; the matching indent keeps the six centred. */
+  text-indent: var(--cp-pair-code-tracking);
+  text-align: center;
+}
+
+.pair-code:focus {
+  border-color: var(--cp-accent);
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.pair-submit {
+  min-height: var(--cp-touch-h);
+  border: 0;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-family: inherit;
+  font-size: var(--cp-phone-text);
+  font-weight: var(--cp-weight-semibold);
+  cursor: pointer;
+  transition: background var(--cp-duration-fast) var(--cp-ease);
+}
+
+.pair-submit:hover,
+.pair-submit:active {
+  background: var(--cp-accent-hover);
+}
+
+.pair-submit:focus-visible {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* The iPhone app's pairing, above the browser's form: the primary action when the app link is offered. */
+.pair-app {
+  display: grid;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-accent);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-1);
+  text-align: center;
+}
+
+.pair-app h2 {
+  margin: 0;
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.pair-app p {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-base);
+}
+
+/* A link dressed as the page's primary button. */
+.pair-open {
+  display: grid;
+  place-items: center;
+  min-height: var(--cp-touch-h);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-phone-text);
+  font-weight: var(--cp-weight-semibold);
+  text-decoration: none;
+  transition: background var(--cp-duration-fast) var(--cp-ease);
+}
+
+.pair-open:hover,
+.pair-open:active {
+  background: var(--cp-accent-hover);
+}
+
+.pair-open:focus-visible {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* The browser's Pair, second to the app's. */
+.pair-submit-quiet,
+.pair-submit-quiet:hover,
+.pair-submit-quiet:active {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.pair-note {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-base);
+  text-align: center;
+}

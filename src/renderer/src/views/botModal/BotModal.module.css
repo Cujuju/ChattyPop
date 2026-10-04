@@ -1,0 +1,29 @@
+/* A bot's pop-up form: Discord's width, its fields stacked, Cancel and Submit at the foot. */
+.window {
+  width: min(var(--cp-bot-modal-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+}
+
+.required {
+  color: var(--cp-danger);
+}
+
+.paragraph {
+  min-height: calc(4 * var(--cp-btn-h));
+  resize: vertical;
+}
+
+.choices {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form > :global(.cp-actions) {
+  justify-content: flex-end;
+}

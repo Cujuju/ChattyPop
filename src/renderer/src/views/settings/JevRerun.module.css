@@ -1,0 +1,14 @@
+/* Run on past messages: a cp-condition card under the question in the Jev query editor, for per-message queries.
+   Its label is cp-stat-label; fields and button come from Settings.module.css. */
+.inline {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-4);
+}

@@ -1,0 +1,21 @@
+/* @cujuju/solidjs-editable-list-row: same pattern as the flyout; the second selector beats the flyout's list override.
+   Must load after editable-list-flyout.css. */
+
+:root [data-cuj-elr],
+:root [data-cuj-elf] [data-cuj-elr] {
+  --cuj-elr-bg-active: var(--cp-surface-4);
+  --cuj-elr-bg-hover: var(--cp-surface-hover);
+  --cuj-elr-bg-rename-input: var(--cp-surface-0);
+  --cuj-elr-border-rename: var(--cp-accent);
+  --cuj-elr-icon-fg: var(--cp-text-muted);
+  --cuj-elr-icon-fg-hover: var(--cp-text-1);
+  --cuj-elr-icon-bg-hover: var(--cp-surface-hover);
+  --cuj-elr-icon-danger-fg: var(--cp-danger);
+  --cuj-elr-icon-danger-bg-hover: var(--cp-danger-bg);
+  --cuj-elr-row-padding-y: var(--cp-space-2);
+  --cuj-elr-row-padding-x: var(--cp-space-3);
+  --cuj-elr-row-radius: var(--cp-radius-sm);
+  --cuj-elr-label-padding-y: var(--cp-space-1);
+  --cuj-elr-label-padding-x: var(--cp-space-3);
+  --cuj-elr-label-radius: var(--cp-radius-sm);
+}

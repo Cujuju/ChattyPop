@@ -1,0 +1,119 @@
+/* Log parts shared by the Archive and Links logs: the day divider, the floating 'jump to newest' button and the
+   'new messages since' strip. Placement of the button and strip is inline (JumpToNewest, UnreadBanner). */
+/* Day separator: a hairline through a centred micro label, spanning every column. */
+.day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--cp-space-4);
+  padding: var(--cp-space-6) var(--cp-panel-pad-x) var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.day::before,
+.day::after {
+  content: '';
+  height: var(--cp-border-w);
+  background: var(--cp-border-subtle);
+}
+
+/* Floating 'jump to newest' button over the log: a down arrow in a square. */
+.jumpToBottom {
+  z-index: var(--cp-z-sticky);
+  display: inline-grid;
+  place-content: center;
+  /* Sized and rounded like the composer box it floats above. */
+  width: var(--cp-composer-btn);
+  height: var(--cp-composer-btn);
+  padding: 0;
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-4);
+  box-shadow: var(--cp-shadow-popover);
+  color: var(--cp-text-1);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.jumpIcon {
+  width: var(--cp-jump-icon);
+  height: var(--cp-jump-icon);
+}
+
+.jumpToBottom:hover {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-5);
+}
+
+.jumpToBottom:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* 'N new messages since' strip across the top of the log: jump to the first unread, or dismiss. */
+.unreadBanner {
+  z-index: var(--cp-z-sticky);
+  display: flex;
+  align-items: stretch;
+  border-bottom-left-radius: var(--cp-radius-md);
+  border-bottom-right-radius: var(--cp-radius-md);
+  background: var(--cp-accent);
+  box-shadow: var(--cp-shadow-popover);
+  color: var(--cp-text-on-accent);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  overflow: hidden;
+}
+
+.unreadJump,
+.unreadDismiss {
+  height: var(--cp-btn-h-sm);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.unreadJump {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  min-width: 0;
+  padding: 0 var(--cp-space-6);
+  white-space: nowrap;
+}
+
+/* The count gives way on a narrow log; 'Jump' stays. */
+.unreadText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The reset leaves button text-align inherited (start), so the icon is centred by the grid, not text-align. */
+.unreadDismiss {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: var(--cp-btn-h-sm);
+}
+
+.unreadJump:hover,
+.unreadDismiss:hover {
+  background: var(--cp-accent-hover);
+}
+
+.unreadJump:focus-visible,
+.unreadDismiss:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}

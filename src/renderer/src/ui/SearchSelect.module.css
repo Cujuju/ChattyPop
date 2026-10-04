@@ -1,0 +1,97 @@
+/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats below with a filter field.
+   Hooks: .option[aria-selected='true'] (keyboard/hover), .option[data-current='true'] (the chosen value). */
+.root {
+  position: relative;
+  min-width: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  width: 100%;
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.trigger:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+}
+
+.trigger:focus-visible,
+.trigger[aria-expanded='true'] {
+  border-color: var(--cp-accent);
+  outline: none;
+}
+
+.trigger:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* With cp-popover. */
+.popover {
+  position: absolute;
+  top: calc(100% + var(--cp-space-2));
+  left: 0;
+  right: 0;
+  z-index: var(--cp-z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+.search {
+  width: 100%;
+}
+
+.list {
+  max-height: var(--cp-search-list-max-h);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.option {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  cursor: pointer;
+}
+
+.option[data-current='true'] {
+  color: var(--cp-accent);
+}
+
+.option[aria-selected='true'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.option[data-current='true'][aria-selected='true'] {
+  color: var(--cp-accent);
+}
+
+.empty {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+}

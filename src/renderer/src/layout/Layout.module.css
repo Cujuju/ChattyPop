@@ -1,0 +1,214 @@
+/* Panel chrome between slots. Geometry (display, flex) is inline from layout data; this file paints only.
+   Hooks: .split[data-dir='row'|'column'], .slot[data-panel='<id>'], .tab[aria-selected='true']. */
+.root {
+  min-width: 0;
+  min-height: 0;
+  padding: var(--cp-layout-pad);
+  background: var(--cp-ground-paint, var(--cp-ground));
+}
+
+.split {
+  min-width: 0;
+  min-height: 0;
+}
+
+/* F2: one 1px divider between neighbouring panels; themes may space panels apart instead (--cp-panel-gap). Where a
+   resize handle sits between them the handle is the divider or gap; otherwise (an auto-sized neighbour such as the
+   status bar) it is drawn on the trailing sibling. [hidden] children (docked in a collapsed rail) are skipped; a
+   handle never neighbours one. */
+.split[data-dir='row'] > :not(.handle, [hidden]) ~ :not(.handle, [hidden], .handle + *) {
+  margin-left: var(--cp-panel-gap);
+  border-left: var(--cp-panel-divider-w) solid var(--cp-border);
+}
+
+.split[data-dir='column'] > :not(.handle, [hidden]) ~ :not(.handle, [hidden], .handle + *) {
+  margin-top: var(--cp-panel-gap);
+  border-top: var(--cp-panel-divider-w) solid var(--cp-border);
+}
+
+/* Resize handle: a 1px line in the flow, with a wider invisible grab area overhanging both neighbours.
+   Hooks: .handle[data-dir='row'|'column']. Flex sizing and touch-action are inline. */
+.handle {
+  position: relative;
+  z-index: var(--cp-z-resize);
+  background: var(--cp-panel-handle);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.handle[data-dir='row'] {
+  width: max(var(--cp-panel-divider-w), var(--cp-panel-gap));
+  cursor: col-resize;
+}
+
+.handle[data-dir='column'] {
+  height: max(var(--cp-panel-divider-w), var(--cp-panel-gap));
+  cursor: row-resize;
+}
+
+.handle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+/* Grab area: at least --cp-resize-grab, centred; a gap wider than that is its own grab area. */
+.handle[data-dir='row']::before {
+  inset-inline: min(0px, calc((100% - var(--cp-resize-grab)) / 2));
+}
+
+.handle[data-dir='column']::before {
+  inset-block: min(0px, calc((100% - var(--cp-resize-grab)) / 2));
+}
+
+.handle:hover,
+.handle:active,
+.handle:focus-visible {
+  background: var(--cp-panel-handle-hover);
+}
+
+.handle:focus-visible {
+  outline: none;
+}
+
+/* Slot grounds follow F2 regions: sidebar and status bar are chrome, insight panels are raised, chat is base.
+   Panels paint their own chrome over this and never set a ground themselves. */
+.slot {
+  position: relative;
+  border-radius: var(--cp-panel-radius);
+  background: var(--cp-surface-1);
+  box-shadow: var(--cp-panel-shadow);
+}
+
+/* Section ring (themes that outline primary panels): drawn over the panel's own chrome, never takes a grid cell. */
+.slot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--cp-z-sticky);
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 var(--cp-border-w) color-mix(in srgb, var(--cp-section) var(--cp-panel-ring-mix), transparent);
+  pointer-events: none;
+}
+
+.slot[data-panel='channels'],
+.slot[data-panel='sync-status'],
+.slot[data-panel='status-bar'] {
+  background: var(--cp-chrome-paint, var(--cp-surface-0));
+}
+
+.slot[data-panel='summary'],
+.slot[data-panel='provider'],
+.slot[data-panel='rules'],
+.slot[data-panel='alerts'],
+.slot[data-panel='links'] {
+  background: var(--cp-panel-paint, var(--cp-surface-3));
+}
+
+/* Panel drag and drop. .dropZones covers a panel while another is dragged; .dropPreview[data-zone] shows where the
+   dragged panel will land: an edge half (docks beside) or the whole panel (center: swap). */
+.dropZones {
+  position: absolute;
+  inset: 0;
+  z-index: var(--cp-z-drop);
+}
+
+.dropPreview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--cp-accent-wash-strong);
+  outline: var(--cp-border-w) solid var(--cp-accent);
+  outline-offset: calc(-1 * var(--cp-border-w));
+}
+
+.dropPreview[data-zone='left'] {
+  right: 50%;
+}
+
+.dropPreview[data-zone='right'] {
+  left: 50%;
+}
+
+.dropPreview[data-zone='top'] {
+  bottom: 50%;
+}
+
+.dropPreview[data-zone='bottom'] {
+  top: 50%;
+}
+
+.dropPreview[data-zone='center'] {
+  background: var(--cp-accent-wash);
+}
+
+/* Tabbed layout: the tab bar is the same band as an F2 panel header. */
+.tabs {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--cp-panel-radius);
+  background: var(--cp-surface-3);
+}
+
+.tabBar {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  height: var(--cp-panel-header-h);
+  padding: 0 var(--cp-space-4);
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+  overflow-x: auto;
+}
+
+.tab {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0 var(--cp-space-5);
+  border: 0;
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tab:hover {
+  color: var(--cp-text-1);
+  background: var(--cp-surface-hover);
+}
+
+.tab:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--cp-text-1);
+}
+
+/* Selected tab: underline in the panel's section colour (data-section), sitting on the bar's bottom border. */
+.tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 calc(-1 * var(--cp-border-w)) 0;
+  height: var(--cp-tab-indicator-h);
+  background: var(--cp-section);
+}
+
+/* Missing panel (unregistered id): a dashed notice, like F2's 'opt in' affordance. */
+.missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: var(--cp-space-7);
+  padding: var(--cp-space-6);
+  border: var(--cp-border-w) dashed var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  text-align: center;
+}

@@ -1,0 +1,25 @@
+/* A Jev question's condition (JevQuestionField) inside its cp-condition card: the sentence with the value, the control
+   that sets it, and its scale. Its hint is cp-hint, which the builder's roomy rule sizes. */
+.conditionText {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+}
+
+.conditionValue {
+  color: var(--cp-accent);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.conditionRange {
+  width: 100%;
+  accent-color: var(--cp-accent);
+}
+
+.scale {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}

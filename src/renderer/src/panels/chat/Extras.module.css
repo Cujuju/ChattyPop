@@ -1,0 +1,300 @@
+/* Message extras in the Archive: reply line, embeds, stickers, reactions. Laid out after Discord's familiar
+   arrangement in ChattyPop's own tokens. The embed side bar colour comes from --embed-color (inline, per embed). */
+
+/* Reply line: small avatar, name, first line of the replied-to text; the whole line jumps to it. */
+.reply {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-width: 0;
+  max-width: 100%;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  text-align: left;
+}
+
+/* Discord's reply spine: a short hooked line from the avatar gutter into the quoted line. */
+.reply::before {
+  content: '';
+  flex: 0 0 auto;
+  width: var(--cp-space-6);
+  height: var(--cp-space-4);
+  border-top: var(--cp-border-w) solid var(--cp-border-strong);
+  border-left: var(--cp-border-w) solid var(--cp-border-strong);
+  border-top-left-radius: var(--cp-radius-md);
+  align-self: flex-end;
+}
+
+.reply:hover .replyText {
+  color: var(--cp-text-1);
+}
+
+.reply:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.replyAvatar {
+  flex: 0 0 auto;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  border-radius: var(--cp-radius-full);
+}
+
+.replyName {
+  flex: 0 0 auto;
+  color: var(--cp-text-2);
+  font-weight: var(--cp-weight-medium); /* Discord's reply name weight */
+}
+
+/* The author's role colour (--role-color, inline), as Discord colours a reply's name. */
+.replyName[data-role-color='true'] {
+  color: var(--role-color);
+}
+
+.replyText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Embed card: coloured side bar, text column, optional thumbnail on the right. */
+.embed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-5);
+  max-width: var(--cp-embed-max-w);
+  padding: var(--cp-space-5) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-left: var(--cp-space-2) solid
+    var(--embed-color, var(--cp-border-strong));
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.embedBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cp-space-2);
+  min-width: 0;
+}
+
+.embedProvider,
+.embedFooter {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.embedAuthor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.embedAuthor a:hover {
+  text-decoration: underline;
+}
+
+.embedAuthorIcon {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  border-radius: var(--cp-radius-full);
+}
+
+.embedTitle {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.embedTitle[data-link='true'] {
+  color: var(--cp-link);
+}
+
+.embedTitle[data-link='true']:hover {
+  text-decoration: underline;
+}
+
+.embedDescription {
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Link and video previews show a few lines, as Discord does; bot (rich) embeds show everything. */
+.embedDescription[data-clamped='true'] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--cp-embed-desc-lines);
+  overflow: hidden;
+}
+
+.embedThumb {
+  width: var(--cp-embed-thumb);
+  height: var(--cp-embed-thumb);
+  border-radius: var(--cp-radius-sm);
+  object-fit: cover;
+}
+
+/* Large media (in a card, or alone for a pasted GIF/image): bounded box, aspect kept. */
+.embedImage {
+  max-width: min(100%, var(--cp-embed-max-w));
+  max-height: var(--cp-attachment-max-h);
+  border-radius: var(--cp-radius-sm);
+  object-fit: contain;
+}
+
+/* Pixel size known (--media-w/--media-h): the box it will show at is reserved before the file loads, so the log row
+   never grows and moves the view as media arrives. */
+.embedImage[data-sized='true'] {
+  width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)));
+  height: auto;
+  aspect-ratio: var(--media-w) / var(--media-h);
+}
+
+.embedImageButton {
+  display: block;
+  cursor: zoom-in;
+}
+
+/* A multi-photo embed: its images share one box, two columns, each cropped to its cell as Discord's gallery crops them. */
+.embedGallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: var(--cp-space-2);
+  align-self: stretch;
+  max-width: var(--cp-embed-max-w);
+  aspect-ratio: var(--cp-embed-gallery-ratio);
+  overflow: hidden;
+  border-radius: var(--cp-radius-sm);
+}
+
+/* Three: the first takes the left column's full height beside the other two. */
+.embedGallery[data-count='3'] > :first-child {
+  grid-row: span 2;
+}
+
+.embedGalleryItem {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.embedGalleryImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Image stickers, and the box a Lottie sticker draws into (its name shows there if it can't load). */
+.sticker {
+  width: var(--cp-sticker);
+  height: var(--cp-sticker);
+  object-fit: contain;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+  font-style: italic;
+}
+
+/* Reactions: emoji + count pills in a wrapping row under the message. */
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+}
+
+/* The pill's hover and long-press target (ReactionTip). */
+.reactionAnchor {
+  display: inline-flex;
+}
+
+.reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  height: var(--cp-reaction-h);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.reaction:not(:disabled):hover {
+  border-color: var(--cp-border);
+}
+
+/* The owner's own reaction: selected, in the accent (its outline and wash). */
+.reaction[data-me='true'] {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent-wash);
+}
+
+.reaction[data-me='true'] .reactionCount {
+  color: var(--cp-accent);
+}
+
+/* Add reaction: after the chips, shown while the row is hovered (always where there is no hover, a phone). */
+.addReaction {
+  display: inline-grid;
+  place-items: center;
+  width: var(--cp-reaction-h);
+  height: var(--cp-reaction-h);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-muted);
+  opacity: 0;
+  transition:
+    opacity var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.addReaction svg {
+  width: var(--cp-reaction-emoji);
+  height: var(--cp-reaction-emoji);
+}
+
+:where(article:hover) .addReaction,
+.addReaction:focus-visible {
+  opacity: 1;
+}
+
+.addReaction:hover {
+  color: var(--cp-text-1);
+}
+
+@media (hover: none) {
+  .addReaction {
+    opacity: 1;
+  }
+}
+
+.reactionEmoji {
+  width: var(--cp-reaction-emoji);
+  height: var(--cp-reaction-emoji);
+  object-fit: contain;
+}
+
+.reactionUnicode {
+  font-size: var(--cp-text-base);
+  line-height: var(--cp-leading-none);
+}
+
+.reactionCount {
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+}

@@ -1,0 +1,284 @@
+/* Panel header shared by every panel. Colour comes from --cp-section (theme/identity.css resolves it from data-section).
+   Band: section-tinted wash fading into surface-2, a section stripe on top, icon tile, title, then meta and actions.
+   Narrow columns: items wrap onto a second line (actions stay trailing) instead of clipping. */
+/* Width container for the header, so it can drop its icon tile in narrow columns (see the @container rule below). */
+.frame {
+  flex: 0 0 auto;
+  min-width: 0;
+  container: panel-header / inline-size;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  flex: 0 0 auto;
+  min-width: 0;
+  /* A shell whose own controls lie over the header's first line (the phone's menu, search and section buttons) sets
+     --cp-header-min-h to their line's height, and the insets to clear them; --cp-header-inset-top extends the band up
+     behind the phone's status bar, the content staying below it. Unset, the header keeps its own. */
+  min-height: calc(var(--cp-header-min-h, var(--cp-header-h)) + var(--cp-header-inset-top, 0px));
+  /* The top stripe (inset shadow) covers part of the band: extra top padding keeps content centred in what is visible. */
+  padding: calc(var(--cp-space-2) + var(--cp-header-stripe-h) + var(--cp-header-inset-top, 0px)) var(--cp-header-inset-end, var(--cp-space-4)) var(--cp-space-2)
+    var(--cp-header-inset);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cp-section) var(--cp-section-wash-mix), var(--cp-header-band)),
+    color-mix(in srgb, var(--cp-section) var(--cp-header-wash-end-mix), var(--cp-header-band)) var(--cp-section-wash-stop)
+  );
+  box-shadow: inset 0 var(--cp-header-stripe-h) 0 var(--cp-section);
+}
+
+/* Icon tile: section colour on its own wash (or filled, per theme), a fixed square so titles line up across panels.
+   A shell that puts its own control where the tile sits (the phone's menu button) sets --cp-header-tile-display: none. */
+.tile {
+  display: var(--cp-header-tile-display, inline-grid);
+  place-content: center;
+  flex: 0 0 auto;
+  width: calc(var(--cp-header-tile) + var(--cp-header-grow));
+  height: calc(var(--cp-header-tile) + var(--cp-header-grow));
+  border-radius: var(--cp-radius-md);
+  background: color-mix(in srgb, var(--cp-section) var(--cp-header-tile-mix), transparent);
+  color: color-mix(in srgb, var(--cp-section) var(--cp-header-icon-mix), var(--cp-header-icon-base));
+}
+
+/* Narrow sidebar: title and two icon actions fit on one line without the tile (12 + 22 + 8 + 47 + 8 + 52 + 8 = 157px).
+   Literal: container conditions can't read custom properties. */
+@container panel-header (max-width: 160px) {
+  .tile {
+    display: none;
+  }
+}
+
+.icon {
+  width: calc(var(--cp-header-icon) + var(--cp-header-icon-grow));
+  height: calc(var(--cp-header-icon) + var(--cp-header-icon-grow));
+}
+
+/* Title and meta on one clipped line. The group grows from zero but never below the title, so when space runs out
+   the meta wraps onto the hidden second line first; only then do the actions wrap below. */
+.titleGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--cp-space-4);
+  flex: 1 1 0;
+  min-width: min-content;
+  max-height: var(--cp-header-title-line-h);
+  overflow: hidden;
+}
+
+.title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-header-title-color);
+  font-size: var(--cp-header-title-size);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-header-title-line-h);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A title that is also a control (collapse toggle): looks like the plain title. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  max-width: 100%;
+  height: var(--cp-header-title-line-h);
+  color: inherit;
+  font-weight: inherit;
+  border-radius: var(--cp-radius-sm);
+}
+
+/* No rule under the header: its band fades out over the panel's first lines. Collapsed, the header is the whole panel
+   and the split draws the divider below it, so no fade either. */
+.header {
+  position: relative;
+  z-index: var(--cp-z-edge-fade);
+}
+
+.header:not([data-collapsed='true'])::after {
+  content: '';
+  position: absolute;
+  inset: 100% 0 auto;
+  height: var(--cp-edge-fade-h);
+  background: inherit;
+  mask-image: linear-gradient(to bottom, var(--cp-edge-fade-ramp));
+  pointer-events: none;
+}
+
+/* Border-drawn chevron after a collapsible title: down when open, right when collapsed. Centred on the x-height. */
+/* With cp-chevron. */
+.chevron {
+  transition:
+    transform var(--cp-duration-base) var(--cp-ease-out),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.header[data-collapsed='true'] .chevron {
+  margin-top: 0;
+  transform: var(--cp-chevron-closed);
+}
+
+.toggle:hover > .chevron {
+  border-color: var(--cp-text-1);
+}
+
+.toggle:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* metaWraps: the group grows to show the wrapped meta line, and the meta may wrap within itself. */
+.titleGroup[data-meta-wraps='true'] {
+  max-height: none;
+  overflow: visible;
+}
+
+.titleGroup[data-meta-wraps='true'] > .meta {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Muted count or note after the title; gives way first (see .titleGroup). */
+.meta {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-header-title-line-h);
+  white-space: nowrap;
+}
+
+/* 'N new' pill in the section colour. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: var(--cp-badge-h);
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-section);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-none);
+  white-space: nowrap;
+}
+
+/* A badge that is a button ('N new'): at least the smallest tap target. */
+button.badge {
+  min-height: var(--cp-hit-min);
+}
+
+/* Trailing group: pushed to the end of whichever line it lands on. Wider than the header (phone), it shrinks to
+   the line and its shrinkable children (a select with min-width: 0) give way; buttons and notes keep their size. */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+/* Centred actions (the phone's Summary controls): the title group stops growing, and the group sits mid-way in the
+   run left between the title and the header's end inset. */
+.actions[data-align='center'] {
+  margin-right: auto;
+}
+
+.titleGroup:has(~ .actions[data-align='center']) {
+  flex: 0 1 auto;
+}
+
+/* Ghost text button. Hook: [aria-pressed='true'] reads as a raised toggle. */
+.action,
+.iconAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-2);
+  flex: 0 0 auto;
+  min-width: var(--cp-btn-h-sm);
+  height: var(--cp-btn-h-sm);
+  padding: 0 var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-2);
+  font-size: var(--cp-control-text);
+  line-height: var(--cp-leading-none);
+  white-space: nowrap;
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.iconAction {
+  width: var(--cp-btn-h-sm);
+  height: var(--cp-btn-h-sm);
+  padding: 0;
+}
+
+.iconAction svg {
+  width: calc(var(--cp-icon-md) + var(--cp-header-icon-grow));
+  height: calc(var(--cp-icon-md) + var(--cp-header-icon-grow));
+}
+
+.action:hover:not(:disabled),
+.iconAction:hover:not(:disabled) {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.action:active,
+.iconAction:active {
+  background: var(--cp-surface-active);
+}
+
+.action[aria-pressed='true'],
+.iconAction[aria-pressed='true'] {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+}
+
+.action:disabled,
+.iconAction:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: progress;
+}
+
+.action:focus-visible,
+.iconAction:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* The app's one primary action (Summarize): accent fill, dark semibold text. */
+.primary {
+  composes: action;
+  padding: 0 var(--cp-space-5);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--cp-accent-hover);
+  color: var(--cp-text-on-accent);
+}
+
+/* The primary action as an icon alone: an accent square at its own size (--cp-header-primary-icon). */
+.primaryIcon {
+  composes: iconAction;
+  width: var(--cp-header-primary-icon);
+  min-width: var(--cp-header-primary-icon);
+  height: var(--cp-header-primary-icon);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.primaryIcon:hover:not(:disabled),
+.primaryIcon:active:not(:disabled) {
+  background: var(--cp-accent-hover);
+  color: var(--cp-text-on-accent);
+}

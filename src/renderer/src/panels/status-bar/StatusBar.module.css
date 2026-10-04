@@ -1,0 +1,110 @@
+/* F2 app status bar. Ground and the divider above come from the layout slot.
+   Hooks: .item[data-state='on'|'off'|'unknown'] on the capture item. */
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-7);
+  min-width: 0;
+  height: var(--cp-statusbar-h);
+  padding: 0 var(--cp-space-6) 0 var(--cp-space-7);
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-tight);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
+.error {
+  min-width: 0;
+  color: var(--cp-danger);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Values read a step brighter than their labels. */
+.value {
+  color: var(--cp-text-2);
+}
+
+/* Capture state dot: success when live, danger when signed out, muted until known. */
+.dot {
+  flex: 0 0 auto;
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  margin-right: var(--cp-space-3);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-text-muted);
+}
+
+.item[data-state='on'] .dot {
+  background: var(--cp-success);
+}
+
+.item[data-state='off'] .dot {
+  background: var(--cp-danger);
+}
+
+/* Shortcut hints sit at the trailing edge and drop first when space runs out. */
+.hints {
+  display: flex;
+  gap: var(--cp-space-6);
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex: 0 0 auto;
+}
+
+/* The leader key, before the hints. While armed (it waits for a key) it and the hints light up. */
+.hints[data-armed='true'] {
+  color: var(--cp-text-1);
+}
+
+.hints[data-armed='true'] .leader {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent-wash);
+  color: var(--cp-accent);
+}
+
+/* Restart: the shared danger button's soft tint, trimmed to a key cap's height so it sits inside the bar. */
+.restart {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0 var(--cp-space-4);
+  line-height: var(--cp-badge-line-h);
+}
+
+/* App version: last, after a hairline, quietest item on the bar. */
+.version {
+  flex: 0 0 auto;
+  padding-left: var(--cp-space-6);
+  border-left: var(--cp-border-w) solid var(--cp-border);
+  white-space: nowrap;
+}
+
+/* Key cap: a quiet raised chip, one step above the bar. */
+.kbd {
+  display: inline-block;
+  min-width: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  line-height: var(--cp-badge-line-h);
+  text-align: center;
+}

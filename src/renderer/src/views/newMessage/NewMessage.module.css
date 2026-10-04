@@ -1,0 +1,317 @@
+/* New message window (NewMessageWindow), inside the shared window surface (ui/WindowChrome.module.css), in Forward's
+   look: .pick: the To field (chips, then the search) over the scrolling people (face | name and detail | check mark);
+   .foot: the error, the Archive choice, Cancel and Start. Only the people list scrolls. */
+.window {
+  width: min(var(--cp-forward-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  height: min(var(--cp-forward-h), calc(100vh - 2 * var(--cp-dialog-inset)));
+  min-width: var(--cp-window-min-w);
+  min-height: var(--cp-forward-min-h);
+}
+
+/* "3 of 10" after the title: the group's size against Discord's cap. */
+.count {
+  margin-left: var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-regular);
+  letter-spacing: normal;
+}
+
+.form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pick {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-space-7) 0;
+}
+
+/* The To field: a tall well like Forward's search, holding the chips and the text; it wraps as chips are added. */
+.to {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-height: var(--cp-field-h-lg);
+  padding: var(--cp-space-2) var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-0);
+  cursor: text;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.to:hover {
+  border-color: var(--cp-border-strong);
+}
+
+.to:focus-within {
+  border-color: var(--cp-accent);
+}
+
+.toLabel {
+  margin-right: var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-base);
+}
+
+/* A picked person: face, name and remove, on a pill. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  height: var(--cp-seg-h);
+  padding: 0 var(--cp-space-1) 0 var(--cp-space-px);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  cursor: default;
+}
+
+.chipFace {
+  flex: 0 0 auto;
+  width: var(--cp-avatar-xs);
+  height: var(--cp-avatar-xs);
+  border-radius: var(--cp-radius-full);
+  object-fit: cover;
+}
+
+.chipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chipRemove {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  border-radius: var(--cp-radius-full);
+  color: var(--cp-text-muted);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.chipRemove svg {
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+}
+
+.chipRemove:hover:not(:disabled) {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+/* The text after the chips: borderless inside the well, which shows the focus. */
+.toField {
+  flex: 1 1 0;
+  min-width: var(--cp-token-field-min-w);
+  height: var(--cp-seg-h);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--cp-text-base);
+}
+
+.toField:focus-visible {
+  outline: none;
+}
+
+.people {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-height: 0;
+  margin: 0 calc(-1 * var(--cp-space-3));
+  padding: 0 var(--cp-space-3) var(--cp-space-4);
+  overflow-y: auto;
+}
+
+/* "Your DMs" / "Friends", as the context menu heads its groups. */
+.heading {
+  flex: 0 0 auto;
+  padding: var(--cp-space-4) var(--cp-space-5) var(--cp-space-1);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-3xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+.empty {
+  padding: var(--cp-space-8) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  text-align: center;
+}
+
+/* A person: face | name over detail | check mark. Hover and the arrow-key row wash; a picked one glows. */
+.person {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-radius: var(--cp-radius-md);
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.person:hover,
+.person[data-active='true'] {
+  background: var(--cp-surface-hover);
+}
+
+.person[aria-selected='true'] {
+  background: var(--cp-accent-wash);
+}
+
+.person[aria-disabled='true'] {
+  cursor: default;
+  opacity: var(--cp-opacity-disabled);
+}
+
+.person[aria-selected='true'][aria-disabled='true'] {
+  opacity: 1;
+}
+
+.face {
+  flex: 0 0 auto;
+  width: var(--cp-avatar-md);
+  height: var(--cp-avatar-md);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-5);
+  object-fit: cover;
+}
+
+/* No avatar: their initial on the same disc. */
+.initial {
+  display: grid;
+  place-content: center;
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  text-transform: uppercase;
+}
+
+.chipFace.initial {
+  font-size: var(--cp-text-3xs);
+}
+
+.names {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  line-height: var(--cp-leading-tight);
+}
+
+.name,
+.detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-medium);
+}
+
+.detail {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Check mark: an empty box, filled with the accent and a tick when picked (Forward's mark, squared: pick many). */
+.mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-radio);
+  height: var(--cp-radio);
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-xs);
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.person:hover .mark {
+  border-color: var(--cp-text-muted);
+}
+
+.person[aria-selected='true'] .mark {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+.person[aria-selected='true'] .mark::after {
+  content: '';
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+  background: var(--cp-text-on-accent);
+  clip-path: var(--cp-check-shape);
+}
+
+.person[aria-selected='true'] .name {
+  color: var(--cp-accent);
+}
+
+/* The error, then the Archive choice and the buttons, on a band below the list (Forward's compose band). */
+.foot {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-6) var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+.error {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+/* The Archive choice leads; the buttons keep the right edge. */
+.archive {
+  margin-right: auto;
+}
+
+/* Both buttons at the To field's height. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--cp-field-h-lg);
+  padding: 0 var(--cp-space-8);
+  font-size: var(--cp-text-md);
+}
+
+/* With the Archive choice hidden (an open conversation), the buttons still keep the right edge. */
+.actions > .button:first-child {
+  margin-left: auto;
+}

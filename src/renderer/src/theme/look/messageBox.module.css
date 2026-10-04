@@ -1,0 +1,369 @@
+/* Look vocabulary: a message box, its popovers and pickers, and messages on their way (docs/plugin-architecture.md §14).
+   Look only. States: ARIA attributes where one exists, else data attributes. */
+
+/* Frosted glass: its ::before blurs what scrolls under it, clear at the top edge. The component places the box. */
+.frost::before {
+  background: var(--cp-frost);
+  -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-frost-blur));
+  mask-image: var(--cp-frost-mask);
+}
+
+/* The message box (with cp-stroke): lifted off the glass, glowing while its field has focus. */
+.messageBox {
+  border-radius: var(--cp-composer-radius);
+  box-shadow: var(--cp-composer-shadow);
+  transition: box-shadow var(--cp-duration-base) var(--cp-ease);
+}
+
+.messageBox:focus-within {
+  box-shadow: var(--cp-composer-shadow), var(--cp-composer-glow);
+}
+
+/* The box's text field: no well or edge from forms.css, at the log's message size. */
+.messageField {
+  border: none;
+  background: transparent;
+  font-size: var(--cp-composer-text);
+  line-height: var(--cp-composer-line-h);
+}
+
+.messageField:hover,
+.messageField:focus-visible {
+  border: none;
+}
+
+/* An icon button in the box: muted, lit under the pointer or while pressed. */
+.boxButton {
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.boxButton:hover,
+.boxButton[aria-pressed='true'] {
+  color: var(--cp-text-1);
+}
+
+/* Send: an accent square, its corners concentric with the box's. */
+.sendButton {
+  border-radius: var(--cp-composer-send-radius);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.sendButton:hover:not(:disabled) {
+  background: var(--cp-accent-hover);
+}
+
+.sendButton:disabled {
+  opacity: var(--cp-opacity-disabled);
+}
+
+/* The box's top band (a reply), inside its stroke: corners concentric with the box's outer edge. */
+.replyBand {
+  border-top-left-radius: calc(var(--cp-composer-radius) - var(--cp-stroke-w));
+  border-top-right-radius: calc(var(--cp-composer-radius) - var(--cp-stroke-w));
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+}
+
+/* Discord's @ON/@OFF: muted, the link colour while on (aria-pressed), brighter under the pointer. */
+.pingToggle {
+  color: var(--cp-text-muted);
+  font-weight: var(--cp-weight-semibold);
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.pingToggle[aria-pressed='true'] {
+  color: var(--cp-link);
+}
+
+.pingToggle:hover {
+  color: var(--cp-text-2);
+}
+
+/* A muted control that brightens under the pointer: cancel a reply, drop a command. */
+.quietButton {
+  color: var(--cp-text-muted);
+}
+
+.quietButton:hover {
+  color: var(--cp-text-2);
+}
+
+/* An attached file's tile. */
+.fileTile {
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+/* A tile's preview; data-state='blank': the ground standing in for one. */
+.filePreview {
+  border-radius: var(--cp-radius-sm);
+}
+
+.filePreview[data-state='blank'] {
+  background: var(--cp-surface-4);
+}
+
+/* A remove button floating on a tile: the danger mark, a danger wash under the pointer. */
+.removeBadge {
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-4);
+  color: var(--cp-danger);
+  box-shadow: var(--cp-shadow-popover);
+}
+
+.removeBadge:hover {
+  background: var(--cp-danger-bg);
+}
+
+/* A popover over the box: menus, suggestions, pickers. */
+.popover {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+  box-shadow: var(--cp-shadow-flyout);
+}
+
+/* A sticky heading in a popover: the popover's ground under it as rows scroll past. */
+.popoverHead {
+  background: var(--cp-surface-2);
+}
+
+/* A keyboard-navigable choice in a popover's list: the selected one (aria-selected) raised. */
+.listOption {
+  border-radius: var(--cp-radius-md);
+  cursor: pointer;
+}
+
+.listOption[aria-selected='true'] {
+  background: var(--cp-surface-4);
+}
+
+/* An emoji glyph at reaction size. */
+.emojiGlyph {
+  font-size: var(--cp-reaction-emoji);
+  line-height: var(--cp-reaction-h);
+}
+
+/* A name in primary text, or in its role's colour (data-role-color; --role-color, set by the component). */
+.roleTinted {
+  color: var(--cp-text-1);
+}
+
+.roleTinted[data-role-color='true'] {
+  color: var(--role-color);
+}
+
+/* A circle: avatars and app icons. */
+.round {
+  border-radius: var(--cp-radius-full);
+}
+
+/* A group's mark in a rail: dimmed until hovered or current (data-active), the current one raised. */
+.railButton {
+  border-radius: var(--cp-radius-md);
+  opacity: var(--cp-opacity-disabled);
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+.railButton:hover,
+.railButton[data-active='true'] {
+  opacity: 1;
+}
+
+.railButton[data-active='true'] {
+  background: var(--cp-surface-4);
+}
+
+/* A letter in a disc, standing in for an app's icon. */
+.letterMark {
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* A line glyph standing in for an icon (frequently used). */
+.glyphMark {
+  border-radius: var(--cp-radius-full);
+  color: var(--cp-text-2);
+}
+
+/* A rule before inline text, setting it apart. */
+.ruleStart {
+  border-left: var(--cp-border-w) solid var(--cp-border);
+}
+
+/* Messages on their way: a card tapped away while sending; its edge in danger once one failed (data-failed). */
+.sendQueue {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  cursor: pointer;
+}
+
+.sendQueue[data-failed='true'] {
+  border-color: var(--cp-danger-border);
+  cursor: default;
+}
+
+/* A message's sending state (data-status): sending secondary, queued muted, failed in danger. */
+.sendStatus {
+  color: var(--cp-text-2);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.sendStatus[data-status='queued'] {
+  color: var(--cp-text-muted);
+}
+
+.sendStatus[data-status='failed'] {
+  color: var(--cp-danger);
+}
+
+/* Indeterminate progress: an accent sweep along the ::after the component places. */
+.progressSweep::after {
+  background-color: var(--cp-surface-5);
+  background-image: linear-gradient(to right, transparent, var(--cp-accent), transparent);
+  background-size: var(--cp-progress-sweep-w) 100%;
+  background-repeat: no-repeat;
+  animation: sweep var(--cp-duration-sweep) var(--cp-ease) infinite alternate;
+}
+
+@keyframes sweep {
+  from {
+    background-position-x: 0%;
+  }
+
+  to {
+    background-position-x: 100%;
+  }
+}
+
+/* A GIF in a picker: outlined under the pointer. */
+.gifTile {
+  border-radius: var(--cp-radius-md);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.gifTile:hover {
+  outline: var(--cp-focus-ring);
+}
+
+/* A sticker in a picker: washed under the pointer; dimmed while the plan can't send it (disabled). */
+.pickerTile {
+  border-radius: var(--cp-radius-md);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.pickerTile:hover:not(:disabled) {
+  background: var(--cp-surface-hover);
+}
+
+.pickerTile:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* A command being filled in, in the text field's place: a text cursor; on the phone, its fields' size. */
+.commandLine {
+  background: transparent;
+  font-size: var(--cp-text-base);
+  cursor: text;
+}
+
+:global(html[data-surface='companion']) .commandLine {
+  font-size: var(--cp-phone-text);
+}
+
+/* The command's name: primary and semibold, an arrow over the line's text cursor. */
+.commandName {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+  cursor: default;
+}
+
+/* An option pill: raised; edged in danger for a value that isn't one, in the accent while focused (focus wins). */
+.optionPill {
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-4);
+  line-height: var(--cp-leading-tight);
+  transition: box-shadow var(--cp-duration-fast) var(--cp-ease);
+}
+
+.optionPill[data-state='invalid'] {
+  box-shadow: inset 0 0 0 var(--cp-border-w) var(--cp-danger);
+}
+
+.optionPill[data-focused='true'] {
+  box-shadow: inset 0 0 0 var(--cp-border-w) var(--cp-accent);
+}
+
+/* A field reading as part of what holds it: no well, edge or ring from forms.css; its type inherited. */
+.inlineField {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cp-text-1);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.inlineField:hover,
+.inlineField:focus-visible {
+  border: none;
+  outline: none;
+}
+
+/* A file choice in a pill: secondary; primary under the pointer or once chosen. The pill shows its focus. */
+.fileChoice {
+  color: var(--cp-text-2);
+}
+
+.fileChoice:hover,
+.optionPill[data-state='filled'] .fileChoice {
+  color: var(--cp-text-1);
+}
+
+.fileChoice:focus-visible {
+  outline: none;
+}
+
+.fileChoice:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* A pill's ×: muted, primary under the pointer. */
+.pillClose {
+  color: var(--cp-text-muted);
+  line-height: var(--cp-leading-none);
+}
+
+.pillClose:hover {
+  color: var(--cp-text-1);
+}
+
+/* A quiet chip that adds an option: raised, a step up under the pointer. */
+.addChip {
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-sm);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.addChip:hover {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+}

@@ -1,0 +1,121 @@
+/* Settings → Jev → Queries: the open query's editor, scrolling content above a fixed footer with the save actions.
+   Group colour is --group from [data-group] on .detail (theme/identity.css). Labels, notes and the save button are cp-*.
+   Hooks: .status[data-kind]. */
+.detail {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.detailScroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-7);
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-space-8);
+  overflow-y: auto;
+}
+
+.detailHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cp-space-6);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.groupChip {
+  align-self: flex-start;
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: color-mix(in srgb, var(--group) var(--cp-section-tile-mix), transparent);
+  color: var(--group);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label-sm);
+  line-height: var(--cp-badge-line-h);
+  text-transform: uppercase;
+}
+
+.queryTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xl);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.switches {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cp-space-3);
+}
+
+/* A Settings → Jev switch, right here: the query is only asked while one of its switches is on. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  cursor: pointer;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+/* What Jev reads, by the names the question may use: citation-chip styling, since these are references. */
+.chip {
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-cite-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-cite-bg);
+  color: var(--cp-cite-text);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-chip-h);
+}
+
+.foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-5) var(--cp-space-8);
+  border-top: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+.status {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.status[data-kind='error'] {
+  color: var(--cp-danger);
+}
+
+.status[data-kind='saved'] {
+  color: var(--cp-success);
+}

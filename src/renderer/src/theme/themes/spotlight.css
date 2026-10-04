@@ -1,0 +1,83 @@
+/* Theme 'spotlight': neutral graphite with a mint accent. Primary panels are lit (lifted ground, section-tinted
+   header, filled icon, section ring); reference panels recede (dimmed text, muted header). IBM Plex type.
+   Contrast (WCAG 2.x, sRGB) checked 2026-09-25, all >= 4.5:1:
+   text-1 / text-2 / text-muted on surface-0..5: 17.1-12.7 / 11.6-8.6 / 6.9-5.1; on primary ground 15.3 / - / 6.1;
+   reference text-1 / text-2 on surface-3 10.2 / 7.6; text-on-accent on accent 12.5; info on cite-bg 9.8;
+   sections on surface-3 6.5-11.7; text-on-accent on each section (badge, filled tile) 7.0-12.7. */
+
+[data-theme='spotlight'] {
+  --cp-ground: #0a0a0b;
+  --cp-surface-0: #0f0f11;
+  --cp-surface-1: #121214;
+  --cp-surface-2: #151517;
+  --cp-surface-3: #18181b;
+  --cp-surface-4: #212126;
+  --cp-surface-5: #2a2a31;
+  --cp-surface-cited: #1c1f28;
+
+  --cp-border: #26262b;
+  --cp-border-subtle: #1f1f23;
+  --cp-border-faint: #19191c;
+  --cp-border-strong: #3a3a42;
+
+  --cp-text-1: #f2f2f3;
+  --cp-text-2: #c9c9ce;
+  --cp-text-muted: #9a9aa2;
+  --cp-text-on-accent: #06120d;
+
+  --cp-accent: #6ee7b7;
+  --cp-accent-hover: #8ff0c9;
+  --cp-accent-2: #a3e635;
+  --cp-info: #7dd3fc;
+  --cp-link-hover: #bae6fd;
+  --cp-cite-bg: #10222c;
+  --cp-cite-border: #24475a;
+
+  --cp-section-summary: #a78bfa;
+  --cp-section-provider: #2dd4bf;
+  --cp-section-rules: #a3e635;
+  --cp-section-alerts: #fb7185;
+  --cp-section-links: #38bdf8;
+  --cp-section-chat: #94a3b8;
+  --cp-section-plans: #fbbf24;
+  --cp-section-tags: #f0abfc;
+
+  --cp-font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --cp-font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, monospace;
+
+  /* Panels as separate tiles on the ground; flat headers, no top stripe. */
+  --cp-layout-pad: 6px;
+  --cp-panel-gap: 6px;
+  --cp-panel-divider-w: 0px;
+  --cp-panel-handle: transparent;
+  --cp-panel-handle-hover: var(--cp-accent-wash-strong);
+  --cp-panel-radius: 6px;
+  --cp-section-wash-mix: 0%;
+  --cp-header-stripe-h: 0px;
+  --cp-header-tile-mix: 0%;
+}
+
+/* Primary: lifted ground, section-tinted header with a filled icon and larger title, section ring. */
+[data-theme='spotlight'] [data-importance='primary'] {
+  --cp-surface-1: #1b1b1f;
+  --cp-surface-3: #1b1b1f;
+  --cp-header-band: #1b1b1f;
+  --cp-section-wash-mix: 15%;
+  --cp-header-wash-end-mix: 15%;
+  --cp-panel-ring-mix: 50%;
+  --cp-header-h: 40px;
+  --cp-header-tile: 24px;
+  --cp-header-tile-mix: 100%;
+  --cp-header-icon-mix: 0%;
+  --cp-header-title-size: var(--cp-text-lg);
+}
+
+/* Reference: dimmed text and a muted header icon and title. */
+[data-theme='spotlight'] [data-importance='reference'] {
+  --cp-text-1: #c4c4ca;
+  --cp-text-2: #a9a9b0;
+  --cp-header-icon-mix: 0%;
+  --cp-header-icon-base: var(--cp-text-muted);
+  --cp-header-title-color: var(--cp-text-muted);
+  --cp-header-title-size: var(--cp-text-md);
+}

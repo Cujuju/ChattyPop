@@ -1,0 +1,38 @@
+/* Delete a message (DeleteMessageDialog.tsx): the message quoted as a cozy log row draws it, avatar beside its author,
+   time and text; a long one scrolls inside its card. */
+.preview {
+  display: grid;
+  grid-template-columns: var(--cp-chat-avatar) minmax(0, 1fr);
+  column-gap: var(--cp-space-6);
+  row-gap: var(--cp-space-1);
+  max-height: var(--cp-delete-quote-max-h);
+  margin: 0;
+  padding: var(--cp-space-5) var(--cp-space-6);
+  overflow-y: auto;
+}
+
+.avatar {
+  grid-row: 1 / span 2;
+  width: var(--cp-chat-avatar);
+  height: var(--cp-chat-avatar);
+  border-radius: var(--cp-radius-full);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.files {
+  margin: var(--cp-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}

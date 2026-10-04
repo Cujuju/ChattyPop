@@ -1,0 +1,73 @@
+/* Phone companion metrics: Apple's iOS sizes (Human Interface Guidelines, Accessibility and Typography), set by
+   re-scoping the size tokens on the phone surface so every control and panel inherits them. html plus the attribute
+   outranks a theme's [data-theme] tokens. */
+html[data-surface='companion'] {
+  /* Text: Apple's Large (default) ramp one point smaller, the owner's choice; never under Apple's 11pt minimum. */
+  --cp-text-3xs: 11px; /* Caption 2: 10pt after the step, held at the minimum */
+  --cp-text-2xs: 11px; /* Caption 1 */
+  --cp-text-xs: 12px; /* Footnote */
+  --cp-text-md: 14px; /* Subhead */
+  --cp-text-base: 16px; /* Body */
+  --cp-text-lg: 16px; /* Headline: Body's size, semibold where used */
+  --cp-text-xl: 19px; /* Title 3 */
+  --cp-phone-text: var(--cp-text-base);
+  --cp-control-text: var(--cp-text-md); /* segment and header-action labels: Subhead */
+
+  /* Controls: Apple's 44pt default control size; compact ones at its 28pt minimum. */
+  --cp-btn-h: 44px;
+  --cp-btn-h-sm: 44px;
+  --cp-row-h: 44px;
+  --cp-row-h-sm: 44px;
+  --cp-thumb-btn: 44px;
+  --cp-panel-header-h: 44px;
+  --cp-panel-subheader-h: 44px;
+  --cp-chip-h: 28px;
+  --cp-seg-h: 28px;
+  --cp-reaction-h: 28px;
+  --cp-switch-h: 28px;
+  --cp-switch-w: calc(var(--cp-switch-h) * 7 / 4); /* the desktop track's 7:4 */
+  --cp-hit-min: 28px; /* a compact control inside text or a badge: Apple's minimum */
+  --cp-composer-send: 36px; /* Discord iOS's Send button, the owner's choice over the 44pt control size */
+  --cp-composer-send-icon: 24px; /* 6px clear of its edge, as a thumb icon is */
+  --cp-header-primary-icon: var(--cp-composer-send); /* the phone's accent actions share one size: Summarize as Send */
+
+  /* Panel-header tiles and icons a step up, in proportion to the larger controls. */
+  --cp-header-grow: 6px;
+  --cp-header-icon-grow: 4px;
+
+  /* Apple: about 12pt of padding around a bezeled control (a field, the message box). */
+  --cp-bezel-gap: var(--cp-space-6);
+  /* Room above the message box, always kept, where "A is typing…" shows without moving the box: the owner's choice of
+     the home indicator's inset, so the box's clearance reads the same above and below it when the keyboard is down. */
+  --cp-composer-typing-slot: 34px;
+}
+
+/* The phone's text sizes (its Settings, PHONE_TEXT_SIZES): Apple's Dynamic Type steps for the same seven styles.
+   Medium is the ramp above, and stands when no size is set. */
+html[data-surface='companion'][data-text-size='small'] {
+  --cp-text-3xs: 11px;
+  --cp-text-2xs: 11px;
+  --cp-text-xs: 12px;
+  --cp-text-md: 13px;
+  --cp-text-base: 15px;
+  --cp-text-lg: 15px;
+  --cp-text-xl: 18px;
+}
+html[data-surface='companion'][data-text-size='large'] {
+  --cp-text-3xs: 11px;
+  --cp-text-2xs: 12px;
+  --cp-text-xs: 13px;
+  --cp-text-md: 15px;
+  --cp-text-base: 17px;
+  --cp-text-lg: 17px;
+  --cp-text-xl: 20px;
+}
+html[data-surface='companion'][data-text-size='xlarge'] {
+  --cp-text-3xs: 13px;
+  --cp-text-2xs: 14px;
+  --cp-text-xs: 15px;
+  --cp-text-md: 17px;
+  --cp-text-base: 19px;
+  --cp-text-lg: 19px;
+  --cp-text-xl: 22px;
+}

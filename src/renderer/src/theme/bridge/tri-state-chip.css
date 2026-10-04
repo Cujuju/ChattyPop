@@ -1,0 +1,21 @@
+/* @cujuju/solidjs-tri-state-chip */
+
+:root {
+  --ctc-bg-page: var(--cp-surface-1);
+  --ctc-surface: var(--cp-surface-3);
+  --ctc-border: var(--cp-border-w) solid var(--cp-border);
+  --ctc-border-hover: var(--cp-border-w) solid var(--cp-accent);
+  --ctc-color-included: var(--cp-success);
+  --ctc-border-included: var(--cp-border-w) solid var(--cp-success);
+  --ctc-color-excluded: var(--cp-danger);
+  --ctc-border-excluded: var(--cp-border-w) solid var(--cp-danger);
+  --ctc-padding: var(--cp-space-2) var(--cp-space-4);
+  --ctc-radius: var(--cp-radius-sm);
+  --ctc-font-size: var(--cp-text-sm);
+  --ctc-font-weight: var(--cp-weight-regular);
+  --ctc-transition: var(--cp-duration-base) var(--cp-ease);
+  --ctc-disabled-opacity: var(--cp-opacity-disabled);
+  --ctc-focus-ring-color: var(--cp-focus-ring-color);
+  --ctc-focus-ring: var(--cp-focus-ring);
+  --ctc-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+}

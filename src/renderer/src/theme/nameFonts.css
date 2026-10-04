@@ -1,0 +1,57 @@
+/* Nitro display-name fonts as Discord's client sets them: its face (registered by ui/nameFonts.ts as
+   cp-name-<key>) and letter-spacing, the default face behind it. No synthesised bold: each file has one weight.
+   Hook: [data-name-font='<key>'] (shared/nameFonts.ts). */
+[data-name-font] {
+  font-synthesis: none;
+}
+
+[data-name-font='cherry-bomb'] {
+  font-family: 'cp-name-cherry-bomb', var(--cp-font-sans);
+  letter-spacing: 0.04em;
+}
+
+[data-name-font='chicle'] {
+  font-family: 'cp-name-chicle', var(--cp-font-sans);
+}
+
+[data-name-font='museo-moderno'] {
+  font-family: 'cp-name-museo-moderno', var(--cp-font-sans);
+  letter-spacing: 0.01em;
+}
+
+[data-name-font='neo-castel'] {
+  font-family: 'cp-name-neo-castel', var(--cp-font-sans);
+  letter-spacing: 0.02em;
+}
+
+[data-name-font='pixelify'] {
+  font-family: 'cp-name-pixelify', var(--cp-font-sans);
+  letter-spacing: 0.02em;
+}
+
+[data-name-font='sinistre'] {
+  font-family: 'cp-name-sinistre', var(--cp-font-sans);
+  letter-spacing: 0.01em;
+}
+
+[data-name-font='zilla-slab'] {
+  font-family: 'cp-name-zilla-slab', var(--cp-font-sans);
+  letter-spacing: 0.03em;
+}
+
+[data-name-font='playpen-sans'] {
+  font-family: 'cp-name-playpen-sans', var(--cp-font-sans);
+}
+
+[data-name-font='orbitron'] {
+  font-family: 'cp-name-orbitron', var(--cp-font-sans);
+  letter-spacing: 0.03em;
+}
+
+[data-name-font='new-rocker'] {
+  font-family: 'cp-name-new-rocker', var(--cp-font-sans);
+}
+
+[data-name-font='kalam'] {
+  font-family: 'cp-name-kalam', var(--cp-font-sans);
+}

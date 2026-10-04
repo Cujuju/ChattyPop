@@ -1,0 +1,76 @@
+/* Floating window surface (Settings, Jev check, Ask Jev): an F2 popover ground with a panel-header title bar and a
+   scrolling body. FloatingWindow.module.css adds the frame behaviour; WindowHeader renders .header/.title/.close. */
+.dialog {
+  width: min(var(--cp-dialog-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  height: min(var(--cp-dialog-h), calc(100vh - 2 * var(--cp-dialog-inset)));
+  padding: 0;
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  box-shadow: var(--cp-shadow-dialog);
+}
+
+/* Only when open: the UA hides a closed dialog with display: none. */
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header: an F2 panel header band. */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-6);
+  flex: 0 0 auto;
+  height: var(--cp-panel-header-h);
+  padding: 0 var(--cp-space-4) 0 var(--cp-panel-pad-x);
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+.title {
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-title);
+}
+
+/* Close: ghost icon button, same idiom as the top bar. */
+.close {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-btn-h);
+  height: var(--cp-btn-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--cp-radius-md);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xl);
+  line-height: var(--cp-leading-none);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.close:hover {
+  color: var(--cp-text-1);
+  background: var(--cp-surface-hover);
+}
+
+.close:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* The window's content; only it scrolls. */
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-8);
+  min-width: 0;
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-panel-pad-x) var(--cp-space-8);
+  overflow-y: auto;
+}

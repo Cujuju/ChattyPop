@@ -1,0 +1,248 @@
+/* Top-bar search: field with a leading magnifier, and a panel below it (query builder, value picker or results).
+   Hooks: [role='option'][aria-selected='true']. The panel floats over panels (the Discord view hides while it is open). */
+
+.root {
+  position: relative;
+  flex: 0 1 var(--cp-search-w);
+  min-width: 0;
+}
+
+/* Anchors the magnifier and the save star to the field alone, so the panel may anchor wider on the phone. */
+.field {
+  position: relative;
+}
+
+/* Magnifier inside the field's leading edge, vertically centred; clicks pass through to the field. */
+.icon {
+  position: absolute;
+  top: 50%;
+  left: var(--cp-space-5);
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  color: var(--cp-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+/* With cp-stroke, the message box's edge, over a fill one step above the bar's ground. */
+.input {
+  --cp-stroke-fill: var(--cp-surface-2);
+  width: 100%;
+  height: var(--cp-btn-h);
+  padding: 0 calc(var(--cp-space-5) + var(--cp-icon-md) + var(--cp-space-4)) 0 calc(var(--cp-space-5) + var(--cp-icon-md) + var(--cp-space-4));
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+}
+
+/* With cp-popover. A two-column grid: filter rows are subgrids, so every description lines up after the widest token. */
+.results {
+  position: absolute;
+  top: calc(100% + var(--cp-space-2));
+  left: 0;
+  right: 0;
+  z-index: var(--cp-z-popover);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  max-height: calc(100vh - var(--cp-topbar-h) * 2);
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.results > li {
+  grid-column: 1 / -1;
+}
+
+.hit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-radius: var(--cp-radius-sm);
+  cursor: pointer;
+}
+
+.hit[aria-selected='true'] {
+  background: var(--cp-surface-4);
+}
+
+.meta {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.snippet {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.mark {
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-text-1);
+}
+
+/* Quiet caption: a builder group, "Saved searches", or "Top results ordered by Jev" above re-ranked results. */
+.heading {
+  padding: var(--cp-space-4) var(--cp-space-5) var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.heading:first-child {
+  padding-top: var(--cp-space-2);
+}
+
+/* A caption that starts a new part of the panel: ruled off from the part above. */
+.divided {
+  margin-top: var(--cp-space-2);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.empty {
+  padding: var(--cp-space-4) var(--cp-space-5);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+}
+
+/* Save-search star at the field's trailing edge; filled while the query is saved. */
+.save {
+  position: absolute;
+  top: 50%;
+  right: var(--cp-space-4);
+  display: grid;
+  place-items: center;
+  padding: var(--cp-space-1);
+  border: none;
+  border-radius: var(--cp-radius-xs);
+  background: none;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.save svg {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
+
+.save:hover {
+  color: var(--cp-text-1);
+}
+
+.save[aria-pressed='true'] {
+  color: var(--cp-accent);
+}
+
+.save[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+.save[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+/* An operator that can't apply, shown above the results instead of being dropped silently. */
+.problem {
+  padding: var(--cp-space-2) var(--cp-space-5);
+  color: var(--cp-danger);
+  font-size: var(--cp-text-xs);
+}
+
+.problem code {
+  font-family: var(--cp-font-mono);
+}
+
+/* Saved-search row: the query, and a remove button that shows on hover or selection. */
+.saved {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-radius: var(--cp-radius-sm);
+  cursor: pointer;
+}
+
+.saved[aria-selected='true'] {
+  background: var(--cp-surface-4);
+}
+
+.savedQuery {
+  flex: 1;
+  min-width: 0;
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remove {
+  padding: 0 var(--cp-space-2);
+  border: none;
+  border-radius: var(--cp-radius-xs);
+  background: none;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.saved:hover .remove,
+.saved[aria-selected='true'] .remove {
+  visibility: visible;
+}
+
+.remove:hover {
+  color: var(--cp-danger);
+}
+/* Phone: the top bar's thumb height, beside its icon buttons; the magnifier grows with the phone's text. */
+:global(html[data-surface='companion']) .input {
+  height: var(--cp-thumb-btn);
+  padding: 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
+}
+
+:global(html[data-surface='companion']) .icon {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+/* Phone: the save star is a full-height tap target at the field's end; the text stops short of it. */
+:global(html[data-surface='companion']) .save {
+  right: 0;
+  width: var(--cp-thumb-btn);
+  height: var(--cp-thumb-btn);
+}
+
+:global(html[data-surface='companion']) .input {
+  padding-right: var(--cp-thumb-btn);
+}
+
+/* Phone: the panel spans the top bar's width under it (anchored to the companion's positioned header, not the field),
+   and stops at the visible area's bottom edge, above the keyboard when it is up. */
+:global(html[data-surface='companion']) .root {
+  position: static;
+}
+
+:global(html[data-surface='companion']) .results {
+  top: 100%;
+  left: calc(var(--cp-bezel-gap) + env(safe-area-inset-left));
+  right: calc(var(--cp-bezel-gap) + env(safe-area-inset-right));
+  max-height: calc(var(--visible-h, var(--cp-screen-visible-h)) - env(safe-area-inset-top) - var(--cp-thumb-btn) - var(--cp-space-3) * 2 - var(--cp-bezel-gap));
+}
+
+:global(html[data-surface='companion']) .saved,
+:global(html[data-surface='companion']) .hit {
+  min-height: var(--cp-row-h);
+}

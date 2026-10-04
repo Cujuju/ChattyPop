@@ -1,0 +1,142 @@
+/* Native form controls, F2 look, app-wide. Modules add size and layout only. */
+
+/* Text fields and selects: surface-0 well, accent edge on focus. An <input> with no type attribute is a text field too.
+   Nesting keeps specificity at (0,1,1) for the states, same as the flat rules it replaced. */
+input:where(
+  :not([type]),
+  [type='text'],
+  [type='url'],
+  [type='number'],
+  [type='search'],
+  [type='date'],
+  [type='password']
+),
+textarea,
+select {
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-0);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+
+  &:hover {
+    border-color: var(--cp-border-strong);
+  }
+
+  &:focus-visible {
+    border-color: var(--cp-accent);
+    outline: none;
+  }
+}
+
+textarea {
+  height: auto;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  line-height: var(--cp-leading-normal);
+  resize: vertical;
+}
+
+/* Selects read as controls, one step up from a well, with room for the native chevron. */
+select {
+  padding-right: var(--cp-space-6);
+  background: var(--cp-surface-3);
+  cursor: pointer;
+}
+
+/* Phone companion: iOS zooms the page into any field set under 16px when it gets focus, and leaves it zoomed. On that
+   surface every text field and select is set at the phone size. Important: it overrides each module's own size, as a
+   platform limit (like reduced motion in base.css). */
+html[data-surface='companion']
+  :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='button'], [type='submit']), textarea, select) {
+  font-size: var(--cp-phone-text) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--cp-text-muted);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Search fields: no UA cancel glyph; Esc clears via the app. */
+input[type='search']::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* Check controls: a surface-0 well that fills with accent. */
+input[type='checkbox'],
+input[type='radio'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex: 0 0 auto;
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+  margin: 0;
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  background: var(--cp-surface-0);
+  cursor: pointer;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+input[type='checkbox'] {
+  border-radius: var(--cp-radius-xs);
+}
+
+input[type='radio'] {
+  border-radius: var(--cp-radius-full);
+}
+
+input[type='checkbox']::before,
+input[type='radio']::before {
+  content: '';
+  transform: scale(0);
+  transition: transform var(--cp-duration-fast) var(--cp-ease-out);
+}
+
+/* Checkbox: clipped tick on an accent fill. */
+input[type='checkbox']::before {
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+  background: var(--cp-text-on-accent);
+  clip-path: var(--cp-check-shape);
+}
+
+/* Radio: accent dot inside an accent ring. */
+input[type='radio']::before {
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-accent);
+}
+
+input[type='checkbox']:checked {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+input[type='radio']:checked {
+  border-color: var(--cp-accent);
+}
+
+input[type='checkbox']:checked::before,
+input[type='radio']:checked::before {
+  transform: scale(1);
+}
+
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}

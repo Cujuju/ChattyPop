@@ -1,0 +1,309 @@
+/* Sidebar DMs mode (Dms.tsx): search and New message, filter chips, then the scrolling list of two-line rows and its folds.
+   Hooks: .row[aria-current|data-unread|data-muted|data-archived], .fold[aria-expanded]. Only .list scrolls. */
+
+.dms {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Search field beside the New message action. */
+.tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-4) var(--cp-space-4) var(--cp-space-2);
+}
+
+.search {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--cp-space-4);
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  color: var(--cp-text-muted);
+  pointer-events: none;
+}
+
+.search:focus-within .searchIcon {
+  color: var(--cp-accent);
+}
+
+.searchField {
+  width: 100%;
+  min-width: 0;
+  padding-left: calc(var(--cp-space-4) + var(--cp-icon-md) + var(--cp-space-3));
+}
+
+.compose {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: var(--cp-btn-h);
+  height: var(--cp-btn-h);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+  font-size: var(--cp-icon-md);
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.compose:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+  color: var(--cp-text-1);
+}
+
+.compose:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Filter chips: All · Unread · Groups; the chosen one takes the accent wash. */
+.chips {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-2) var(--cp-space-4) var(--cp-space-3);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--cp-chip-h);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.chip:hover {
+  color: var(--cp-text-1);
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--cp-accent-wash-strong);
+  background: var(--cp-accent-wash);
+  color: var(--cp-text-1);
+}
+
+.list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-px);
+  min-height: 0;
+  padding: var(--cp-space-1) var(--cp-space-4) var(--cp-space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* No DMs, or none matching: a note in the list's place. */
+.empty {
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+}
+
+/* A conversation: face, then two lines (name and age; preview and marks). */
+.row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+  width: 100%;
+  height: var(--cp-dm-row-h);
+  padding: 0 var(--cp-space-3);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  text-align: left;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Pointers only: a touch screen keeps :hover on the last row tapped. */
+@media (hover: hover) {
+  .row:hover {
+    background: var(--cp-surface-hover);
+  }
+}
+
+.row:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.row[aria-current='true'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.lines {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-px);
+  min-width: 0;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  line-height: var(--cp-badge-line-h);
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--cp-text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Unread: the name in full strength and bold, its age in the accent. */
+.row[data-unread='true'] .name {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.age {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}
+
+.row[data-unread='true'] .age {
+  color: var(--cp-accent);
+}
+
+.preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewAuthor {
+  color: var(--cp-text-2);
+}
+
+/* No history stored: the preview line says so, set apart from message text. */
+.row[data-archived='never'] .preview {
+  font-style: italic;
+}
+
+/* Muted on Discord: it recedes, and the bell-off mark says why. */
+.row[data-muted='true'] .name,
+.row[data-muted='true'] .previewAuthor {
+  color: var(--cp-text-muted);
+}
+
+.muted,
+.mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+}
+
+.markIcon {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+/* Micro tags (cp-micro-tag), as on channel rows: "local" is a standing setting, muted; "backfill" is activity, in the accent. */
+.policyTag {
+  color: var(--cp-text-muted);
+}
+
+.backfillTag {
+  color: var(--cp-accent);
+}
+
+/* Discord's count: every unread message of an unmuted DM, in the mention colour. The row's only count badge. */
+.count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  min-width: var(--cp-badge-line-h);
+  height: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-mention);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* Archived: a dot in the section colour; archiving stopped (history kept): its outline. */
+.archivedDot {
+  flex: 0 0 auto;
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border: var(--cp-border-w) solid var(--cp-section-channels);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-section-channels);
+}
+
+.archivedDot[data-archived='stopped'] {
+  background: transparent;
+}
+
+/* Requests and Closed: an uppercase label with a disclosure chevron; rows follow while open. */
+.fold {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-3);
+  width: 100%;
+  margin-top: var(--cp-space-3);
+  padding: var(--cp-space-3);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-3xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.fold:hover {
+  color: var(--cp-text-1);
+}
+
+.fold[aria-expanded='false'] > :global(.cp-chevron) {
+  transform: var(--cp-chevron-closed);
+}
+
+/* On the phone (its drawer) rows take Body text, like its channel rows. */
+:global(html[data-surface='companion']) .name {
+  font-size: var(--cp-text-base);
+}

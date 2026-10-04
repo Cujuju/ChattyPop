@@ -1,0 +1,286 @@
+/* F2 sidebar channel list. Ground comes from the layout slot (surface-0).
+   Header is ui/PanelHeader. Hooks: .channel[aria-current]. Browse mode is Browse.module.css. .body scrolls; the header stays put. */
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: var(--cp-space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Servers | DMs: the shared segmented control (theme/bridge/seg-buttons.css) stretched to the sidebar's width,
+   its two segments sharing it equally. */
+.modeBand {
+  display: flex;
+  flex: 0 0 auto;
+  padding: var(--cp-space-4) var(--cp-space-4) 0;
+}
+
+.modeGroup {
+  flex: 1 1 auto;
+}
+
+.modeSegment {
+  flex: 1 1 0;
+}
+
+.modeLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+/* Unread conversations: an accent pill after the label (accent marks unread). */
+.modeCount {
+  min-width: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+  text-align: center;
+}
+
+/* Empty and loading states */
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-2) var(--cp-sidebar-pad-x);
+}
+
+.emptyText {
+  padding: var(--cp-space-2) var(--cp-sidebar-pad-x);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+}
+
+.empty > .emptyText {
+  padding: 0;
+}
+
+/* F2 'opt in more channels' affordance: full-width dashed ghost button with a leading plus. */
+.emptyAction {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  width: 100%;
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) dashed var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.emptyAction::before {
+  content: '+';
+}
+
+.emptyAction:hover {
+  color: var(--cp-text-1);
+  border-color: var(--cp-border-strong);
+}
+
+/* Server group: rows inset from the sidebar edge by a gutter, 1px between rows. */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-px);
+  padding: var(--cp-space-1) var(--cp-space-4);
+}
+
+/* Server name after its avatar; the avatar keeps its size, the name gives way. */
+.guildName {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Opted-in channel row (a button that opens the channel): '#' then name, count right-aligned in mono. */
+/* On the phone (its drawer) a row is a list row (--cp-row-h, phone.css) in Body text; a thread's name is a step smaller,
+   its elbow meeting the row's middle. The server heading is a Headline. */
+:global(html[data-surface='companion']) .channel {
+  font-size: var(--cp-text-base);
+}
+
+:global(html[data-surface='companion']) .thread {
+  font-size: var(--cp-text-md);
+}
+
+:global(html[data-surface='companion']) .threadGlyph {
+  height: calc(var(--cp-row-h) / 2);
+}
+
+:global(html[data-surface='companion']) .group > :global(.cp-sidebar-heading) {
+  height: var(--cp-row-h);
+  font-size: var(--cp-text-lg);
+  /* Its avatar centres on the drawer's icon column (Companion.module.css), less the group's inset. */
+  padding-left: calc(var(--cp-drawer-icon-x) - var(--cp-space-4) - var(--cp-avatar-sm) / 2);
+  /* The name starts where section labels and channel names do. */
+  gap: calc(var(--cp-drawer-mark-w) / 2 + var(--cp-space-4) - var(--cp-avatar-sm) / 2);
+  /* Its progress ends in line with the rows' counts. */
+  padding-right: var(--cp-header-inset);
+}
+
+/* '#' in a box as wide as a section tile, centred on the icon column; the name then lines up with the section labels.
+   The count ends as far inside the row's right edge as the '#' glyph starts inside its left. */
+:global(html[data-surface='companion']) .channel {
+  gap: var(--cp-space-4);
+  padding-left: calc(var(--cp-drawer-icon-x) - var(--cp-space-4) - var(--cp-drawer-mark-w) / 2);
+  padding-right: var(--cp-header-inset);
+}
+
+:global(html[data-surface='companion']) .channelHash {
+  width: var(--cp-drawer-mark-w);
+  text-align: center;
+}
+
+/* A thread's spine drops from the parent's '#' centre. */
+:global(html[data-surface='companion']) .thread {
+  padding-left: calc(var(--cp-drawer-icon-x) - var(--cp-space-4));
+}
+
+.channel {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  width: 100%;
+  height: var(--cp-row-h);
+  padding: 0 var(--cp-space-2) 0 var(--cp-space-3);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  text-align: left;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Pointers only: a touch screen keeps :hover on the last row tapped. */
+@media (hover: hover) {
+  .channel:hover {
+    background: var(--cp-surface-hover);
+    color: var(--cp-text-1);
+  }
+}
+
+.channel:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Open channel: F2's active row, raised ground with an accent hash. */
+.channel[aria-current='true'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.channelHash {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+}
+
+.channel[aria-current='true'] .channelHash {
+  color: var(--cp-accent);
+}
+
+/* Thread or forum post under its parent channel: shorter, smaller, muted, hung off a spine under the parent's '#'. */
+.thread {
+  height: var(--cp-row-h-sm);
+  padding-left: var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Spine: a hooked line from the parent row down into the thread name (Discord's thread idiom). */
+.threadGlyph {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: var(--cp-space-5);
+  height: calc(var(--cp-row-h-sm) / 2);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-strong);
+  border-left: var(--cp-border-w) solid var(--cp-border-strong);
+  border-bottom-left-radius: var(--cp-radius-md);
+}
+
+.thread[aria-current='true'] .threadGlyph {
+  border-color: var(--cp-accent);
+}
+
+.channelName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-regular);
+}
+
+/* Channel row count is 'new since last opened': a solid accent pill when non-zero, muted when zero.
+   Hook: .count[data-new='true'|'false']. */
+.count[data-new='true'] {
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+}
+
+/* Unread messages that pinged the owner: a pill in the mention colour (a pinging message's highlight), before the count. */
+.mentions {
+  flex: 0 0 auto;
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-mention);
+  color: var(--cp-text-on-accent);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+}
+
+/* F2: a channel still being backfilled carries an accent micro tag (cp-micro-tag) before its count. */
+.backfillTag {
+  color: var(--cp-accent);
+}
+
+/* "local": the channel is local-AI-only (right-click menu); muted, it's a standing setting, not activity. */
+.policyTag {
+  color: var(--cp-text-muted);
+}
+
+/* Privacy mode's eye beside a channel or server marked private. */
+.privateMark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+}
+
+.privateIcon {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}

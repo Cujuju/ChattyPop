@@ -1,0 +1,27 @@
+/* @cujuju/solidjs-pill-number-picker */
+
+:root {
+  --pnp-bg: var(--cp-surface-3);
+  --pnp-border: var(--cp-border);
+  --pnp-text: var(--cp-text-1);
+  --pnp-text-muted: var(--cp-text-muted);
+  --pnp-suffix-color: var(--cp-text-muted);
+  --pnp-radius: var(--cp-radius-md);
+  --pnp-disabled-opacity: var(--cp-opacity-disabled);
+  --pnp-focus-ring-color: var(--cp-focus-ring-color);
+  --pnp-focus-ring: var(--cp-focus-ring);
+  --pnp-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+  --pnp-btn-hover-bg: var(--cp-surface-hover);
+  --pnp-btn-hover-text: var(--cp-text-1);
+  --pnp-btn-active-bg: var(--cp-surface-4);
+  --pnp-popout-z: var(--cp-z-popover);
+  --pnp-popout-shadow: var(--cp-shadow-popover);
+}
+
+/* Geometry: a picker is as tall as the settings controls beside it (and phone-sized on the phone). :root outranks the
+   package's own size presets, which load after the theme. */
+:root .cpnp-size-md .cpnp-value,
+:root .cpnp-size-md .cpnp-input,
+:root .cpnp-size-md .cpnp-btn {
+  height: var(--cp-btn-h-sm);
+}

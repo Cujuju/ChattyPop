@@ -1,0 +1,12 @@
+/* @cujuju/solidjs-pill-toggle */
+
+:root {
+  --tp-on-bg: var(--cp-success);
+  --tp-off-bg: var(--cp-surface-5);
+  --tp-dot: var(--cp-text-1);
+  --tp-disabled-opacity: var(--cp-opacity-disabled);
+  --tp-transition: var(--cp-duration-base) var(--cp-ease);
+  --tp-focus-ring-color: var(--cp-focus-ring-color);
+  --tp-focus-ring: var(--cp-focus-ring);
+  --tp-focus-ring-offset: var(--cp-focus-ring-offset-inset);
+}

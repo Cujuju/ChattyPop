@@ -1,0 +1,9 @@
+{
+  "id": "example-activity",
+  "name": "Example: activity",
+  "version": "1.1.0",
+  "apiVersion": "2.0.0",
+  "main": "main.mjs",
+  "description": "Counts messages per author in its own table, notes questions with a '?' label, reports the day's top posters, and shows them in an Activity panel.",
+  "renderer": "panel.mjs"
+}

@@ -1,0 +1,202 @@
+/* Settings → Jev → Queries: a filterable list of every built-in query beside the open query's editor
+   (JevQueryEditor.module.css). Below the width where both fit, the list becomes a picker above the editor.
+   Page frame is cp-settings-page/-title/-split (theme/shared-layout.css); [data-group] sets --group (identity.css).
+   Hooks: .row[aria-current='true'], .dot[data-on='true']. */
+
+/* Beside the view switch in the shared page head (SettingsLayout PageHead). */
+.counts {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Search and the show filter, under the head. */
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-5);
+}
+
+.search {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+  min-width: 0;
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-muted);
+}
+
+.search:focus-within {
+  border-color: var(--cp-border-strong);
+}
+
+.searchIcon {
+  flex: 0 0 auto;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
+
+/* The field's own look is dropped: the .search box around it is the field. */
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  outline: none;
+}
+
+/* The query list beside the editor, in the cp-settings-split frame; each scrolls on its own. */
+.list {
+  display: flex;
+  flex: 0 0 var(--cp-jevq-list-w);
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-height: 0;
+  padding: var(--cp-space-4) 0;
+  overflow-y: auto;
+  border-right: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-px);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  margin: 0;
+  padding: var(--cp-space-3) var(--cp-space-7) var(--cp-space-2);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+.groupCount {
+  margin-left: auto;
+  color: var(--cp-text-muted);
+  font-weight: var(--cp-weight-regular);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  height: var(--cp-row-h);
+  margin: 0 var(--cp-space-4);
+  padding: 0 var(--cp-space-4);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  text-align: left;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.row:has(.dot[data-on='true']) {
+  color: var(--cp-text-1);
+}
+
+.row:hover {
+  background: var(--cp-surface-hover);
+}
+
+.row[aria-current='true'] {
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.row:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* On: a filled dot in the success colour. Off: an empty ring. */
+.dot {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border: var(--cp-border-w) solid var(--cp-border-strong);
+  border-radius: var(--cp-radius-full);
+}
+
+.dot[data-on='true'] {
+  border-color: var(--cp-success);
+  background: var(--cp-success);
+}
+
+.rowLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editedDot {
+  flex: 0 0 auto;
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-accent);
+}
+
+.typeTag {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-regular);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--cp-space-6) var(--cp-space-7);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
+}
+
+/* Narrow windows: a picker replaces the list. */
+.picker {
+  display: none;
+}
+
+/* Below this the list plus a usable editor column don't fit (list 280 + editor ~400). */
+@container (width < 680px) {
+  .split {
+    flex-direction: column;
+  }
+
+  .list {
+    display: none;
+  }
+
+  .picker {
+    display: block;
+    padding: var(--cp-space-5) var(--cp-space-7);
+    border-bottom: var(--cp-border-w) solid var(--cp-border);
+    background: var(--cp-surface-2);
+  }
+}

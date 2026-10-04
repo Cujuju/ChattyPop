@@ -1,0 +1,6 @@
+/* @cujuju/solidjs-select-flyout */
+
+:root {
+  --cujuju-select-flyout-trigger-bg-hover: var(--cp-surface-hover);
+  --cujuju-select-flyout-trigger-border-hover: var(--cp-border-strong);
+}

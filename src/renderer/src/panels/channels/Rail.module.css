@@ -1,0 +1,164 @@
+/* Collapsed sidebar: a narrow rail of server icons, each over its watched channels as initial tiles.
+   Hook: .railChannel[aria-current='true']. Fixed width so the layout slot (sized to content) stays a rail. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-4);
+  width: var(--cp-rail-w);
+  min-height: 0;
+  padding: var(--cp-space-3) 0 var(--cp-space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Expand button: ghost icon, same idiom as the sidebar header's buttons. */
+.collapse {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-rail-tile);
+  height: var(--cp-btn-h-sm);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.collapse:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+/* One server: its icon, then its channels; a hairline separates servers. */
+.railGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-2);
+  width: 100%;
+  padding-top: var(--cp-space-4);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.railGuild {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-rail-tile);
+  height: var(--cp-rail-tile);
+}
+
+/* The server icon is a list-row avatar elsewhere; in the rail it fills a tile, same size and shape as the channel tiles.
+   Element selectors outrank GuildIcon's single class regardless of stylesheet order. */
+.railGuild > img,
+.railGuild > span {
+  width: var(--cp-rail-tile);
+  height: var(--cp-rail-tile);
+  border-radius: var(--cp-radius-md);
+}
+
+.railChannel {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-rail-tile);
+  height: var(--cp-rail-tile);
+  border: var(--cp-border-w) solid transparent;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  text-transform: lowercase;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Unread messages that pinged the owner: a dot in the mention colour on the tile's corner. */
+.railChannel[data-mentioned='true'] {
+  position: relative;
+}
+
+.railChannel[data-mentioned='true']::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--cp-dot-lg) / -2);
+  right: calc(var(--cp-dot-lg) / -2);
+  width: var(--cp-dot-lg);
+  height: var(--cp-dot-lg);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-mention);
+}
+.railChannel:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+/* A thread under its channel: same size (tiles stay uniform), an outlined dashed tile instead of a filled one. */
+.railChannel[data-kind='thread'] {
+  border-style: dashed;
+  border-color: var(--cp-border-strong);
+  background: transparent;
+  color: var(--cp-text-muted);
+}
+
+/* Open in the Archive: the same active treatment as the full channel list, plus an accent edge. */
+.railChannel[aria-current='true'] {
+  border-color: var(--cp-accent);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+.railChannel:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* DMs with unread messages, above the servers as in Discord: faces at --cp-avatar-md (Dms.module.css .face). */
+.railDms {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-4);
+  width: 100%;
+}
+
+.railDm {
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cp-radius-full);
+  background: transparent;
+}
+
+.railDm:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset);
+}
+
+/* Open in the Archive: an accent ring, the rail's active mark. */
+.railDm[aria-current='true'] {
+  box-shadow: 0 0 0 var(--cp-ring-cutout-w) var(--cp-accent);
+}
+
+/* Discord's count on the face's corner, cut out from the rail's ground. */
+.railDmCount {
+  position: absolute;
+  right: calc(-1 * var(--cp-space-2));
+  bottom: calc(-1 * var(--cp-space-2));
+  min-width: var(--cp-badge-line-h);
+  height: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-mention);
+  box-shadow: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-0);
+  color: var(--cp-text-on-accent);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+  text-align: center;
+}

@@ -1,0 +1,105 @@
+/* Browse mode (Browse.tsx): every server, expandable to opt its channels in or out. Group, server name and empty
+   states come from Channels.module.css. Hooks: .guildToggle[aria-expanded]. */
+
+/* Collapsible server row with a border-drawn chevron; the row itself is the list's server heading. */
+/* With cp-sidebar-heading. */
+.guildToggle {
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.guildToggle:hover {
+  background: var(--cp-surface-hover);
+}
+
+.guildToggle:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* Chevron: closed points right in muted, open points down. A pseudo-element, so it can't compose theme/surfaces'. */
+.guildToggle::before {
+  content: '';
+  flex: 0 0 auto;
+  width: var(--cp-chevron-size);
+  height: var(--cp-chevron-size);
+  margin-right: var(--cp-space-1);
+  border-right: var(--cp-border-w) solid var(--cp-text-muted);
+  border-bottom: var(--cp-border-w) solid var(--cp-text-muted);
+  transform: var(--cp-chevron-closed);
+  transition:
+    transform var(--cp-duration-base) var(--cp-ease-out),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.guildToggle[aria-expanded='true']::before {
+  border-color: var(--cp-text-1);
+  transform: var(--cp-chevron-open);
+}
+
+/* Category label, indented under its server. */
+.category {
+  padding: var(--cp-space-4) var(--cp-space-2) var(--cp-space-1)
+    var(--cp-space-6);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Checkbox row, indented like a category's children. */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  height: var(--cp-row-h);
+  padding: 0 var(--cp-space-2) 0 var(--cp-space-6);
+  border-radius: var(--cp-radius-sm);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.option:hover {
+  background: var(--cp-surface-hover);
+}
+
+/* Checkbox look is app-wide in theme/forms.css; only layout here. */
+.checkbox {
+  flex: 0 0 auto;
+}
+
+.optionLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.checkbox:checked + .optionLabel {
+  color: var(--cp-text-1);
+}
+
+/* Browse: "Suggest channels" and its result line under a server's name. */
+.suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  padding: var(--cp-space-2) var(--cp-space-4);
+}
+
+/* "suggested" beside a channel Jev matched to a rule; accent-free so it reads as a hint, not a state. */
+/* With cp-micro-tag. */
+.suggestTag {
+  margin-left: auto;
+  color: var(--cp-section-links);
+}

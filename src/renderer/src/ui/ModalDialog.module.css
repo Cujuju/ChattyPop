@@ -1,0 +1,37 @@
+/* Modal question (ModalDialog.tsx): a bot form's width, as tall as its content up to the window, centred by the UA over
+   the dimmed app; the floating window's surface and header (WindowChrome.module.css). */
+.dialog {
+  width: min(var(--cp-bot-modal-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  max-height: calc(100vh - 2 * var(--cp-dialog-inset));
+  padding: 0;
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  box-shadow: var(--cp-shadow-dialog);
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog::backdrop {
+  background: var(--cp-backdrop);
+}
+
+/* Only the content scrolls; the header stays. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+  min-height: 0;
+  padding: var(--cp-space-7) var(--cp-panel-pad-x) var(--cp-space-7);
+  overflow-y: auto;
+}
+
+/* The answers, at the foot on the right: the safe one first, the one it asks about last. */
+.body > :global(.cp-actions) {
+  justify-content: flex-end;
+}

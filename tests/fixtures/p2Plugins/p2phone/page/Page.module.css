@@ -1,0 +1,6 @@
+.page {
+  display: grid;
+  overflow-y: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}

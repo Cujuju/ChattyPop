@@ -1,0 +1,233 @@
+/* Right-click menu: groups of actions split by rules, each optionally headed, under an optional lead (a message's quick
+   reactions). Desktop: a popover; position and max height are inline (the pointer, the window). Phone: a bottom sheet
+   (.backdrop > .sheet) as Discord's app shows it, each group a card; ContextMenu's pull sets translate and [data-pull].
+   Row: mark | icon | label and detail | a submenu row's chevron. A desktop submenu is a second .menu beside its row. */
+
+/* With cp-popover. */
+.menu {
+  z-index: var(--cp-z-top);
+  display: flex;
+  flex-direction: column;
+  min-width: var(--cp-menu-min-w);
+  overflow-y: auto;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.rule {
+  flex: 0 0 auto;
+  height: var(--cp-border-w);
+  margin: var(--cp-space-2) calc(-1 * var(--cp-space-2));
+  background: var(--cp-border-subtle);
+}
+
+/* Outdented left of the rows (and their mark column), so each heading marks where its group starts. */
+.heading {
+  padding: var(--cp-space-3) var(--cp-space-5) var(--cp-space-1) var(--cp-space-2);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-3xs);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.item {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-height: var(--cp-btn-h);
+  padding: var(--cp-space-2) var(--cp-space-5);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--cp-surface-4);
+  outline: none;
+}
+
+.item:active {
+  background: var(--cp-surface-5);
+}
+
+/* A submenu row stays lit while its submenu is open. */
+.item[aria-expanded='true'] {
+  background: var(--cp-surface-4);
+}
+
+.item[data-danger='true'] {
+  color: var(--cp-danger);
+}
+
+.item[data-danger='true']:hover,
+.item[data-danger='true']:focus-visible {
+  background: var(--cp-danger-bg);
+}
+
+/* Mark column: present on every row once any row is a setting, so labels line up; empty on plain actions. */
+.mark {
+  display: none;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+.menu[data-marked='true'] .mark {
+  display: grid;
+}
+
+.item[data-checked='true'] .mark::before {
+  content: '';
+  background: var(--cp-accent);
+}
+
+.item[data-mark='tick'][data-checked='true'] .mark::before {
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+  clip-path: var(--cp-check-shape);
+}
+
+.item[data-mark='dot'][data-checked='true'] .mark::before {
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border-radius: var(--cp-radius-full);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: var(--cp-leading-tight);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.item[data-danger='true'] .detail {
+  color: inherit;
+}
+
+/* The row's icon before its label; a danger row's takes its colour. */
+.icon {
+  flex: 0 0 auto;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+}
+
+.item:hover .icon,
+.item:focus-visible .icon,
+.item[data-danger='true'] .icon {
+  color: inherit;
+}
+
+/* A submenu row's chevron, at the row's end. */
+.more {
+  flex: 0 0 auto;
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+  margin-left: auto;
+  color: var(--cp-text-muted);
+}
+
+.lead {
+  flex: 0 0 auto;
+}
+
+/* Phone: the sheet over a dimmed app, like the Notifications sheet; a tap on the backdrop closes it. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cp-z-top);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--cp-backdrop);
+  touch-action: none;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  max-height: var(--cp-sheet-max-h);
+  padding: var(--cp-space-3) calc(var(--cp-space-6) + env(safe-area-inset-right)) calc(var(--cp-space-7) + env(safe-area-inset-bottom))
+    calc(var(--cp-space-6) + env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0;
+  background: var(--cp-surface-1);
+  box-shadow: var(--cp-shadow-dialog);
+  font-family: var(--cp-font-sans);
+  touch-action: pan-y;
+  /* Springs back from a short pull. */
+  transition: translate var(--cp-duration-base) var(--cp-ease-out);
+  /* Rises from the bottom edge. */
+  animation: sheet-rise var(--cp-duration-base) var(--cp-ease-out);
+}
+
+@keyframes sheet-rise {
+  from {
+    translate: 0 100%;
+  }
+}
+
+/* The finger leads while it pulls. */
+.sheet[data-pull='true'] {
+  transition: none;
+}
+
+.grabber {
+  flex: 0 0 auto;
+  align-self: center;
+  width: var(--cp-sheet-grabber-w);
+  height: var(--cp-sheet-grabber-h);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-border);
+}
+
+/* Each group a card of full-width rows; cards, not rules, separate groups. */
+.sheet .rule {
+  display: none;
+}
+
+.sheet .group {
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-3);
+}
+
+.sheet .heading {
+  padding: var(--cp-space-4) var(--cp-space-6) var(--cp-space-1);
+}
+
+.sheet .item {
+  min-height: var(--cp-touch-h);
+  padding: var(--cp-space-2) var(--cp-space-6);
+  border-radius: 0;
+  font-size: var(--cp-phone-text);
+  white-space: normal;
+}
+
+.sheet .item + .item {
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}

@@ -1,0 +1,70 @@
+/* Conversation window inside the shared window surface (ui/WindowChrome.module.css).
+   Hooks: .row[data-linked='true'] (joined by replies), .row[data-anchor='true'] (the message it was opened from). */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Time | author | text, as the compact archive log. Grouped (not reply-linked) rows are quieter. */
+.row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: var(--cp-space-3);
+  align-items: baseline;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border-left: var(--cp-section-stripe-h) solid transparent;
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-sm);
+}
+
+.row[data-linked='true'] {
+  border-left-color: var(--cp-accent);
+  color: var(--cp-text-1);
+}
+
+.row[data-anchor='true'] {
+  background: var(--cp-surface-4);
+}
+
+.time,
+.author {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.time {
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-xs);
+}
+
+.author {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
+}
+
+.time:hover,
+.author:hover {
+  text-decoration: underline;
+}
+
+.text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}

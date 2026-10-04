@@ -1,0 +1,165 @@
+/* F2 sync block at the sidebar bottom. Ground and the divider above come from the layout slot.
+   Hook: .row[data-phase='catch-up'|'backfill'|'error']. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-width: 0;
+  padding: var(--cp-space-5) var(--cp-sidebar-pad-x) var(--cp-space-6);
+  font-size: var(--cp-text-sm);
+}
+
+/* Small section label: the sidebar footer is secondary to the channel list above it. */
+.title {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Idle: F2's live-capture line, a success dot before muted text. */
+.idle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-4);
+  color: var(--cp-text-muted);
+  line-height: var(--cp-meta-line-h);
+}
+
+/* Dot centred on the first line, so wrapped text hangs beside it. */
+.idle::before {
+  content: '';
+  flex: 0 0 auto;
+  margin-top: calc((var(--cp-meta-line-h) - var(--cp-dot)) / 2);
+  width: var(--cp-dot);
+  height: var(--cp-dot);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-success);
+}
+
+/* Live capture line. Hook: .idle[data-capture='on'|'off']: success glow when on, danger when signed out. */
+.idle[data-capture='on'] {
+  color: var(--cp-text-2);
+}
+
+.idle[data-capture='on']::before {
+  box-shadow: var(--cp-glow-success);
+}
+
+.idle[data-capture='off']::before {
+  background: var(--cp-danger);
+}
+
+/* Row: channel and count on one line, phase beneath, then an indeterminate track while active. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--cp-space-1) var(--cp-space-4);
+  align-items: baseline;
+}
+
+.channel {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  color: var(--cp-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* '62% · back to Aug 25 · ~4m left': may outgrow its column; it then ellipsizes from the right. */
+.fetched {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--cp-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phase {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* Active phases: a thin track with a highlight sweeping back and forth. No percentages are known. */
+.row[data-phase='catch-up']::after,
+.row[data-phase='backfill']::after {
+  content: '';
+  grid-column: 1 / -1;
+  grid-row: 3;
+  height: var(--cp-progress-h);
+  margin-top: var(--cp-space-1);
+  background-color: var(--cp-surface-5);
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    var(--sync-sweep-color),
+    transparent
+  );
+  background-size: var(--cp-progress-sweep-w) 100%;
+  background-repeat: no-repeat;
+  animation: sweep var(--cp-duration-sweep) var(--cp-ease) infinite alternate;
+}
+
+/* F2 colour coding: live capture in success, backfill in accent. */
+.row[data-phase='catch-up'] {
+  --sync-sweep-color: var(--cp-success);
+}
+
+.row[data-phase='backfill'] {
+  --sync-sweep-color: var(--cp-accent);
+}
+
+@keyframes sweep {
+  from {
+    background-position-x: 0%;
+  }
+
+  to {
+    background-position-x: 100%;
+  }
+}
+
+/* Error: channel and message in danger; the message gets its own full-width line. */
+.row[data-phase='error'] .channel,
+.row[data-phase='error'] .fetched {
+  color: var(--cp-danger);
+}
+
+.row[data-phase='error'] .fetched {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Collapsed sidebar: one status dot centred in the rail (tooltip carries the detail). */
+.dotOnly {
+  display: grid;
+  place-content: center;
+  width: var(--cp-rail-w);
+  padding: var(--cp-space-5) 0;
+}
+
+.dot {
+  width: var(--cp-dot-lg);
+  height: var(--cp-dot-lg);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-success);
+}
+
+.dot[data-busy='true'] {
+  background: var(--cp-accent);
+}
+
+.dot[data-error='true'] {
+  background: var(--cp-danger);
+}

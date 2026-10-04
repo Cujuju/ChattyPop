@@ -1,0 +1,799 @@
+/* Settings → Rules: the rule list beside the open rule (When, If, Then, Recent runs). Hooks:
+   .item[data-current|off|error], .headSwitch[data-draft], .field[data-tone], .action[data-open], .iconButton[data-tone],
+   .outcome[data-outcome], .pill[data-kind]. */
+
+/* Fills the page body, so the list and the open rule scroll on their own; the narrow query below measures it. */
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+/* Under its min height the page body scrolls instead. */
+.layout {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: var(--cp-rules-split-min-h);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  overflow: hidden;
+}
+
+/* ---- Rule list ---- */
+
+.rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--cp-rules-rail-w);
+  border-inline-end: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+/* Stays put while the list under it scrolls. */
+.filter {
+  flex: none;
+  margin: var(--cp-space-5);
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 var(--cp-space-5);
+  list-style: none;
+  overflow-y: auto;
+}
+
+/* "Your rules" / "Built in": the Rules section colour, with a rule running to the edge. */
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-7) var(--cp-space-7) var(--cp-space-3);
+  color: var(--cp-section-rules);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+}
+
+.group::after {
+  content: '';
+  flex: 1 1 auto;
+  height: var(--cp-border-w);
+  background: color-mix(in srgb, var(--cp-section-rules) var(--cp-section-tile-mix), transparent);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  padding-inline-end: var(--cp-space-7);
+  border-inline-start: var(--cp-tab-indicator-h) solid transparent;
+}
+
+.item:hover {
+  background: var(--cp-surface-hover);
+}
+
+.item[data-current='true'] {
+  border-inline-start-color: var(--cp-accent);
+  background: var(--cp-surface-4);
+}
+
+.itemButton {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  padding: var(--cp-space-4) 0 var(--cp-space-4) var(--cp-space-7);
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.itemName,
+.itemLine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemName {
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+}
+
+.itemLine {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}
+
+.item[data-off='true'] .itemName {
+  color: var(--cp-text-muted);
+}
+
+.item[data-error='true'] .itemLine {
+  color: var(--cp-danger);
+}
+
+/* With cp-note cp-note-error. */
+.listError {
+  padding: var(--cp-space-4) var(--cp-space-7);
+}
+
+/* Unread alerts: the accent is reserved for unread. */
+.badge {
+  flex: none;
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-accent-hover);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+}
+
+.picker {
+  display: none;
+}
+
+.empty {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--cp-space-7);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* ---- The open rule ---- */
+
+/* min-height 0: in the narrow column layout it must shrink to the panel, so its steps scroll rather than clip. */
+.editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--cp-surface-3);
+}
+
+/* Outside the scrolling steps, so Save stays in view. */
+.editorHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-6) var(--cp-space-8);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-3);
+}
+
+/* The page title, edited in place. Zero basis: takes the room left, so the actions keep its row. */
+.nameInput {
+  flex: 1 1 0;
+  min-width: 12ch;
+  max-width: 40ch;
+  margin-inline-start: calc(-1 * var(--cp-space-3));
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: var(--cp-border-w) solid transparent;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xl);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.nameInput:hover,
+.nameInput:focus {
+  border-color: var(--cp-border);
+  background: var(--cp-surface-2);
+}
+
+/* A saved rule's switch is in the list; shown here for a draft, or when the list is hidden (below). */
+.headSwitch {
+  display: none;
+}
+
+.headSwitch[data-draft='true'] {
+  display: inline-flex;
+}
+
+.editorActions {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  margin-inline-start: auto;
+}
+
+.meta {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.editorError {
+  margin: 0;
+  padding: var(--cp-space-4) var(--cp-space-8) 0;
+}
+
+.editorScroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--cp-space-8);
+  max-width: var(--cp-rules-page-max-w);
+  padding: var(--cp-space-7) var(--cp-space-8) var(--cp-space-8);
+  overflow-y: auto;
+}
+
+/* ---- Steps ---- */
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+}
+
+.stepHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-5);
+  min-width: 0;
+}
+
+.stepTitle {
+  flex: none;
+  margin: 0;
+  white-space: nowrap;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.stepSum {
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cp-space-7);
+  padding: var(--cp-space-5) var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.field:first-child {
+  border-top: 0;
+}
+
+/* "And it has": a quieter band under the match fields it narrows. */
+.field[data-tone='narrow'] {
+  background: var(--cp-surface-1);
+}
+
+.fieldLabel {
+  flex: none;
+  width: var(--cp-rules-label-w);
+  padding-top: var(--cp-space-2);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-xs);
+}
+
+.fieldBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+/* Marks a field Jev answers. */
+.jevTag {
+  margin-inline-start: var(--cp-space-2);
+  padding: 0 var(--cp-space-3);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-3xs);
+  font-weight: var(--cp-weight-regular);
+  text-transform: none;
+}
+
+.hint {
+  margin: 0;
+  max-width: var(--cp-settings-hint-max-w);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  line-height: var(--cp-leading-relaxed);
+}
+
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-5);
+  font-size: var(--cp-text-xs);
+}
+
+/* "or" between match fields: any one is enough. */
+.or {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-5);
+  padding: 0 var(--cp-space-7);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+.or::before,
+.or::after {
+  content: '';
+  flex: 1 1 auto;
+  height: var(--cp-border-w);
+  background: var(--cp-border-subtle);
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--cp-space-4) var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  font: inherit;
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-relaxed);
+  resize: vertical;
+}
+
+.warn {
+  margin: 0;
+  padding: var(--cp-space-5) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-danger-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-relaxed);
+}
+
+.quietButton {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  cursor: pointer;
+}
+
+.quietButton:hover {
+  color: var(--cp-text-1);
+}
+
+/* ---- Chips and pickers ---- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.checkChip,
+.addChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  height: var(--cp-btn-h-sm);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+}
+
+.checkChip {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+  cursor: pointer;
+}
+
+.checkChip:has(input:disabled) {
+  cursor: default;
+  opacity: var(--cp-opacity-disabled);
+}
+
+.addChip {
+  border-style: dashed;
+  background: transparent;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.addChip:hover,
+.addChip[aria-expanded='true'] {
+  border-color: var(--cp-border-strong);
+  color: var(--cp-text-1);
+}
+
+.pickerAnchor {
+  position: relative;
+}
+
+/* With cp-popover: placed under its chip in window coordinates (pickers.tsx floatUnder). */
+.pickerPopover {
+  position: fixed;
+  z-index: var(--cp-z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  width: var(--cp-rules-picker-w);
+  padding: var(--cp-space-3);
+}
+
+.pickerSearch {
+  height: var(--cp-btn-h);
+  padding: 0 var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+}
+
+.pickerList {
+  max-height: var(--cp-search-list-max-h);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.pickerOption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  width: 100%;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  border: none;
+  border-radius: var(--cp-radius-sm);
+  background: none;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.pickerOption[aria-selected='true'] {
+  background: var(--cp-surface-hover);
+}
+
+.pickerHint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}
+
+.pickerEmpty {
+  padding: var(--cp-space-3) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+/* ---- Actions ---- */
+
+.action {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.actionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-3) var(--cp-space-4) var(--cp-space-3) 0;
+}
+
+.actionToggle {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: var(--cp-space-5);
+  min-width: 0;
+  padding: var(--cp-space-3) var(--cp-space-7);
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.actionToggle > :global(.cp-chevron) {
+  align-self: center;
+  transform: var(--cp-chevron-closed);
+}
+
+.action[data-open='true'] .actionToggle > :global(.cp-chevron) {
+  transform: var(--cp-chevron-open);
+}
+
+.actionTitle {
+  flex: none;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.actionSum {
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--cp-btn-h);
+  height: var(--cp-btn-h);
+  border: none;
+  border-radius: var(--cp-radius-md);
+  background: none;
+  color: var(--cp-text-2);
+  cursor: pointer;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.iconButton:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: default;
+}
+
+.iconButton > svg {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+/* The rule's Save: the accent, so it reads as the way out of unsaved edits. */
+.iconButton[data-tone='primary'] {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.iconButton[data-tone='primary']:hover:not(:disabled) {
+  background: var(--cp-accent-hover);
+  color: var(--cp-text-on-accent);
+}
+
+.iconButton[data-tone='danger']:hover:not(:disabled) {
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+}
+
+/* Its rows carry their own inset; the kind's hint lines up with their labels. */
+.actionBody {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--cp-space-4);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.actionBody > .hint {
+  padding-inline: var(--cp-space-7);
+}
+
+/* A post's Where and What cards, inset like the rows. */
+.actionCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-5) var(--cp-space-7) var(--cp-space-7);
+}
+
+/* ---- Recent runs ---- */
+
+.runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--cp-text-xs);
+}
+
+.runs td {
+  padding: var(--cp-space-3) var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  color: var(--cp-text-2);
+  vertical-align: baseline;
+}
+
+.runs tr:first-child td {
+  border-top: 0;
+}
+
+.runWhen {
+  color: var(--cp-text-muted);
+  white-space: nowrap;
+}
+
+.runWhat {
+  overflow-wrap: anywhere;
+}
+
+/* A run whose message still exists: opens it in the Archive. */
+.runOpen {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.runOpen:hover {
+  color: var(--cp-link);
+}
+
+.runTag {
+  margin-inline-start: var(--cp-space-3);
+}
+
+.runOutcomes {
+  white-space: nowrap;
+}
+
+.outcome + .outcome::before {
+  content: ' · ';
+  color: var(--cp-text-muted);
+}
+
+.outcome[data-outcome='done'] {
+  color: var(--cp-accent-2);
+}
+
+.outcome[data-outcome='skipped'] {
+  color: var(--cp-text-muted);
+}
+
+.outcome[data-outcome='failed'] {
+  color: var(--cp-danger);
+}
+
+/* ---- New rule ---- */
+
+.newRule {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--cp-space-6);
+  max-width: var(--cp-rules-page-max-w);
+  padding: var(--cp-space-7) var(--cp-space-8) var(--cp-space-8);
+  overflow-y: auto;
+  background: var(--cp-surface-3);
+}
+
+.newTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--cp-rules-template-min-w), 1fr));
+  gap: var(--cp-space-6);
+}
+
+.template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-1);
+  text-align: start;
+  cursor: pointer;
+}
+
+.template:hover {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-4);
+}
+
+.blank {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--cp-space-6);
+}
+
+.templateTitle {
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}
+
+.pill {
+  padding: 0 var(--cp-space-4);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-2);
+  line-height: var(--cp-badge-line-h);
+}
+
+.pill[data-kind='match'] {
+  background: color-mix(in srgb, var(--cp-section-rules) var(--cp-section-tile-mix), transparent);
+  color: var(--cp-text-1);
+}
+
+/* List + page from 760px of panel width (main/panelWindows.ts LIST_AND_RAIL_MIN_W keeps the Rules window above it);
+   narrower, a picker replaces the list and a field's label sits above it. */
+@container (width < 760px) {
+  .layout {
+    flex-direction: column;
+    border: none;
+  }
+
+  .rail {
+    display: none;
+  }
+
+  .picker {
+    display: block;
+  }
+
+  .headSwitch {
+    display: inline-flex;
+  }
+
+  .field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--cp-space-3);
+  }
+}

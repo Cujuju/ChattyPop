@@ -1,0 +1,25 @@
+/* Server avatar for a sidebar row: a small rounded square that never shrinks. A container may set --guild-icon-size. */
+.icon,
+.initials {
+  flex: 0 0 auto;
+  width: var(--guild-icon-size, var(--cp-avatar-sm));
+  height: var(--guild-icon-size, var(--cp-avatar-sm));
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-5);
+}
+
+.icon {
+  object-fit: cover;
+}
+
+/* No-icon fallback: initials in a neutral chip, same box as the image. */
+.initials {
+  display: inline-grid;
+  place-content: center;
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+  text-transform: uppercase;
+}

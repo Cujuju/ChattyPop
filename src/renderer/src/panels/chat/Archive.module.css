@@ -1,0 +1,113 @@
+/* Archive message log, F2's chat panel body. Geometry (flex, scroll, virtual rows) is inline; this file paints the
+   log frame. Message rows are MessageRow.module.css; the day divider and jump pill are ui/LogParts.module.css. */
+.root {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Files dragged over the view: they attach to the composer on drop. */
+.root[data-dropping='true'] {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* The footer column lies over the log's bottom (.footer), as tall as drawn (--cp-composer-box-h, ArchiveView):
+   the log's overlays keep that much clear. The log itself clears it as its end padding (ArchiveView), which the
+   virtual log lays out and re-commits on each change; as scroller padding, iOS left the content behind the composer
+   when the keyboard closed and the composer grew. */
+.root {
+  --cp-log-overlay-inset: var(--cp-composer-box-h, 0px);
+}
+
+/* The footer column over the log's bottom: the typing line, then the footer items (a posting plugin's message box).
+   Its side insets line them up; item popovers place against it. */
+.footer {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  --cp-composer-inset-left: var(--cp-panel-pad-x);
+  --cp-composer-inset-right: var(--cp-panel-pad-x);
+  padding-top: var(--cp-space-4);
+}
+
+/* Phone: Apple's padding around a bezeled control on the sides, as the top bar has. The typing line holds its own
+   slot above the box (TypingLine.module.css). */
+:global(html[data-surface='companion']) .footer {
+  --cp-composer-inset-left: calc(var(--cp-bezel-gap) + env(safe-area-inset-left));
+  --cp-composer-inset-right: calc(var(--cp-bezel-gap) + env(safe-area-inset-right));
+  padding-top: 0;
+}
+
+.scroller {
+  min-width: 0;
+}
+
+.canvas {
+  min-width: 0;
+}
+
+/* A DM whose archiving stopped (DmState.tsx): a strip atop the log; its history below reads as usual. */
+.dmBar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-4);
+  min-height: var(--cp-panel-subheader-h);
+  padding: 0 var(--cp-panel-pad-x);
+  border-bottom: var(--cp-border-w) solid var(--cp-border);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+}
+
+/* Resume: a text action in the accent, the bar's only control. */
+.dmBarAction {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cp-accent);
+  font: inherit;
+  font-weight: var(--cp-weight-semibold);
+}
+
+.dmBarAction:hover:not(:disabled) {
+  color: var(--cp-accent-hover);
+}
+
+.dmBarAction:disabled {
+  opacity: var(--cp-opacity-disabled);
+}
+
+/* A DM with nothing stored: centred over the empty log, an explanation and its two actions. */
+.dmEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-8);
+  text-align: center;
+}
+
+.dmEmptyTitle {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-lg);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.dmEmptyText {
+  max-width: var(--cp-settings-hint-max-w);
+  margin: 0;
+}
+
+.dmEmptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--cp-space-4);
+}

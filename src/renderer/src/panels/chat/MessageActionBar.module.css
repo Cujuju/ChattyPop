@@ -1,0 +1,102 @@
+/* Hover action bar (MessageActionBar): a raised strip a clearance above the hovered message's first line, at its right, so
+   it covers none of the message: quick reaction squares, Add reaction | divider | Edit, Reply, Forward, More.
+   Never wider than the row. MessageRow shows it; the row is its containing block. */
+.bar {
+  position: absolute;
+  bottom: calc(100% - var(--row-pad-top) + var(--cp-action-bar-clearance));
+  right: var(--cp-panel-pad-x);
+  z-index: var(--cp-z-sticky);
+  display: flex;
+  max-width: calc(100% - 2 * var(--cp-panel-pad-x));
+  align-items: center;
+  gap: var(--cp-space-1);
+  padding: var(--cp-space-1);
+  /* With cp-stroke (the composer box's edge); its corners in proportion to the box's (below). */
+  border-radius: var(--cp-radius-lg);
+  box-shadow: var(--cp-shadow-popover);
+}
+
+/* Where lengths can divide (a scale of the composer's corners needs it), its corners. */
+@supports (width: calc(1px * 1px / 1px)) {
+  .bar {
+    border-radius: var(--cp-action-bar-radius);
+  }
+}
+
+/* Bridges the clearance under the bar (past the row's top on a grouped row), so the pointer reaching up to it never
+   leaves the row. */
+.bar:not([data-inside='true'])::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: var(--cp-action-bar-clearance);
+}
+
+/* The topmost row's bar would be cut off by the log's top edge: it sits over the row's top instead. */
+.bar[data-inside='true'] {
+  top: 0;
+  bottom: auto;
+}
+
+/* A virtual log's row is its own stacking layer: the row holding the bar is raised over its neighbours, which the bar
+   overlaps. */
+:global([data-row-key]):has(.bar) {
+  z-index: var(--cp-z-sticky);
+}
+
+/* In a narrow panel the reactions give way first: squares that don't fit wrap onto a clipped second line, least used
+   first. */
+.reactions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1);
+  min-width: 0;
+  height: var(--cp-quick-reaction);
+  overflow: hidden;
+}
+
+.button {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-quick-reaction);
+  height: var(--cp-quick-reaction);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.button:hover,
+.button:focus-visible {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+}
+
+/* The owner already reacted with it: selected, as their reaction chip shows. */
+.button[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 var(--cp-border-w) var(--cp-accent);
+  background: var(--cp-accent-wash);
+}
+
+.glyph {
+  font-size: var(--cp-quick-reaction-glyph);
+  line-height: var(--cp-leading-none);
+}
+
+.image,
+.icon {
+  width: var(--cp-quick-reaction-glyph);
+  height: var(--cp-quick-reaction-glyph);
+  object-fit: contain;
+}
+
+.divider {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: var(--cp-border-w);
+  margin: var(--cp-space-1) var(--cp-space-1);
+  background: var(--cp-border-subtle);
+}
