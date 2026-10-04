@@ -19,8 +19,8 @@
   left: var(--cp-space-5);
   display: grid;
   place-items: center;
-  width: var(--cp-icon-md);
-  height: var(--cp-icon-md);
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
   padding: 0;
   border: none;
   background: none;
@@ -39,7 +39,7 @@
   --cp-stroke-fill: var(--cp-surface-2);
   width: 100%;
   height: var(--cp-btn-h);
-  padding: 0 calc(var(--cp-space-5) + var(--cp-icon-md) + var(--cp-space-4)) 0 calc(var(--cp-space-5) + var(--cp-icon-md) + var(--cp-space-4));
+  padding: 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4)) 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-sm);
 }
@@ -142,8 +142,8 @@
 }
 
 .save svg {
-  width: var(--cp-icon-md);
-  height: var(--cp-icon-md);
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
 }
 
 .save:hover {
@@ -224,10 +224,11 @@
 .remove:hover {
   color: var(--cp-danger);
 }
-/* Phone: the top bar's thumb height, beside its icon buttons; the magnifier grows with the phone's text. */
+/* Phone: the top bar's thumb height, beside its icon buttons; its icons the size of the bar's own (the search button). */
 :global(html[data-surface='companion']) .input {
   height: var(--cp-thumb-btn);
-  padding: 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
+  /* Text clears the magnifier and the star, each a thumb-wide tap target. */
+  padding-inline: var(--cp-thumb-btn);
 }
 
 /* Phone: the magnifier is a full-height tap target at the field's start, like the save star at its end. */
@@ -237,20 +238,17 @@
   height: var(--cp-thumb-btn);
 }
 
-:global(html[data-surface='companion']) .icon svg {
-  width: var(--cp-icon-lg);
-  height: var(--cp-icon-lg);
+:global(html[data-surface='companion']) .icon svg,
+:global(html[data-surface='companion']) .save svg {
+  width: var(--cp-thumb-icon);
+  height: var(--cp-thumb-icon);
 }
 
-/* Phone: the save star is a full-height tap target at the field's end; the text stops short of it. */
+/* Phone: the save star is a full-height tap target at the field's end. */
 :global(html[data-surface='companion']) .save {
   right: 0;
   width: var(--cp-thumb-btn);
   height: var(--cp-thumb-btn);
-}
-
-:global(html[data-surface='companion']) .input {
-  padding-inline: var(--cp-thumb-btn);
 }
 
 /* Phone: the panel spans the top bar's width under it (anchored to the companion's positioned header, not the field),
