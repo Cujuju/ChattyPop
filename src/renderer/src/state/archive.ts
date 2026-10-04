@@ -40,6 +40,9 @@ export function openRestoredArchive(listed: readonly { id: string }[]): void {
 }
 /** Bumped when an open completes, so the view re-scrolls even when the channel is unchanged. */
 export const [archiveLoads, setArchiveLoads] = createSignal(0);
+/** An open (channel switch or jump) is loading: the rows shown may be the last channel's or a stretch it replaces. */
+export const [archiveOpening, setArchiveOpening] = createSignal(false);
+let opens = 0;
 /** Message to scroll to and highlight (citation jumps). */
 export const [focusMessageId, setFocusMessageId] = createSignal<string | null>(null);
 
@@ -83,7 +86,14 @@ export async function openArchive(channelId: string, messageId?: string): Promis
   setFocusMessageId(messageId ?? null);
   // Its last-read mark moves once the Archive shows it on screen (lastRead.ts).
   setChatSource('archive');
-  if (await loadWindow(channelId, messageId ?? null)) setArchiveLoads((n) => n + 1);
+  const ticket = ++opens;
+  setArchiveOpening(true);
+  try {
+    if (await loadWindow(channelId, messageId ?? null)) setArchiveLoads((n) => n + 1);
+  } finally {
+    // A superseded open leaves the flag to the open that superseded it.
+    if (ticket === opens) setArchiveOpening(false);
+  }
 }
 
 /** Privacy mode changed: close the open channel if it is now hidden, else reload what is loaded (messages may be hidden or back). */

@@ -11,7 +11,7 @@ import { visibleChannelSql } from './privacy';
 
 /**
  * Servers and channels privacy mode leaves visible; each channel's newCount and notableCount count unread messages
- * (unreadSql: since it was last opened, else since `unseenSince`, none of `selfId`'s own); mentionCount is Discord's
+ * (unreadSql: visible, after its read mark, else after `unseenSince`, none of `selfId`'s own); mentionCount is Discord's
  * unread mention count (read_states). A one-to-one DM names its other
  * person for their avatar: the DM list's recipient, else (while its roster is unknown) its newest sender who isn't
  * `selfId`, once the owner is known. DMs are `selfId`'s only, newest activity first, each with its `dm` block.
@@ -30,9 +30,9 @@ export function directory(db: Db, unseenSince: number, selfId: string | null = n
     .prepare(
       `SELECT c.id, c.guild_id AS guildId, c.name, c.kind, c.parent_id AS parentId, c.opted_in AS optedIn,
               (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id) AS messageCount,
-              (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND ${unreadSql('m', 'c.viewed_at')}) AS newCount,
+              (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND ${unreadSql('m', 'c')}) AS newCount,
               (SELECT COUNT(*) FROM messages m JOIN jev_judgments j ON j.message_id = m.id AND j.subject = @notable AND ${notable.sql}
-               WHERE m.channel_id = c.id AND ${unreadSql('m', 'c.viewed_at')}) AS notableCount,
+               WHERE m.channel_id = c.id AND ${unreadSql('m', 'c')}) AS notableCount,
               COALESCE((SELECT mention_count FROM read_states r WHERE r.channel_id = c.id), 0) AS mentionCount,
               (SELECT MAX(ts) FROM messages m WHERE m.channel_id = c.id) AS lastTs,
               c.id IN (${LOCAL_ONLY_IDS_SQL}) AS localAiOnly, c.text_tier AS textTier, c.hide_in_privacy AS hideInPrivacy,

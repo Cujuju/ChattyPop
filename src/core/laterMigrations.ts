@@ -193,6 +193,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   'ALTER TABLE derived_texts ADD COLUMN part TEXT;',
   // When a member's timeout ends (epoch ms); a timed-out owner can't mention @everyone (shared/permissions.ts).
   'ALTER TABLE members ADD COLUMN timed_out_until INTEGER;',
+  // A channel's read mark as the newest message the owner saw (viewed_at then holds its ts), not a time (readMarks.ts).
+  'ALTER TABLE channels ADD COLUMN viewed_id TEXT;',
 ];
 
 /**

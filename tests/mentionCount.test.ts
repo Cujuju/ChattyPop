@@ -187,7 +187,7 @@ describe("Discord's read states: the stored counts", () => {
     expect(mentionCount()).toBe(0);
   });
 
-  it('reading a channel in the Archive asks main to acknowledge its newest message on Discord', () => {
+  it('reading a channel in the Archive asks main to acknowledge the message shown, once, never going back', () => {
     const events: AppEvent[] = [];
     const handlers = archiveHandlers({
       ready: () => ({ db, archive }),
@@ -199,11 +199,14 @@ describe("Discord's read states: the stored counts", () => {
       applyTextTier: async () => {},
       autoArchiveSinceMs: () => null,
     });
-    handlers.markChannelViewed(GENERAL);
+    handlers.markChannelRead(GENERAL, '999');
     expect(events).toEqual([]);
-    const m = rawMessage(GENERAL, NOW - MS_PER_MIN, 'a');
-    archive.ingestMessages([m], ARRIVAL.gateway);
-    handlers.markChannelViewed(GENERAL);
+    const older = rawMessage(GENERAL, NOW - 2 * MS_PER_MIN, 'a');
+    const m = rawMessage(GENERAL, NOW - MS_PER_MIN, 'b');
+    archive.ingestMessages([older, m], ARRIVAL.gateway);
+    handlers.markChannelRead(GENERAL, m.id);
+    handlers.markChannelRead(GENERAL, older.id);
+    handlers.markChannelRead(GENERAL, m.id);
     expect(events).toEqual([{ type: 'channel-read', channelId: GENERAL, messageId: m.id }]);
   });
   it('a read acknowledges the newest message', () => {

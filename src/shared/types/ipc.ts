@@ -49,7 +49,7 @@ export type AppEvent =
   /** A plugin asked for a desktop notification (main shows it). */
   /** Main learned who the signed-in Discord user is (at start and on a new sign-in). */
   | { type: 'self-changed'; userId: string }
-  /** The Archive showed a channel up to its newest message: main marks it read on Discord too. */
+  /** A channel's read mark moved to a message the owner saw: main marks it read on Discord, every surface re-reads counts. */
   | { type: 'channel-read'; channelId: string; messageId: string }
   /**
    * Someone is typing in a channel (Discord's TYPING_START, sent again every few seconds while they go on; their message

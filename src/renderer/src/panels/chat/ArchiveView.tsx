@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, on, onMount } from '
 import type { ArchiveMessage, UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import { MS_PER_MIN } from '@shared/units';
-import { archiveChannelId, archiveDensity, archiveLoads, archiveState, atNewest, focusMessageId, loadNewer, loadOlder, openArchive, openRestoredArchive } from '@/state/archive';
+import { archiveChannelId, archiveDensity, archiveLoads, archiveOpening, archiveState, atNewest, focusMessageId, loadNewer, loadOlder, openArchive, openRestoredArchive } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { editingId } from '@/state/ownMessages';
@@ -13,7 +13,8 @@ import { DayDivider, dayLabel } from '@/ui/DayDivider';
 import { JumpToNewest } from '@/ui/JumpToNewest';
 import { UnreadBanner } from '@/ui/UnreadBanner';
 import { onUserScrollNewer } from '@/ui/scrollIntent';
-import { createShown } from '@/ui/seen';
+import { createShown, createWindowFocused } from '@/ui/seen';
+import { overlayOpen } from '@/state/overlay';
 import type { PanelId } from '@/panels/titles';
 import { chatFooterItems } from '@/plugins/slots';
 import { createTallestBox } from '@/ui/tallestBox';
@@ -108,17 +109,23 @@ export function ArchiveView() {
   // message is held in view.
   const log = createFollowBottom(() => !atNewest() || vlog.holding());
 
+  // The open last placed (held or scrolled to the newest): until then the rows and following may be the last open's.
+  const [placed, setPlaced] = createSignal(archiveLoads());
   // After every open (channel switch or jump): hold the focused message centered, following again once the user is back
   // at the bottom; with none, go to the newest.
   createEffect(
-    on(archiveLoads, () => {
+    on(archiveLoads, (n) => {
       queueMicrotask(() => {
         const focus = focusMessageId();
         if (vlog.holdRow(focus)) log.detach();
         else if (!focus) log.scrollToNewest();
+        setPlaced(n);
       });
     }),
   );
+  /** The newest message the owner can see: the last row, while the view follows the bottom of a settled open. */
+  const seenNewest = (): string | undefined =>
+    !archiveOpening() && placed() === archiveLoads() && log.following() ? archiveState.items.at(-1)?.id : undefined;
 
   // The message being edited comes into view (Up may pick one scrolled away); one opened from another panel is focused instead.
   createEffect(
@@ -139,7 +146,12 @@ export function ArchiveView() {
 
   // The open channel's last-read mark moves while the view is on screen; it shows what was unread when the channel came on.
   let root!: HTMLDivElement;
-  onMount(() => watchArchive(createShown(root, () => CHAT_PANEL)));
+  onMount(() => {
+    const shown = createShown(root, () => CHAT_PANEL);
+    const focused = createWindowFocused();
+    // Read only while the owner can look at it: on screen, the window focused, nothing over the chat area.
+    watchArchive(() => shown() && focused() && !overlayOpen(), seenNewest);
+  });
   const jumpToUnread = (mark: UnreadMark): void => {
     dismissUnreadBanner();
     void openArchive(mark.channelId, mark.firstId);

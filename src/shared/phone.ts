@@ -15,7 +15,8 @@ export const PHONE_CORE_METHODS = [
   'status',
   'getSetting',
   'directory',
-  'markChannelViewed',
+  'channelUnread',
+  'markChannelRead',
   'syncState',
   'aiStatus',
   'aiPlanUsage',
@@ -58,6 +59,8 @@ export const PHONE_EVENT_TYPES = [
   'opt-in-changed',
   'dm-activity',
   'read-states-changed',
+  // A read mark moved (on any surface): counts are read again.
+  'channel-read',
   // Another account signed in: the directory (its DMs) is read again.
   'self-changed',
   'privacy-changed',

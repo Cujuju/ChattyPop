@@ -6,7 +6,7 @@ import { applyGatewayEvent, type GatewayDeps } from './gatewayEvents';
 import { directory } from './queries/directory';
 import { messagePage, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
-import { markViewed, newestMessageId } from './queries/readMarks';
+import { markRead, newestMessageId, unreadMark } from './queries/readMarks';
 import { putReadStates } from './queries/readStates';
 import { applyAccessFacts } from './access';
 import { ARRIVAL } from './arrival';
@@ -15,7 +15,8 @@ import { archiveRefusal, dmLastMessageId, openDmWith, privateChannelFacts, priva
 type Handlers = Pick<
   CoreMethods,
   | 'directory'
-  | 'markChannelViewed'
+  | 'channelUnread'
+  | 'markChannelRead'
   | 'markDmRead'
   | 'upsertGuilds'
   | 'upsertChannels'
@@ -83,21 +84,20 @@ export function archiveHandlers(o: {
   };
   return {
     directory: () => directory(o.ready().db, o.lastSeenAt(), o.selfId()),
-    markChannelViewed: (channelId) => {
-      const db = o.ready().db;
-      const unread = markViewed(db, channelId, Date.now(), o.lastSeenAt(), o.selfId());
-      // Read here is read on Discord: main acknowledges it, as Discord's client does for a channel it shows.
-      const messageId = newestMessageId(db, channelId);
-      if (messageId) o.emit({ type: 'channel-read', channelId, messageId });
-      return unread;
+    channelUnread: (channelId) => unreadMark(o.ready().db, channelId, o.lastSeenAt(), o.selfId()),
+    markChannelRead: (channelId, messageId) => {
+      // Read here is read on Discord: main acknowledges the message shown, as Discord's client does. Every surface
+      // re-reads its counts on the event.
+      if (markRead(o.ready().db, channelId, messageId)) o.emit({ type: 'channel-read', channelId, messageId });
     },
     markDmRead: (channelId) => {
       const db = o.ready().db;
       const last = dmLastMessageId(db, channelId, o.selfId());
       if (last === undefined) throw new Error('Not a direct message of the account signed in.');
-      markViewed(db, channelId, Date.now(), o.lastSeenAt(), o.selfId());
+      const newest = newestMessageId(db, channelId);
+      if (newest) markRead(db, channelId, newest);
       // Discord's newest, not the newest stored: an unarchived DM acks too.
-      const messageId = last ?? newestMessageId(db, channelId);
+      const messageId = last ?? newest;
       if (messageId) o.emit({ type: 'channel-read', channelId, messageId });
     },
     upsertGuilds: (guilds) => archive().upsertGuilds(guilds),

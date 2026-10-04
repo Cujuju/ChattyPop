@@ -70,6 +70,8 @@ const applyReadStates =
   };
 
 onAppEvent('archive-changed', () => void refetchDirectory());
+// A read mark moved, here or on another surface: new and notable counts change.
+onAppEvent('channel-read', () => void refetchDirectory());
 onAppEvent('dm-activity', (e) => patchDirectory(raiseDmActivity(e.channelId, e.lastMessageId)));
 onAppEvent('read-states-changed', (e) => patchDirectory(applyReadStates(e.states)));
 
