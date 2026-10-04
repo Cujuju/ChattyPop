@@ -8,7 +8,7 @@ import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies
 import { MESSAGE_TEXT_SQL } from '../queries/messageText';
 import { plainNameSql } from '../queries/names';
 import type { TextMessage } from '../arrival';
-import { batchKey, batchStateKey, scopedQuestion } from './messageBatch';
+import { BATCH_STATE, batchKey, carriedQuestion } from './messageBatch';
 
 /**
  * Jev judges only messages from the last day onward. Older backfill would land as already-read history,
@@ -23,8 +23,9 @@ const SETTLED_BY_TEXT = 'text';
 const LINKED_MARK = 'linked post:';
 
 /**
- * Most messages sharing one batched state. Unmeasured: each question also sees the other messages in the state, so how
- * far this can grow before answers drift from single-message ones is to be set by comparing the two on real messages.
+ * Most messages in one request. Measured at 25 (4,980 messages, Oct 2026): labels matched one-message requests within
+ * their own run-to-run jitter at the cut-off, at half the cost. Larger is unmeasured; a refused batch is asked again
+ * one message at a time, so this also bounds that retry.
  */
 const MESSAGES_PER_REQUEST = 25;
 /** Jev's answers for one message, keyed by subject; a missing subject means no usable answer. */
@@ -106,14 +107,14 @@ export class MessageJudge {
   }
 
   /**
-   * Judges many messages in few requests (re-runs, catch-up). The state holds each message's own state under its key and
-   * each question is pointed at its message's key (messageBatch.ts). Stored as single judgments are. A message with a
-   * question that can't be pointed at it is asked alone; a failed batch asks its messages again one at a time. A
+   * Judges many messages in few requests (re-runs, catch-up). Each question carries its own message's state and the
+   * request's state is empty (messageBatch.ts). Stored as single judgments are. A message with a question that can't
+   * carry it is asked alone; a failed batch asks its messages again one at a time. A
    * local-AI-only channel's questions are dropped; its settled answers are still stored.
    */
   async judgeMany(jev: DecisionProvider, items: BatchItem[]): Promise<BatchResult> {
     const result: BatchResult = { answers: new Map(), failed: new Set(), costs: [] };
-    type Batch = { members: { item: BatchItem; keys: Record<string, string> }[]; state: Record<string, unknown>; questions: Record<string, Question>; chars: number };
+    type Batch = { members: { item: BatchItem; keys: Record<string, string> }[]; questions: Record<string, Question>; chars: number };
     const batches: Batch[] = [];
     const alone: BatchItem[] = [];
     for (const item of items) {
@@ -123,30 +124,20 @@ export class MessageJudge {
         continue;
       }
       const state = this.stateFor(item.m);
-      // The item as member `n` (0-based) of a batch: its key there, its questions pointed at it, and its size; null if unscopable.
-      const fit = (n: number) => {
-        const key = batchStateKey(n + 1);
-        const scoped = Object.entries(asked).map(([s, q]) => [batchKey(s, item.m.id), s, scopedQuestion(q, key)] as const);
-        if (scoped.some(([, , q]) => !q)) return null;
-        const questions = Object.fromEntries(scoped.map(([k, , q]) => [k, q!]));
-        return { key, questions, keys: Object.fromEntries(scoped.map(([k, s]) => [k, s])), size: JSON.stringify({ [key]: state, ...questions }).length };
-      };
-      const last = batches.at(-1);
-      const room = last && last.members.length < MESSAGES_PER_REQUEST ? last : null;
-      let p = fit(room ? room.members.length : 0);
-      if (!p) {
+      const carried = Object.entries(asked).map(([s, q]) => [batchKey(s, item.m.id), s, carriedQuestion(q, state)] as const);
+      if (carried.some(([, , q]) => !q)) {
         alone.push({ ...item, questions: asked });
         continue;
       }
-      let open = room;
-      if (!open || open.chars + p.size > jev.maxInputChars) {
-        batches.push((open = { members: [], state: {}, questions: {}, chars: 0 }));
-        p = fit(0)!;
+      const questions = Object.fromEntries(carried.map(([k, , q]) => [k, q!]));
+      const size = JSON.stringify(questions).length;
+      let open = batches.at(-1);
+      if (!open || open.members.length >= MESSAGES_PER_REQUEST || open.chars + size > jev.maxInputChars) {
+        batches.push((open = { members: [], questions: {}, chars: 0 }));
       }
-      open.members.push({ item: { ...item, questions: asked }, keys: p.keys });
-      open.state[p.key] = state;
-      Object.assign(open.questions, p.questions);
-      open.chars += p.size;
+      open.members.push({ item: { ...item, questions: asked }, keys: Object.fromEntries(carried.map(([k, s]) => [k, s])) });
+      Object.assign(open.questions, questions);
+      open.chars += size;
     }
     const one = async (item: BatchItem): Promise<void> => {
       try {
@@ -163,7 +154,7 @@ export class MessageJudge {
       ...batches.map(async (b) => {
         if (b.members.length === 1) return one(b.members[0]!.item);
         try {
-          const r = await jev.decide({ state: b.state, questions: b.questions });
+          const r = await jev.decide({ state: BATCH_STATE, questions: b.questions });
           result.costs.push(r.costUsd);
           for (const { item, keys } of b.members) {
             const answers = Object.fromEntries(Object.entries(keys).flatMap(([k, s]) => (r.answers[k] ? [[s, r.answers[k] as Answer]] : [])));

@@ -1,47 +1,28 @@
-// Several messages in one Jev request (re-runs, catch-up). Jev judges only the state, and its questions name state fields
-// by backticked path. So a batched state holds each message's own state under a key (m1, m2…), and each question's
-// references to `message`, `earlier` and `replying_to` are pointed at its message's key (`m2.message`).
-import type { Question, Structured } from '../ai/decisions';
+// Several messages in one Jev request (re-runs, catch-up), as System One batches records: its questions run independently,
+// so each carries its own message's state in its instructions object ("put the question in one field and the data in the
+// others") and the request's state is empty. A shared state would set every message before every question, which lowers
+// Jev's confidence (docs.typesafe.ai: "include only the context relevant to the current questions").
+import type { Question } from '../ai/decisions';
 
 /** The state fields (MessageJudge.stateFor) questions refer to by backticked path. */
-const FIELD_REF = /`(message|earlier|replying_to)`/g;
+const FIELD_REF = /`(message|earlier|replying_to)`/;
 
-/** The key of the `n`th message (1-based) in a batched state. */
-export const batchStateKey = (n: number): string => `m${n}`;
+/** A batched request's state: its questions carry their messages' states. */
+export const BATCH_STATE = {};
 
 /** A batched question's id: its subject, then its message's id, so ids stay unique across messages. */
 export const batchKey = (subject: string, messageId: string): string => `${subject}_${messageId}`;
 
 /**
- * `q` pointed at the message under `key`: every backticked field reference in its question text and criteria gains the
- * key. Null when the question names none (an owner's plain-text question): it can't tell which message it means, so it
- * must be asked with its message alone. Values carried beside the question text (`me`, `topic`) are left as they are.
+ * `q` carrying `state` beside its question text, so the fields it names resolve there. Null when it can't, and it is
+ * asked with its message alone: it names no state field (an owner's plain-text question, which can't say which data it
+ * means), its instructions are an array or have no question text, or they already use a state field's name.
  */
-export function scopedQuestion(q: Question, key: string): Question | null {
-  let refs = 0;
-  const text = (s: string): string =>
-    s.replace(FIELD_REF, (_, field: string) => {
-      refs++;
-      return `\`${key}.${field}\``;
-    });
-  const any = (v: Structured | null): Structured | null => (typeof v === 'string' ? text(v) : v);
-  const instructions =
-    typeof q.instructions === 'string'
-      ? text(q.instructions)
-      : Array.isArray(q.instructions) || typeof q.instructions['question'] !== 'string'
-        ? q.instructions
-        : { ...q.instructions, question: text(q.instructions['question']) };
-  let scoped: Question;
-  switch (q.type) {
-    case 'noul':
-      scoped = { ...q, instructions, ...(q.criteria ? { criteria: { true: any(q.criteria.true ?? null) ?? undefined, false: any(q.criteria.false ?? null) ?? undefined } } : {}) };
-      break;
-    case 'choice':
-      scoped = { ...q, instructions, criteria: Object.fromEntries(Object.entries(q.criteria).map(([k, v]) => [k, any(v)])) };
-      break;
-    case 'score':
-      scoped = { ...q, instructions, criteria: q.criteria.map((c) => any(c) ?? c) };
-      break;
-  }
-  return refs ? scoped : null;
+export function carriedQuestion(q: Question, state: Record<string, unknown>): Question | null {
+  const asks = typeof q.instructions === 'string' ? q.instructions : Array.isArray(q.instructions) ? null : q.instructions['question'];
+  if (typeof asks !== 'string') return null;
+  if (!FIELD_REF.test(asks) && !FIELD_REF.test(JSON.stringify(q.criteria ?? null))) return null;
+  if (typeof q.instructions !== 'string' && Object.keys(state).some((k) => Object.hasOwn(q.instructions as object, k))) return null;
+  const data = typeof q.instructions === 'string' ? { question: q.instructions } : q.instructions;
+  return { ...q, instructions: { ...state, ...data } };
 }

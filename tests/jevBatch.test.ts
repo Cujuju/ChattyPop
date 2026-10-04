@@ -1,9 +1,9 @@
-// Re-runs and catch-up judge many messages per Jev request. Jev judges only the state, so the batched state holds each
-// message's own state under a key, each question points at its message's key, and answers land on the right message.
+// Re-runs and catch-up judge many messages per Jev request. Jev's questions run independently, so each carries its own
+// message's state in its instructions and the request's state is empty; answers land on the right message.
 import { describe, expect, it } from 'vitest';
 import type { Question } from '../src/core/ai/decisions';
 import { ARRIVAL } from '../src/core/arrival';
-import { batchKey, scopedQuestion } from '../src/core/jev/messageBatch';
+import { BATCH_STATE, batchKey, carriedQuestion } from '../src/core/jev/messageBatch';
 import { MessageJudge } from '../src/core/jev/messageJudge';
 import { textMessage } from '../src/core/queries/messageText';
 import type { JevRequest } from './fakeJev';
@@ -24,31 +24,26 @@ function setup(n: number) {
   return { db, messages, judge: new MessageJudge(db), items: messages.map((m) => ({ m, questions: { [SUBJECT]: QUESTION }, certain: {} })) };
 }
 
-/** The message a question is about: the state entry its `mN.message` path names, or the whole state when asked alone. */
-function about(req: JevRequest, q: Question): string {
-  const path = /`(m\d+)\.message`/.exec(JSON.stringify(q.instructions));
-  const state = req.state as Record<string, { message: string }> & { message?: string };
-  return path ? state[path[1]!]!.message : state.message!;
-}
-/** Jev stand-in answering message i with i / 100, read from the state the question points at. */
+/** The message a question is about: the one it carries, or the request's state's when asked alone. */
+const about = (req: JevRequest, q: Question): string => (q.instructions as { message?: string }).message ?? (req.state as { message: string }).message;
+/** Jev stand-in answering message i with i / 100, read from the message the question is about. */
 const byNumber = (req: JevRequest) =>
   Object.fromEntries(Object.entries(req.questions).map(([k, q]) => [k, { type: 'noul', noul: Number(/number (\d+)$/.exec(about(req, q))![1]) / 100 }]));
 
 const stored = (db: ReturnType<typeof tempDb>, id: string) => db.prepare('SELECT value FROM jev_judgments WHERE message_id = ? AND subject = ?').pluck().get(id, SUBJECT);
 
 describe('batched Jev judgments', () => {
-  it('put each message in the state under its own key, and point its questions there', async () => {
+  it("give each question its own message's state beside its text, and the request an empty state", async () => {
     const { db, messages, judge, items } = setup(60);
     const jev = new FakeJev(byNumber);
     const r = await judge.judgeMany(jev, items);
 
     expect(jev.requests.length).toBeLessThan(messages.length / 10);
     const first = jev.requests[0]!;
-    expect(Object.keys(first.state as object).slice(0, 2)).toEqual(['m1', 'm2']);
-    expect((first.state as Record<string, unknown>)['m1']).toMatchObject({ message: expect.stringMatching(/number 0$/), earlier: [] });
-    expect(first.questions[batchKey(SUBJECT, messages[1]!.id)]).toMatchObject({
-      instructions: 'Is `m2.message` about trading? Read `m2.earlier` only to understand `m2.message`.',
-      criteria: { true: '`m2.message` is about trading.', false: 'It is not.' },
+    expect(first.state).toEqual(BATCH_STATE);
+    expect(first.questions[batchKey(SUBJECT, messages[1]!.id)]).toEqual({
+      ...QUESTION,
+      instructions: { earlier: [expect.stringMatching(/number 0$/)], message: expect.stringMatching(/number 1$/), question: QUESTION.instructions },
     });
     messages.forEach((m, i) => {
       expect(r.answers.get(m.id)?.[SUBJECT]).toEqual({ type: 'noul', noul: i / 100 });
@@ -56,7 +51,7 @@ describe('batched Jev judgments', () => {
     });
   });
 
-  it('asks a message alone when a question names no field it could be pointed at', async () => {
+  it('asks a message alone when a question names no field it could carry', async () => {
     const { messages, judge, items } = setup(3);
     const plain: Question = { type: 'noul', instructions: 'Is this about trading?' };
     const jev = new FakeJev(byNumber);
@@ -96,15 +91,19 @@ describe('batched Jev judgments', () => {
   });
 });
 
-describe('scoping a question to one message of a batch', () => {
-  it('points field references at the key and leaves values carried beside the question alone', () => {
-    const withVars: Question = { type: 'choice', instructions: { topic: 'the `message` field of a bot', question: 'Is `message` about `topic`?' }, criteria: { yes: '`replying_to` agrees', no: null } };
-    expect(scopedQuestion(withVars, 'm7')).toEqual({
-      type: 'choice',
-      instructions: { topic: 'the `message` field of a bot', question: 'Is `m7.message` about `topic`?' },
-      criteria: { yes: '`m7.replying_to` agrees', no: null },
+describe('a question carrying its message', () => {
+  const state = { earlier: [], message: 'ann: hi' };
+  it("sets the message's state beside the question text, keeping values already carried there", () => {
+    expect(carriedQuestion({ type: 'score', instructions: 'How urgent is `message`?', criteria: ['calm', 'urgent'] }, state)).toMatchObject({
+      instructions: { ...state, question: 'How urgent is `message`?' },
     });
-    expect(scopedQuestion({ type: 'score', instructions: 'How urgent is `message`?', criteria: ['calm', 'urgent'] }, 'm1')).toMatchObject({ instructions: 'How urgent is `m1.message`?' });
-    expect(scopedQuestion({ type: 'noul', instructions: 'Is this a question?' }, 'm1')).toBeNull();
+    const withVars: Question = { type: 'choice', instructions: { topic: 'keyboards', question: 'Is `message` about `topic`?' }, criteria: { yes: null, no: null } };
+    expect(carriedQuestion(withVars, state)).toEqual({ ...withVars, instructions: { ...state, topic: 'keyboards', question: 'Is `message` about `topic`?' } });
+  });
+
+  it("can't carry it when the question names no state field, has no question text, or already uses a field's name", () => {
+    expect(carriedQuestion({ type: 'noul', instructions: 'Is this a question?' }, state)).toBeNull();
+    expect(carriedQuestion({ type: 'noul', instructions: ['Is `message` a question?'] }, state)).toBeNull();
+    expect(carriedQuestion({ type: 'noul', instructions: { message: 'x', question: 'Is `message` a question?' } }, state)).toBeNull();
   });
 });
