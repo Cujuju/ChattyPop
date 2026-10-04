@@ -12,16 +12,26 @@
   position: relative;
 }
 
-/* Magnifier inside the field's leading edge, vertically centred; clicks pass through to the field. */
+/* Magnifier button inside the field's leading edge, vertically centred: closes search while open, else focuses the field. */
 .icon {
   position: absolute;
   top: 50%;
   left: var(--cp-space-5);
+  display: grid;
+  place-items: center;
   width: var(--cp-icon-md);
   height: var(--cp-icon-md);
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--cp-text-muted);
+  cursor: pointer;
   transform: translateY(-50%);
-  pointer-events: none;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 /* With cp-stroke, the message box's edge, over a fill one step above the bar's ground. */
@@ -220,7 +230,14 @@
   padding: 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
 }
 
+/* Phone: the magnifier is a full-height tap target at the field's start, like the save star at its end. */
 :global(html[data-surface='companion']) .icon {
+  left: 0;
+  width: var(--cp-thumb-btn);
+  height: var(--cp-thumb-btn);
+}
+
+:global(html[data-surface='companion']) .icon svg {
   width: var(--cp-icon-lg);
   height: var(--cp-icon-lg);
 }
@@ -233,7 +250,7 @@
 }
 
 :global(html[data-surface='companion']) .input {
-  padding-right: var(--cp-thumb-btn);
+  padding-inline: var(--cp-thumb-btn);
 }
 
 /* Phone: the panel spans the top bar's width under it (anchored to the companion's positioned header, not the field),

@@ -42,11 +42,15 @@ export function Search() {
     setSearchOpen(true);
     input.focus();
   };
+  /** Closes the panel (the phone puts the field away too). */
+  const close = (): void => {
+    setSearchOpen(false);
+    input.blur();
+  };
   const open = (hit: SearchHit | undefined): void => {
     if (!hit) return;
     void openArchive(hit.channelId, hit.messageId);
-    setSearchOpen(false);
-    input.blur();
+    close();
   };
   const rowCount = (): number => {
     if (mode() === 'filters') return filters().length + savedSearches().length;
@@ -63,10 +67,7 @@ export function Search() {
       } else if (i < filters().length) edit(withFilter(searchText(), filters()[i]!.key));
       else if (savedSearches()[i - filters().length]) edit(savedSearches()[i - filters().length]!);
     },
-    onEscape: () => {
-      setSearchOpen(false);
-      input.blur();
-    },
+    onEscape: close,
     activeEl: () => document.getElementById(`search-row-${active()}`),
   });
   const nav = { active, setActive };
@@ -79,7 +80,21 @@ export function Search() {
         Search the archive
       </label>
       <div class={styles.field}>
-        <Icon name="search" class={styles.icon} />
+        {/* Open, the magnifier closes search; closed, it focuses the field. mousedown, not click: acts before the field's
+            blur, and keeps focus from moving to the button (Escape closes from the keyboard). */}
+        <button
+          type="button"
+          class={styles.icon}
+          tabIndex={-1}
+          aria-label={searchOpen() ? 'Close search' : 'Search the archive'}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            if (searchOpen()) close();
+            else input.focus();
+          }}
+        >
+          <Icon name="search" />
+        </button>
         <input
           ref={input}
           id="archive-search"
