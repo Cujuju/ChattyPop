@@ -87,6 +87,14 @@ describe('last read: which messages are unread', () => {
     expect(newCount(GENERAL)).toBe(1);
   });
 
+  it("never counts a bot's messages (an embed fixer reposting a link), in the banner or the sidebar", () => {
+    const link = post(3);
+    archive.ingestMessages([rawMessage(GENERAL, T0 + 3 * MS_PER_MIN + 1, 'fixed embed', { author: { id: 'u-bot', username: 'fixer', global_name: null, bot: true } })], ARRIVAL.gateway);
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF)).toMatchObject({ count: 1, firstId: link.id });
+    expect(unreadMark(db, GENERAL, LAST_SEEN, SELF, link.id)?.count).toBe(1);
+    expect(newCount(GENERAL)).toBe(1);
+  });
+
   it('moves one channel only', () => {
     const seen = post(3);
     post(4, OTHER);

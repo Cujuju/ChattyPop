@@ -3,6 +3,7 @@
 // moves when the owner sends from any client or reads in another. What the owner hasn't seen, and moving the mark.
 import type { UnreadMark } from '@shared/contract';
 import { getSetting, setSetting, type Db } from '../db';
+import { rawJsonSql } from './messageContent';
 import { visibleMessageSql } from './privacy';
 
 /** The account last signed in: whose messages are their own until this session's READY names it. */
@@ -30,13 +31,18 @@ const afterMarkSql = (m: string, c: string): string => `CASE WHEN ${c}.viewed_id
 const afterAckSql = (m: string, rs: string): string => `(${rs}.ack_id IS NULL OR (length(${m}.id), ${m}.id) > (length(${rs}.ack_id), ${rs}.ack_id))`;
 
 /**
- * Message `m` of channel `c` (`rs`: its read_states row, LEFT JOINed) is unread: visible, after the Archive's mark and
- * Discord's read state, and not the owner's own (`@reader`; '' while no account was ever known, when every message
- * counts). The leading bound is implied by the mark; it lets the (channel_id, ts) index take the range. Every unread
- * count (banner, sidebar, notable) uses it.
+ * Message `m` counts as unread when it is past the read marks: visible, not the owner's own (`@reader`; '' while no
+ * account was ever known, when every message counts), and not a bot's (an embed fixer reposting a link would count it twice).
+ */
+const countedSql = (m: string): string => `${m}.author_id IS NOT @reader AND ${rawJsonSql('$.author.bot', m)} IS NOT 1 AND ${visibleMessageSql(m)}`;
+
+/**
+ * Message `m` of channel `c` (`rs`: its read_states row, LEFT JOINed) is unread: after the Archive's mark and Discord's
+ * read state, and counted (countedSql). The leading bound is implied by the mark; it lets the (channel_id, ts) index
+ * take the range. Every unread count (banner, sidebar, notable) uses it.
  */
 export const unreadSql = (m: string, c: string, rs: string): string =>
-  `${m}.ts >= COALESCE(${c}.viewed_at, @unseen) AND ${afterMarkSql(m, c)} AND ${afterAckSql(m, rs)} AND ${m}.author_id IS NOT @reader AND ${visibleMessageSql(m)}`;
+  `${m}.ts >= COALESCE(${c}.viewed_at, @unseen) AND ${afterMarkSql(m, c)} AND ${afterAckSql(m, rs)} AND ${countedSql(m)}`;
 
 /**
  * Whether the owner `readerId` has read message `messageId`: at or before the Archive's mark or Discord's read state, or
@@ -58,13 +64,13 @@ const UNREAD_FROM = `FROM messages m JOIN channels c ON c.id = m.channel_id LEFT
 /**
  * What is unread in a channel for the owner `readerId`; null when nothing is. `unseenSince`: the fallback mark, the end
  * of the previous app session. `sinceId`: count from that message (a banner's first unread) instead of the Archive's
- * mark, still leaving out what Discord's read state or the owner's own messages cover.
+ * mark, still leaving out what Discord's read state covers and what isn't counted (countedSql).
  */
 export function unreadMark(db: Db, channelId: string, unseenSince: number, readerId: string | null, sinceId?: string): UnreadMark | null {
   const params = { channelId, unseen: unseenSince, reader: readerId ?? '', since: sinceId ?? '' };
   const where = sinceId
     ? `${UNREAD_FROM} AND (m.ts, length(m.id), m.id) >= (SELECT s.ts, length(s.id), s.id FROM messages s WHERE s.id = @since)
-         AND ${afterAckSql('m', 'rs')} AND m.author_id IS NOT @reader AND ${visibleMessageSql('m')}`
+         AND ${afterAckSql('m', 'rs')} AND ${countedSql('m')}`
     : `${UNREAD_FROM} AND ${unreadSql('m', 'c', 'rs')}`;
   const first = db.prepare(`SELECT m.id, m.ts ${where} ORDER BY m.ts, length(m.id), m.id LIMIT 1`).get(params) as { id: string; ts: number } | undefined;
   if (!first) return null;
