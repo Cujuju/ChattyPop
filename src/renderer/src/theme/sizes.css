@@ -71,6 +71,8 @@
   --cp-badge-line-h: 16px;
   --cp-meta-line-h: 18px; /* one-line row meta (who/where/when); badges and dots centre on it */
   --cp-badge-h: 18px; /* 'N new' pill in a panel header */
+  /* New and @ count pills on a sidebar channel row: the 2xs number with space-3 above and below; fits a thread row. */
+  --cp-row-count-h: calc(var(--cp-text-2xs) + 2 * var(--cp-space-3));
   --cp-badge-w: 30px; /* platform badge, fixed so titles align across rows ('WEB' is the widest) */
   --cp-new-marker-w: 2px; /* accent edge on an unseen row */
   --cp-mention-bar-w: 2px; /* leading bar on a message that pings the owner, Discord's width */

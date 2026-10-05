@@ -241,18 +241,21 @@
 /* Channel row count is 'new since last opened': a solid accent pill when non-zero, muted when zero.
    Hook: .count[data-new='true'|'false']. */
 .count[data-new='true'] {
+  min-width: var(--cp-row-count-h);
   padding: 0 var(--cp-space-3);
   border-radius: var(--cp-radius-sm);
   background: var(--cp-accent);
   color: var(--cp-text-on-accent);
   font-size: var(--cp-text-2xs);
   font-weight: var(--cp-weight-semibold);
-  line-height: var(--cp-badge-line-h);
+  line-height: var(--cp-row-count-h);
+  text-align: center;
 }
 
 /* Unread messages that pinged the owner: a pill in the mention colour (a pinging message's highlight), before the count. */
 .mentions {
   flex: 0 0 auto;
+  min-width: var(--cp-row-count-h);
   padding: 0 var(--cp-space-3);
   border-radius: var(--cp-radius-sm);
   background: var(--cp-mention);
@@ -260,7 +263,8 @@
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-2xs);
   font-weight: var(--cp-weight-semibold);
-  line-height: var(--cp-badge-line-h);
+  line-height: var(--cp-row-count-h);
+  text-align: center;
 }
 
 /* F2: a channel still being backfilled carries an accent micro tag (cp-micro-tag) before its count. */
