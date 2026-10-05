@@ -11,12 +11,12 @@ import { visibleChannelSql } from './privacy';
 
 /**
  * Servers and channels privacy mode leaves visible; each channel's newCount and notableCount count unread messages
- * (unreadSql: visible, after its read mark, else after `unseenSince`, none of `selfId`'s own); mentionCount is Discord's
- * unread mention count (read_states). A one-to-one DM names its other
- * person for their avatar: the DM list's recipient, else (while its roster is unknown) its newest sender who isn't
+ * (unreadSql: after its read mark and Discord's read state, else after `unseenSince`; none of `readerId`'s own: the
+ * account signed in, else the last one); mentionCount is Discord's unread mention count (read_states). A one-to-one DM
+ * names its other person for their avatar: the DM list's recipient, else (while its roster is unknown) its newest sender who isn't
  * `selfId`, once the owner is known. DMs are `selfId`'s only, newest activity first, each with its `dm` block.
  */
-export function directory(db: Db, unseenSince: number, selfId: string | null = null): DirectoryGuild[] {
+export function directory(db: Db, unseenSince: number, selfId: string | null = null, readerId: string | null = selfId): DirectoryGuild[] {
   const notable = storedMatchSql(NOTABLE_QUERY, 'j', 'notable_');
   const guilds = db
     .prepare('SELECT id, name, icon, hide_in_privacy AS hideInPrivacy FROM guilds WHERE id NOT IN (SELECT id FROM hidden_ids) ORDER BY name COLLATE NOCASE')
@@ -30,21 +30,22 @@ export function directory(db: Db, unseenSince: number, selfId: string | null = n
     .prepare(
       `SELECT c.id, c.guild_id AS guildId, c.name, c.kind, c.parent_id AS parentId, c.opted_in AS optedIn,
               (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id) AS messageCount,
-              (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND ${unreadSql('m', 'c')}) AS newCount,
+              (SELECT COUNT(*) FROM messages m WHERE m.channel_id = c.id AND ${unreadSql('m', 'c', 'rs')}) AS newCount,
               (SELECT COUNT(*) FROM messages m JOIN jev_judgments j ON j.message_id = m.id AND j.subject = @notable AND ${notable.sql}
-               WHERE m.channel_id = c.id AND ${unreadSql('m', 'c')}) AS notableCount,
+               WHERE m.channel_id = c.id AND ${unreadSql('m', 'c', 'rs')}) AS notableCount,
               COALESCE((SELECT mention_count FROM read_states r WHERE r.channel_id = c.id), 0) AS mentionCount,
               (SELECT MAX(ts) FROM messages m WHERE m.channel_id = c.id) AS lastTs,
               c.id IN (${LOCAL_ONLY_IDS_SQL}) AS localAiOnly, c.text_tier AS textTier, c.hide_in_privacy AS hideInPrivacy,
               c.icon, peer.id AS peerId, peer.avatar AS peerAvatar
        FROM channels c
+       LEFT JOIN read_states rs ON rs.channel_id = c.id
        -- The CASE runs the message lookup only for a one-to-one DM with neither its person nor its roster kept; a join
        -- condition would run it for every channel.
        LEFT JOIN users peer ON peer.id = COALESCE(c.peer_id, CASE WHEN c.kind = @dm AND c.recipients IS NULL AND @self != '' THEN (SELECT m.author_id FROM messages m
          WHERE m.channel_id = c.id AND m.author_id != @self ORDER BY m.ts DESC LIMIT 1) END)
        WHERE ${visibleChannelSql('c.id')} AND ${ownPrivateChannelSql('c')} ORDER BY c.position, c.name`,
     )
-    .all({ unseen: unseenSince, notable: NOTABLE_SUBJECT, dm: DM_CHANNEL_TYPE, self: selfId ?? '', ...notable.params }) as {
+    .all({ unseen: unseenSince, notable: NOTABLE_SUBJECT, dm: DM_CHANNEL_TYPE, self: selfId ?? '', reader: readerId ?? '', ...notable.params }) as {
     id: string;
     guildId: string;
     name: string;

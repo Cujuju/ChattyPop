@@ -6,7 +6,7 @@ import { applyGatewayEvent, type GatewayDeps } from './gatewayEvents';
 import { directory } from './queries/directory';
 import { messagePage, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
-import { markRead, newestMessageId, unreadMark } from './queries/readMarks';
+import { lastReader, markRead, newestMessageId, unreadMark } from './queries/readMarks';
 import { putReadStates } from './queries/readStates';
 import { applyAccessFacts } from './access';
 import { ARRIVAL } from './arrival';
@@ -82,9 +82,17 @@ export function archiveHandlers(o: {
     setAutoDeclined(o.ready().db, channelId, !on);
     o.emit({ type: 'opt-in-changed', ...(on ? { optedIn: channelId } : {}) });
   };
+  /** Whose messages are the owner's own: the account signed in, else the last one, so a restart counts none before READY. */
+  const reader = (db: Db): string | null => o.selfId() ?? lastReader(db);
   return {
-    directory: () => directory(o.ready().db, o.lastSeenAt(), o.selfId()),
-    channelUnread: (channelId) => unreadMark(o.ready().db, channelId, o.lastSeenAt(), o.selfId()),
+    directory: () => {
+      const db = o.ready().db;
+      return directory(db, o.lastSeenAt(), o.selfId(), reader(db));
+    },
+    channelUnread: (channelId, sinceId) => {
+      const db = o.ready().db;
+      return unreadMark(db, channelId, o.lastSeenAt(), reader(db), sinceId);
+    },
     markChannelRead: (channelId, messageId) => {
       // Read here is read on Discord: main acknowledges the message shown, as Discord's client does. Every surface
       // re-reads its counts on the event.

@@ -338,7 +338,7 @@ export interface UnreadMark {
 export interface ReadStateCount {
   channelId: string;
   mentionCount?: number;
-  /** A DM's last read message; null when never read. */
+  /** The channel's last read message on Discord; null when never read. */
   ackId?: string | null;
   /** When a DM's mute ends (ms; MUTED_FOREVER: until unmuted); null when not muted. */
   muteEndsMs?: number | null;

@@ -1,10 +1,12 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onMount } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { ArchiveMessage, UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import { MS_PER_MIN } from '@shared/units';
 import { archiveChannelId, archiveDensity, archiveLoads, archiveOpening, archiveState, atNewest, focusMessageId, loadNewer, loadOlder, openArchive, openRestoredArchive } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
+import { firstUnreadAbove } from '@/state/lastReadRules';
+import { listen } from '@/ui/listen';
 import { editingId } from '@/state/ownMessages';
 import { postingUnlocked } from '@/state/posting';
 import { archivedChannels, channelById } from '@/state/directory';
@@ -123,9 +125,10 @@ export function ArchiveView() {
       });
     }),
   );
+  /** The last open is loaded and placed: the rows and following are its own. */
+  const settled = (): boolean => !archiveOpening() && placed() === archiveLoads();
   /** The newest message the owner can see: the last row, while the view follows the bottom of a settled open. */
-  const seenNewest = (): string | undefined =>
-    !archiveOpening() && placed() === archiveLoads() && log.following() ? archiveState.items.at(-1)?.id : undefined;
+  const seenNewest = (): string | undefined => (settled() && log.following() ? archiveState.items.at(-1)?.id : undefined);
 
   // The message being edited comes into view (Up may pick one scrolled away); one opened from another panel is focused instead.
   createEffect(
@@ -146,12 +149,31 @@ export function ArchiveView() {
 
   // The open channel's last-read mark moves while the view is on screen; it shows what was unread when the channel came on.
   let root!: HTMLDivElement;
+  let scroller: HTMLDivElement | undefined;
+  /** The owner can look at the Archive: set once the view is on the page. */
+  let lookable: () => boolean = () => false;
   onMount(() => {
     const shown = createShown(root, () => CHAT_PANEL);
     const focused = createWindowFocused();
     // Read only while the owner can look at it: on screen, the window focused, nothing over the chat area.
-    watchArchive(() => shown() && focused() && !overlayOpen(), seenNewest);
+    lookable = () => shown() && focused() && !overlayOpen();
+    watchArchive(lookable, seenNewest);
+    // After the rows are drawn, measured or moved (startOf tracks every re-layout; shift translates them): positions
+    // are read from the page.
+    createEffect(() => {
+      const b = unreadBanner();
+      void [lookable(), settled(), archiveState.items.length, vlog.log.keys(), vlog.extent(), vlog.log.shift(), b && vlog.log.startOf(b.firstId)];
+      requestAnimationFrame(checkBanner);
+    });
   });
+  /** The banner points up to its first unread: once that is on screen, or below the view, it has nothing to point to. */
+  const checkBanner = (): void => {
+    const b = unreadBanner();
+    if (!b || !scroller?.isConnected || !lookable() || !settled()) return;
+    const row = scroller.querySelector(`[data-row-key="${CSS.escape(b.firstId)}"]`);
+    const rowTop = row ? row.getBoundingClientRect().top : null;
+    if (!firstUnreadAbove(b, archiveState.items, vlog.log.keys(), rowTop, scroller.getBoundingClientRect().top)) dismissUnreadBanner();
+  };
   const jumpToUnread = (mark: UnreadMark): void => {
     dismissUnreadBanner();
     void openArchive(mark.channelId, mark.firstId);
@@ -187,6 +209,12 @@ export function ArchiveView() {
           <div
             class={styles.scroller}
             ref={(el) => {
+              scroller = el;
+              // Scrolling, and the view resizing, move the banner's first unread against it.
+              listen(el, 'scroll', checkBanner, { passive: true });
+              const resized = new ResizeObserver(() => checkBanner());
+              resized.observe(el);
+              onCleanup(() => resized.disconnect());
               vlog.ref(el);
               log.ref(el);
               onUserScrollNewer(el, dismissUnreadBanner);

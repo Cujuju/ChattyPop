@@ -1,15 +1,4 @@
-// When the Archive moves a channel's last-read mark, and what the "new messages" banner shows. Pure: tests import it.
-import type { UnreadMark } from '@shared/contract';
-
-/** A view change's effect. `start`: a channel came on screen; show what was unread. `stop`: nothing watched. `none`: no change. */
-export type WatchStep = 'start' | 'stop' | 'none';
-
-/** `watching`: the channel watched until now. `shown`: the channel on screen now, or null. */
-export function watchStep(watching: string | null, shown: string | null): WatchStep {
-  if (shown === watching) return 'none';
-  return shown === null ? 'stop' : 'start';
-}
-
+// When the Archive moves a channel's last-read mark. Pure: tests import it.
 /**
  * The message to mark read: `seen`, the newest message on screen, once the banner for `ready` (the channel whose
  * unread was read on coming on screen) is in, so marking never hides what the banner should count. Undefined when
@@ -20,10 +9,20 @@ export function messageToMark(channelId: string | null, ready: string | null, se
 }
 
 /**
- * The banner after `channelId` comes on screen with `unread` (what arrived since the mark). A banner still up for the
- * same channel (window minimized and restored) keeps its first unread and adds the newer count.
+ * Whether the banner's first unread message (`first`) lies above the view, so the banner still points to it: older
+ * than the loaded window, drawn with its top above the view's top, or loaded but older than every drawn row. On screen
+ * or below the view (scrolled further up), the owner has reached it.
  */
-export function bannerAfterStart(banner: UnreadMark | null, unread: UnreadMark | null, channelId: string): UnreadMark | null {
-  if (banner?.channelId !== channelId) return unread;
-  return unread ? { ...banner, count: banner.count + unread.count } : banner;
+export function firstUnreadAbove(
+  first: { firstId: string; firstTs: number },
+  loaded: readonly { id: string; ts: number }[],
+  drawn: readonly string[],
+  rowTop: number | null,
+  viewTop: number,
+): boolean {
+  const at = loaded.findIndex((m) => m.id === first.firstId);
+  if (at < 0) return loaded.length === 0 || first.firstTs <= loaded[0]!.ts;
+  if (rowTop !== null) return rowTop < viewTop;
+  const firstDrawn = loaded.findIndex((m) => drawn.includes(m.id));
+  return firstDrawn >= 0 && at < firstDrawn;
 }

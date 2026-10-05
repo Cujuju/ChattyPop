@@ -39,6 +39,7 @@ import { registerNotable } from './jev/notable';
 import { registerTags } from './jev/tags';
 import { JevSpendLedger } from './jevSpend';
 import { startLastSeen } from './lastSeen';
+import { lastReader, recordReader } from './queries/readMarks';
 import type { BundledDeps } from './plugins/bundled';
 import { PluginHost } from './plugins/host';
 import { adoptBundledData } from './plugins/adoption';
@@ -192,6 +193,8 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   ),
   setSelf: (user) => {
     self = user;
+    // Kept for the next start, whose counts leave out this account's messages before its READY.
+    if (db?.open && lastReader(db) !== user.id) recordReader(db, user.id);
     matcher().setSelf(user);
     host().setSelf(user.id);
     emit({ type: 'self-changed', userId: user.id });

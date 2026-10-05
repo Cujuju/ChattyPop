@@ -90,8 +90,11 @@ export interface CoreMethods {
   directory(): DirectoryGuild[];
   /** Whether notices about these channels are muted (Settings → Notifications): there is one and every one is, whatever privacy mode hides. */
   allMuted(channelIds: readonly string[]): boolean;
-  /** What is unread in a channel for the owner: how many, and the first; null when nothing is. */
-  channelUnread(channelId: string): UnreadMark | null;
+  /**
+   * What is unread in a channel for the owner: how many, and the first; null when nothing is. `sinceId`: count from that
+   * message (a banner's first unread) instead of the Archive's mark, still leaving out what Discord marks read.
+   */
+  channelUnread(channelId: string, sinceId?: string): UnreadMark | null;
   /**
    * The Archive showed `messageId`, the newest message on screen: moves the channel's read mark up to it (never back) and,
    * when it moved, acknowledges it on Discord ('channel-read').

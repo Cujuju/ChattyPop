@@ -14,6 +14,7 @@ import { partTexts, tagDerivedParts, type PartText } from '../derivedText';
 import { messageParts, type MessagePart } from '../messageParts';
 import { messageImages, type LinkImage, type MessageImage } from '../messageImages';
 import { messagesByIds } from '../queries/messages';
+import { lastReader, messageRead } from '../queries/readMarks';
 import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
 
@@ -35,6 +36,8 @@ export interface PluginArchive {
   payloads: ArchivePayloadReader;
   /** Indexed early-exit reply check over original archive data. */
   replyExists: ArchiveReplyExists;
+  /** The owner has read the message: in the Archive, on Discord (another client), or it is their own. False when not stored. */
+  messageRead(messageId: string): boolean;
   /** Reply status only, for ids the caller already selected. */
   replyFlags: ArchiveReplyReader;
   /** What selected replies answer, from the target Discord embedded in each; ids retain the caller's scope. */
@@ -184,6 +187,7 @@ export function pluginArchive(
   return {
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
+    messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),
     replyFlags: (ids) => live() ? archiveReplyFlags(deps.db, ids) : new Map(),
     replyTargets: (ids) => live() ? archiveReplyTargets(deps.db, ids) : new Map(),
     textCoverage: {

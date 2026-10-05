@@ -272,7 +272,9 @@ export class ReadStates {
   private message(m: PingMessage): void {
     const state = this.states.get(m.channel_id) ?? UNREAD;
     if (this.self !== null && m.author?.id === this.self) {
-      if (m.type !== POLL_RESULT_MESSAGE) this.confirm(m.channel_id, { ackId: m.id, counted: 0, pings: [] });
+      // Sending reads the channel up to it; a late or replayed older message moves nothing back.
+      const newer = !state.ackId || compareSnowflakes(m.id, state.ackId) > 0;
+      if (m.type !== POLL_RESULT_MESSAGE && newer) this.confirm(m.channel_id, { ackId: m.id, counted: 0, pings: [...state.pings.filter((id) => compareSnowflakes(id, m.id) > 0)] });
       return;
     }
     if (state.ackId && compareSnowflakes(m.id, state.ackId) <= 0) return;
@@ -310,14 +312,14 @@ export class ReadStates {
   }
 
   /**
-   * What core keeps for a channel: its mention count, and for a DM its last read message and mute end. A field this
-   * session doesn't know is left out, so core keeps its stored value.
+   * What core keeps for a channel: its mention count and last read message (core's unread counts leave out what it
+   * covers), and for a DM its mute end. A field this session doesn't know is left out, so core keeps its stored value.
    */
   private count(channelId: string): ReadStateCount {
     const s = this.states.get(channelId);
     const count: ReadStateCount = { channelId, ...(s ? { mentionCount: mentionsOf(s) } : {}) };
-    if (!this.dms.has(channelId)) return count;
     if (s?.ackId !== undefined) count.ackId = s.ackId;
+    if (!this.dms.has(channelId)) return count;
     const dmSettings = this.settings.get('');
     if (dmSettings || this.settingsFull) count.muteEndsMs = muteEndsMs(dmSettings?.channel_overrides?.find((o) => o.channel_id === channelId));
     return count;

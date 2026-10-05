@@ -73,7 +73,11 @@ onAppEvent('archive-changed', () => void refetchDirectory());
 // A read mark moved, here or on another surface: new and notable counts change.
 onAppEvent('channel-read', () => void refetchDirectory());
 onAppEvent('dm-activity', (e) => patchDirectory(raiseDmActivity(e.channelId, e.lastMessageId)));
-onAppEvent('read-states-changed', (e) => patchDirectory(applyReadStates(e.states)));
+onAppEvent('read-states-changed', (e) => {
+  patchDirectory(applyReadStates(e.states));
+  // Discord's read state also bounds the new and notable counts (a read in another client, the owner's message).
+  void refetchDirectory();
+});
 
 /** Discord's unread chat, from the read states above: the host's counted 'chat' source. Not a panel id, so no panel dot. */
 unreadCounts.host('discord-chat', { kind: 'chat', count: () => chatUnreadCount(directory()) });

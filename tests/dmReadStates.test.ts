@@ -38,14 +38,24 @@ const ready = (dmOverrides: unknown[]) => ({
 });
 
 describe("main's DM read and mute projection", () => {
-  it("READY sends every DM's last read message and mute end; server channels only their count", () => {
+  it("READY sends every channel's count and last read message, and a DM's mute end", () => {
     const s = setup();
     s.send('READY', ready([{ channel_id: MUTED_DM, muted: true, mute_config: { end_time: null } }]));
     expect(s.sent.at(-1)?.scope).toBe('replace');
     expect(s.last(DM)).toEqual({ channelId: DM, mentionCount: 2, ackId: id(4), muteEndsMs: null });
     // No read state for it: its count and last read stay unknown, so core keeps what it has.
     expect(s.last(MUTED_DM)).toEqual({ channelId: MUTED_DM, muteEndsMs: MUTED_FOREVER });
-    expect(s.last(GENERAL)).toEqual({ channelId: GENERAL, mentionCount: 1 });
+    expect(s.last(GENERAL)).toEqual({ channelId: GENERAL, mentionCount: 1, ackId: id(9) });
+  });
+
+  it("the owner's message reads the channel up to it; a late or replayed older one moves nothing back", () => {
+    const s = setup();
+    s.send('READY', ready([]));
+    const own = (n: number): void => s.send('MESSAGE_CREATE', { id: id(n), channel_id: GENERAL, guild_id: GUILD, type: 0, author: { id: ME } });
+    own(12);
+    expect(s.last(GENERAL)).toMatchObject({ mentionCount: 0, ackId: id(12) });
+    own(10);
+    expect(s.last(GENERAL)?.ackId).toBe(id(12));
   });
 
   it('a timed mute sends when it ends; the renderer compares it with the clock', () => {
