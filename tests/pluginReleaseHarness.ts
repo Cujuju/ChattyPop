@@ -11,7 +11,9 @@ export const REPO = 'owner/plugins';
 /** A test drives a few dozen real git commands; each takes a tenth of a second or more on Windows. */
 export const GIT_TEST_TIMEOUT_MS = 60_000;
 const ORIGIN_URL = `https://github.com/${REPO}.git`;
-const IDENTITY = ['-c', 'user.name=Tester', '-c', 'user.email=tester@example.com'];
+const IDENTITY_NAME = 'Tester';
+const IDENTITY_EMAIL = 'tester@example.com';
+const IDENTITY = ['-c', `user.name=${IDENTITY_NAME}`, '-c', `user.email=${IDENTITY_EMAIL}`];
 
 /** A plugin's shared entry, in the inline manifest shape. */
 export const sharedSource = (id: string, version: string): string =>
@@ -56,6 +58,9 @@ export function pluginRepo(plugins: Record<string, string>): PluginRepo {
   commit(clone, { 'README.md': 'Plugins.\n', ...Object.fromEntries(Object.entries(plugins).map(([id, v]) => [sharedFile(id), sharedSource(id, v)])) }, 'chore: plugins');
   const other = join(root, 'other');
   out(root, 'clone', '-q', bare, other);
+  // Its merges need an identity too; a machine with no global one (CI) has none to fall back on.
+  out(other, 'config', 'user.name', IDENTITY_NAME);
+  out(other, 'config', 'user.email', IDENTITY_EMAIL);
   return { bare, clone, other };
 }
 
