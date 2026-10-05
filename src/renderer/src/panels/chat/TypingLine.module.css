@@ -1,6 +1,7 @@
 /* "A is typing…" atop the Archive footer column: small, muted, names heavier. Its height is kept while empty, so the
-   box never moves as it comes and goes. */
+   box never moves as it comes and goes. --gap-below: its room above the message box. */
 .typing {
+  --gap-below: 0px;
   position: relative;
   box-sizing: border-box;
   height: var(--cp-typing-h);
@@ -11,7 +12,7 @@
   line-height: var(--cp-typing-h);
 }
 
-/* The words: positioned so they paint over the veil. */
+/* The words: positioned so they paint over the glass. */
 .text {
   position: relative;
   display: block;
@@ -21,30 +22,24 @@
   white-space: nowrap;
 }
 
-/* While someone types (data-active), a heavy frosted veil under the line, the footer's full width, soft above and below,
-   so the log scrolling under it can't be read through the words. */
+/* While someone types (data-active), the composer's glass carried up over the line: the footer's full width, from a soft
+   edge above the line down to the box's top, where the composer's glass (full there then, Archive.module.css) meets it.
+   It snaps in and out. */
 .typing::before {
   content: '';
+  display: none;
   position: absolute;
-  inset: calc(-1 * var(--cp-typing-veil-fade)) calc(-1 * var(--cp-composer-inset-right))
-    calc(-1 * var(--cp-typing-veil-fade)) calc(-1 * var(--cp-composer-inset-left));
+  inset: calc(-1 * var(--cp-frost-edge)) calc(-1 * var(--cp-composer-inset-right)) calc(-1 * var(--gap-below))
+    calc(-1 * var(--cp-composer-inset-left));
   background: var(--cp-frost);
-  -webkit-backdrop-filter: blur(var(--cp-typing-blur)); /* iOS before 18 knows only the prefixed name */
-  backdrop-filter: blur(var(--cp-typing-blur));
-  mask-image: linear-gradient(
-    to bottom,
-    transparent,
-    black var(--cp-typing-veil-fade),
-    black calc(100% - var(--cp-typing-veil-fade)),
-    transparent
-  );
-  opacity: 0;
+  -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-frost-blur));
+  mask-image: linear-gradient(to bottom, transparent, black var(--cp-frost-edge));
   pointer-events: none;
-  transition: opacity var(--cp-duration-fast) var(--cp-ease);
 }
 
 .typing[data-active='true']::before {
-  opacity: 1;
+  display: block;
 }
 
 .name {
@@ -55,6 +50,7 @@
 /* Phone: the line sits midway in its slot (--cp-composer-typing-slot), a pixel high so the x-height, not the line box,
    reads centred. */
 :global(html[data-surface='companion']) .typing {
+  --gap-below: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 + var(--cp-space-px));
   margin-top: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 - var(--cp-space-px));
-  margin-bottom: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 + var(--cp-space-px));
+  margin-bottom: var(--gap-below);
 }

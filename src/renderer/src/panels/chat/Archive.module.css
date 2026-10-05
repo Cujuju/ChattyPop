@@ -33,6 +33,12 @@
 
 /* Phone: Apple's padding around a bezeled control on the sides, as the top bar has. The typing line holds its own
    slot above the box (TypingLine.module.css). */
+/* While someone types (data-typing), the typing line's glass carries the composer's up over the line: the composer's
+   lies full from its top edge to meet it. */
+.footer[data-typing='true'] {
+  --cp-frost-mask: none;
+}
+
 :global(html[data-surface='companion']) .footer {
   --cp-composer-inset-left: calc(var(--cp-bezel-gap) + env(safe-area-inset-left));
   --cp-composer-inset-right: calc(var(--cp-bezel-gap) + env(safe-area-inset-right));

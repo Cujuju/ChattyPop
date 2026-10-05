@@ -17,6 +17,7 @@ import { UnreadBanner } from '@/ui/UnreadBanner';
 import { onUserScrollNewer } from '@/ui/scrollIntent';
 import { createShown, createWindowFocused } from '@/ui/seen';
 import { overlayOpen } from '@/state/overlay';
+import { typing } from '@/state/typing';
 import { inCompanion } from '@/state/ui';
 import type { PanelId } from '@/panels/titles';
 import { chatFooterItems } from '@/plugins/slots';
@@ -270,7 +271,7 @@ export function ArchiveView() {
         {/* The footer column: who is typing (a read, so always), then the slot's items. Keyed on the id: each directory
             refetch makes new channel objects. */}
         <Show when={postable()?.id} keyed>
-          <div ref={footer.observe} class={styles.footer}>
+          <div ref={footer.observe} class={styles.footer} data-typing={typing().length > 0}>
             <TypingLine />
             <For each={chatFooterItems(HOST_FOOTER)}>
               {(item) => <item.Component channel={postable()!} measure={footer.observe}/>}

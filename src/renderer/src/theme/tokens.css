@@ -248,8 +248,7 @@
   --cp-frost: color-mix(in srgb, var(--cp-surface-0) 20%, transparent); /* light frosted glass over scrolling content (the composer): mostly the blur, a faint tint */
   --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
   --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
-  --cp-typing-blur: 20px; /* the veil behind "is typing…" while shown: well past ~12px, so the log under it blurs away and the line reads alone */
-  --cp-typing-veil-fade: var(--cp-space-3); /* how far that veil bleeds past the line, fading in over the bleed */
+  --cp-frost-edge: var(--cp-space-3); /* the glass's soft top edge while it reaches over the typing line: it bleeds this far above the line, fading in */
   --cp-lightbox-backdrop: color-mix(in srgb, var(--cp-ground) 92%, transparent); /* behind the image viewer: the image is the only thing to see */
   --cp-shadow-none: none;
   --cp-shadow-popover: 0 6px 18px rgb(0 0 0 / 45%);
