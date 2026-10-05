@@ -73,7 +73,7 @@ function networkCode(err: unknown): string {
 }
 
 export class GitHub {
-  /** Each repo's default branch, read once: the only REST call a tokenless install makes. */
+  /** Each repo's default branch, read once it answers. */
   private readonly defaultBranches = new Map<string, string>();
 
   constructor(private readonly fetchFn: FetchFn) {}
@@ -120,13 +120,21 @@ export class GitHub {
     return meta.default_branch;
   }
 
-  /** The repo's marketplace.json on its default branch, parsed; every plugin can install from source on that branch. */
+  /**
+   * The repo's marketplace.json on its default branch, parsed; a plugin the index gives no source builds from that
+   * branch. Without a token the file comes from the raw host's HEAD, so a spent anonymous quota (a shared IP) still lists
+   * every release; only that source fallback waits for the API to name the branch.
+   */
   async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
-    const branch = await this.defaultBranch(repo, token);
     const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
-    const url = token === null ? `${RAW_FILES}/${repo}/${refPath(branch)}/${MARKETPLACE_INDEX_FILE}` : `${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`;
-    const res = await this.get(url, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what);
-    return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), branch);
+    if (token !== null) {
+      const branch = await this.defaultBranch(repo, token);
+      const res = await this.get(`${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what);
+      return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), branch);
+    }
+    const res = await this.get(`${RAW_FILES}/${repo}/HEAD/${MARKETPLACE_INDEX_FILE}`, null, 'application/octet-stream', API_TIMEOUT_MS, what);
+    const index = parseJson(await readCapped(res, MAX_JSON_BYTES, what), what);
+    return parseMarketplaceIndex(index, await this.defaultBranch(repo, null).catch(() => undefined));
   }
 
   /** Asset `name` of the release tagged `tag`: by its download URL without a token, through the API with one (a private repo's only way). */

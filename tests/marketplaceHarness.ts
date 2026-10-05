@@ -11,8 +11,8 @@ import { tempDir } from './helpers';
 
 export const REPO = 'owner/market';
 export const API = 'https://api.github.com';
-/** Where a tokenless install reads the index (main's) and downloads release assets. */
-export const RAW_INDEX = `https://raw.githubusercontent.com/${REPO}/main/marketplace.json`;
+/** Where a tokenless install reads the index (the default branch's, as HEAD) and downloads release assets. */
+export const RAW_INDEX = `https://raw.githubusercontent.com/${REPO}/HEAD/marketplace.json`;
 export const DOWNLOAD = `https://github.com/${REPO}/releases/download`;
 export const TOKEN = 'github_pat_secret123';
 const TAR_BLOCK = 512;

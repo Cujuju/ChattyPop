@@ -44,10 +44,18 @@ describe('marketplaces and tokens', () => {
     await f.make().add(REPO, null);
     const m = f.make();
     expect((await m.state()).marketplaces[0]).toMatchObject({ plugins: [], error: null, fetchedAt: null });
-    // Without a token, the default branch is the one API call; a fresh start asks it again.
-    f.gh.routes.set(`${API}/repos/${REPO}`, () => new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
+    f.gh.privateToken = TOKEN;
     await m.refresh();
-    expect((await m.state()).marketplaces[0]!.error).toMatch(/rate limit is used up.*A token raises it/);
+    expect((await m.state()).marketplaces[0]!.error).toMatch(/not found, or GitHub without a token can't read it/);
+  });
+
+  it('lists every release without a token while the anonymous API quota is spent (a shared IP)', async () => {
+    const f = fixture();
+    const m = f.make();
+    f.gh.routes.set(`${API}/repos/${REPO}`, () => new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
+    await m.add(REPO, null);
+    expect((await m.state()).marketplaces[0]).toMatchObject({ error: null, plugins: [{ id: 'demo', releases: [{ version: '1.0.0' }] }] });
+    await m.install(REPO, 'demo', release);
   });
 
   it('setToken replaces or clears the token and refetches', async () => {

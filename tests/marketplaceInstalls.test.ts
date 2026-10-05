@@ -60,7 +60,7 @@ describe('source installs', () => {
     const f = fixture();
     const { source: _, ...plain } = f.index.plugins[0]!;
     f.gh.json(`${API}/repos/${REPO}`, { default_branch: 'trunk' });
-    f.gh.json(`https://raw.githubusercontent.com/${REPO}/trunk/marketplace.json`, { ...f.index, plugins: [plain] });
+    f.listing({ ...f.index, plugins: [plain] });
     f.gh.json(`${API}/repos/${REPO}/commits/trunk`, { sha: COMMIT });
     const built: string[] = [];
     const m = f.make(async (pluginDir, outDir) => {
