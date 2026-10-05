@@ -1,7 +1,7 @@
 // Builds a plugin folder into installed-plugin output (docs/plugin-architecture.md §16): plugin.json, node/ and browser/.
 // Release assets, source installs and local builds all come from here. Imports are relative so the app's main process
 // can import it as well as the release script.
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { build, type InlineConfig, type Plugin, type Rollup } from 'vite';
 import solid from 'vite-plugin-solid';
@@ -103,10 +103,13 @@ async function buildPlatform(platform: Platform, pluginDir: string, outDir: stri
 
 /** Builds `pluginDir` into `outDir` and returns the plugin.json it wrote. Throws the reason a plugin can't be built. */
 export async function buildInstalledPlugin({ pluginDir: dirIn, outDir: outIn, appVersion, repoRoot: rootIn, anchorFolders = [] }: BuildOptions): Promise<InstalledManifest> {
-  const pluginDir = resolve(dirIn);
+  const named = resolve(dirIn);
+  if (!existsSync(join(named, SHARED_ENTRY))) throw new Error(`${named} is not a plugin folder: it has no ${SHARED_ENTRY}.`);
+  // Vite names modules by real path; a folder named another way (junction, symlink, 8.3 name) would read every import
+  // as outside it and skip the outside-import check.
+  const pluginDir = realpathSync.native(named);
   const outDir = resolve(outIn);
   const repoRoot = rootIn === undefined ? undefined : resolve(rootIn);
-  if (!existsSync(join(pluginDir, SHARED_ENTRY))) throw new Error(`${pluginDir} is not a plugin folder: it has no ${SHARED_ENTRY}.`);
   if (existsSync(outDir) && readdirSync(outDir).length) throw new Error(`The build folder ${outDir} must be empty.`);
   checkStyles(pluginDir, repoRoot);
   const source = repoRoot ? await sourceDescriptor(pluginDir, repoRoot, anchorFolders) : null;

@@ -1,7 +1,7 @@
 // Installed-plugin builds (docs/plugin-architecture.md §16): a plugin folder becomes plugin.json, node/ and browser/,
 // whose host-module imports read the host's namespaces, and a plugin the host can't load is refused at build time.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -212,6 +212,13 @@ describe('an installed-plugin build refuses', () => {
     ['a look property in its CSS', { 'renderer/A.module.css': '.a { display: grid; color: var(--cp-text-1); }\n' }, /A\.module\.css \.a \{ color: var\(--cp-text-1\) \}: look property/],
   ])('%s', async (_what, files, error) => {
     await expect(buildFixture(files)).rejects.toThrow(error);
+  }, BUILD_TIMEOUT_MS);
+
+  it('a relative import outside the folder, when the folder is named by another path to it (a junction, an 8.3 name)', async () => {
+    const real = fixture({ 'core/index.ts': coreWith("import { x } from '../../outside';\nconsole.log(x);"), '../outside.ts': 'export const x = 1;\n' });
+    const alias = join(tempDir(), 'alias');
+    symlinkSync(real, alias, 'junction');
+    await expect(buildInstalledPlugin({ pluginDir: alias, outDir: tempDir(), appVersion: APP_VERSION })).rejects.toThrow(/outside the plugin folder/);
   }, BUILD_TIMEOUT_MS);
 
   it('a build folder that isn\'t empty', async () => {
