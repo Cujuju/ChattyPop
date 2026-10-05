@@ -130,6 +130,8 @@ export const chatFooterItems = messages.chatFooter;
 export const hoverEmojiItems = messages.hoverEmoji;
 /** Host and active plugin actions in a hovered message's bar, before More, through shared placement. */
 export const hoverActionItems = messages.hoverActions;
+/** Host and active plugin actions in a hovered attachment's bar, through shared placement. */
+export const attachmentActionItems = messages.attachmentActions;
 
 const frame = frameSlots(() => rendererPlugins().map((p) => ({ plugin: p.plugin, contributions: contributions(p) })), pluginActive, slotAnchor, noticeAnchor);
 /** Host and active plugin top-bar items through shared placement. */

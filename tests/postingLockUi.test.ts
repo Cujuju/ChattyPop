@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ArchiveMessage } from '@shared/contract';
+import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
 import type { InteractionOutcome } from '@shared/commands';
 import { setPostingUnlocked } from './postingSwitch';
 
@@ -50,6 +50,7 @@ vi.mock('../src/renderer/src/state/ui', () => ({ inPanelWindow: false }));
 const newMessagePath = '../src/renderer/src/state/newMessage';
 const commandsPath = '../src/renderer/src/state/commands';
 const ownMessagesPath = '../src/renderer/src/state/ownMessages';
+const ownAttachmentsPath = '../src/renderer/src/state/ownAttachments';
 const nm = (await import(newMessagePath)) as { newMessageOpen(): boolean; openNewMessage(): void; openAddFriends(id: string): void; closeNewMessage(): void };
 const commands = (await import(commandsPath)) as { botModal(): unknown; followOutcome(o: InteractionOutcome): void; closeBotModal(): void };
 const own = (await import(ownMessagesPath)) as {
@@ -59,8 +60,17 @@ const own = (await import(ownMessagesPath)) as {
   editingId(): string | null;
   cancelEdit(): void;
 };
+const attachments = (await import(ownAttachmentsPath)) as {
+  modifyingAttachment(): unknown;
+  deletingAttachment(): unknown;
+  modifyAttachment(m: ArchiveMessage, a: ArchiveAttachment): void;
+  deleteAttachment(m: ArchiveMessage, a: ArchiveAttachment): void;
+  closeModifyAttachment(): void;
+  closeDeleteAttachment(): void;
+};
 
-const mine = { id: '500000000000000001', channelId: '300000000000000001', content: 'hi', author: { id: SELF, name: 'Me' }, deletedAt: null, prunedAt: null } as unknown as ArchiveMessage;
+const clip = { id: '600000000000000001', filename: 'clip.mov', description: null, removed: false } as unknown as ArchiveAttachment;
+const mine = { id: '500000000000000001', channelId: '300000000000000001', content: 'hi', attachments: [clip], author: { id: SELF, name: 'Me' }, deletedAt: null, prunedAt: null } as unknown as ArchiveMessage;
 const form = { kind: 'modal', modal: { title: 'Form', fields: [] } } as unknown as InteractionOutcome;
 const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
 const handOverEdit = async (): Promise<void> => {
@@ -74,6 +84,8 @@ beforeEach(() => {
   commands.closeBotModal();
   own.closeDeleteDialog();
   own.cancelEdit();
+  attachments.closeModifyAttachment();
+  attachments.closeDeleteAttachment();
   env.mine = mine;
 });
 
@@ -106,6 +118,17 @@ describe('while posting is locked', () => {
     expect(own.deletingMessage()).toBe(mine);
   });
 
+  it("an attachment's Modify and Delete open no dialog", () => {
+    setPostingUnlocked(false);
+    attachments.modifyAttachment(mine, clip);
+    attachments.deleteAttachment(mine, clip);
+    expect([attachments.modifyingAttachment(), attachments.deletingAttachment()]).toEqual([null, null]);
+    setPostingUnlocked(true);
+    attachments.modifyAttachment(mine, clip);
+    attachments.deleteAttachment(mine, clip);
+    expect([attachments.modifyingAttachment(), attachments.deletingAttachment()]).toEqual([{ message: mine, attachment: clip }, { message: mine, attachment: clip }]);
+  });
+
   it("a panel window's Edit hand-off opens no editor", async () => {
     setPostingUnlocked(false);
     await handOverEdit();
@@ -121,7 +144,10 @@ describe('when posting locks', () => {
     nm.openNewMessage();
     commands.followOutcome(form);
     own.deleteMessage(mine);
+    attachments.modifyAttachment(mine, clip);
+    attachments.deleteAttachment(mine, clip);
     setPostingUnlocked(false);
+    expect([attachments.modifyingAttachment(), attachments.deletingAttachment()]).toEqual([null, null]);
     expect(nm.newMessageOpen()).toBe(false);
     expect(commands.botModal()).toBeNull();
     expect(own.deletingMessage()).toBeNull();
@@ -135,7 +161,7 @@ describe('when posting locks', () => {
 const VIEWS = join(import.meta.dirname, '../src/renderer/src');
 const VIEW_GATES: [what: string, file: string, gate: RegExp][] = [
   ["the DMs header's New message", 'panels/channels/Dms.tsx', /<Show when=\{!inCompanion && postingUnlocked\(\)\}>\s*<button[^>]*aria-label="New message"/],
-  ['the posting windows and dialogs', 'frame/Overlays.tsx', /<Show when=\{postingUnlocked\(\)\}>\s*<NewMessageWindow \/>\s*<DmDialog \/>\s*<DeleteMessageDialog \/>\s*<BotModalWindow \/>\s*<\/Show>/],
+  ['the posting windows and dialogs', 'frame/Overlays.tsx', /<Show when=\{postingUnlocked\(\)\}>\s*<NewMessageWindow \/>\s*<DmDialog \/>\s*<DeleteMessageDialog \/>\s*<ModifyAttachmentDialog \/>\s*<DeleteAttachmentDialog \/>\s*<BotModalWindow \/>\s*<\/Show>/],
   ["a bot message's buttons", 'panels/chat/MessageComponents.tsx', /disabled=\{b\.disabled \|\|[^}]*!postingUnlocked\(\)\}/],
   ["a bot message's menus", 'panels/chat/MessageComponents.tsx', /const disabled = \(\): boolean => s\.disabled \|\|[^;]*!postingUnlocked\(\);/],
   ['swipe to reply', 'panels/chat/MessageRow.tsx', /swipeLeftToAct\(\s*\(\) => startReply\(m\(\)\),\s*\(\) => postingUnlocked\(\) && canReply\(m\(\)\),/],

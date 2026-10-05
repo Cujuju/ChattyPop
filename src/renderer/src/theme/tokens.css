@@ -182,6 +182,13 @@
   /* Opacity */
   --cp-opacity-disabled: 0.4;
   --cp-badge-hover-brightness: 1.15; /* a clickable badge lightens on hover, keeping its section colour */
+  --cp-attachment-removed-opacity: 0.6; /* an attachment removed from its message on Discord: still legible, plainly set back */
+
+  /* Spoiler cover over an attachment (Attachment.module.css): the media blurred past recognition, a ground veil, a pill. */
+  --cp-spoiler-blur: 44px; /* Discord's: shapes and colours only, nothing readable */
+  --cp-spoiler-veil: color-mix(in srgb, var(--cp-ground) 30%, transparent);
+  --cp-spoiler-pill-bg: color-mix(in srgb, var(--cp-ground) 75%, transparent); /* text-1 reads on it over any media */
+  --cp-spoiler-pill-bg-hover: color-mix(in srgb, var(--cp-ground) 90%, transparent);
 
   /* Font families. UI: Windows' own Segoe UI (hinted for small sizes); the Variable cut is used where installed (Win 11).
      Mono is for code only. Segoe UI has no 500 weight: medium renders as regular on Windows. */
@@ -269,6 +276,7 @@
   --cp-duration-sweep: 1400ms; /* indeterminate progress, one pass */
 
   /* Z-index layers */
+  --cp-z-behind: -1; /* under its element's content, over the element's own ground: a spoiler cover's veil under its label */
   --cp-z-base: 0;
   --cp-z-edge-fade: 1; /* a panel header's fade: over the panel's content, under the sticky top bar and its search results */
   --cp-z-log-overlay: 1; /* a log's own overlays (the jump pill): over the composer's glass, which paints after the log */

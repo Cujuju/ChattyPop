@@ -1,6 +1,7 @@
 // Plugin items in host slots (docs/plugin-architecture.md §6): what a descriptor declares for each slot, the ids the
 // host stamps on them, and the check that a renderer side implements exactly those.
 import {
+  HOST_ATTACHMENT_ACTIONS,
   HOST_CHAT_FOOTER_ITEMS,
   HOST_HOVER_ACTIONS,
   HOST_HOVER_EMOJI_ITEMS,
@@ -25,6 +26,7 @@ export const HOST_SLOT_ITEMS = {
   chatFooter: HOST_CHAT_FOOTER_ITEMS,
   hoverEmoji: HOST_HOVER_EMOJI_ITEMS,
   hoverActions: HOST_HOVER_ACTIONS,
+  attachmentActions: HOST_ATTACHMENT_ACTIONS,
   ruleTemplates: HOST_RULE_TEMPLATES,
   personSections: [],
   personLinks: [],

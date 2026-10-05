@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -365,6 +365,7 @@
       "anyNameMatches",
       "appIconUrl",
       "attachFiles",
+      "canChangeAttachment",
       "canDelete",
       "canEdit",
       "canForward",
@@ -380,6 +381,7 @@
       "composerFocus",
       "createListNav",
       "customEmojiToken",
+      "deleteAttachment",
       "deleteMessage",
       "discardSend",
       "dismissSending",
@@ -408,6 +410,7 @@
       "mentionSuggestions",
       "menuSections",
       "missingOptions",
+      "modifyAttachment",
       "normalQuery",
       "openCommandMenu",
       "optionalLeft",

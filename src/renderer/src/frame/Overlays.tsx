@@ -13,8 +13,9 @@ import { ForwardWindow } from '@/views/forward/ForwardWindow';
 import { NewMessageWindow } from '@/views/newMessage/NewMessageWindow';
 import { DmDialog } from '@/views/dmDialog/DmDialog';
 import { DeleteMessageDialog } from '@/views/deleteMessage/DeleteMessageDialog';
+import { DeleteAttachmentDialog, ModifyAttachmentDialog } from '@/views/attachment/AttachmentDialogs';
 
-/** The overlays panels open (image viewer, Jev, Person, Conversation, Forward and New message windows, DM dialogs, the delete-message dialog, bot forms, reaction picker, right-click menu), in every window that shows panels. */
+/** The overlays panels open (image viewer, Jev, Person, Conversation, Forward and New message windows, DM dialogs, the delete-message and attachment dialogs, bot forms, reaction picker, right-click menu), in every window that shows panels. */
 export function Overlays() {
   return (
     <>
@@ -29,6 +30,8 @@ export function Overlays() {
         <NewMessageWindow />
         <DmDialog />
         <DeleteMessageDialog />
+        <ModifyAttachmentDialog />
+        <DeleteAttachmentDialog />
         <BotModalWindow />
       </Show>
       <ReactionPicker />

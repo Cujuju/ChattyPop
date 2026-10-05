@@ -19,7 +19,7 @@ export type { ComposerCommand, MessageMenuScope, RuleTemplate, UnreadSource } fr
 export type { KindProps, KindView, FilterView } from '@/views/settings/rules/kinds/types';
 export type { TopBarView, PhoneSectionView, PhoneSectionPlace, PhoneDrawerView, ProviderRowView, StatusBarView, TopBarItem, PhoneSection, PhoneDrawerItem, NotificationKind, NotificationKindView, FrameContributions, ProviderRow, StatusBarContribution } from '@/plugins/frameSlots';
 export type { MessageMenuView, PersonLinksView, PersonSectionView } from '@/plugins/readSlots';
-export type { ChatFooterProps, ChatFooterView, HoverBarView } from '@/plugins/messageSlots';
+export type { AttachmentBarView, ChatFooterProps, ChatFooterView, HoverBarView } from '@/plugins/messageSlots';
 export type { Placement } from '@shared/anchors';
 export type { JevFeatureView } from '@/views/settings/jevFeatures';
 export {

@@ -45,6 +45,9 @@ export type HostHoverEmojiItemId = (typeof HOST_HOVER_EMOJI_ITEMS)[number];
 /** Anchors in the message hover bar, between its reaction group and More, in order; the host draws nothing at them. */
 export const HOST_HOVER_ACTIONS = ['edit', 'reply', 'forward'] as const;
 export type HostHoverActionId = (typeof HOST_HOVER_ACTIONS)[number];
+/** A hovered attachment's bar, in order: anchors modify and delete (the host draws nothing at them), then Download. */
+export const HOST_ATTACHMENT_ACTIONS = ['modify', 'delete', 'download'] as const;
+export type HostAttachmentActionId = (typeof HOST_ATTACHMENT_ACTIONS)[number];
 
 /** Fixed items in the top bar's end group. */
 export const HOST_TOP_BAR_ITEMS = ['layout', 'privacy', 'settings'] as const;

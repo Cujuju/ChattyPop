@@ -1,6 +1,6 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
 import type { DirectMessage, NewThread } from '@shared/commands';
-import type { OwnerEdit, OwnerFile, OwnerForward, OwnerMessage, OwnerMessageRef, OwnerReaction } from '@shared/compose';
+import { ALT_TEXT_MAX, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
   DISCORD_FILES_PER_MESSAGE_MAX,
   DISCORD_TEXT_MAX,
@@ -169,16 +169,34 @@ function checkMessageRef(v: unknown): OwnerMessageRef {
 /** `v` checked as an OwnerEdit (it comes from the renderer); throws the reason it can't be sent. */
 export function checkOwnerEdit(v: unknown): OwnerEdit {
   const e = v as Partial<OwnerEdit> | null;
-  if (!e || typeof e.text !== 'string') throw new Error('Not an edit to save.');
+  if (!e || (e.text === undefined && e.attachments === undefined)) throw new Error('Not an edit to save.');
   const ref = checkMessageRef(e);
-  if (e.text.length > DISCORD_TEXT_MAX) throw new Error(`Discord allows ${DISCORD_TEXT_MAX} characters.`);
-  return { ...ref, text: e.text };
+  if (e.text !== undefined && typeof e.text !== 'string') throw new Error('Not an edit to save.');
+  if (e.text !== undefined && e.text.length > DISCORD_TEXT_MAX) throw new Error(`Discord allows ${DISCORD_TEXT_MAX} characters.`);
+  return { ...ref, ...(e.text !== undefined ? { text: e.text } : {}), ...(e.attachments !== undefined ? { attachments: checkKeptAttachments(e.attachments) } : {}) };
 }
 
-/** Saves the owner's edit as the web client does: only the content changes. Discord refuses someone else's message. */
+/** `v` checked as the attachments a message keeps; throws the reason it isn't. */
+function checkKeptAttachments(v: unknown): KeptAttachment[] {
+  if (!Array.isArray(v) || v.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error('Not the attachments to keep.');
+  return v.map((a: Partial<KeptAttachment> | null) => {
+    if (!a || typeof a.filename !== 'string' || !a.filename) throw new Error('Not an attachment to keep.');
+    if (a.description !== null && typeof a.description !== 'string') throw new Error('Not an attachment description.');
+    if (a.description && a.description.length > ALT_TEXT_MAX) throw new Error(`Discord allows ${ALT_TEXT_MAX} characters of alt text.`);
+    return { id: snowflakeArg(a.id, 'attachment'), filename: a.filename, description: a.description || null };
+  });
+}
+
+/**
+ * Saves the owner's edit as the web client does: only what it names changes (the text, the kept attachments' list).
+ * Discord refuses someone else's message.
+ */
 export async function editOwnerMessage(api: DiscordWriter, v: unknown): Promise<void> {
   const e = checkOwnerEdit(v);
-  await api.patch(`channels/${e.channelId}/messages/${e.messageId}`, { content: e.text });
+  await api.patch(`channels/${e.channelId}/messages/${e.messageId}`, {
+    ...(e.text !== undefined ? { content: e.text } : {}),
+    ...(e.attachments ? { attachments: e.attachments } : {}),
+  });
 }
 
 /** Deletes one of the owner's messages. Discord refuses someone else's (without Manage Messages). */

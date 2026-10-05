@@ -1,8 +1,9 @@
-// The message slots (docs/plugin-architecture.md §3): the Archive view's footer and a hovered message's bar, placed
+// The message slots (docs/plugin-architecture.md §3): the Archive view's footer, a hovered message's bar and a hovered
+// attachment's bar, placed
 // independent of renderer startup.
 import type { Component } from 'solid-js';
-import { HOST_HOVER_ACTIONS, type HostChatFooterItemId, type HostHoverActionId, type HostHoverEmojiItemId } from '@shared/anchors';
-import type { ArchiveMessage, DirectoryChannel } from '@shared/contract';
+import { HOST_HOVER_ACTIONS, type HostAttachmentActionId, type HostChatFooterItemId, type HostHoverActionId, type HostHoverEmojiItemId } from '@shared/anchors';
+import type { ArchiveAttachment, ArchiveMessage, DirectoryChannel } from '@shared/contract';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { declaredItems, placeSlot, type SlotAnchorOf, type SlotItem } from './slotItems';
 
@@ -23,21 +24,27 @@ export interface HoverBarView {
   Component: Component<{ message: ArchiveMessage }>;
 }
 
+/** Buttons in a hovered attachment's bar, for that attachment of that message; drawn with the kit's HoverBarButton. */
+export interface AttachmentBarView {
+  Component: Component<{ message: ArchiveMessage; attachment: ArchiveAttachment }>;
+}
+
 /** Views by local id for the items a descriptor declares in the message slots, read only while their owner is active. */
 export interface MessageContributions {
   chatFooter?: Readonly<Record<string, ChatFooterView>>;
   hoverEmoji?: Readonly<Record<string, HoverBarView>>;
   hoverActions?: Readonly<Record<string, HoverBarView>>;
+  attachmentActions?: Readonly<Record<string, AttachmentBarView>>;
 }
 
 /** The host's own items, fixed anchors whatever they render (an action hidden for a message renders nothing). */
 export type HostChatFooterItem = SlotItem<ChatFooterView> & { id: HostChatFooterItemId };
 export type HostHoverEmojiItem = SlotItem<HoverBarView> & { id: HostHoverEmojiItemId };
 export type HostHoverAction = SlotItem<HoverBarView> & { id: HostHoverActionId };
+export type HostAttachmentAction = SlotItem<AttachmentBarView> & { id: HostAttachmentActionId };
 
 /** The host's hover actions: anchors only, drawing nothing; a posting plugin places its Edit, Reply and Forward at them. */
 export const HOST_HOVER_ACTION_ANCHORS: readonly HostHoverAction[] = HOST_HOVER_ACTIONS.map((id) => ({ id, Component: () => null }));
-
 /** A descriptor paired with its message-slot contributions. */
 export interface MessageSlotEntry {
   plugin: PluginDescriptor;
@@ -53,5 +60,6 @@ export function messageSlots(entries: () => readonly MessageSlotEntry[], enabled
     chatFooter: (host: readonly SlotItem<ChatFooterView>[]) => place('chatFooter', host),
     hoverEmoji: (host: readonly SlotItem<HoverBarView>[]) => place('hoverEmoji', host),
     hoverActions: (host: readonly SlotItem<HoverBarView>[]) => place('hoverActions', host),
+    attachmentActions: (host: readonly SlotItem<AttachmentBarView>[]) => place('attachmentActions', host),
   };
 }

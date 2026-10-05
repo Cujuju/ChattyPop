@@ -46,10 +46,25 @@ export interface OwnerReaction extends OwnerMessageRef {
   add: boolean;
 }
 
-/** The owner's new text for one of their messages (Discord's Edit); attachments and embeds stay. */
+/**
+ * An edit of one of the owner's messages: new text (Discord's Edit), the attachments it keeps (an attachment's Modify and
+ * Delete), or both. What it leaves out stays as it is.
+ */
 export interface OwnerEdit extends OwnerMessageRef {
-  text: string;
+  text?: string;
+  /** Every attachment the message keeps, as it should be; one left out is removed from the message. */
+  attachments?: KeptAttachment[];
 }
+
+/** An attachment a message keeps, with its name (a spoiler's carries SPOILER_) and alt text. */
+export interface KeptAttachment {
+  id: string;
+  filename: string;
+  description: string | null;
+}
+
+/** Discord's longest attachment description (alt text). */
+export const ALT_TEXT_MAX = 1024;
 
 /** A GIF result from Discord's GIF search (Klipy behind it). */
 export interface Gif {

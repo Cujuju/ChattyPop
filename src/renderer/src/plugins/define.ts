@@ -2,7 +2,7 @@
 // panels, settings pages and rule actions, and its items in host slots. A leaf module, like ./bundledTypes.
 import type { MessageMenuView, PersonLinksView, PersonSectionView, ReadContributions } from './readSlots';
 import type { FrameContributions, NotificationKindView, PhoneDrawerView, PhoneSectionView, ProviderRowView, StatusBarView, TopBarView } from './frameSlots';
-import type { ChatFooterView, HoverBarView, MessageContributions } from './messageSlots';
+import type { AttachmentBarView, ChatFooterView, HoverBarView, MessageContributions } from './messageSlots';
 import type { JevFeatureView } from '../views/settings/jevFeatures';
 import type { ManagedRuleControl } from '../state/managedControls';
 import type { Component, JSX } from 'solid-js';
@@ -87,6 +87,7 @@ type SlotViewTypes<D> = {
   chatFooter: ChatFooterView;
   hoverEmoji: HoverBarView;
   hoverActions: HoverBarView;
+  attachmentActions: AttachmentBarView;
   ruleTemplates: RuleTemplate;
   personSections: PersonSectionView;
   personLinks: PersonLinksView;

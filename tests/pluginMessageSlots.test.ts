@@ -3,7 +3,7 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { ArchiveMessage } from '@shared/contract';
-import { HOST_CHAT_FOOTER_ITEMS, HOST_HOVER_ACTIONS, HOST_HOVER_EMOJI_ITEMS } from '@shared/anchors';
+import { HOST_ATTACHMENT_ACTIONS, HOST_CHAT_FOOTER_ITEMS, HOST_HOVER_ACTIONS, HOST_HOVER_EMOJI_ITEMS } from '@shared/anchors';
 import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { definePlugin, type PluginDescriptor, type SlotDecls } from '@plugin-sdk/shared';
 import { readSlots, type ReadSlotEntry } from '../src/renderer/src/plugins/readSlots';
@@ -38,7 +38,7 @@ type Entry = { plugin: PluginDescriptor; contributions: Record<string, Record<st
 type Placed = <T extends Item>(host: readonly T[]) => T[];
 type HoverItem = Item & { Component(p: { message: ArchiveMessage }): unknown };
 const { messageSlots, HOST_HOVER_ACTION_ANCHORS } = (await import(slotsPath)) as {
-  messageSlots(entries: () => readonly Entry[], enabled: (id: string) => boolean, anchorOf: unknown): { chatFooter: Placed; hoverEmoji: Placed; hoverActions: Placed };
+  messageSlots(entries: () => readonly Entry[], enabled: (id: string) => boolean, anchorOf: unknown): { chatFooter: Placed; hoverEmoji: Placed; hoverActions: Placed; attachmentActions: Placed };
   HOST_HOVER_ACTION_ANCHORS: readonly HoverItem[];
 };
 const { openMessageMenu } = (await import(actionsPath)) as { openMessageMenu(e: unknown, m: ArchiveMessage): void };
@@ -61,6 +61,7 @@ describe('message slots', () => {
     expect(ids(none.chatFooter(host(HOST_CHAT_FOOTER_ITEMS)))).toEqual(['composer']);
     expect(ids(none.hoverEmoji(host(HOST_HOVER_EMOJI_ITEMS)))).toEqual(['reactions']);
     expect(ids(none.hoverActions(host(HOST_HOVER_ACTIONS)))).toEqual(['edit', 'reply', 'forward']);
+    expect(ids(none.attachmentActions(host(HOST_ATTACHMENT_ACTIONS)))).toEqual(['modify', 'delete', 'download']);
     expect(none.chatFooter([])).toEqual([]);
   });
 
@@ -112,6 +113,12 @@ describe('posting actions', () => {
     expect(ids(placed)).toEqual(['edit', 'reply', 'forward']);
     expect(placed.map((a) => a.Component({ message: message() }))).toEqual([null, null, null]);
     expect(menuOf(message(), [])).toEqual([['View conversation', 'View A'], ['Text', 'Message link', 'Message ID']]);
+  });
+
+  it("land on an attachment's bar at the host's anchors, before Download, as Discord orders them", () => {
+    const slots = { attachmentActions: [{ id: 'modify', before: 'modify' }, { id: 'delete', before: 'delete' }] };
+    const bar = slotsOf([entry('poster', slots, { attachmentActions: { modify: view, delete: view } })], () => true);
+    expect(ids(bar.attachmentActions(host(HOST_ATTACHMENT_ACTIONS)))).toEqual(['poster.modify', 'modify', 'poster.delete', 'delete', 'download']);
   });
 
   it("land at the host's anchors in today's order: Edit, Reply, Forward on the bar; Reply, Forward lead the menu, Delete last", () => {

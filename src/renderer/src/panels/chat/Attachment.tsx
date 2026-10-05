@@ -1,76 +1,123 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
-import type { ArchiveAttachment, AttachmentNote, MediaSize } from '@shared/contract';
+import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
 import { attachmentUrl, attachmentView } from '@shared/media';
 import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
 import { setLightbox } from '@/state/ui';
 import { Icon } from '@/ui/icons';
+import { AttachmentTile } from './AttachmentTile';
 import { mediaSizeVars } from './MessageExtras';
 import { presentedParts } from './ownedParts';
 import styles from './Attachment.module.css';
 
+const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
+  stored: 'archived locally',
+  pending: 'downloading',
+  failed: 'download failed',
+  evicted: 'pruned by storage limit',
+};
+
+const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl(a.sha256, a.filename) : undefined);
+const kilobytes = (a: ArchiveAttachment): string => (a.size ? `${Math.round(a.size / BYTES_PER_KB)} KB` : '');
+
 /**
- * An archived attachment: inline image, video or audio player when stored locally, otherwise a file chip with its download
- * status. Under stored media, one line holds its archived check and plugins' notes (a transcript); under a chip, the notes
- * (kept after the file is pruned). A video plays in place: a download link would take the phone app away from the page.
- * A video this browser can't decode falls back to the chip. A file not held locally links to its message on Discord.
+ * An archived attachment shown on its own: inline image, video or audio player when stored locally, otherwise a file chip
+ * with its download status. Under stored media, one line holds its archived check and plugins' notes (a transcript); under
+ * a chip, the notes (kept after the file is pruned). A video this browser can't decode falls back to the chip.
  */
-export function Attachment(props: { attachment: ArchiveAttachment; messageLink: string }) {
+export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
-  const stored = () => a().status === 'stored';
   const [unplayable, setUnplayable] = createSignal(false);
   const view = () => (unplayable() ? 'file' : attachmentView(a()));
   const notes = () => presentedParts(a().notes, pluginPresents);
-  const src = () => (a().sha256 ? attachmentUrl(a().sha256!, a().filename) : undefined);
-  const size = (): MediaSize | null => (a().width && a().height ? { width: a().width!, height: a().height! } : null);
-  /** Viewer caption: name, pixel size and file size. */
-  const sizeCaption = (): string =>
-    [a().filename, a().width && a().height ? `${a().width}×${a().height}` : null, a().size ? `${Math.round(a().size! / BYTES_PER_KB)} KB` : null].filter(Boolean).join(' · ');
-  const statusLabel = () =>
-    ({ stored: 'archived locally', pending: 'downloading', failed: 'download failed', evicted: 'pruned by storage limit' })[a().status];
   return (
-    <>
-      <Show
-        when={view() !== 'file'}
-        fallback={
-          <>
-            <a class={styles.file} data-status={a().status} href={stored() ? src() : props.messageLink} download={stored() ? a().filename : undefined} target={stored() ? undefined : '_blank'}>
-              <span class={styles.fileName}>{a().filename}</span>
-              <span class={styles.fileMeta}>
-                {a().size ? `${Math.round(a().size! / BYTES_PER_KB)} KB · ` : ''}
-                {statusLabel()}
-              </span>
-            </a>
-            <For each={notes()}>{(n) => <Note note={n} />}</For>
-          </>
-        }
-      >
-        <figure class={styles.image}>
-          <Switch>
-            <Match when={view() === 'image'}>
-              <button type="button" class={styles.imageButton} aria-label={`Open ${a().filename}`} onClick={() => setLightbox({ src: src()!, alt: a().filename, caption: sizeCaption(), originalUrl: null })}>
-                <img src={src()} alt={a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
-              </button>
-            </Match>
-            <Match when={view() === 'video'}>
-              {/* Metadata, not "none": an attachment has no poster, so it shows its first frame. Only on-screen rows mount. */}
-              <video src={src()} data-sized={size() !== null} style={mediaSizeVars(size())} controls playsinline preload="metadata" aria-label={`Play ${a().filename}`} onError={() => setUnplayable(true)} />
-            </Match>
-            <Match when={view() === 'audio'}>
-              {/* Metadata, not "none": without it the player shows 00:00 until played. Ogg's length sits in its last page. */}
-              <audio class={styles.audio} controls preload="metadata" src={src()} aria-label={`Play ${a().filename}`} />
-            </Match>
-          </Switch>
-          {/* Discord names pasted media generically (image.png, voice-message.ogg), so no filename; inline media is always stored. */}
-          <figcaption class={styles.status}>
-            <span class={styles.stored} role="img" aria-label={statusLabel()} title={statusLabel()}>
-              <Icon name="check" />
-            </span>
-            <For each={notes()}>{(n) => <Note note={n} />}</For>
-          </figcaption>
-        </figure>
-      </Show>
-    </>
+    <Show
+      when={view() !== 'file'}
+      fallback={
+        <>
+          <AttachmentTile message={props.message} attachment={a()}>
+            <FileChip attachment={a()} messageLink={props.messageLink} />
+          </AttachmentTile>
+          <For each={notes()}>{(n) => <Note note={n} />}</For>
+        </>
+      }
+    >
+      <figure class={styles.image}>
+        <AttachmentTile message={props.message} attachment={a()}>
+          <AttachmentMedia attachment={a()} onUnplayable={() => setUnplayable(true)} />
+        </AttachmentTile>
+        <StoredStatus notes={notes()} />
+      </figure>
+    </Show>
+  );
+}
+
+/**
+ * A stored attachment's player or picture. A video plays in place: a download link would take the phone app away from
+ * the page. `cell`: it fills a mosaic cell, cropped, rather than sizing itself from its pixel size.
+ */
+export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: boolean; onUnplayable: () => void }) {
+  const a = () => props.attachment;
+  const size = (): MediaSize | null => (!props.cell && a().width && a().height ? { width: a().width!, height: a().height! } : null);
+  /** Viewer caption: name, pixel size and file size. */
+  const sizeCaption = (): string => [a().filename, a().width && a().height ? `${a().width}×${a().height}` : null, kilobytes(a()) || null].filter(Boolean).join(' · ');
+  return (
+    <Switch>
+      <Match when={attachmentView(a()) === 'image'}>
+        <button
+          type="button"
+          class={styles.imageButton}
+          aria-label={`Open ${a().filename}`}
+          onClick={() => setLightbox({ src: src(a())!, alt: a().description ?? a().filename, caption: sizeCaption(), originalUrl: null })}
+        >
+          <img src={src(a())} alt={a().description ?? a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
+        </button>
+      </Match>
+      <Match when={attachmentView(a()) === 'video'}>
+        {/* Metadata, not "none": an attachment has no poster, so it shows its first frame. Only on-screen rows mount. */}
+        <video
+          src={src(a())}
+          data-sized={size() !== null}
+          style={mediaSizeVars(size())}
+          controls
+          playsinline
+          preload="metadata"
+          aria-label={`Play ${a().filename}`}
+          onError={() => props.onUnplayable()}
+        />
+      </Match>
+      <Match when={attachmentView(a()) === 'audio'}>
+        {/* Metadata, not "none": without it the player shows 00:00 until played. Ogg's length sits in its last page. */}
+        <audio class={styles.audio} controls preload="metadata" src={src(a())} aria-label={`Play ${a().filename}`} />
+      </Match>
+    </Switch>
+  );
+}
+
+/** A file as a chip: its name, size and download status. A file not held locally links to its message on Discord. */
+export function FileChip(props: { attachment: ArchiveAttachment; messageLink: string }) {
+  const a = () => props.attachment;
+  const stored = () => a().status === 'stored';
+  return (
+    <a class={styles.file} data-status={a().status} href={stored() ? src(a()) : props.messageLink} download={stored() ? a().filename : undefined} target={stored() ? undefined : '_blank'}>
+      <span class={styles.fileName}>{a().filename}</span>
+      <span class={styles.fileMeta}>
+        {kilobytes(a()) ? `${kilobytes(a())} · ` : ''}
+        {STATUS_LABEL[a().status]}
+      </span>
+    </a>
+  );
+}
+
+/** Under stored media, its archived check, then plugins' notes. Discord names pasted media generically (image.png), so no filename. */
+export function StoredStatus(props: { notes: AttachmentNote[] }) {
+  return (
+    <figcaption class={styles.status}>
+      <span class={styles.stored} role="img" aria-label={STATUS_LABEL.stored} title={STATUS_LABEL.stored}>
+        <Icon name="check" />
+      </span>
+      <For each={props.notes}>{(n) => <Note note={n} />}</For>
+    </figcaption>
   );
 }
 

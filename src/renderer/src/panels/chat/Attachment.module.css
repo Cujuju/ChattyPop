@@ -93,8 +93,8 @@
   background: var(--cp-surface-0);
 }
 
-/* Pixel size known (--media-w/--media-h): the box comes from it, not the file. A video fetched on play has no size of its
-   own until then, and would shrink to the caption's width. */
+/* Pixel size known (--media-w/--media-h): the box comes from it, not the file, so the row keeps its height while the
+   picture or a video's first frame loads. */
 .image :is(img, video)[data-sized='true'] {
   width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)));
   aspect-ratio: var(--media-w) / var(--media-h);
@@ -103,6 +103,238 @@
 /* The browser's player is a fixed 300px: kept inside a narrow log column, which would otherwise scroll sideways. */
 .audio {
   max-width: 100%;
+}
+
+/* An attachment's frame (AttachmentTile): one grid cell its media, spoiler cover and marks share, as wide as the media,
+   so the bar sits at the media's corner. Hooks: [data-covered='true'] (spoiler not yet revealed), [data-removed='true']. */
+.tile {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.tile > * {
+  grid-area: 1 / 1;
+}
+
+/* Clipped while covered: the blur would bleed past the media's corners. */
+.tile[data-covered='true'] {
+  overflow: hidden;
+  border-radius: var(--cp-radius-md);
+}
+
+.tile[data-covered='true'] > :not(.spoiler, .removed, .bar) {
+  filter: blur(var(--cp-spoiler-blur));
+}
+
+/* Removed from its message on Discord: still shown, set back. */
+.tile[data-removed='true'] > :not(.spoiler, .removed, .bar) {
+  opacity: var(--cp-attachment-removed-opacity);
+}
+
+/* The spoiler cover, as Discord's: the button is the centred pill; its ::before is the veil over the whole tile and part
+   of its hit area, so a click anywhere reveals. Its z-index (a grid item's) lifts both over the media; the bar and the
+   removed mark come later and paint over it. */
+.spoiler {
+  z-index: var(--cp-z-base);
+  place-self: center;
+  padding: var(--cp-space-2) var(--cp-space-5);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-spoiler-pill-bg);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+  letter-spacing: var(--cp-tracking-label);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.spoiler::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: var(--cp-z-behind);
+  background: var(--cp-spoiler-veil);
+}
+
+.spoiler:hover {
+  background: var(--cp-spoiler-pill-bg-hover);
+}
+
+/* Removed mark over the media's top-left corner. */
+.removed {
+  position: absolute;
+  top: var(--cp-space-3);
+  left: var(--cp-space-3);
+  padding: 0 var(--cp-space-2);
+  border: var(--cp-border-w) solid var(--cp-danger-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-danger-bg);
+  color: var(--cp-danger);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-badge-line-h);
+  letter-spacing: var(--cp-tracking-label-sm);
+  text-transform: uppercase;
+}
+
+/* A file chip or audio player is too short to carry it over its corner: it follows on the same line instead. */
+.tile[data-removed='true']:has(> :is(.file, .audio)):not(.row > .tile) {
+  grid-template-columns: minmax(0, auto) auto;
+  align-items: center;
+  column-gap: var(--cp-space-4);
+}
+
+.tile[data-removed='true']:has(> :is(.file, .audio)):not(.row > .tile) > .removed {
+  position: static;
+  grid-area: 1 / 2;
+}
+
+/* Attachment hover bar: the message hover bar's surface (cp-stroke in the markup, MessageActionBar.module.css) inset at
+   the tile's top-right. Shown while the tile is hovered or holds keyboard focus; until then it takes no clicks. Not
+   composed from that bar: its row positioning and hover bridge don't apply here. Wraps rather than overflow a small cell. */
+.bar {
+  position: absolute;
+  top: var(--cp-space-3);
+  right: var(--cp-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cp-space-1);
+  max-width: calc(100% - 2 * var(--cp-space-3));
+  padding: var(--cp-space-1);
+  border-radius: var(--cp-radius-lg);
+  box-shadow: var(--cp-shadow-popover);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* Keyboard focus, not any focus: a clicked picture keeps focus after its viewer closes, which would pin the bar open. */
+.tile:hover > .bar,
+.tile:has(:focus-visible) > .bar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* No actions for this attachment (not held here, no plugin's): no empty strip. */
+.bar:not(:has(*)) {
+  display: none;
+}
+
+/* Corners as the message hover bar's, where lengths can divide. */
+@supports (width: calc(1px * 1px / 1px)) {
+  .bar {
+    border-radius: var(--cp-action-bar-radius);
+  }
+
+  .bar > :first-child {
+    border-top-left-radius: var(--cp-action-bar-edge-radius);
+    border-bottom-left-radius: var(--cp-action-bar-edge-radius);
+  }
+
+  .bar > :last-child {
+    border-top-right-radius: var(--cp-action-bar-edge-radius);
+    border-bottom-right-radius: var(--cp-action-bar-edge-radius);
+  }
+}
+
+/* Two or more images and videos (MediaMosaic): one grid of cropped cells, then the status line. Rows of two or three
+   square cells, equal widths; a lone leading row (7 and 10 tiles) is one wide cell. Hooks: .grid[data-count] (all
+   tiles), .row[data-count] (that row's). */
+.mosaic {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  width: min(100%, var(--cp-attachment-w));
+}
+
+/* Outer corners rounded by the clip; the cells themselves are square-cornered. */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  overflow: hidden;
+  border-radius: var(--cp-radius-md);
+}
+
+.row {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--cp-space-1);
+}
+
+/* A cell: its share of the row, cropped, in place of the single attachment's own sizing. Overflow clipped, so its
+   automatic minimum size is zero and a large picture can't stretch the row. */
+.row > .tile {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: var(--cp-mosaic-cell-ratio);
+  overflow: hidden;
+  border-radius: 0;
+  background: var(--cp-surface-0);
+}
+
+.row[data-count='1'] > .tile {
+  aspect-ratio: var(--cp-mosaic-lead-ratio);
+}
+
+.row :is(.imageButton, img, video) {
+  width: 100%;
+  height: 100%;
+}
+
+.row :is(img, video) {
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+  object-fit: cover;
+}
+
+/* The cell clips an outer ring. */
+.row .imageButton:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* A video this browser can't decode: its chip fills the cell, name and status stacked and centred. */
+.row .file {
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.row :is(.fileName, .fileMeta) {
+  max-width: 100%;
+}
+
+/* Three tiles: the first a large cell on the left, the other two stacked on the right, the same total height. */
+.grid[data-count='3'] {
+  display: grid;
+  grid-template-columns: minmax(0, var(--cp-mosaic-feature-share)) minmax(0, 1fr);
+  aspect-ratio: var(--cp-mosaic-feature-ratio);
+}
+
+.grid[data-count='3'] > .row {
+  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-flow: row;
+}
+
+.grid[data-count='3'] .tile {
+  aspect-ratio: auto;
 }
 
 /* Under stored media, one line: the archived check, then plugins' notes. Baselines keep the check on the label's line

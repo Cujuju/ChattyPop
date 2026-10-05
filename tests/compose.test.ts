@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
+import { ALT_TEXT_MAX, canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX, DISCORD_UPLOAD_BYTES_MAX } from '@shared/discord';
 import type { CustomEmoji, GuildEmoji } from '@shared/emoji';
 import { OwnerAccount } from '../src/main/discord/account';
@@ -112,6 +112,22 @@ describe('owner edits', () => {
     await expect(editOwnerMessage(api, { channelId: 'x', messageId: MESSAGE, text: 'a' })).rejects.toThrow(/Not a channel id/);
     await expect(editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE, text: 'x'.repeat(DISCORD_TEXT_MAX + 1) })).rejects.toThrow(/allows/);
     await expect(editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE })).rejects.toThrow(/Not an edit/);
+    expect(patches).toHaveLength(0);
+  });
+
+  it('patches only the kept attachments for an attachment edit, the text untouched', async () => {
+    const { api, patches } = patchApi();
+    const kept = [{ id: '300000000000000001', filename: 'SPOILER_clip.mov', description: 'a chart' }];
+    await editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE, attachments: kept });
+    expect(patches).toEqual([[`channels/${CHANNEL}/messages/${MESSAGE}`, { attachments: kept }]]);
+  });
+
+  it('refuses a bad attachment id, name or over-long alt text, before any request', async () => {
+    const { api, patches } = patchApi();
+    const edit = (a: unknown) => editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE, attachments: [a] as never });
+    await expect(edit({ id: '../x', filename: 'a.png', description: null })).rejects.toThrow(/attachment id/);
+    await expect(edit({ id: '300000000000000001', filename: '', description: null })).rejects.toThrow(/Not an attachment/);
+    await expect(edit({ id: '300000000000000001', filename: 'a.png', description: 'x'.repeat(ALT_TEXT_MAX + 1) })).rejects.toThrow(/alt text/);
     expect(patches).toHaveLength(0);
   });
 });

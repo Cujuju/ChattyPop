@@ -1,0 +1,32 @@
+/* Modify and Delete Attachment (AttachmentDialogs.tsx): the attachment in a card above the fields, as Discord's dialog
+   shows it. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+}
+
+.form > :global(.cp-actions) {
+  justify-content: flex-end;
+}
+
+/* The picture or first frame, centred and bounded; a file with neither shows its name. */
+.preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cp-space-4);
+  overflow: hidden;
+}
+
+.media {
+  max-width: 100%;
+  max-height: var(--cp-attachment-preview-max-h);
+  object-fit: contain;
+  border-radius: var(--cp-radius-sm);
+}
+
+/* Several lines tall, inside its padding and border; forms.css lets it resize vertically. */
+.description {
+  min-height: calc(var(--cp-alt-text-lines) * 1lh + 2 * var(--cp-space-3) + 2 * var(--cp-border-w));
+}

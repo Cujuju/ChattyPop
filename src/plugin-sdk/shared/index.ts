@@ -106,7 +106,7 @@ export { PROVIDER_DISPLAY_NAME_MAX, normalizeDisplayName, normalizeProviderId, t
 export { andList, orList } from '@shared/lists';
 export type { JevQueryDef } from '@shared/jevQueries';
 export { MESSAGE_SEES } from '@shared/jevQueries/messages';
-export type { ArchiveEmbed, ArchiveEmoji, ArchiveMessage, AttachmentNote, ModelOption, SearchHit } from '@shared/contract';
+export type { ArchiveAttachment, ArchiveEmbed, ArchiveEmoji, ArchiveMessage, AttachmentNote, ModelOption, SearchHit } from '@shared/contract';
 
 export { validateJevQuestion, type CustomJevQuestion } from '@shared/jevQuestion';
 

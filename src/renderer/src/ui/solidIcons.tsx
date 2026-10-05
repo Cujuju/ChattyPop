@@ -24,6 +24,8 @@ const SOLID_ICONS = {
       <path d="M15 5.2l3.8 3.8 1.9-1.9a1.4 1.4 0 0 0 0-2l-1.8-1.8a1.4 1.4 0 0 0-2 0Z" />
     </>
   ),
+  // An arrow into a tray: Discord's Download.
+  download: () => <path d="M10.9 3h2.2v9.3l3.4-3.4 1.6 1.6L12 16.6l-6.1-6.1 1.6-1.6 3.4 3.4ZM3 16h2.2v3.8h13.6V16H21v6H3Z" />,
   emoji: () => (
     <path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20ZM8.8 8.2a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM15.2 8.2a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM7.4 13.6h9.2a4.6 4.6 0 0 1-9.2 0Z" />
   ),
@@ -41,6 +43,8 @@ const SOLID_ICONS = {
     </>
   ),
   reply: () => <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11Z" />,
+  // A bin with its lid: Discord's Delete.
+  trash: () => <path d="M9 2h6l1 2h5v2H3V4h5ZM4.5 8h15l-1.3 12.2A2 2 0 0 1 16.2 22H7.8a2 2 0 0 1-2-1.8Z" />,
   send: () => <path d="M3.4 20.4 21 12 3.4 3.6V10l12 2-12 2Z" />,
   sticker: () => (
     <>

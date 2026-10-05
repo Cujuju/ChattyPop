@@ -41,6 +41,7 @@ export { OPTION, type CommandOption } from '@shared/commands';
 
 // A message's own actions: edit, reply, forward, delete; each `can*` says whether it applies.
 export { canDelete, canEdit, deleteMessage, editingId, lastEditable, startEdit } from '@/state/ownMessages';
+export { canChangeAttachment, deleteAttachment, modifyAttachment } from '@/state/ownAttachments';
 export { canReply, cancelReply, replyPing, replyTarget, setReplyPing, startReply } from '@/state/reply';
 export { canForward, startForward } from '@/state/forward';
 export { isPrivateThread } from '@/state/directory';
