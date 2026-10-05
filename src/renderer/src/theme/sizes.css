@@ -225,6 +225,7 @@
   --cp-quick-reaction-glyph: 20px;
   --cp-action-bar-clearance: 2px; /* the hover bar's gap above the hovered message's first line (its name, reply or text) */
   --cp-action-bar-h: calc(var(--cp-quick-reaction) + 2 * var(--cp-space-1) + 2 * var(--cp-stroke-w)); /* the hover bar: a square, its padding and stroke */
+  --cp-action-bar-press-scale: 0.85; /* a hover bar button while pressed: a visible sink, the glyph still legible */
   --cp-action-bar-radius: calc(var(--cp-composer-radius) * var(--cp-action-bar-h) / var(--cp-composer-h)); /* the composer's corner-to-height ratio, at the bar's height */
   --cp-quick-reaction-phone: 52px; /* largest on the phone's sheet; narrower phones share their width among six and More */
   --cp-quick-reaction-phone-glyph: 30px;
