@@ -1,17 +1,50 @@
 /* "A is typing…" atop the Archive footer column: small, muted, names heavier. Its height is kept while empty, so the
    box never moves as it comes and goes. */
 .typing {
+  position: relative;
   box-sizing: border-box;
   height: var(--cp-typing-h);
   margin: 0 var(--cp-composer-inset-right) 0 var(--cp-composer-inset-left);
-  padding: 0 var(--cp-space-3);
-  overflow: hidden;
   color: var(--cp-text-muted);
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-xs);
   line-height: var(--cp-typing-h);
+}
+
+/* The words: positioned so they paint over the veil. */
+.text {
+  position: relative;
+  display: block;
+  padding: 0 var(--cp-space-3);
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* While someone types (data-active), a heavy frosted veil under the line, the footer's full width, soft above and below,
+   so the log scrolling under it can't be read through the words. */
+.typing::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--cp-typing-veil-fade)) calc(-1 * var(--cp-composer-inset-right))
+    calc(-1 * var(--cp-typing-veil-fade)) calc(-1 * var(--cp-composer-inset-left));
+  background: var(--cp-frost);
+  -webkit-backdrop-filter: blur(var(--cp-typing-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-typing-blur));
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--cp-typing-veil-fade),
+    black calc(100% - var(--cp-typing-veil-fade)),
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+.typing[data-active='true']::before {
+  opacity: 1;
 }
 
 .name {

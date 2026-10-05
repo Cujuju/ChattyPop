@@ -8,8 +8,10 @@ import styles from './TypingLine.module.css';
 export function TypingLine() {
   const parts = () => typingParts(typing());
   return (
-    <p class={styles.typing} aria-live="polite">
-      <For each={parts()}>{(p) => (p.kind === 'name' ? <span class={styles.name}>{p.text}</span> : p.text)}</For>
+    <p class={styles.typing} data-active={parts().length > 0} aria-live="polite">
+      <span class={styles.text}>
+        <For each={parts()}>{(p) => (p.kind === 'name' ? <span class={styles.name}>{p.text}</span> : p.text)}</For>
+      </span>
     </p>
   );
 }
