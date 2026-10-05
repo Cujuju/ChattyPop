@@ -21,6 +21,21 @@
   .bar {
     border-radius: var(--cp-action-bar-radius);
   }
+
+  /* The end buttons' outer corners follow the bar's. The first: the first quick reaction, else Add reaction (no
+     squares), else the bar's first button (no reaction group). */
+  .reactions > .button:first-child,
+  .reactions:empty + .button,
+  .bar > .button:first-child {
+    border-top-left-radius: var(--cp-action-bar-edge-radius);
+    border-bottom-left-radius: var(--cp-action-bar-edge-radius);
+  }
+
+  /* The last: More. */
+  .bar > .button:last-child {
+    border-top-right-radius: var(--cp-action-bar-edge-radius);
+    border-bottom-right-radius: var(--cp-action-bar-edge-radius);
+  }
 }
 
 /* Bridges the clearance under the bar (past the row's top on a grouped row), so the pointer reaching up to it never
