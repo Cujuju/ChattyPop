@@ -46,11 +46,11 @@ export const canReact = (m: ArchiveMessage): boolean => m.deletedAt === null;
 
 /**
  * Adds or takes back the owner's reaction. Main has the archive take it before the call resolves, so the refresh shows it.
- * A failure shows as an alert: a chip or picker holds no error line.
+ * A failure shows as an alert, a call throwing at once included: a chip or picker holds no error line.
  */
 export function react(m: ArchiveMessage, emoji: ArchiveEmoji, add: boolean): void {
-  api.discord
-    .react({ channelId: m.channelId, messageId: m.id, emoji, add })
+  Promise.resolve()
+    .then(() => api.discord.react({ channelId: m.channelId, messageId: m.id, emoji, add }))
     .then(() => {
       if (add) refreshOwnReactions();
       return refreshLoaded([m.id]);

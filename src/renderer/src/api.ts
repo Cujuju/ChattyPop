@@ -1,5 +1,6 @@
 // The renderer API host code reaches (docs/plugin-architecture.md §3, plugin page): the Electron preload's, or the one
 // a page's transport installs. A leaf: host modules may call it while loading, whichever runs first.
+import { unwrap } from 'solid-js/store';
 import type { RendererApi } from '@shared/contract';
 import { isPostingCall, keepPostingLocked } from '@shared/posting';
 
@@ -42,11 +43,12 @@ export function installApi(api: RendererApi): void {
   }
 }
 
+/** Arguments sent as plain data: IPC's structured clone throws on a store's proxies, however deep in an argument. */
 function invoke(api: RendererApi, group: Group | null, name: string, args: unknown[]): unknown {
   const target = (group ? api[group] : api) as unknown as Record<string, Method>;
   const fn = target[name];
   if (typeof fn !== 'function') throw new Error(`The renderer API has no ${group ? `${group}.` : ''}${name}.`);
-  return fn.apply(target, args);
+  return fn.apply(target, args.map((a) => unwrap(a)));
 }
 
 /** A method that runs at once when an API is there, else once one installs (its result then comes as a promise). */

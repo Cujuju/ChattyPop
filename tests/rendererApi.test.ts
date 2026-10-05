@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The client runtime, so resources fetch as in a window (node resolves solid-js to its server build).
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
+// Its client stores too: proxies, as a window's are.
+vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);
 
 type Listener = (e: { type: string; [k: string]: unknown }) => void;
 type Api = {
@@ -148,6 +150,21 @@ describe('the renderer API leaf', () => {
     expect(t.listeners.size).toBe(1);
     off();
     expect(t.listeners.size).toBe(0);
+  });
+
+  it('sends store data as plain data, which IPC can clone', async () => {
+    const t = transport();
+    const sent: unknown[] = [];
+    // The preload's ipcRenderer.invoke structured-clones its arguments, throwing on a proxy.
+    t.discord['react'] = (...args) => void sent.push(structuredClone(args));
+    vi.stubGlobal('window', { chattypop: t });
+    const { api } = await leaf();
+    const { createStore } = await import('solid-js/store');
+    const [message] = createStore({ reactions: [{ emoji: { id: '1', name: 'qthis', animated: false } }] });
+    const emoji = message.reactions[0]!.emoji;
+    expect(() => structuredClone(emoji)).toThrow();
+    api.discord['react']!({ messageId: 'm', emoji, add: false });
+    expect(sent).toEqual([[{ messageId: 'm', emoji: { id: '1', name: 'qthis', animated: false }, add: false }]]);
   });
 });
 
