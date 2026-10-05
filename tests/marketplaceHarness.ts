@@ -11,6 +11,9 @@ import { tempDir } from './helpers';
 
 export const REPO = 'owner/market';
 export const API = 'https://api.github.com';
+/** Where a tokenless install reads the index (main's) and downloads release assets. */
+export const RAW_INDEX = `https://raw.githubusercontent.com/${REPO}/main/marketplace.json`;
+export const DOWNLOAD = `https://github.com/${REPO}/releases/download`;
 export const TOKEN = 'github_pat_secret123';
 const TAR_BLOCK = 512;
 
@@ -77,6 +80,8 @@ export interface Call {
 }
 
 type Route = () => Response | Promise<Response>;
+/** GitHub's hosts serving a public repo's files and release assets without the API. */
+const PUBLIC_HOSTS = new Set(['raw.githubusercontent.com', 'github.com']);
 
 /** Routes by exact URL; unknown URLs answer 404. Every call is recorded with its headers. */
 export class FakeGitHub {
@@ -90,6 +95,8 @@ export class FakeGitHub {
     this.calls.push({ url, headers, redirect: init.redirect });
     const onApi = new URL(url).host === 'api.github.com';
     if (onApi && this.privateToken && headers['authorization'] !== `Bearer ${this.privateToken}`) return new Response('{}', { status: 404 });
+    // A private repo's files and assets aren't served outside the API.
+    if (!onApi && this.privateToken && PUBLIC_HOSTS.has(new URL(url).host)) return new Response('{}', { status: 404 });
     return (await this.routes.get(url)?.()) ?? new Response('{}', { status: 404 });
   };
 
@@ -111,6 +118,8 @@ export interface Fixture {
   secrets: Map<string, string>;
   asset: Buffer;
   index: MarketplaceIndex;
+  /** Serves `index` as the listing, through the API (with a token) and the raw host (without). */
+  listing(index: MarketplaceIndex | object): void;
   /** `builtIn`: the repos listed without adding (none by default, so tests add REPO themselves). */
   make(build?: BuildPlugin | null, builtIn?: readonly string[]): Marketplaces;
 }
@@ -126,13 +135,18 @@ export function fixture(asset = tarGz(filesToTar(builtFiles())), sdk = PLUGIN_SD
     plugins: [{ id: 'demo', name: 'Demo', description: '', releases: [{ version: '1.0.0', tag: 'demo-v1.0.0', asset: 'demo.tar.gz', sha256: sha(asset), sdk }], source: { path: 'plugins/demo', branch: 'main' } }],
   };
   gh.json(`${API}/repos/${REPO}`, { default_branch: 'main' });
-  gh.json(`${API}/repos/${REPO}/contents/marketplace.json`, index);
+  const listing = (i: MarketplaceIndex | object): void => {
+    gh.json(`${API}/repos/${REPO}/contents/marketplace.json`, i);
+    gh.json(RAW_INDEX, i);
+  };
+  listing(index);
   gh.json(`${API}/repos/${REPO}/releases/tags/demo-v1.0.0`, { assets: [{ id: ASSET_ID, name: 'demo.tar.gz' }] });
   gh.redirected(`${API}/repos/${REPO}/releases/assets/${ASSET_ID}`, asset);
+  gh.redirected(`${DOWNLOAD}/demo-v1.0.0/demo.tar.gz`, asset);
   gh.json(`${API}/repos/${REPO}/commits/main`, { sha: COMMIT });
   gh.redirected(`${API}/repos/${REPO}/tarball/${COMMIT}`, tarGz([{ path: 'owner-market-aaaaaaa/' }, ...filesToTar({ 'plugins/demo/src.ts': 'x', 'README.md': 'r' }, 'owner-market-aaaaaaa/')]));
   const profile = tempDir();
   const secrets = new Map<string, string>();
   const store: SecretStore = { read: (f) => secrets.get(f) ?? null, write: (f, v) => void secrets.set(f, v), delete: (f) => void secrets.delete(f) };
-  return { gh, profile, secrets, asset, index, make: (build = null, builtIn = []) => new Marketplaces({ profileDir: profile, secrets: store, fetch: gh.fetch, build, builtIn, leftoverFailed: () => undefined, now: () => 1 }) };
+  return { gh, profile, secrets, asset, index, listing, make: (build = null, builtIn = []) => new Marketplaces({ profileDir: profile, secrets: store, fetch: gh.fetch, build, builtIn, leftoverFailed: () => undefined, now: () => 1 }) };
 }

@@ -197,8 +197,7 @@ export class Marketplaces implements MarketplaceApi {
     const mismatch = sdkMismatch(release.sdk);
     if (mismatch) throw new Error(`${plugin.id} ${version}: ${mismatch}`);
     const token = this.token(repo);
-    const assetId = await this.github.releaseAssetId(repo, release.tag, release.asset, token);
-    const data = await this.github.downloadAsset(repo, assetId, token);
+    const data = await this.github.releaseAsset(repo, release.tag, release.asset, token);
     if (sha256(data) !== release.sha256) throw new Error(`${plugin.id} ${version}: the download doesn't match the sha256 in ${repo}'s index, so it was refused.`);
     await this.inWorkDir(async (work) => {
       const dir = await this.unpack(data, work);

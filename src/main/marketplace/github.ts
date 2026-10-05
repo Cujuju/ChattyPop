@@ -1,5 +1,6 @@
-// GitHub REST client for marketplaces (docs/plugin-architecture.md §16). A token goes only to api.github.com, and only
-// on a request's first hop: redirects (to GitHub's download hosts) are followed by hand without it.
+// GitHub client for marketplaces (docs/plugin-architecture.md §16). A token goes only to api.github.com, and only on a
+// request's first hop: redirects (to GitHub's download hosts) are followed by hand without it. Without a token, a public
+// repo's index and release assets come from GitHub's file hosts, outside the REST API's 60-an-hour anonymous limit.
 import { COMMIT_PATTERN } from '@shared/installedPlugins';
 import { MARKETPLACE_INDEX_FILE, parseMarketplaceIndex, type MarketplaceIndex } from '@shared/marketplace';
 import { BYTES_PER_MB, MS_PER_MIN, MS_PER_S } from '@shared/units';
@@ -8,6 +9,10 @@ export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 
 export const GITHUB_API_HOST = 'api.github.com';
 const GITHUB_API = `https://${GITHUB_API_HOST}`;
+/** Serves a public repo's files at a branch; its cache can lag a push by a few minutes. */
+const RAW_FILES = 'https://raw.githubusercontent.com';
+/** Serves a public repo's release assets by tag and name. */
+const RELEASE_DOWNLOADS = 'https://github.com';
 /** The REST API version these calls are written against. */
 const API_VERSION = '2022-11-28';
 /** API calls answer in about a second; this tolerates a slow link. */
@@ -68,6 +73,9 @@ function networkCode(err: unknown): string {
 }
 
 export class GitHub {
+  /** Each repo's default branch, read once: the only REST call a tokenless install makes. */
+  private readonly defaultBranches = new Map<string, string>();
+
   constructor(private readonly fetchFn: FetchFn) {}
 
   /** GETs `url`, following redirects by hand; the token rides only the first hop, and only to api.github.com. */
@@ -103,17 +111,33 @@ export class GitHub {
     return parseJson(await readCapped(res, MAX_JSON_BYTES, what), what);
   }
 
-  /** The repo's marketplace.json on its default branch, parsed; every plugin can install from source on that branch. */
-  async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
+  private async defaultBranch(repo: string, token: string | null): Promise<string> {
+    const known = this.defaultBranches.get(repo);
+    if (known) return known;
     const meta = (await this.json(`/repos/${repo}`, token, repo)) as { default_branch?: unknown };
     if (typeof meta.default_branch !== 'string' || !meta.default_branch) throw new Error(`${repo}: GitHub's answer has no default branch.`);
-    const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
-    const res = await this.get(`${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what);
-    return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), meta.default_branch);
+    this.defaultBranches.set(repo, meta.default_branch);
+    return meta.default_branch;
   }
 
-  /** The id of asset `name` in the release tagged `tag`. */
-  async releaseAssetId(repo: string, tag: string, name: string, token: string | null): Promise<number> {
+  /** The repo's marketplace.json on its default branch, parsed; every plugin can install from source on that branch. */
+  async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
+    const branch = await this.defaultBranch(repo, token);
+    const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
+    const url = token === null ? `${RAW_FILES}/${repo}/${refPath(branch)}/${MARKETPLACE_INDEX_FILE}` : `${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`;
+    const res = await this.get(url, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what);
+    return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), branch);
+  }
+
+  /** Asset `name` of the release tagged `tag`: by its download URL without a token, through the API with one (a private repo's only way). */
+  async releaseAsset(repo: string, tag: string, name: string, token: string | null): Promise<Buffer> {
+    if (token !== null) return this.downloadAsset(repo, await this.releaseAssetId(repo, tag, name, token), token);
+    const what = `${repo} release ${tag} ${name}`;
+    const res = await this.get(`${RELEASE_DOWNLOADS}/${repo}/releases/download/${refPath(tag)}/${encodeURIComponent(name)}`, null, 'application/octet-stream', DOWNLOAD_TIMEOUT_MS, what);
+    return readCapped(res, MAX_DOWNLOAD_BYTES, what);
+  }
+
+  private async releaseAssetId(repo: string, tag: string, name: string, token: string): Promise<number> {
     const what = `${repo} release ${tag}`;
     const release = (await this.json(`/repos/${repo}/releases/tags/${refPath(tag)}`, token, what)) as { assets?: { id?: unknown; name?: unknown }[] };
     const asset = (Array.isArray(release.assets) ? release.assets : []).find((a) => a.name === name);
@@ -121,8 +145,7 @@ export class GitHub {
     return asset.id as number;
   }
 
-  /** A release asset's bytes. */
-  async downloadAsset(repo: string, assetId: number, token: string | null): Promise<Buffer> {
+  private async downloadAsset(repo: string, assetId: number, token: string): Promise<Buffer> {
     const what = `${repo} asset ${assetId}`;
     const res = await this.get(`${GITHUB_API}/repos/${repo}/releases/assets/${assetId}`, token, 'application/octet-stream', DOWNLOAD_TIMEOUT_MS, what);
     return readCapped(res, MAX_DOWNLOAD_BYTES, what);

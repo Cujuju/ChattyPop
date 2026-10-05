@@ -6,7 +6,7 @@ import { INSTALLED_PLUGINS_DIR, REMOVED_DIR, STAGED_DIR } from '@shared/installe
 import type { BuildPlugin } from '../src/main/marketplace/marketplaces';
 import { InstalledFolder } from '../src/main/marketplace/staging';
 import { tempDir } from './helpers';
-import { API, ASSET_ID, COMMIT, REPO, builtFiles, filesToTar, fixture, tarGz, writeFiles } from './marketplaceHarness';
+import { API, COMMIT, DOWNLOAD, REPO, builtFiles, filesToTar, fixture, tarGz, writeFiles } from './marketplaceHarness';
 
 const at = (profile: string, ...parts: string[]): string => join(profile, INSTALLED_PLUGINS_DIR, ...parts);
 const json = (path: string): Record<string, unknown> => JSON.parse(readFileSync(path, 'utf8'));
@@ -60,7 +60,7 @@ describe('source installs', () => {
     const f = fixture();
     const { source: _, ...plain } = f.index.plugins[0]!;
     f.gh.json(`${API}/repos/${REPO}`, { default_branch: 'trunk' });
-    f.gh.json(`${API}/repos/${REPO}/contents/marketplace.json`, { ...f.index, plugins: [plain] });
+    f.gh.json(`https://raw.githubusercontent.com/${REPO}/trunk/marketplace.json`, { ...f.index, plugins: [plain] });
     f.gh.json(`${API}/repos/${REPO}/commits/trunk`, { sha: COMMIT });
     const built: string[] = [];
     const m = f.make(async (pluginDir, outDir) => {
@@ -179,7 +179,7 @@ describe('a failed swap and concurrent operations', () => {
 
   /** Holds the first asset download until the returned release is called. */
   function gateFirstDownload(f: ReturnType<typeof fixture>): { hits: () => number; release: () => void } {
-    const url = `${API}/repos/${REPO}/releases/assets/${ASSET_ID}`;
+    const url = `${DOWNLOAD}/demo-v1.0.0/demo.tar.gz`;
     const route = f.gh.routes.get(url)!;
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
@@ -190,7 +190,7 @@ describe('a failed swap and concurrent operations', () => {
     });
     return { hits: () => hits, release };
   }
-  const indexCalls = (f: ReturnType<typeof fixture>): number => f.gh.calls.filter((c) => c.url.endsWith('/contents/marketplace.json')).length;
+  const indexCalls = (f: ReturnType<typeof fixture>): number => f.gh.calls.filter((c) => c.url.endsWith('/marketplace.json')).length;
 
   it('runs a second install of one id only after the first ends', async () => {
     const f = fixture();

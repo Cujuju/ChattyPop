@@ -44,7 +44,8 @@ describe('marketplaces and tokens', () => {
     await f.make().add(REPO, null);
     const m = f.make();
     expect((await m.state()).marketplaces[0]).toMatchObject({ plugins: [], error: null, fetchedAt: null });
-    f.gh.routes.set(`${API}/repos/${REPO}/contents/marketplace.json`, () => new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
+    // Without a token, the default branch is the one API call; a fresh start asks it again.
+    f.gh.routes.set(`${API}/repos/${REPO}`, () => new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } }));
     await m.refresh();
     expect((await m.state()).marketplaces[0]!.error).toMatch(/rate limit is used up.*A token raises it/);
   });
@@ -107,10 +108,19 @@ describe('release installs', () => {
     expect(readdir(plugins(f.profile, INCOMING_DIR))).toEqual([]);
   });
 
+  it("installs without a token on one API call, the default branch: the index and assets come from GitHub's file hosts", async () => {
+    // GitHub allows 60 anonymous API calls an hour; at four per install, a new owner ran out after fifteen plugins.
+    const f = fixture();
+    const m = f.make();
+    await m.add(REPO, null);
+    for (let i = 0; i < 3; i++) await m.install(REPO, 'demo', release);
+    expect(f.gh.calls.filter((c) => new URL(c.url).host === 'api.github.com').map((c) => c.url)).toEqual([`${API}/repos/${REPO}`]);
+  });
+
   it('refuses a download whose sha256 differs from the index', async () => {
     const f = fixture();
     f.index.plugins[0]!.releases[0]!.sha256 = '0'.repeat(64);
-    f.gh.json(`${API}/repos/${REPO}/contents/marketplace.json`, f.index);
+    f.listing(f.index);
     const m = f.make();
     await m.add(REPO, null);
     await expect(m.install(REPO, 'demo', release)).rejects.toThrow(/doesn't match the sha256/);
