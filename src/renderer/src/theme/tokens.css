@@ -292,5 +292,6 @@
   --cp-window-grip-corner: 14px; /* square corner grips, larger so a diagonal resize is easy to start */
   --cp-z-popover: 1000;
   --cp-z-tooltip: 1100;
+  --cp-z-keyboard: 9000; /* the iPhone shell's keyboard backdrop: only the keyboard covers it */
   --cp-z-top: 9999;
 }

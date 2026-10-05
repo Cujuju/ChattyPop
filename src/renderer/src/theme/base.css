@@ -80,6 +80,19 @@ html {
   transition: --cp-keyboard-inset var(--cp-keyboard-duration) var(--cp-ease-keyboard);
 }
 
+/* What the iPhone keyboard covers, and shows through its glass, is the page's own bottom: the web view is never resized.
+   Paint it the page's surface, as the window was when the web view shrank. Its top meets the content riding the inset;
+   0 high outside the shell. */
+html::after {
+  content: '';
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--cp-z-keyboard);
+  height: var(--cp-keyboard-inset);
+  background: var(--cp-surface-1);
+  pointer-events: none;
+}
+
 /* Phone companion in a browser tab: browsers retract their toolbars only while the page itself scrolls, so the page
    gets scroll room and the app shell (Companion.module.css) stays pinned to the visible area. A home-screen app or
    the iPhone shell has no toolbars and keeps the rules above. data-display: companion/shell.ts. */
