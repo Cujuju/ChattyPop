@@ -14,7 +14,7 @@ import {
   type RawUser,
 } from '@shared/discord';
 import { parseRawJson, type Db } from './db';
-import { deriveMessage } from './derive/deriveMessage';
+import { deriveMessage, refreshStoredAttachments } from './derive/deriveMessage';
 import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser } from './people';
 import {
   PRIVATE_KINDS_SQL,
@@ -224,7 +224,7 @@ export class Archive {
         } else if (existing.content !== m.content) {
           this.reviseContent(m.id, existing, m.content, editedTs, JSON.stringify(m), now);
           result.edited++;
-        }
+        } else refreshStoredAttachments(this.db, m);
         // Derived first: matching reads the message's attachments and links.
         deriveMessage(this.db, m, m.author.id);
         // Before matching: image text still to come is pending when rules look.

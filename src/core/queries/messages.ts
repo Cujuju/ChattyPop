@@ -135,10 +135,11 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
     .all(...ids) as { messageId: string; content: string; editedTs: number | null; seenAt: number }[];
   const attachments = db
     .prepare(
-      `SELECT id, message_id AS messageId, filename, content_type AS contentType, size, width, height, sha256, status
-       FROM attachments WHERE message_id IN (${marks})`,
+      `SELECT id, message_id AS messageId, filename, content_type AS contentType, size, width, height, sha256, status,
+       description, removed_at IS NOT NULL AS removed
+       FROM attachments WHERE message_id IN (${marks}) ORDER BY rowid`,
     )
-    .all(...ids) as (Omit<ArchiveAttachment, 'notes'> & { messageId: string })[];
+    .all(...ids) as (Omit<ArchiveAttachment, 'notes' | 'removed'> & { messageId: string; removed: 0 | 1 })[];
   const notes = partNotes(ids.map((id) => ({ id, attachmentIds: attachments.filter((a) => a.messageId === id).map((a) => a.id) })));
   const annotations = db
     .prepare(`SELECT message_id AS messageId, plugin_id AS pluginId, label, text FROM plugin_annotations WHERE message_id IN (${marks}) ORDER BY created_at`)
@@ -211,7 +212,9 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       embeds: withEmbedNotes(embedsFrom(r.embedsJson), notes.get(r.id)),
       stickers: stickersFrom(r.stickersJson),
       revisions: revisions.filter((v) => v.messageId === r.id).map(({ content, editedTs, seenAt }) => ({ content, editedTs, seenAt })),
-      attachments: attachments.filter((a) => a.messageId === r.id).map(({ messageId: _m, ...a }) => ({ ...a, notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [] })),
+      attachments: attachments
+        .filter((a) => a.messageId === r.id)
+        .map(({ messageId: _m, ...a }) => ({ ...a, removed: a.removed === 1, notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [] })),
       notes: linkTextNotes(notes.get(r.id)),
       annotations: annotations.filter((a) => a.messageId === r.id).map(({ messageId: _m, ...a }) => a),
       labels: labels.get(r.id) ?? [],

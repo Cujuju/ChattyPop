@@ -120,6 +120,10 @@ export interface ArchiveAttachment {
   sha256: string | null;
   /** evicted: file pruned by the attachment cap (Settings → Archive); the row and its metadata remain. */
   status: 'pending' | 'stored' | 'failed' | 'evicted';
+  /** Alt text. */
+  description: string | null;
+  /** It left its message on Discord (an edit removed it); the archive keeps it. */
+  removed: boolean;
   /** Notes plugins attached (a transcript), in plugin build order. */
   notes: AttachmentNote[];
 }

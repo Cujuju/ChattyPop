@@ -195,6 +195,11 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   'ALTER TABLE members ADD COLUMN timed_out_until INTEGER;',
   // A channel's read mark as the newest message the owner saw (viewed_at then holds its ts), not a time (readMarks.ts).
   'ALTER TABLE channels ADD COLUMN viewed_id TEXT;',
+  `
+  -- An attachment's alt text, and when the archive saw it leave its message on Discord (ms; kept here with its file).
+  ALTER TABLE attachments ADD COLUMN description TEXT;
+  ALTER TABLE attachments ADD COLUMN removed_at INTEGER;
+  `,
 ];
 
 /**

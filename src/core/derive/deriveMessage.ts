@@ -1,6 +1,6 @@
 import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
-import type { Db } from '../db';
+import { parseRawJson, type Db } from '../db';
 import { extractLinks } from './links';
 
 interface RawAttachment {
@@ -11,6 +11,8 @@ interface RawAttachment {
   width?: number | null;
   height?: number | null;
   url: string;
+  /** Alt text. */
+  description?: string | null;
 }
 
 export interface DerivableMessage {
@@ -32,17 +34,44 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
   return found;
 }
 
+/** What an edit can change of an attachment, as one comparable string. */
+const attachmentState = (a: { id: string; filename: string; description?: string | null }): string => JSON.stringify([a.id, a.filename, a.description ?? null]);
+
 /**
- * Records attachments (queued for download) and shared links for a stored message.
+ * Brings a stored payload's attachments up to `m`'s when they differ. A re-fetch with unchanged text otherwise leaves
+ * raw_json as first stored, and re-derivation from it would undo a rename or alt text. Call before deriveMessage, which
+ * updates the rows compared. Other stored fields stay (a gateway payload's member, which a re-fetch lacks).
+ */
+export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
+  if (!Array.isArray(m.attachments)) return;
+  const stored = db
+    .prepare('SELECT id, filename, description FROM attachments WHERE message_id = ? AND removed_at IS NULL ORDER BY rowid')
+    .all(m.id) as { id: string; filename: string; description: string | null }[];
+  if (stored.map(attachmentState).join() === m.attachments.map(attachmentState).join()) return;
+  const payload = parseRawJson<object>(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string | Buffer | null);
+  if (payload) db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(JSON.stringify({ ...payload, attachments: m.attachments }), m.id);
+}
+
+/**
+ * Records attachments (queued for download) and shared links for a stored message. An edit's rename (a spoiler toggle)
+ * and alt text update the row; an attachment the message no longer lists is marked removed, once: Discord can't re-add it.
  * Idempotent: safe on every insert and every MESSAGE_UPDATE (embeds often arrive later).
  */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
-    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET url = excluded.url`,
+    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description`,
   );
   for (const a of m.attachments ?? []) {
-    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url);
+    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null);
+  }
+  // Only a payload that lists attachments says which remain; a partial update without the field says nothing.
+  if (Array.isArray(m.attachments)) {
+    db.prepare(
+      `UPDATE attachments SET removed_at = ? WHERE message_id = ? AND removed_at IS NULL
+       AND id NOT IN (SELECT value FROM json_each(?))`,
+    ).run(Date.now(), m.id, JSON.stringify(m.attachments.map((a) => a.id)));
   }
 
   const addEmoji = db.prepare('INSERT OR IGNORE INTO emojis (id, name, animated) VALUES (?, ?, ?)');
