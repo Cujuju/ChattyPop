@@ -198,23 +198,26 @@
 
 /* Attachment hover bar: the message hover bar's surface (cp-stroke in the markup, MessageActionBar.module.css) inset at
    the tile's top-right. Shown while the tile is hovered or holds keyboard focus; until then it takes no clicks. Not
-   composed from that bar: its row positioning and hover bridge don't apply here. Wraps rather than overflow a small cell. */
+   composed from that bar: its row positioning and hover bridge don't apply here. One row; a column (data-stacked, set by
+   AttachmentTile.tsx) when the tile is narrower than the row and its insets. That measurement reads `right`. */
 .bar {
   position: absolute;
   top: var(--cp-space-3);
   right: var(--cp-space-3);
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--cp-space-1);
-  max-width: calc(100% - 2 * var(--cp-space-3));
   padding: var(--cp-space-1);
   border-radius: var(--cp-radius-lg);
   box-shadow: var(--cp-shadow-popover);
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+.bar[data-stacked='true'] {
+  flex-direction: column;
 }
 
 /* Keyboard focus, not any focus: a clicked picture keeps focus after its viewer closes, which would pin the bar open. */
@@ -235,13 +238,24 @@
     border-radius: var(--cp-action-bar-radius);
   }
 
-  .bar > :first-child {
+  /* The end buttons' outer corners follow the bar's along its axis: left and right in a row, top and bottom in a column. */
+  .bar:not([data-stacked='true']) > :first-child {
     border-top-left-radius: var(--cp-action-bar-edge-radius);
     border-bottom-left-radius: var(--cp-action-bar-edge-radius);
   }
 
-  .bar > :last-child {
+  .bar:not([data-stacked='true']) > :last-child {
     border-top-right-radius: var(--cp-action-bar-edge-radius);
+    border-bottom-right-radius: var(--cp-action-bar-edge-radius);
+  }
+
+  .bar[data-stacked='true'] > :first-child {
+    border-top-left-radius: var(--cp-action-bar-edge-radius);
+    border-top-right-radius: var(--cp-action-bar-edge-radius);
+  }
+
+  .bar[data-stacked='true'] > :last-child {
+    border-bottom-left-radius: var(--cp-action-bar-edge-radius);
     border-bottom-right-radius: var(--cp-action-bar-edge-radius);
   }
 }

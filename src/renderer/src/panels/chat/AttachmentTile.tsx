@@ -1,44 +1,59 @@
 // One attachment's frame in the log: its spoiler cover, its removed mark and the bar Discord shows at its top-right on hover.
-import { For, Show, createSignal, type JSX } from 'solid-js';
+import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { HOST_ATTACHMENT_ACTIONS } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
-import { attachmentUrl } from '@shared/media';
 import type { AttachmentBarView, HostAttachmentAction } from '@/plugins/messageSlots';
 import { attachmentActionItems } from '@/plugins/slots';
+import { canSave, saveAttachment } from '@/state/savedFiles';
 import { inCompanion } from '@/state/ui';
 import { SolidIcon } from '@/ui/solidIcons';
 import { HoverBarButton } from './HoverBarButton';
 import styles from './Attachment.module.css';
 
-/** Download: the archived file under its own name; nothing while the file isn't held here. */
-const Download: AttachmentBarView['Component'] = (props) => {
-  const save = (): void => {
-    const link = document.createElement('a');
-    link.href = attachmentUrl(props.attachment.sha256!, props.attachment.filename);
-    link.download = props.attachment.filename;
-    link.click();
-  };
-  return (
-    <Show when={props.attachment.status === 'stored' && props.attachment.sha256}>
-      <HoverBarButton label="Download" icon={(c) => <SolidIcon name="download" class={c} />} onClick={save} />
-    </Show>
-  );
-};
+/** Download: saves the archived file where the owner picks; nothing while the file isn't held here. */
+const Download: AttachmentBarView['Component'] = (props) => (
+  <Show when={canSave(props.attachment)}>
+    <HoverBarButton label="Download" icon={(c) => <SolidIcon name="download" class={c} />} onClick={() => void saveAttachment(props.attachment)} />
+  </Show>
+);
 
 /** The host's bar items: empty anchors where a posting plugin places Modify and Delete, then Download. */
 const HOST_ITEMS: readonly HostAttachmentAction[] = HOST_ATTACHMENT_ACTIONS.map((id) => ({ id, Component: id === 'download' ? Download : () => null }));
 
+const px = (v: string): number => parseFloat(v) || 0;
+
 /**
- * The bar over a hovered attachment: plugins' actions (a posting plugin's Modify and Delete), then Download. The
- * stylesheet shows it while the tile is hovered or holds focus. Never on the phone, which has no hover.
+ * The room the bar takes laid out as one row, whichever way it is laid out now: its buttons and the gaps between them,
+ * its padding and border, and its inset from the tile's edge on both sides.
+ */
+function rowWidth(bar: HTMLElement): number {
+  const s = getComputedStyle(bar);
+  const buttons = [...bar.children] as HTMLElement[];
+  const gaps = px(s.columnGap) * Math.max(0, buttons.length - 1);
+  const box = px(s.paddingLeft) + px(s.paddingRight) + px(s.borderLeftWidth) + px(s.borderRightWidth);
+  return buttons.reduce((w, b) => w + b.offsetWidth, 0) + gaps + box + 2 * px(s.right);
+}
+
+/**
+ * The bar over a hovered attachment: plugins' actions (a posting plugin's Modify and Delete), then Download. One row,
+ * or one column (data-stacked) on a tile too narrow for the row; never wrapped. The stylesheet shows it while the tile
+ * is hovered or holds focus. Never on the phone, which has no hover.
  */
 function AttachmentBar(props: { message: ArchiveMessage; attachment: ArchiveAttachment }) {
+  let bar!: HTMLDivElement;
+  const [stacked, setStacked] = createSignal(false);
+  onMount(() => {
+    const tile = bar.parentElement!;
+    // The tile resizes with the log; the bar with the buttons its message offers.
+    const fit = new ResizeObserver(() => setStacked(rowWidth(bar) > tile.clientWidth));
+    fit.observe(tile);
+    fit.observe(bar);
+    onCleanup(() => fit.disconnect());
+  });
   return (
-    <Show when={!inCompanion}>
-      <div class={`cp-stroke ${styles.bar}`} role="toolbar" aria-label="Attachment actions">
-        <For each={attachmentActionItems(HOST_ITEMS)}>{(item) => <item.Component message={props.message} attachment={props.attachment} />}</For>
-      </div>
-    </Show>
+    <div ref={bar} class={`cp-stroke ${styles.bar}`} data-stacked={stacked()} role="toolbar" aria-label="Attachment actions">
+      <For each={attachmentActionItems(HOST_ITEMS)}>{(item) => <item.Component message={props.message} attachment={props.attachment} />}</For>
+    </div>
   );
 }
 
@@ -59,7 +74,9 @@ export function AttachmentTile(props: { message: ArchiveMessage; attachment: Arc
           Removed
         </span>
       </Show>
-      <AttachmentBar message={props.message} attachment={props.attachment} />
+      <Show when={!inCompanion}>
+        <AttachmentBar message={props.message} attachment={props.attachment} />
+      </Show>
     </div>
   );
 }
