@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { sourceDescriptor } from '../src/main/pluginBuild/descriptor';
-import { PLUGIN_SDK_VERSION, REPO_PATTERN } from '../src/shared/installedPlugins';
+import { PLUGIN_SDK_VERSION, REPO_PATTERN, sdkMismatch } from '../src/shared/installedPlugins';
 import { anchorFolders } from './anchorFolders';
 import { buildReleaseAsset, installAndCheck, type Check } from './pluginAsset';
 import { checkPlugin } from './pluginCheck';
@@ -27,7 +27,7 @@ export interface ReleaseChangedOptions {
   dryRun: boolean;
   /** Only these plugin ids; all when absent. */
   only?: readonly string[];
-  /** Also release plugins whose newest listed release was built for another PLUGIN_SDK_VERSION. */
+  /** Also release plugins whose newest listed release was built for another PLUGIN_SDK_VERSION this host can still run. */
   sdkRebuild: boolean;
   gh?: Gh;
   git?: Git;
@@ -106,7 +106,9 @@ export async function releaseChanged(options: ReleaseChangedOptions): Promise<Re
   const planned = states.flatMap((s) => {
     if (s.kind === 'unstamped') return [{ id: s.id, version: s.version }];
     if (s.kind !== 'settled') return [];
-    const rebuild = sdkRebuild && s.listed.sdk !== PLUGIN_SDK_VERSION;
+    // A release this SDK can't run (another major) is rebuilt on any run, so a new major reaches every plugin unasked;
+    // the app keeps offering older hosts the newest release they can run.
+    const rebuild = sdkMismatch(s.listed.sdk) !== null || (sdkRebuild && s.listed.sdk !== PLUGIN_SDK_VERSION);
     return s.changed || rebuild ? [{ id: s.id, version: raisedVersion(s.version, s.changed ?? ['patch']) }] : [];
   });
   for (const p of planned) log(`${dryRun ? 'Would release' : 'Releasing'} ${releaseTag(p.id, p.version)}`);

@@ -145,15 +145,19 @@ describe('plugin:release-changed', { timeout: RUN_TEST_TIMEOUT_MS }, () => {
     expect(tagAt(repo, 'beta-v1.0.1')).toBe(tagAt(repo, 'alpha-v1.0.1'));
   });
 
-  it('rebuilds for a new SDK once, however often --sdk-rebuild runs', async () => {
-    const repo = pluginRepo({ alpha: '1.0.0' });
-    listed(repo, 'alpha', '1.0.0', out(repo.clone, 'rev-parse', 'HEAD'), '0.1.0');
+  it("rebuilds a plugin this SDK can't run on any run, once; one it can run but built for another version, only with --sdk-rebuild", async () => {
+    const [major, minor, patch] = PLUGIN_SDK_VERSION.split('.').map(Number) as [number, number, number];
+    const repo = pluginRepo({ alpha: '1.0.0', beta: '1.0.0' });
+    const head = out(repo.clone, 'rev-parse', 'HEAD');
+    listed(repo, 'alpha', '1.0.0', head, `${major - 1}.0.0`);
+    listed(repo, 'beta', '1.0.0', head, `${major}.${minor}.${patch + 1}`);
     const r = runner(repo);
+    expect(await r.run()).toEqual({ released: ['alpha-v1.0.1'], failed: [] });
     expect(await r.run()).toEqual({ released: [], failed: [] });
-    expect(await r.run({ sdkRebuild: true })).toEqual({ released: ['alpha-v1.0.1'], failed: [] });
+    expect(await r.run({ sdkRebuild: true })).toEqual({ released: ['beta-v1.0.1'], failed: [] });
     expect(await r.run({ sdkRebuild: true })).toEqual({ released: [], failed: [] });
     const index = JSON.parse(out(repo.bare, 'show', 'main:marketplace.json')) as { plugins: { releases: { sdk: string }[] }[] };
-    expect(index.plugins[0]!.releases[0]!.sdk).toBe(PLUGIN_SDK_VERSION);
+    expect(index.plugins.map((p) => p.releases[0]!.sdk)).toEqual([PLUGIN_SDK_VERSION, PLUGIN_SDK_VERSION]);
   });
 
   it('checks but publishes nothing on a dry run', async () => {
