@@ -18,7 +18,10 @@ A Windows desktop app beside the Discord web client. It archives the channels yo
 - **Plugins**: full-trust ES modules with core hooks and their own panels ([docs/plugins.md](docs/plugins.md)).
 
 
-## Requirements
+## Install
+Download `ChattyPop-Setup-<version>.exe` from [Releases](https://github.com/Cujuju/ChattyPop/releases/latest) and run it. The installer is unsigned, so Windows SmartScreen may warn on first run: **More info → Run anyway**. Installed copies update themselves from new releases (Settings → Desktop).
+
+## Requirements (to build)
 - Windows 10 or 11, Node.js 24, pnpm.
 - For AI (all optional): Claude Code and/or the Codex CLI signed in on your PATH, Ollama running locally, or an OpenRouter key (Settings → AI).
 
@@ -31,6 +34,13 @@ A Windows desktop app beside the Discord web client. It archives the channels yo
 | `pnpm test` | Contract tests (vitest, `tests/`) |
 | `pnpm build` | Build main, preload, core and renderer |
 | `pnpm dist` | Build the NSIS installer into `release/` (unsigned) |
+
+## Releasing
+CI (`.github/workflows/ci.yml`) type-checks, tests and builds every push and pull request. A release publishes the installer and `latest.yml`, which installed copies update from, tagged `v<version>`. The version comes from git history (`appVersion.ts`), so each commit has its own. To release:
+- **Actions → Release app → Run workflow** releases the head of `main`, or
+- push a tag naming a commit's version: `node scripts/runTs.mjs scripts/printVersion.ts` prints it, then `git tag v<version>` and `git push origin v<version>`.
+
+The workflow refuses a version that is already released, and a tag that isn't its commit's version.
 
 ## Where things live
 - Archive (database and media): Settings → Archive → Location (default: the app profile). The folder is set in `%APPDATA%\chattypop\storage.json`.

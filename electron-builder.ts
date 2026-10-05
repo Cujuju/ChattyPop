@@ -21,7 +21,8 @@ const config: Configuration = {
   extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
   // Native SQLite prebuilds cannot load from inside an asar archive.
   asarUnpack: ['node_modules/better-sqlite3-multiple-ciphers/prebuilds/**'],
-  // Installers and latest.yml go to this public repo's releases, so the app updates (main/updates.ts) without a token.
+  // Installers and latest.yml go to this public repo's releases (.github/workflows/release.yml), so the app updates
+  // (main/updates.ts) without a token.
   publish: { provider: 'github', owner: 'Cujuju', repo: 'ChattyPop', releaseType: 'release' },
   win: {
     target: 'nsis',
@@ -29,6 +30,8 @@ const config: Configuration = {
   },
   // Per-user install (no admin prompt) with a choice of folder; Start menu and desktop shortcuts.
   nsis: {
+    // No spaces: the release uploads it under this name, which latest.yml's url must match.
+    artifactName: '${productName}-Setup-${version}.${ext}',
     oneClick: false,
     perMachine: false,
     allowToChangeInstallationDirectory: true,

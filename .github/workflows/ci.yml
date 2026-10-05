@@ -1,0 +1,38 @@
+# Type-checks, tests and builds every push to main and every pull request.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    # The app and its tests are Windows-first.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # appVersion() counts the whole history; the build and its tests read it.
+          fetch-depth: 0
+
+      - name: Set up pnpm (packageManager)
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Cache Electron's download
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
