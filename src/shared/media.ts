@@ -73,7 +73,7 @@ export const attachmentUrl = (sha256: string, filename: string): string => media
 /** A content type that says nothing about the media; the stored extension decides instead. */
 export const GENERIC_CONTENT_TYPE = 'application/octet-stream';
 
-/** How a stored attachment shows inline: an image, an audio player (length fetched up front) or a video fetched on play. Others are file chips. */
+/** How a stored attachment shows inline: an image, an audio player (length fetched up front) or a video (first frame fetched up front). Others are file chips. */
 export type AttachmentView = 'image' | 'audio' | 'video' | 'file';
 export function attachmentView(a: { status: string; contentType: string | null; filename: string }): AttachmentView {
   return a.status === 'stored' ? mediaKind(a) : 'file';

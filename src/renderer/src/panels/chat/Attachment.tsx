@@ -53,7 +53,8 @@ export function Attachment(props: { attachment: ArchiveAttachment; messageLink: 
               </button>
             </Match>
             <Match when={view() === 'video'}>
-              <video src={src()} data-sized={size() !== null} style={mediaSizeVars(size())} controls playsinline preload="none" aria-label={`Play ${a().filename}`} onError={() => setUnplayable(true)} />
+              {/* Metadata, not "none": an attachment has no poster, so it shows its first frame. Only on-screen rows mount. */}
+              <video src={src()} data-sized={size() !== null} style={mediaSizeVars(size())} controls playsinline preload="metadata" aria-label={`Play ${a().filename}`} onError={() => setUnplayable(true)} />
             </Match>
             <Match when={view() === 'audio'}>
               {/* Metadata, not "none": without it the player shows 00:00 until played. Ogg's length sits in its last page. */}
