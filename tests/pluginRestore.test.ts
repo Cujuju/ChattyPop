@@ -14,7 +14,7 @@ import { PLUGINS_DISABLED_KEY } from '../src/core/plugins/host';
 import { MARKETPLACES_FILE } from '../src/main/marketplace/marketplaces';
 import { applyStaged } from '../src/main/plugins/installed/staged';
 import { INSTALLED_PLUGINS_DIR } from '@shared/installedPlugins';
-import { API, REPO, TOKEN, fixture } from './marketplaceHarness';
+import { REPO, TOKEN, fixture } from './marketplaceHarness';
 import { tempDb, tempDir } from './helpers';
 
 const rule = (db: Db, actionType: string, builtin: string | null = null): void => {
@@ -168,7 +168,7 @@ describe('restore offers', () => {
   it('leaves out dismissed, uninstalled and installed plugins', async () => {
     const f = fixture();
     const m = f.make(null, [REPO]);
-    f.gh.json(`${API}/repos/${REPO}/contents/marketplace.json`, f.index);
+    f.listing(f.index);
     await m.install(REPO, 'demo', { kind: 'release', version: '1.0.0' });
     await m.uninstall('demo');
     const { marketplaces, history } = await m.state();
@@ -184,7 +184,8 @@ describe('restore offers', () => {
   it('keep the origin of the running copy when a staged update from another marketplace is cancelled', async () => {
     const f = fixture();
     const other = 'owner/other';
-    for (const [url, route] of [...f.gh.routes]) if (url.includes(`/repos/${REPO}/`) || url.endsWith(`/repos/${REPO}`)) f.gh.routes.set(url.replace(REPO, other), route);
+    // Every route of REPO, API and file hosts alike, served for `other` too.
+    for (const [url, route] of [...f.gh.routes]) if (url.includes(`/${REPO}/`) || url.endsWith(`/${REPO}`)) f.gh.routes.set(url.replace(REPO, other), route);
     const m = f.make(null, [REPO, other]);
     await m.install(REPO, 'demo', { kind: 'release', version: '1.0.0' });
     applyStaged(join(f.profile, INSTALLED_PLUGINS_DIR), (id, err) => expect.fail(`${id}: ${String(err)}`));
