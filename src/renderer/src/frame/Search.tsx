@@ -8,7 +8,9 @@ import { searchTokens } from '@/plugins/slots';
 import { SEARCH_SORTS, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import { openArchive } from '@/state/archive';
 import { isSavedSearch, querySearch, savedSearches, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
+import { inCompanion } from '@/state/ui';
 import { shortDateTime } from '@/ui/format';
+import { listen } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
 import { pendingFilter, searchFilters, withFilter, withValue } from './searchFilters';
 import { AddFilterStrip, FilterList, ValuePicker } from './SearchBuilder';
@@ -31,6 +33,7 @@ function Snippet(props: { text: string; mentions: Record<string, string> }) {
  */
 export function Search() {
   let input!: HTMLInputElement;
+  let root!: HTMLDivElement;
   const filters = createMemo(() => searchFilters(searchTokens()));
   const pending = () => pendingFilter(searchText(), filters());
   const mode = (): 'filters' | 'value' | 'results' => (searchText().trim() === '' ? 'filters' : pending() ? 'value' : 'results');
@@ -73,9 +76,16 @@ export function Search() {
   const nav = { active, setActive };
   // The search shortcut (state/shortcuts.ts) asks for focus.
   createEffect(on(searchFocusRequests, () => input.focus(), { defer: true }));
+  // Focus moving to a control outside closes the panel. A blur to nowhere does only on the desktop: on a phone, putting
+  // the keyboard away blurs the field, and the results stay to scroll and tap, as in Discord. A press outside closes it.
+  const onFocusOut = (e: FocusEvent): void => {
+    const to = e.relatedTarget as Node | null;
+    if (to ? !root.contains(to) : !inCompanion) setSearchOpen(false);
+  };
+  listen(window, 'pointerdown', (e) => searchOpen() && !root.contains(e.target as Node) && setSearchOpen(false), true);
 
   return (
-    <div class={styles.root} onFocusOut={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setSearchOpen(false)}>
+    <div ref={root} class={styles.root} onFocusOut={onFocusOut}>
       <label for="archive-search" class="cp-visually-hidden">
         Search the archive
       </label>
