@@ -10,8 +10,10 @@
   background: transparent;
 }
 
+/* Fades as the image is dragged down to close (--lightbox-pull, 0 to 1, from Lightbox.tsx). */
 .dialog::backdrop {
   background: var(--cp-lightbox-backdrop);
+  opacity: calc(1 - var(--lightbox-pull, 0));
 }
 
 .figure {
@@ -82,8 +84,9 @@
 
 .close {
   position: fixed;
-  top: var(--cp-space-7);
-  right: var(--cp-space-7);
+  /* Below a phone's status bar and clear of its rounded corners; 0 on the desktop. */
+  top: calc(var(--cp-space-7) + env(safe-area-inset-top));
+  right: calc(var(--cp-space-7) + env(safe-area-inset-right));
   display: inline-grid;
   place-content: center;
   width: var(--cp-btn-h);

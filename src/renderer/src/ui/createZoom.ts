@@ -1,6 +1,7 @@
-// Pinch, wheel, drag and double-tap zoom for one image (the Lightbox's), from pointer events: touch and mouse alike.
+// Pinch, wheel, drag and double-tap zoom for one image (the Lightbox's), and drag-down to dismiss it, from pointer events:
+// touch and mouse alike.
 import { createSignal, onCleanup, type Accessor } from 'solid-js';
-import { FIT, panBy, zoomAt, type Point, type Size, type Zoom } from './zoomMath';
+import { FIT, dismisses, panBy, pullOf, zoomAt, type Point, type Size, type Zoom } from './zoomMath';
 
 /** Enough to read small text in a screenshot; past this, pixels only get blurrier. */
 const MAX_SCALE = 6;
@@ -16,6 +17,8 @@ const WHEEL_ZOOM_PER_PX = 0.002;
 
 export interface ZoomControls {
   zoom: Accessor<Zoom>;
+  /** How far down the fitted image is being dragged to dismiss it, in px; 0 when not. */
+  pull: Accessor<number>;
   /** A pinch or drag is under way: the image follows the fingers without easing. */
   gesturing: Accessor<boolean>;
   reset(): void;
@@ -23,8 +26,10 @@ export interface ZoomControls {
   bind(img: HTMLImageElement): void;
 }
 
-export function createZoom(): ZoomControls {
+/** `onDismiss`: the fitted image was dragged down far enough and let go. */
+export function createZoom(onDismiss: () => void): ZoomControls {
   const [zoom, setZoom] = createSignal<Zoom>(FIT);
+  const [pull, setPull] = createSignal(0);
   const [gesturing, setGesturing] = createSignal(false);
   let img: HTMLImageElement | undefined;
   const pointers = new Map<number, Point>();
@@ -70,12 +75,15 @@ export function createZoom(): ZoomControls {
       // Zoom about where the pinch started, then follow the fingers' midpoint.
       const scaled = zoomAt(start.zoom, dist(a, b) / dist(a0, b0), local(m0), box(), MAX_SCALE);
       setZoom(panBy(scaled, m.x - m0.x, m.y - m0.y, box()));
+      setPull(0);
       start.moved = true;
     } else if (now.length === 1) {
       const p0 = start.points[0]!;
       const p = now[0]!;
       if (dist(p, p0) > TAP_SLOP_PX) start.moved = true;
+      // Zoomed, a drag pans; fitted, a drag down pulls the image away to dismiss it.
       if (start.zoom.scale > 1) setZoom(panBy(start.zoom, p.x - p0.x, p.y - p0.y, box()));
+      setPull(pullOf(start.zoom, p.y - p0.y));
     }
   };
   const up = (e: PointerEvent): void => {
@@ -84,6 +92,9 @@ export function createZoom(): ZoomControls {
     if (pointers.size) return begin(); // a finger lifted mid-pinch: the rest carry on from here
     setGesturing(false);
     start = null;
+    const pulled = pull();
+    setPull(0); // short of dismissing, the image eases back
+    if (dismisses(pulled, e.type === 'pointerup')) return onDismiss();
     if (!tapped) return void (lastTap = null);
     const p = { x: e.clientX, y: e.clientY };
     if (lastTap && e.timeStamp - lastTap.at < DOUBLE_TAP_MS && dist(p, lastTap.p) < DOUBLE_TAP_SLOP_PX) {
@@ -117,7 +128,8 @@ export function createZoom(): ZoomControls {
     start = null;
     lastTap = null;
     setGesturing(false);
+    setPull(0);
     setZoom(FIT);
   };
-  return { zoom, gesturing, reset, bind };
+  return { zoom, pull, gesturing, reset, bind };
 }

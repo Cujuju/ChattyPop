@@ -6,14 +6,18 @@ import { Icon } from './icons';
 import styles from './Lightbox.module.css';
 
 const LIGHTBOX_COVER = 'lightbox';
+/** The backdrop has faded out once the image is dragged down this share of the window's height. */
+const PULL_FADE_WINDOW_SHARE = 0.5;
 
 /**
- * Full-size image viewer over the whole window, as Discord pops an image out. Esc, the backdrop or the close button closes it.
- * Pinch or wheel zooms, a drag pans the zoomed image, a double-tap or double-click toggles zoomed and fitted.
+ * Full-size image viewer over the whole window, as Discord pops an image out. Esc, the backdrop, the close button or
+ * dragging the fitted image down closes it. Pinch or wheel zooms, a drag pans the zoomed image, a double-tap or
+ * double-click toggles zoomed and fitted.
  */
 export function Lightbox() {
   let dialog!: HTMLDialogElement;
-  const zoom = createZoom();
+  const zoom = createZoom(() => setLightbox(null));
+  const pullProgress = (): number => Math.min(1, zoom.pull() / (window.innerHeight * PULL_FADE_WINDOW_SHARE));
   createEffect(() => {
     if (lightbox() && !dialog.open) dialog.showModal();
     else if (!lightbox() && dialog.open) dialog.close();
@@ -28,6 +32,7 @@ export function Lightbox() {
       ref={dialog}
       class={styles.dialog}
       aria-label="Image viewer"
+      style={{ '--lightbox-pull': String(pullProgress()) }}
       onClose={() => setLightbox(null)}
       // A click on the backdrop lands on the dialog itself; clicks on the image or links don't close it.
       onClick={(e) => e.target === e.currentTarget && setLightbox(null)}
@@ -43,7 +48,7 @@ export function Lightbox() {
               draggable={false}
               data-zoomed={zoom.zoom().scale > 1}
               data-gesturing={zoom.gesturing()}
-              style={{ transform: `translate(${zoom.zoom().x}px, ${zoom.zoom().y}px) scale(${zoom.zoom().scale})` }}
+              style={{ transform: `translate(${zoom.zoom().x}px, ${zoom.zoom().y + zoom.pull()}px) scale(${zoom.zoom().scale})` }}
             />
             <figcaption class={styles.caption}>
               <span class={styles.name}>{img().caption}</span>

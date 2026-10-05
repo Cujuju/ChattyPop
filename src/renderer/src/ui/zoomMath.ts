@@ -35,3 +35,12 @@ export function zoomAt(z: Zoom, factor: number, at: Point, box: Size, max: numbe
 }
 
 export const panBy = (z: Zoom, dx: number, dy: number, box: Size): Zoom => inBox({ scale: z.scale, x: z.x + dx, y: z.y + dy }, box);
+
+/** Dragging the fitted image down at least this far, then letting go, dismisses it: past a sloppy tap or pan. */
+export const DISMISS_DRAG_PX = 96;
+
+/** How far a one-finger drag of `dy` pulls the image down to dismiss it: only when fitted (zoomed, it pans), never up. */
+export const pullOf = (z: Zoom, dy: number): number => (z.scale > 1 ? 0 : Math.max(0, dy));
+
+/** Letting go of a pull dismisses the image when it went far enough; a cancelled gesture (`released` false) never does. */
+export const dismisses = (pull: number, released: boolean): boolean => released && pull >= DISMISS_DRAG_PX;
