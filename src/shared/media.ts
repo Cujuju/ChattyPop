@@ -42,6 +42,9 @@ export function fileExt(filename: string): string {
   return SAFE_EXT.test(ext) ? ext : 'bin';
 }
 
+/** An archived attachment's content hash: SHA-256 in lower-case hex. */
+export const SHA256_HEX = /^[0-9a-f]{64}$/;
+
 /** Archived attachments are stored as <attachments dir>/<shard>/<attachmentFileName>; the shard is the hash's first characters. */
 const ATTACHMENT_SHARD_CHARS = 2;
 export const attachmentShard = (sha256: string): string => sha256.slice(0, ATTACHMENT_SHARD_CHARS);

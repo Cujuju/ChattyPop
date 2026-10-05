@@ -87,6 +87,8 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       callMain: unavailable('This plugin feature'),
     },
     rules: { pickFile: unavailable('Rule files') },
+    // The phone's page saves through its browser: the media route is its own origin, so a download link works there.
+    media: { saveAttachment: unavailable('Saving files') },
     desktop: {
       state: unavailable('Desktop settings'),
       set: unavailable('Desktop settings'),

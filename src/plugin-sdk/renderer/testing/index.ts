@@ -40,6 +40,7 @@ function desktopApi(core: CorePort, main: MainPort | null, deliver: (fn: (e: App
     discord: without('discord'),
     storage: without('storage'),
     rules: without('rules'),
+    media: without('media'),
     desktop: without('desktop'),
     marketplace: without('marketplace'),
     openPluginsFolder: absent('plugins folder'),

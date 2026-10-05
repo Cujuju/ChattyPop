@@ -98,6 +98,7 @@ export const api: RendererApi = {
   storage: group('storage'),
   plugins: group('plugins'),
   rules: group('rules'),
+  media: group('media'),
   desktop: group('desktop'),
   marketplace: group('marketplace'),
   openPluginsFolder: method(null, 'openPluginsFolder') as RendererApi['openPluginsFolder'],

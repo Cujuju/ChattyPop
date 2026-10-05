@@ -3,6 +3,7 @@ import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } fro
 import { attachmentUrl, attachmentView } from '@shared/media';
 import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
+import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
 import { setLightbox } from '@/state/ui';
 import { Icon } from '@/ui/icons';
 import { AttachmentTile } from './AttachmentTile';
@@ -94,12 +95,27 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
   );
 }
 
-/** A file as a chip: its name, size and download status. A file not held locally links to its message on Discord. */
+/**
+ * A file as a chip: its name, size and download status. A stored one saves where the owner picks (a window asks main;
+ * the phone's link downloads). A file not held locally links to its message on Discord.
+ */
 export function FileChip(props: { attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
-  const stored = () => a().status === 'stored';
+  const stored = () => canSave(a());
+  const save = (e: MouseEvent): void => {
+    if (!stored() || !savesThroughMain) return;
+    e.preventDefault();
+    void saveAttachment(a());
+  };
   return (
-    <a class={styles.file} data-status={a().status} href={stored() ? src(a()) : props.messageLink} download={stored() ? a().filename : undefined} target={stored() ? undefined : '_blank'}>
+    <a
+      class={styles.file}
+      data-status={a().status}
+      href={stored() ? src(a()) : props.messageLink}
+      download={stored() ? a().filename : undefined}
+      target={stored() ? undefined : '_blank'}
+      onClick={save}
+    >
       <span class={styles.fileName}>{a().filename}</span>
       <span class={styles.fileMeta}>
         {kilobytes(a()) ? `${kilobytes(a())} · ` : ''}

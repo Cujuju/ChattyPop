@@ -44,6 +44,7 @@ const api: RendererApi = {
   storage: invokers('storage'),
   plugins: invokers('plugins'),
   rules: invokers('rules'),
+  media: invokers('media'),
   desktop: invokers('desktop'),
   marketplace: invokers('marketplace'),
   openPluginsFolder: () => ipcRenderer.invoke(PLUGINS_OPEN_FOLDER_CHANNEL),

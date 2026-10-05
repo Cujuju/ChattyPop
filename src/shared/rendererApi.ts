@@ -129,6 +129,10 @@ export interface RendererApi {
     /** Asks for a file a rule's file action appends to (an existing one, or a new one); null when cancelled. */
     pickFile(format: RuleFileFormat): Promise<string | null>;
   };
+  media: {
+    /** Asks where to save an archived attachment (its own name offered), then copies it there. Resolves when done or cancelled. */
+    saveAttachment(sha256: string, filename: string): Promise<void>;
+  };
   /** Settings → Desktop; later changes arrive as 'desktop-changed' events (main window only). */
   desktop: {
     state(): Promise<DesktopState>;

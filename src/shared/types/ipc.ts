@@ -196,6 +196,9 @@ export const MAIN_INVOKE = {
   rules: {
     pickFile: 'rules:pick-file',
   },
+  media: {
+    saveAttachment: 'media:save-attachment',
+  },
   desktop: {
     state: 'desktop:state',
     set: 'desktop:set',
