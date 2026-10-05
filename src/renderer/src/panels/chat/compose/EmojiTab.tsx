@@ -2,13 +2,45 @@ import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import { canUseEmoji } from '@shared/compose';
 import { emojiUrl, type GuildEmoji } from '@shared/emoji';
 import { directory } from '@/state/directory';
-import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, unicodeEmoji } from '@/state/expressions';
+import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, unicodeEmoji, type UnicodeGroup } from '@/state/expressions';
 import { errorText } from '@/ui/format';
 import { PickerSearch, PickerSection, guildOrder, normalQuery } from './PickerParts';
 import styles from './Picker.module.css';
 
 /** A pick: Unicode emoji text, or a custom emoji. */
 export type EmojiPick = { unicode: string } | { custom: GuildEmoji };
+
+/** Every server's custom emoji matching `q` (a normalQuery), by server. */
+export function emojisByGuild(q: string): Map<string, GuildEmoji[]> {
+  const map = new Map<string, GuildEmoji[]>();
+  for (const e of loaded(expressionCatalog)?.emojis ?? []) {
+    if (q && !e.name.toLowerCase().includes(q)) continue;
+    const list = map.get(e.guildId);
+    if (list) list.push(e);
+    else map.set(e.guildId, [e]);
+  }
+  return map;
+}
+
+/** Whether the owner's plan lets them use `e` in a channel of `guildId`. */
+export const usableIn = (e: GuildEmoji, guildId: string): boolean => {
+  const perks = loaded(expressionCatalog)?.perks;
+  return !!perks && canUseEmoji(e, guildId, perks);
+};
+
+/** The owner's most-used emoji; a custom one shows only while a server still has it (its server decides usability). */
+export function frequentPicks(): EmojiPick[] {
+  const byId = new Map((loaded(expressionCatalog)?.emojis ?? []).map((e) => [e.id, e]));
+  return (loaded(frequentEmoji) ?? []).flatMap((f): EmojiPick[] => {
+    if ('unicode' in f) return [f];
+    const e = byId.get(f.custom.id);
+    return e ? [{ custom: e }] : [];
+  });
+}
+
+/** Unicode emoji groups (those this machine can draw) with the emoji matching `q` (a normalQuery); empty groups left out. */
+export const unicodeGroups = (q: string): UnicodeGroup[] =>
+  (loaded(unicodeEmoji) ?? []).map((g) => ({ ...g, emojis: g.emojis.filter((e) => !q || e.search.includes(q)) })).filter((g) => g.emojis.length);
 
 /**
  * The Emoji tab: the owner's frequently used emoji (hidden while searching), then every server's custom emoji (this
@@ -17,36 +49,12 @@ export type EmojiPick = { unicode: string } | { custom: GuildEmoji };
  */
 export function ServerEmojiTab(props: { guildId: string; onPick: OnPick }) {
   const [query, setQuery] = createSignal('');
-  const emojis = (): GuildEmoji[] => loaded(expressionCatalog)?.emojis ?? [];
-
-  /** Matching emoji by server. */
-  const byGuild = createMemo((): Map<string, GuildEmoji[]> => {
-    const q = normalQuery(query());
-    const map = new Map<string, GuildEmoji[]>();
-    for (const e of emojis()) {
-      if (q && !e.name.toLowerCase().includes(q)) continue;
-      const list = map.get(e.guildId);
-      if (list) list.push(e);
-      else map.set(e.guildId, [e]);
-    }
-    return map;
-  });
+  const byGuild = createMemo(() => emojisByGuild(normalQuery(query())));
   /** Server ids, not group objects: <For> keys by identity, so new objects each directory refetch would rebuild every image. */
   const customGuilds = (): string[] => guildOrder(props.guildId).filter((id) => byGuild().has(id));
   const guildName = (id: string): string => directory().find((g) => g.id === id)?.name ?? 'Server';
-  const usable = (e: GuildEmoji): boolean => {
-    const perks = loaded(expressionCatalog)?.perks;
-    return !!perks && canUseEmoji(e, props.guildId, perks);
-  };
-  /** The owner's most-used emoji; a custom one shows only while a server still has it (its server decides usability). */
-  const frequent = (): EmojiPick[] => {
-    const byId = new Map(emojis().map((e) => [e.id, e]));
-    return (loaded(frequentEmoji) ?? []).flatMap((f): EmojiPick[] => {
-      if ('unicode' in f) return [f];
-      const e = byId.get(f.custom.id);
-      return e ? [{ custom: e }] : [];
-    });
-  };
+  const usable = (e: GuildEmoji): boolean => usableIn(e, props.guildId);
+  const frequent = frequentPicks;
 
   return (
     <>
@@ -83,10 +91,7 @@ export function ServerEmojiTab(props: { guildId: string; onPick: OnPick }) {
 export function SystemEmojiTab(props: { onPick: OnPick }) {
   const [query, setQuery] = createSignal('');
   onMount(loadUnicodeEmojiData);
-  const groups = () => {
-    const q = normalQuery(query());
-    return (loaded(unicodeEmoji) ?? []).map((g) => ({ ...g, emojis: g.emojis.filter((e) => !q || e.search.includes(q)) })).filter((g) => g.emojis.length);
-  };
+  const groups = () => unicodeGroups(normalQuery(query()));
 
   return (
     <>
@@ -110,9 +115,9 @@ export function SystemEmojiTab(props: { onPick: OnPick }) {
   );
 }
 
-type OnPick = (pick: EmojiPick, keep: boolean) => void;
+export type OnPick = (pick: EmojiPick, keep: boolean) => void;
 
-function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick }) {
+export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick }) {
   return (
     <button
       type="button"
@@ -126,7 +131,7 @@ function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPic
   );
 }
 
-function UnicodeButton(props: { text: string; title: string; onPick: OnPick }) {
+export function UnicodeButton(props: { text: string; title: string; onPick: OnPick }) {
   return (
     <button type="button" class={styles.emoji} title={props.title} onClick={(ev) => props.onPick({ unicode: props.text }, ev.shiftKey)}>
       <span class={styles.emojiChar}>{props.text}</span>

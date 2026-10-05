@@ -1,7 +1,8 @@
 // Contract: dragging the fitted image down pulls it (never up), and letting go far enough down dismisses the viewer;
 // a zoomed image pans instead, and a cancelled gesture never dismisses.
 import { describe, expect, it } from 'vitest';
-import { DISMISS_DRAG_PX, FIT, dismisses, pullOf } from '../src/renderer/src/ui/zoomMath';
+import { DISMISS_DRAG_PX, dismisses } from '../src/renderer/src/ui/dragDismiss';
+import { FIT, pullOf } from '../src/renderer/src/ui/zoomMath';
 
 const ZOOMED = { scale: 2, x: -100, y: -100 };
 

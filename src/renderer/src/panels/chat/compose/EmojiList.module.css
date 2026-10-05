@@ -1,0 +1,76 @@
+/* The reaction picker's emoji (EmojiList): search over one scrolling list, beside a bar of section marks. Desktop: the
+   bar is a rail at the list's start, as in Discord; phone: a row under the list, above the keyboard. */
+.root {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The sections' offsetTop is measured from here (EmojiList's jump and track). */
+.list {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.bar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  padding: 0 var(--cp-space-2) var(--cp-space-4) var(--cp-space-4);
+  overflow-y: auto;
+  scrollbar-width: none;
+  --mark-size: var(--cp-picker-emoji);
+  --mark-glyph: var(--cp-picker-emoji-glyph);
+}
+
+.mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  border-radius: var(--cp-radius-md);
+  color: var(--cp-text-muted);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+  --guild-icon-size: var(--mark-glyph);
+}
+
+.mark svg {
+  width: var(--mark-glyph);
+  height: var(--mark-glyph);
+}
+
+.mark:hover {
+  background: var(--cp-surface-hover);
+}
+
+/* The section in view. */
+.mark[aria-current='true'] {
+  background: var(--cp-surface-active);
+  color: var(--cp-text-1);
+}
+
+/* Phone: the bar is a row of thumb-sized marks under the list, scrolling sideways, as Discord iOS's. */
+:global(html[data-surface='companion']) .main {
+  flex-direction: column-reverse;
+}
+
+:global(html[data-surface='companion']) .bar {
+  flex-direction: row;
+  padding: var(--cp-space-3) var(--cp-space-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  --mark-size: var(--cp-thumb-btn);
+  --mark-glyph: var(--cp-thumb-icon);
+}

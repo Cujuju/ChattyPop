@@ -38,8 +38,6 @@ export const SETTINGS_KEYS = {
   /** Settings → Jev: its view and open query (state/jevNavigation.ts). */
   jevView: 'jev.view',
   jevQuery: 'jev.query',
-  /** The reaction picker's emoji set (state/reactions.ts). */
-  reactionTab: 'reactions.tab',
   /** The New message window's archive choice (state/newMessage.ts). */
   newMessageArchive: 'newMessage.archive',
   /** List filters: rules (state/rules.ts) and Jev queries (state/jevNavigation.ts). */

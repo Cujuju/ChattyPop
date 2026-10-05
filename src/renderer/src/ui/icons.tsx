@@ -64,6 +64,15 @@ export const ICON_SHAPES = {
   crown: () => <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" />,
   edit: () => <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
   // A box with an arrow leaving it: opens outside the app.
+  // A plain smiley: the standard emoji.
+  emoji: () => (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 14a4.5 4.5 0 0 0 7 0" />
+      <circle cx="9" cy="10" r="1.25" fill="currentColor" />
+      <circle cx="15" cy="10" r="1.25" fill="currentColor" />
+    </>
+  ),
   external: () => <path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />,
   eye: () => (
     <>

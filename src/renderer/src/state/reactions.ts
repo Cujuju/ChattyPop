@@ -6,15 +6,6 @@ import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
 import { errorText } from '@/ui/format';
 import { refreshLoaded } from './archive';
 import { onAppEvent } from './events';
-import { createSetting } from '@plugin-sdk/renderer/settings';
-import { SETTINGS_KEYS } from '@shared/settings';
-import { oneOf } from '@shared/normalize';
-
-/** The reaction picker's emoji sets: the account's server emoji, or Unicode. */
-const REACTION_TABS = ['emoji', 'system'] as const;
-export type ReactionTab = (typeof REACTION_TABS)[number];
-/** The set the reaction picker last showed, restored on start. */
-export const [reactionTab, setReactionTab] = createSetting<ReactionTab>(SETTINGS_KEYS.reactionTab, REACTION_TABS[0], (v) => oneOf(REACTION_TABS, v, REACTION_TABS[0]));
 
 /** A picked or often-used emoji as a reaction (id null: Unicode, its text the name). */
 export const asReaction = (e: UsedEmoji): ArchiveEmoji => ('unicode' in e ? { id: null, name: e.unicode, animated: false } : { id: e.custom.id, name: e.custom.name, animated: e.custom.animated });

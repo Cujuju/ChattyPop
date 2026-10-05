@@ -1,5 +1,6 @@
-/* Reaction picker (ReactionPicker): the composer picker's look, as a floating popover at the point Add reaction was
-   chosen. ReactionPicker sets left/top/max-height to keep it inside what shows of the window; the body scrolls. */
+/* Reaction picker (ReactionPicker): the composer picker's look. Desktop: a floating popover at the point Add reaction
+   was chosen; ReactionPicker sets left/top/max-height to keep it inside the window. Phone: a bottom sheet, as Discord
+   iOS's, from under the top bar down to the keyboard (or the screen's bottom), moving with the keyboard. */
 .root {
   position: fixed;
   z-index: var(--cp-z-popover);
@@ -11,4 +12,40 @@
   border-radius: var(--cp-radius-lg);
   background: var(--cp-surface-2);
   box-shadow: var(--cp-shadow-flyout);
+  transition: translate var(--cp-duration-base) var(--cp-ease-out);
+}
+
+/* Following a finger: no easing. */
+.root[data-dragging='true'] {
+  transition: none;
+}
+
+:global(html[data-surface='companion']) .root {
+  /* Below the app's top bar (the companion's header: its stripe and a thumb control, padded). */
+  top: calc(env(safe-area-inset-top) + var(--cp-header-stripe-h) + var(--cp-thumb-btn) + 2 * var(--cp-space-2));
+  right: 0;
+  bottom: var(--cp-keyboard-inset);
+  left: 0;
+  width: auto;
+  height: auto;
+  padding: 0 env(safe-area-inset-right) var(--cp-safe-bottom) env(safe-area-inset-left);
+  border-width: var(--cp-border-w) 0 0;
+  border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0;
+}
+
+/* The sheet's grab handle: a pill centred in a thumb-tall strip that takes the drag. */
+.handle {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  height: var(--cp-space-8);
+  touch-action: none;
+}
+
+.handle::before {
+  content: '';
+  width: var(--cp-sheet-grip-w);
+  height: var(--cp-sheet-grip-h);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-text-muted);
 }

@@ -25,9 +25,10 @@ export function PickerSearch(props: { label: string; value: string; onInput: (v:
   );
 }
 
-export function PickerSection(props: { title: string; children: JSX.Element }) {
+/** A titled section of a picker's list. `bar`: the section bar's mark it belongs to (EmojiList), if the picker has one. */
+export function PickerSection(props: { title: string; bar?: string; children: JSX.Element }) {
   return (
-    <section class={styles.section}>
+    <section class={styles.section} data-bar={props.bar}>
       <h3 class={styles.sectionTitle}>{props.title}</h3>
       {props.children}
     </section>

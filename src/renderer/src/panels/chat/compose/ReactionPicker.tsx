@@ -1,20 +1,23 @@
-import { Match, Show, Switch, onCleanup, onMount } from 'solid-js';
-import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
+import { Show, createSignal, onCleanup, onMount } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelById } from '@/state/directory';
 import { loadExpressions } from '@/state/expressions';
-import { asReaction, closeReactionPicker, react, reactionPicker, reactionTab as tab, setReactionTab as setTab, type ReactionPickerState, type ReactionTab } from '@/state/reactions';
+import { asReaction, closeReactionPicker, react, reactionPicker, type ReactionPickerState } from '@/state/reactions';
 import { inCompanion } from '@/state/ui';
 import { coverOf, setOverlayCover } from '@/state/windows';
+import { dismisses, pullDown } from '@/ui/dragDismiss';
 import { tokenPx } from '@/ui/format';
 import { listen, onPointerDownOutside } from '@/ui/listen';
-import { ServerEmojiTab, SystemEmojiTab, type EmojiPick } from './EmojiTab';
-import picker from './Picker.module.css';
+import { EmojiList } from './EmojiList';
+import type { EmojiPick } from './EmojiTab';
 import styles from './ReactionPicker.module.css';
 
 const PICKER_COVER = 'reaction-picker';
 
-/** Discord's reaction picker: the composer picker's Emoji and System tabs, where Add reaction was chosen. Shift keeps it open. */
+/**
+ * Discord's reaction picker: one emoji list with a bar of section marks (EmojiList). On the desktop a popover where Add
+ * reaction was chosen; on a phone a bottom sheet over the keyboard, closed by dragging its handle down. Shift keeps it open.
+ */
 export function ReactionPicker() {
   return <Show when={reactionPicker()} keyed>{(s) => <PickerAt state={s} />}</Show>;
 }
@@ -27,19 +30,15 @@ function PickerAt(props: { state: ReactionPickerState }) {
     if (!keep) closeReactionPicker();
   };
 
-  // At the point it opened (on a phone, along the bottom, as Discord's sheet), pulled inside what shows of the window
-  // (on a phone, above the keyboard).
+  // Desktop: at the point it opened, pulled inside the window. The phone's sheet is placed by its CSS.
   const place = (): void => {
-    const margin = tokenPx('--cp-space-4');
-    const vv = window.visualViewport;
-    const top = vv?.offsetTop ?? 0;
-    const height = vv?.height ?? innerHeight;
-    root.style.maxHeight = `${height - 2 * margin}px`;
-    const r = root.getBoundingClientRect();
-    const x = inCompanion ? 0 : props.state.x;
-    const y = inCompanion ? top + height : props.state.y;
-    root.style.left = `${Math.max(margin, Math.min(x, innerWidth - r.width - margin))}px`;
-    root.style.top = `${Math.max(top + margin, Math.min(y, top + height - r.height - margin))}px`;
+    if (!inCompanion) {
+      const margin = tokenPx('--cp-space-4');
+      root.style.maxHeight = `${innerHeight - 2 * margin}px`;
+      const r = root.getBoundingClientRect();
+      root.style.left = `${Math.max(margin, Math.min(props.state.x, innerWidth - r.width - margin))}px`;
+      root.style.top = `${Math.max(margin, Math.min(props.state.y, innerHeight - r.height - margin))}px`;
+    }
     // The live Discord view is drawn above the page: it gets out of the picker's way.
     setOverlayCover(PICKER_COVER, coverOf(root));
   };
@@ -48,13 +47,6 @@ function PickerAt(props: { state: ReactionPickerState }) {
     loadExpressions(guildId);
     place();
     listen(window, 'resize', place);
-    const vv = window.visualViewport;
-    vv?.addEventListener('resize', place);
-    vv?.addEventListener('scroll', place);
-    onCleanup(() => {
-      vv?.removeEventListener('resize', place);
-      vv?.removeEventListener('scroll', place);
-    });
   });
   onPointerDownOutside(() => root, () => true, closeReactionPicker);
   listen(window, 'keydown', (e) => {
@@ -63,22 +55,37 @@ function PickerAt(props: { state: ReactionPickerState }) {
     closeReactionPicker();
   });
 
+  // Phone: the handle drags the sheet down; let go far enough and it closes, else it eases back.
+  const [pull, setPull] = createSignal(0);
+  let dragFrom: number | null = null;
+  const onHandleDown = (e: PointerEvent): void => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragFrom = e.clientY;
+  };
+  const onHandleMove = (e: PointerEvent): void => {
+    if (dragFrom !== null) setPull(pullDown(e.clientY - dragFrom));
+  };
+  const onHandleUp = (e: PointerEvent): void => {
+    if (dragFrom === null) return;
+    dragFrom = null;
+    const pulled = pull();
+    setPull(0);
+    if (dismisses(pulled, e.type === 'pointerup')) closeReactionPicker();
+  };
+
   return (
-    <div ref={root} class={styles.root} role="dialog" aria-label="Add reaction">
-      <div class={picker.tabs}>
-        <SegGroup role="radiogroup" ariaLabel="Emoji set" value={tab()} onChange={(v: ReactionTab) => setTab(v)}>
-          <SegButton value="emoji" label="Emoji" size="sm" />
-          <SegButton value="system" label="System" size="sm" />
-        </SegGroup>
-      </div>
-      <Switch>
-        <Match when={tab() === 'emoji'}>
-          <ServerEmojiTab guildId={guildId} onPick={onPick} />
-        </Match>
-        <Match when={tab() === 'system'}>
-          <SystemEmojiTab onPick={onPick} />
-        </Match>
-      </Switch>
+    <div
+      ref={root}
+      class={styles.root}
+      role="dialog"
+      aria-label="Add reaction"
+      data-dragging={pull() > 0}
+      style={pull() ? { translate: `0 ${pull()}px` } : undefined}
+    >
+      <Show when={inCompanion}>
+        <div class={styles.handle} aria-hidden="true" onPointerDown={onHandleDown} onPointerMove={onHandleMove} onPointerUp={onHandleUp} onPointerCancel={onHandleUp} />
+      </Show>
+      <EmojiList guildId={guildId} onPick={onPick} />
     </div>
   );
 }

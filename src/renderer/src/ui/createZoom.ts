@@ -1,7 +1,8 @@
 // Pinch, wheel, drag and double-tap zoom for one image (the Lightbox's), and drag-down to dismiss it, from pointer events:
 // touch and mouse alike.
 import { createSignal, onCleanup, type Accessor } from 'solid-js';
-import { FIT, dismisses, panBy, pullOf, zoomAt, type Point, type Size, type Zoom } from './zoomMath';
+import { dismisses } from './dragDismiss';
+import { FIT, panBy, pullOf, zoomAt, type Point, type Size, type Zoom } from './zoomMath';
 
 /** Enough to read small text in a screenshot; past this, pixels only get blurrier. */
 const MAX_SCALE = 6;

@@ -28,6 +28,8 @@
   --cp-switcher-h: 440px; /* about ten channels under the search field */
   --cp-grip-w: 40px;
   --cp-grip-h: 2px;
+  --cp-sheet-grip-w: 36px; /* a phone sheet's grab handle: iOS's grabber, 36 x 5 pt */
+  --cp-sheet-grip-h: 5px;
   --cp-qr-size: 176px; /* pairing QR: a phone camera reads it from arm's length */
   --cp-toolbar-scroll-room: 100lvh; /* phone companion page scroll: a full screen, more than any browser toolbar travels */
   --cp-screen-visible-h: 100dvh; /* phone companion in a browser tab: the visible area, which follows the toolbars */
