@@ -19,8 +19,9 @@ import { visibleChannelSql } from './privacy';
 export function directory(db: Db, unseenSince: number, selfId: string | null = null, readerId: string | null = selfId): DirectoryGuild[] {
   const notable = storedMatchSql(NOTABLE_QUERY, 'j', 'notable_');
   const guilds = db
-    .prepare('SELECT id, name, icon, hide_in_privacy AS hideInPrivacy FROM guilds WHERE id NOT IN (SELECT id FROM hidden_ids) ORDER BY name COLLATE NOCASE')
-    .all() as {
+    .prepare(`SELECT id, name, icon, hide_in_privacy AS hideInPrivacy FROM guilds LEFT JOIN guild_order o ON o.guild_id = guilds.id
+       WHERE id NOT IN (SELECT id FROM hidden_ids) ORDER BY id != @dms, o.position IS NULL, o.position, name COLLATE NOCASE`)
+    .all({ dms: DM_GUILD_ID }) as {
     id: string;
     name: string;
     icon: string | null;

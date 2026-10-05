@@ -202,6 +202,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `,
   // Discord's attachment flags (shared/media.ts ATTACHMENT_FLAG): a spoiler is marked here, not always by its name.
   'ALTER TABLE attachments ADD COLUMN flags INTEGER;',
+  // The owner's Discord sidebar order (main/discord/guildOrder.ts), 0 = top; apart from guilds, as READY names it before sync stores them.
+  'CREATE TABLE guild_order (guild_id TEXT PRIMARY KEY, position INTEGER NOT NULL);',
 ];
 
 /**

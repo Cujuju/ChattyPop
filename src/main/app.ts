@@ -27,6 +27,7 @@ import { HeaderCapture } from './discord/capture';
 import { GuildEmojiIndex } from './discord/guildEmojis';
 import { ReadStates } from './discord/readStates';
 import { watchPrivateChannels } from './discord/privateChannels';
+import { watchGuildOrder } from './discord/guildOrder';
 import { LiveLabelProviders } from './discord/labelProviders';
 import { LiveLabels } from './discord/liveLabels';
 import { discordFontUrl } from './discord/pageFonts';
@@ -141,6 +142,8 @@ void app.whenReady().then(() => {
   });
   // The signed-in account and its DM list, from READY: no request.
   watchPrivateChannels(discord.tap, core, diag);
+  // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
+  watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);

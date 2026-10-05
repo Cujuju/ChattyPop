@@ -7,6 +7,7 @@ import { directory } from './queries/directory';
 import { messagePage, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
 import { lastReader, markRead, newestMessageId, unreadMark } from './queries/readMarks';
+import { putGuildOrder } from './queries/guildOrder';
 import { putReadStates } from './queries/readStates';
 import { applyAccessFacts } from './access';
 import { ARRIVAL } from './arrival';
@@ -39,6 +40,7 @@ type Handlers = Pick<
   | 'replaceGuildRoles'
   | 'applyAccessFacts'
   | 'putReadStates'
+  | 'putGuildOrder'
   | 'syncState'
   | 'reconcileDeletes'
   | 'messagePage'
@@ -168,6 +170,9 @@ export function archiveHandlers(o: {
       const visible = visibleChannelIds(db, counts.map((c) => c.channelId));
       const states = counts.filter((c) => visible.has(c.channelId));
       if (states.length) o.emit({ type: 'read-states-changed', states });
+    },
+    putGuildOrder: (guildIds) => {
+      if (putGuildOrder(o.ready().db, guildIds)) o.noteChanged('');
     },
     applyOwnReaction: (r) => {
       const self = o.selfId();

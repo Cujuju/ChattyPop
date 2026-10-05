@@ -168,6 +168,8 @@ export interface CoreMethods {
   replaceGuildRoles(guildId: string, roles: RawRole[]): void;
   /** Server owners, channel overwrites and the owner's roles, as main reads them from the gateway (READY is too large to forward). */
   applyAccessFacts(f: AccessFacts): void;
+  /** The owner's server order in Discord's sidebar, top first; servers it leaves out (ones left, still archived) sort after it, by name. */
+  putGuildOrder(guildIds: string[]): void;
   /** Discord's unread mention counts as main keeps them, landing as `scope` says. */
   putReadStates(counts: ReadStateCount[], scope: ReadStateScope): void;
   /** Main added or removed the owner's reaction on Discord: the archive shows it before the gateway echo (which then changes nothing). */
