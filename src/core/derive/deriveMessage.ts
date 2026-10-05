@@ -13,6 +13,8 @@ interface RawAttachment {
   url: string;
   /** Alt text. */
   description?: string | null;
+  /** Discord's attachment flags (a spoiler's included). */
+  flags?: number;
 }
 
 export interface DerivableMessage {
@@ -35,7 +37,8 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
 }
 
 /** What an edit can change of an attachment, as one comparable string. */
-const attachmentState = (a: { id: string; filename: string; description?: string | null }): string => JSON.stringify([a.id, a.filename, a.description ?? null]);
+const attachmentState = (a: { id: string; filename: string; description?: string | null; flags?: number | null }): string =>
+  JSON.stringify([a.id, a.filename, a.description ?? null, a.flags ?? null]);
 
 /**
  * Brings a stored payload's attachments up to `m`'s when they differ. A re-fetch with unchanged text otherwise leaves
@@ -45,26 +48,26 @@ const attachmentState = (a: { id: string; filename: string; description?: string
 export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
   if (!Array.isArray(m.attachments)) return;
   const stored = db
-    .prepare('SELECT id, filename, description FROM attachments WHERE message_id = ? AND removed_at IS NULL ORDER BY rowid')
-    .all(m.id) as { id: string; filename: string; description: string | null }[];
+    .prepare('SELECT id, filename, description, flags FROM attachments WHERE message_id = ? AND removed_at IS NULL ORDER BY rowid')
+    .all(m.id) as { id: string; filename: string; description: string | null; flags: number | null }[];
   if (stored.map(attachmentState).join() === m.attachments.map(attachmentState).join()) return;
   const payload = parseRawJson<object>(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string | Buffer | null);
   if (payload) db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(JSON.stringify({ ...payload, attachments: m.attachments }), m.id);
 }
 
 /**
- * Records attachments (queued for download) and shared links for a stored message. An edit's rename (a spoiler toggle)
- * and alt text update the row; an attachment the message no longer lists is marked removed, once: Discord can't re-add it.
+ * Records attachments (queued for download) and shared links for a stored message. An edit's rename, alt text and flags
+ * (a spoiler toggle) update the row; an attachment the message no longer lists is marked removed, once: Discord can't re-add it.
  * Idempotent: safe on every insert and every MESSAGE_UPDATE (embeds often arrive later).
  */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
-    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description`,
+    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags`,
   );
   for (const a of m.attachments ?? []) {
-    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null);
+    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null, a.flags ?? null);
   }
   // Only a payload that lists attachments says which remain; a partial update without the field says nothing.
   if (Array.isArray(m.attachments)) {

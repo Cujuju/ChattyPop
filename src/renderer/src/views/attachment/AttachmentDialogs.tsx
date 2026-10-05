@@ -3,7 +3,7 @@
 import { Show, createEffect, createSignal, on } from 'solid-js';
 import { ALT_TEXT_MAX } from '@shared/compose';
 import type { ArchiveAttachment } from '@shared/contract';
-import { attachmentUrl, attachmentView, isSpoilerName, spoilerName } from '@shared/media';
+import { attachmentUrl, attachmentView } from '@shared/media';
 import {
   closeDeleteAttachment,
   closeModifyAttachment,
@@ -32,7 +32,7 @@ function Preview(props: { attachment: ArchiveAttachment }) {
       </Show>
       <Show when={attachmentView(a()) !== 'image' && attachmentView(a()) !== 'video'}>
         <span class={look.text} data-size="sm" data-tone="secondary">
-          {spoilerName(a().filename, false)}
+          {a().filename}
         </span>
       </Show>
     </div>
@@ -59,7 +59,7 @@ export function ModifyAttachmentDialog() {
     on(modifyingAttachment, (t) => {
       action.cancel();
       setDescription(t?.attachment.description ?? '');
-      setSpoiler(t ? isSpoilerName(t.attachment.filename) : false);
+      setSpoiler(t?.attachment.spoiler ?? false);
     }),
   );
   const submit = async (): Promise<void> => {
@@ -82,7 +82,7 @@ export function ModifyAttachmentDialog() {
             <Preview attachment={t().attachment} />
             <label class="cp-field">
               <span class="cp-label">Filename</span>
-              <input type="text" value={spoilerName(t().attachment.filename, false)} disabled />
+              <input type="text" value={t().attachment.filename} disabled />
             </label>
             <label class="cp-field">
               <span class="cp-label">Description (alt text)</span>

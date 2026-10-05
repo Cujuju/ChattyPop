@@ -180,12 +180,19 @@ export function checkOwnerEdit(v: unknown): OwnerEdit {
 function checkKeptAttachments(v: unknown): KeptAttachment[] {
   if (!Array.isArray(v) || v.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error('Not the attachments to keep.');
   return v.map((a: Partial<KeptAttachment> | null) => {
-    if (!a || typeof a.filename !== 'string' || !a.filename) throw new Error('Not an attachment to keep.');
-    if (a.description !== null && typeof a.description !== 'string') throw new Error('Not an attachment description.');
-    if (a.description && a.description.length > ALT_TEXT_MAX) throw new Error(`Discord allows ${ALT_TEXT_MAX} characters of alt text.`);
-    return { id: snowflakeArg(a.id, 'attachment'), filename: a.filename, description: a.description || null };
+    if (!a) throw new Error('Not an attachment to keep.');
+    const id = snowflakeArg(a.id, 'attachment');
+    if (a.change === undefined) return { id };
+    const { description, spoiler } = a.change as Partial<NonNullable<KeptAttachment['change']>>;
+    if (typeof description !== 'string' || typeof spoiler !== 'boolean') throw new Error('Not an attachment change.');
+    if (description.length > ALT_TEXT_MAX) throw new Error(`Discord allows ${ALT_TEXT_MAX} characters of alt text.`);
+    return { id, change: { description, spoiler } };
   });
 }
+
+/** An attachment as the web client's PATCH names it: kept ones by id; a modified one with its alt text and spoiler flag. */
+const keptBody = (a: KeptAttachment): Record<string, unknown> =>
+  a.change ? { id: a.id, description: a.change.description, is_spoiler: a.change.spoiler } : { id: a.id };
 
 /**
  * Saves the owner's edit as the web client does: only what it names changes (the text, the kept attachments' list).
@@ -195,7 +202,7 @@ export async function editOwnerMessage(api: DiscordWriter, v: unknown): Promise<
   const e = checkOwnerEdit(v);
   await api.patch(`channels/${e.channelId}/messages/${e.messageId}`, {
     ...(e.text !== undefined ? { content: e.text } : {}),
-    ...(e.attachments ? { attachments: e.attachments } : {}),
+    ...(e.attachments ? { attachments: e.attachments.map(keptBody) } : {}),
   });
 }
 

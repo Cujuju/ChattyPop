@@ -2,7 +2,7 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import { HOST_ATTACHMENT_ACTIONS } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
-import { attachmentUrl, isSpoilerName } from '@shared/media';
+import { attachmentUrl } from '@shared/media';
 import type { AttachmentBarView, HostAttachmentAction } from '@/plugins/messageSlots';
 import { attachmentActionItems } from '@/plugins/slots';
 import { inCompanion } from '@/state/ui';
@@ -45,7 +45,7 @@ function AttachmentBar(props: { message: ArchiveMessage; attachment: ArchiveAtta
 /** An attachment's frame: covered while it is a spoiler not yet revealed, marked once removed from its message. */
 export function AttachmentTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; children: JSX.Element }) {
   const [revealed, setRevealed] = createSignal(false);
-  const covered = () => isSpoilerName(props.attachment.filename) && !revealed();
+  const covered = () => props.attachment.spoiler && !revealed();
   return (
     <div class={styles.tile} data-covered={covered()} data-removed={props.attachment.removed}>
       {props.children}

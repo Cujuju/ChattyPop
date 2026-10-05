@@ -115,19 +115,21 @@ describe('owner edits', () => {
     expect(patches).toHaveLength(0);
   });
 
-  it('patches only the kept attachments for an attachment edit, the text untouched', async () => {
+  it("patches only the kept attachments, as the web client's Modify does: ids, and the changed one's alt text and spoiler flag", async () => {
     const { api, patches } = patchApi();
-    const kept = [{ id: '300000000000000001', filename: 'SPOILER_clip.mov', description: 'a chart' }];
+    const kept = [{ id: '300000000000000001', change: { description: 'a chart', spoiler: true } }, { id: '300000000000000002' }];
     await editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE, attachments: kept });
-    expect(patches).toEqual([[`channels/${CHANNEL}/messages/${MESSAGE}`, { attachments: kept }]]);
+    expect(patches).toEqual([
+      [`channels/${CHANNEL}/messages/${MESSAGE}`, { attachments: [{ id: '300000000000000001', description: 'a chart', is_spoiler: true }, { id: '300000000000000002' }] }],
+    ]);
   });
 
-  it('refuses a bad attachment id, name or over-long alt text, before any request', async () => {
+  it('refuses a bad attachment id, change or over-long alt text, before any request', async () => {
     const { api, patches } = patchApi();
     const edit = (a: unknown) => editOwnerMessage(api, { channelId: CHANNEL, messageId: MESSAGE, attachments: [a] as never });
-    await expect(edit({ id: '../x', filename: 'a.png', description: null })).rejects.toThrow(/attachment id/);
-    await expect(edit({ id: '300000000000000001', filename: '', description: null })).rejects.toThrow(/Not an attachment/);
-    await expect(edit({ id: '300000000000000001', filename: 'a.png', description: 'x'.repeat(ALT_TEXT_MAX + 1) })).rejects.toThrow(/alt text/);
+    await expect(edit({ id: '../x' })).rejects.toThrow(/attachment id/);
+    await expect(edit({ id: '300000000000000001', change: { description: null, spoiler: false } })).rejects.toThrow(/Not an attachment change/);
+    await expect(edit({ id: '300000000000000001', change: { description: 'x'.repeat(ALT_TEXT_MAX + 1), spoiler: false } })).rejects.toThrow(/alt text/);
     expect(patches).toHaveLength(0);
   });
 });

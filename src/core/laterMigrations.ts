@@ -200,6 +200,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   ALTER TABLE attachments ADD COLUMN description TEXT;
   ALTER TABLE attachments ADD COLUMN removed_at INTEGER;
   `,
+  // Discord's attachment flags (shared/media.ts ATTACHMENT_FLAG): a spoiler is marked here, not always by its name.
+  'ALTER TABLE attachments ADD COLUMN flags INTEGER;',
 ];
 
 /**

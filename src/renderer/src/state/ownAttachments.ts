@@ -4,7 +4,6 @@ import { api } from '@/api';
 import { createSignal } from 'solid-js';
 import type { KeptAttachment } from '@shared/compose';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
-import { spoilerName } from '@shared/media';
 import { canDelete, confirmDelete } from './ownMessages';
 import { closeWhenLocked, postingUnlocked } from './posting';
 
@@ -38,9 +37,8 @@ export function deleteAttachment(message: ArchiveMessage, attachment: ArchiveAtt
   if (postingUnlocked()) setDeleting({ message, attachment });
 }
 
-/** The attachments `m` keeps on Discord, as an edit names them. */
-const kept = (m: ArchiveMessage): KeptAttachment[] =>
-  m.attachments.filter((a) => !a.removed).map((a) => ({ id: a.id, filename: a.filename, description: a.description }));
+/** The attachments `m` keeps on Discord, by id, as an edit names them. */
+const kept = (m: ArchiveMessage): KeptAttachment[] => m.attachments.filter((a) => !a.removed).map((a) => ({ id: a.id }));
 
 /** What Modify can change: alt text (empty clears it) and the spoiler mark. */
 export interface AttachmentChange {
@@ -50,9 +48,7 @@ export interface AttachmentChange {
 
 /** Saves Modify's change; the row shows it once the archive has Discord's update. Rejects with Discord's reason. */
 export async function saveAttachment(t: MessageAttachment, change: AttachmentChange): Promise<void> {
-  const attachments = kept(t.message).map((a) =>
-    a.id === t.attachment.id ? { ...a, filename: spoilerName(a.filename, change.spoiler), description: change.description.trim() || null } : a,
-  );
+  const attachments = kept(t.message).map((a) => (a.id === t.attachment.id ? { ...a, change: { description: change.description.trim(), spoiler: change.spoiler } } : a));
   await api.discord.edit({ channelId: t.message.channelId, messageId: t.message.id, attachments });
 }
 

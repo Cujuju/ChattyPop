@@ -70,14 +70,13 @@ export const attachmentFileName = (sha256: string, filename: string): string => 
 
 export const attachmentUrl = (sha256: string, filename: string): string => mediaUrl('attachment', attachmentFileName(sha256, filename));
 
-/** Discord marks an attachment a spoiler by this filename prefix: its clients cover it until clicked. */
+/** Discord's attachment flags this app reads. */
+export const ATTACHMENT_FLAG = { spoiler: 1 << 3 } as const;
+/** An upload named with this prefix is a spoiler too (how clients mark one at upload). */
 const SPOILER_PREFIX = 'SPOILER_';
-export const isSpoilerName = (filename: string): boolean => filename.startsWith(SPOILER_PREFIX);
-/** `filename` with the spoiler mark set or cleared. */
-export const spoilerName = (filename: string, spoiler: boolean): string => {
-  const bare = isSpoilerName(filename) ? filename.slice(SPOILER_PREFIX.length) : filename;
-  return spoiler ? `${SPOILER_PREFIX}${bare}` : bare;
-};
+/** Whether Discord's clients cover the attachment until clicked: its spoiler flag (set by Modify), else its name. */
+export const isSpoiler = (a: { filename: string; flags: number | null }): boolean =>
+  ((a.flags ?? 0) & ATTACHMENT_FLAG.spoiler) !== 0 || a.filename.startsWith(SPOILER_PREFIX);
 
 /** A content type that says nothing about the media; the stored extension decides instead. */
 export const GENERIC_CONTENT_TYPE = 'application/octet-stream';

@@ -56,11 +56,10 @@ export interface OwnerEdit extends OwnerMessageRef {
   attachments?: KeptAttachment[];
 }
 
-/** An attachment a message keeps, with its name (a spoiler's carries SPOILER_) and alt text. */
+/** An attachment a message keeps, as Discord's client names it: the id alone, or with Modify's new alt text and spoiler mark. */
 export interface KeptAttachment {
   id: string;
-  filename: string;
-  description: string | null;
+  change?: { description: string; spoiler: boolean };
 }
 
 /** Discord's longest attachment description (alt text). */

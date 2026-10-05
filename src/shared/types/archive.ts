@@ -122,6 +122,8 @@ export interface ArchiveAttachment {
   status: 'pending' | 'stored' | 'failed' | 'evicted';
   /** Alt text. */
   description: string | null;
+  /** Covered until clicked, as Discord's clients show it (shared/media.ts isSpoiler). */
+  spoiler: boolean;
   /** It left its message on Discord (an edit removed it); the archive keeps it. */
   removed: boolean;
   /** Notes plugins attached (a transcript), in plugin build order. */

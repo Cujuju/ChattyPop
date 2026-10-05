@@ -2,7 +2,7 @@ import { getSetting, parseRawJson, setSetting, type Db } from '../db';
 import { deriveMessage, type DerivableMessage } from './deriveMessage';
 
 /** Bump when attachment/link derivation rules change; stored messages are re-derived on startup. */
-const DERIVE_VERSION = 7; // 2: custom emoji; 3: canonical link URLs; 4: one URL per X post; 5: bots share only unfurled links, one URL per Reddit post; 6: TikTok and Instagram fixer mirrors; 7: attachment alt text, renames, removals
+const DERIVE_VERSION = 8; // 2: custom emoji; 3: canonical link URLs; 4: one URL per X post; 5: bots share only unfurled links, one URL per Reddit post; 6: TikTok and Instagram fixer mirrors; 7: attachment alt text, renames, removals; 8: attachment flags
 const DERIVE_VERSION_KEY = 'archive.deriveVersion';
 /** Rows per read during re-derivation; bounds memory for large archives. */
 const REDERIVE_BATCH_ROWS = 1000;

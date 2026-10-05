@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { snowflakeFromMs } from '@shared/discord';
+import { ATTACHMENT_FLAG, isSpoiler } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
@@ -57,28 +58,30 @@ describe('archive: edits and deletes are never lost', () => {
     expect(archive.ingestMessages([rawMessage(OTHER, T0, 'x')], ARRIVAL.gateway).skipped).toBe(1);
   });
 
-  it('keeps an attachment an edit removed, marked; takes renames and alt text; a partial update removes nothing', () => {
-    const file = (id: string, filename: string, description?: string) => ({ id, filename, url: `https://cdn.discordapp.com/${id}`, description });
+  it('keeps an attachment an edit removed, marked; takes alt text and the spoiler flag; a partial update removes nothing', () => {
+    const file = (id: string, filename: string, description?: string, flags?: number) => ({ id, filename, url: `https://cdn.discordapp.com/${id}`, description, flags });
     const attachments = () =>
-      db.prepare('SELECT id, filename, description, removed_at IS NOT NULL AS removed FROM attachments ORDER BY id').all() as {
+      db.prepare('SELECT id, filename, description, flags, removed_at IS NOT NULL AS removed FROM attachments ORDER BY id').all() as {
         id: string;
         filename: string;
         description: string | null;
+        flags: number | null;
         removed: number;
       }[];
     const m = { ...rawMessage(GENERAL, T0, 'two clips'), attachments: [file('a1', 'one.mov'), file('a2', 'two.mov')] };
     archive.ingestMessages([m], ARRIVAL.gateway);
     archive.applyUpdate({ id: m.id, channel_id: GENERAL, embeds: [] });
     expect(attachments().map((a) => a.removed)).toEqual([0, 0]);
-    archive.applyUpdate({ id: m.id, channel_id: GENERAL, attachments: [file('a2', 'SPOILER_two.mov', 'a chart')] });
+    archive.applyUpdate({ id: m.id, channel_id: GENERAL, attachments: [file('a2', 'two.mov', 'a chart', ATTACHMENT_FLAG.spoiler)] });
     expect(attachments()).toEqual([
-      { id: 'a1', filename: 'one.mov', description: null, removed: 1 },
-      { id: 'a2', filename: 'SPOILER_two.mov', description: 'a chart', removed: 0 },
+      { id: 'a1', filename: 'one.mov', description: null, flags: null, removed: 1 },
+      { id: 'a2', filename: 'two.mov', description: 'a chart', flags: ATTACHMENT_FLAG.spoiler, removed: 0 },
     ]);
+    expect(isSpoiler(attachments()[1]!)).toBe(true);
     // A re-fetch with the same text still updates the stored payload, which re-derivation reads.
     archive.ingestMessages([{ ...m, attachments: [file('a2', 'two.mov', 'a chart')] }], ARRIVAL.sync);
-    const raw = JSON.parse(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string) as { attachments: { filename: string }[] };
-    expect(raw.attachments.map((a) => a.filename)).toEqual(['two.mov']);
+    const raw = JSON.parse(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string) as { attachments: { flags?: number }[] };
+    expect(raw.attachments.map((a) => a.flags)).toEqual([undefined]);
     // An older copy never brings a removed attachment back.
     archive.ingestMessages([m], ARRIVAL.sync);
     expect(attachments()[0]!.removed).toBe(1);

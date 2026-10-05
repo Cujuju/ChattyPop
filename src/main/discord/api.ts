@@ -48,12 +48,22 @@ function pageFetch(wc: WebContents, url: string, req: PageRequest): Promise<Page
   return wc.executeJavaScript(script) as Promise<PageResponse>;
 }
 
-/** Discord's reason in an error body, when it gives one. */
-function discordReason(body: string): string {
+/** An Invalid Form Body's field errors (`{ attachments: { 0: { description: { _errors: [{ message }] } } } }`) as `path: message`. */
+function fieldErrors(errors: unknown, path: readonly string[] = []): string[] {
+  if (!errors || typeof errors !== 'object') return [];
+  return Object.entries(errors).flatMap(([key, v]) =>
+    key === '_errors' && Array.isArray(v) ? v.map((e) => `${path.join('.')}: ${String((e as { message?: unknown }).message)}`) : fieldErrors(v, [...path, key]),
+  );
+}
+
+/** Discord's reason in an error body, when it gives one, with the fields it refused. */
+export function discordReason(body: string): string {
   try {
-    const j = JSON.parse(body) as { message?: unknown; captcha_key?: unknown };
+    const j = JSON.parse(body) as { message?: unknown; captcha_key?: unknown; errors?: unknown };
     if (j.captcha_key) return 'Discord asked for a captcha; post once by hand in the live client, then try again.';
-    return typeof j.message === 'string' ? j.message : '';
+    const message = typeof j.message === 'string' ? j.message : '';
+    const fields = fieldErrors(j.errors);
+    return fields.length ? `${message} (${fields.join('; ')})` : message;
   } catch {
     return '';
   }

@@ -1,5 +1,5 @@
 // Contract: an attachment's Modify and Delete save as one edit naming every attachment the message keeps (Discord drops one
-// left out); Modify renames for the spoiler mark and trims alt text; deleting the last of a message with nothing else
+// left out); Modify sends the trimmed alt text and spoiler mark; deleting the last of a message with nothing else
 // deletes the message, which Discord can't keep empty.
 import { createRequire } from 'node:module';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,7 +34,7 @@ const own = (await import(ownAttachmentsPath)) as {
   confirmDeleteAttachment(t: Target): Promise<void>;
 };
 
-const file = (id: string, filename: string, more: Partial<ArchiveAttachment> = {}) => ({ id, filename, description: null, removed: false, ...more }) as ArchiveAttachment;
+const file = (id: string, filename: string, more: Partial<ArchiveAttachment> = {}) => ({ id, filename, description: null, spoiler: false, removed: false, ...more }) as ArchiveAttachment;
 const message = (attachments: ArchiveAttachment[], content = '') =>
   ({ id: '500000000000000001', channelId: '300000000000000001', content, stickers: [], attachments, author: { id: SELF }, deletedAt: null, prunedAt: null }) as unknown as ArchiveMessage;
 const ref = { channelId: '300000000000000001', messageId: '500000000000000001' };
@@ -46,22 +46,22 @@ beforeEach(() => {
 
 describe("the owner's attachments", () => {
   const one = file('600000000000000001', 'one.mov');
-  const two = file('600000000000000002', 'SPOILER_two.png', { description: 'a chart' });
+  const two = file('600000000000000002', 'two.png', { description: 'a chart', spoiler: true });
   const gone = file('600000000000000003', 'gone.png', { removed: true });
 
-  it('Modify names every kept attachment, renaming for the spoiler mark and trimming alt text', async () => {
+  it('Modify names every kept attachment by id, and the modified one with its trimmed alt text and spoiler mark', async () => {
     const m = message([one, two, gone]);
     await own.saveAttachment({ message: m, attachment: one }, { description: '  a clip ', spoiler: true });
     await own.saveAttachment({ message: m, attachment: two }, { description: ' ', spoiler: false });
     expect(sent.edits as OwnerEdit[]).toEqual([
-      { ...ref, attachments: [{ id: one.id, filename: 'SPOILER_one.mov', description: 'a clip' }, { id: two.id, filename: 'SPOILER_two.png', description: 'a chart' }] },
-      { ...ref, attachments: [{ id: one.id, filename: 'one.mov', description: null }, { id: two.id, filename: 'two.png', description: null }] },
+      { ...ref, attachments: [{ id: one.id, change: { description: 'a clip', spoiler: true } }, { id: two.id }] },
+      { ...ref, attachments: [{ id: one.id }, { id: two.id, change: { description: '', spoiler: false } }] },
     ]);
   });
 
   it('Delete keeps the others; the last of a message with nothing else deletes the message', async () => {
     await own.confirmDeleteAttachment({ message: message([one, two, gone]), attachment: one });
-    expect(sent.edits as OwnerEdit[]).toEqual([{ ...ref, attachments: [{ id: two.id, filename: two.filename, description: 'a chart' }] }]);
+    expect(sent.edits as OwnerEdit[]).toEqual([{ ...ref, attachments: [{ id: two.id }] }]);
     await own.confirmDeleteAttachment({ message: message([one, gone]), attachment: one });
     expect(sent.deletes as OwnerMessageRef[]).toEqual([ref]);
     await own.confirmDeleteAttachment({ message: message([one], 'text stays'), attachment: one });
