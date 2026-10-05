@@ -1,4 +1,12 @@
 /* Per-component dimensions. Theme-independent: no theme overrides these, so they sit on :root only. */
+
+/* Registered so <html> can ease it (sizes.css :root says who sets it); 0 outside the iPhone shell. */
+@property --cp-keyboard-inset {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
 :root {
   /* Layout: app frame */
   --cp-topbar-h: 48px;
@@ -23,6 +31,12 @@
   --cp-qr-size: 176px; /* pairing QR: a phone camera reads it from arm's length */
   --cp-toolbar-scroll-room: 100lvh; /* phone companion page scroll: a full screen, more than any browser toolbar travels */
   --cp-screen-visible-h: 100dvh; /* phone companion in a browser tab: the visible area, which follows the toolbars */
+  /* The iPhone shell's keyboard: the web view stays full-screen and ShellViewController sets --cp-keyboard-inset (how far
+     the keyboard covers the page's bottom) and this (how long iOS takes to get there) on <html> as iOS announces it.
+     <html> eases the inset over it (base.css, pair.css), so what pads itself above the keyboard moves with it. */
+  --cp-keyboard-duration: 0ms;
+  /* The home-bar inset the page still keeps clear: none once the keyboard covers it. */
+  --cp-safe-bottom: max(0px, env(safe-area-inset-bottom) - var(--cp-keyboard-inset));
 
   /* Glyphs drawn in CSS */
   --cp-chevron-size: 5px; /* disclosure chevron box */

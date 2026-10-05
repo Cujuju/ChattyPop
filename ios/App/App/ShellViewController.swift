@@ -31,16 +31,20 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private var pairingURL: URL?
     private var cookieStore: WKHTTPCookieStore?
     private var cookieRevision = 0
-    /// The web view's bottom, raised by the keyboard's cover.
-    private var keyboardBottom: NSLayoutConstraint?
     /// The keyboard's last announced frame, in its screen's coordinates; kept to refit when the window changes.
     private var keyboardFrame: CGRect?
-    /// While the keyboard opens, WebKit's offsets to reveal the focused field are undone until then.
+    /// How far the keyboard covers the web view's bottom, as last told to the page.
+    private var keyboardCover: CGFloat = 0
+    /// After the keyboard last moved, WebKit's offsets to reveal the focused field are undone until then.
     private var revealHeldUntil: Date?
     private var heldOffset: NSKeyValueObservation?
     private var restoringOffset = false
     /// How long after the keyboard's animation WebKit may still try to reveal the focused field.
     private static let revealSettle: TimeInterval = 0.3
+    // Mirrors SHELL_KEYBOARD_PROPERTIES in src/shared/shell.ts (the theme's sizes.css reads them).
+    private static let keyboardInsetProperty = "--cp-keyboard-inset"
+    private static let keyboardDurationProperty = "--cp-keyboard-duration"
+    private static let millisecondsPerSecond: Double = 1000
 
     private static var savedOrigin: URL? {
         guard let value = UserDefaults.standard.string(forKey: originKey) else { return nil }
@@ -196,9 +200,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     }
 
     /// capacitor.config.ts sets Keyboard resize 'none': the plugin's 'native' resize waits for the keyboard's animation
-    /// plus 0.2 s. Instead the web view sits in a full-window container and its bottom moves to the keyboard's top as soon
-    /// as the keyboard announces its frame. The web view's own frame shrinks, so the page's visual viewport and bottom
-    /// safe area change as they did under 'native'.
+    /// plus 0.2 s. Instead the web view stays full-window and the page moves itself, as a native app's content does: each
+    /// keyboard announcement tells it the cover and iOS's duration (publishKeyboard), and the page eases its inset over it.
     private func installKeyboardContainer() {
         guard let webView else { return }
         let container = UIView(frame: webView.frame)
@@ -206,22 +209,20 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         view = container
         container.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
-        let bottom = webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
-        keyboardBottom = bottom
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            bottom,
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)),
                                                name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
-        // As the keyboard opens, WebKit scrolls the focused field into view by the keyboard's height although the web view
-        // already ends above it (the content size still has the pre-keyboard height), so the page draws pushed down for a
-        // few frames. While the keyboard opens, a vertical offset WebKit sets is undone before it is drawn; afterwards the
-        // focused field is revealed again, which scrolls a page taller than the viewport and leaves the others alone.
+        // WebKit scrolls the whole web view to reveal a focused field the keyboard covers, although the page lays itself out
+        // above the keyboard. While the keyboard is up or moving, a vertical offset WebKit sets is undone before it is
+        // drawn; once it settles, the focused field is revealed within its own scrolling box (publishKeyboard).
         heldOffset = webView.scrollView.observe(\.contentOffset, options: [.old, .new]) { [weak self] scrollView, change in
-            guard let self, !self.restoringOffset, let until = self.revealHeldUntil, Date() < until,
+            guard let self, !self.restoringOffset,
+                  self.keyboardCover > 0 || (self.revealHeldUntil.map { Date() < $0 } ?? false),
                   let old = change.oldValue, let new = change.newValue, old.y != new.y,
                   !scrollView.isDragging, !scrollView.isDecelerating, !scrollView.isZooming,
                   scrollView.zoomScale <= scrollView.minimumZoomScale + 0.01 else { return }
@@ -240,29 +241,33 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
               (note.object as? UIScreen).map({ $0 === screen }) ?? true,
               let end = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
         keyboardFrame = end
+        // iOS's own duration, so the page moves at the keyboard's pace; an interactive dismiss's stream has none.
         let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0
-        // An animated arrival on screen; an interactive dismiss's stream has no duration.
         let opening = duration > 0 && end.minY < screen.bounds.maxY - 1
-        revealHeldUntil = opening ? Date().addingTimeInterval(duration + Self.revealSettle) : nil
-        fitAboveKeyboard(revealAfter: opening ? duration + Self.revealSettle : nil)
+        revealHeldUntil = Date().addingTimeInterval(duration + Self.revealSettle)
+        publishKeyboard(duration: duration, revealAfter: opening ? duration + Self.revealSettle : nil)
     }
 
-    /// Ends the web view at the top of a docked keyboard over this window. Not animated: WebKit draws an animated resize at
-    /// the final size inside the moving frame, which pushes the page down. A floating keyboard covers nothing, and the
-    /// cover never exceeds the window.
-    private func fitAboveKeyboard(revealAfter delay: TimeInterval? = nil) {
-        guard let keyboardBottom, let screen = view.window?.screen else { return }
+    /// Tells the page how far a docked keyboard over this window covers it, and how long iOS takes to get there; the page
+    /// eases --cp-keyboard-inset over that time (the theme's sizes.css). The web view never resizes: WebKit draws an
+    /// animated resize at the final size inside the moving frame, which pushes the page down. A floating keyboard covers
+    /// nothing, and the cover never exceeds the window.
+    private func publishKeyboard(duration: TimeInterval = 0, revealAfter delay: TimeInterval? = nil) {
+        guard let screen = view.window?.screen else { return }
         var cover: CGFloat = 0
         if let keyboardFrame, keyboardFrame.maxY >= screen.bounds.maxY - 1 {
             let keyboard = view.convert(keyboardFrame, from: screen.coordinateSpace)
             let overlap = view.bounds.intersection(keyboard)
             if !overlap.isNull, overlap.width > 0 { cover = min(view.bounds.maxY - overlap.minY, view.bounds.height) }
         }
-        if keyboardBottom.constant != -cover {
-            keyboardBottom.constant = -cover
-            UIView.performWithoutAnimation { view.layoutIfNeeded() }
+        if cover != keyboardCover {
+            keyboardCover = cover
+            let ms = Int((duration * Self.millisecondsPerSecond).rounded())
+            let style = "document.documentElement.style"
+            webView?.evaluateJavaScript("\(style).setProperty('\(Self.keyboardDurationProperty)', '\(ms)ms'); \(style).setProperty('\(Self.keyboardInsetProperty)', '\(cover)px')")
         }
         guard let delay else { return }
+        // Once the page has moved above the keyboard, the focused field is revealed within its own scrolling box.
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.webView?.evaluateJavaScript("document.activeElement?.scrollIntoView({ block: 'nearest' })")
         }
@@ -270,8 +275,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // The window moved, resized or rotated: refit to the keyboard's last frame.
-        fitAboveKeyboard()
+        // The window moved, resized or rotated: tell the page the keyboard's cover in the new bounds.
+        publishKeyboard()
     }
 
     /// The page's `{ r, g, b }` (0–255): the surface above the keyboard, painted behind it on every theme change.

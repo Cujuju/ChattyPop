@@ -17,3 +17,5 @@ export type ApnsEnvironment = (typeof APNS_ENVIRONMENTS)[number];
 export const isApnsEnvironment = (v: unknown): v is ApnsEnvironment => (APNS_ENVIRONMENTS as readonly unknown[]).includes(v);
 /** Global the app sets before the page loads (ShellViewController.swift): `{ apsEnvironment: ApnsEnvironment }`. */
 export const SHELL_NATIVE_GLOBAL = 'chattyPopShell';
+/** Custom properties the app sets on `<html>` as the keyboard moves (ShellViewController.swift; the theme's sizes.css reads them). */
+export const SHELL_KEYBOARD_PROPERTIES = { inset: '--cp-keyboard-inset', duration: '--cp-keyboard-duration' } as const;

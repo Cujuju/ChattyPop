@@ -273,6 +273,7 @@
   --cp-duration-slow: 180ms;
   --cp-ease: ease;
   --cp-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --cp-ease-keyboard: cubic-bezier(0.38, 0.7, 0.125, 1); /* iOS's keyboard motion (its private curve 7): an approximation (assumption); its duration comes from iOS exactly */
   --cp-duration-sweep: 1400ms; /* indeterminate progress, one pass */
 
   /* Z-index layers */

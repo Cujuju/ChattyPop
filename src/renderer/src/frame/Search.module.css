@@ -252,7 +252,8 @@
 }
 
 /* Phone: the panel spans the top bar's width under it (anchored to the companion's positioned header, not the field),
-   and stops at the visible area's bottom edge, above the keyboard when it is up. */
+   and stops at the visible area's bottom edge, above the keyboard when it is up (a browser tab's --visible-h, the
+   iPhone shell's --cp-keyboard-inset). */
 :global(html[data-surface='companion']) .root {
   position: static;
 }
@@ -261,7 +262,7 @@
   top: 100%;
   left: calc(var(--cp-bezel-gap) + env(safe-area-inset-left));
   right: calc(var(--cp-bezel-gap) + env(safe-area-inset-right));
-  max-height: calc(var(--visible-h, var(--cp-screen-visible-h)) - env(safe-area-inset-top) - var(--cp-thumb-btn) - var(--cp-space-3) * 2 - var(--cp-bezel-gap));
+  max-height: calc(var(--visible-h, var(--cp-screen-visible-h)) - var(--cp-keyboard-inset) - env(safe-area-inset-top) - var(--cp-thumb-btn) - var(--cp-space-3) * 2 - var(--cp-bezel-gap));
 }
 
 :global(html[data-surface='companion']) .saved,

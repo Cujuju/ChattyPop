@@ -17,12 +17,16 @@ pushes below are the transport's: this doc states what the shell expects of it, 
   There is one QR for both the web app and the native app. Typing the code in the app still works.
 - **One display mode.** `browser | standalone | shell` is decided in one place and published as
   `<html data-display>`. CSS and the install banner read it, instead of scattered `display-mode` media queries.
-- **Keyboard:** `ShellViewController` puts the web view in a full-window container and raises its bottom to the keyboard's
-  top as soon as the keyboard announces its frame, without animating: WebKit draws an animated resize at the final size
-  inside the moving frame, which pushes the page down. The top bar stays and the home-bar inset drops to 0 on its own. The plugin's `resize` is `'none'`: its `'native'`
-  resize waited for the keyboard's animation plus 0.2 s. The accessory bar (⌃⌄✓) is hidden, and the keyboard follows the theme's colour scheme.
-  The resize uncovers the window behind the keyboard's rounded corners; the page posts its `--cp-surface-1` as `{ r, g, b }`
-  to the native `shellBackdrop` handler, which paints the window with it (`#090b10` until the first post).
+- **Keyboard:** the web view stays full-window and the page moves itself, as a native app's content does. On each keyboard
+  announcement `ShellViewController` sets `--cp-keyboard-inset` (how far the keyboard covers the page) and
+  `--cp-keyboard-duration` (iOS's duration for that move) on `<html>`; `<html>` eases the inset over that time with
+  `--cp-ease-keyboard` (an approximation of iOS's private curve), so whatever pads itself above the keyboard rides it.
+  `--cp-safe-bottom` is the home-bar inset less the keyboard's cover. The web view is never resized: WebKit draws an
+  animated resize at the final size inside the moving frame, which pushes the page down. While the keyboard is up or
+  moving, WebKit's scroll of the whole web view to reveal the focused field is undone. The plugin's `resize` is `'none'`:
+  its `'native'` resize waited for the keyboard's animation plus 0.2 s. The accessory bar (⌃⌄✓) is hidden, and the
+  keyboard follows the theme's colour scheme. The page posts its `--cp-surface-1` as `{ r, g, b }` to the native
+  `shellBackdrop` handler, which paints the window with it (`#090b10` until the first post).
 - **Push:** Web Push doesn't exist in WKWebView, so the shell uses APNs (phase D). The home-screen web app keeps Web Push.
 - **Share auth reuses the phone's pairing.** The app copies the transport's pairing cookie (`cp_companion`) into a shared
   Keychain item, and the extension sends it. No new credential kind, and unpairing the phone on the desktop cuts the

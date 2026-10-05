@@ -75,6 +75,11 @@ body,
   overflow: hidden;
 }
 
+/* The iPhone shell's keyboard inset follows the keyboard, at iOS's own pace (sizes.css). */
+html {
+  transition: --cp-keyboard-inset var(--cp-keyboard-duration) var(--cp-ease-keyboard);
+}
+
 /* Phone companion in a browser tab: browsers retract their toolbars only while the page itself scrolls, so the page
    gets scroll room and the app shell (Companion.module.css) stays pinned to the visible area. A home-screen app or
    the iPhone shell has no toolbars and keeps the rules above. data-display: companion/shell.ts. */

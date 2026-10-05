@@ -20,6 +20,8 @@ html {
   background: var(--cp-ground);
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  /* The iPhone shell's keyboard inset follows the keyboard, at iOS's own pace (sizes.css). */
+  transition: --cp-keyboard-inset var(--cp-keyboard-duration) var(--cp-ease-keyboard);
 }
 
 .pair {
@@ -28,7 +30,7 @@ html {
   min-height: 100dvh;
   margin: 0;
   padding: max(var(--cp-space-8), env(safe-area-inset-top)) max(var(--cp-space-7), env(safe-area-inset-right))
-    max(var(--cp-space-8), env(safe-area-inset-bottom)) max(var(--cp-space-7), env(safe-area-inset-left));
+    max(var(--cp-space-8), var(--cp-safe-bottom) + var(--cp-keyboard-inset)) max(var(--cp-space-7), env(safe-area-inset-left));
   color: var(--cp-text-1);
   font-family: var(--cp-font-sans);
   font-size: var(--cp-phone-text);
