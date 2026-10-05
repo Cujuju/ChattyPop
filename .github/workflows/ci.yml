@@ -36,3 +36,27 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+  release-on-sdk-change:
+    # Plugin repos build against main: once its plugin SDK changes, their new releases need an app that has it. Ship that
+    # app as soon as main passes, rather than waiting for someone to press Release app.
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Release the app if PLUGIN_SDK_VERSION changed in this push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE: ${{ github.event.before }}
+        # A push with no known parent (a new branch, a force push) reads as unchanged; Release app can still be run by hand.
+        run: |
+          sdk() { git show "$1:src/shared/installedPlugins.ts" 2>/dev/null | sed -n "s/^export const PLUGIN_SDK_VERSION = '\(.*\)';/\1/p"; }
+          old=$(sdk "$BEFORE"); new=$(sdk HEAD)
+          echo "Plugin SDK: ${old:-unknown} -> $new"
+          if [ -n "$old" ] && [ -n "$new" ] && [ "$old" != "$new" ]; then gh workflow run release.yml --ref main; fi

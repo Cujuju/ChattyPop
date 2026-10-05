@@ -40,7 +40,7 @@ CI (`.github/workflows/ci.yml`) type-checks, tests and builds every push and pul
 - **Actions → Release app → Run workflow** releases the head of `main`, or
 - push a tag naming a commit's version: `node scripts/runTs.mjs scripts/printVersion.ts` prints it, then `git tag v<version>` and `git push origin v<version>`.
 
-The workflow refuses a version that is already released, and a tag that isn't its commit's version.
+The workflow refuses a version that is already released, and a tag that isn't its commit's version. A push to `main` that changes `PLUGIN_SDK_VERSION` releases the app on its own once CI passes, since plugin repos build against `main` and their new releases need an app with that SDK.
 
 ## Where things live
 - Archive (database and media): Settings → Archive → Location (default: the app profile). The folder is set in `%APPDATA%\chattypop\storage.json`.
