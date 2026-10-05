@@ -1,4 +1,4 @@
-import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
+import { For, Show, batch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { ArchiveMessage, UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import { MS_PER_MIN } from '@shared/units';
@@ -17,6 +17,7 @@ import { UnreadBanner } from '@/ui/UnreadBanner';
 import { onUserScrollNewer } from '@/ui/scrollIntent';
 import { createShown, createWindowFocused } from '@/ui/seen';
 import { overlayOpen } from '@/state/overlay';
+import { inCompanion } from '@/state/ui';
 import type { PanelId } from '@/panels/titles';
 import { chatFooterItems } from '@/plugins/slots';
 import { createTallestBox } from '@/ui/tallestBox';
@@ -109,7 +110,10 @@ export function ArchiveView() {
 
   // Follows new messages unless the user scrolled up, the window doesn't reach the newest (a jump far back), or a jumped-to
   // message is held in view.
-  const log = createFollowBottom(() => !atNewest() || vlog.holding());
+  // On the phone, nor while the Archive is off screen (the app in the background, another section shown), so what
+  // arrives meanwhile stays below where the owner left off.
+  const [offScreen, setOffScreen] = createSignal(false);
+  const log = createFollowBottom(() => !atNewest() || vlog.holding() || offScreen());
 
   // The open last placed (held or scrolled to the newest): until then the rows and following may be the last open's.
   const [placed, setPlaced] = createSignal(archiveLoads());
@@ -157,6 +161,19 @@ export function ArchiveView() {
     const focused = createWindowFocused();
     // Read only while the owner can look at it: on screen, the window focused, nothing over the chat area.
     lookable = () => shown() && focused() && !overlayOpen();
+    if (inCompanion) {
+      createEffect(
+        on(shown, (now) => {
+          if (!now) return void setOffScreen(true);
+          if (!offScreen()) return;
+          // Back on screen: follow again only from the bottom, before following resumes and scrolls there.
+          batch(() => {
+            log.detach();
+            setOffScreen(false);
+          });
+        }, { defer: true }),
+      );
+    }
     watchArchive(lookable, seenNewest);
     // After the rows are drawn, measured or moved (startOf tracks every re-layout; shift translates them): positions
     // are read from the page.
