@@ -180,8 +180,8 @@
   --cp-composer-send-radius: calc(var(--cp-composer-radius) - var(--cp-composer-send-inset) - var(--cp-stroke-w)); /* Send's corners concentric with the box's outer edge: its radius less Send's distance from it (the inset inside the stroke, plus the stroke) */
   --cp-composer-btn: var(--cp-thumb-btn); /* attach / GIF / sticker / emoji; the phone shows attach and emoji only */
   --cp-composer-icon: var(--cp-thumb-icon);
-  --cp-composer-send: var(--cp-composer-btn); /* Send's square; the phone takes Discord's (phone.css) */
-  --cp-composer-send-icon: var(--cp-composer-icon);
+  --cp-composer-send: 32px; /* Discord desktop's composer button (its live client, 2026-10-06): 12px from a one-line box's edges; the phone takes Discord iOS's (phone.css) */
+  --cp-composer-send-icon: 20px; /* 6px clear of its edge, as a thumb icon is */
   --cp-header-primary-icon: var(--cp-btn-h-sm); /* a panel header's primary action as an icon (Summarize); the phone takes Send's size */
   --cp-composer-file: 112px; /* attached-file preview tile */
   --cp-typing-h: 20px; /* the "is typing…" line above the message box: one line of xs text, 4px above and below */
