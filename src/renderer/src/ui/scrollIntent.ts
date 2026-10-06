@@ -5,10 +5,7 @@ import { scrolledFromBottom } from './scrollEdges';
 /** Keys that scroll a log, or move its row focus, toward the newest row. */
 const NEWER_KEYS: ReadonlySet<string> = new Set(['ArrowDown', 'PageDown', 'End', ' ']);
 
-/**
- * Calls `fn` when the user scrolls `el` toward its newest row: wheel, keys, touch swipe or scrollbar drag. Read from
- * input, not scroll position: the log also scrolls itself, and at the bottom a scroll down still counts.
- */
+/** Detects user movement toward newest via wheel/keys/touch/scrollbar inputs, including bottom-edge attempts. Programmatic scrolling does not count. */
 export function onUserScrollNewer(el: HTMLElement, fn: () => void): void {
   listen(el, 'wheel', (e) => e.deltaY > 0 && fn(), { passive: true });
   listen(el, 'keydown', (e) => {

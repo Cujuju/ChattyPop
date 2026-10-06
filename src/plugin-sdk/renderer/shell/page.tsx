@@ -1,6 +1,4 @@
-// Plugin SDK, renderer shell: a plugin page's root (docs/plugin-architecture.md §3, plugin page). The build loads the
-// host's bootstrap (theme, then plugin registry) before the page's entry; the registry awaits installed plugins (§16),
-// so the page renders once it installs, and its views render into an installed registry.
+// Plugin pages load theme and registry bootstrap before entry. Rendering waits for installed plugin registry completion.
 import type { JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import { rendererPluginsInstalled } from '@/plugins/installed';

@@ -1,7 +1,7 @@
 // Plan usage: every enabled AI provider's plan limits, with what ChattyPop itself used of them.
 import { definePlugin } from '@plugin-sdk/shared';
 
-/** Its panel's layout id, kept from when the panel was built in, so saved layouts still place it. */
+/** Stable layout ID preserves saved usage-panel placement. */
 export const USAGE_PANEL = 'provider';
 
 export const plugin = definePlugin({

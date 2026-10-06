@@ -10,7 +10,7 @@ import { outsideLayout } from './ui';
 
 export const [recentChannels, setRecentChannels, { loaded }] = createSetting<string[]>(SETTINGS_KEYS.recentChannels, [], normalizeRecentChannels);
 
-// The main window records, once the stored list is in (an earlier write would replace it); others show no Chat area.
+// Main-window recents wait for stored-list load before recording, avoiding overwrites.
 if (!outsideLayout) {
   void loaded.then(() =>
     createRoot(() =>

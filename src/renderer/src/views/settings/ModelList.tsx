@@ -1,5 +1,4 @@
-// A provider's models as rows, one picked (docs/plugin-architecture.md §3, AI providers): what each can do, its size,
-// a Use choice and an optional action. Settings → AI, Image text and Translation share it.
+// Shared provider model rows show capabilities, size, selected Use and optional actions across AI and feature settings.
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { ModelOption } from '@shared/contract';
 import { look } from '@/theme/look';

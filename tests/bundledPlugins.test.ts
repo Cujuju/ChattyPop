@@ -1,5 +1,4 @@
-// Bundled plugins (docs/plugins.md → Bundled plugins): which ones a build includes, the host never importing them,
-// the core host routing to them, and what the host keeps of features that were built in for their plugins to adopt.
+// Tests bundled-plugin selection, import isolation, routing, and adoption of retained host data.
 import { ProviderRegistry } from '../src/core/ai/registry';
 import { RuleKinds } from '../src/core/rules/kinds';
 import { RuleActions } from '../src/core/rules/actions';
@@ -185,7 +184,7 @@ describe('Jev queries from plugins', () => {
 });
 
 describe('host boundary', () => {
-  /** Host code, the Plugin SDK included; plugins live outside the app, in folders PLUGIN_DIRS_ENV names, or installed. */
+  /** Host and SDK code; plugin code resides in external or installed folders. */
   const HOST_DIRS = ['src/core', 'src/main', 'src/preload', 'src/renderer/src', 'src/shared', 'src/plugin-sdk'];
   const SOURCE_ROOT = join(ROOT, 'src');
   /** The registries the build generates: the only modules through which host code reaches plugin code. */
@@ -262,7 +261,7 @@ describe('core plugin host with bundled plugins', () => {
   let probeKinds: RuleKinds;
   let activations: number;
   let deactivations: number;
-  /** The probe's latest context, as a job still running after it is turned off would hold it. */
+  /** Retains the probe’s latest context after disabling it. */
   let held: CoreContext<typeof probePlugin>;
   interface ProbeCore {
     settle(messageId: string, text: string | null): void;

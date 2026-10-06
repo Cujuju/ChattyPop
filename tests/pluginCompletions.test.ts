@@ -67,7 +67,7 @@ describe('completion reports', () => {
       for (let i = 0; i <= DONE_MAX; i++) issued.push(ctx.completions.dispatch('done', `k${i}`, () => undefined));
     });
     expect(issued).toEqual([...Array<boolean>(DONE_MAX).fill(true), false]);
-    // The oldest still counts however much later it is reported.
+    // The oldest completion counts despite delayed reporting.
     await expect(h.report('k0', 1)).resolves.toBe('handled k0');
     await expect(h.report(`k${DONE_MAX}`, 1)).resolves.toBeUndefined();
     expect(completions.dispatch('done', 'next', () => undefined)).toBe(true);

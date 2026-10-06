@@ -5,7 +5,7 @@ import { listen } from './listen';
 import { pullToClose } from './pullToClose';
 import styles from './ContextMenu.module.css';
 
-/** Keeps the menu this far from the window edges when it would overflow. */
+/** Context-menu viewport clearance. */
 const EDGE_MARGIN_PX = 8;
 
 type SubmenuItem = Extract<MenuItem, { submenu: MenuGroup[] }>;
@@ -36,13 +36,7 @@ function keepOnScreen(panel: HTMLElement, x: number, y: number, flipX?: number):
   panel.style.top = `${Math.max(EDGE_MARGIN_PX, Math.min(y, innerHeight - r.height - EDGE_MARGIN_PX))}px`;
 }
 
-/**
- * The right-click menu: groups split by rules, each optionally headed; every row leads with its icon, and settings show a tick (or a dot for one-of-many).
- * `lead` draws above the groups (a message's quick reactions). On the desktop it opens at the pointer (kept on screen,
- * scrolling when taller than the window); on the phone it is a sheet up from the bottom, as in Discord's app, closed by a
- * tap outside or a pull down. A submenu row opens its groups beside it (hover, click, →; ← or Esc closes), or on the
- * phone in the sheet's place with a back row. Closes on a choice, Esc, a click elsewhere or scroll.
- */
+/** Grouped menus support icons, setting marks and lead content. Desktop submenus open beside rows; phone submenus replace sheets. Choice/Escape/outside/scroll close. */
 export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element }) {
   let menu: HTMLDivElement | undefined;
   let subPanel: HTMLDivElement | undefined;
@@ -68,8 +62,7 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
   // A new menu starts with no submenu open.
   createEffect(on(contextMenu, () => setSub(null)));
 
-  // Closed with the focus inside it (Esc, a choice that moved no focus), the focus goes back where the menu opened from;
-  // when that is gone (a message's hover bar, unmounted as the menu closed), to its nearest focusable ancestor (the row).
+  // Closing internally focused menus restores opener focus, falling back to its nearest focusable ancestor if unmounted.
   let opener: HTMLElement | null = null;
   let openerHost: HTMLElement | null = null;
   createEffect(

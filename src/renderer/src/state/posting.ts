@@ -1,5 +1,4 @@
-// The posting lock as windows see it (@shared/posting): unlocked while a plugin that is on declares
-// `unlocks: { posting: true }`. Main refuses posting calls on its own; this is for what windows start or show.
+// Renderer posting state follows enabled unlocking plugins. Governs visible/startable UI; main independently enforces writes.
 import { createEffect, createRoot } from 'solid-js';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { postingUnlockedIn } from '@shared/posting';

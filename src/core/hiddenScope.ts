@@ -1,5 +1,4 @@
-// The privacy scope as a table kept current by triggers, so privacy-filtered reads scan a few ids per row instead of
-// re-deriving the scope from every channel. Frozen migration: never edit, append a new one instead.
+// Trigger-maintained privacy scope avoids per-read channel traversal. Frozen migration: append changes instead of editing.
 
 /** Privacy mode is on (settings key 'privacyMode' holds JSON true), read when a trigger runs. */
 const ON = `(SELECT value FROM settings WHERE key = 'privacyMode') = 'true'`;
@@ -10,10 +9,7 @@ const addChannels = (where: string): string => `
       SELECT 'channel', c.id FROM channels c LEFT JOIN channels p ON p.id = c.parent_id LEFT JOIN guilds g ON g.id = c.guild_id
       WHERE (${where}) AND ${ON} AND (c.hide_in_privacy = 1 OR p.hide_in_privacy = 1 OR g.hide_in_privacy = 1);`;
 
-/**
- * Re-derives the channels matching `where`, and forgets the ids in `gone` (rows no longer in channels). Separate deletes,
- * so each looks its ids up by key instead of scanning the scope.
- */
+/** Rebuilds matching channel scope and removes gone ids using separate keyed deletes. */
 const refreshChannels = (where: string, gone?: string): string => `${gone ? `
     DELETE FROM hidden_ids WHERE kind = 'channel' AND id IN (${gone});` : ''}
     DELETE FROM hidden_ids WHERE kind = 'channel' AND id IN (SELECT c.id FROM channels c WHERE ${where});${addChannels(where)}`;
@@ -34,15 +30,15 @@ const markChanged = `(OLD.hide_in_privacy = 1 OR NEW.hide_in_privacy = 1) AND (O
 export const HIDDEN_SCOPE_TABLE = `
   DROP VIEW hidden_ids;
   DROP VIEW hidden_channels;
-  -- What privacy mode hides now; empty while it is off. kind 'channel': a channel marked, or under a marked parent
-  -- (threads, forum posts) or server. kind 'server': a marked server. A snowflake a visible message may not contain.
+  -- Privacy-hidden channel/server snowflakes; empty when privacy mode is off. Channels inherit hidden marks from parents and servers.
+  --
   CREATE TABLE hidden_ids (kind TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY (kind, id)) WITHOUT ROWID;
   CREATE VIEW hidden_channels AS SELECT id FROM hidden_ids WHERE kind = 'channel';
-  -- Every write that can change the scope re-derives the rows it touches. Channel and server triggers run only while
-  -- privacy mode is on: while off the table is empty, and turning it on re-derives everything. A row's children, or a
-  -- server's channels, depend only on its mark: an update or delete re-derives them when a marked row changes or goes.
-  -- REPLACE deletes without firing delete triggers (recursive_triggers is off), so inserts always re-derive them.
-  -- These indexes find them.
+  -- Triggers rebuild affected scope while privacy mode is on. Mark changes affect descendants; inserts handle REPLACE, which skips delete triggers.
+  --
+  --
+  --
+  --
   CREATE INDEX channels_parent ON channels (parent_id);
   CREATE INDEX channels_guild ON channels (guild_id);
   CREATE TRIGGER hidden_scope_setting_ai AFTER INSERT ON settings WHEN NEW.key = 'privacyMode' BEGIN${REFRESH_ALL}
@@ -85,10 +81,7 @@ export const HIDDEN_SCOPE_TABLE = `
 /** A renamed row takes the place of any row it replaced, whose mark may differ: its dependents re-derive on any id change. */
 const idOrMarkChanged = `(OLD.id IS NOT NEW.id OR OLD.hide_in_privacy IS NOT NEW.hide_in_privacy)`;
 
-/**
- * Fixes HIDDEN_SCOPE_TABLE's dependents triggers: UPDATE OR REPLACE renaming an unmarked row onto a marked one deletes
- * the marked row without delete triggers, and neither side's mark said its dependents changed. Frozen, like the above.
- */
+/** Frozen fix for UPDATE OR REPLACE deleting marked rows without delete triggers. Rebuilds dependent scope after replacement. */
 export const HIDDEN_SCOPE_RENAMES = `
   DROP TRIGGER hidden_scope_channel_children_au;
   DROP TRIGGER hidden_scope_guild_channels_au;

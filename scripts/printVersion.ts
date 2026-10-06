@@ -1,5 +1,4 @@
-// Prints this checkout's version (appVersion.ts): `node scripts/runTs.mjs scripts/printVersion.ts`. A release's tag is
-// `v` and this version.
+// Prints appVersion for this checkout; release tags prepend v.
 import { appVersion } from '../appVersion';
 
 export function main(): number {

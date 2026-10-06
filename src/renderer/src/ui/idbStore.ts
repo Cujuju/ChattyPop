@@ -1,5 +1,4 @@
-// A small key-value store in IndexedDB, for what must survive a reload (unsent messages and drafts, with their files).
-// Best effort: where storage is blocked (a private window) reads come back empty and writes are dropped.
+// Best-effort IndexedDB stores drafts/outbox files across reloads. Blocked storage returns empty reads and drops writes.
 
 const DB_NAME = 'chattypop';
 const STORE = 'kv';

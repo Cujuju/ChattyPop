@@ -1,4 +1,4 @@
-// Text cut for Jev and other length caps never splits an emoji: half of one is invalid Unicode, which Jev rejects.
+// Text truncation preserves complete emoji and valid Unicode.
 import { describe, expect, it } from 'vitest';
 import { cutText } from '@shared/text';
 import { MAX_MESSAGE_CHARS, clipMessage } from '../src/core/ai/clip';

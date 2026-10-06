@@ -1,5 +1,4 @@
-// A modal question (native <dialog> opened with showModal()): centred over a dimmed app, sized to its content, closed by
-// Esc, the backdrop or its close button. For confirmations; tools that stay open beside the app are FloatingWindows.
+// Native showModal confirmations size to content and close via Escape/backdrop/button. Persistent adjacent tools use FloatingWindows.
 import { createEffect, onCleanup, type JSX } from 'solid-js';
 import { setOverlayCover } from '@/state/windows';
 import { WindowHeader } from './FloatingWindow';

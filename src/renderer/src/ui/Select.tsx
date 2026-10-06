@@ -5,11 +5,7 @@ export interface SelectOption {
   label: string;
 }
 
-/**
- * A native select whose shown choice always matches `value`. Setting a select's value before its
- * options exist (async lists) silently falls back to the first option; this re-applies it after
- * the options render and whenever value or options change, and after a choice the owner didn't take.
- */
+/** Reapplies select values after async options render and on value/option changes, preventing silent first-option fallback. Reverts declined selections. */
 export function Select(props: {
   value: string;
   options: SelectOption[];

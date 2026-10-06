@@ -1,5 +1,4 @@
-/* Archive message log, F2's chat panel body. Geometry (flex, scroll, virtual rows) is inline; this file paints the
-   log frame. Message rows are MessageRow.module.css; the day divider and jump pill are ui/LogParts.module.css. */
+/* Archive log appearance; geometry is inline. MessageRow styles messages; LogParts styles day dividers and jump controls. */
 .root {
   min-width: 0;
   overflow: hidden;
@@ -11,10 +10,7 @@
   outline-offset: var(--cp-focus-ring-offset-inset);
 }
 
-/* The footer column lies over the log's bottom (.footer), as tall as drawn (--cp-composer-box-h, ArchiveView):
-   the log's overlays keep that much clear. The log itself clears it as its end padding (ArchiveView), which the
-   virtual log lays out and re-commits on each change; as scroller padding, iOS left the content behind the composer
-   when the keyboard closed and the composer grew. */
+/* Measured footer height clears log overlays and virtual-log end padding. Recommitted row layout prevents keyboard/composer changes obscuring content on iOS. */
 .root {
   --cp-log-overlay-inset: var(--cp-composer-box-h, 0px);
 }

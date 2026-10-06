@@ -1,5 +1,4 @@
-// Typed contracts between renderer ⇄ main ⇄ core (utilityProcess): the core and renderer APIs. Data types live in
-// ./types and ./rendererApi and are re-exported here, so '@shared/contract' stays the one import.
+// Typed renderer/main/core API contracts re-export shared data types and renderer interfaces from one import.
 import type { PluginCallResult } from './pluginCall';
 import type { Audience } from './pluginChannels';
 import type { UsedCommand } from './commands';
@@ -68,16 +67,16 @@ export interface CoreMethods {
   jevAskRange(ask: JevRangeAsk): Promise<JevAskResult>;
   /** The owner's edits to built-in Jev queries, by query id (Settings → Jev → Queries). */
   jevQueryOverrides(): JevQueryOverrides;
-  /** Saves an edit to a built-in query (null = back to default); throws when the edit would break what the app reads. */
+  /** Saves query edits; null restores defaults. Rejects incompatible answer contracts. */
   setJevQuery(id: string, q: CustomJevQuestion | null): void;
-  /** How many messages re-running a per-message query would ask about. */
+  /** Counts messages eligible for per-message query reruns. */
   jevRerunCount(req: JevRerunRequest): number;
   /** Re-asks a per-message query about past messages and acts on the answers as for new ones. */
   jevRerun(req: JevRerunRequest): Promise<JevRerunResult>;
 
   /** Main tells core who the signed-in Discord user is, for "aimed at you" alerts and plugins (CoreContext identity.onSelf). */
   setSelf(user: RawUser): void;
-  /** The signed-in Discord user's id; null until main has told core (later changes arrive as 'self-changed'). */
+  /** Signed-in Discord id, or null before main reports it. Changes emit self-changed. */
   selfId(): string | null;
   /** Main tells core the sync queue drained: the archive is current, so window actions may run. */
   syncSettled(): void;
@@ -90,11 +89,7 @@ export interface CoreMethods {
   directory(): DirectoryGuild[];
   /** Whether notices about these channels are muted (Settings → Notifications): there is one and every one is, whatever privacy mode hides. */
   allMuted(channelIds: readonly string[]): boolean;
-  /**
-   * What is unread in a channel for the owner: how many, and the first; null when nothing is. `sinceId`: count from that
-   * message (or captured opening boundary) instead of the Archive's mark. `localReadId`: when recounting an opening
-   * banner, ignore Discord acknowledgments up to this view's own read; acknowledgments beyond it still clear the banner.
-   */
+  /** Unread results contain count/first or null. sinceId replaces Archive bounds; localReadId ignores own acknowledgment echoes while later Discord reads still clear banners. */
   channelUnread(channelId: string, since?: string | UnreadBoundary, localReadId?: string): UnreadMark | null;
   /** Opening unread count and its boundary before bot filtering, so changing the selection can recount the banner. */
   channelUnreadSnapshot(channelId: string): UnreadSnapshot;
@@ -109,10 +104,7 @@ export interface CoreMethods {
   markDmRead(channelId: string): void;
   upsertGuilds(guilds: RawGuild[]): void;
   upsertChannels(guildId: string, channels: RawChannel[]): void;
-  /**
-   * Archives a channel or stops; a DM taken out is declined, so auto-archive skips it until it is archived again. A DM
-   * archived must be the signed-in account's, and neither a message request nor a group left (throws).
-   */
+  /** Archives/stops channels; stopped DMs become auto-archive declines. DM archiving requires ownership and excludes requests/left groups. */
   setOptIn(channelId: string, on: boolean): void;
   /** Archived channels sync keeps current: a DM only when it is the signed-in account's and not a group left. */
   optedInChannels(): string[];
@@ -131,11 +123,7 @@ export interface CoreMethods {
   privateChannel(channelId: string): PrivateChannelFacts | null;
   /** The signed-in account's open one-to-one DM with a person; null when there is none. */
   dmWith(userId: string): string | null;
-  /**
-   * Discord's answer to a DM write made as `accountId`, merged as the gateway's copy of it is. Skipped (false) once
-   * another account is signed in: the gateway owns it then. `archive`: the owner's choice for a conversation the write
-   * made, applied in the same step, so no message for it can be auto-archived first.
-   */
+  /** Merges DM responses under accountId, skipping changed accounts. Applies new-conversation archive choices atomically before auto-archive can run. */
   applyDmWrite(accountId: string, t: Extract<ArchivedGatewayEvent, `CHANNEL_${string}`>, d: unknown, archive?: boolean): boolean;
   /** Every private channel stored, of any account: a DM write tells a channel it made from one held before. */
   privateChannelIds(): string[];
@@ -149,7 +137,7 @@ export interface CoreMethods {
   privacyScope(): PrivacyScope;
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
-  /** Checkpoints and closes the database so its files can be copied; every later call fails until restart. */
+  /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */
   closeArchive(): void;
   /** SQLite quick_check: 'ok', or the first problem found. */
   integrityCheck(): string;
@@ -161,10 +149,7 @@ export interface CoreMethods {
   absentPlugins(): Promise<AbsentPlugin[]>;
   /** Runs a plugin command; resolves with the text it returned, if any. */
   runPluginCommand(pluginId: string, commandId: string, range: PluginRange): Promise<string | null>;
-  /**
-   * A call into a plugin's core side. `origin` is stamped by the transport it came through (main's window IPC, the
-   * companion server, main plugins), never by the caller; core answers only the audiences the plugin declares.
-   */
+  /** Transports stamp plugin-call origins; callers cannot choose them. Core enforces declared audiences. */
   pluginCall(origin: Audience, pluginId: string, name: string, args: unknown[]): Promise<PluginCallResult>;
   ingestMessages(messages: RawMessage[]): IngestResult;
   /** A gateway dispatch observed by the passive tap; core keeps only what it archives. */
@@ -200,10 +185,7 @@ export interface CoreMethods {
   storeReactors(messageId: string, emojiKey: string, users: RawUser[], count: number, fetchedAt: number): ReactionUsers;
   /** People whose name, username or a server nickname contains `query`, by name. */
   findPeople(query: string, limit: number): PersonMatch[];
-  /**
-   * What to `@` in a channel matching `query`, as Discord's autocomplete: people who can see it, then @everyone and @here
-   * (when the owner may mention everyone) and roles, `limit` in all.
-   */
+  /** Mention autocomplete returns eligible people, permitted everyone/here, then roles within one limit. */
   mentionCandidates(channelId: string, query: string, limit: number): MentionCandidate[];
   /** These people as pickers name them; unknown ids are left out. */
   peopleByIds(ids: string[]): PersonMatch[];
@@ -227,7 +209,7 @@ export interface CoreMethods {
   deleteRule(id: number): void;
   /** A rule's latest runs, newest first. */
   ruleRuns(ruleId: number, limit: number): RuleRun[];
-  /** What a keyword pattern would match among recent archived messages in a scope (the keyword editor's check). */
+  /** Previews keyword matches among scoped recent archived messages. */
   patternPreview(pattern: string, channelIds: string[] | null, contains: ContentKind[] | null): PatternPreview;
   pendingAttachments(limit: number): PendingAttachment[];
   attachmentStored(id: string, sha256: string, bytes: number): void;

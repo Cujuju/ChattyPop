@@ -1,11 +1,10 @@
-// Host renderer code reaches the renderer API only through @/api, so it works whichever runs first: a store that calls
-// the API while loading, or the page transport that installs it (a production build runs shared host chunks first).
+// Renderer stores access transport through @/api, supporting either store initialization or transport installation first.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The client runtime, so resources fetch as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 // Its client stores too: proxies, as a window's are.
 vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);

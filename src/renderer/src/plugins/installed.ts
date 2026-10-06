@@ -1,6 +1,4 @@
-// The late-bound accessor host modules read bundled plugins' renderer sides through (docs/plugin-architecture.md §9).
-// The registry (./bundled) installs the build's entries; host modules never import it, so no host or SDK module
-// depends on the plugins that depend on them, and the order an entry imports them in can't break either.
+// Late-bound renderer registry access avoids host/SDK dependency cycles. Bundled registry installs entries without host modules importing plugin definitions.
 import { checkSlotViews, type SlotViewsOf } from '@shared/slots';
 import type { RendererPlugin } from './define';
 
@@ -16,10 +14,7 @@ export function installRendererPlugins(entries: readonly RendererPlugin[]): void
   markInstalled();
 }
 
-/**
- * Resolves once the registry installs the entries. The registry awaits installed plugins (top-level await), so a page
- * entry loaded beside it, not through it (a plugin page after the bootstrap), waits on this before it renders.
- */
+/** Resolves after registry installation, including awaited installed plugins. Independently loaded page entries wait before rendering. */
 export const rendererPluginsInstalled = (): Promise<void> => installing;
 
 /** The installed entries. Throws before the registry installs them: a slot read that early is a startup-order bug. */

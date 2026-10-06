@@ -57,10 +57,7 @@ export const archiveState = list.state;
 /** Prepends the previous page; returns how many messages were added (the view keeps its scroll anchor). */
 export const loadOlder = list.loadOlder;
 
-/**
- * The loaded window reaches the channel's newest message, so new ones join it and the view may follow them. False after
- * a jump to an older stretch, until the channel is opened at its newest again (Jump to newest).
- */
+/** True when the loaded window reaches newest messages and accepts arrivals. Older jumps remain detached until Jump to newest. */
 export const [atNewest, setAtNewest] = createSignal(true);
 
 /** Loads `channelId`'s newest page, or the page around `around`; resolves false when a later load superseded it. */
@@ -111,10 +108,7 @@ onAppEvent('privacy-changed', async () => {
   await loadWindow(channelId, focusMessageId());
 });
 
-/**
- * New or changed messages in the open channel: refresh the newest page in place, while the window reaches it. Members
- * or roles changed: re-read the loaded rows, whose names, colours and marks may differ.
- */
+/** Refreshes newest pages for open-channel message changes. Name/role changes reload current rows to update styling and marks. */
 onAppEvent('archive-changed', async (e) => {
   const channelId = archiveChannelId();
   if (channelId && e.channelIds.includes(channelId) && atNewest()) {
@@ -124,10 +118,7 @@ onAppEvent('archive-changed', async (e) => {
   if (e.namesChanged) await refreshLoaded(null);
 });
 
-/**
- * Appends every message newer than the newest loaded, a page at a time: new posts join the window with no gap, however
- * many arrived. Paged, so a refresh of loaded rows (tags, names) can't supersede it.
- */
+/** Appends all newer messages page by page without gaps. Row refreshes cannot supersede arrival pagination. */
 async function catchUp(channelId: string): Promise<void> {
   for (let pages = 0; pages < MAX_CATCH_UP_PAGES && archiveChannelId() === channelId; pages++) {
     const added = await list.loadNewer();
@@ -145,10 +136,7 @@ async function refreshNewest(channelId: string): Promise<void> {
   });
 }
 
-/**
- * After a jump, the window may stop short of the newest message: appends the next newer page as the view nears its end.
- * Once the newest is loaded, new messages join the window again (and one re-read catches any that came meanwhile).
- */
+/** Loads newer pages near jumped-window ends. Reaching newest resumes live arrivals and refreshes messages arriving during catch-up. */
 export async function loadNewer(): Promise<void> {
   const channelId = archiveChannelId();
   if (!channelId || atNewest()) return;
@@ -160,10 +148,7 @@ export async function loadNewer(): Promise<void> {
   await refreshNewest(channelId);
 }
 
-/**
- * Tags changed on some messages (null = any): reload the loaded window in place so their chips update. Messages
- * beyond one window's length from the newest (or the focused) message keep their chips until the channel reopens.
- */
+/** Reloads changed tag chips within the current newest/focused window. More distant loaded rows retain chips until reopen; null targets all. */
 export async function refreshLoaded(ids: string[] | null): Promise<void> {
   const channelId = archiveChannelId();
   const loaded = list.state.items;
@@ -189,7 +174,7 @@ void api.discord.shownChannel().then((c) => {
 /** The channel the Chat area is showing: the live client's while it is shown, else the Archive's. */
 export const shownChannelId = (): string | null => (chatSource() === 'live' ? liveChannelId() : archiveChannelId());
 
-/** A sidebar pick: moves the live client while it is shown (the Archive follows it later), else opens the Archive. */
+/** Sidebar picks move visible live clients; otherwise open Archive. */
 export function openChannel(c: { id: string; guildId: string }): void {
   if (chatSource() === 'live') api.discord.openChannel(c.guildId, c.id);
   else void openArchive(c.id);
@@ -208,10 +193,7 @@ export function showLive(): void {
   else setChatSource('live');
 }
 
-/**
- * Switches the Chat area to the Archive, following the live client: if the channel open there is archived and
- * differs from the Archive's, the Archive opens it. Otherwise the Archive stays where it was.
- */
+/** Switches to Archive and follows a different archived live-client channel. Otherwise preserves the Archive channel. */
 export function showArchive(): void {
   const live = liveChannelId();
   const archived = live !== null && channelById(live)?.optedIn === true;

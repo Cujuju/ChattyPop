@@ -1,7 +1,4 @@
-/* Right-click menu: groups of actions split by rules, each optionally headed, under an optional lead (a message's quick
-   reactions). Desktop: a popover; position and max height are inline (the pointer, the window). Phone: a bottom sheet
-   (.backdrop > .sheet) as Discord's app shows it, each group a card; ContextMenu's pull sets translate and [data-pull].
-   Row: mark | icon | label and detail | a submenu row's chevron. A desktop submenu is a second .menu beside its row. */
+/* Context menus use grouped desktop popovers/submenus or phone cards/sheets. Inline bounds/translation and data-pull drive placement and dragging. */
 
 /* With cp-popover. */
 .menu {

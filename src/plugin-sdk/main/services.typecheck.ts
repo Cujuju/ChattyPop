@@ -1,5 +1,4 @@
-// Compile-time probe: the main SDK hands plugins its own interfaces, never a host service class, and Discord's write
-// methods only to a plugin declaring `discord: { write: true }` (docs/plugin-architecture.md §4; run time: tests/pluginDiscord.test.ts).
+// Compile-time main SDK probe: interfaces replace host classes; Discord write methods require declared write permission.
 import { definePlugin, typedMentions } from '@plugin-sdk/shared';
 import { defineMainPlugin, sendMessage, uploadFiles, type MainContext } from '@plugin-sdk/main';
 // @ts-expect-error The host's Discord client class is not an SDK export.

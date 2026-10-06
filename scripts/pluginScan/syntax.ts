@@ -1,5 +1,4 @@
-// A plugin source file's syntax tree, for plugin:check's scan rules: parsed once per file with @babel/parser, so
-// comments, strings and regular expressions are told apart from code.
+// Parses each file once, distinguishing code from comments, strings, and regular expressions.
 import { parse } from '@babel/parser';
 import type { SourceFile } from './source';
 
@@ -25,7 +24,7 @@ export function syntaxOf(file: SourceFile): Node {
   return tree;
 }
 
-/** Calls `visit` on every node under `node`, with its parent and the parent's key holding it. */
+/** Visits each node with its parent and containing property. */
 export function walk(node: Node, visit: (node: Node, parent: Node | null, key: string | null) => void, parent: Node | null = null, key: string | null = null): void {
   visit(node, parent, key);
   for (const [k, v] of Object.entries(node)) {
@@ -53,10 +52,7 @@ export function propertyName(member: Node): string | null {
   return literalString(property);
 }
 
-/**
- * Whether identifier `key` of `parent` reads a variable: not a property name (`a.fetch`, `{ fetch: 1 }`), nor a
- * type-level name (TypeScript nodes).
- */
+/** Identifies variable reads, excluding property names and TypeScript type nodes. */
 export function readsVariable(parent: Node | null, key: string | null): boolean {
   if (!parent) return true;
   if (parent.type.startsWith('TS')) return false;

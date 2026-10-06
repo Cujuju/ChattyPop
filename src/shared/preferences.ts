@@ -1,5 +1,4 @@
-// Plugin preferences (docs/plugin-architecture.md §4, §7): a plugin's stored values, each declared once in its descriptor
-// with its default and normalizer, so core, main and every window read and write it typed. Stored as plugin.<id>.<name>.
+// Descriptor preferences declare defaults/normalizers once for typed core/main/window access. Storage keys use plugin.id.name.
 
 /** Field steps a phone projection or owner address may take: ask's `<kind>.enabled` needs two; one more keeps headroom. */
 type PathDepth = [unknown, unknown, unknown];

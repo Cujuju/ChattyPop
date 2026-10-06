@@ -48,7 +48,7 @@ export class InstallHistory {
     try {
       raw = existsSync(this.file) ? (JSON.parse(readFileSync(this.file, 'utf8')) as typeof raw) : null;
     } catch {
-      raw = null; // Only restore reads it: an unreadable history offers what it would have left out.
+      raw = null; // Unreadable history leaves restore candidates unfiltered.
     }
     return { plugins: entriesOf<Entry>(raw?.plugins, false), beforeStaged: entriesOf<Entry | null>(raw?.beforeStaged, true) };
   }

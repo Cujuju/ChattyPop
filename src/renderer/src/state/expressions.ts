@@ -11,19 +11,13 @@ const [catalogRequest, setCatalogRequest] = createSignal<{ guildId: string } | n
 export const [expressionCatalog] = createResource(catalogRequest, (r) => api.discord.expressions(r.guildId));
 /** Emoji in the "Frequently used" row: two picker rows' worth, as Discord shows. */
 const FREQUENT_EMOJI_MAX = 22;
-/**
- * The owner's most-used emoji from their archived messages, refreshed with the catalog (what they just sent counts).
- * Unicode emoji this machine can't draw are left out, as in the System tab: they would show as boxes.
- */
+/** Refreshes frequently used emoji with catalog reloads, including just-sent messages. Excludes Unicode glyphs unavailable on this machine. */
 export const [frequentEmoji, { refetch: refetchFrequentEmoji }] = createResource(catalogRequest, async () =>
   (await api.core.ownEmoji(FREQUENT_EMOJI_MAX)).filter((e) => !('unicode' in e) || canDraw(e.unicode)),
 );
 // Counted over visible messages only: a server hidden since must not keep its emoji in the row.
 onAppEvent('privacy-changed', () => void (untrack(catalogRequest) && refetchFrequentEmoji()));
-/**
- * A resource's value, or undefined while it has failed. Solid's `latest` rethrows a failed load, which would take down
- * every section read in the same render; each section shows its own error instead.
- */
+/** Returns undefined for failed resources to avoid Solid latest rethrowing across sibling sections. Each section displays its own error. */
 export const loaded = <T,>(r: { error: unknown; latest: T | undefined }): T | undefined => (r.error ? undefined : r.latest);
 
 /** Loads (or refreshes) the pickers' catalog for a channel of `guildId`. */
@@ -71,10 +65,7 @@ const MAX_GLYPH_WIDTHS = 1.5;
 /** Emoji tested per task: drawing one costs ~0.25 ms (measured on Windows 10), so ~25 ms, then the UI gets a turn. */
 const PROBES_PER_TASK = 100;
 
-/**
- * Whether this machine's emoji font can draw each emoji as one glyph. Emoji newer than the font draw as boxes
- * or as their parts (Windows 10 stops at Emoji 12); the picker leaves those out, since they couldn't be seen.
- */
+/** Checks single-glyph emoji font support. Excludes unavailable/newer emoji that render as boxes or separate parts. */
 function drawableTest(): (emoji: string) => boolean {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = PROBE_PX * 2;
@@ -129,10 +120,7 @@ export const EMOJI_SUGGEST_MIN_CHARS = 2;
 /** Suggestions listed; typing more narrows them. */
 const EMOJI_SUGGESTIONS_MAX = 10;
 
-/**
- * Emoji whose name matches `query` (typed after a colon): names starting with it first, frequently used first within
- * that, then custom before Unicode. Only custom emoji the plan can send in `guildId`.
- */
+/** Colon search ranks prefix matches, frequency, custom then Unicode. Custom emoji must be sendable in guildId. */
 export function emojiSuggestions(guildId: string, query: string): EmojiSuggestion[] {
   const q = query.toLowerCase();
   const catalog = loaded(expressionCatalog);

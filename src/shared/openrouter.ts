@@ -48,7 +48,7 @@ export function keyForModel<K extends OpenRouterKeyRouting>(keys: readonly K[], 
   return keys.find((k) => k.models.includes(model)) ?? keys.find((k) => k.anyModel) ?? null;
 }
 
-/** Throws when routing would be ambiguous: two keys on one model, or two any-model keys. */
+/** Rejects overlapping model assignments or multiple fallback keys. */
 export function validateKeyRouting(keys: readonly OpenRouterKeyRouting[]): void {
   const owner = new Map<string, string>();
   let any: string | null = null;

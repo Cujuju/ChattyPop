@@ -1,5 +1,4 @@
-// How people's names show in a place, as Discord draws them: in a server, the nickname, role colour or Enhanced
-// Role Style and Nitro font (role styles replace Nitro colours there); outside one, the display name and whole Nitro style.
+// Server names use nicknames and role styles over Nitro colors; outside servers, display names use full Nitro styling.
 import type { PersonName } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import type { Db } from '../db';

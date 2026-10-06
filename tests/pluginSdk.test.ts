@@ -54,7 +54,7 @@ describe('checkBundled', () => {
     expect(() => checkBundled([plugin('one', menu('other.item'))])).not.toThrow();
     expect(() => checkBundled([plugin('one', menu('other.item')), plugin('other')])).toThrow(/follows other\.item, which no plugin provides/);
     expect(() => checkBundled([plugin('one', menu('one.missing'))])).toThrow(/which no plugin provides/);
-    // Unstamped (panels, tabs, shortcuts): a typo when every plugin that could declare it is here, else maybe not installed.
+    // Unknown unstamped items fail only when every possible declaring plugin is present.
     expect(() => checkBundled([plugin('one', { panels: [panel('p1', 'nope')] })], undefined, 'absent')).not.toThrow();
   });
   it('rejects an anchor nothing provides, a loop, and a section on a page that takes none', () => {

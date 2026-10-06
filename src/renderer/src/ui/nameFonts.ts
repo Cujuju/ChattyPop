@@ -4,7 +4,7 @@ import type { NameFont } from '@shared/nameFonts';
 
 const registered = new Set<string>();
 
-/** Registers the font as `cp-name-<key>` (theme/nameFonts.css). A failed load is dropped, so a later name tries again. */
+/** Registers cp-name-key fonts; failed loads clear caches for retries. */
 export function ensureNameFont(f: NameFont): void {
   if (registered.has(f.key)) return;
   registered.add(f.key);

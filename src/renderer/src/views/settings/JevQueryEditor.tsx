@@ -33,10 +33,7 @@ const same = (a: CustomJevQuestion, b: CustomJevQuestion): boolean => JSON.strin
 
 type Status = { kind: 'error' | 'saved'; text: string } | null;
 
-/**
- * One built-in query, top to bottom: where it's used and its on/off switch, what Jev reads, the question and its answers,
- * when it counts, and (per-message queries) a run on past messages; save and reset stay in the footer.
- */
+/** Query editors show usage/switch, read context, question/answers, conditions and optional past-message runs. Save/reset remain fixed below. */
 export function JevQueryEditor(props: { def: JevQueryDef }) {
   const d = props.def;
   const saved = () => effectiveJevQuery(d, jevQueryOverrides());

@@ -1,6 +1,4 @@
-// Contract: servers list in the owner's Discord sidebar order, read from their settings protobuf: folders in turn, else
-// the older guild_positions; Direct messages first, as Discord's Home; servers the order leaves out (left, still archived)
-// come after it, by name. The order stands even when it arrives before the servers are stored.
+// Lists DMs first, then servers in Discord folder order or guild_positions. Unlisted archived servers follow by name. Order can arrive before server storage.
 import { describe, expect, it } from 'vitest';
 import { directory } from '../src/core/queries/directory';
 import { putGuildOrder } from '../src/core/queries/guildOrder';
@@ -26,7 +24,7 @@ const id64 = (id: string): number[] => {
 const packed = (no: number, ids: string[]): number[] => bytesField(no, ids.flatMap(id64));
 const unpacked = (no: number, ids: string[]): number[] => ids.flatMap((id) => [...tag(no, WIRE_FIXED64), ...id64(id)]);
 
-// Snowflakes past 2^53: read as numbers they would lose digits.
+// Snowflakes above 2^53 require lossless parsing.
 const A = '1417911687616401562';
 const B = '1536055842414268496';
 const C = '9007199254740993123';

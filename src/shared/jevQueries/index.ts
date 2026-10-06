@@ -1,5 +1,4 @@
-// Every built-in Jev query, editable in Settings → Jev → Queries: the catalog (defaults and what may change) and checks.
-// The owner's edits are stored per query id (settings key 'jevQueries'); core asks with the effective version.
+// Built-in query catalog defines defaults/editability. Owner edits persist by id under jevQueries; core resolves effective queries.
 import { placeByAnchor, type PlacementAnchor } from '../anchors';
 import { bundledJevQueries, jevQueryAnchor } from '../bundledPlugins';
 import type { JevFeature } from '../settings';
@@ -9,16 +8,7 @@ import { HOST_JEV_QUERIES } from './host';
 
 export { JEV_QUERY_GROUPS, type JevQueryGroup };
 
-/**
- * What the app reads from the answer, which decides what may change:
- * - decision: only whether the condition is met (and its strength), so type, options and levels are all free;
- * - rank: a strength to sort by (yes/no probability, or score level), so the type is yes/no or score;
- * - labels: the chosen option is shown as a label, so it stays pick-one but options are free;
- * - fixed-options: the code reads option names, so it stays pick-one with those names (meanings editable);
- * - fixed-levels: the code reads the level, so it stays a score with that many levels (level text editable);
- * - dynamic-options: the options come from the run (per-run choices), so only the question and threshold change;
- * - display: shown as-is (Jev check), so everything is free and there is no condition.
- */
+/** Query modes constrain editability: decision/display free; rank yes/no or score; labels pick-one; fixed options/levels preserve identities; dynamic options restrict question/threshold edits. */
 export type JevQueryUse = 'decision' | 'rank' | 'labels' | 'fixed-options' | 'fixed-levels' | 'dynamic-options' | 'display';
 
 /** A Jev query; `F` names its switches: stamped in the catalog, a plugin's own keys (or the host's) in its descriptor. */
@@ -46,11 +36,7 @@ export interface JevQueryDef<F extends string = JevFeature> {
   defaults: CustomJevQuestion;
 }
 
-/**
- * Queries in Settings → Jev → Queries order: by JEV_QUERY_GROUPS, then within a group the host's in their order with each
- * plugin query placed by its anchor (`anchorOf`, from every plugin folder's catalog, so a left-out plugin's anchor keeps
- * its place; checkBundled keeps anchors within their group); an unplaced one follows the group's host queries in build order.
- */
+/** Orders queries by groups, host order and catalog anchors, including omitted plugins. Unplaced plugin queries follow host entries in build order. */
 export const orderJevQueries = (
   host: readonly JevQueryDef[],
   plugins: readonly JevQueryDef[],
@@ -89,7 +75,7 @@ const QUERY_CONDITION_ERRORS: ConditionErrors = {
 /** Question types as the editor names them. */
 const TYPE_NAME: Record<CustomJevQuestion['type'], string> = { noul: 'yes/no', choice: 'pick one', score: 'a score' };
 
-/** Throws with a message for the editor when an edit can't be asked or would break what the app reads. */
+/** Rejects unaskable edits and incompatible answer contracts with editor messages. */
 export function validateJevQuery(def: JevQueryDef, q: CustomJevQuestion): void {
   if (!allowedTypes(def).includes(q.type)) throw new Error(`This query must stay ${allowedTypes(def).map((t) => TYPE_NAME[t]).join(' or ')}.`);
   for (const p of def.placeholders ?? []) if (!q.question.includes(p)) throw new Error(`Keep ${p} in the question: the app fills it in for each item.`);

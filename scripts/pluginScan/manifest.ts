@@ -1,9 +1,8 @@
-// A plugin's manifest id and version literal in its shared/index.ts, found through syntax: release stamping rewrites the
-// version in place (scripts/pluginReleaseChanged.ts), and plugin:check's scan refuses a shape it can't stamp.
+// Finds manifest ID and version literals for release stamping; unsupported shapes fail scanning.
 import type { SourceFile } from './source';
 import { syntaxOf, walk, type Node } from './syntax';
 
-/** The manifest's id and version, and where the version's string literal (quotes included) sits in the text. */
+/** Manifest ID, version, and quoted version-literal range. */
 export interface ManifestVersion {
   id: string;
   version: string;
@@ -35,7 +34,7 @@ function property(object: Node, name: string, where: string): Node {
   return found[0]!;
 }
 
-/** The object literal a top-level `const name = { ... }` holds; refuses an import or anything else. */
+/** Resolves top-level const object literals; rejects imported or computed values. */
 function constObject(program: Node, name: string): Node {
   const body = program['body'] as Node[];
   const imported = body.some((s) => s.type === 'ImportDeclaration' && (s['specifiers'] as Node[]).some((x) => (x['local'] as Node)['name'] === name));
@@ -79,7 +78,7 @@ export function manifestVersion(file: SourceFile): ManifestVersion {
   return { id: id['value'] as string, version: version['value'] as string, start: version['start'] as number, end: version['end'] as number };
 }
 
-/** `text` with the manifest version replaced by `version`, in the same quotes; every other byte kept. */
+/** Replaces only the version literal’s contents, preserving quotes and all other bytes. */
 export function stampVersion(text: string, version: string, rel: string): string {
   const at = manifestVersion({ rel, text });
   const quote = text[at.start]!;

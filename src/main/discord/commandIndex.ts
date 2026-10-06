@@ -57,10 +57,7 @@ const toCommand = (c: RawCommand): AppCommand => {
   return { id: c.id, applicationId: c.application_id, version: c.version, name, description, options };
 };
 
-/**
- * Slash commands by scope: a server's (kept until Discord says that server's commands changed), a DM's, and the apps the
- * owner installed. Reads the embedded client's gateway for the change notices, as the client itself does.
- */
+/** Caches server, DM and installed-app slash commands. Gateway command-change notices invalidate server scopes. */
 export class CommandIndexes {
   private readonly cache = new Map<string, Promise<RawIndex>>();
 

@@ -26,11 +26,7 @@ function Snippet(props: { text: string; mentions: Record<string, string> }) {
   return <For each={parts()}>{(p) => (p.hit ? <mark class={styles.mark}>{p.text}</mark> : p.text)}</For>;
 }
 
-/**
- * F2 top-bar archive search: the leader, then "/", focuses it. Focus opens the panel: with the field empty it lists every
- * filter and the saved searches; a trailing `key:` offers that filter's values; otherwise results, which open the
- * message in the Archive.
- */
+/** Leader then / focuses archive search. Empty queries show filters/saved searches; trailing key: offers values; results open Archive messages. */
 export function Search() {
   let input!: HTMLInputElement;
   let root!: HTMLDivElement;
@@ -76,8 +72,7 @@ export function Search() {
   const nav = { active, setActive };
   // The search shortcut (state/shortcuts.ts) asks for focus.
   createEffect(on(searchFocusRequests, () => input.focus(), { defer: true }));
-  // Focus moving to a control outside closes the panel. A blur to nowhere does only on the desktop: on a phone, putting
-  // the keyboard away blurs the field, and the results stay to scroll and tap, as in Discord. A press outside closes it.
+  // Outside focus/press closes search. Desktop blur-to-nowhere closes; phone keyboard dismissal keeps results available.
   const onFocusOut = (e: FocusEvent): void => {
     const to = e.relatedTarget as Node | null;
     if (to ? !root.contains(to) : !inCompanion) setSearchOpen(false);
@@ -90,8 +85,7 @@ export function Search() {
         Search the archive
       </label>
       <div class={styles.field}>
-        {/* Open, the magnifier closes search; closed, it focuses the field. mousedown, not click: acts before the field's
-            blur, and keeps focus from moving to the button (Escape closes from the keyboard). */}
+        {/* Magnifier toggles search on mousedown before blur and preserves field focus. Escape closes keyboard search. */}
         <button
           type="button"
           class={styles.icon}

@@ -5,10 +5,7 @@ import { cutOutsideTokens } from '@shared/discordText';
 const SNIPPET_BEFORE_CHARS = 60;
 const SNIPPET_MAX_CHARS = 200;
 
-/**
- * Text around the match, about `maxChars` long; a meaning match (no regex) shows the message from its start. Cuts keep
- * Discord tokens (emoji, mentions) whole, so the snippet still renders them.
- */
+/** Builds approximately maxChars match-centered snippets, or leading text for meaning matches. Keeps Discord tokens intact. */
 export function snippet(content: string, re: RegExp | null, maxChars = SNIPPET_MAX_CHARS): string {
   const flat = content.replace(/\s+/g, ' ').trim();
   const at = re ? Math.max(0, flat.search(re)) : 0;

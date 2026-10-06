@@ -1,5 +1,4 @@
-// Plugin marketplaces (docs/plugin-architecture.md §16): GitHub repos the owner adds by hand, each listing plugins in
-// marketplace.json on its default branch. Main fetches, verifies and stages installs; they apply at the next start.
+// Owner-added GitHub marketplaces list plugins on default branches. Main fetches/verifies/stages installs for next startup.
 import { PLUGIN_ID_PATTERN } from './plugins';
 import { SHA256_PATTERN, VERSION_PATTERN, compareVersions, type InstalledSource } from './installedPlugins';
 
@@ -31,10 +30,7 @@ export interface MarketplacePlugin {
   description: string;
   /** Prebuilt versions, each once, newest first (parseMarketplaceIndex sorts them). */
   releases: MarketplaceRelease[];
-  /**
-   * Its source in this repo, for installs that build from source: the plugin folder and the branch they follow. Read from
-   * GitHub, every plugin has one: the index's, else its MARKETPLACE_PLUGINS_DIR folder on the repo's default branch.
-   */
+  /** Source installs follow indexed folders/branches or default MARKETPLACE_PLUGINS_DIR folders on repository default branches. */
   source?: { path: string; branch: string };
 }
 
@@ -54,10 +50,7 @@ const str = (o: Record<string, unknown>, key: string, where: string, pattern?: R
 const obj = (v: unknown, where: string): Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : fail(`${where} must be an object`);
 
-/**
- * marketplace.json as this host reads it; throws the reason it is refused. With defaultBranch (the repo's, as the app
- * reads it), a plugin the index gives no `source` builds from its MARKETPLACE_PLUGINS_DIR folder on that branch.
- */
+/** Validates marketplace.json and throws refusal reasons. defaultBranch supplies missing source folders under MARKETPLACE_PLUGINS_DIR. */
 export function parseMarketplaceIndex(raw: unknown, defaultBranch?: string): MarketplaceIndex {
   const index = obj(raw, 'the index');
   if (index['format'] !== MARKETPLACE_FORMAT) fail(`format ${String(index['format'])} is not ${MARKETPLACE_FORMAT}, the one this ChattyPop reads`);

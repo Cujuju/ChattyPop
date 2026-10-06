@@ -1,5 +1,4 @@
-// Discord's profile, mutual-friend and reactor answers, cached whole and read back as the Person window and
-// the reaction tooltip show them. Storing one also refreshes the people it names (users, server nickname and roles).
+// Caches Discord profiles, mutual friends and reactors for Person views and tooltips; refreshes users, nicknames and roles from responses.
 import type { RawUser } from '@shared/discord';
 import type { PersonMatch } from '@shared/types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, RawProfile, ReactionUsers } from '@shared/types/discordProfile';

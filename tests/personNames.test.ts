@@ -1,6 +1,4 @@
-// Contract: a person's name as Discord draws it in a place. In a server: nickname, the highest coloured role's
-// colour or Enhanced Role Style, and the Nitro font; Nitro colours never show there. Outside one: display name and the
-// whole Nitro style. Privacy mode withholds a hidden place. Writes that change a shown name report themselves.
+// Server names use nicknames, role styles, and Nitro fonts. Other contexts use display names and full Nitro styles. Privacy filters hidden contexts; name changes emit updates.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DM_CHANNEL_TYPE, type RawRole } from '@shared/discord';
 import { SETTINGS_KEYS } from '@shared/settings';

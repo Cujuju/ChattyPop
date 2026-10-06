@@ -1,10 +1,4 @@
-/* Theme 'tide': soft slate, rounded cards spaced on the ground, pastel sections, Atkinson Hyperlegible type one
-   step larger for easy reading. Primary panels lift (brighter card, section ring, shadow, filled icon); reference
-   panels recede toward the ground with a muted header.
-   Contrast (WCAG 2.x, sRGB) checked 2026-09-25, all >= 4.5:1:
-   text-1 / text-2 / text-muted on surface-0..5: 13.8-8.9 / 10.0-6.4 / 7.3-4.7; on primary card 11.0 / - / 5.8;
-   on reference card 13.2 / - / 6.9; text-on-accent on accent 8.9; info on cite-bg 8.2;
-   sections on surface-3 6.6-9.2; text-on-accent on each section (badge, filled tile) 8.8-12.4. */
+/* Tide uses slate, pastel sections and larger Atkinson Hyperlegible. Primary cards lift; reference cards recede. Documented September 2026 contrasts meet 4.5:1. */
 
 [data-theme='tide'] {
   --cp-ground: #1a2130;

@@ -17,11 +17,7 @@ export const sizeStyle = (size: SplitSize | undefined, hidden = false): JSX.CSSP
 /** One-cell grid: a panel's root always stretches to fill its slot (or window) in both directions. */
 export const ONE_CELL_GRID: JSX.CSSProperties = { display: 'grid', 'grid-template': 'minmax(0, 1fr) / minmax(0, 1fr)' };
 
-/**
- * Height a panel needs to show its content unscrolled, when it opts in by marking its body `data-fit-body` (and not
- * letting it grow): everything above the body plus the body's full content. 0 for other panels and nested splits.
- * Its slot in a column is never drawn or dragged shorter. Residual: inside a row, the row's share has no such floor.
- */
+/** data-fit-body panels enforce unscrolled content-height minimums in columns. Other panels/splits return zero; row shares have no such floor. */
 export const fitHeight = (el: Element | null): number => {
   const body = el?.matches('[data-panel]') ? el.querySelector('[data-fit-body]') : null;
   return body ? body.getBoundingClientRect().top - el!.getBoundingClientRect().top + body.scrollHeight : 0;
@@ -70,10 +66,7 @@ export function PanelSlot(props: { panel: PanelRef; size: SplitSize | undefined;
   );
 }
 
-/**
- * Drop target over a panel while another is dragged (by its header or from the toolbar): an edge docks the dragged
- * panel there, the middle swaps the two (a panel from outside the layout replaces the target).
- */
+/** Panel edge drops dock; center drops swap. Toolbar panels outside the layout replace center targets. */
 function DropZones(props: { target: LayoutPanelId; zones: readonly DropZone[] }) {
   const [zone, setZone] = createSignal<DropZone | null>(null);
   const zoneAt = (e: DragEvent): DropZone | null => {

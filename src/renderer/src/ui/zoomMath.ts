@@ -1,5 +1,4 @@
-// Zoom and pan of an image inside its fitted box, DOM-free. Coordinates are CSS px relative to the box's top-left;
-// the image is drawn as translate(x, y) scale(scale) with its transform origin at that corner.
+// DOM-free image zoom/pan uses fitted-box top-left CSS coordinates and translate(x,y) scale(scale) from that origin.
 import { pullDown } from './dragDismiss';
 
 export interface Zoom {

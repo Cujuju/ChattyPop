@@ -88,13 +88,7 @@ export interface DecisionProvider {
 /** Total USD of requests' reported costs; null when none reported one (unknown, not free). */
 export const sumCosts = (costs: number[]): number | null => (costs.length ? costs.reduce((a, b) => a + b, 0) : null);
 
-/**
- * `q` carrying one record's `data` beside its question text, so many records share one request the way System One
- * batches them: its questions run independently, each reading its own data ("put the question in one field and the data
- * in the others"), while one shared state would set every record before every question and lower Jev's confidence.
- * Null when it can't, and the record is asked alone: the question names none of `data`'s fields in backticks (it can't
- * say which data it means), its instructions are an array or have no question text, or they already use a field's name.
- */
+/** Batches questions with record-specific data. Returns null for ambiguous field references, unsupported instructions or conflicting field names; those records run individually. */
 export function carriedQuestion(q: Question, data: Record<string, unknown>): Question | null {
   const asks = typeof q.instructions === 'string' ? q.instructions : Array.isArray(q.instructions) ? null : q.instructions['question'];
   if (typeof asks !== 'string') return null;

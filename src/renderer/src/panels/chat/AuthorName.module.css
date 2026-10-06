@@ -1,6 +1,4 @@
-/* An author's name with Discord's marks after it (AuthorName): the name in the member's role colour (--role-color,
-   inline per author) else the default name colour; then APP, the server tag chip and the role icon, at Discord's sizes.
-   Hooks: .name[data-role-color='true']. */
+/* Author names use role/default colors followed by APP, server tags and role icons. data-role-color marks role-colored names. */
 .name {
   display: inline-flex;
   align-items: center;
@@ -19,8 +17,7 @@
   color: var(--role-color);
 }
 
-/* Enhanced Role Styles, as Discord draws them: the stops repeat across the name (--cp-name-gradient-size) and scroll while
-   its message is hovered; a holographic name (three stops) also glows then, through a blurred copy (data-text) behind it. */
+/* Enhanced role gradients repeat across names and animate on message hover. Three-stop holographic names add blurred data-text glow. */
 .name[data-gradient] .text {
   position: relative;
   z-index: 0;

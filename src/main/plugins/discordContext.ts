@@ -1,6 +1,4 @@
-// A plugin main side's Discord services (docs/plugin-architecture.md §4): reads for every plugin; writes only for one
-// whose descriptor declares `discord: { write: true }`, absent otherwise by type and at run time, and refused while posting
-// is locked (./posting.ts). Law 4: the embedded session only.
+// Exposes embedded-session reads to all plugins. Writes require declared permission in types/runtime and an unlocked posting state.
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { GuildEmoji } from '@shared/emoji';
 import type { DiscordClient, DiscordQuery, DiscordReader, WriteOptions } from '../discord/client';

@@ -1,6 +1,4 @@
-// GitHub client for marketplaces (docs/plugin-architecture.md §16). A token goes only to api.github.com, and only on a
-// request's first hop: redirects (to GitHub's download hosts) are followed by hand without it. Without a token, a public
-// repo's index and release assets come from GitHub's file hosts, outside the REST API's 60-an-hour anonymous limit.
+// GitHub tokens reach api.github.com only on initial hops. Redirects omit tokens; anonymous public files bypass REST’s hourly quota.
 import { COMMIT_PATTERN } from '@shared/installedPlugins';
 import { MARKETPLACE_INDEX_FILE, parseMarketplaceIndex, type MarketplaceIndex } from '@shared/marketplace';
 import { BYTES_PER_MB, MS_PER_MIN, MS_PER_S } from '@shared/units';
@@ -27,7 +25,7 @@ const MAX_JSON_BYTES = 5 * BYTES_PER_MB;
 export const MAX_DOWNLOAD_BYTES = 200 * BYTES_PER_MB;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
-/** A ref or tag as URL path segments; refuses `.`/`..` segments, which URL parsing would resolve upward. */
+/** Encodes ref/tag path segments, rejecting dot segments that URL parsing resolves upward. */
 function refPath(ref: string): string {
   const parts = ref.split('/');
   if (parts.some((p) => !p || p === '.' || p === '..')) throw new Error(`"${ref}" is not a usable branch or tag name`);
@@ -120,11 +118,7 @@ export class GitHub {
     return meta.default_branch;
   }
 
-  /**
-   * The repo's marketplace.json on its default branch, parsed; a plugin the index gives no source builds from that
-   * branch. Without a token the file comes from the raw host's HEAD, so a spent anonymous quota (a shared IP) still lists
-   * every release; only that source fallback waits for the API to name the branch.
-   */
+  /** Reads default-branch marketplace.json. Anonymous reads use raw HEAD despite REST quota exhaustion; source fallbacks still need branch metadata. */
   async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
     const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
     if (token !== null) {

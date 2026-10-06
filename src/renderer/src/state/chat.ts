@@ -24,10 +24,7 @@ export const [chatSource, setChatSource]: readonly [Accessor<ChatSource>, (v: Ch
 /** Live client columns hidden or collapsed; applied to the Discord page by main while a slot is bound. */
 export const [discordSidebar, setDiscordSidebar] = createSetting<DiscordSidebar>(SETTINGS_KEYS.discordSidebar, DEFAULT_DISCORD_SIDEBAR, normalizeDiscordSidebar);
 
-/**
- * Keeps the native Discord view glued to `el`: reports its rect whenever it resizes or moves with
- * the layout, and hides the view when `visible` is false, `el` is hidden, or `el` unmounts.
- */
+/** Tracks element geometry for native Discord placement. Hides view when invisible, element-hidden or unmounted. */
 export function bindDiscordSlot(el: HTMLElement, visible: Accessor<boolean>): void {
   const report = (): void => {
     const r = el.getBoundingClientRect();

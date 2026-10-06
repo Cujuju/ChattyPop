@@ -1,5 +1,4 @@
-// Asks Discord for a server's members matching typed text, as its client does for `@` autocomplete: gateway op 8
-// (REQUEST_GUILD_MEMBERS) on the client's own socket. The GUILD_MEMBERS_CHUNK answer arrives through the tap.
+// Searches guild members through client gateway op 8. GUILD_MEMBERS_CHUNK responses arrive through the tap.
 import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
 import { diag } from '../diagnostics';
@@ -39,12 +38,7 @@ interface Pending {
   expiry: ReturnType<typeof setTimeout>;
 }
 
-/**
- * Sends member searches through the client's socket, reached over CDP (the page itself is unchanged). Each server and
- * text is asked once per gateway session once answered, as Discord's client keeps the members it was sent; one in
- * flight isn't asked again. One step runs at a time: a lookup releases the previous handles, which a concurrent send
- * would still be using.
- */
+/** Serializes CDP socket access to preserve handles. Deduplicates in-flight and answered server/query pairs per gateway session. */
 export class MemberRequests {
   private socket: string | null = null;
   private readonly answered = new Set<string>();
@@ -112,10 +106,7 @@ export class MemberRequests {
     return sent === 'sent';
   }
 
-  /**
-   * 'closed': no open socket, nothing sent. 'unknown': CDP failed mid-call, so the frame may have gone; not retried here
-   * (the next keystroke asks again), and the socket is looked up afresh then.
-   */
+  /** closed means nothing sent; unknown means CDP failed and delivery is uncertain. Refreshes socket handles on the next keystroke rather than retrying. */
   private async send(frame: string): Promise<'sent' | 'closed' | 'unknown'> {
     try {
       this.socket ??= await this.findSocket();

@@ -1,5 +1,4 @@
-// Lifetime fences (docs/plugin-architecture.md §8): once a core activation or a main resource run ends, what it still
-// holds (statements, transactions, importers, fetches, run effects) refuses to act, while reads keep working.
+// Ended core activations and main resource runs reject retained side effects, including writes, importers, and fetches. Reads remain available.
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 import { defineCorePlugin, type CoreContext, type PluginStatement } from '@plugin-sdk/core';

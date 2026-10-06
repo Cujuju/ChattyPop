@@ -1,10 +1,8 @@
-// Contract (docs/plugin-architecture.md §4, posting lock) in a window: postingUnlocked follows a plugin declaring
-// `unlocks: { posting: true }` as it turns on and off, locked until the plugin list arrives; the outbox takes over
-// left-over queues only once posting unlocks. Fixture descriptors, never a real plugin.
+// Window posting stays locked until the plugin list arrives. Enabled unlocking plugins release it; outbox adoption waits for unlock.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 
-// The client runtime, so effects run as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const env = vi.hoisted(() => ({

@@ -25,10 +25,7 @@ export function byteRange(header: string | null | undefined, size: number): Byte
   return end < start ? null : { start, end };
 }
 
-/**
- * A reply of `size` bytes of `type`: the whole body, or the range `rangeHeader` asks for. `body(start, end)` yields the
- * bytes from start to end inclusive. Always advertises ranges, so a player knows it can ask for them.
- */
+/** Returns whole or requested byte ranges, always advertising range support. body(start,end) supplies inclusive bytes. */
 export function rangedResponse(rangeHeader: string | null | undefined, size: number, type: string, body: (start: number, end: number) => Body): Response {
   const headers = { 'content-type': type, 'accept-ranges': 'bytes' };
   const r = byteRange(rangeHeader, size);

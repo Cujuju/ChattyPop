@@ -1,5 +1,4 @@
-// Fixture plugins standing in for a full build: panels, slots, shortcuts, rule kinds, Jev switches and queries, notices
-// and adoptions, anchored on host and each other. Ids are fixtures'.
+// Full-build fixtures declare panels, slots, shortcuts, rule kinds, Jev vocabulary, notices, and adoptions with host and plugin anchors.
 import { AFTER_MESSAGE, MESSAGE_SEES } from '@plugin-sdk/shared';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 

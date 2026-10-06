@@ -12,7 +12,7 @@ import { activateProbe, includeProbe, probeAction } from './pluginRuleProbe';
 
 includeProbe();
 
-/** The per-message question that holds a matched event until it settles, as an urgency check would. */
+/** A per-message question holds matched events until settlement. */
 const URGENCY = 'urgency';
 /** A host switch no other question in this file uses. */
 const URGENCY_FEATURE: JevFeature = 'keepImportant';
@@ -23,10 +23,7 @@ const PROBE_TRIGGER = 'ruleprobe.start';
 /** Disposers of the questions each test registered. */
 const unregister: (() => void)[] = [];
 
-/**
- * A probe-only rule stack. `pending()` counts events the probe action ran for that have not settled since: what an
- * action owner holding work until settlement would still hold.
- */
+/** Probe-only rule stack. pending() counts action events still awaiting settlement. */
 function stack() {
   const db = tempDb();
   const jev = new FakeJev();

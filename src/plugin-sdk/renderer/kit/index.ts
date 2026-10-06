@@ -1,6 +1,4 @@
-// Plugin SDK, renderer kit (docs/plugin-architecture.md §4, §14): the host's UI components (props, no CSS objects; how
-// they look is the theme's `look` vocabulary), format helpers, and the app state and navigation a plugin's views read.
-// First-party and unversioned: it moves with the host. It never loads the plugin registry (tests/rendererBoundary.test.ts).
+// First-party renderer kit exposes themed UI props, formatters, state and navigation. Unversioned with host; excludes plugin registry dependencies.
 
 import { setSettingsOpen } from '@/state/ui';
 

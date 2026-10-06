@@ -32,10 +32,7 @@ type WindowEvents<D> = MembersFor<ChannelsOf<D>, 'events', 'renderer' | 'phone'>
 /** A secret's name: its file is `<plugin id>-<name>` in the profile's secrets folder. */
 const SECRET_NAME = /^[a-z][a-z0-9-]*$/;
 
-/**
- * One run of a switch-governed resource (whileActive), from its start until its plugin turns off or the app quits; work
- * it started that finishes later can then no longer act for the next run.
- */
+/** Activation-scoped resource lifetime ends on disablement/quit, preventing late effects from acting in later runs. */
 export interface ResourceRun<D extends PluginDescriptor = PluginDescriptor> extends Lifetime {
   /** The plugin's secrets: writes and deletes throw PluginInactiveError once the run ended; reads stay open. */
   secrets: MainContext<D>['secrets'];
@@ -63,10 +60,7 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
     fetchTo(r: AttachmentFetch): Promise<string | null>;
   };
   media: {
-    /**
-     * Downloads an image a message shows (archive.images: an embed's through Discord's media proxy and session, a
-     * fetched X post's photo without it) at full size to `path`, in a format any decoder reads; null, or why it failed.
-     */
+    /** Downloads full-size archive images to decoder-compatible files. Discord uses session/proxy; X uses direct transport. Returns null or failure reason. */
     fetchImageTo(url: string, path: string): Promise<string | null>;
     /**
      * Downloads a video an embed shows (archive.parts: Discord's media proxy, through its session) to `path` as served,
@@ -84,10 +78,7 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
   sync(channelIds: string[]): void;
   /** Writes `<plugin id>-<event>` to the diagnostics log; never tokens or message content. */
   diag(event: string, detail?: Record<string, unknown>): void;
-  /**
-   * Runs `start` while the plugin is on, and the disposer it returns when it turns off (or the app quits), once its run
-   * ended. Transitions run one at a time. For resources the switch must govern: a listening server, an external config.
-   */
+  /** Serializes start/dispose transitions while enabled. Disposes after ending each run on disablement or quit; governs listening servers and external configuration. */
   whileActive(start: ActiveResource<D>): void;
   /** Strings encrypted by the OS keystore, readable only by this Windows account. `read` throws when undecryptable. */
   secrets: {
@@ -100,11 +91,7 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
     fetch: PluginFetch;
     /** A server on 127.0.0.1 (descriptor `network.loopback`); rejects with the listen error. A handler's escaped error is logged and answered 500. */
     listen(port: number, handler: LoopbackHandler): Promise<LoopbackServer>;
-    /**
-     * Tailscale Serve at the declared `network.tailnet.httpsPort`: `publish` proxies it to loopback `localPort` and
-     * resolves with the HTTPS URL (rejects with TailnetError); `withdraw` removes it. The host removes it too whenever
-     * the plugin is off or absent, so config left at quit stays only while the plugin stays on.
-     */
+    /** Publishes declared Tailscale HTTPS ports to loopback, returning URL or TailnetError. withdraw removes configuration; host also removes disabled/absent plugin ports. */
     tailnet: { publish(localPort: number): Promise<string>; withdraw(): Promise<void> };
   };
   /** Its declared preferences (descriptor `preferences`), through core; onChange listens once the activation succeeds. */
@@ -170,10 +157,7 @@ export interface MainPluginDeps {
   send?: NetworkSend;
 }
 
-/**
- * Where a plugin's main side registers: its served calls, its event listeners, its switch-governed resources, and
- * `stage` for any other registration (label providers, phone routes). All are held until the activation succeeds.
- */
+/** Holds main-side calls, events, switch-governed resources and staged registrations until activation succeeds. */
 export interface MainRegistrations {
   serve(name: string, fn: (...args: unknown[]) => unknown): void;
   on(name: string, fn: (payload: unknown) => unknown): void;

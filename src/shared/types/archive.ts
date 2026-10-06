@@ -157,10 +157,7 @@ export interface ArchiveReaction {
   me: boolean;
 }
 
-/**
- * Discord's unfurled preview of a link, or a bot's rich embed. Image URLs are Discord media-proxy URLs, or X image-host URLs
- * for an X post filled from FxTwitter (Links views only).
- */
+/** Link previews/rich embeds use Discord proxy images or FxTwitter-filled X image URLs in Links views. */
 export interface ArchiveEmbed {
   type: string;
   url: string | null;
@@ -184,10 +181,7 @@ export interface ArchiveEmbed {
   videoUrl: string | null;
   videoSize: MediaSize | null;
   footer: string | null;
-  /**
-   * Notes plugins attached to its text and media (a transcript, a translation), in plugin build order. Absent on an embed
-   * a plugin builds itself (a Links card), including from builds before SDK 2.1.
-   */
+  /** Plugin text/media notes follow build order. Plugin-built embeds omit notes, including legacy SDK builds. */
   notes?: AttachmentNote[];
 }
 
@@ -335,7 +329,7 @@ export interface UnreadMark {
 export interface UnreadBoundary {
   id: string;
   ts: number;
-  /** A later external read this opening has observed; never ignored when local reading catches up to it. */
+  /** Observed external-read boundary remains effective after local reads catch up. */
   ackId?: string;
 }
 
@@ -351,10 +345,7 @@ export interface ArchivedBot {
   username: string;
 }
 
-/**
- * A channel's unread mention count in Discord's read state (main/discord/readStates.ts), and a DM's read and mute state.
- * Each field is absent when unknown (or, for the DM fields, not a DM): the stored value stands.
- */
+/** Read-state updates carry mention counts and DM ack/mute state. Unknown/non-DM fields are omitted, preserving stored values. */
 export interface ReadStateCount {
   channelId: string;
   mentionCount?: number;
@@ -364,10 +355,7 @@ export interface ReadStateCount {
   muteEndsMs?: number | null;
 }
 
-/**
- * How a batch of read states lands: 'merge' patches the listed channels; 'replace' (READY) lists every channel, so the
- * rest have none, and a listed channel keeps what its count leaves out; 'reset' (another account) also forgets that.
- */
+/** Read-state merge patches channels; replace clears unlisted states while preserving omitted listed fields; reset also clears omitted fields after account changes. */
 export type ReadStateScope = 'merge' | 'replace' | 'reset';
 
 export interface MessagePageQuery {

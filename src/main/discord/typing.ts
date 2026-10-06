@@ -13,10 +13,7 @@ interface RawTypingStart {
 /** The documented TYPING_START fields; any other is a custom typing indicator's, noted once for diagnostics. */
 const DOCUMENTED_TYPING_FIELDS = new Set(['channel_id', 'guild_id', 'user_id', 'timestamp', 'member']);
 
-/**
- * Turns a gateway dispatch into the 'typing' event windows and the phone get; null for any other dispatch, and for a
- * channel privacy mode hides (nothing of it leaves main), or any channel until the privacy scope is known.
- */
+/** Converts typing dispatches for windows/phone. Returns null for other events, hidden channels or unknown privacy scope. */
 export class TypingEvents {
   /** The undocumented field names were noted this session. */
   private extrasSeen = false;

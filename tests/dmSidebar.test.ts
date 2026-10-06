@@ -1,4 +1,4 @@
-// The sidebar's DM list (docs/dms.md §3.3, §4.1): unread and mute state, search, filters, folds, the segment count and row ages.
+// Tests DM sidebar unread/mute state, search, filters, folds, segment count, and row ages.
 import { describe, expect, it } from 'vitest';
 import { DM_CHANNEL_TYPE, DM_GUILD_ID, GROUP_DM_CHANNEL_TYPE, MUTED_FOREVER, snowflakeFromMs } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';

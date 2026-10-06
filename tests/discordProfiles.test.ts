@@ -1,5 +1,4 @@
-// Contract: Discord's profile, mutual-friend and reactor answers are cached as the Person window and the reaction
-// tooltip show them, and storing one refreshes the names and roles the archive draws elsewhere.
+// Caches profile, mutual-friend, and reactor responses; stored profiles refresh archive names and roles.
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { RawRole } from '@shared/discord';
 import type { FetchedProfile } from '@shared/types/discordProfile';

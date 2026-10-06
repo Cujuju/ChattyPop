@@ -72,7 +72,7 @@ export function modelRates(p: CataloguePricing): ModelRates | null {
   return { ...base, overrides: overrides.sort((a, b) => a.minPromptTokens - b.minPromptTokens) };
 }
 
-/** What the call would cost at these rates, in USD. */
+/** Estimated USD cost at these rates. */
 export function priceUsage(rates: ModelRates, u: PricedUsage): number {
   const r = rates.overrides.findLast((o) => u.largestPromptTokens >= o.minPromptTokens) ?? rates;
   const fresh = Math.max(0, u.inputTokens - u.cachedInputTokens - u.cacheWriteInputTokens);

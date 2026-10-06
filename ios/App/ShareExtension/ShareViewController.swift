@@ -72,7 +72,7 @@ private final class ShareModel: ObservableObject {
             guard pairing != nil else { throw ShareError.message("Open ChattyPop to pair") }
             let data = try await request(method: "GET")
             guilds = try JSONDecoder().decode(ShareTargets.self, from: data).guilds
-            // Start on "Choose a channel" so Send needs a deliberate pick; keep a pick that's still valid.
+            // Starts without a selected channel; retains an existing valid selection.
             if !guilds.contains(where: { $0.channels.contains(where: { $0.id == channelId }) }) {
                 channelId = ""
             }

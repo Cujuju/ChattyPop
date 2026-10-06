@@ -9,10 +9,7 @@ const FEATURE_COUNT = 3;
 const SQUARE_COUNT = 4;
 const PAIR_TILES = 2;
 
-/**
- * Tiles per row, top to bottom, for `n` tiles: rows of three, the remainder (one or two) leading; four is two by two.
- * Three is one then two, which the stylesheet lays side by side (one large, two stacked), as Discord does.
- */
+/** Mosaic rows use threes with leading remainder; four forms 2×2. Three uses one large tile beside two stacked tiles. */
 export function mosaicRows(n: number): number[] {
   if (n <= 0) return [];
   if (n === FEATURE_COUNT) return [1, PAIR_TILES];

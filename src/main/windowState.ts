@@ -35,10 +35,7 @@ function normalize(raw: unknown): WindowState | undefined {
   return { bounds, maximized: o['maximized'] === true, fullScreen: o['fullScreen'] === true };
 }
 
-/**
- * Window states kept in one JSON file in the app profile, keyed per window.
- * Saved on close only: after a crash a window reopens where it was at its last clean close.
- */
+/** Persists per-window states in profile JSON on close. After crashes, restores the last clean-close position. */
 export class WindowStateFile {
   constructor(private readonly fileName: string) {}
 
@@ -47,10 +44,7 @@ export class WindowStateFile {
     return normalize(this.readAll()[key]);
   }
 
-  /**
-   * Shows `win` (created with `show: false` and `saved.bounds`) in its saved state once ready, unless `startHidden`
-   * (raiseWindow shows it then), and saves its state on every close once it has been shown.
-   */
+  /** Shows ready windows with saved state unless startHidden. Saves state on closes after first display; raiseWindow handles hidden starts. */
   manage(win: BrowserWindow, key: string, saved: WindowState | undefined, { startHidden = false } = {}): void {
     let ready = false;
     let wanted = !startHidden;

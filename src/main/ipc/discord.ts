@@ -47,11 +47,7 @@ export interface DiscordDeps {
   posting: PostingGate;
 }
 
-/**
- * Renderer requests that reach Discord; ids from the renderer are checked before they enter a Discord path.
- * Synchronous: it attaches gateway tap listeners, which must happen in the window's creation tick.
- * Returns the calls the phone companion may also make, checked and gated the same way.
- */
+/** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
 export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const { discord: channels } = MAIN_INVOKE;
   ipcMain.handle(channels.refreshDirectory, (_e, guildId: unknown) =>

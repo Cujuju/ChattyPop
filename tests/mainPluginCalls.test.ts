@@ -1,5 +1,4 @@
-// Windows' calls to plugins' main sides: refused centrally while the plugin is off, so no dialog opens for one; a main
-// activation that fails or leaves a declared call unserved registers nothing.
+// Disabled plugins reject main calls. Failed activations or missing declared handlers register no calls.
 import { describe, expect, it, vi } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 import { defineMainPlugin } from '@plugin-sdk/main';

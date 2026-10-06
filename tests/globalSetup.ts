@@ -1,5 +1,4 @@
-// One temp folder per test run, holding every folder tests create (tests/helpers.ts tempDir). Removed after the run,
-// once the workers have exited and closed their databases (Windows can't delete a SQLite file that is still open).
+// Creates one temporary root per test run. Removes it after workers exit and close their databases.
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -25,10 +24,7 @@ const isAlive = (pid: number): boolean => {
   }
 };
 
-/**
- * Tries per folder while Windows still holds a file (EBUSY/EPERM just after a worker or child process exits); Node waits
- * 100 ms more before each try, so this gives about 1.5 s.
- */
+/** Retries EBUSY/EPERM cleanup failures with increasing 100 ms delays, allowing approximately 1.5 seconds for released Windows handles. */
 const REMOVE_TRIES = 5;
 
 /** Removes a folder; one still locked is left for the next run's sweep rather than failing this run. */

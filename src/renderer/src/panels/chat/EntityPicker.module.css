@@ -1,5 +1,4 @@
-/* People / role / channel picker: chosen ones as chips inside a field, matches in a list that opens above it (it sits
-   near the bottom, in the composer or a bot message). */
+/* People/role/channel picker displays selected chips and a match list above composer/bot-message fields. */
 .root {
   position: relative;
 }

@@ -1,5 +1,4 @@
-// Settings → Jev → Queries order (docs/plugin-architecture.md §3, Jev query placement): plugins' queries, placed by their
-// anchors over every plugin folder's catalog, keep their places among the host's queries whichever plugins a build has.
+// Plugin query anchors use the complete folder catalog, preserving placement among host queries across build selections.
 import { describe, expect, it } from 'vitest';
 import { definePlugin, type JevQueryDecl } from '@plugin-sdk/shared';
 import { anchorCatalog, catalogJevQueryAnchor, checkBundled } from '@shared/bundledCheck';

@@ -1,5 +1,4 @@
-// CSS declarations and the look / structure split for plugin styles (docs/plugin-architecture.md §14): the style test
-// checks every plugin folder with it, and the installed-plugin build checks the plugin it builds.
+// Validates plugin CSS declarations and look/structure ownership in style tests and installed-plugin builds.
 
 /** One declaration and where it sits: its selector (with any enclosing at-rules) and file. */
 export interface Declaration {
@@ -66,7 +65,7 @@ export const STRUCTURE_PROPERTIES = [
   'text-align', 'white-space', 'text-overflow', 'word-break', 'overflow-wrap', 'hyphens', 'text-wrap', 'vertical-align',
   'line-clamp', '-webkit-line-clamp', '-webkit-box-orient',
   'visibility', 'pointer-events', 'touch-action', 'user-select', '-webkit-user-select',
-  // Borderline: generated boxes and numbering are content, not their paint; list-style: none removes marker boxes, as display would.
+  // Generated boxes/numbering affect content structure; list-style:none removes marker boxes.
   'content', 'counter-reset', 'counter-increment', 'list-style',
   'container', 'container-type', 'container-name', 'contain', 'scrollbar-gutter',
   // Borderline: translate moves a box (a drawer's closed position, a pull's offset); rotate and scale are effects (look).

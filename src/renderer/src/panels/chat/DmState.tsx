@@ -1,6 +1,4 @@
-// A DM shown in the Archive without its archive on (docs/dms.md §3.6): stopped shows its kept history read-only under a
-// bar; never shows an offer to archive it. The phone only reads, so it gets neither action; nor does a message request
-// or a group left, which can't be archived.
+// Stopped DMs show read-only retained history; never-archived DMs offer archiving. Phone, requests and left groups omit archive actions.
 import { Show, createSignal } from 'solid-js';
 import { openLive } from '@/state/archive';
 import { setChannelOptIn } from '@/state/directory';

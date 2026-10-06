@@ -1,5 +1,4 @@
-// Tailscale Serve for plugins (main ctx.net.tailnet): the host records what a plugin publishes, keeps it at quit for
-// the plugin's next run, and removes it once that plugin is off or left out of the build, never config it didn't set.
+// Tracks plugin-owned Tailscale Serve configuration, preserving it at quit and removing it when the plugin disables or leaves the build. Other configuration remains untouched.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';

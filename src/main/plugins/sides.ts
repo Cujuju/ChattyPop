@@ -1,5 +1,4 @@
-// Bundled plugins' main sides (docs/plugin-architecture.md §5): each activated once, its registrations held until it
-// succeeds; core's events for main reach their listeners, and windows' main calls reach what the plugins serve.
+// Activates bundled main sides once, committing registrations only after success. Routes core events and window calls to declared handlers.
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { AppEvent } from '@shared/contract';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';
@@ -22,11 +21,7 @@ export interface MainSides {
   stop(): Promise<void>;
 }
 
-/**
- * Activates each main side once. Main sides don't follow Settings → Plugins on/off: a plugin that is off never asks them
- * for anything, since its core and renderer sides are what stop. Resources a plugin registers with ctx.whileActive
- * follow the switch. An activation that throws, or leaves a declared main call unserved, is logged and registers nothing.
- */
+/** Main sides activate once independent of plugin switches; whileActive resources follow switches. Throws or missing declared handlers register nothing and are logged. */
 export function startMainSides(
   plugins: readonly MainPlugin[],
   d: MainPluginDeps,

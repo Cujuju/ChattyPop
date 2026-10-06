@@ -1,5 +1,4 @@
-// DMs and group DMs as the client's gateway reports them (docs/dms.md §3.1, §3.2): merged field by field, scoped to the
-// account they belong to, and closed rather than deleted when they leave Discord's list.
+// Merges gateway DM fields per account. Channels leaving Discord’s list close instead of being deleted.
 import { DM_CHANNEL_TYPE, DM_CHANNEL_TYPES, DM_GROUP_NAME, GROUP_DM_CHANNEL_TYPE, DM_GUILD_ID, privateChannelName, type RawPrivateChannel, type RawUser } from '@shared/discord';
 import type { PrivateChannelFacts } from '@shared/dms';
 import type { Db } from './db';
@@ -8,17 +7,11 @@ import { upsertUser } from './people';
 /** The private channel kinds, for SQL `IN (…)`. */
 export const PRIVATE_KINDS_SQL = [...DM_CHANNEL_TYPES].join(', ');
 
-/**
- * SQL true when channel alias `c` is one sync keeps current: opted in, and no DM, or a DM of `@self` that isn't a group
- * left. Another account's DM, an unclaimed one, and with `@self` unknown ('') every DM are left out, as in the directory.
- */
+/** Sync includes opted-in server channels and the current account’s DMs, excluding left groups. Unknown accounts and unclaimed DMs are excluded. */
 export const syncedChannelSql = (c: string): string =>
   `(${c}.opted_in = 1 AND (${c}.kind NOT IN (${PRIVATE_KINDS_SQL}) OR (${c}.account_id = @self AND NOT (${c}.kind = ${GROUP_DM_CHANNEL_TYPE} AND ${c}.closed_at IS NOT NULL))))`;
 
-/**
- * Why `selfId` can't archive `channelId`, or null when it can (any server channel). A DM must be the account's, and
- * neither a message request (read-only) nor a group left (its history can't be read).
- */
+/** Returns a DM archive refusal reason, or null. Requires account ownership and excludes requests and left groups; server channels are allowed. */
 export function archiveRefusal(db: Db, channelId: string, selfId: string | null): string | null {
   const r = db
     .prepare(
@@ -42,21 +35,14 @@ const given = (column: string, flag: string): string => `${column} = CASE WHEN @
 /** One of Discord's request flags as stored, or null when the payload left it out (the stored one stands). */
 const flagOf = (flag: boolean | undefined): number | null => (flag === undefined ? null : flag ? 1 : 0);
 
-/**
- * The name a payload sets; undefined leaves the stored one. A group's own name stands; a one-to-one DM's, or a group's
- * cleared name (null), follows its people only once the roster is resolved, so an unresolved one never names it.
- */
+/** undefined preserves names. Explicit group names win; automatic peer names require a resolved roster. */
 function nameOf(c: RawPrivateChannel, recipients: RawUser[] | undefined): string | undefined {
   if (c.name) return c.name;
   const followsPeople = c.type === DM_CHANNEL_TYPE || c.name !== undefined;
   return followsPeople && recipients ? privateChannelName({ ...c, name: null, recipients }) : undefined;
 }
 
-/**
- * Stores one DM of `accountId` (null: not known yet, the stored account stands). `opened`: Discord lists it now (READY,
- * CHANNEL_CREATE), so it isn't closed. Rank is read from last_message_id at query time, never stored here.
- * Residual: an unnamed group's name follows its roster only when a full channel object arrives (READY, CHANNEL_UPDATE).
- */
+/** Upserts account-scoped DMs; opened clears closure. Preserves unknown account ownership. Activity rank is queried; unnamed groups update names on complete channel payloads. */
 export function upsertPrivateChannel(db: Db, accountId: string | null, c: RawPrivateChannel, opened: boolean): void {
   if (!DM_CHANNEL_TYPES.has(c.type)) return;
   db.prepare('INSERT INTO guilds (id, name) VALUES (?, ?) ON CONFLICT(id) DO NOTHING').run(DM_GUILD_ID, DM_GROUP_NAME);
@@ -99,11 +85,7 @@ export function upsertPrivateChannel(db: Db, accountId: string | null, c: RawPri
   recipients?.forEach((u) => upsertUser(db, u));
 }
 
-/**
- * READY's list for `accountId`: each listed DM is open and the account's, claimed if no account owned it (an older build
- * stored it). Unless `partial`, the account's unlisted DMs close at `now`, and so does an unlisted unowned DM holding a
- * message the account wrote, claimed first. Any other unowned DM stays unowned, hidden from every DM list.
- */
+/** READY opens and claims listed DMs. Complete lists close absent owned DMs and claim absent unowned DMs containing the account’s messages. */
 export function replacePrivateChannels(db: Db, accountId: string, channels: RawPrivateChannel[], partial: boolean, now: number): void {
   db.transaction(() => {
     const listed = channels.filter((c) => DM_CHANNEL_TYPES.has(c.type));
@@ -128,10 +110,7 @@ export interface Touch {
   reopened: boolean;
 }
 
-/**
- * A new message in a known DM: its newest id rises to `messageId`, never falls. A closed one-to-one DM opens again, as
- * Discord reopens it; a closed group stays closed (no message reaches one left).
- */
+/** Raises a known DM’s last_message_id monotonically. New messages reopen closed one-to-one DMs; groups stay closed. */
 export function touchChannel(db: Db, channelId: string, messageId: string): Touch {
   const row = db
     .prepare(
@@ -196,10 +175,7 @@ export function setAutoDeclined(db: Db, channelId: string, declined: boolean): v
   db.prepare(`UPDATE channels SET auto_declined = ? WHERE id = ? AND kind IN (${PRIVATE_KINDS_SQL})`).run(declined ? 1 : 0, channelId);
 }
 
-/**
- * Auto-archive's gate (docs/dms.md §3.6): a DM of `selfId`, not archived, not a request or spam, not declined by the
- * owner, and not a group left. Unknown DMs and other accounts' never qualify.
- */
+/** Auto-archive requires an owned, unarchived DM excluding requests, spam, declined channels and left groups. */
 export function autoArchivable(db: Db, channelId: string, selfId: string | null): boolean {
   if (!selfId) return false;
   return (

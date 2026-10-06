@@ -1,4 +1,4 @@
-// Archive views as an older build persisted them. Frozen: intermediate-schema tests install these, never today's registry.
+// Frozen archive views for intermediate-schema tests; independent of the current registry.
 import type { Db } from '../src/core/db';
 
 /** The check that nothing is hidden, which guards the per-row scope checks. */
@@ -41,7 +41,7 @@ export const VIEWS_BEFORE_SCOPE_TABLE: Readonly<Record<string, string>> = {
 /** archive_messages as persisted before its scope checks were guarded: the scope is derived for every message. */
 export const UNGUARDED_MESSAGES = VIEWS_BEFORE_SCOPE_TABLE.archive_messages!.replaceAll(`${NOTHING_HIDDEN} OR `, '');
 
-/** Persists `views` (name → SELECT) as an older build would have. */
+/** Persists frozen view definitions as name-to-SELECT mappings. */
 export function persistViews(db: Db, views: Readonly<Record<string, string>>): void {
   for (const [name, select] of Object.entries(views)) db.exec(`CREATE VIEW ${name} AS ${select}`);
 }

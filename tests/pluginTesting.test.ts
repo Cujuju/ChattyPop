@@ -1,5 +1,4 @@
-// The plugin testing harness (docs/plugin-architecture.md §15): a plugin tested through it meets the host's own adapters
-// (lifetimes, read scope, audiences), and its public types reach no host module.
+// Tests host lifecycle, read-scope, and audience adapters; public test types cannot import host modules.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';

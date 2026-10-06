@@ -43,10 +43,7 @@ export function readyPrivateChannels(d: Record<string, unknown>): PrivateChannel
   return { self, channels: entries.map((c) => normalizePrivateChannel(c, users)), partial };
 }
 
-/**
- * The shape of READY's private channels, for checking docs/dms.md §3.2's assumption (request and spam flags): field
- * names and counts only, never names, ids or content.
- */
+/** Logs READY private-channel field names/counts to check request/spam schema assumptions; excludes names, ids and content. */
 export function privateChannelsShape(d: Record<string, unknown>): Record<string, unknown> {
   const raw = d['private_channels'];
   const { entries, partial } = entriesOf<GatewayPrivateChannel>(raw);
@@ -65,11 +62,7 @@ export function privateChannelsShape(d: Record<string, unknown>): Record<string,
   };
 }
 
-/**
- * Each READY names core's signed-in account, then hands it that account's DM list. Core takes calls in order, so every
- * later delta and query sees this account. Subscribe before the client opens its socket (as the tap requires), or READY
- * is missed.
- */
+/** Subscribes before socket creation to capture READY. Sends account identity before DM lists, preserving ordered core deltas and queries. */
 export function watchPrivateChannels(tap: GatewayTap, core: Pick<MainCore, 'call'>, diag: (event: string, data: Record<string, unknown>) => void): void {
   tap.on('dispatch', ({ t, d }) => {
     if (t !== 'READY') return;

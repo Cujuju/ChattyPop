@@ -28,11 +28,7 @@ export function swipeOutcome(start: TouchPoint, t: Touch): 'left' | 'right' | 's
 
 type TouchHandler = JSX.EventHandler<HTMLElement, TouchEvent>;
 
-/**
- * Touch handlers for an element that follows a one-finger swipe to the left, as an iOS list row does, and calls `run`
- * when released past SWIPE_COMMIT_PX; while nabled() is false it stays put. Style hooks it writes: [data-swipe='drag'] while the finger is down,
- * [data-armed='true'] past the commit point, --swipe-x (travel, px) and --swipe-p (0..1 to the commit point).
- */
+/** Enabled left swipes trigger run beyond SWIPE_COMMIT_PX. Writes drag/armed attributes and --swipe-x/p gesture tokens. */
 export function swipeLeftToAct(run: () => void, enabled: () => boolean = () => true): { onTouchStart: TouchHandler; onTouchMove: TouchHandler; onTouchEnd: TouchHandler; onTouchCancel: TouchHandler } {
   let start: TouchPoint | null = null;
   let el: HTMLElement | null = null;
@@ -87,10 +83,7 @@ export function swipeLeftToAct(run: () => void, enabled: () => boolean = () => t
   };
 }
 
-/**
- * Makes a still long press fire `contextmenu` where the finger is, so every right-click menu opens by touch. iOS never
- * fires it; Android does, and its own event then stands in for this one. Call inside an owner.
- */
+/** Owner-scoped stationary touch holds emit contextmenu on iOS; Android’s native event replaces synthetic emission. */
 export function longPressOpensMenus(): void {
   let press: { x: number; y: number; timer: number; fired: boolean } | null = null;
   const cancel = (): void => {
@@ -119,7 +112,7 @@ export function longPressOpensMenus(): void {
     if (press && !press.fired && t && Math.hypot(t.clientX - press.x, t.clientY - press.y) > TOUCH_SLOP_PX) cancel();
   }, { passive: true });
 
-  // The press that opened the menu ends without a tap: its mousedown would close the menu, its click act on the row.
+  // Suppresses tap events following menu-opening long presses.
   listen(document, 'touchend', (e) => {
     if (press?.fired && contextMenu()) e.preventDefault();
     cancel();
@@ -131,7 +124,7 @@ export function longPressOpensMenus(): void {
     if (press?.fired && contextMenu()) e.preventDefault();
   });
 
-  // Android's own long-press event: the first one this press opens the menu, a second would open it again.
+  // Handles Android’s first long-press contextmenu only, preventing duplicate menus.
   listen(document, 'contextmenu', (e) => {
     if (!e.isTrusted || !press) return;
     if (press.fired) {

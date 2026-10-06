@@ -10,7 +10,7 @@ import { noHiddenRefSql, visibleChannelSql, visibleMessageRefSql, visibleMessage
 import { tempDb } from './helpers';
 import { seedArchiveViews, VIEW_COLUMNS, archiveViewNames } from './archiveViewsFixture';
 
-/** Takes over the built-in transcription queue table, as a plugin that was once built in does. */
+/** Adopts the legacy built-in transcription queue table. */
 const tableAdopter = definePlugin({
   manifest: { id: 'adopter', name: 'Adopter', version: '1', description: '' },
   adopts: { tables: { transcripts: 'jobs' } },

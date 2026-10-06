@@ -1,5 +1,4 @@
-// Renderer initialization (docs/plugin-architecture.md §9): the SDK initializes before any plugin, whichever order an
-// entry loads things in, and plugins reach the host's slots only once the registry installs them.
+// SDK initialization precedes plugins across entry orders; host slots become available after registry installation.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';

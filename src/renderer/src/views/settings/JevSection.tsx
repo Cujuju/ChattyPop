@@ -32,10 +32,7 @@ const rows = (): Partial<Record<JevFeature, JevFeatureInfo>> => ({ ...JEV_FEATUR
 /** A switch's row; a bare one named by its declaration while its plugin's row is gone (it just turned off). Reactive. */
 const featureInfo = (f: JevFeature): Omit<JevFeatureInfo, 'group'> & { group?: JevFeatureInfo['group'] } =>
   rows()[f] ?? { label: jevFeatureLabel(f), hint: '' };
-/**
- * Switches with a row here, in page order (orderJevFeatures: host order, plugins' placed as declared, by group). A switch
- * that turns a managed rule on is the rule's, in Settings → Rules. Reactive.
- */
+/** Reactively orders visible switches by host/plugin placement and group. Managed-rule switches live in Rules settings. */
 const ordered = (): JevFeature[] => {
   const info = rows();
   const shown = (f: JevFeature): boolean => !!info[f] && !managedRuleFeatures().includes(f);

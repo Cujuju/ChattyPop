@@ -1,4 +1,4 @@
-// Resource reads that never throw: a failed fetch reads as no value plus its reason, and a later success clears it.
+// Failed resource reads return no value plus the error; subsequent success clears it.
 import { createRequire } from 'node:module';
 import { expect, it } from 'vitest';
 import { failure, settled } from '../src/plugin-sdk/renderer/settled';

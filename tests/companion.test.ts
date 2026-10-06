@@ -1,4 +1,4 @@
-// Contract tests for what the phone may reach (calls, events, wire encoding), its pairing QR code and static file paths.
+// Tests phone calls, events, encoding, pairing QR codes, and static paths.
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { decodeWire, encodeWire } from '@plugin-sdk/shared';

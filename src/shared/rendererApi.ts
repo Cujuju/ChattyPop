@@ -39,7 +39,7 @@ export interface RendererApi {
     /** Shows a channel in the live client (guild id, or "@me" for DMs). */
     openChannel(guildId: string, channelId: string): void;
     probe(): Promise<DiscordProbe>;
-    /** The live client's current server and channel; null before it shows one. Later changes arrive as 'live-channel' events. */
+    /** Live server/channel, or null before display. Changes emit live-channel. */
     shownChannel(): Promise<{ guildId: string; channelId: string } | null>;
     /** Fetches the server list, or one server's channels, into the archive directory. */
     refreshDirectory(guildId?: string): Promise<void>;
@@ -60,7 +60,7 @@ export interface RendererApi {
     gifs(query: string): Promise<Gif[]>;
     /** The owner's custom theme as set in Discord; rejects when Discord has none. */
     customTheme(): Promise<CustomTheme>;
-    /** Every server's emoji and stickers, Discord's sticker packs and the plan's perks; loads `guildId`'s if the gateway didn't. */
+    /** Loads guild emoji/stickers, standard packs and plan perks; fetches guildId when absent from gateway. */
     expressions(guildId: string): Promise<ExpressionCatalog>;
     /** The slash commands usable in a channel (guildId null for a DM). */
     commands(channelId: string, guildId: string | null): Promise<CommandIndex>;
@@ -88,11 +88,7 @@ export interface RendererApi {
     reactors(channelId: string, messageId: string, emoji: ArchiveEmoji, count: number): Promise<ReactionUsers>;
     /** The owner's friends whose names are known, by name (the New message picker). */
     friends(): Promise<Friend[]>;
-    /**
-     * Starts a DM with one person, or a group of friends (docs/dms.md §3.5), from New message; one person with an open DM
-     * sends nothing. `archive` applies to a conversation it makes (`created`). Resolves once core holds it; rejects with
-     * Discord's reason.
-     */
+    /** Starts one-person/group DMs; existing open DMs send nothing. Applies archive choices to newly created channels and resolves after core storage; Discord errors reject. */
     startDm(recipients: string[], archive: boolean): Promise<DmOutcome>;
     /** The owner's DM with one person, from their profile: the open one, else a new one; its channel id once core holds it. */
     dmWith(userId: string): Promise<string>;
@@ -133,7 +129,7 @@ export interface RendererApi {
     /** Asks where to save an archived attachment (its own name offered), then copies it there. Resolves when done or cancelled. */
     saveAttachment(sha256: string, filename: string): Promise<void>;
   };
-  /** Settings → Desktop; later changes arrive as 'desktop-changed' events (main window only). */
+  /** Desktop settings; changes emit desktop-changed to main window. */
   desktop: {
     state(): Promise<DesktopState>;
     set(patch: Partial<DesktopSettings>): Promise<void>;

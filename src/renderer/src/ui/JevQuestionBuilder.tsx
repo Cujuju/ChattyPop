@@ -42,11 +42,7 @@ const Lock = () => (
   <Icon name="lock" class={styles.lock} />
 );
 
-/**
- * Builds an owner-written Jev question: its kind, the question about `message`, and what each answer means. Extra
- * fields on `value` (a rule's match condition) are kept through edits; `children` render under the meanings.
- * `roomy` is the full-width layout (Settings → Jev → Queries): the kind as a segmented control and labelled sections.
- */
+/** Builds question kind/text/meanings while preserving extra value fields. children follow meanings; roomy enables full-width labeled/segmented layouts. */
 export function JevQuestionBuilder<T extends JevQuestionSpec>(props: {
   legend: string;
   /** Keeps the legend for screen readers only, where a surrounding label already shows it. */

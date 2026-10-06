@@ -1,5 +1,4 @@
-// plugin:check's scan (scripts/pluginScan, docs/plugin-architecture.md §16): the app's own-plugin rules, run on any
-// plugin folder. Fixture plugins pass; planted faults are named by file and line.
+// Valid fixture plugins pass source scans; planted violations identify files and lines.
 import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';

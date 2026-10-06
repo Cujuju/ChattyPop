@@ -1,5 +1,4 @@
-/* "A is typing…" atop the Archive footer column: small, muted, names heavier. Its height is kept while empty, so the
-   box never moves as it comes and goes. --gap-below: its room above the message box. */
+/* Typing line reserves height while empty. Muted small text uses heavier names; --gap-below clears the composer. */
 .typing {
   --gap-below: 0px;
   position: relative;
@@ -22,9 +21,7 @@
   white-space: nowrap;
 }
 
-/* While someone types (data-active), the composer's glass carried up over the line: the footer's full width, from a soft
-   edge above the line down to the box's top, where the composer's glass (full there then, Archive.module.css) meets it.
-   It snaps in and out. */
+/* data-active extends composer glass behind the typing line with a soft upper edge. Appears/disappears without transition. */
 .typing::before {
   content: '';
   display: none;

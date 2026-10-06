@@ -1,5 +1,4 @@
-// Contract (docs/dms.md §3.5): the app's own requests replay only the client's session-wide X-* headers, matched
-// without case; per-request ones (X-Context-Properties) never ride along. The client's own request is left untouched.
+// Replays session-wide X-* headers case-insensitively, excluding per-request X-Context-Properties. Leaves embedded-client requests unchanged.
 import { tmpdir } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 

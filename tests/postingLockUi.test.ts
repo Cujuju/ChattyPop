@@ -1,6 +1,4 @@
-// Contract (plans/viewer-only-public-host.md §13, phase D): while posting is locked, nothing in a window starts a post. The
-// New message window, bot forms and the delete dialog never open, and one open closes when posting locks; a panel
-// window's Edit hand-off is ignored. The views' own gates read postingUnlocked() where they draw, so they follow a flip.
+// Locked posting prevents message, bot, and delete dialogs; closes existing dialogs; and ignores panel Edit hand-offs. Reactive gates follow lock changes.
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -9,7 +7,7 @@ import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
 import type { InteractionOutcome } from '@shared/commands';
 import { setPostingUnlocked } from './postingSwitch';
 
-// The client runtime, so effects run as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const SELF = '900000000000000001';

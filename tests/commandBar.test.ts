@@ -1,6 +1,4 @@
-// Contract: a slash command is filled in as Discord's message bar does it. Required options have pills from the start
-// and optional ones are added by name. Typed text is the value only for text and number options that are valid;
-// choices, true/false, people, roles and channels must be picked. The command runs only when nothing blocks it.
+// Required command options start with pills; optional options are added by name. Valid text and numbers accept typing; other values require picks. Blocking options prevent execution.
 import { describe, expect, it, vi } from 'vitest';
 import { OPTION, type CommandEntry, type CommandOption } from '@shared/commands';
 
@@ -13,7 +11,7 @@ interface Filled {
   value: string | number | boolean;
   label: string;
 }
-/** commandDraft.ts's surface: a renderer module (DOM types), imported by path so the node type-check doesn't follow it. */
+/** Path import keeps the renderer’s DOM types outside node type checking. */
 interface DraftModule {
   startCommand(channelId: string, entry: CommandEntry): void;
   commandDraft(channelId: string): { shown: string[]; texts: Record<string, string>; values: Record<string, Filled> } | undefined;

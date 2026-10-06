@@ -60,10 +60,7 @@ export type PhoneSection = SlotItem<PhoneSectionView>;
 export type PhoneDrawerItem = SlotItem<PhoneDrawerView>;
 export type ProviderRow = SlotItem<ProviderRowView>;
 
-/**
- * The section `id` opens among `sections`, or null: a section's id; an id a plugin adopted (`adopted`: a section chosen,
- * or a notice sent, before ids were stamped); or a desktop panel's id (a notice's panel target) that a section presents.
- */
+/** Resolves section ids, adopted legacy ids or panel ids presented by sections. Returns null when unmatched. */
 export function phoneSectionOf(id: string, sections: readonly PhoneSection[], adopted: (old: string) => string | undefined): string | null {
   const current = adopted(id) ?? id;
   return (sections.find((s) => s.id === current) ?? sections.find((s) => s.section === id))?.id ?? null;

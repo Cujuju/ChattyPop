@@ -1,5 +1,4 @@
-// The host's AI registry (docs/plugin-architecture.md §3, AI providers): providers plugins register, keyed by declared id,
-// and Jev, which stays in the host with the OpenRouter and TypeSafe keys it is paid through.
+// Registers plugin AI providers by declared id; host Jev uses its OpenRouter or TypeSafe keys.
 import type { JevStatus, ProviderStatus } from '@shared/contract';
 import { declaredProvider, declaredProviders, providerUnavailable, type DeclaredProvider } from '@shared/aiProviders';
 import { errorMessage } from '@shared/errors';

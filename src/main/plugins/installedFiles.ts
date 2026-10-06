@@ -1,6 +1,4 @@
-// Installed plugins' browser files as replies (docs/plugin-architecture.md §16, Start): the index of the plugins main
-// accepted at start, and files under each one's browser/ folder. Windows read them through chattypop-installed:, the
-// phone through the Companion's /installed/ (ctx.pages), which also serves their pages and pages' public files.
+// Serves startup-accepted browser files through chattypop-installed or Companion /installed; pages/public assets use ctx.pages.
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { INSTALLED_CONTENT_TYPES, INSTALLED_INDEX } from '@shared/installedBrowser';
@@ -14,10 +12,7 @@ const BROWSER_DIR = INSTALLED_PLATFORM_DIRS.browser;
 const PUBLIC_PREFIX = `${BROWSER_DIR}/${INSTALLED_PAGE_PUBLIC_DIR}`;
 /** An installed page's HTML, read by main only: /installed/ never serves it. */
 const PAGE_TYPES: Readonly<Record<string, string>> = { '.html': 'text/html; charset=utf-8' };
-/**
- * Every reply. Module scripts are fetched with CORS (a window's origin differs from the scheme's). Not cached: an
- * update applies at the next start, and a page loaded after it must get the new files.
- */
+/** Supplies CORS for cross-origin module scripts and disables caching so startup-applied updates serve current files. */
 const HEADERS = { 'access-control-allow-origin': '*', 'cache-control': 'no-store' };
 
 /** An accepted plugin's page as main serves it: its id, its HTML without the entry, and its manifest entry. */
@@ -42,10 +37,7 @@ const status = (code: number): Response => new Response(null, { status: code, he
 /** Whether `file` is inside `root` (not `root` itself). */
 const inside = (root: string, file: string): boolean => file.startsWith(root + sep);
 
-/**
- * The file a URL path names, relative to `plugin`'s folder as its manifest's paths are; a status when it isn't under the
- * browser/ folder, isn't one of `types` or is missing.
- */
+/** Resolves manifest-relative files only under browser with allowed types. Returns status for disallowed or missing paths. */
 async function browserFile(plugin: InstalledPlugin, urlPath: string, types: Readonly<Record<string, string>> = INSTALLED_CONTENT_TYPES): Promise<{ file: string; type: string } | number> {
   let path: string;
   try {

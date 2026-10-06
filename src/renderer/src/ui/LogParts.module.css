@@ -1,5 +1,4 @@
-/* Log parts shared by the Archive and Links logs: the day divider, the floating 'jump to newest' button and the
-   'new messages since' strip. Placement of the button and strip is inline (JumpToNewest, UnreadBanner). */
+/* Shares day dividers, jump-to-newest buttons and unread strips across logs. Components supply inline floating placement. */
 /* Day separator: a hairline through a centred micro label, spanning every column. */
 .day {
   display: grid;

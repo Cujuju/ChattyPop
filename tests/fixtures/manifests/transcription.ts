@@ -18,21 +18,14 @@ export const STATUS_EVENT = 'status' as const;
 export const FETCH_AUDIO = 'fetchAudio' as const;
 /** AttachmentNote.kind of a transcript. */
 export const TRANSCRIPT_NOTE = 'transcript';
-/**
- * Downloads main is asked for at once, and so the audioFetched report's bound; a job needing one more waits for a report.
- * Assumption: a few in parallel keep the queue moving past one slow download; more would share the link without
- * finishing sooner.
- */
+/** Concurrent audio downloads; additional jobs wait for an audioFetched report. */
 export const AUDIO_FETCHES_MAX = 4;
 
 /** Core's calls: from Settings and the message menu, and main's answer to FETCH_AUDIO. */
 export interface TranscriptionCoreCalls {
   /** Programs, models and whether transcription can run. */
   status(): TranscriptionStatus;
-  /**
-   * Starts downloading a program or model (by InstallItem id); progress arrives as STATUS_EVENT. `build` picks a
-   * program's build (null = recommended) and replaces an installed one; throws while a transcript is running.
-   */
+  /** Downloads a selected program or model and reports STATUS_EVENT progress. Null build selects the recommendation. Installation is blocked during transcription. */
   install(id: string, build: ToolBuild | null): void;
   cancel(id: string): void;
   deleteModel(id: string): Promise<void>;
@@ -49,7 +42,7 @@ export interface TranscriptionEvents {
 
 export const plugin = definePlugin({
   manifest,
-  // The phone's message menu shows whether transcription is set up, as it did before this was a plugin.
+  // Phone message menus expose transcription availability.
   channels: defineChannels<{ core: TranscriptionCoreCalls; events: TranscriptionEvents }>()({
     core: {
       status: { audiences: ['renderer', 'phone'], writes: false },

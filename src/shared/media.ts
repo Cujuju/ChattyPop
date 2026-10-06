@@ -113,7 +113,7 @@ export const X_MEDIA_HOST = /^pbs\.twimg\.com$/;
 
 /** Klipy's media host: previews of Discord's GIF search results; fetched without Discord's session. */
 export const KLIPY_MEDIA_HOST = /^static\.klipy\.com$/;
-/** A GIF search preview, streamed on view and not kept (searches would otherwise fill the disk). */
+/** Streams GIF search previews without caching. */
 export const gifPreviewUrl = (src: string): string => mediaUrl('gif', `?u=${encodeURIComponent(src)}`);
 
 /** A Lottie sticker's animation (JSON), fetched once through the Discord session and cached. */
@@ -125,10 +125,7 @@ export const stickerArtUrl = (s: { id: string; formatType: number }): string =>
 /** An app's icon (slash command menu) through Discord's media proxy (cached by the thumb route). */
 export const appIconUrl = (appId: string, icon: string): string => thumbUrl(`https://media.discordapp.net/app-icons/${appId}/${icon}.png`);
 
-/**
- * The same image with its animation: Discord's media proxy sends only the first frame of an animated image (an embed
- * fixer's GIF) unless asked. A still image comes back unchanged. Other hosts' URLs are returned as they are.
- */
+/** Requests Discord proxy animation instead of first frames. Still images and other-host URLs remain unchanged. */
 export function animatedMediaUrl(proxyUrl: string): string {
   try {
     const url = new URL(proxyUrl);

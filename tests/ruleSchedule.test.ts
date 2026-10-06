@@ -163,7 +163,7 @@ describe('timed rules', () => {
   });
 
   it("aren't held to the message runs' floor: an hourly rule runs each hour though its last run took a while", async () => {
-    // Its floor would skip the second hourly run if timed runs were held to it.
+    // The retention floor exceeds the second hourly run’s time.
     const list = BUNDLED_PLUGINS as PluginDescriptor[];
     list.push(floorProbe);
     restore.push(() => void list.splice(list.indexOf(floorProbe), 1));
@@ -215,7 +215,7 @@ describe("a timed rule whose action's plugin is off", () => {
     now = at(8);
     await off(h);
     await new RuleSchedule(h.db, h.engine, h.actions, at(0), () => {}, () => now).tick();
-    // Quit at 09:00 with the plugin still off; back at 10:00, an hour away.
+    // Quits at 09:00 with the plugin disabled; resumes at 10:00.
     now = at(10);
     await on(h);
     const next = new RuleSchedule(h.db, h.engine, h.actions, at(9), () => {}, () => now);

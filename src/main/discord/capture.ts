@@ -11,11 +11,7 @@ export interface ClientHeaders {
 
 const API_URL_PATTERN = 'https://discord.com/api/*';
 const MESSAGES_PATH = /\/api\/v\d+\/channels\/\d+\/messages\?/;
-/**
- * X-* headers describing the client session (lowercase): the client's request hook sets fingerprint, installation id
- * and super properties on every call. Per-request ones (X-Context-Properties, X-Failed-Requests, X-Audit-Log-Reason)
- * are never replayed: an operation needing one passes its own.
- */
+/** Replays lowercase session X-* headers. Excludes per-request context, failure and audit headers; operations supply their own. */
 export const SESSION_HEADERS: ReadonlySet<string> = new Set([
   'x-super-properties',
   'x-fingerprint',
@@ -32,7 +28,7 @@ export const sessionHeaders = (headers: Record<string, string>): Record<string, 
 /** Observes the embedded client's own API traffic: captures auth headers and the page sizes it requests. */
 export class HeaderCapture {
   private headers: ClientHeaders | undefined;
-  /** `limit` values the real client used when paging history; ChattyPop copies them (spike #2). */
+  /** History page limits observed from the live client. */
   readonly observedLimits: number[] = [];
 
   /** Called whenever headers are (re)captured after being absent: login, restart, or token refresh. */

@@ -12,15 +12,12 @@ export interface TextMessage {
   linked: string;
 }
 
-/**
- * Only text the gateway delivers this soon after it was sent is live, and a live match notifies or runs a live-only
- * action only this soon after it was checked; other matches (backfill, catch-up, re-asks) just land in the inbox.
- */
+/** Only recent gateway text and recent live checks notify or run live-only actions. Backfill, catch-up and re-asks populate the inbox. */
 export const LIVE_WINDOW_MS = 2 * MS_PER_MIN;
 
 /** When a check's text reached ChattyPop live, the time of the check; null for backfill, catch-up and re-asks. */
 export type LiveAt = number | null;
-/** A live match notifies or runs a live-only action only within its check's live window (a Jev answer may come later). */
+/** Live actions require checks within the live window, including delayed Jev answers. */
 export const isLive = (liveAt: LiveAt): boolean => liveAt !== null && Date.now() - liveAt <= LIVE_WINDOW_MS;
 
 /** How a message text reached ChattyPop: the live gateway tap, a history fetch (catch-up, backfill, re-check), or a file import. */

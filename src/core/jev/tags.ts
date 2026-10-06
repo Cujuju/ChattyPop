@@ -1,5 +1,4 @@
-// Auto-tags: Jev's one-of choice per message (announcement, decision, plan, question by default), in the per-message
-// request. The options and which of them show as tags are editable in Settings → Jev → Queries.
+// Per-message one-of auto-tags share Jev requests. Query settings edit options and which choices display as tags.
 import { queryRequest, storedMatch } from './queries';
 import { registerMessageQuestion } from './messageQuestions';
 

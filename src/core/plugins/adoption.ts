@@ -1,14 +1,11 @@
-// Declared adoption (docs/plugin-architecture.md §7): host tables, settings, built-in rule keys and Jev switches from before a feature was a plugin, renamed into its namespace. Runs at startup for every plugin in the build, on or off, so data never depends on the switch.
+// Adopts former host tables, settings, rule keys and Jev switches into plugin namespaces at startup, including disabled plugins.
 import { createArchiveRefViews } from './archiveRefs';
 import { managedRuleKey, pluginSettingKey, pluginTableName, stampedName, type PluginDescriptor } from '@shared/bundledTypes';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { getSetting, setSetting, type Db } from '../db';
 import { isObj } from '@shared/normalize';
 
-/**
- * Moves stored Jev switches (the AI settings' `jev`) from their old keys to the plugin's stamped ones. The old value wins:
- * normalizing fills a stamped key with its default and any save stores it, while an old key exists only until adopted.
- */
+/** Moves old Jev switches to stamped keys. Old values override defaults already written under the new keys. */
 function adoptJevFeatures(db: Db, pluginId: string, aliases: Readonly<Record<string, string>>): void {
   const ai = getSetting(db, SETTINGS_KEYS.ai);
   if (!isObj(ai) || !isObj(ai['jev'])) return;

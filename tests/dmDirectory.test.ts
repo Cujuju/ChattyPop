@@ -1,6 +1,4 @@
-// Contract (docs/dms.md §3.2–3.4): the directory lists the signed-in account's DMs only, newest activity first, each
-// with a `dm` block: its roster (membership; the display face is `peer`), read and mute state, closed, request, archive
-// state, and a preview that obeys privacy mode and retention. A DM's @ list is its roster, not its past speakers.
+// Lists the signed-in account’s DMs by newest activity, with roster, read/mute state, archive state, and privacy-aware retained previews. Mentions use the roster.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DM_CHANNEL_TYPE, DM_GUILD_ID, GROUP_DM_CHANNEL_TYPE, MUTED_FOREVER, snowflakeFromMs, type RawPrivateChannel, type RawUser } from '@shared/discord';
 import type { DirectoryChannel } from '@shared/contract';

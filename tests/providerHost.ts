@@ -11,10 +11,7 @@ import { PluginHost } from '../src/core/plugins/host';
 import { RuleKinds } from '../src/core/rules/kinds';
 import { tempDb, tempDir } from './helpers';
 
-/**
- * Starts `plugins` over a registry declaring `declared`'s providers. AI settings are read from `db` as core reads them
- * (normalized with the declarations). `jev` answers every Jev switch; `pluginsDir` holds folder plugins.
- */
+/** Starts plugins with declared providers and normalized database AI settings. Jev answers switches; pluginsDir supplies plugin folders. */
 export function startProviders(
   plugins: readonly CorePlugin[],
   declared: readonly PluginDescriptor[] = plugins.map((p) => p.plugin),

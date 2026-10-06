@@ -20,10 +20,7 @@ function balanceText(b: OpenRouterKeyBalance | { error: string } | undefined): s
   return `${usd(b.remainingUsd)} of ${usd(b.limitUsd)} left${reset}`;
 }
 
-/**
- * OpenRouter keys, each paying for the models it lists (or any model no key lists).
- * Caps are set per key on openrouter.ai; a key that hits its cap stops, and no other key is used.
- */
+/** OpenRouter keys fund listed models or unlisted fallbacks. Key caps are external; capped keys stop without switching payment keys. */
 export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
   // Re-read whenever provider status refreshes, which every key change triggers.
   const [keysResource] = createResource(providerStatus, () => api.core.openRouterKeys());

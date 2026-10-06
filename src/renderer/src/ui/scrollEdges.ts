@@ -1,6 +1,4 @@
-// How far a scroller is from its top and bottom, whichever end it is anchored at. Read scroll position through these,
-// never raw scrollTop: a column-reverse scroller (the virtual logs) counts scrollTop from 0 at the bottom, negative above.
-// A virtual log's scroller answers from the log: its distances include a correction held while scrolling and its runway.
+// Normalizes top/bottom distances for reversed scrollers. Virtual logs include held corrections/runway; consumers avoid raw scrollTop.
 import { fromBottom, fromTop } from './scrollMath';
 import { virtualScroller } from './virtualScrollers';
 

@@ -1,5 +1,4 @@
-// Accepting installed plugins (docs/plugin-architecture.md §16): pure checks main's start runs on each plugin in id order,
-// first on its manifest (before any of its code loads), then on its descriptor beside the build's and those accepted so far.
+// Pure startup checks validate manifests before code loading, then descriptors against bundled and previously accepted plugins in id order.
 import { anchorCatalog, checkBundled, type AnchorCatalog } from './bundledCheck';
 import type { PluginDescriptor } from './bundledTypes';
 import { SLOT_KINDS } from './slots';
@@ -18,10 +17,7 @@ export interface InstalledFailure {
 export const exportSet = (names: readonly string[]): object =>
   Object.assign(Object.create(null) as object, Object.fromEntries(names.map((n) => [n, true])));
 
-/**
- * Throws why the plugin in folder `folder` can't run on `platform`, from its manifest alone: a manifest id that isn't the
- * folder's, an id the build already has (`taken`), an SDK it wasn't built for, or host exports `provided` lacks.
- */
+/** Rejects manifest folder/id mismatches, taken ids, incompatible SDK versions and missing host exports for the platform. */
 export function checkManifest(folder: string, manifest: InstalledManifest, taken: ReadonlySet<string>, platform: Platform, provided: ProvidedModules): void {
   if (manifest.id !== folder) throw new Error(`plugin.json names ${manifest.id}, but its folder is ${folder}.`);
   if (taken.has(manifest.id)) throw new Error(`ChattyPop already includes plugin ${manifest.id}.`);

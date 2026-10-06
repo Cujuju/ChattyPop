@@ -84,10 +84,7 @@ export function themeHints(panels: readonly ThemePanel[]) {
 export const JEV_FEATURE_GROUPS = ['Alerts', 'Summaries', 'Links', 'Messages & search', 'Tools'] as const;
 export type JevFeatureGroup = (typeof JEV_FEATURE_GROUPS)[number];
 
-/**
- * Settings → Jev's switch order: `host` switches in order, plugins' placed by their declared anchors (else appended),
- * then grouped in JEV_FEATURE_GROUPS order. A switch `groupOf` gives no group has no row.
- */
+/** Orders host switches, anchored/appended plugin switches, then JEV_FEATURE_GROUPS. Ungrouped switches have no row. */
 export function orderJevFeatures(
   host: readonly string[],
   plugins: readonly { key: string; anchor?: PlacementAnchor }[],

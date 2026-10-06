@@ -23,8 +23,7 @@ type Tab = SettingsTab;
 /** A host tab: plugin tabs may anchor on its id. */
 type HostTab = Tab & { id: HostSettingsTabId };
 
-// Most-tuned first: what the app does (rules and plugins), what powers it (AI, Jev), where messages come from,
-// then how it reaches you and looks. Plugins add theirs (Transcription after Archive, Phone after Notifications).
+// Orders rules/plugins, AI/Jev, message sources, notifications and appearance. Plugin sections use declared anchors.
 const TABS: readonly [HostTab, ...HostTab[]] = [
   {
     id: RULES_SECTION,

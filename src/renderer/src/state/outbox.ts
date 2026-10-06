@@ -1,6 +1,4 @@
-// The app's outbox (see outboxQueue.ts). Each page keeps its queue in IndexedDB under its own key; a page that starts
-// takes over the queues of pages that are gone (itself before a reload, a closed app) and sends them on, once posting
-// unlocks (state/posting.ts).
+// Each page persists its outbox in IndexedDB. On unlock, adopts queues from departed pages, including pre-reload owners.
 import { createEffect, createRoot } from 'solid-js';
 import { api } from '@/api';
 import { newNonce } from '@shared/discord';
@@ -47,8 +45,7 @@ function adopt(queues: SavedQueue[]): void {
 
 async function adoptLeftovers(): Promise<void> {
   const locks = navigator.locks as LockManager | undefined;
-  // Web Locks need a secure context (https, localhost). Without them every page takes every saved queue: two pages open
-  // at once over plain http could both send one (Discord's nonce dedupe covers a few minutes).
+  // Without secure-context Web Locks, concurrent HTTP pages can adopt identical queues. Discord nonce deduplication covers only a limited interval.
   if (!locks) return adopt((await idbEntries<OutboxRecord<SavedDraft>[]>(KEY_PREFIX)).filter(([key]) => key !== ownKey));
   await new Promise<void>((held) => void locks.request(LIVE_LOCK_PREFIX + pageId, () => (held(), new Promise<never>(() => {}))));
   await locks.request(CLAIM_LOCK, async () => {
@@ -58,8 +55,7 @@ async function adoptLeftovers(): Promise<void> {
     await whenWritten();
   });
 }
-// Nothing is sent while posting is locked: left-over queues are taken over once it first unlocks (once per page, since
-// the page's live lock is held for good), and each relock suspends the queue until the next unlock.
+// Posting locks suspend sends. First unlock adopts abandoned queues once per page; relocking suspends until another unlock.
 let adopted = false;
 createRoot(() =>
   createEffect(() => {

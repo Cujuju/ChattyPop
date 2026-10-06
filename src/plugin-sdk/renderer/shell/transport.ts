@@ -1,6 +1,4 @@
-// Plugin SDK, renderer shell: a transport page's plumbing (docs/plugin-architecture.md §3, phone transport). It stands in
-// for the Electron preload on a page served outside the app; host code may load before or after the install (@/api
-// queues until then).
+// External pages install transport plumbing instead of Electron preload. API calls queue until installation, regardless of host load order.
 import { setMediaRoot } from '@shared/media';
 import { installApi } from '@/api';
 import { whenWritten } from '@/ui/idbStore';

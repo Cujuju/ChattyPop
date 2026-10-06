@@ -27,10 +27,7 @@ function clampToViewport(r: WindowRect): WindowRect {
 /** Controls inside the header that take clicks instead of starting a drag. */
 const INTERACTIVE = 'button, a, input, select, textarea';
 
-/**
- * A non-modal window (native <dialog> opened with show()): no backdrop, the app stays usable behind it. Dragged by its
- * first <header>, resized from any edge or corner, raised on click, closed by Esc; its last position and size are restored.
- */
+/** Nonmodal native dialogs support header drag, edge/corner resize, click raising, Escape closure and persisted bounds. */
 export function FloatingWindow(props: Props) {
   let el!: HTMLDialogElement;
   const rect = (): WindowRect => {

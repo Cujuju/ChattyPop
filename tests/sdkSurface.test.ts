@@ -1,5 +1,4 @@
-// Plugin SDK's version follows its surface (docs/plugin-architecture.md §16): each SDK module's export names are
-// recorded with their shipped version, so adding or removing one without a bump fails here.
+// SDK runtime exports are versioned; surface changes require the corresponding version bump.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { parse } from '@babel/parser';

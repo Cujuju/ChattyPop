@@ -1,4 +1,4 @@
-// Renderer entry (plugin API 1.1): panels render into a plain element with their own code; no host framework is shared.
+// Plugin API 1.1 renderer entry renders into a plain element without the host framework.
 
 /** @type {import('../../../src/renderer/src/plugins/types').PluginPanel[]} */
 export const panels = [

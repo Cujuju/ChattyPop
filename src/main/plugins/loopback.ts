@@ -13,7 +13,7 @@ export type LoopbackHandler = (req: IncomingMessage, res: ServerResponse) => voi
 export interface LoopbackServer {
   /** The bound port (the requested one, or the free one the OS chose for 0). */
   readonly port: number;
-  /** Stops listening and cuts open connections (long calls and event streams would otherwise hold it open). */
+  /** Stops listening and closes active connections, including long calls/event streams. */
   close(): Promise<void>;
 }
 

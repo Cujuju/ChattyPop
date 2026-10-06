@@ -26,11 +26,7 @@ export interface NpmCommand {
   args: string[];
 }
 
-/**
- * npm, found only in PATH's absolute folders and run without a shell, so no file in the plugin's folder (its working
- * folder) can stand in for it. On Windows npm is a .cmd, which needs a shell, so its script runs on the node beside it.
- * Null when PATH has none.
- */
+/** Finds npm only in absolute PATH folders, avoiding plugin-directory substitution. Runs shell-free; Windows shims use adjacent Node. Returns null if absent. */
 export function npmCommand(path: string, platform: NodeJS.Platform, exists: (file: string) => boolean = existsSync): NpmCommand | null {
   for (const dir of path.split(delimiter).filter((d) => d && isAbsolute(d))) {
     if (platform !== 'win32') {

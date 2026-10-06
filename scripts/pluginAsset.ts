@@ -1,6 +1,4 @@
-// A plugin's release asset, built from its repo at the release's target commit (docs/plugin-architecture.md §16,
-// Releasing): a temporary git worktree there (its sibling plugins at the same commit, for anchors), its own packages
-// installed, plugin:check, then the build packed. Release notes record what built it.
+// Builds release assets in a temporary worktree at the target commit, installs dependencies, checks the plugin, and packs its output. Release notes record build provenance.
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { appVersion } from '../appVersion';

@@ -1,5 +1,4 @@
-// Timed rules: once the archive is current (so nothing that arrived while ChattyPop was closed is missed), checks
-// each minute for timed rules that are due and runs their actions over the rule's window and channels.
+// After archive catch-up, checks due timed rules every minute and executes actions over configured windows/channels.
 import type { AppEvent } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { ruleKind } from '@shared/ruleKinds';
@@ -15,10 +14,7 @@ import { claimRun, lastScheduledRun, lastTimedRun, recordOutcome } from './ruleS
 
 /** How often due rules are checked; a daily rule starts within this of its time. */
 const TICK_MS = MS_PER_MIN;
-/**
- * App-start windows actions still owe (their plugin was off), by `<rule id>:<action id>`: where each starts and the
- * rule's arming it belongs to. Kept across quits until the action runs; turning the rule off and on voids it.
- */
+/** Persists owed app-start windows per rule/action and arming across quits. Executing actions clears debt; re-arming invalidates it. */
 const OWED_APP_STARTS_KEY = 'rules.owedAppStarts';
 type OwedAppStarts = Record<string, { sinceTs: number; armedAt: number }>;
 
@@ -96,11 +92,7 @@ export class RuleSchedule {
     if (Object.keys(kept).length !== Object.keys(owed).length) setSetting(this.db, OWED_APP_STARTS_KEY, kept);
   }
 
-  /**
-   * Runs the rule's due actions over their windows. Each action keeps its own progress: one whose plugin is off (or
-   * absent) sits out, its window still owed (an app-start one across quits), while the others run alone; once back it
-   * catches up from where it left off, then runs on the rule's schedule again.
-   */
+  /** Tracks action progress independently. Disabled/absent plugins retain owed windows, including app-start debt across quits, then catch up when available. */
   private async runIfDue(r: CompiledRule): Promise<void> {
     const t = r.spec.trigger;
     const kind = this.engine.kinds.windows.get(t.type);
@@ -149,10 +141,7 @@ export class RuleSchedule {
     if (ran) this.emit({ type: 'rules-changed' });
   }
 
-  /**
-   * Claims the run, then executes its actions in order, each over its own window; false when already claimed or the rule
-   * was deleted. An action whose plugin turned off since it was found due sits out, its window owed as if never claimed.
-   */
+  /** Claims runs before ordered per-action windows. Deleted/already-claimed rules return false; newly disabled actions retain their owed windows. */
   private async execute(
     r: CompiledRule,
     key: string,

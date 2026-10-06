@@ -42,15 +42,11 @@ export function frequentPicks(): EmojiPick[] {
 export const unicodeGroups = (q: string): UnicodeGroup[] =>
   (loaded(unicodeEmoji) ?? []).map((g) => ({ ...g, emojis: g.emojis.filter((e) => !q || e.search.includes(q)) })).filter((g) => g.emojis.length);
 
-/**
- * The Emoji tab: the owner's frequently used emoji (hidden while searching), then every server's custom emoji (this
- * channel's server first). Emoji the plan can't send here show disabled. `keep` in onPick: shift was held, so the
- * picker stays open (as in Discord).
- */
+/** Emoji tab lists frequent emoji then custom servers, channel server first. Unusable emoji disable; shift keeps picker open. */
 export function ServerEmojiTab(props: { guildId: string; onPick: OnPick }) {
   const [query, setQuery] = createSignal('');
   const byGuild = createMemo(() => emojisByGuild(normalQuery(query())));
-  /** Server ids, not group objects: <For> keys by identity, so new objects each directory refetch would rebuild every image. */
+  /** Keys servers by ids to retain images across directory object refreshes. */
   const customGuilds = (): string[] => guildOrder(props.guildId).filter((id) => byGuild().has(id));
   const guildName = (id: string): string => directory().find((g) => g.id === id)?.name ?? 'Server';
   const usable = (e: GuildEmoji): boolean => usableIn(e, props.guildId);

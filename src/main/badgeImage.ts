@@ -1,8 +1,4 @@
-// The unread indicators' art, drawn into raw bitmaps (Electron's BGRA, premultiplied alpha) so no image files ship for it.
-//
-// Each unread kind has its own dot, told apart twice over: colour, and a fixed slot along the image's bottom edge.
-// Chat takes the bottom-right corner in sky blue; alerts take the slot to its left in Discord's red. A slot never
-// moves, so a lone alerts dot still sits left of the corner, and both dots fit side by side at 16 px.
+// Draws premultiplied BGRA unread indicators. Chat uses the bottom-right sky-blue slot; alerts use the adjacent red slot, both fitting at 16px.
 
 import type { UnreadKind } from '@shared/unread';
 
@@ -17,11 +13,7 @@ type Bgr = readonly [number, number, number];
 
 const BYTES_PER_PIXEL = 4;
 const OPAQUE = 255;
-/**
- * Dot colours, BGR byte order: the owner's choice of red for alerts (Discord's unread red, #f23f43) and sky blue for chat
- * (#38bdf8), unlike the icon's amber, violet and navy and far in hue from the red, so red-green colour blindness keeps
- * them apart.
- */
+/** BGR colors: alerts use Discord red #f23f43; chat uses sky blue #38bdf8. */
 export const DOT_BGR: Record<UnreadKind, Bgr> = { chat: [0xf8, 0xbd, 0x38], alerts: [0x43, 0x3f, 0xf2] };
 /** Slots counted from the bottom-right corner leftward: chat holds the corner, as the single dot did before alerts had one. */
 const DOT_SLOT: Record<UnreadKind, number> = { chat: 0, alerts: 1 };

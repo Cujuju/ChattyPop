@@ -66,11 +66,7 @@ export class InstalledFolder {
     this.removeLeftover(dirname(gone));
   }
 
-  /**
-   * Checks `dir` as a complete build, writes its source.json and renames it to `.staged/<id>`, replacing an older staged
-   * copy and cancelling a pending removal. When the swap fails, the older staged copy is put back and nothing else changes.
-   * The older copy waits in `.held/<id>`, not `.incoming`, so after a crash mid-swap the next start puts it back.
-   */
+  /** Validates builds and stages replacements with source metadata. Held copies restore failed swaps and recover crashes; successful staging cancels pending removal. */
   stage(dir: string, expected: Expected | null, source: InstalledSource): InstalledManifest {
     const manifest = checkBuild(dir, expected);
     writeFileSync(join(dir, INSTALLED_SOURCE_FILE), JSON.stringify(source, null, 2));
@@ -86,7 +82,7 @@ export class InstalledFolder {
       this.rename(dir, staged);
     } catch (err) {
       if (held) {
-        this.rename(held, staged); // Should this fail too, the next start puts it back.
+        this.rename(held, staged); // Failed restoration retries at next startup.
       }
       throw err;
     }

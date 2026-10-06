@@ -1,5 +1,4 @@
-// Settings → Plugins → Marketplaces (docs/plugin-architecture.md §16): main's marketplace state, its actions, and what
-// each listed plugin offers. Every change applies at the next start; the state reloads after each action.
+// Marketplace state/actions reload after changes. Plugin install/update/removal applies at next startup.
 import { api } from '@/api';
 import { createSignal } from 'solid-js';
 import { VERSION_PATTERN, compareVersions, sdkMismatch, type InstalledSource } from '@shared/installedPlugins';
@@ -16,7 +15,7 @@ export const marketplaceState = state;
 export const marketplaceLoadError = loadError;
 
 let loadGeneration = 0;
-/** Reads main's state; a load started later wins, so a stale answer never lands. */
+/** Loads main state with latest-started responses winning. */
 export async function loadMarketplaces(): Promise<void> {
   const mine = ++loadGeneration;
   try {

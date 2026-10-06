@@ -1,6 +1,4 @@
-// Writes that change how a person's name shows (name, nickname, roles, role colours, a server's role styles) or who can
-// see a channel (owner, overwrites), counted by temp triggers, so no writer has to report them: core checks after each
-// request and sends archive-changed.namesChanged, scoped to the servers written.
+// Temporary triggers count name-style and channel-access writes. Core emits namesChanged after requests, scoped to affected servers.
 import type { Db } from './db';
 
 /** Columns affecting names, access, or author count policy; every writer shares the archive refresh notification. */

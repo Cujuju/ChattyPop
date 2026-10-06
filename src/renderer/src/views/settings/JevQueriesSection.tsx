@@ -28,10 +28,7 @@ export function JevViewSwitch() {
   );
 }
 
-/**
- * Every built-in Jev query: a list (grouped by where it's used, filterable) beside the open query's editor, so a query
- * is read and edited without anything opening or closing around it.
- */
+/** Shows grouped/filterable built-in queries beside persistent editors. */
 export function JevQueriesSection() {
   const isOn = (d: JevQueryDef): boolean => d.features.some((f) => jevFeatureOn(aiSettings().jev, f));
   const isEdited = (d: JevQueryDef): boolean => d.id in jevQueryOverrides();

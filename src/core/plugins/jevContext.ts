@@ -26,10 +26,7 @@ export interface RangeJudgments {
 
 /** Jev services scoped to one bundled plugin. */
 export interface PluginJev<D extends PluginDescriptor = PluginDescriptor> {
-  /**
-   * Jev for a Settings → Jev switch (one it declares, or the host's), or null while that switch (or Jev) is off. Read per
-   * call. Requests declare `reads`; Jev is hosted, so a local-AI-only channel throws LocalOnlyError.
-   */
+  /** Reads Jev switches per call. Returns null when disabled; declared reads of local-only channels throw LocalOnlyError. */
   decider(feature: JevFeatureRef<D>): PluginDecider | null;
   /** Whether the owner turned on a switch (one it declares, or the host's); read per call. */
   isOn(feature: JevFeatureRef<D>): boolean;

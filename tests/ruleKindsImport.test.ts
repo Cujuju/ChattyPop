@@ -1,5 +1,4 @@
-// The kind declarations load whole whichever module is imported first: an import cycle through rules.ts once left
-// undefined entries in the host's kind lists when host.ts was loaded before ruleKinds/index.ts.
+// Rule-kind declarations initialize completely regardless of module import order.
 import { describe, expect, it } from 'vitest';
 import { probe } from './pluginRuleDescriptor';
 import { BUNDLED_PLUGINS } from '../src/shared/bundledPlugins';

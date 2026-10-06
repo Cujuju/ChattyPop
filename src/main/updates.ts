@@ -1,5 +1,4 @@
-// App updates from the public releases repo (electron-builder.ts `publish`): checked at start and every few hours,
-// downloaded in the background, installed through the graceful close. Dev runs have no release to update from.
+// Checks public-release updates at startup and periodically; downloads in background and installs through graceful close. Dev runs skip updates.
 import { app, type BrowserWindow } from 'electron';
 import electronUpdater from 'electron-updater';
 import type { UpdateStatus } from '@shared/desktop';

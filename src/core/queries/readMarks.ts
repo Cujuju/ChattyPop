@@ -1,6 +1,4 @@
-// What the owner has read in a channel: the newest message they saw in the Archive (channels.viewed_id; its ts in
-// viewed_at; marks set before the id was kept hold a time only), and Discord's read state (read_states.ack_id), which
-// moves when the owner sends from any client or reads in another. What the owner hasn't seen, and moving the mark.
+// Tracks Archive read marks and Discord ack ids. Legacy marks contain only timestamps; Discord acknowledgments reflect reads and sends from other clients.
 import type { UnreadBoundary, UnreadMark, UnreadSnapshot } from '@shared/contract';
 import { SETTINGS_KEYS, normalizeCountedBots } from '@shared/settings';
 import { getSetting, setSetting, type Db } from '../db';
@@ -8,10 +6,7 @@ import { visibleMessageSql } from './privacy';
 
 /** The account last signed in: whose messages are their own until this session's READY names it. */
 const READER_KEY = 'session.readerId';
-/**
- * The account last signed in; before one was recorded, the only account whose DMs are stored. Null when none is known,
- * or DMs of several are (every message then counts until READY).
- */
+/** Returns the last signed-in account, or sole stored-DM account for legacy profiles. Returns null when unknown or ambiguous. */
 export const lastReader = (db: Db): string | null => {
   const v = getSetting(db, READER_KEY);
   if (typeof v === 'string') return v;
@@ -20,10 +15,7 @@ export const lastReader = (db: Db): string | null => {
 };
 export const recordReader = (db: Db, userId: string): void => setSetting(db, READER_KEY, userId);
 
-/**
- * Message `m` comes after channel `c`'s mark in messagePage's order (ts, then snowflake: shorter is smaller); with no
- * mark, after `@unseen`. A message that arrives late (a sync) older than the mark counts as read, as on Discord.
- */
+/** Checks whether m follows c’s mark by timestamp then snowflake length/value, falling back to unseen. Late older arrivals count as read. */
 const afterMarkSql = (m: string, c: string): string => `CASE WHEN ${c}.viewed_id IS NULL THEN ${m}.ts > COALESCE(${c}.viewed_at, @unseen)
   ELSE (${m}.ts, length(${m}.id), ${m}.id) > (${c}.viewed_at, length(${c}.viewed_id), ${c}.viewed_id) END`;
 
@@ -45,18 +37,11 @@ export const unreadParams = (db: Db): { countedBots: string } => ({
 const afterReadMarksSql = (m: string, c: string, rs: string): string =>
   `${m}.ts >= COALESCE(${c}.viewed_at, @unseen) AND ${afterMarkSql(m, c)} AND ${afterAckSql(m, rs)}`;
 
-/**
- * Message `m` of channel `c` (`rs`: its read_states row, LEFT JOINed) is unread: after the Archive's mark and Discord's
- * read state, and counted (countedSql). The leading bound is implied by the mark; it lets the (channel_id, ts) index
- * take the range. Every unread count (banner, sidebar, notable) uses it.
- */
+/** Unread SQL combines Archive marks, LEFT JOINed Discord state and countedSql. Leading time bound enables channel_id/ts index ranges; shared by all unread counts. */
 export const unreadSql = (m: string, c: string, rs: string): string =>
   `${afterReadMarksSql(m, c, rs)} AND ${countedSql(m)}`;
 
-/**
- * Whether the owner `readerId` has read message `messageId`: at or before the Archive's mark or Discord's read state, or
- * their own. A channel never opened in the Archive is read only as far as Discord says. False for a message not stored.
- */
+/** Checks stored messages against Archive/Discord marks and owner authorship. Unopened channels use Discord state; missing messages return false. */
 export function messageRead(db: Db, messageId: string, readerId: string | null): boolean {
   const row = db
     .prepare(
@@ -70,12 +55,7 @@ export function messageRead(db: Db, messageId: string, readerId: string | null):
 
 const UNREAD_FROM = `FROM messages m JOIN channels c ON c.id = m.channel_id LEFT JOIN read_states rs ON rs.channel_id = c.id WHERE m.channel_id = @channelId`;
 
-/**
- * What is unread in a channel for the owner `readerId`; null when nothing is. `unseenSince`: the fallback mark, the end
- * of the previous app session. `sinceId`: count from that message (a banner's first unread) instead of the Archive's
- * mark, still leaving out what Discord's read state covers and what isn't counted (countedSql). `localReadId` lets a
- * banner keep its opening messages after this view's own acknowledgment; later acknowledgments still bound it.
- */
+/** Returns channel unread state or null. sinceId replaces Archive bounds; localReadId preserves banner opening rows after local acknowledgment while later acknowledgments still bound counts. */
 export function unreadMark(db: Db, channelId: string, unseenSince: number, readerId: string | null, since?: string | UnreadBoundary, localReadId?: string): UnreadMark | null {
   const params = {
     channelId, unseen: unseenSince, reader: readerId ?? '', ...unreadParams(db),
@@ -106,10 +86,7 @@ export function unreadSnapshot(db: Db, channelId: string, unseenSince: number, r
   return { boundary: boundary ?? null, unread: unreadMark(db, channelId, unseenSince, readerId) };
 }
 
-/**
- * Moves the channel's mark up to `messageId`, a visible message of it the owner saw; never back, so answers arriving
- * out of order can't undo a read. Returns whether it moved.
- */
+/** Advances channel marks monotonically to visible messages. Out-of-order responses cannot undo reads; returns whether the mark moved. */
 export function markRead(db: Db, channelId: string, messageId: string): boolean {
   return (
     db

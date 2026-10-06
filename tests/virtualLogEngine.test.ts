@@ -1,5 +1,4 @@
-// Contract: the virtual logs run on @cujuju/solidjs-virtual-log, which never writes the scroll offset mid-gesture (iOS
-// momentum stops at a write). TanStack Virtual wrote on every measurement and is gone.
+// Virtual logs use @cujuju/solidjs-virtual-log and preserve scroll offsets during gestures.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

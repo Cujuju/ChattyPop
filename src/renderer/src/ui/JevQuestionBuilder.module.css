@@ -1,7 +1,4 @@
-/* Jev question builder: kind, question, and the answers' meanings (yes/no, options or levels). Its condition is
-   JevQuestionField.module.css. Compact in the rule and tag editors; [data-roomy] is Settings → Jev → Queries: labelled
-   sections, a segmented type control (toolkit SegGroup), meanings side by side. Fields take the app-wide look from
-   theme/forms.css. Hooks: .level[data-counts='true'], .meaningLabel[data-answer='yes']. */
+/* Styles question kinds/meanings. data-roomy adds labeled sections/segments; fields use theme forms. Condition styles live separately; count/answer hooks mark levels/meanings. */
 .builder {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,4 @@
-// Installed plugins in main and core (docs/plugin-architecture.md §16): the start main decided, as INSTALLED_ENV carries
-// it, and each accepted plugin's node modules, loaded synchronously once the host modules they read are published.
+// Loads main-selected installed node modules synchronously after publishing host namespaces, using INSTALLED_ENV decisions.
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { AnchorCatalog } from '@shared/bundledCheck';
@@ -22,10 +21,7 @@ export function loadNodeEntry(plugin: InstalledPlugin, side: NodeSide): unknown 
   return (requireModule(join(plugin.dir, file)) as { default?: unknown }).default;
 }
 
-/**
- * INSTALLED_ENV's value: the installed-plugins folder, accepted ids and refusals. Manifests stay on disk (unchanged while
- * the app runs: installs are staged), so the value stays far below Windows' limit on one environment variable.
- */
+/** INSTALLED_ENV carries root, accepted ids and refusals. Immutable runtime manifests remain on disk to avoid Windows environment-size limits. */
 interface StartWire {
   root: string;
   accepted: string[];
@@ -52,10 +48,7 @@ export function installedStart(): InstalledStart {
 /** Accepted plugins whose descriptor failed to load in this process, by id: their other sides stay out too. */
 const failedDescriptors = new Map<string, string>();
 
-/**
- * The accepted plugins' descriptors (node shared modules), in id order, after publishing `modules`. One that throws is
- * left out, and so is one that no longer validates beside the build's (`build`, `catalog`) and the rest (acceptInstalled).
- */
+/** Publishes host modules and loads accepted descriptors in id order. Excludes throwing descriptors and those invalid against bundled/earlier plugins. */
 export function installedDescriptors(modules: Partial<Record<HostModuleId, object>>, build: readonly PluginDescriptor[], catalog: AnchorCatalog | null): PluginDescriptor[] {
   publishHostModules(modules);
   const loaded = installedStart().accepted.flatMap((p) => {
@@ -76,10 +69,7 @@ const isSideOf = (entry: unknown, id: string): boolean =>
   typeof entry === 'object' && entry !== null && typeof (entry as { activate?: unknown }).activate === 'function' &&
   (entry as { plugin?: { manifest?: { id?: unknown } } }).plugin?.manifest?.id === id;
 
-/**
- * The accepted plugins' `side` modules' default exports, in id order, after publishing `modules`. One that throws or isn't
- * its plugin's side is left out and listed in `failed`, as is every plugin whose descriptor failed here.
- */
+/** Publishes host modules and loads accepted side defaults in id order. Reports invalid/throwing sides and descriptor failures in failed. */
 export function installedSides<T>(side: 'core' | 'main', modules: Partial<Record<HostModuleId, object>>): { entries: T[]; failed: InstalledFailure[] } {
   publishHostModules(modules);
   const entries: T[] = [];

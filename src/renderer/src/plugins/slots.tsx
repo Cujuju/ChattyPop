@@ -1,6 +1,4 @@
-// Bundled plugins' renderer side (docs/plugin-architecture.md): each plugin's contributions joined with its
-// descriptor, for the slots that are on. Views read contributions here, through the entries the registry installs
-// (./installed); they never import src/plugins or the registry.
+// Joins installed renderer contributions with descriptors for active slots. Views access entries without importing plugin source or registry.
 import type { Component } from 'solid-js';
 import { placeByAnchor } from '@shared/anchors';
 import { bundledPanels, bundledShortcuts, noticeAnchor, settingsTabAnchor, shortcutAnchor, slotAnchor } from '@shared/bundledPlugins';

@@ -1,5 +1,4 @@
-/* Quick reactions atop a message's menu (QuickReactions): a row of emoji squares, then More. Desktop: small squares in
-   the popover. Phone: the sheet's row fills its width with larger squares, as in Discord's app. */
+/* Quick-reaction menus show emoji squares then More. Phone sheets use wider rows/larger squares. */
 .row {
   display: flex;
   gap: var(--cp-space-2);

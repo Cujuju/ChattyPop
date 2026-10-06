@@ -27,7 +27,7 @@ function readSettings(): DesktopSettings {
   }
 }
 
-/** Whether Windows starts ChattyPop at sign-in; null in dev, where the entry would start bare Electron. */
+/** Reports Windows sign-in startup; null for dev runs. */
 function openAtLogin(): boolean | null {
   if (!app.isPackaged) return null;
   // Windows' Startup apps switch can turn the entry off without removing it.

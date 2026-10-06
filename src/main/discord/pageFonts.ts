@@ -2,10 +2,7 @@ import type { WebContents } from 'electron';
 
 const DISCORD_ORIGIN = 'https://discord.com';
 
-/**
- * The file of one @font-face family the Discord page declares (its Nitro display-name fonts), as an absolute URL on
- * discord.com; null when the page isn't loaded or hasn't declared it. File names change with Discord's deploys.
- */
+/** Resolves declared Nitro font-family files to absolute Discord URLs. Returns null before declaration/loading; deployment filenames vary. */
 export async function discordFontUrl(wc: WebContents | undefined, family: string): Promise<string | null> {
   if (!wc || wc.isDestroyed()) return null;
   // At startup the Archive asks before the page has its stylesheets: wait for the load rather than answer "none".

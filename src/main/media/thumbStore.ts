@@ -21,10 +21,7 @@ const X_ORIGINAL_SIZE = 'orig';
 const DECODABLE_FORMAT = 'png';
 /** Written under this prefix, then renamed into place, so a reader never sees a partial file. */
 const PARTIAL_PREFIX = '.part-';
-/**
- * A video fetch's largest file: Discord's largest upload (Nitro). Assumption: no embed video the proxy serves is larger,
- * so this only stops a wrong or endless response filling the disk.
- */
+/** Caps video responses at Discord’s Nitro upload size. Assumption: proxy embed videos fit this limit; confirm against Discord media limits. */
 export const VIDEO_BYTES_MAX = 500 * BYTES_PER_MB;
 /** What a video fetch keeps: video or audio, or bytes of no stated type; an error page (text/html) is refused. */
 const VIDEO_TYPE = /^(video\/|audio\/|application\/octet-stream)/;
@@ -116,10 +113,7 @@ export async function gifPreview(s: MediaSessions, raw: string): Promise<Media |
   return { bytes: Buffer.from(await res.arrayBuffer()), type: res.headers.get('content-type') ?? 'application/octet-stream' };
 }
 
-/**
- * An image a message shows (an embed's, a fetched post's photo) at full size, written to `path` and not cached: PNG from
- * Discord's proxy, the original from X. Null when written, else why not.
- */
+/** Downloads full-size shown images to path without caching: Discord proxy PNG or original X images. Returns null or failure reason. */
 export async function fetchImageTo(s: MediaSessions, raw: string, path: string): Promise<string | null> {
   const r = remote(raw, s);
   if (!r) return 'Not an image host ChattyPop fetches from.';

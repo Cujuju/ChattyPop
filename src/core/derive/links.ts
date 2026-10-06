@@ -19,10 +19,7 @@ interface RawEmbed {
   image?: { url?: string; proxy_url?: string };
 }
 
-/**
- * Hostname suffix → platform; embed fixers' mirrors (fxtwitter, vxreddit, tnktok…) count as their platform. A mirror not
- * listed here stays an 'other' link of its own; add it when it shows up.
- */
+/** Maps hostname suffixes and known embed-fixer mirrors to platforms. Unlisted mirrors remain other links. */
 const PLATFORM_HOSTS: [RegExp, Platform][] = [
   [/(^|\.)(youtube\.com|youtu\.be)$/, 'youtube'],
   [/(^|\.)(reddit\.com|redd\.it|vxreddit\.com|rxddit\.com)$/, 'reddit'],
@@ -59,11 +56,7 @@ const CANONICAL_HOST: Partial<Record<Platform, string>> = {
 const YOUTU_BE = /(^|\.)youtu\.be$/;
 const REDD_IT = /(^|\.)redd\.it$/;
 export { X_STATUS_PATH };
-/**
- * One URL per post, whatever form it was shared in (title slugs, author or subreddit prefixes, /photo/1 suffixes), so a
- * post and an embed fixer's repost of it are one link. X: /i/status/<id>. Reddit: /comments/<id>.
- * Residual: Reddit's /r/<sub>/s/<code> share links can't be resolved offline and stay separate.
- */
+/** Canonicalizes post URLs across slugs, prefixes and fixer mirrors. X and Reddit use post ids; unresolved Reddit share codes remain separate. */
 const POST_PATH: Partial<Record<Platform, { re: RegExp; path: (id: string) => string }>> = {
   x: { re: X_STATUS_PATH, path: (id) => `${X_POST_PATH}${id}` },
   reddit: { re: /\/comments\/([a-z0-9]+)/i, path: (id) => `/comments/${id.toLowerCase()}` },
@@ -99,10 +92,7 @@ export function normalizeUrl(url: string): string | null {
   }
 }
 
-/**
- * Links from message text plus embed metadata Discord already unfurled. `unfurledOnly` (a bot's message): only links
- * Discord unfurled count. A bot's other links are its own wording, like an embed fixer's link to the poster's profile.
- */
+/** Extracts links from content and Discord embeds. unfurledOnly excludes bot-written links without Discord previews. */
 export function extractLinks(content: string, embeds: unknown, unfurledOnly = false): ExtractedLink[] {
   const byUrl = new Map<string, ExtractedLink>();
   const add = (raw: string, e?: RawEmbed): void => {

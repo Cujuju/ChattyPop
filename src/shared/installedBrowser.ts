@@ -1,5 +1,4 @@
-// Where windows and the phone page read installed plugins' browser files (docs/plugin-architecture.md §16, Start): an
-// index of the accepted ones, then each one's browser/ folder. Pure: main serves these, windows and the phone read them.
+// Pure installed-browser contract provides accepted-plugin indexes and browser paths. Main serves files; desktop/phone consume them.
 
 /** Desktop windows: `chattypop-installed://<INSTALLED_INDEX>` and `chattypop-installed://<plugin id>/<file in browser/>`. */
 export const INSTALLED_SCHEME = 'chattypop-installed';

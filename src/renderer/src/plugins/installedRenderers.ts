@@ -1,6 +1,4 @@
-// The renderer registry's installed plugins (docs/plugin-architecture.md §16, Start): the build's browser renderer
-// registry awaits installedRenderers() (bundledPlugins.ts). It publishes the renderer tiers and Solid, the host
-// instances installed plugins' builds read instead of bundling their own.
+// Renderer registry awaits installed entries after publishing renderer tiers and Solid host instances, avoiding bundled duplicates.
 import * as sdkRenderer from '@plugin-sdk/renderer';
 import * as sdkKit from '@plugin-sdk/renderer/kit';
 import * as sdkPosting from '@plugin-sdk/renderer/posting';

@@ -1,5 +1,4 @@
-/* Modal question (ModalDialog.tsx): a bot form's width, as tall as its content up to the window, centred by the UA over
-   the dimmed app; the floating window's surface and header (WindowChrome.module.css). */
+/* Modal dialogs use bot-form width and content-limited height, centered over dimming with shared window surfaces/headers. */
 .dialog {
   width: min(var(--cp-bot-modal-w), calc(100vw - 2 * var(--cp-dialog-inset)));
   max-height: calc(100vh - 2 * var(--cp-dialog-inset));

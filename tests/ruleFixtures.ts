@@ -11,10 +11,7 @@ export type LegacyRuleTrigger =
 /** Who applying a tag starts a rule: Jev, or the owner by hand. */
 export type TagTriggerSource = 'jev' | 'manual';
 
-/**
- * What makes a message match: any one set field is enough. None set: every message that passes the gates and LegacyRuleNarrow
- * matches (e.g. every voice message). `meaning` and `jev` need the message trigger.
- */
+/** Any configured field can match. With none, gates and LegacyRuleNarrow determine matching. Meaning and Jev require message triggers. */
 export interface LegacyRuleMatch {
   /** Keywords or /regex/; `spec` is the builder rule it was made from. */
   text?: { pattern: string; spec: PatternSpec | null };

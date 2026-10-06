@@ -1,5 +1,4 @@
-// A message's links are judged by their text (Discord's preview, or a linked post's text a plugin stored when Discord sent
-// none), and a cashtag settles the Trading label without Jev.
+// Link judging uses Discord previews or stored plugin text. Cashtags resolve Trading labels without Jev.
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { ARRIVAL } from '../src/core/arrival';

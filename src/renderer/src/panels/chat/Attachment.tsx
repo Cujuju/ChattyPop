@@ -21,11 +21,7 @@ const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
 const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl(a.sha256, a.filename) : undefined);
 const kilobytes = (a: ArchiveAttachment): string => (a.size ? `${Math.round(a.size / BYTES_PER_KB)} KB` : '');
 
-/**
- * An archived attachment shown on its own: inline image, video or audio player when stored locally, otherwise a file chip
- * with its download status. Under stored media, one line holds its archived check and plugins' notes (a transcript); under
- * a chip, the notes (kept after the file is pruned). A video this browser can't decode falls back to the chip.
- */
+/** Shows stored media inline or file-status chips. Notes survive pruning; unsupported video decoders fall back to chips. */
 export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const [unplayable, setUnplayable] = createSignal(false);
@@ -53,10 +49,7 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
   );
 }
 
-/**
- * A stored attachment's player or picture. A video plays in place: a download link would take the phone app away from
- * the page. `cell`: it fills a mosaic cell, cropped, rather than sizing itself from its pixel size.
- */
+/** Stored video plays inline to keep phone navigation. cell crops media into mosaic bounds instead of intrinsic sizing. */
 export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: boolean; onUnplayable: () => void }) {
   const a = () => props.attachment;
   const size = (): MediaSize | null => (!props.cell && a().width && a().height ? { width: a().width!, height: a().height! } : null);
@@ -95,10 +88,7 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
   );
 }
 
-/**
- * A file as a chip: its name, size and download status. A stored one saves where the owner picks (a window asks main;
- * the phone's link downloads). A file not held locally links to its message on Discord.
- */
+/** File chips show name/size/status. Stored files save through desktop dialogs or phone downloads; missing files link to Discord messages. */
 export function FileChip(props: { attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const stored = () => canSave(a());
@@ -137,11 +127,7 @@ export function StoredStatus(props: { notes: AttachmentNote[] }) {
   );
 }
 
-/**
- * A plugin's note under a file or embed (a transcript): one label line in every state, so a note that fills in or grows
- * never resizes its row. A click or tap anywhere on it shows or hides its text; the button's click bubbles here too.
- * data-note-part and data-note-plugin let the message menu find it (state/messageActions.ts).
- */
+/** Plugin note labels retain constant height. Clicking toggles text; data-note-part/plugin identify notes for message menus. */
 export function Note(props: { note: AttachmentNote }) {
   const n = () => props.note;
   const [open, setOpen] = createSignal(false);

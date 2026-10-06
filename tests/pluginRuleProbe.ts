@@ -1,4 +1,4 @@
-// A bundled probe exercising all four rule sections through the public SDK.
+// Exercises all four rule sections through the public SDK.
 import { ProviderRegistry } from '../src/core/ai/registry';
 import { probe } from './pluginRuleDescriptor';
 import { defineCorePlugin, type CoreContext, type ActionRun, type Settled, type RuleEdited } from '@plugin-sdk/core';

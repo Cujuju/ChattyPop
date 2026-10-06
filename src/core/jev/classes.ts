@@ -1,5 +1,4 @@
-// Is a message political, finance or trading? Three independent questions (a message can be several), asked per
-// message through the shared request and shown as labels when their condition is met (Settings → Jev → Queries).
+// Independent political, finance and trading questions share message requests. Multiple labels may apply; query settings control display conditions.
 import type { Answer } from '../ai/decisions';
 import type { TextMessage } from '../arrival';
 import { queryRequest, storedMatch } from './queries';
@@ -7,15 +6,12 @@ import { registerMessageQuestion } from './messageQuestions';
 
 /** Inline code and code blocks: shell variables there ($PATH) are not tickers. */
 const CODE = /```[\s\S]*?```|`[^`\n]*`/g;
-/**
- * A cashtag: $ and a 1–5 letter ticker (US exchange symbols' length), with an optional share-class suffix ($BRK.B).
- * Uppercase only, and never after a word character or $, so prices ($100), "US$" and "$$" don't count.
- */
+/** Uppercase cashtags have 1–5 letters and optional share-class suffix. Rejects prices and prefixes following word characters or $. */
 const CASHTAG = /(?<![\w$])\$[A-Z]{1,5}(?:\.[A-Z])?(?![\w])/;
 /** Cashtags are how people name a stock they trade, so one settles the trading label. */
 const SURE: Answer = { type: 'noul', noul: 1 };
 
-/** Whether a message or the posts it links to name a ticker by cashtag. Residual: a shell variable outside code ($HOME). */
+/** Checks message/linked text for cashtags. Shell variables outside code can match. */
 export const hasCashtag = (m: Pick<TextMessage, 'content' | 'linked'>): boolean => CASHTAG.test(`${m.content}\n${m.linked}`.replace(CODE, ''));
 
 export const CLASSES: { subject: string; label: string; query: string; certain?: (m: TextMessage) => Answer | null }[] = [

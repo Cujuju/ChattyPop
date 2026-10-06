@@ -99,10 +99,7 @@ export function ruleInputOf(r: Rule): RuleInput {
   return structuredClone({ name, enabled, discordSend, spec });
 }
 
-/**
- * The rule's switch: turning a rule back on re-arms it (it won't act on what came while it was off). A built-in rule
- * flips the Jev feature that owns it instead (core re-syncs the rule from it).
- */
+/** Re-enabling rules re-arms them. Built-in switches toggle owning Jev features, which core synchronizes back to rules. */
 export async function setRuleEnabled(r: Rule, enabled: boolean): Promise<void> {
   const control = managedControl(r);
   if (control) return control.setEnabled(enabled);
@@ -137,6 +134,6 @@ export function editNewRule(draft: RuleInput = newRuleInput()): void {
   setOpenRuleId('draft');
 }
 
-/** How a keyword pattern would have matched recent archived messages in these channels (null = all). */
+/** Previews recent keyword matches in selected channels; null means all. */
 export const patternPreview = (pattern: string, channelIds: string[] | null, contains: ContentKind[] | null): Promise<PatternPreview> =>
   core.patternPreview(pattern, channelIds, contains);

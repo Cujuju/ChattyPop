@@ -14,10 +14,7 @@ import styles from './JevWindows.module.css';
 /** Your own question adds one question to the check's request. */
 const ASK_QUESTIONS = 1;
 
-/**
- * Jev's read of one message (right-click → Jev check): the standard checks, class labels, your custom-question
- * rules' Jev questions, and your own question. Runs only when opened; sends only this message and the two before it.
- */
+/** On-demand message Jev check shows standard/class/rule/ad-hoc questions using the message, reply context and preceding messages. */
 export function JevCheck() {
   const [result, setResult] = createSignal<JevCheckResult | null>(null);
   const action = createAction();

@@ -57,10 +57,10 @@ export function openSettingsAt(section: string): void {
 /** Whether the channel switcher (views/switcher) is open. */
 export const [switcherOpen, setSwitcherOpen] = createSignal(false);
 
-/** True while a split is being dragged: the native Discord view would swallow the pointer. */
+/** Split dragging hides native Discord to preserve pointer access. */
 export const [resizing, setResizing] = createSignal(false);
 
-/** The panel being dragged by its header to a new place in the layout; the native Discord view would hide the drop zones. */
+/** Panel dragging hides native Discord to expose drop zones. */
 export const [draggedPanel, setDraggedPanel] = createSignal<LayoutPanelId | null>(null);
 
 /** An image opened in the viewer: the full-size source, a label, and the original to open in the browser. */

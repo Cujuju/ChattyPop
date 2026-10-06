@@ -5,7 +5,7 @@ import { archivedChannels } from './directory';
 
 /** The probe makes two Discord API calls, so capture state is re-checked rarely once it is on. */
 const CAPTURE_CHECK_MS = 5 * MS_PER_MIN;
-/** At startup the client needs a few seconds to reconnect; while capture reads off, check again this soon. */
+/** Short capture-probe interval during startup disconnection. */
 const CAPTURE_RETRY_MS = 15 * MS_PER_S;
 
 /** Whether the embedded Discord client is signed in and feeding live capture. */
@@ -17,7 +17,7 @@ export function latestMessageTs(): number | null {
 }
 
 let captureTimer: ReturnType<typeof setTimeout> | undefined;
-/** Probes now, then again soon while off, rarely while on. */
+/** Probes immediately, frequently while disconnected and sparsely while connected. */
 const checkCapture = (): void => {
   clearTimeout(captureTimer);
   void api.discord

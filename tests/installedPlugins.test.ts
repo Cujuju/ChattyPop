@@ -1,5 +1,4 @@
-// Installed plugins at main's start (docs/plugin-architecture.md §16): staged changes applied crash-safely, each plugin
-// accepted or refused with its reason, host modules published, and the boot never loading the plugin registry.
+// Tests crash-safe staged changes, installed-plugin acceptance, host-module publication, and boot isolation from registries.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -95,7 +94,7 @@ describe('staged changes', () => {
     const root = installedRoot();
     writePlugin(root, 'app', { manifest: { version: '1.0.0' } });
     staged(root, 'app', '2.0.0');
-    // A folder where the marker file should be: deleting it as a file fails, as a held-open file would.
+    // A directory at the marker path causes file deletion to fail.
     mkdirSync(join(root, REMOVED_DIR, 'app', 'x'), { recursive: true });
     const failed: string[] = [];
     applyStaged(root, (id) => void failed.push(id));

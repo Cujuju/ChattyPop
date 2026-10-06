@@ -39,7 +39,7 @@ function formatTime(unix: number, style: string): string {
 
 function Spoiler(props: { children: JSX.Element; inert: boolean }) {
   const [shown, setShown] = createSignal(false);
-  // Inert (inside a clickable row): stays hidden, since revealing it would also press the row.
+  // Inert spoilers remain hidden inside clickable rows to avoid activating those rows.
   if (props.inert) return <span class={styles.spoiler} data-shown="false">{props.children}</span>;
   return (
     <span class={styles.spoiler} data-shown={shown()} role="button" tabIndex={0} aria-label={shown() ? undefined : 'Spoiler, press to reveal'} onClick={() => setShown(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setShown(true)}>

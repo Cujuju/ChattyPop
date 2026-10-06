@@ -16,11 +16,7 @@ const MAX_SHOWN = 50;
 /** Gap kept between a popover and the window's edges, as the context menu keeps. */
 const EDGE_MARGIN_PX = 8;
 
-/**
- * Opens `pop` under `anchor` in window coordinates, pulled back inside the window (above the anchor when there is no
- * room below), so it never widens the scrolling page it sits in. Closes on any scroll outside it or a window resize,
- * either of which would detach it.
- */
+/** Positions popovers near anchors within window bounds, flipping above if needed. Outside scroll/resize closes detached popovers. */
 function floatUnder(anchor: HTMLElement, pop: HTMLElement, close: () => void): void {
   listen(
     window,
@@ -42,10 +38,7 @@ function floatUnder(anchor: HTMLElement, pop: HTMLElement, close: () => void): v
   });
 }
 
-/**
- * An "+ Add" chip that opens a searchable list. `options` filters locally by every typed word; `search` asks core for
- * matches as the owner types (people by name) and shows nothing until they do.
- */
+/** Add chips open searchable lists. options matches every word locally; search queries core after typing. */
 export function AddPicker(props: {
   label: string;
   onPick: (value: string) => void;

@@ -1,5 +1,4 @@
-// A message's attachments as Discord lays them out: two or more images and videos share one mosaic; a lone one keeps its
-// own size; audio and other files follow, one per line.
+// Multiple image/video attachments share mosaics; single media keeps intrinsic sizing. Audio/other files follow one per line.
 import { For, Show, createSignal } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
 import { pluginPresents } from '@/state/plugins';
@@ -23,10 +22,7 @@ export function Attachments(props: { message: ArchiveMessage; messageLink: strin
   );
 }
 
-/**
- * Images and videos in one grid of cropped cells (mosaic.ts), rows marked with their tile count and the whole with its
- * total, for the stylesheet. One line under it holds the archived check and every tile's notes, in tile order.
- */
+/** Mosaic rows expose tile counts. One status line lists archive state and all tile notes in order. */
 function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttachment[]; messageLink: string }) {
   const rows = (): ArchiveAttachment[][] => {
     let at = 0;

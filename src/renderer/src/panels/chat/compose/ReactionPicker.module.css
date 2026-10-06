@@ -1,6 +1,4 @@
-/* Reaction picker (ReactionPicker): the composer picker's look. Desktop: a floating popover at the point Add reaction
-   was chosen; ReactionPicker sets left/top/max-height to keep it inside the window. Phone: a bottom sheet, as Discord
-   iOS's, from under the top bar down to the keyboard (or the screen's bottom), moving with the keyboard. */
+/* Reaction picker uses a bounded desktop popover or keyboard-aware phone bottom sheet. Position/height come from ReactionPicker. */
 .root {
   position: fixed;
   z-index: var(--cp-z-popover);

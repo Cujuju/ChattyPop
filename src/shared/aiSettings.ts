@@ -28,7 +28,7 @@ export const EFFORT_LABELS: Record<string, string> = {
   off: 'Off',
 };
 
-/** Longer names crowd Plan usage's provider headings. */
+/** Provider label length limit for usage headings. */
 export const PROVIDER_DISPLAY_NAME_MAX = 20;
 
 export interface ProviderSettings {
@@ -46,19 +46,7 @@ export interface ProviderSettings {
 export const JEV_CONNECTIONS = ['openrouter', 'typesafe'] as const;
 export type JevConnection = (typeof JEV_CONNECTIONS)[number];
 
-/**
- * The host's Settings → Jev switches, in the order Settings lists them within their groups. Each sends message text to TypeSafe (through
- * OpenRouter or directly), so each is opt-in.
- * - topicMeaning: rules match by meaning (a described subject); key kept from when topics did.
- * - catchUpBadges: channels show how many notable messages arrived since they were last opened.
- * - keepImportant: text retention keeps notable messages verbatim.
- * - messageTags: messages are tagged (question, announcement, plan, decision…).
- * - suggestChannels: suggests which channels to archive, from your rules.
- * - pluginDecide: plugins may ask Jev through ai.decide().
- * - messageCheck: right-click a message for a Jev check, including your own questions.
- * - messageClasses: messages are labelled political, finance or trading.
- * - ruleQuestions: rules matching by the owner's own Jev question ask it about each message in scope.
- */
+/** Opt-in host Jev switches control meaning, badges, retention, tags, suggestions, plugin decisions, checks, classes and rule questions. */
 export const HOST_JEV_FEATURES = [
   'topicMeaning',
   'catchUpBadges',
@@ -78,10 +66,7 @@ export type JevFeature = HostJevFeature | PluginJevFeature;
 /** Whether `f` is one of the host's switches (unprefixed); a plugin's are stamped. */
 export const isHostJevFeature = (f: string): f is HostJevFeature => (HOST_JEV_FEATURES as readonly string[]).includes(f);
 
-/**
- * The switches' stored values: every host switch, each declared plugin switch, and whatever else was stored (a switch
- * of a plugin absent from this build or not yet adopted), kept so saving never drops it.
- */
+/** Preserves all stored host/plugin/unknown switches when saving, including absent or unadopted plugin keys. */
 export type JevSettings = Record<HostJevFeature, boolean> & Partial<Record<PluginJevFeature, boolean>>;
 
 /** What normalizing needs of a declared plugin switch: its stamped key and its value in a profile that never set it. */
@@ -136,11 +121,7 @@ function providerSettings(v: unknown, enabledByDefault: boolean): ProviderSettin
   };
 }
 
-/**
- * Stored AI settings, losslessly: every stored provider entry and Jev switch survive a build without their plugin.
- * `declared` (the build's providers, in order) fills unset providers; `features` (the build's plugin switches) fills
- * unset switches with their defaults. Each feature picks its own provider (no default here).
- */
+/** Preserves stored providers/switches across absent-plugin builds. Declared entries fill defaults; features retain independent provider choices. */
 export function normalizeAiSettings(v: unknown, declared: readonly ProviderDefaults[] = [], features: readonly JevFeatureDefaults[] = []): AiSettings {
   const src = isObj(v) ? v : {};
   const stored = isObj(src['providers']) ? src['providers'] : {};

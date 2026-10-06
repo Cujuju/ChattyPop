@@ -7,10 +7,7 @@ import { projectLayout } from './visibility';
 import { PANEL_TITLES } from '../panels/titles';
 import type { LayoutDoc, LayoutNode, LayoutPanelId, PanelRef, SplitSize } from './types';
 
-/**
- * A built-in panel or a bundled plugin's (Links); while a plugin's is unavailable the preset closes up around it
- * (state/layout.ts). tests/layout.test.ts checks every id names a panel some build can provide.
- */
+/** Presets include built-in and bundled panels. Unavailable plugin panels collapse out; tests validate ids against possible build panels. */
 const panel = (id: LayoutPanelId): PanelRef => ({ kind: 'panel', id });
 const row = (sizes: SplitSize[], ...children: LayoutNode[]): LayoutNode => ({ kind: 'split', dir: 'row', sizes, children });
 const col = (sizes: SplitSize[], ...children: LayoutNode[]): LayoutNode => ({ kind: 'split', dir: 'column', sizes, children });

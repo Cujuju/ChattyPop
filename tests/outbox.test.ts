@@ -1,5 +1,4 @@
-// Contract: sends go one at a time per channel, in order; a failure holds the rest; retries reuse the nonce; the queue
-// survives a reload; what couldn't reach the desktop retries by itself only while Discord dedupes its nonce.
+// Outbox sends serialize per channel. Failures block successors; retries reuse nonces. Queues survive reloads; automatic retries stay within Discord’s nonce-deduplication window.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OwnerMessage } from '@shared/compose';
 import { PostingLocked, isPostingLocked } from '@shared/posting';

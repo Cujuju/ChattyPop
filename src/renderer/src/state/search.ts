@@ -36,10 +36,7 @@ let rankTimer: ReturnType<typeof setTimeout> | undefined;
 /** The latest query's ticket: an answer to any earlier one, cleared ones included, is dropped. */
 let latest = 0;
 
-/**
- * Updates the query: full-text results arrive in the chosen order after a short pause and show at once; sorted by
- * relevance, after a longer one the active rankers may reorder them. Answers to a query no longer the latest are dropped; a ranker's failure keeps the order.
- */
+/** Debounces full-text results, then relevance rankers. Drops superseded query answers; ranker failures preserve order. */
 export function querySearch(text: string): void {
   setSearchText(text);
   clearTimeout(timer);

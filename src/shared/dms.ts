@@ -35,11 +35,7 @@ export interface DmAddFailure {
   reason: string;
 }
 
-/**
- * A write that leads to a conversation: `opened` an existing one (a start sent nothing), `created` a new one. `uncertain`:
- * Discord gave no clear answer, so it may exist; it is never sent again, and the owner checks Discord. `failed`: an add
- * stopped part way; `channelId` is where the others were added (a group the first add made), and a retry goes there.
- */
+/** Conversation outcomes distinguish opened/created, uncertain non-retryable writes and partial failures. Failed additions retry against the resulting channelId. */
 export type DmOutcome = { kind: 'opened' | 'created'; channelId: string; failed?: DmAddFailure } | { kind: 'uncertain' };
 
 /** Shown for an `uncertain` outcome. */

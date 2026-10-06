@@ -156,10 +156,7 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   },
 ];
 
-/**
- * App frame: archive search, the panel toolbar (centred), layout switcher, privacy mode, settings and plugin items. Not a panel, so
- * layouts never move it. The name is in the window title; the version is in the status bar.
- */
+/** Fixed app frame contains search, panel toolbar, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
   return (
     <header class={styles.root}>

@@ -1,5 +1,4 @@
-/* Bundled faces (the app is offline). UI text uses the system stack (tokens.css); the code face and the faces of themes
-   that name their own type are declared here, so theme files hold tokens only. */
+/* Bundled offline faces serve code/custom theme typography. UI uses system stacks; theme files contain tokens only. */
 
 @font-face {
   font-family: 'JetBrains Mono';

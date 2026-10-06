@@ -1,6 +1,4 @@
-/* New message window (NewMessageWindow), inside the shared window surface (ui/WindowChrome.module.css), in Forward's
-   look: .pick: the To field (chips, then the search) over the scrolling people (face | name and detail | check mark);
-   .foot: the error, the Archive choice, Cancel and Start. Only the people list scrolls. */
+/* New-message window contains To chips/search, scrolling people, errors/archive choice and actions. Shared Forward styling; only people scroll. */
 .window {
   width: min(var(--cp-forward-w), calc(100vw - 2 * var(--cp-dialog-inset)));
   height: min(var(--cp-forward-h), calc(100vh - 2 * var(--cp-dialog-inset)));

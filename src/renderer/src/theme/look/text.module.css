@@ -1,6 +1,4 @@
-/* Look vocabulary: text (docs/plugin-architecture.md §14). One role, .text; its data attributes pick from the type ramp and
-   the text tones, and an unset attribute inherits. One role owns an element's colour: no data-tone where another role colours it.
-   Look only: no layout property here, so a plugin's structural module and this file never set the same property. */
+/* Look-only text roles select type/tone through data attributes; unset values inherit. Avoid competing color roles; structural modules own layout. */
 
 .text[data-size='2xs'] {
   font-size: var(--cp-text-2xs);

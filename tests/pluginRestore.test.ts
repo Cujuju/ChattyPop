@@ -1,5 +1,4 @@
-// First-start restore: which plugins' data remain without them, how they match marketplace listings, and that an offer
-// installs through the marketplace client. Also the built-in marketplace and install history.
+// Tests retained plugin data, marketplace matching, restore installs, default marketplaces, and install history.
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -76,7 +75,7 @@ describe('footprints', () => {
     continuity.start(new Set(['stats']));
     expect(continuity.resumed('stats')).toBe(true);
     expect(absentPlugins(db, tempDir(), ['stats']).map((a) => a.ids)).toEqual([['tags']]);
-    // Back in a later build: its old session is a gap.
+    // A returning plugin’s previous session leaves a gap.
     const next = new ActivationContinuity(() => db);
     next.start(new Set(['stats', 'tags']));
     expect(next.resumed('tags')).toBe(false);

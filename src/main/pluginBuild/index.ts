@@ -1,6 +1,4 @@
-// Builds a plugin folder into installed-plugin output (docs/plugin-architecture.md §16): plugin.json, node/ and browser/.
-// Release assets, source installs and local builds all come from here. Imports are relative so the app's main process
-// can import it as well as the release script.
+// Builds plugin.json plus node/browser output for releases, source installs and local builds. Relative imports permit app and release-script use.
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { build, type InlineConfig, type Plugin, type Rollup } from 'vite';
@@ -105,8 +103,7 @@ async function buildPlatform(platform: Platform, pluginDir: string, outDir: stri
 export async function buildInstalledPlugin({ pluginDir: dirIn, outDir: outIn, appVersion, repoRoot: rootIn, anchorFolders = [] }: BuildOptions): Promise<InstalledManifest> {
   const named = resolve(dirIn);
   if (!existsSync(join(named, SHARED_ENTRY))) throw new Error(`${named} is not a plugin folder: it has no ${SHARED_ENTRY}.`);
-  // Vite names modules by real path; a folder named another way (junction, symlink, 8.3 name) would read every import
-  // as outside it and skip the outside-import check.
+  // Canonical real paths ensure junctions, symlinks and 8.3 aliases cannot bypass outside-import checks.
   const pluginDir = realpathSync.native(named);
   const outDir = resolve(outIn);
   const repoRoot = rootIn === undefined ? undefined : resolve(rootIn);
@@ -126,7 +123,7 @@ export async function buildInstalledPlugin({ pluginDir: dirIn, outDir: outIn, ap
     // The page's entry builds with the browser sides, sharing their chunks: one instance of each module on the phone.
     if (platform === 'browser' && page) input[PAGE_INPUT] = page.entry;
     const output = await buildPlatform(platform, pluginDir, outDir, input, appVersion, hostImports);
-    // node/*.js are ES modules whatever package.json sits above the install; Node's syntax detection would warn.
+    // Marks node/*.js as ESM independent of ancestor package.json.
     const dir = INSTALLED_PLATFORM_DIRS[platform];
     if (platform === 'node') writeFileSync(join(outDir, dir, 'package.json'), `${JSON.stringify({ type: 'module' })}
 `);

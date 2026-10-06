@@ -21,10 +21,7 @@ export type MdBlock =
 
 const SAFE_HREF = /^https?:\/\//i;
 
-/**
- * Inline rules, tried at each position in order; first match wins. A styled run's body takes a backslash and the
- * character after it together, so an escaped delimiter (`\_`, `\*`) never closes it, as in Discord.
- */
+/** Inline rules use first match. Escaped characters consume backslash pairs so escaped delimiters cannot end styled runs. */
 /** A JS Date spans ±8.64e15 ms (100,000,000 days either side of 1970), so ±8.64e12 s. */
 const DATE_MAX_S = 8.64e12;
 
@@ -103,10 +100,7 @@ export function parseInline(src: string): MdInline[] {
   return out;
 }
 
-/**
- * A ``` fence starting at lines[start]: "```lang" alone opens a block closed by a later line ending in ```;
- * "```code```" on one line is a block too. Unclosed fences are plain text (null).
- */
+/** Parses multiline language fences or same-line triple-backtick blocks. Unclosed fences return null/plain text. */
 function fencedCode(lines: string[], start: number): { block: MdBlock; end: number } | null {
   const first = lines[start]!.trimEnd();
   const oneLine = /^```([\s\S]+)```$/.exec(first);

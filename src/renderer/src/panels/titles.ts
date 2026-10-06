@@ -4,10 +4,7 @@ import { bundledPanel } from '@shared/bundledPlugins';
 import type { PanelImportance } from '@shared/bundledTypes';
 import { isPluginPanelId } from '@shared/plugins';
 
-/**
- * Every built-in named section of the UI and its title. Component-free, so any module (headers, menus) can import it
- * without a cycle. Bundled plugins' panels are declared in their shared entries (bundledPanel).
- */
+/** Component-free built-in section title registry avoids import cycles. Bundled panel titles come from shared declarations. */
 export const PANEL_TITLES = {
   channels: 'Channels',
   'sync-status': 'Sync',
@@ -23,16 +20,10 @@ export type SectionId = PanelId | 'plugin' | (string & {});
 /** The section (icon and theme colour) a panel wears: a folder plugin's panels all share 'plugin'. */
 export const sectionOf = (id: string): SectionId => (isPluginPanelId(id) ? 'plugin' : id);
 
-/**
- * What every element carrying a panel's identity sets: its section (icon, theme colour) and its own id, which the
- * owner's panel colour keys on (theme/panelColors.ts), so panels sharing a section are coloured one by one.
- */
+/** Panel identity includes section and individual id. Section drives icons/theme colors; id keys per-panel owner colors. */
 export const panelIdentity = (id: string): { 'data-section': SectionId; 'data-panel-color': string } => ({ 'data-section': sectionOf(id), 'data-panel-color': id });
 
-/**
- * How much a panel stands out; each theme decides how (tokens scoped to [data-importance]). Primary: act on it;
- * secondary: scan it; reference: look up when needed. Frame panels have none and keep the base look.
- */
+/** Theme-scoped importance distinguishes primary actions, secondary scanning and reference lookup. Frame panels keep base styling. */
 export type { PanelImportance };
 
 export const PANEL_IMPORTANCE: Partial<Record<PanelId, PanelImportance>> = {

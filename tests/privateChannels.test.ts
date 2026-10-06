@@ -1,5 +1,4 @@
-// Contract (docs/dms.md §3.1): READY's private channels become one account's DM list. Recipients come whole or as ids
-// resolved through READY's users; lists come bare or versioned, and a partial one says so. The shape note names no one.
+// READY private-channel lists belong to one account. Recipients resolve from objects or READY user IDs; lists support bare, versioned, and partial forms.
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';

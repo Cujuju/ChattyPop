@@ -7,10 +7,7 @@ import styles from './SearchSelect.module.css';
 /** Rendered matches; typing narrows long lists (OpenRouter has hundreds of models) well below this. */
 const MAX_SHOWN = 200;
 
-/**
- * A select for long lists: shows the chosen label; opening it gives a search field that filters by label or value
- * (every typed word must match), with arrow keys, Enter and Escape.
- */
+/** Searchable long-list selects match every query word against labels/values. Support arrows, Enter and Escape. */
 export function SearchSelect(props: {
   id?: string;
   value: string;

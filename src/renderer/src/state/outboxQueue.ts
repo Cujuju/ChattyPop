@@ -1,6 +1,4 @@
-// Messages on their way to Discord: taken out of the composer on Send, then sent one at a time per channel, in order.
-// Saved on every change and loaded after a reload. A send that couldn't reach the desktop retries by itself while
-// Discord still dedupes its nonce. DOM-free (the app is injected), so it is tested directly; state/outbox.ts wires it.
+// Persists per-channel ordered outbox queues on every change. Transport failures auto-retry within nonce deduplication windows. DOM-free queue logic uses injected app services.
 import { createSignal } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import type { OwnerMessage } from '@shared/compose';
@@ -120,7 +118,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     save();
   }
 
-  /** Idempotent: a timed-out send that lands later and a retry that succeeds may both finish it. */
+  /** Completion is idempotent across timed-out sends and successful retries. */
   function finish(channelId: string, id: number): void {
     if (!entries.delete(id)) return;
     setOutbox(channelId, (list) => list.filter((o) => o.id !== id));
@@ -190,7 +188,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
           if ((await within(sent, timeoutMs(e.job))) === 'timeout') {
             failure = TIMED_OUT;
             e.unreachable = true;
-            // Landing later means it went: drop it (unless a retry is already on it) and send the rest.
+            // Late successful sends remove entries unless retried, then advance remaining work.
             sent.then(
               () => {
                 if (outgoing(channelId).find((o) => o.id === id)?.status !== 'failed') return;
@@ -228,10 +226,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     retryTimer = setTimeout(retryUnreachable, AUTO_RETRY_MS);
   }
 
-  /**
-   * Resends each channel's failed head that may not have reached Discord, while Discord still dedupes its nonce (on
-   * reconnect, and every AUTO_RETRY_MS while one waits). Past that, only the owner's Retry sends it, after a warning.
-   */
+  /** Retries failed channel heads on reconnect/interval while nonce deduplication remains valid. Later retries require explicit owner action after warning. */
   function retryUnreachable(): void {
     if (!deps.unlocked()) return;
     let waiting = false;

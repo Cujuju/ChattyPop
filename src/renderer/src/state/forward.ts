@@ -22,10 +22,7 @@ let attempts = new Map<string, Attempt>();
 
 /** Discord forwards no deleted message. */
 export const canForward = (m: ArchiveMessage): boolean => m.deletedAt === null;
-/**
- * Opens the Forward window on `m`: another message starts with no attempts; the open one keeps its own (a retry is pending).
- * The DM list needs no fetch: the client's gateway keeps it current.
- */
+/** Opens Forward with fresh attempts for new messages, retaining retries for the same message. Gateway-backed DM lists need no fetch. */
 export const startForward = (m: ArchiveMessage): void => {
   if (forwarding()?.id !== m.id) attempts = new Map();
   setForwarding(m);
@@ -58,10 +55,7 @@ export function forwardTargets(query: string): ForwardTarget[] {
     .sort((a, b) => (b.channel.lastTs ?? 0) - (a.channel.lastTs ?? 0));
 }
 
-/**
- * Forwards `m` to `channelId`, then posts `note` there as its own message when it has text, as Discord does; rejects with
- * Discord's reason. Retried after a failure, only what hasn't gone is sent, with the nonces of the first try.
- */
+/** Forwards then posts optional notes. Retries send only incomplete steps using original nonces; Discord errors reject. */
 export async function forwardMessage(m: ArchiveMessage, channelId: string, note: string): Promise<void> {
   // Checked before anything goes: a note Discord refuses must not leave the forward posted without it.
   if (note.length > DISCORD_TEXT_MAX) throw new Error(`Discord allows ${DISCORD_TEXT_MAX} characters.`);

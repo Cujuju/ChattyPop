@@ -1,12 +1,11 @@
-// Contract (docs/dms.md §3.4): an event patches the renderer's directory in place. A directory read already in flight
-// may answer with data older than the patch; the patch then applies to that answer again, so it is never reverted.
+// Directory events patch rows in place. Patches reapply to older in-flight directory responses.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEvent, DirectoryChannel, DirectoryGuild } from '@shared/contract';
 import { DM_CHANNEL_TYPE, DM_GUILD_ID } from '@shared/discord';
 import { SETTINGS_KEYS } from '@shared/settings';
 
-// The client runtime, so resources load as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const env = vi.hoisted(() => ({
@@ -60,7 +59,7 @@ describe("the renderer's directory", () => {
     env.reads.shift()!(guilds(dmRow(OTHER, '500000000000000002'), dmRow(DM, '500000000000000001')));
     await settle();
     expect(order()).toEqual([[DM, '500000000000000003'], [OTHER, '500000000000000002']]);
-    // A later read that already holds a newer id keeps it: activity only rises.
+    // Directory reads retain newer activity IDs.
     send({ type: 'archive-changed', channelIds: [''] });
     send({ type: 'dm-activity', channelId: DM, lastMessageId: '500000000000000004' });
     env.reads.shift()!(guilds(dmRow(DM, '500000000000000005'), dmRow(OTHER, '500000000000000002')));

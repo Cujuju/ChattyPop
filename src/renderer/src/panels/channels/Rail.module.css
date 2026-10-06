@@ -51,8 +51,7 @@
   height: var(--cp-rail-tile);
 }
 
-/* The server icon is a list-row avatar elsewhere; in the rail it fills a tile, same size and shape as the channel tiles.
-   Element selectors outrank GuildIcon's single class regardless of stylesheet order. */
+/* Rail server icons fill channel-sized tiles. Element selectors override GuildIcon classes independent of stylesheet order. */
 .railGuild > img,
 .railGuild > span {
   width: var(--cp-rail-tile);

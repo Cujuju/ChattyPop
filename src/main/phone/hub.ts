@@ -1,5 +1,4 @@
-// The phone's host side (docs/plugin-architecture.md §3): one transport plugin carries the phone's calls, events and
-// pushes; any plugin may add routes to it. With no transport connected, phone traffic is simply dropped.
+// One transport plugin carries phone calls/events/pushes; other plugins register routes. Disconnected traffic is dropped.
 import type { AppEvent, CoreMethod } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';

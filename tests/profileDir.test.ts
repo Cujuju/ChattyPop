@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
 const { PROFILE_DIR_ENV, applyProfileDirOverride } = await import('../src/main/storageLocation');
 
 describe('profile directory override', () => {
-  // The machine may set the variable for real (the owner's profile lives elsewhere); each test starts without it.
+  // Clears the profile-directory environment override before each test.
   beforeEach(() => {
     vi.stubEnv(PROFILE_DIR_ENV, undefined);
   });

@@ -17,10 +17,7 @@ const PLAIN_SNIPPET_CHARS = 160;
 /** Time direction per sort; relevance has no score without words, so a filter-only search lists newest first. */
 const TIME_ORDER: Readonly<Record<SearchSort, 'ASC' | 'DESC'>> = { newest: 'DESC', oldest: 'ASC', relevance: 'DESC' };
 
-/**
- * User text → FTS5 query: each word is a quoted phrase (so FTS operators and punctuation in the text are literal),
- * all words must match, and the last one matches as a prefix while the user is still typing it.
- */
+/** Builds literal quoted FTS5 word phrases requiring all words. Final in-progress words match prefixes; operators and punctuation remain literal. */
 export function ftsQuery(text: string): string | null {
   const words = text.split(/\s+/).filter(Boolean);
   if (!words.length) return null;
@@ -118,8 +115,7 @@ export function searchMessages(db: Db, text: string, limit: number, sort: Search
     const hits = (fts: string, from: string): string =>
       `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score
        ${from} ${joins} WHERE ${fts} MATCH ?${filters}`;
-    // Text, derived-text (transcript) and linked-text (embed, fetched post) hits; a message matching more than one is
-    // listed once, with its best hit. Ordered before the limit, so a time sort finds the newest or oldest matches.
+    // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
     const sources = [
       hits('fts_messages', 'FROM fts_messages f JOIN messages m ON m.seq = f.rowid'),
       hits('fts_derived_texts', 'FROM fts_derived_texts fd JOIN derived_texts d ON d.seq = fd.rowid JOIN messages m ON m.id = d.message_id'),

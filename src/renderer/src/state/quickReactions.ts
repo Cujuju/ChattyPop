@@ -19,17 +19,13 @@ export function prepareQuickReactions(m: ArchiveMessage): void {
 
 const sameEmoji = (a: ArchiveEmoji, b: ArchiveEmoji): boolean => (a.id ? a.id === b.id : !b.id && a.name === b.name);
 
-/**
- * Up to `count` reactions for `m`: the owner's most-used reactions, then their most-used emoji, then Discord's defaults.
- * A custom emoji shows only while a server still has it and the plan allows it in this channel; a Unicode one only when
- * this machine can draw it.
- */
+/** Quick reactions prefer owner reactions, then emoji, then defaults. Custom choices require catalog/plan eligibility; Unicode choices require local glyph support. */
 export function quickReactions(m: ArchiveMessage, count: number): ArchiveEmoji[] {
   const guildId = guildOf(m);
   const catalog = loaded(expressionCatalog);
   const byId = new Map((catalog?.emojis ?? []).map((e) => [e.id, e]));
   const usable = (e: ArchiveEmoji): boolean => {
-    // One this machine's font can't draw would show as a box.
+    // Exclude unsupported local emoji glyphs.
     if (!e.id) return canDraw(e.name);
     const g = byId.get(e.id);
     return Boolean(g && catalog && canUseEmoji(g, guildId, catalog.perks));

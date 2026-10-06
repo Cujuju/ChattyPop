@@ -1,4 +1,4 @@
-// Core process: runs in an Electron utilityProcess. Owns SQLite; later AI and plugins.
+// Electron utility process owning SQLite, AI and core plugins.
 import { join } from 'node:path';
 import bundledCore, { failed as failedCore } from 'virtual:bundled-plugins/core';
 import {
@@ -252,7 +252,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   closeArchive: () => {
     const { db: open } = ready();
     plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
-    jevLedger.flush(); // the app restarts after the move, so an unwritten tally would be lost
+    jevLedger.flush(); // Flush spend before archive-move restart.
     open.pragma('wal_checkpoint(TRUNCATE)');
     open.close();
     initError = new Error('The archive is being moved; ChattyPop restarts when it is done.');
@@ -313,8 +313,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
         mediaDir: join(data.archiveDir, ARCHIVE_MEDIA_DIR),
         attachmentsDir,
         pluginData: data.pluginData,
-        // Derived text is new text for its message: rules, Jev's per-message questions and plugins see it as an edit.
-        // Its arrival is when its source was queued, so a live voice message's transcript counts as live however long it took.
+        // Derived text dispatches as an edit. Source queue time determines arrival, preserving live classification for delayed transcripts.
         storeText: (pluginId, messageId, t, record) => {
           storeDerivedText(archiveDb, messageId, `${pluginId}:${t.key}`, t.order, t.text, record, t.part ?? null);
           const m = textMessage(archiveDb, messageId);

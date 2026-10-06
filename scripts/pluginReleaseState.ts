@@ -1,5 +1,4 @@
-// Each plugin's release state in a plugin repo (docs/plugin-architecture.md §16, Releasing), read from git: its manifest
-// version on origin/main (L) against its newest release in marketplace.json there (N).
+// Compares manifest version L on origin/main with newest marketplace version N.
 import { FEATURE_SUBJECT } from '../appVersion';
 import { SHARED_ENTRY } from '../src/main/pluginBuild/descriptor';
 import { VERSION_PATTERN, compareVersions } from '../src/shared/installedPlugins';
@@ -18,11 +17,11 @@ const INTENT_SEPARATOR = ', ';
 export type Bump = 'minor' | 'patch';
 
 export type PluginState =
-  /** L == N: released. `changed`: one bump per commit to its folder since N's tag, oldest first; null when unchanged. */
+  /** L == N means released. Changed content accumulates ordered commit bumps; unchanged content returns null. */
   | { id: string; kind: 'settled'; version: string; listed: MarketplaceRelease; changed: Bump[] | null }
-  /** An intent commit names a version above N (or any, unlisted): the lowest is to be published at `target`. */
+  /** Lowest unpublished release intent and its target commit. */
   | { id: string; kind: 'pending'; version: string; target: string }
-  /** L > N (or unlisted) and no intent above N: a new plugin, or a hand-raised version, to stamp at L. */
+  /** Unlisted or increased manifest version without an intent; stamps at L. */
   | { id: string; kind: 'unstamped'; version: string }
   /** Its state contradicts the contract; nothing is done for it until a person fixes it. */
   | { id: string; kind: 'broken'; reason: string };
@@ -80,7 +79,7 @@ function intendedVersions(intents: Map<string, string[]>, id: string): string[] 
   return [...intents.keys()].flatMap((tag) => (tag.startsWith(prefix) && VERSION_PATTERN.test(tag.slice(prefix.length)) ? [tag.slice(prefix.length)] : [])).sort(compareVersions);
 }
 
-/** Throws unless N's tag is a commit on MAIN whose descriptor is `id` at N. Returns that commit. */
+/** Resolves N’s tag on main and verifies its descriptor ID and version. */
 function listedCommit(git: Git, dir: string, id: string, listed: MarketplaceRelease): string {
   const r = git(dir, ['rev-parse', '--verify', '--quiet', `refs/tags/${listed.tag}^{commit}`]);
   if (r.code !== 0) throw new Error(`its newest listed release ${listed.version} has no tag ${listed.tag}.`);
@@ -91,10 +90,7 @@ function listedCommit(git: Git, dir: string, id: string, listed: MarketplaceRele
   return commit;
 }
 
-/**
- * The bumps `id`'s folder needs since `since`, as appVersion counts: per non-merge commit, oldest first, `feat` a minor.
- * Null when its content is the same; one patch when only a merge changed it.
- */
+/** Counts non-merge commits since the prior release: features increment minor. Unchanged content returns null; merge-only changes increment patch once. */
 function changedSince(git: Git, dir: string, id: string, since: string): Bump[] | null {
   const folder = `${PLUGINS_DIR}/${id}`;
   if (gitTest(git, dir, ['diff', '--quiet', since, MAIN, '--', folder])) return null;
@@ -127,7 +123,7 @@ export function readStates(git: Git, dir: string, only?: readonly string[]): Plu
       const since = listed ? listedCommit(git, dir, id, listed) : null;
       const order = listed ? compareVersions(version, listed.version) : 1;
       if (order < 0) throw new Error(`its version ${version} is below its newest listed release ${listed!.version}.`);
-      // Every intent above N is finished, lowest first, even one a later hand-raised literal passed over.
+      // Completes every intent above N, lowest-first, including intents skipped by a manually increased version literal.
       const unfinished = intendedVersions(intents, id).filter((v) => !listed || compareVersions(v, listed.version) > 0);
       if (unfinished.length) {
         const intended = unfinished[0]!;

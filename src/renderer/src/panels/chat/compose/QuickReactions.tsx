@@ -13,10 +13,7 @@ import styles from './QuickReactions.module.css';
 /** Emoji before the More button: Discord's phone sheet shows six. */
 const QUICK_REACTIONS_MAX = 6;
 
-/**
- * The quick reactions atop a message's menu: the owner's most-used reactions that work in this channel (state/quickReactions),
- * then More for the full picker. One the owner already reacted with shows pressed; a tap takes it back.
- */
+/** Quick reactions use owner favorites available in the channel. Pressed reactions remove on tap; More opens the full picker. */
 export function QuickReactions(props: { message: ArchiveMessage; x: number; y: number }) {
   onMount(() => {
     // Opening the menu refreshes the catalog, so emoji added since show up.

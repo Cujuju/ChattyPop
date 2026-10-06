@@ -1,8 +1,4 @@
-// The owner's server order in Discord's sidebar, from their user settings (PreloadedUserSettings, protobuf), as the
-// embedded client's gateway carries them: READY's user_settings_proto, then USER_SETTINGS_PROTO_UPDATE.
-// Field numbers (assumption: the community discord-protos schema, as appearance.ts's were before verifying):
-// PreloadedUserSettings.guild_folders (14) { folders (1, repeated GuildFolder { guild_ids (1, repeated fixed64) }),
-// guild_positions (2, repeated fixed64, the order before folders) }.
+// Reads guild order from gateway user-settings protobuf. Assumption: community schema uses guild_folders 14, folders 1 with guild_ids 1, and guild_positions 2; verify against live settings.
 import type { GatewayTap } from './gatewayTap';
 import { fields, fixed64s, has, message } from './settingsProto';
 
@@ -10,10 +6,7 @@ const FIELD = { guildFolders: 14, folders: 1, guildPositions: 2, guildIds: 1 } a
 /** USER_SETTINGS_PROTO_UPDATE's settings.type for PreloadedUserSettings (settings-proto/1). */
 const PRELOADED_SETTINGS_TYPE = 1;
 
-/**
- * Server ids in sidebar order: each folder's servers in turn (a server outside any folder is a folder of one), else the
- * older guild_positions. null when the settings don't carry the order (a partial update that leaves it unchanged).
- */
+/** Returns guild ids in folder order, falling back to legacy guild_positions. Partial settings without order return null. */
 export function guildOrderFromSettings(settings: Buffer): string[] | null {
   const top = fields(settings);
   if (!has(top, FIELD.guildFolders)) return null;

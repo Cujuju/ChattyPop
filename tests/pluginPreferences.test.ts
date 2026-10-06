@@ -1,5 +1,4 @@
-// Plugin preferences (docs/plugin-architecture.md §4, §7): one declaration read and written normalized by core and main,
-// and build checks that every reference a descriptor makes to its preferences names a declared one and a real field.
+// Core and main share normalized declared preferences. Descriptor references must name declared preferences and valid fields.
 import { describe, expect, it, vi } from 'vitest';
 import { definePreference, finiteOr } from '@plugin-sdk/shared';
 import { checkBundled } from '@shared/bundledCheck';

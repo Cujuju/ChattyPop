@@ -1,5 +1,4 @@
-// Rules started by time instead of a message: daily at a time, every few hours, or when the app opens after an
-// absence. They act on a stretch of time over the rule's channels.
+// Timed rules run daily, periodically or on app return, acting over configured channel/time windows.
 import { MS_PER_DAY, MS_PER_HOUR } from './units';
 
 export type TimedTrigger =
@@ -31,15 +30,9 @@ const DAYS_PER_WEEK = 7;
 export const ALL_DAYS: readonly number[] = Array.from({ length: DAYS_PER_WEEK }, (_, d) => d);
 /** Run keys of timed runs start with this, so a rule's message runs never count as its last timed run. */
 export const TIMED_RUN_PREFIX = 'time:';
-/**
- * A timed run of one action alone (another's plugin was off, or it catches up) has this and its action id after its key.
- * A run without it ran every action of the rule.
- */
+/** Action-only timed runs append this marker and action id. Unmarked runs execute all rule actions. */
 export const TIMED_RUN_ACTION_MARK = '#';
-/**
- * Run keys of an action catching up alone after sitting out a scheduled run start with this. They advance that action
- * only: the rule's schedule stays counted from its last scheduled run.
- */
+/** Catch-up action keys advance only that action. Rule schedules remain based on the latest scheduled run. */
 export const TIMED_CATCH_UP_PREFIX = `${TIMED_RUN_PREFIX}catchUp:`;
 
 export function newTimedTrigger(kind: TimedTriggerKind): TimedTrigger {

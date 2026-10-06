@@ -16,10 +16,7 @@ const PREVIEW_SCAN_MAX = 20_000;
 /** Matches listed; the count covers all of them. */
 const PREVIEW_HITS = 25;
 
-/**
- * What a pattern would match among recent archived messages in a topic's scope (null = every archived channel;
- * a channel includes its threads; `contains` null = any message). Throws on a bad regex, as saving would.
- */
+/** Previews recent archived pattern matches within topic scope, including channel threads. Null scope/contains means unrestricted; invalid regex throws as on save. */
 export function previewPattern(db: Db, pattern: string, channelIds: string[] | null, contains: ContentKind[] | null, now = Date.now()): PatternPreview {
   const sinceTs = now - PREVIEW_DAYS * MS_PER_DAY;
   const re = keywordRegex(pattern);

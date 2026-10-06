@@ -1,9 +1,4 @@
-// Host modules in an installed plugin's build (docs/plugin-architecture.md §16): each import of a HOST_MODULES id
-// resolves to a generated shim that reads the host's namespace from globalThis[HOST_MODULES_KEY], so the plugin never
-// bundles a second SDK or Solid runtime. The shim is a virtual module whose named exports are synthetic (rollup's
-// syntheticNamedExports): every name reads the namespace, so its exports needn't be known before the importers are
-// parsed. Externals would need a relative path per chunk, which rollup derives from the input folder (wrong when the
-// output sits elsewhere, on another drive on Windows). The names each module imports are read from its AST.
+// Generates host namespace shims to avoid duplicate SDK/Solid runtimes. Synthetic exports resolve imported names from ASTs without output-relative external paths.
 import { isBuiltin } from 'node:module';
 import { isAbsolute, relative, sep } from 'node:path';
 import type { Plugin, Rollup } from 'vite';
@@ -14,7 +9,7 @@ const SHIM_PREFIX = '\0chattypop-host:';
 const NAMESPACE = '__hostNamespace';
 /** The host's own modules, which a plugin reaches only through the SDK. */
 const HOST_INTERNAL = /^(?:@shared|@core|@main|@)(?:\/|$)|^electron(?:\/|$)/;
-/** Packages the host provides some modules of: any other module of theirs would bundle a second copy. */
+/** Host package roots whose other modules must not bundle duplicate runtimes. */
 const HOST_PACKAGES = [...new Set([...HOST_MODULES.node, ...HOST_MODULES.browser].map((id) => id.split('/').slice(0, id.startsWith('@') ? 2 : 1).join('/')))];
 
 const inside = (dir: string, file: string): boolean => {
@@ -35,12 +30,7 @@ const shimSource = (id: string): string => {
 type Node = { type: string; [key: string]: unknown };
 const nameOf = (n: Node): string => (n['type'] === 'Identifier' ? (n['name'] as string) : String(n['value']));
 
-/**
- * The host-module build step for one platform. Resolves its host modules to shims and records the names imported from
- * each into `imports`. Refuses what an installed plugin can't import: host internals, the other platform's host modules
- * or other modules of a host package, namespace and dynamic imports of a host module, Node built-ins in a browser
- * build, and relative imports reaching out of the plugin folder.
- */
+/** Builds platform host shims and records imports. Rejects internals, cross-platform/namespace/dynamic host imports, browser Node built-ins and relative imports escaping plugin folders. */
 export function hostModulesPlugin(platform: Platform, pluginDir: string, imports: Map<HostModuleId, Set<string>>): Plugin {
   const provided: readonly string[] = HOST_MODULES[platform];
   const name = (file: string): string => relative(pluginDir, file.split('?')[0]!).replaceAll(sep, '/');

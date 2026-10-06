@@ -107,10 +107,7 @@ function isAnswerTo(q: Question, a: unknown): boolean {
   }
 }
 
-/**
- * Jev over any route (OpenRouter or TypeSafe). One shared instance, so the in-flight cap is global.
- * `model` names the release, the same on every route, so stored judgments and thresholds carry across.
- */
+/** Shares Jev across routes with a global in-flight cap. Release-based model names preserve judgments and thresholds across routes. */
 export class JevProvider {
   readonly model = JEV_MODEL;
   /** @param spent every answered request: its question count, price and tokens (each null when unknown). */

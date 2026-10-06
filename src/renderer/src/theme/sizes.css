@@ -33,9 +33,7 @@
   --cp-qr-size: 176px; /* pairing QR: a phone camera reads it from arm's length */
   --cp-toolbar-scroll-room: 100lvh; /* phone companion page scroll: a full screen, more than any browser toolbar travels */
   --cp-screen-visible-h: 100dvh; /* phone companion in a browser tab: the visible area, which follows the toolbars */
-  /* The iPhone shell's keyboard: the web view stays full-screen and ShellViewController sets --cp-keyboard-inset (how far
-     the keyboard covers the page's bottom) and this (how long iOS takes to get there) on <html> as iOS announces it.
-     <html> eases the inset over it (base.css, pair.css), so what pads itself above the keyboard moves with it. */
+  /* iPhone shell supplies keyboard inset/duration tokens on html. Base/pair rules animate inset so padded content follows keyboard movement. */
   --cp-keyboard-duration: 0ms;
   /* The home-bar inset the page still keeps clear: none once the keyboard covers it. */
   --cp-safe-bottom: max(0px, env(safe-area-inset-bottom) - var(--cp-keyboard-inset));

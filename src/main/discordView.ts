@@ -37,7 +37,7 @@ const CHANNEL_PATH = new RegExp(`^/channels/(${DM_GUILD_ID}|${SNOWFLAKE_DIGITS})
 
 const lastRoutePath = (): string => profilePath(LAST_ROUTE_FILE);
 
-/** Where the client should open: the last channel route, else the client's default. */
+/** Startup route uses the last channel or client default. */
 function startUrl(): string {
   try {
     const { route } = JSON.parse(readFileSync(lastRoutePath(), 'utf8')) as { route?: unknown };
@@ -75,7 +75,7 @@ export class DiscordView {
   private pageCssApply: Promise<void> = Promise.resolve();
   /** Where the renderer's chat slot is, and whether it shows. */
   private slot: DiscordSlot = { visible: false, x: 0, y: 0, width: 0, height: 0 };
-  /** A Discord modal (image viewer, profile, confirm) is open: the view covers the whole window, as a modal should. */
+  /** Open Discord modals expand the native view to the full window. */
   private modalOpen = false;
 
   /** The server and channel the client shows now; undefined before it shows one. */
@@ -104,7 +104,7 @@ export class DiscordView {
       this.shown = channel ? { guildId: channel[1]!, channelId: channel[2]! } : undefined;
       if (!channel || this.leaveIfHidden()) return;
       this.onChannel?.(channel[1]!, channel[2]!);
-      // Channel only (no message id): reopening should land on the channel, not jump to an old message.
+      // Restore channel routes without old message targets.
       if (channel[0] !== this.savedRoute) saveRoute((this.savedRoute = channel[0]));
     };
     wc.on('did-navigate', (_e, url) => notePath(url));
@@ -142,10 +142,7 @@ export class DiscordView {
     this.view.setVisible(visible);
   }
 
-  /**
-   * Shows a channel without reloading the client: its router follows history changes, so a pushState plus popstate
-   * navigates in-page. If the page can't run it (e.g. mid-load), the route is loaded directly.
-   */
+  /** Navigates Discord in-page with pushState/popstate; falls back to direct route loading if script execution fails. */
   openChannel(guildId: string, channelId: string): void {
     const path = `/channels/${guildId}/${channelId}`;
     if (CHANNEL_PATH.exec(path)?.[0] !== path) return; // only well-formed channel routes reach the page

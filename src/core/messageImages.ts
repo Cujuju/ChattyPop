@@ -1,5 +1,4 @@
-// Every image a message shows (messageParts' images): its image attachments, its embeds' images (Discord's link
-// previews), and the images plugins found for its links (a fetched X post's photos, link_images). Image text reads them.
+// Collects displayed attachment, embed and plugin-link images for messageParts and image text.
 import type { Db } from './db';
 import { messageParts, type MediaPart, type MessagePartSource, type StoredAttachment } from './messageParts';
 

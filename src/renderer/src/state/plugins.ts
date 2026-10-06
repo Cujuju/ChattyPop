@@ -9,10 +9,7 @@ export { pluginActive, pluginMayCall, plugins, pluginsLoaded } from '@plugin-sdk
 /** History a plugin command runs on from Settings: the last day. */
 const COMMAND_RANGE_MS = MS_PER_DAY;
 
-/**
- * Whether plugin `id`'s parts of a message (a chip, an attachment note, an annotation) show: a bundled plugin's while it
- * is on, a folder plugin's while it is active (until the list loads, shown). Reactive, so cached messages follow it too.
- */
+/** Reactively controls message parts by bundled enabled/folder active state. Folder parts remain shown until plugin-list load completes. */
 export const pluginPresents = (id: string): boolean =>
   BUNDLED_PLUGINS.some((p) => p.manifest.id === id)
     ? pluginActive(id)

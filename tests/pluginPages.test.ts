@@ -1,5 +1,4 @@
-// Plugin pages (bundledPlugins.ts): a selected plugin's page/index.html builds as <id>.html at the renderer root, its
-// relative scripts resolve in its own folder, its public files reach the output root, and a left-out plugin ships none.
+// Selected plugin pages build as <id>.html; relative scripts resolve within the plugin and public files copy to the output. Excluded plugins ship no page.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';

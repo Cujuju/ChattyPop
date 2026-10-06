@@ -1,5 +1,4 @@
-// A bundled plugin's renderer side (docs/plugin-architecture.md §2–§3): views and reactive functions for its declared
-// panels, settings pages and rule actions, and its items in host slots. A leaf module, like ./bundledTypes.
+// Leaf renderer definitions provide declared panel/settings/action views and host slot items with reactive callbacks.
 import type { MessageMenuView, PersonLinksView, PersonSectionView, ReadContributions } from './readSlots';
 import type { FrameContributions, NotificationKindView, PhoneDrawerView, PhoneSectionView, ProviderRowView, StatusBarView, TopBarView } from './frameSlots';
 import type { AttachmentBarView, ChatFooterView, HoverBarView, MessageContributions } from './messageSlots';
@@ -94,10 +93,7 @@ type SlotViewTypes<D> = {
 };
 /** Slots the descriptor declares items in, and those it doesn't. */
 type DeclaredSlots<D> = { [K in SlotKind]: [SlotIds<D, K>] extends [never] ? never : K }[SlotKind];
-/**
- * A view for exactly each item the descriptor declares in a host slot, by local id; no views for undeclared slots.
- * One mapped type, not an intersection per slot: that many intersections exceed the compiler's union limit (TS2590).
- */
+/** Maps exactly declared slot ids to views. One mapped type avoids TS2590 union limits from per-slot intersections. */
 type SlotViews<D> = { [K in DeclaredSlots<D>]: { [Id in SlotIds<D, K>]: SlotViewTypes<D>[K] } } & {
   [K in Exclude<SlotKind, DeclaredSlots<D>>]?: never;
 };

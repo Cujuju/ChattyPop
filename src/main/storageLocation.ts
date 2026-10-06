@@ -2,10 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { app } from 'electron';
 
-/**
- * Names a directory for the app profile (settings, Discord login, keys, models) instead of AppData on the
- * system drive. Outside AppData it is also immune to MSIX AppData redirection when launched from a packaged app.
- */
+/** Selects a profile directory outside system-drive AppData. External directories avoid packaged-app MSIX AppData redirection. */
 export const PROFILE_DIR_ENV = 'CHATTYPOP_PROFILE_DIR';
 
 /** Must run before app 'ready', when Electron fixes the session's storage paths. */
@@ -20,10 +17,7 @@ export function applyProfileDirOverride(): void {
 /** A path in the app profile. Call lazily (never at module load): applyProfileDirOverride must run first. */
 export const profilePath = (...parts: string[]): string => join(app.getPath('userData'), ...parts);
 
-/**
- * Where the archive (database + media) lives. Kept in a tiny file beside the app profile because the
- * database can't hold its own location. The Discord login stays in the app profile.
- */
+/** Stores archive database/media location in a profile-adjacent file. Discord login remains in the profile. */
 const STORAGE_CONFIG_FILE = 'storage.json';
 
 export interface StorageConfig {

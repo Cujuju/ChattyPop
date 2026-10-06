@@ -133,10 +133,7 @@ export interface RuleEdit {
   matchChanged: boolean;
 }
 
-/**
- * Stores an edit. Turning a rule back on re-arms it, so it never acts on what was sent while it was off. A built-in
- * rule's on/off follows its Jev switch (syncBuiltinRules), so an edit keeps it.
- */
+/** Re-enabling rules re-arms them to exclude disabled-period messages. Built-in on/off remains controlled by its Jev switch. */
 export function updateRule(db: Db, id: number, input: RuleInput, now: number): RuleEdit {
   const old = db.prepare('SELECT * FROM rules WHERE id = ?').get(id) as RuleRow | undefined;
   if (!old) throw new Error('That rule no longer exists.');
@@ -206,10 +203,7 @@ export function recordOutcome(
 /** A run in which action `@actionId` sat out. */
 const SAT_OUT = `EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id AND a.action_id = @actionId AND a.sat_out = 1)`;
 
-/**
- * When a timed rule's action last ran, or null: in a run of every action, or of it alone. Its message runs, from
- * before its trigger changed, don't count; neither do runs it sat out while its plugin was off.
- */
+/** Returns a timed action’s latest applicable execution. Excludes pre-trigger-change message runs and runs skipped while its plugin was disabled. */
 export function lastTimedRun(db: Db, ruleId: number, actionId: string): number | null {
   const r = db
     .prepare(
@@ -274,7 +268,7 @@ export function ruleRuns(db: Db, ruleId: number, limit: number): RuleRun[] {
     content: string | null;
     mentionsJson: string | null;
   })[];
-  // First-recorded order is run order; `at` ties within a millisecond, and a later outcome (a post reported) moves it.
+  // First-recorded order determines runs. Millisecond timestamps can tie and change after later outcomes.
   const actions = db.prepare(
     'SELECT action_id AS actionId, kind, outcome, detail FROM rule_action_runs WHERE run_id = ? ORDER BY rowid',
   );

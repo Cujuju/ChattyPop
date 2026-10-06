@@ -1,6 +1,4 @@
-// Contract (docs/dms.md §3.6): with "Archive DMs automatically" on, a message after it was turned on archives its DM
-// before ingest, so that first message is stored, when the DM is the account's own, not a request or spam, not declined
-// by the owner and not a group left. Core names the channel it archived, and main syncs it from that event.
+// Automatic DM archiving stores the first eligible message after enabling. Excludes requests, spam, declined DMs, and departed groups; the archive event starts main’s sync.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { sharedEvent, type AppEvent } from '@shared/contract';
 import { DM_CHANNEL_TYPE, GROUP_DM_CHANNEL_TYPE, snowflakeFromMs, type RawPrivateChannel } from '@shared/discord';

@@ -8,10 +8,7 @@ import { refreshLinkSearch } from './linkSearch';
 import type { Migration } from './migrations';
 import { topicsIntoRules } from './topicsIntoRules';
 
-/**
- * Alert snippets stored before cuts kept Discord tokens whole: drop a token cut at either end (a leading
- * "…name:123>" or a trailing "<:name:12…"), so the rest renders. Frozen: its own patterns, not the live ones.
- */
+/** Frozen snippet repair removes incomplete Discord tokens at truncation edges. Uses independent patterns rather than live rendering patterns. */
 export function trimCutSnippetTokens(db: Db): void {
   const leading = /^…(?=[\w:!&@#-]*\d)[\w:!&@#-]*>/;
   const trailing = /<(?:a?:|@|#|t:)[\w:!&-]*…$/;
@@ -23,24 +20,14 @@ export function trimCutSnippetTokens(db: Db): void {
   }
 }
 
-/**
- * A step for a plugin's former host code, emptied: its version stays and fresh profiles skip it. A profile created
- * before such a step but not yet past it keeps that code's data unconverted; none shipped publicly.
- */
+/** Preserves emptied migration versions from former host plugins. Fresh profiles skip them; pre-adoption profiles can retain unconverted data. */
 export const RETIRED: Migration = '';
 
-/**
- * A step that only created or refreshed the archive views, emptied: openDb installs the current views after every
- * upgrade (archiveViews.ts), so no step builds them against an intermediate schema. Its version stays.
- */
+/** Preserves emptied view-migration versions. openDb installs current views after upgrades rather than against intermediate schemas. */
 export const VIEWS_AT_OPEN: Migration = '';
 
 /** Migrations after EARLY_MIGRATIONS (migrations.ts), in order. Never edit a shipped entry, append instead. */
-/**
- * Link text (docs/plugin-architecture.md → Links): a plugin's text for a link (a fetched X post), read as what messages
- * link to. Posts fetched before Links was a plugin move here from x_posts; a build that already adopted x_posts skips
- * that. Frozen: the Links plugin's id, x_posts' shape and the X post URL form.
- */
+/** Creates plugin link text storage and moves unadopted x_posts. Frozen Links id, table shape and X URL format. */
 export function linkTexts(db: Db): void {
   db.exec('CREATE TABLE link_texts (url TEXT NOT NULL, source TEXT NOT NULL, text TEXT NOT NULL, PRIMARY KEY (url, source))');
   if (!db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'x_posts'`).get()) return;
@@ -56,13 +43,13 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   ALTER TABLE messages ADD COLUMN arrived_via TEXT;
   `,
   `
-  -- The owner's rules. spec: RuleSpec JSON (spec.v is its format version). armed_at: only messages sent after it act.
-  -- discord_send: the owner's opt-in to the rule posting to Discord as them. position: run order for one event.
+  -- Rule storage: versioned spec JSON, armed_at gates message actions, discord_send records owner consent, position orders event execution.
+  --
   CREATE TABLE rules (id INTEGER PRIMARY KEY, name TEXT NOT NULL, spec TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
                       position INTEGER NOT NULL, armed_at INTEGER NOT NULL, discord_send INTEGER NOT NULL DEFAULT 0,
                       created_at INTEGER NOT NULL);
-  -- A rule firing on one event, claimed before its actions run so an event fires a rule once. event_key: msg:<id> or
-  -- tag:<message id>:<tag id>. live: 0 for a backfilled or re-asked message.
+  -- Claims each rule/event before actions. event_key identifies message or tag events; live is false for backfill and re-asks.
+  --
   CREATE TABLE rule_runs (id INTEGER PRIMARY KEY, rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
                           event_key TEXT NOT NULL, message_id TEXT, channel_id TEXT, live INTEGER NOT NULL, at INTEGER NOT NULL,
                           UNIQUE (rule_id, event_key));
@@ -76,8 +63,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   CREATE INDEX rule_action_runs_action_at ON rule_action_runs(action_id, outcome, at);
   `,
   `
-  -- An alert comes from a topic or from a rule's notify action, exactly one. Rebuilt because topic_id was NOT NULL.
-  -- match_kind 'rule': a rule's alert. A rule's alerts go with it.
+  -- Alerts belong to exactly one topic or rule. Rebuild allows nullable topic_id; rule deletion removes its alerts.
+  --
   CREATE TABLE alerts_rebuilt (id INTEGER PRIMARY KEY, topic_id INTEGER, rule_id INTEGER REFERENCES rules(id) ON DELETE CASCADE,
                                message_id TEXT NOT NULL, channel_id TEXT NOT NULL, author_id TEXT NOT NULL, ts INTEGER NOT NULL,
                                snippet TEXT NOT NULL, created_at INTEGER NOT NULL, read_at INTEGER,
@@ -96,9 +83,9 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   trimCutSnippetTokens,
   RETIRED,
   `
-  -- Derived text (docs/research.md §7.1 → Wave 2): text a plugin makes for a message (a transcript), kept and indexed
-  -- here. source: '<plugin id>:<its key>'; ord: its place after the content. Transcripts become the transcription
-  -- plugin's table; their done texts move here with their order and FTS rowid, so reads and search rank as before.
+  -- Creates indexed derived text and migrates completed transcripts while retaining order and FTS rowids. Sources use plugin-id-prefixed keys.
+  --
+  --
   CREATE TABLE derived_texts (seq INTEGER PRIMARY KEY, message_id TEXT NOT NULL, source TEXT NOT NULL UNIQUE, ord INTEGER NOT NULL, text TEXT NOT NULL);
   CREATE INDEX derived_texts_message ON derived_texts(message_id);
   CREATE VIRTUAL TABLE fts_derived_texts USING fts5(text, content='derived_texts', content_rowid='seq');
@@ -144,8 +131,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `CREATE TABLE link_images (url TEXT NOT NULL, source TEXT NOT NULL, ord INTEGER NOT NULL, image_url TEXT NOT NULL,
                              width INTEGER, height INTEGER, PRIMARY KEY (url, source, ord));`,
   `
-  -- Discord's own answers, cached so they show at once and offline; fetched_at: when Discord answered.
-  -- A profile per person and server ('' outside one): Discord's JSON whole, the owner's note, friends-since (ms).
+  -- Caches complete Discord profiles per person/server, owner notes and friends-since milliseconds. fetched_at records response time.
+  --
   CREATE TABLE discord_profiles (user_id TEXT NOT NULL, guild_id TEXT NOT NULL, profile_json TEXT NOT NULL, note TEXT,
                                  friends_since INTEGER, fetched_at INTEGER NOT NULL, PRIMARY KEY (user_id, guild_id));
   -- Friends the owner shares with a person (user_ids: JSON array, Discord's order).
@@ -174,8 +161,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   // A DM's or group DM's current people (JSON user ids), from the DM list: who its `@` offers.
   'ALTER TABLE channels ADD COLUMN recipients TEXT;',
   `
-  -- Direct messages from the client's gateway (docs/dms.md §3.2); additive: other builds share the profile.
-  -- account_id: the signed-in user a DM belongs to. last_message_id only rises. closed_at: ms it left Discord's list.
+  -- Gateway DM storage is additive across builds. account_id owns the DM; last_message_id only increases; closed_at records removal from Discord’s list.
+  --
   ALTER TABLE channels ADD COLUMN account_id TEXT;
   ALTER TABLE channels ADD COLUMN last_message_id TEXT;
   ALTER TABLE channels ADD COLUMN owner_id TEXT;
@@ -233,10 +220,7 @@ export function storedBotAuthors(db: Db): void {
   for (const id of known) mark.run(id);
 }
 
-/**
- * Discord's name styling: a member's role ids (JSON array; NULL until a payload carried them), each server's
- * roles, and the server tag a user shows. Filled from each author's newest archived payload; live events keep them current.
- */
+/** Adds member roles, server roles and user server tags. Seeds from newest archived payloads; live events maintain them. */
 export function discordNameStyles(db: Db): void {
   // openDb registers msg_json after migrating; a migration run elsewhere (tests) has none.
   db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
@@ -249,8 +233,7 @@ export function discordNameStyles(db: Db): void {
     ALTER TABLE users ADD COLUMN tag TEXT;
     ALTER TABLE users ADD COLUMN tag_badge TEXT;
   `);
-  // Only live messages carry the member; the newest one per server and author holds its latest roles. Temp tables keep
-  // each payload decoded once (a CTE in a correlated subquery may be re-run per row).
+  // Latest live payload per server/author supplies roles. Temporary tables decode each payload once, avoiding repeated correlated subquery decoding.
   db.exec(`
     CREATE TEMP TABLE latest_roles AS
       SELECT l.guild_id, l.author_id, json_extract(msg_json(m.raw_json), '$.member.roles') AS roles
@@ -272,10 +255,7 @@ export function discordNameStyles(db: Db): void {
   `);
 }
 
-/**
- * The rest of Discord's name styling: a server's features (gradient role colours need one), and a user's
- * display-name style (font, effect, colours: JSON) and avatar decoration (asset hash). Filled from each author's newest payload.
- */
+/** Adds server features, display-name styles and avatar decorations. Seeds each author from the newest payload. */
 export function discordNameEffects(db: Db): void {
   db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
   db.exec(`

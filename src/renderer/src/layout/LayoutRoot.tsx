@@ -72,11 +72,7 @@ function Split(props: {
   const [draft, setDraft] = createSignal<SplitSize[] | null>(null);
   /** Layout sizes (what dragging edits and saves). */
   const sizes = (): SplitSize[] => draft() ?? effectiveSizes(props.sizes, splitSizes(props.path));
-  /**
-   * Sizes as drawn, without touching the saved shares: in rows a collapsed sidebar sizes to its rail; a child whose
-   * extent along this split is content-sized (a folded panel, or a split of only folded panels) takes no share, so its
-   * neighbours take the space.
-   */
+  /** Drawn sizes preserve saved shares. Collapsed sidebars use rails; content-sized children consume no share and leave remaining space to neighbors. */
   const shown = (): SplitSize[] =>
     normalizeShares(
       sizes().map((s, i): SplitSize => {

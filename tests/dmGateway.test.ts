@@ -1,6 +1,4 @@
-// Contract (docs/dms.md §3.1, §3.2): the DM list comes from the client's gateway. READY replaces one account's list and
-// closes (never deletes) only that account's missing DMs; deltas merge field by field (absent keeps, null clears);
-// last_message_id only rises; a message in an unarchived DM moves its rank and stores no content.
+// READY replaces one account’s DM list and closes missing entries. Deltas preserve absent fields and clear nulls. Activity IDs rise without storing unarchived content.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';
 import { DM_CHANNEL_TYPE, GROUP_DM_CHANNEL_TYPE, snowflakeFromMs, type RawPrivateChannel } from '@shared/discord';

@@ -118,7 +118,7 @@ export interface WindowDue {
   timing: TimedTriggerKind;
 }
 
-/** A stretch a timed run would read: from `sinceTs`, over `channelIds` (null: every archived channel). */
+/** Timed action read window from sinceTs across channelIds; null means all archived channels. */
 export interface CoverageQuery {
   sinceTs: number;
   channelIds: string[] | null;

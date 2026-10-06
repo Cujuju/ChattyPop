@@ -1,5 +1,4 @@
-// Installed-plugin builds (docs/plugin-architecture.md §16): a plugin folder becomes plugin.json, node/ and browser/,
-// whose host-module imports read the host's namespaces, and a plugin the host can't load is refused at build time.
+// Plugin builds produce plugin.json plus node/browser modules using host namespaces. Unsupported plugins fail during build.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

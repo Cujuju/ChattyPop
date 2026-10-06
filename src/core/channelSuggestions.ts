@@ -1,5 +1,4 @@
-// Channel suggestions: a small sample of recent messages from channels that aren't archived, scored by Jev against
-// the owner's rules. Samples are fetched only on request (Browse → Suggest channels) and never stored.
+// On-demand Jev channel suggestions sample recent unarchived messages against owner rules. Samples are never stored.
 import type { ChannelSample, ChannelSuggestion } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import type { Rule } from '@shared/rules';

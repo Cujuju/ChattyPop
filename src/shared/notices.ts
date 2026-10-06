@@ -18,10 +18,7 @@ export const isNoticeKind = (v: unknown): v is NoticeKind =>
 /** A kind a phone chose before a plugin owned it (adopts.noticeKinds maps it on): an identifier. */
 const PRE_PLUGIN_KIND = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
-/**
- * A phone's stored notice choices with `plugins`' aliases (adopts.noticeKinds) applied, each once. Kinds none of them
- * declares are kept, stamped or pre-plugin: their plugin may be absent now and installed later. Other values are dropped.
- */
+/** Applies plugin notice aliases once. Preserves undeclared string kinds for absent plugins; drops other values. */
 export function adoptNoticeKinds(plugins: readonly PluginDescriptor[], kinds: readonly unknown[]): string[] {
   const aliases = new Map<string, string>(
     plugins.flatMap((p) => Object.entries(p.adopts?.noticeKinds ?? {}).map(([old, kind]) => [old, stampedName(p.manifest.id, kind)] as const)),

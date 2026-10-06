@@ -1,5 +1,4 @@
-/* Top-bar search: field with a leading magnifier, and a panel below it (query builder, value picker or results).
-   Hooks: [role='option'][aria-selected='true']. The panel floats over panels (the Discord view hides while it is open). */
+/* Top-bar search field/popover styles. Selected options use aria-selected; Discord hides while the panel is open. */
 
 .root {
   position: relative;
@@ -251,9 +250,7 @@
   height: var(--cp-thumb-btn);
 }
 
-/* Phone: the panel spans the top bar's width under it (anchored to the companion's positioned header, not the field),
-   and stops at the visible area's bottom edge, above the keyboard when it is up (a browser tab's --visible-h, the
-   iPhone shell's --cp-keyboard-inset). */
+/* Phone search spans the positioned header width and ends above the keyboard using visible-height or keyboard-inset tokens. */
 :global(html[data-surface='companion']) .root {
   position: static;
 }

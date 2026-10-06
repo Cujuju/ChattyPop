@@ -1,6 +1,4 @@
-// Migration: every topic becomes a rule (its match plus an Alert action), rules started by topics take in their
-// topics' match, alerts and Jev answers move to the rules, and the topics table goes. Frozen: it writes the rule JSON of
-// spec format 2 itself, so later changes to the rule code can't change what it did. Never edit it; append a migration.
+// Frozen migration converts topics to format-2 rules, transfers alerts/judgments and drops topics. Append migrations instead of editing.
 import type { Db } from './db';
 
 type Json = Record<string, unknown>;
@@ -86,7 +84,7 @@ export function topicsIntoRules(db: Db): void {
       narrow,
       actions: [{ id: 'alert', kind: 'notify', toast: t.notify ? { cooldownMs: t.cooldown_ms } : null }],
     };
-    // A topic with nothing to match never matched; as a rule it would match every message, so it stays off.
+    // Disables previously unmatchable empty topics rather than converting them into match-all rules.
     const matchesNothing = !t.builtin && !Object.keys(match).length && !Object.keys(narrow).length;
     const id = insert.run(t.name, JSON.stringify(spec), matchesNothing ? 0 : t.enabled, ++position, t.created_at, 0, t.created_at, t.builtin).lastInsertRowid;
     ruleOf.set(t.id, Number(id));
@@ -102,7 +100,7 @@ export function topicsIntoRules(db: Db): void {
     const actions = spec.actions as Json[];
     const topicIds = (trigger.topicIds as number[]).filter((id) => byId.has(id));
     if (!topicIds.length) {
-      // Its topics are gone: it could never fire again. Kept, off, so its actions aren't lost.
+      // Preserves disabled actions when their removed topics prevent further matches.
       update.run(JSON.stringify({ v: 2, trigger: { kind: 'message' }, gates: { edits: false, missed: false }, match: {}, narrow: {}, actions: v2Actions(actions) }), 0, `${r.name} (its topic is gone)`, r.id);
       continue;
     }

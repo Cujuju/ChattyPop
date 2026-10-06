@@ -1,4 +1,4 @@
-// Bundled plugins' descriptor contract (docs/plugin-architecture.md §2): what a plugin's shared entry declares. Plugins build it with @plugin-sdk/shared; the registry over them is ./bundledPlugins (importing that from here would be a cycle). Its build-time checks are ./bundledCheck.
+// Shared descriptor contract is registry-independent to avoid cycles. SDK builds descriptors; bundledCheck validates them.
 import type { ArchiveRef } from './archiveRefs';
 import type { SearchToken } from './searchTokens';
 import type { JevQueryDef } from './jevQueries';
@@ -63,11 +63,7 @@ export type SettingsDecl = { id: string; label: string } & (
   { tab: { after: string; iconPath: string; groupStart?: true }; page?: never } | { page: SettingsPageId; tab?: never }
 );
 
-/**
- * Data from before the feature was a plugin, renamed into its namespace at startup whether or not it is on: host tables
- * (old name → its table name), settings keys (old key → its preference), built-in rule keys (old key → its managed
- * rule key) and a profile folder (→ its data folder).
- */
+/** Adopts pre-plugin tables/settings/rule keys/profile folders into namespaces at startup, regardless of enabled state. */
 export interface Adoption {
   /** Legacy action-run kinds mapped to this plugin's declared action types. */
   actionKinds?: Readonly<Record<string, string>>;
@@ -110,10 +106,7 @@ export type NoticeDecl = {
   privacyScoped?: true;
 } & Placement; // among the phone's choices and Settings → Notifications: after or before a host kind or a stamped one
 
-/**
- * A plugin's Jev query; Settings → Jev → Queries lists it within its group after or before a query id there (the
- * host's or a plugin's), else after the group's host queries.
- */
+/** Plugin queries declare groups and before/after anchors; unplaced queries follow their group’s host queries. */
 export type JevQueryDecl<F extends string = string> = JevQueryDef<F> & Placement;
 
 /** A plugin's shared entry (its folder's shared/index.ts): component-free, so any process and module may import it. */
@@ -143,10 +136,7 @@ export interface PluginDescriptor {
   /** Validates stored managed rules by local key, including adopted identities. */
   managedRules?: Readonly<Record<string, (spec: RuleSpec) => void>>;
   jev?: {
-    /**
-     * Its Jev queries (Settings → Jev → Queries), listed by group and placement. The owner's edits are stored by query
-     * id, so an id never changes, even one that predates the plugin.
-     */
+    /** Query ids key persisted owner edits and remain stable, including pre-plugin ids. Groups/anchors control settings order. */
     queries?: readonly JevQueryDecl<string>[];
     /** Its Settings → Jev switches; shown while it is on, their stored values kept while it is off or absent. */
     features?: readonly JevFeatureDecl[];
@@ -189,11 +179,7 @@ export interface PluginDescriptor {
   };
 }
 
-/**
- * Where a descriptor names its own declarations, checked against them (definePlugin): owner addresses and adopted keys
- * and fields name declared preferences and fields their values have; its Jev queries name its switches or the host's;
- * adopted switches and notice kinds land on declared ones.
- */
+/** definePlugin checks owner/adopted preference fields, query switch references and declared adoption targets. */
 export interface DescriptorRefs<D> {
   jev?: { queries?: readonly { features: readonly JevFeatureRef<D>[] }[] };
   network?: {

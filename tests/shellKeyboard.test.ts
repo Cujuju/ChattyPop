@@ -1,5 +1,4 @@
-// Contract: the iPhone shell sets the keyboard's custom properties under the names the theme reads, and the theme eases
-// the inset (a registered length) over the duration the shell sets.
+// iPhone keyboard custom properties match theme tokens; inset animation follows the native duration.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

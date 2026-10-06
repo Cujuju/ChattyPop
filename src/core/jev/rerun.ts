@@ -1,5 +1,4 @@
-// Re-asking a per-message built-in query about past messages (Settings → Jev → Queries → Run on past messages), after an
-// edit. Answers are stored and acted on as for new messages; alerts from old messages land as read history.
+// Re-runs edited built-in queries on past messages. Stores and acts on answers; old-message alerts become read history.
 import { JEV_RERUN_MAX, jevQueryDef, type JevRerunRequest } from '@shared/jevQueries';
 import { ruleSubject } from '@shared/rules';
 import { LOCAL_ONLY_IDS_SQL } from '../channelPolicy';

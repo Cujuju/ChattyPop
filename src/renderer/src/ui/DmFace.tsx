@@ -4,10 +4,7 @@ import { isGroup, type DmChannel } from '@/state/dmRules';
 import { Icon } from './icons';
 import styles from './DmFace.module.css';
 
-/**
- * A DM's face at --cp-avatar-md (`small`: --cp-avatar-sm): a group's own icon, else two of its members stacked; a
- * one-to-one DM its person's avatar. Without either, its initial, or a group mark.
- */
+/** DM faces use group icons or stacked members; one-to-one DMs use peer avatars. Missing images fall back to initials/group marks; small selects avatar-sm. */
 export function DmFace(props: { channel: DmChannel; small?: boolean }) {
   const c = () => props.channel;
   const people = () => c().dm.recipients;

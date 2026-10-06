@@ -1,5 +1,4 @@
-// The phone transport's shared codec and phone-callable writes (docs/plugin-architecture.md §5): bytes and undefined
-// round-trip explicitly; a core call the phone may make states `writes`, and a writing one's decoder runs before its handler.
+// Phone transport round-trips bytes and undefined. Phone-callable writes declare writes and decode before handling.
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { decodeWire, defineChannels, definePlugin, encodeWire, type PluginDescriptor } from '@plugin-sdk/shared';
 import { defineCorePlugin } from '@plugin-sdk/core';

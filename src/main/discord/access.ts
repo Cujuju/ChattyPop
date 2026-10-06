@@ -1,6 +1,4 @@
-// Who can see a channel, read from the client's gateway traffic: servers' owners (READY, GUILD_CREATE, GUILD_UPDATE),
-// channels' overwrites (those and CHANNEL_CREATE/UPDATE) and the owner's roles (READY's or READY_SUPPLEMENTAL's
-// merged_members, GUILD_CREATE's members).
+// Reads channel access from gateway server owners, channel overwrites and owner roles, including READY and supplemental member payloads.
 import type { RawChannel } from '@shared/discord';
 import type { AccessFacts } from '@shared/permissions';
 

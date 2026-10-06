@@ -1,4 +1,4 @@
-// Example ChattyPop plugin (docs/plugins.md). Copy this folder into the plugins folder (Settings → Plugins → Open plugins folder).
+// Example plugin for the Settings-managed plugin folder; see docs/plugins.md.
 
 /** @param {import('../../../src/shared/plugins').PluginApi} api */
 export function activate(api) {

@@ -1,5 +1,4 @@
-// A feature's own AI provider choice (Summaries, Plans, Ask): each running provider, marked when turned off in
-// Settings → AI. The provider's model and effort are its Settings → AI choice.
+// Features choose running providers, marking disabled AI settings. Model/effort follow each provider’s AI settings.
 import { Select } from '@/ui/Select';
 import type { ProviderId } from '@shared/settings';
 import { availableProviders } from '@/state/aiProviders';

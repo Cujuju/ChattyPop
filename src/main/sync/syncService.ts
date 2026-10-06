@@ -21,7 +21,7 @@ import type { DiscordApi } from '../discord/api';
 import type { DiscordQuery } from '../discord/client';
 import { readArchiveSettings } from './pace';
 
-/** Page size the Discord web client requests while scrolling history (measured in spike #2). */
+/** History page size observed from the Discord web client. */
 const CLIENT_PAGE_SIZE = 50;
 /** Messages sampled per channel for a suggestion: enough to see what a channel is about, one request each. */
 const SAMPLE_MESSAGES = 25;
@@ -45,10 +45,7 @@ class SyncStopped extends Error {}
 const maxId = (ms: RawMessage[]): string => ms.map((m) => m.id).reduce((a, b) => (compareSnowflakes(a, b) >= 0 ? a : b));
 const minId = (ms: RawMessage[]): string => ms.map((m) => m.id).reduce((a, b) => (compareSnowflakes(a, b) <= 0 ? a : b));
 
-/**
- * Keeps opted-in channels complete: catch up from the newest stored message, then backfill to the depth limit.
- * A channel's threads (and a forum's posts) are found after it syncs and queued when they have unsynced messages.
- */
+/** Catches up opted-in channels, then backfills within depth limits. Discovers threads/forum posts afterward and queues unsynced activity. */
 export class SyncService {
   private readonly queue: string[] = [];
   private running = false;
@@ -109,10 +106,7 @@ export class SyncService {
     for (const id of await this.core.call('optedInChannels')) this.enqueue(id);
   }
 
-  /**
-   * READY named `userId` (core's self-changed). Another account than before queues its archived DMs, which sync leaves out
-   * until the account is known; another account's still queued stop at their next page (syncable).
-   */
+  /** Account changes queue that account’s archived DMs. Other accounts’ queued DMs stop at their next syncability check. */
   async signedIn(userId: string): Promise<void> {
     if (userId === this.account) return;
     this.account = userId;
@@ -179,10 +173,7 @@ export class SyncService {
     return this.api.get<T>(path, query, { guard });
   }
 
-  /**
-   * Stores the channel's threads active within the history window, newest activity first, as the Discord client's
-   * thread browser lists them: open threads, then archived ones. Returns the threads with messages left to sync.
-   */
+  /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync. */
   private async discoverThreads(channelId: string): Promise<string[]> {
     const { backfillDays } = await readArchiveSettings(this.core);
     const cutoffMs = Date.now() - backfillDays * MS_PER_DAY;
@@ -210,10 +201,7 @@ export class SyncService {
     return stale;
   }
 
-  /**
-   * Startup re-check: fetches the last N days again, newest first. Changed text becomes a revision through ingest;
-   * a stored message inside the fetched window that Discord no longer returns is marked deleted.
-   */
+  /** Refetches the last N days newest first at startup. Changed content becomes revisions; missing stored messages inside the fetched window become deleted. */
   private async reverify(channelId: string): Promise<void> {
     const { reverifyDays } = await readArchiveSettings(this.core);
     const cutoffMs = Date.now() - reverifyDays * MS_PER_DAY;

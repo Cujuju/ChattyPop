@@ -1,5 +1,4 @@
-// The posting lock (docs/plugin-architecture.md §4): the host's own posting calls refuse until a plugin that is on
-// declares `unlocks: { posting: true }`. Reactions, read acks and reads are exempt; plugins' ctx.discord writes are locked too.
+// Posting requires enabled unlocking plugins for host/plugin writes. Reads, reactions and acknowledgments are exempt.
 import type { PluginDescriptor } from './bundledTypes';
 import { pluginOn, type PluginInfo } from './plugins';
 import type { RendererApi } from './rendererApi';

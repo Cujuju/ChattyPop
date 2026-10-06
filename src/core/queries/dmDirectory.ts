@@ -8,20 +8,13 @@ import { snippet } from './snippet';
 type Dm = NonNullable<DirectoryChannel['dm']>;
 type Person = Dm['recipients'][number];
 
-/**
- * SQL true when channel alias `c` is no DM, or a DM of `@self`. An unclaimed DM (no account) is listed for none, and
- * with `@self` unknown ('') no DM is.
- */
+/** Directory includes server channels and current-account DMs. Unclaimed DMs and unknown-account DM lists are excluded. */
 export const ownPrivateChannelSql = (c: string): string => `(${c}.kind NOT IN (${PRIVATE_KINDS_SQL}) OR ${c}.account_id = @self)`;
 
 /** A person's shown name: display name, else username. */
 const NAME_SQL = 'COALESCE(u.global_name, u.username)';
 
-/**
- * The `dm` block of each private channel in `ids`. Its recipients are its roster alone (membership), empty while the
- * roster is unknown; a face for display is the channel's `peer` or `icon`. The preview is the newest visible,
- * undeleted message.
- */
+/** Builds DM metadata from membership recipients; unknown rosters stay empty. Display faces use peer/icon; previews use newest visible undeleted messages. */
 export function dmBlocks(db: Db, ids: string[]): Map<string, Dm> {
   if (!ids.length) return new Map();
   const params = { ids: JSON.stringify(ids) };

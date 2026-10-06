@@ -1,7 +1,4 @@
-// Plugin SDK, renderer contract (docs/plugin-architecture.md §2–§5, §9): the renderer side's contributions, its channel
-// clients and resources, its settings, plugin state and app events. It loads nothing but the @/api leaf, shared code and
-// its own modules: never the plugin registry or a host store (tests/rendererBoundary.test.ts). The host's UI kit and app
-// state are ./kit; the phone's page shell is ./shell.
+// Renderer SDK exposes contributions, clients, resources, settings/state/events through API leaves and shared code. Excludes plugin registry/host stores; kit supplies UI, shell supplies phone plumbing.
 import { api } from '@/api';
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import { pluginSettingKey } from '@shared/bundledTypes';
@@ -33,10 +30,7 @@ export {
   HOST_HOVER_ACTIONS,
 } from '@shared/anchors';
 
-/**
- * A plugin's renderer side: views for what its descriptor declares, and its items in host slots. `D` comes from the
- * descriptor alone (NoInfer), so view callbacks get their parameter types from the slot.
- */
+/** Descriptor-derived renderer contributions cover declared views/slots. NoInfer ensures callback parameter types come from descriptor slots. */
 export const defineRendererPlugin = <const D extends PluginDescriptor>(plugin: D, contributions: NoInfer<RendererContributions<D>>): RendererPlugin<D> => ({
   plugin,
   contributions,

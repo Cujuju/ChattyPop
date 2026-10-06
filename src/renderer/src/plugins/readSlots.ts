@@ -50,11 +50,7 @@ export interface ReadSlotEntry {
   contributions: ReadContributions;
 }
 
-/**
- * All active-state reads run inside the caller's reactive scope. `mayCall`: whether this window may make a plugin's core
- * call (it is on and serves this window's audience); menu actions show only when it may make all of theirs. `anchorOf`:
- * the catalog's placement of a stamped slot item.
- */
+/** Reads activity in caller reactive scope. mayCall checks enabled audience access; menus require all calls available. anchorOf resolves stamped catalog placement. */
 export function readSlots(
   entries: () => readonly ReadSlotEntry[],
   enabled: (id: string) => boolean,

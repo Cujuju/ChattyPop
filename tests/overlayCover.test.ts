@@ -20,7 +20,7 @@ const { setOverlayCover, windowsCover } = (await import(statePath)) as {
   windowsCover(r: SlotRect): boolean;
 };
 
-/** The live Discord view's slot, as a DOMRect would report it. */
+/** Provides the live Discord slot’s DOMRect. */
 const slot: SlotRect = { left: 300, top: 50, right: 900, bottom: 650 };
 
 describe('overlay covers hide the live Discord view', () => {

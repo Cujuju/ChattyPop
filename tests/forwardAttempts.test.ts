@@ -43,7 +43,7 @@ describe('forward retries', () => {
     calls.length = 0;
     closeForward();
     startForward(message);
-    // A note Discord would refuse stops the forward too.
+    // Invalid notes prevent forwarding.
     await expect(forwardMessage(message, 'c2', 'x'.repeat(2001))).rejects.toThrow(/2000 characters/);
     expect(calls).toEqual([]);
     await forwardMessage(message, 'c2', '');

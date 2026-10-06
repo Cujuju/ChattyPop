@@ -10,10 +10,7 @@ export type JevAnswer = (req: JevRequest) => Record<string, unknown>;
 /** The fake Jev's request budget: larger than any test request. */
 const FAKE_JEV_MAX_INPUT_CHARS = 64_000;
 
-/**
- * A Jev stand-in: answers with `answer` when given, else from `values` by question id or batched subject (a number becomes a noul or a
- * score by question type; an object is returned as the answer). Records every request, and can be made to fail.
- */
+/** Records Jev requests and supports configured failures. Explicit answers override values; numeric values become answers according to question type. */
 export class FakeJev implements DecisionProvider {
   readonly model = 'fake-jev';
   readonly maxInputChars = FAKE_JEV_MAX_INPUT_CHARS;

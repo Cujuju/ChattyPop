@@ -1,5 +1,4 @@
-// The core testing harness's archive fixtures: servers, channels and messages from plain rows, stored through the
-// host's Archive so ingest, derived columns and the privacy scope behave as in the app.
+// Creates archive fixtures through real Archive ingestion, preserving derivation and privacy behavior.
 import { snowflakeFromMs, type RawMessage, type RawUser } from '@shared/discord';
 import type { ChannelPolicy } from '@shared/contract';
 import { SETTINGS_KEYS } from '@shared/settings';

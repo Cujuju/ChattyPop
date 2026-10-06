@@ -1,6 +1,4 @@
-/* Shared cp-* classes: form controls, accessibility, floating surfaces. Components put the class beside their module
-   class (class={`cp-button ${styles.save}`}); the module adds or overrides properties. Layer cp-shared (index.css) sits
-   above the reset and below every unlayered rule, so a module's override wins whatever the load order. */
+/* Shared cp-* controls layer above reset and below unlayered module overrides. Components combine shared/module classes. */
 @layer cp-shared {
   /* Secondary and danger buttons: raised neutral. */
   .cp-button,
@@ -125,8 +123,7 @@
     padding-top: var(--cp-space-2);
   }
 
-  /* Read by screen readers, not drawn. Pinned to its containing block's corner: left at its place in a scrolled list
-     with no positioned ancestor, it would stretch the page's scroll height. */
+  /* Screen-reader-only content stays pinned to containing-block corners to avoid extending unpositioned scrolling lists. */
   .cp-visually-hidden {
     position: absolute;
     inset-block-start: 0;
@@ -162,11 +159,7 @@
   }
 }
 
-/* The gradient edge: the message box's stroke (--cp-stroke), dimmed toward the element's own fill while idle, full with
-   focus inside. The fill (--cp-stroke-fill, tokens.css; an element sets its own) is painted under the stroke's box, so the
-   element stays opaque; a border can't take a gradient directly. Unlayered, and its states at (0,2,0): it must beat the
-   native field rules (forms.css), whose hover and focus would otherwise colour the transparent border. Radius, shadow and
-   size stay the element's. */
+/* Gradient strokes dim toward element fill until focused. Layered fill keeps opacity; unlayered 0,2,0 states override native fields. Element owns dimensions/radius/shadow. */
 .cp-stroke,
 .cp-stroke:is(:hover, :focus-visible) {
   border: var(--cp-stroke-w) solid transparent;

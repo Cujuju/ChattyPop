@@ -15,10 +15,7 @@ export { replyTarget, replyPing, setReplyPing };
 /** Discord refuses a reply to a deleted message. */
 export const canReply = (m: ArchiveMessage): boolean => m.deletedAt === null;
 
-/**
- * Opens the composer on `m`. The composer is the Archive's, so any other panel's Reply (Links, Alerts) shows the message
- * there first; a panel window has no Archive and hands the reply to the main window.
- */
+/** Replies use Archive composer. Other panels navigate first; panel windows forward requests to main. */
 export const startReply = (m: ArchiveMessage): void => {
   if (inPanelWindow) return api.showInMainWindow(m.channelId, m.id, { compose: 'reply' });
   if (archiveChannelId() !== m.channelId) void openArchive(m.channelId, m.id);

@@ -15,11 +15,7 @@ import styles from './EmojiList.module.css';
 const FREQUENT = 'frequent';
 const STANDARD = 'standard';
 
-/**
- * One list: the owner's frequently used emoji (hidden while searching), each server's emoji in the owner's Discord
- * sidebar order, then the standard emoji by group. The bar's marks (frequent, each server, standard) jump to their
- * section and show which is in view. Emoji the plan can't use in `guildId` show disabled; `keep` in onPick: shift held.
- */
+/** Lists frequent emoji, server emoji in sidebar order, then standard groups. Marks track/jump sections; unavailable emoji disable; shift sets keep. */
 export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   let body!: HTMLDivElement;
   const [query, setQuery] = createSignal('');

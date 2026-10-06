@@ -6,10 +6,7 @@ export interface Action {
   busy: Accessor<boolean>;
   error: Accessor<string | null>;
   setError: Setter<string | null>;
-  /**
-   * Runs `job`, clearing the error first. Resolves with its result, or undefined when it failed (the error is set) or a
-   * later run or cancel() superseded it (its result and error are dropped, so a stale answer never shows).
-   */
+  /** Clears errors and runs jobs. Failure returns undefined with error; superseded/canceled runs discard results and errors. */
   run<T>(job: () => Promise<T>): Promise<T | undefined>;
   /** Supersedes the run in flight, e.g. when its target changed. */
   cancel(): void;

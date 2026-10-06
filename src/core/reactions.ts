@@ -18,12 +18,7 @@ interface StoredReaction {
   me?: boolean;
 }
 
-/**
- * Keeps a stored message's reaction snapshot current from gateway reaction events (raw_json.reactions, as REST returns it).
- * Only counts and the owner's own `me` are tracked; who else reacted isn't kept. The owner's normal reaction arrives twice
- * (the gateway, and main after its own request), so one that already matches `me` changes nothing.
- * Returns whether the message changed.
- */
+/** Updates reaction counts and owner me state in raw_json. Idempotent owner echoes avoid double counting; returns whether changed. Other reactor identities are omitted. */
 export function applyReactionEvent(db: Db, t: string, d: ReactionEvent, selfId: string | null): boolean {
   const row = db.prepare('SELECT raw_json FROM messages WHERE id = ?').get(d.message_id) as { raw_json: string | Buffer | null } | undefined;
   const msg = parseRawJson<{ reactions?: StoredReaction[] }>(row?.raw_json ?? null);

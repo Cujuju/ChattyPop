@@ -1,5 +1,4 @@
-// Scrollers that a virtual log drives. Its distances are logical (they include a correction held while scrolling), and
-// it is the only writer of its scroll offset, so scroll-edge reads and follow-bottom go through it.
+// Virtual logs own scroll-offset writes. Distance/follow-bottom reads use logical positions including held corrections.
 import type { VirtualLogController } from '@cujuju/solidjs-virtual-log';
 
 const logs = new WeakMap<Element, VirtualLogController<unknown>>();

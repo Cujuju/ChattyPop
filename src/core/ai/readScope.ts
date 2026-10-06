@@ -1,5 +1,4 @@
-// What a plugin's AI request reads (docs/plugin-architecture.md §3, AI read scope): each request declares its channels,
-// and the host checks them against the provider actually chosen and the channels' local-AI-only policy at dispatch.
+// Checks declared AI read channels against the selected provider and effective local-AI-only policy at dispatch.
 import type { ReadScope } from '@shared/plugins';
 import type { AiSettings, ProviderId } from '@shared/settings';
 import type { Db } from '../db';
@@ -36,10 +35,7 @@ function declared(reads: unknown): ReadScope {
   throw new TypeError("An AI request must declare what it reads: `reads`, channel ids or 'all'.");
 }
 
-/**
- * Throws LocalOnlyError when `to` is hosted and `reads` names a channel whose effective policy (a thread inherits its
- * parent's) is local AI only, or is 'all' while any such channel exists. Throws TypeError when `reads` is missing.
- */
+/** Throws LocalOnlyError for hosted reads of local-only channels, including inherited policies and all-channel reads. Missing reads throws TypeError. */
 export function assertMayRead(db: Db, given: unknown, to: Recipient): void {
   const reads = declared(given);
   if (to.local) return;
@@ -119,10 +115,7 @@ export interface PluginDecider {
   decide<Q extends Record<string, Question>>(req: DecisionRequest<Q> & Reads): Promise<DecisionResult<Q>>;
 }
 
-/**
- * `jev`, checking each request's reads (Jev is hosted) when asked and again before every send: a request can wait in
- * Jev's queue while a channel it reads turns local AI only.
- */
+/** Checks Jev read scope when queued and before sending, so queued requests respect policy changes. */
 export function scopedDecider(jev: DecisionProvider, db: () => Db): PluginDecider {
   return {
     model: jev.model,
@@ -150,10 +143,7 @@ export function boundDecider(jev: PluginDecider, reads: ReadScope): DecisionProv
 /** A completion from the provider a folder plugin names (HostDeps.ai). */
 export type ScopedCompletion = (req: Omit<CompletionRequest, 'model' | 'effort'> & Reads & { provider: ProviderId }) => Promise<{ text: string; json?: unknown }>;
 
-/**
- * Folder plugins' completion: refuses a provider that can't run or is turned off in Settings → AI, checks `reads`
- * against it, then sends the request with its chosen model and effort. Nothing is sent when refused.
- */
+/** Validates provider availability, settings and read scope before sending a folder plugin completion with the selected model and effort. */
 export function scopedCompletion(db: () => Db, registry: ProviderFacts & Pick<ProviderRegistry, 'get' | 'unavailable'>, settings: () => AiSettings): ScopedCompletion {
   return async ({ reads, provider, ...req }) => {
     declared(reads);

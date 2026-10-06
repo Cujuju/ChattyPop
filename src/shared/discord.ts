@@ -101,10 +101,7 @@ export interface RawChannel {
   permission_overwrites?: RawOverwrite[];
 }
 
-/**
- * A DM or group DM as the gateway sends it (READY, CHANNEL_*): named by its recipients unless the group has a name.
- * A field absent from a payload is unknown, so the stored value stands; null clears it.
- */
+/** DM payloads use recipients unless groups have explicit names. Missing fields preserve stored values; null clears them. */
 export interface RawPrivateChannel {
   id: string;
   type: number;
@@ -121,7 +118,7 @@ export interface RawPrivateChannel {
   is_spam?: boolean;
 }
 
-/** A DM's mute end (ms) meaning "until unmuted": later than any real time. */
+/** Sentinel DM mute end representing indefinite mute. */
 export const MUTED_FOREVER = Number.MAX_SAFE_INTEGER;
 
 /** A snowflake's digits, for building path patterns; SNOWFLAKE_ID matches one whole string. */
@@ -204,9 +201,9 @@ export const SNOWFLAKE_LOW_BITS_RANGE = 2 ** Number(SNOWFLAKE_TIMESTAMP_SHIFT);
 /** A snowflake for a time; `low` (below SNOWFLAKE_LOW_BITS_RANGE) separates ids of the same millisecond. */
 export const snowflakeFromMs = (ms: number, low = 0): string => (((BigInt(ms) - DISCORD_EPOCH_MS) << SNOWFLAKE_TIMESTAMP_SHIFT) + BigInt(low)).toString();
 
-/** A fresh message or interaction nonce, as the web client makes them: a snowflake for now with random low bits. */
+/** Generates client-style snowflake nonces from current time and random low bits. */
 export const newNonce = (): string => snowflakeFromMs(Date.now(), Math.floor(Math.random() * SNOWFLAKE_LOW_BITS_RANGE));
-/** A user's names a message might address them by: display name and username, without repeats. */
+/** Distinct display names/usernames usable as addressing terms. */
 export const userNames = (u: Pick<RawUser, 'global_name' | 'username'>): string[] => [...new Set([u.global_name, u.username].filter((n): n is string => !!n))];
 
 export const compareSnowflakes = (a: string, b: string): number => {

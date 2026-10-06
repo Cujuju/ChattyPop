@@ -7,11 +7,7 @@ import { getSetting, setSetting, type Db } from './db';
 /** Newest message time among pruned files: attachments at or before it aren't downloaded (they'd be pruned at once). */
 const PRUNED_BEFORE_KEY = 'archive.attachmentsPrunedBefore';
 
-/**
- * Keeps the attachment store under the cap by deleting the oldest files first. "Oldest" is by the newest message
- * that uses a file, since identical files are stored once. Rows stay, marked 'evicted', so messages still show
- * what was attached. Returns the bytes freed.
- */
+/** Evicts files by their newest referencing message until under cap. Retains attachment rows as evicted and returns bytes freed. */
 export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: number | null): number {
   if (capGb === null) return 0;
   const cap = capGb * BYTES_PER_GB;

@@ -1,5 +1,4 @@
-// The renderer testing harness (docs/plugin-architecture.md §15): a desktop test window's clients are the SDK's own, so
-// a phone-only member is absent from them and a call is stamped as the desktop's, as in the app.
+// Desktop test-window clients use SDK implementations, exclude phone-only members, and stamp calls with the desktop audience.
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 import { defineCorePlugin } from '@plugin-sdk/core';

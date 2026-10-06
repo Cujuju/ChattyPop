@@ -1,5 +1,4 @@
-// Rules: WHEN a trigger fires and the gates let it through, IF the message matches, THEN run the actions.
-// Rules act only on messages sent after they were armed; an Alert action also lists older matches (read) as history.
+// Triggers/gates/matches run rule actions only after arming. Alert actions also show older matches as read history.
 import { ruleKind } from './ruleKinds';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from './units';
 

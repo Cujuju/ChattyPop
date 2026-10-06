@@ -61,10 +61,7 @@ export { decodeWire, encodeWire, type IsWire, type Wire, type WireValue } from '
 export { defineChannels } from '@shared/pluginChannels';
 export type { HostPanelId, HostRuleTemplateId, HostSettingsTabId, HostShortcutId, SettingsPageId } from '@shared/anchors';
 
-/**
- * A plugin's descriptor, keeping its ids literal so each side is typed to implement exactly what it declares; where it
- * names its own declarations (preferences and their fields, Jev switches, notice kinds) they must exist.
- */
+/** Preserves literal descriptor ids for exact side implementation types. Referenced preferences, fields, switches and notice kinds must be declared. */
 export const definePlugin = <const D extends PluginDescriptor>(d: D & DescriptorRefs<D>): D => d;
 
 /** Declares a typed rule trigger kind. */

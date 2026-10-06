@@ -28,11 +28,11 @@ describe('the slot catalog', () => {
 
   it('rejects an anchor no plugin folder provides, the owner known from the catalog alone', () => {
     const typo = probe('probe', { messageMenu: [{ id: 'menu', after: 'labels.lbels' }] });
-    // Without Labels here, its item may be one a Labels not installed declares: placed last, not refused.
+    // Absent Labels items remain valid and sort last.
     expect(() => checkBundled([typo])).not.toThrow();
     expect(() => checkBundled([typo, labels])).toThrow('messageMenu item probe.menu follows labels.lbels, which no plugin provides');
     expect(() => checkBundled([typo], everyFolderWith(typo))).toThrow('follows labels.lbels');
-    // A plugin the catalog names is here though it declares no item, so an anchor on it that names nothing is a typo.
+    // Anchors naming undeclared items of present plugins fail validation.
     const plain = probe('plain', {});
     expect(() => checkBundled([probe('probe', { messageMenu: [{ id: 'menu', after: 'plain.menu' }] })], anchorCatalog([plain]))).toThrow('follows plain.menu');
     // A plugin a build leaves out answers for its own anchors when a build includes it, not here.

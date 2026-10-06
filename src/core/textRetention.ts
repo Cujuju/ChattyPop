@@ -38,11 +38,7 @@ const always = (): boolean => true;
 type Scope = string | null;
 const IN_SCOPE = '(@scope IS NULL OR m.channel_id IN (SELECT value FROM json_each(@scope)))';
 
-/**
- * With Settings → Jev → keep important, a message whose notable strength (0–1, see storedStrengthSql) is at least
- * this is never compressed or removed. Below the catch-up badges' default cut (0.7): wrongly dropping text costs more
- * than keeping some that wasn't needed.
- */
+/** With keep-important enabled, notable strength at this threshold prevents compression/removal. Threshold is below the default catch-up badge cut. */
 export const IMPORTANT_AT = 0.5;
 
 /** How a pass picks messages: `keep` excludes ones it must leave alone; `order` says which go first; `params` they use. */
@@ -52,10 +48,7 @@ interface Rules {
   params: Record<string, unknown>;
 }
 const OLDEST_FIRST: Rules = { keep: '1', order: 'm.ts', params: {} };
-/**
- * Important messages stay; the least notable go first, never-judged ones just before important ones, oldest first
- * within. Built per pass: the notable query (Settings → Jev → Queries) may have changed type.
- */
+/** Retention preserves important messages, prioritizes least notable then unjudged messages, and orders ties by age. Rebuilds ranking per current query type. */
 function keepImportantRules(): Rules {
   const s = storedStrengthSql(NOTABLE_QUERY, 'jj', 'notable_');
   const notable = `(SELECT ${s.sql} FROM jev_judgments jj WHERE jj.message_id = m.id AND jj.subject = '${NOTABLE_SUBJECT}')`;
@@ -83,11 +76,7 @@ export class TextRetentionRunner {
 }
 
 
-/**
- * Applies Settings → Archive text retention: messages older than the tier age are compressed (and, for summary-only,
- * pruned once covered by an active provider). Over the database cap, the oldest are compressed, then pruned if the tier allows,
- * regardless of age. Uncovered text is never removed. Oldest first; freed pages go back to the disk.
- */
+/** Compresses aged or over-cap text; eligible tiers prune only summary-covered text. Important text stays. Processes oldest first and releases freed disk pages. */
 export async function applyTextRetention(db: Db, s: ArchiveSettings, now: number, keepImportant = false): Promise<TextRetentionResult> {
   const rules = keepImportant ? keepImportantRules() : OLDEST_FIRST;
   const result: TextRetentionResult = { compressed: 0, pruned: 0, overCapBytes: 0 };

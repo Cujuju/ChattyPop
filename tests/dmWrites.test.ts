@@ -1,7 +1,4 @@
-// Contract (docs/dms.md §3.5): one DM service writes private channels in the live client's shapes. It checks each write
-// in main (a DM of the account signed in; one person, or a group of friends, each once, never self, within Discord's
-// cap), sends a start once (no clear answer: uncertain, never re-sent), names the client's context per call, and
-// stores each answer in core through the gateway's merge path, so the gateway's own copy changes nothing.
+// Validates private-channel writes, recipients, ownership, and Discord limits. Starts send once; uncertain responses remain unretried. Answers merge through the gateway path.
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

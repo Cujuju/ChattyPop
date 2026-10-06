@@ -1,6 +1,4 @@
-// Contract: Discord requests go out one at a time. What the owner does and automatic posts (DiscordApi.prompt) go as
-// soon as the request in flight finishes, ahead of paced requests still waiting; paced requests keep their order, a pace
-// after the last request. An automatic post's one wait is the owner's pause setting, randomized ± WAIT_JITTER.
+// Discord requests serialize. Prompt requests precede waiting paced requests; paced requests preserve order. Automatic posts wait once using the configured pause and jitter.
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

@@ -1,6 +1,4 @@
-// A member's permissions in a channel, by Discord's published rules (docs: Permissions → Permission Overwrites): the
-// server's owner has all; else @everyone and the member's roles, Administrator granting all, then the channel's overwrites,
-// then the implicit rules (docs: Permissions → Implicit Permissions) and a timeout's limits.
+// Computes Discord channel permissions from ownership, everyone/member roles, Administrator, overwrites, implicit restrictions and timeouts.
 
 /** Discord permission bits (docs: Permissions → Bitwise Permission Flags). */
 export const PERMISSIONS = {

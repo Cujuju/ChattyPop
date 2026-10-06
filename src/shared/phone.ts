@@ -6,11 +6,7 @@ import type { RendererApi, RendererCoreMethod } from './rendererApi';
 import { SETTINGS_KEYS } from './settings';
 import type { AppEvent } from './types/ipc';
 
-/**
- * Core methods the phone may call: archive reads, plus the writes the owner asked for
- * (archive search). Feature calls use declared plugin audiences; keys and rules stay desktop-only, and `getSetting`
- * answers only what phoneSetting allows.
- */
+/** Phone allows archive reads and requested search writes. Plugin audiences govern feature calls; keys/rules remain desktop-only; settings use phoneSetting. */
 export const PHONE_CORE_METHODS = [
   'status',
   'getSetting',
@@ -76,10 +72,7 @@ export const PHONE_EVENT_TYPES = [
 const coreMethods = new Set<string>(PHONE_CORE_METHODS);
 const eventTypes = new Set<string>(PHONE_EVENT_TYPES);
 
-/**
- * Host settings the phone's stores read, and how much of each. Plugins declare theirs (each preference's `phone`);
- * the phone reads every other setting as unset, so its store keeps its default.
- */
+/** Limits phone settings to declared host/plugin subsets. Undeclared settings appear unset, preserving phone defaults. */
 export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingView>> = {
   [SETTINGS_KEYS.appearance]: true,
   [SETTINGS_KEYS.privacyMode]: true,
@@ -128,10 +121,7 @@ export function phoneSetting(key: string, value: unknown): unknown {
   return view === undefined ? undefined : project(value, view);
 }
 
-/**
- * An event as the phone gets it: PHONE_EVENT_TYPES and plugin events whose audiences include the phone; a setting
- * change only for a setting it reads, cut to the part it reads. null when the phone gets none.
- */
+/** Filters phone host/plugin events by type/audience and trims settings changes to allowed subsets. Unavailable events return null. */
 export function phoneAppEvent(e: AppEvent): AppEvent | null {
   if (e.type === 'plugin-event') return phoneGetsEvent(e.pluginId, e.name) ? e : null;
   if (!eventTypes.has(e.type)) return null;

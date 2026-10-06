@@ -1,6 +1,4 @@
-// What the composer's `@` offers in a channel, in the order Discord's own list uses: the people who can see the
-// channel, then @everyone and @here, then roles; `limit` in all, people first. A channel's people are read once and
-// kept (its pool) until its messages or any name or access data change, so a keystroke only ranks them.
+// Caches eligible mention pools until message/name/access changes. Ranks people before everyone/here and roles within the shared limit.
 import type { MentionCandidate } from '@shared/contract';
 import { DM_GUILD_ID, THREAD_CHANNEL_TYPES } from '@shared/discord';
 import { foldName as fold, subsequence } from '@shared/nameMatch';
@@ -51,11 +49,7 @@ function personTier(p: Ranked, typed: string, folded: string): number | null {
   return best;
 }
 
-/**
- * Discord's order: starting matches before loose ones, which only fill a short list. Within a tier, who posted here
- * last first (standing in for Discord's boost of people the owner talks with), then by name. Keeps only the best
- * `limit` while it reads, so a short query over a large server sorts no more than the list it shows.
- */
+/** Ranks prefix matches before loose matches, then recent posters and names. Maintains only the best limit candidates. */
 function rankPeople(people: readonly Ranked[], query: string, limit: number): Ranked[] {
   const typed = query.toLocaleLowerCase();
   const folded = fold(query);
@@ -168,12 +162,7 @@ function poolOf(db: Db, ch: ChannelRow, channelId: string): Pool {
   return pool;
 }
 
-/**
- * What to `@` in a channel matching `query`. People who can see it (posting there counts when their roles are
- * unknown); a bare `@` lists who posted last. In a server, then as room remains: mentionable roles (all roles when the
- * owner may mention everyone), and after them @everyone and @here when they may. Listed people, @everyone and @here,
- * then roles, as Discord's list does.
- */
+/** Suggests eligible channel members, then permitted roles/everyone/here within capacity. Display order is people, everyone/here, roles; bare queries prioritize recent posters. */
 export function mentionCandidates(db: Db, selfId: string | null, channelId: string, query: string, limit: number): MentionCandidate[] {
   const ch = db.prepare('SELECT guild_id AS guildId, kind, parent_id AS parentId FROM channels WHERE id = ?').get(channelId) as ChannelRow | undefined;
   if (!ch) return [];
@@ -214,10 +203,7 @@ export function mentionCandidates(db: Db, selfId: string | null, channelId: stri
   return [...users, ...globals, ...roles];
 }
 
-/**
- * A DM's people: its current recipients and the owner, from the DM list. A DM stored before recipients were kept falls
- * back to its other person and whoever posted in it.
- */
+/** DM mention pools include current recipients and owner. Legacy DMs fall back to peer and message authors. */
 function dmPeople(db: Db, channelId: string, selfId: string | null): Person[] {
   const rows = db
     .prepare(

@@ -1,5 +1,4 @@
-// Plugin release tests' world: a real plugin repo (a bare "GitHub" remote and the clone a release runs in) and a fake
-// gh holding releases and serving marketplace.json from the bare repo, with failures injectable per call.
+// Uses a bare remote, release clone, and fake gh serving releases and marketplace.json. Each call supports failure injection.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { INSTALLED_FORMAT, INSTALLED_MANIFEST_FILE, PLUGIN_SDK_VERSION, type InstalledManifest } from '@shared/installedPlugins';
@@ -8,7 +7,7 @@ import { gitOut } from '../scripts/pluginReleaseState';
 import { tempDir } from './helpers';
 
 export const REPO = 'owner/plugins';
-/** A test drives a few dozen real git commands; each takes a tenth of a second or more on Windows. */
+/** Timeout for tests executing real git commands. */
 export const GIT_TEST_TIMEOUT_MS = 60_000;
 const ORIGIN_URL = `https://github.com/${REPO}.git`;
 const IDENTITY_NAME = 'Tester';
@@ -58,7 +57,7 @@ export function pluginRepo(plugins: Record<string, string>): PluginRepo {
   commit(clone, { 'README.md': 'Plugins.\n', ...Object.fromEntries(Object.entries(plugins).map(([id, v]) => [sharedFile(id), sharedSource(id, v)])) }, 'chore: plugins');
   const other = join(root, 'other');
   out(root, 'clone', '-q', bare, other);
-  // Its merges need an identity too; a machine with no global one (CI) has none to fall back on.
+  // Configures an identity for merge commits.
   out(other, 'config', 'user.name', IDENTITY_NAME);
   out(other, 'config', 'user.email', IDENTITY_EMAIL);
   return { bare, clone, other };
@@ -67,7 +66,7 @@ export function pluginRepo(plugins: Record<string, string>): PluginRepo {
 /** Brings `dir` up to the remote's main. */
 export const pull = (dir: string): void => void out(dir, 'pull', '-q', '--ff-only', 'origin', 'main');
 
-/** Records id ersion as released at t, as an earlier run left it: its tag, and a listing commit on main. */
+/** Records a released version’s tag and marketplace listing commit. */
 export function listed(repo: PluginRepo, id: string, version: string, at: string, sdk = PLUGIN_SDK_VERSION): void {
   const tag = `${id}-v${version}`;
   out(repo.bare, 'tag', tag, at);

@@ -46,8 +46,7 @@
     vertical-align: middle;
   }
 
-  /* Every 24-unit line icon draws one line weight at any size: the stroke is in screen pixels (non-scaling), so a
-     14px and a 26px icon match. Beats a module's or an attribute's width, which would scale with the icon. */
+  /* Forces non-scaling screen-pixel strokes on 24-unit icons, overriding module/attribute widths across rendered sizes. */
   svg[viewBox='0 0 24 24'] :is(path, circle, ellipse, line, polyline, polygon, rect) {
     stroke-width: var(--cp-icon-line);
     vector-effect: non-scaling-stroke;
@@ -80,9 +79,7 @@ html {
   transition: --cp-keyboard-inset var(--cp-keyboard-duration) var(--cp-ease-keyboard);
 }
 
-/* What the iPhone keyboard covers, and shows through its glass, is the page's own bottom: the web view is never resized.
-   Paint it the page's surface, as the window was when the web view shrank. Its top meets the content riding the inset;
-   0 high outside the shell. */
+/* Paints the unchanged iPhone webview bottom behind keyboard glass. Insets position visible content; outside the shell this region has zero height. */
 html::after {
   content: '';
   position: fixed;
@@ -93,9 +90,7 @@ html::after {
   pointer-events: none;
 }
 
-/* Phone companion in a browser tab: browsers retract their toolbars only while the page itself scrolls, so the page
-   gets scroll room and the app shell (Companion.module.css) stays pinned to the visible area. A home-screen app or
-   the iPhone shell has no toolbars and keeps the rules above. data-display: companion/shell.ts. */
+/* Browser companions provide page scroll room for toolbar retraction while pinning app shells to visible areas. Home-screen/iPhone shells retain fixed rules. */
 html[data-surface='companion'][data-display='browser'],
 html[data-surface='companion'][data-display='browser'] body,
 html[data-surface='companion'][data-display='browser'] #root {
@@ -107,8 +102,7 @@ html[data-surface='companion'][data-display='browser'] #root {
   min-height: calc(100lvh + var(--cp-toolbar-scroll-room));
 }
 
-/* Phone: a double tap acts at once instead of zooming, as in a native app; pinch zoom and scrolling stay. The
-   viewport meta's user-scalable=no covers the iPhone shell alone; iOS web apps ignore it, so this rule is the one that holds. */
+/* Phone touch-action removes double-tap delay/zoom while preserving pinch/scroll. iOS web apps ignore viewport user-scalable restrictions. */
 html[data-surface='companion'] {
   touch-action: manipulation;
 }
@@ -156,8 +150,7 @@ body {
     outline: none;
   }
 
-  /* A log row (solidjs-virtual-log: the archive's and plugins' logs) never draws one: focus returns to it after a dialog,
-     which the phone draws as a ring. A row selected by keys shows its hover wash instead (MessageRow.module.css). */
+  /* Virtual log rows suppress focus rings after dialogs. Keyboard-selected rows use hover wash instead. */
   [data-row-key]:focus-visible {
     outline: none;
   }

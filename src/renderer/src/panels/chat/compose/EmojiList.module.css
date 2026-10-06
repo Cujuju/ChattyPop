@@ -1,5 +1,4 @@
-/* The reaction picker's emoji (EmojiList): search over one scrolling list, beside a bar of section marks. Desktop: the
-   bar is a rail at the list's start, as in Discord; phone: a row under the list, above the keyboard. */
+/* Emoji picker uses one searchable list with section markers: desktop side rail, phone row above keyboard. */
 .root {
   display: flex;
   flex: 1 1 auto;

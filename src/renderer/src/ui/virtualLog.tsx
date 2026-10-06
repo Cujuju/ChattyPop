@@ -13,10 +13,7 @@ export interface VirtualLog<R extends { key: string }> {
   onScroll: () => Promise<void>;
   /** Brings the row with this key into view, if it's in the log. */
   scrollToKey: (key: string) => void;
-  /**
-   * Centers the row with this key and keeps it centered while rows are measured or grow (media loading), until the
-   * user scrolls or the row leaves the log. Null lets go. Returns false when no row has the key.
-   */
+  /** Centers keyed rows through measurement/growth until user scrolling/removal. null releases; missing keys return false. */
   holdRow: (key: string | null) => boolean;
   /** A row is held (holdRow) and the user hasn't scrolled since. */
   holding: Accessor<boolean>;
@@ -26,11 +23,7 @@ export interface VirtualLog<R extends { key: string }> {
   log: VirtualLogController<R>;
 }
 
-/**
- * A virtualized chronological log (oldest at the top) that pages older rows in as the top nears, on
- * @cujuju/solidjs-virtual-log: bottom-anchored, and never writing the scroll offset while the user scrolls (iOS
- * momentum stops at a write). Rows are measured once drawn; `estimatePx` is the guess before that.
- */
+/** Bottom-anchored chronological virtualization loads older pages near top. Measures drawn rows from estimates and avoids offset writes during scrolling to preserve iOS momentum. */
 export function createVirtualLog<R extends { key: string }>(o: {
   rows: Accessor<R[]>;
   /** Height guess before a row is measured: one for all rows, or per row. */

@@ -22,10 +22,7 @@ export interface SwitcherChannel {
   lastTs: number | null;
 }
 
-/**
- * Channels whose name or server holds every word of `query`: recent ones first, most recent first, then the rest by
- * latest activity. The shown channel (`current`) counts as not recent, so the first row is the one to go back to.
- */
+/** Filters channel/server names by every query word. Sorts recent channels first, then activity; current channel is excluded from recent priority. */
 export function switcherOrder<T extends SwitcherChannel>(channels: readonly T[], recents: readonly string[], current: string | null, query: string): T[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const rank = new Map(recents.filter((id) => id !== current).map((id, i) => [id, i]));

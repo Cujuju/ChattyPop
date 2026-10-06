@@ -15,7 +15,7 @@ import { from, nextTs, rawMessage, seedArchive, tempDb } from './helpers';
 export { hostRuleStack, ruleInput, runsOf } from './hostRules';
 export { probeAction } from './pluginRuleProbe';
 
-// This file's registry holds the rule probe, as a build with that plugin would.
+// Registers the rule-probe plugin.
 includeProbe();
 
 /** The host's command action's requests, answered with `answer` (a test may swap it). */

@@ -16,10 +16,7 @@ export const interactionGuild = (guildId: string): string | null => (guildId ===
 
 // ---- The `/` menu ----
 
-/**
- * A line of the `/` menu: an app's command; ChattyPop's own (typed as its prefix, answered by ChattyPop); or Discord's
- * built-ins, which rewrite the text (/shrug) or are filled in and run here (/thread, /msg).
- */
+/** Slash menu entries include app commands, ChattyPop commands and Discord built-ins that rewrite text or execute locally. */
 export type MenuItem =
   | { kind: 'app'; entry: CommandEntry; app: CommandApp | null }
   | { kind: 'own'; prefix: string; description: string }
@@ -70,10 +67,7 @@ export const OWN_APP_NAME = 'ChattyPop';
 /** Discord's own commands (/shrug, /thread…), which the client runs itself: Discord's name for their group. */
 export const BUILTIN_GROUP_NAME = 'Built-In';
 
-/**
- * The menu for what follows the slash: frequently used first (before anything is typed), then ChattyPop's own commands,
- * then each app's, apps by name, then Discord's built-ins. Within a group, names starting with what was typed come first, as Discord orders them.
- */
+/** Orders frequent commands for empty input, then ChattyPop, named apps and Discord built-ins. Prefix matches lead within groups. */
 export function menuSections(channelId: string, typed: string): MenuSection[] {
   const q = typed.trim().toLowerCase();
   const own: MenuItem[] = composerCommands()

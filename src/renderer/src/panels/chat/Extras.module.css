@@ -1,5 +1,4 @@
-/* Message extras in the Archive: reply line, embeds, stickers, reactions. Laid out after Discord's familiar
-   arrangement in ChattyPop's own tokens. The embed side bar colour comes from --embed-color (inline, per embed). */
+/* Styles replies, embeds, stickers and reactions. Per-embed --embed-color supplies the sidebar color. */
 
 /* Reply line: small avatar, name, first line of the replied-to text; the whole line jumps to it. */
 .reply {

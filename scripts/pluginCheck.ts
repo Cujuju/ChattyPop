@@ -1,5 +1,4 @@
-// Checks a plugin folder outside this checkout (docs/plugin-architecture.md §16): `pnpm plugin:check <dir>`. Steps run
-// in order, stopping at the first failure: typecheck, styles (§14), scan (scripts/pluginScan), build, tests.
+// Checks external plugins in order: typecheck, styles, scan, build, tests. Stops at the first failure.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -26,10 +25,10 @@ const TSC = 'node_modules/typescript/bin/tsc';
 /** A plugin's test files, relative to its folder. */
 const TEST_FILES = '**/*.test.ts';
 const NOT_SOURCE = '**/node_modules/**';
-/** A page's files served as they are (a service worker, install icons), not compiled with the page. */
+/** Static page files served without compilation. */
 const PAGE_PUBLIC = 'page/public/**';
 
-/** Each side's type-check: the repo config whose libraries, types and declarations it takes, and the plugin's folders. */
+/** Per-side host type configuration and plugin source folders. */
 const PROJECTS = {
   node: { repoConfig: 'tsconfig.node.json', dirs: ['shared', 'core', 'main', 'tests'], tests: true },
   browser: { repoConfig: 'tsconfig.web.json', dirs: ['shared', 'renderer', 'page'], tests: false },
@@ -44,10 +43,7 @@ function tsc(args: readonly string[]): { code: number; output: string } {
   return { code: r.status ?? 1, output: `${r.stdout}${r.stderr}`.trim() };
 }
 
-/**
- * A repo config's libraries and types, and the ambient declarations (`.d.ts`: `__APP_VERSION__`, virtual modules) its
- * program holds, as absolute paths.
- */
+/** Resolves host libraries, types, and ambient declarations as absolute paths. */
 function repoSide(repoConfig: string): { options: { lib: string[]; types: string[] }; declarations: string[] } {
   const r = tsc(['-p', repoConfig, '--showConfig']);
   if (r.code !== 0) throw new Error(`tsc --showConfig ${repoConfig} failed:\n${r.output}`);
@@ -72,10 +68,7 @@ function typecheck(pluginDir: string, work: string): void {
 /** A bare package specifier (`electron`, `@scope/pkg/sub`), not a path, alias target or virtual module. */
 const BARE_PACKAGE = /^(?:@[\w.-]+\/)?[\w.-]+(?:\/.*)?$/;
 
-/**
- * Resolves a package the plugin's folder lacks from this checkout, as the host does at run time, so the plugin's tests
- * and the host's modules share one copy.
- */
+/** Resolves missing plugin packages from the host checkout, sharing dependency instances with host modules. */
 function hostPackages(): Plugin {
   const fromCheckout = posix(join(REPO_ROOT, 'package.json'));
   return {
@@ -87,16 +80,12 @@ function hostPackages(): Plugin {
   };
 }
 
-/**
- * Runs the plugin's tests with this checkout's test config, whose registry holds only `pluginDir`; throws when any
- * fails.
- */
+/** Runs plugin tests with a registry containing only pluginDir; failures throw. */
 async function runTests(pluginDir: string): Promise<void> {
   const config = mergeConfig(testConfig({ dirs: dirname(pluginDir), selection: basename(pluginDir) }), { plugins: [hostPackages()], test: { dir: pluginDir, passWithNoTests: true } });
   // Replaced, not merged: the checkout's own test globs don't apply.
   Object.assign(config.test!, { include: [TEST_FILES], exclude: [NOT_SOURCE] });
-  // Vitest reports failure through process.exitCode; a release checks several plugins in one process, so each run's
-  // report is read alone and the process's own code restored.
+  // Isolates each Vitest exit code, restoring the process’s prior code after the run.
   const exitCode = process.exitCode;
   process.exitCode = undefined;
   let reported: typeof exitCode;
@@ -114,7 +103,7 @@ async function runTests(pluginDir: string): Promise<void> {
 
 /** Scans the plugin's source (scripts/pluginScan); throws every violation, one per line. */
 async function scan(pluginDir: string): Promise<void> {
-  // Evaluated first: it refuses a folder not named by its id, which the scan's rules key on.
+  // Descriptor validation first rejects folder names that differ from plugin IDs.
   const descriptor = await sourceDescriptor(pluginDir, REPO_ROOT, anchorFolders(pluginDir));
   const violations = scanPlugin({ pluginDir, isPhoneTransport: descriptor.phone?.transport === true });
   if (violations.length) throw new Error(violations.join('\n'));

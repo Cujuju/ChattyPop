@@ -10,10 +10,7 @@ export type DmFilter = (typeof DM_FILTERS)[number];
 
 export const isDmChannel = (c: DirectoryChannel): c is DmChannel => c.dm !== undefined;
 
-/**
- * Unread: a message newer than Discord's ack, or Discord's own DM count above zero. The count covers a DM with no ack
- * known; a muted DM has no count, so its ack decides.
- */
+/** DM unread combines newer-than-ack messages and positive Discord counts. Counts cover unknown acks; muted DMs rely on ack state. */
 export const isUnread = (c: DmChannel): boolean =>
   c.mentionCount > 0 || (c.dm.lastMessageId !== null && c.dm.ackId !== null && compareSnowflakes(c.dm.lastMessageId, c.dm.ackId) > 0);
 

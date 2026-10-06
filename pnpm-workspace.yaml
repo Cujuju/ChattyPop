@@ -9,7 +9,7 @@ allowBuilds:
   electron-winstaller: false
   esbuild: true
 
-# Our own packages, published 2026-10-03, are younger than pnpm's minimum release age (1 day); drop these once older.
+# Exempts local packages from pnpm’s minimum release age.
 minimumReleaseAgeExclude:
   - '@cujuju/solidjs-color-picker@0.3.0'
   - '@cujuju/solidjs-pill-number-picker@0.5.1'

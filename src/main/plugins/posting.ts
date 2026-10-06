@@ -1,6 +1,4 @@
-// Main's posting lock (@shared/posting): writes refuse with PostingLocked unless a plugin that is on declares
-// `unlocks: { posting: true }`. Host posting calls are gated when made (gatePosting); every write, the host's and plugins'
-// ctx.discord alike, when made and before each attempt (postingClient).
+// Posting requires an enabled unlocking plugin. Host and plugin writes check locks on call and immediately before every attempt.
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { PluginInfo } from '@shared/plugins';
@@ -46,11 +44,7 @@ const ACK_PATH = /^channels\/\d+\/messages\/\d+\/ack$/;
 export const exemptWrite = (method: 'post' | 'put' | 'delete', path: string): boolean =>
   method === 'post' ? ACK_PATH.test(path) : OWN_REACTION_PATH.test(path);
 
-/**
- * `client` with its writes locked: each checks the lock when made and again just before every attempt goes
- * (RequestOptions.guard, after its caller's), so one queued or retried across a relock is never sent. Reads and
- * exemptWrite's writes pass unchecked.
- */
+/** Checks posting locks at call time and after caller guards before every attempt, preventing queued/retried writes after relocking. Reads/exempt writes bypass checks. */
 export function postingClient(client: DiscordClient, gate: PostingGate): DiscordClient {
   const guarded = (opts: WriteOptions | undefined): WriteOptions => ({
     ...opts,

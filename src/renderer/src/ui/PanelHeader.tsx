@@ -11,13 +11,7 @@ import styles from './PanelHeader.module.css';
 /** Shared header parts for panels: .badge (new count), .actions (trailing group), .action, .iconAction, .primary, .toggle. */
 export const headerStyles = styles;
 
-/**
- * With `collapsible`, the title toggles the panel folded to this header (layout state, per panel id); the panel
- * hides its body while isPanelCollapsed(id).
- * One header for every panel: section icon and colour, title, optional muted meta, then the panel's own children
- * (badges, actions). Narrowing degrades in order: the meta hides, then the icon tile, then the actions wrap to a second line.
- * With `metaWraps`, the meta is content rather than decoration: it wraps below the title instead of hiding.
- */
+/** Shared headers collapse by panel id. Narrowing hides metadata, then tiles, then wraps actions. metaWraps preserves content metadata below titles. */
 export function PanelHeader(props: {
   section: SectionId;
   /** The panel's layout id when it differs from its section (plugin panels); collapse state and the menu key on it. */

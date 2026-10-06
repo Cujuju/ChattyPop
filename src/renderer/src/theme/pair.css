@@ -1,7 +1,4 @@
-/* Pages that load before the app: the phone's pairing page (the companion plugin's main/pairPage.ts inlines this) and the iPhone
-   shell's offline page (mobile/). Only tokens, sizes and themes: no faces (each theme's stack falls back to system
-   type) and no app reset. <html> may carry data-theme. Phone first: one column, thumb-sized controls, clear of
-   notches and home bars. */
+/* Pre-app pairing/offline pages load tokens/sizes/themes without app resets/fonts. Phone layout uses one column and safe-area clearances. */
 @import './tokens.css';
 @import './sizes.css';
 @import './themes/spotlight.css';

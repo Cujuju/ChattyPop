@@ -1,6 +1,4 @@
-// Contract: an attachment's Modify and Delete save as one edit naming every attachment the message keeps (Discord drops one
-// left out); Modify sends the trimmed alt text and spoiler mark; deleting the last of a message with nothing else
-// deletes the message, which Discord can't keep empty.
+// Attachment edits retain every remaining attachment, trimmed alt text, and spoiler state. Removing the final content deletes the message.
 import { createRequire } from 'node:module';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OwnerEdit, OwnerMessageRef } from '@shared/compose';

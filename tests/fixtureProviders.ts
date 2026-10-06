@@ -1,12 +1,10 @@
-// Stand-ins for the AI provider plugins, declared as the plugins declare them, for plugin tests that ask providers
-// (docs/plugin-architecture.md §16). In a test file:
-//   vi.mock('virtual:bundled-plugins/shared', async (build) => (await import('@chattypop/host-testing/fixtureProviders')).withFixtureProviders(build));
+// Fixture AI-provider declarations for host tests. withFixtureProviders extends the mocked shared registry.
 import { definePlugin } from '@plugin-sdk/shared';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 
 const manifest = (id: string, name: string) => ({ id, name, version: '1.0.0', description: `Fixture: the ${name} provider.` });
 
-/** Two hosted plan providers, a local one and a hosted keyed one: the four the provider plugins declare. */
+/** Declares two hosted plan providers, one local provider, and one hosted keyed provider. */
 export const FIXTURE_PROVIDER_PLUGINS: readonly PluginDescriptor[] = [
   definePlugin({
     manifest: manifest('claude', 'Claude'),

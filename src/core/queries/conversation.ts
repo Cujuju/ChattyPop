@@ -1,6 +1,4 @@
-// Conversation view: the messages around one message that belong to its exchange. No AI.
-// Exact first: its reply chain up to the root and every reply below it. Then a heuristic: in the same channel, messages
-// by the exchange's participants (or @mentioning them) that follow each other with short gaps.
+// Builds conversations without AI from reply chains, then nearby messages by participants or mentioning them with short gaps.
 import type { ConversationView } from '@shared/contract';
 import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../db';
@@ -8,7 +6,7 @@ import { rawJsonSql } from './messageContent';
 import { REPLY_MESSAGE_TYPE, USER_MENTION } from './messageExtras';
 import { messagesByIds } from './messages';
 
-/** A pause longer than this ends an exchange: people coming back later usually start a new one. */
+/** Maximum gap between related conversation messages. */
 export const CONVERSATION_GAP_MS = 5 * MS_PER_MIN;
 /** Most messages shown: bounds the reply walk and the window. */
 export const CONVERSATION_MAX = 200;
@@ -64,8 +62,7 @@ export function conversation(db: Db, messageId: string): ConversationView {
   }
   const related = (r: Row): boolean => participants.has(r.authorId) || mentioned(r.content).some((id) => participants.has(id));
 
-  // Near the linked messages (within a gap of one) the participants' messages count; past either end, the walk goes on
-  // while each next related message follows within a gap. Unrelated messages in between don't break it.
+  // Includes participant messages near linked messages, extending each end through related messages within the gap. Intervening unrelated messages do not break continuation.
   const linkedTs = [...linked.values()].map((r) => r.ts).sort((a, b) => a - b);
   const [first, last] = [linkedTs[0]!, linkedTs.at(-1)!];
   const nearLinked = (ts: number): boolean => linkedTs.some((t) => Math.abs(ts - t) <= CONVERSATION_GAP_MS);

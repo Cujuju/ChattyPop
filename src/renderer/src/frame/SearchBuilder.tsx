@@ -1,5 +1,4 @@
-// The search panel's query builder: the filter list, a pending filter's value picker, and the add-filter strip.
-// Rows are listbox options driven from the search field; `search-row-<i>` ids match its aria-activedescendant.
+// Query builder renders filters, pending values and add-filter strip. Listbox row ids match field aria-activedescendant.
 import { For, Show } from 'solid-js';
 import { FILTER_GROUPS, type FilterChoice, type SearchFilter } from './searchFilters';
 import { Icon } from '@/ui/icons';

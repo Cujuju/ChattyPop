@@ -20,10 +20,7 @@ const replyIn = (channelId: string): OwnerMessage['replyTo'] => {
   return t && t.channelId === channelId ? { messageId: t.id, ping: replyPing() } : null;
 };
 
-/**
- * Takes the draft (and a sticker, when one was picked) out as one message, a built-in like /shrug applied, and queues it:
- * the composer and reply bar clear at once, as in Discord. Unsent, its Edit brings it back into an empty draft.
- */
+/** Clears drafts/replies immediately while queuing text/stickers with built-in rewrites. Editing unsent entries restores them into empty drafts. */
 export function sendDraft(channelId: string, stickerId: string | null = null): void {
   const replyTo = replyIn(channelId);
   // Unwrapped: the saved draft is kept in IndexedDB, which can't clone a store proxy.

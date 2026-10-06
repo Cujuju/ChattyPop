@@ -36,19 +36,16 @@ function readOf(id: ProviderId): PlanRead {
   return r;
 }
 
-/**
- * `id`'s plan windows (5-hour / weekly and the like), read on first call. Null when it reports no plan limits;
- * undefined while loading or after a failed read (planUsageFailureOf says why). Never throws. Reactive.
- */
+/** Reactively reads provider plan windows once. null means no limits; undefined means loading/failure. Never throws; failures have separate diagnostics. */
 export const planUsageOf = (id: ProviderId): Windows | undefined => settled(readOf(id).read);
-/** Why `id`'s last plan-usage read failed; null while it didn't. Reactive. */
+/** Reactive last plan-usage error, or null. */
 export const planUsageFailureOf = (id: ProviderId): string | null => failure(readOf(id).read);
 /** Whether a plan-usage read of `id` is in flight. Reactive. */
 export const planUsageLoadingOf = (id: ProviderId): boolean => readOf(id).read.loading;
-/** `id`'s plan windows last read, kept while a refresh loads or after it fails; undefined before the first read. Reactive. */
+/** Reactive cached plan windows survive refresh/loading errors; undefined before first read. */
 export const lastPlanUsageOf = (id: ProviderId): Windows | undefined => readOf(id).last();
 
-/** Re-reads `id`'s plan limits (after work it ran), or every provider's read so far. Unread providers stay unread. */
+/** Refreshes one provider or all previously read providers, leaving unread providers untouched. */
 export function refetchPlanUsage(id?: ProviderId): void {
   for (const [provider, r] of reads) if (id === undefined || provider === id) void r.refetch();
 }

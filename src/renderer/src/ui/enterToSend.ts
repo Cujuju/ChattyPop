@@ -4,10 +4,7 @@ import { inCompanion } from '@/state/ui';
 /** Enter sends on the desktop, as in Discord's desktop app; on the phone it adds a line and a button sends, as in its mobile app. */
 export const enterSends = !inCompanion;
 
-/**
- * Where Enter sends (enterSends): Enter sends and Shift+Enter adds a line. Some keyboards report Enter only as a line
- * break being typed (no usable keydown), so that sends unless Shift was held at the last key. Elsewhere both are no-ops.
- */
+/** Where enabled, Enter sends and Shift+Enter inserts lines. Line-break-only keyboard events send unless latest key held Shift; other contexts do nothing. */
 export function enterToSend(send: () => void): { onKeyDown: (e: KeyboardEvent) => boolean; onBeforeInput: (e: InputEvent) => void } {
   if (!enterSends) return { onKeyDown: () => false, onBeforeInput: () => {} };
   let shiftHeld = false;

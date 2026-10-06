@@ -1,5 +1,4 @@
-// Re-runs and catch-up judge many messages per Jev request. Jev's questions run independently, so each carries its own
-// message's state in its instructions and the request's state is empty; answers land on the right message.
+// Batched Jev questions carry independent message state in their instructions; request state stays empty and answers map to their messages.
 import { describe, expect, it } from 'vitest';
 import { carriedQuestion, type Question } from '../src/core/ai/decisions';
 import { ARRIVAL } from '../src/core/arrival';

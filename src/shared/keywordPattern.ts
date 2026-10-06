@@ -34,16 +34,12 @@ const clean = (terms: string[]): string[] => [...new Set(terms.map((t) => t.trim
 /** Why a spec can't become a pattern, or null when it can. */
 export function specProblem(spec: PatternSpec): string | null {
   if (!clean(spec.anyOf).length && !clean(spec.allOf).length) return 'Add at least one word to “Contains any of” or “Contains all of”.';
-  // A term of wildcards alone would match (almost) anywhere.
+  // Reject wildcard-only terms that match nearly all text.
   const bare = [...spec.anyOf, ...spec.allOf, ...spec.noneOf].map((t) => t.trim()).find((t) => t && !/[\p{L}\p{N}]/u.test(t.replace(/[*?]/g, '')));
   return bare ? `“${bare}” needs at least one letter or digit besides * and ?.` : null;
 }
 
-/**
- * The /regex/flags pattern for a spec. The match itself is an "any of" term (or, with none, a required term), so alert
- * snippets and highlights land on it; the other conditions are checked over the whole message from a lookbehind
- * anchored at its start, which sees text before and after the match.
- */
+/** Compiles match terms as snippet/highlight targets. Start-anchored lookbehinds evaluate remaining conditions across the whole message. */
 export function buildPattern(spec: PatternSpec): string {
   const problem = specProblem(spec);
   if (problem) throw new Error(problem);
@@ -63,7 +59,7 @@ export function matchRanges(re: RegExp, text: string, max: number): [number, num
   const out: [number, number][] = [];
   for (let m = g.exec(text); m && out.length < max; m = g.exec(text)) {
     if (m[0].length === 0) {
-      g.lastIndex++; // an empty match would loop forever
+      g.lastIndex++; // Reject empty matches to prevent loops.
       continue;
     }
     out.push([m.index, m.index + m[0].length]);
@@ -80,10 +76,7 @@ export const isPatternSpec = (v: unknown): v is PatternSpec => {
 const REGEX_PATTERN = /^\/(.+)\/([a-z]*)$/s;
 export const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * Compiles a keyword pattern. `/re/flags` is a regex (no flags means case-insensitive); anything else is
- * comma-separated keywords, each matched case-insensitively as a whole word or phrase. Throws on a bad regex.
- */
+/** Compiles /regex/flags or comma-separated whole-word/phrase keywords. Missing regex flags default to case-insensitive; invalid regex throws. */
 export function compileKeywordPattern(pattern: string): RegExp {
   const re = REGEX_PATTERN.exec(pattern.trim());
   // g/y dropped: a reused regex must not carry lastIndex between test() calls.

@@ -1,5 +1,4 @@
-// Link search index: each link's text (linkTextSql: a plugin's fetched post, else Discord's preview) in fts_links,
-// rowid = links.id, so search finds a message by what it links to. Triggers keep it in step with links and link_texts.
+// Indexes plugin link text or Discord previews in fts_links using links.id. Triggers synchronize links and link_texts.
 import type { Db } from './db';
 import { linkTextSql } from './queries/messageText';
 

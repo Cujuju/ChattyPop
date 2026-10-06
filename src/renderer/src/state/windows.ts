@@ -61,10 +61,7 @@ const sameArea = (a: WindowRect | 'window' | undefined, b: WindowRect | 'window'
 
 const overlaps = (w: WindowRect, r: DOMRect): boolean => w.x < r.right && w.x + w.width > r.left && w.y < r.bottom && w.y + w.height > r.top;
 
-/**
- * Whether an open window or overlay covers any of `r`. The native Discord view draws above all renderer UI, so it hides
- * then; an overlay that doesn't report its area here stays under it.
- */
+/** Checks reported overlay/window coverage of native Discord bounds. Covered views hide; unreported overlays remain beneath the native view. */
 export const windowsCover = (r: DOMRect): boolean =>
   openWindows().some(({ rect }) => overlaps(rect, r)) || [...overlays().values()].some((a) => a === 'window' || overlaps(a, r));
 

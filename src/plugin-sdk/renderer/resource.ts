@@ -26,11 +26,7 @@ export interface PluginResource<T> {
   mutate(value: T): void;
 }
 
-/**
- * Core's `member` for this window, read with `args()` while it is callable (the plugin is on and the member serves this
- * window) and `args()` gives some; re-read when either changes. An inactive plugin's answer, or one arriving after it
- * turned off, reads as `fallback`; other failures keep their message in `failure`.
- */
+/** Reads callable core resources with current args and refreshes on changes. Inactive/late answers use fallback; other failures retain messages. */
 export function pluginResource<const D extends PluginDescriptor, K extends WindowMember<D>, F>(
   plugin: D,
   member: K,

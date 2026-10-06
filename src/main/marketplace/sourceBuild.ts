@@ -1,6 +1,4 @@
-// Source installs' build (docs/plugin-architecture.md §16): the plugin's own packages installed with npm, then the same
-// build that makes release assets, loaded only when a source install runs, since it brings in Vite. Vite and the Solid
-// plugin are development packages: they exist when ChattyPop runs from its source checkout, which is how it runs today.
+// Source installs run npm then release builds. Loads Vite lazily; builds require checkout development dependencies.
 import { app } from 'electron';
 import type { BuildPlugin } from './marketplaces';
 import { installPluginPackages } from './npm';

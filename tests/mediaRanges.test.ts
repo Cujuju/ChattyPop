@@ -67,7 +67,7 @@ describe('embed images', () => {
   });
 });
 
-// A stored video plays in place; a download link would take the phone app away from the page.
+// Stored videos play inline.
 describe('attachment views', () => {
   it('plays stored video and audio inline, shows stored images, and chips everything else', () => {
     const stored = (contentType: string | null, filename = 'clip.bin') => attachmentView({ status: 'stored', contentType, filename });

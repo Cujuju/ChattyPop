@@ -1,9 +1,4 @@
-/* Theme 'daylight': cool white with crisp near-black text, for bright rooms and small type. Windows' own Segoe
-   UI (hinted for the screen) one step larger; flat panels meeting at dividers, section-tinted headers. Body text
-   is well past AAA (7:1) on every surface.
-   Contrast (WCAG 2.x, sRGB) checked 2026-09-27, all >= 4.5:1 (tests/themeContrast.test.ts holds them):
-   text-1 / text-2 / text-muted on surface-0..5: 18.5-13.3 / 12.0-8.7 / 7.1-5.1; text-on-accent on accent 6.9;
-   info on cite-bg 5.4; sections on surface-2 / 3 5.2-6.5, text-on-accent on each 5.9-6.5; platforms on surface-4 >= 4.9. */
+/* Daylight uses cool white, near-black text, larger Segoe UI and flat panels. Theme contrast tests cover text, accents, sections and platforms. */
 
 [data-theme='daylight'] {
   --cp-color-scheme: light;

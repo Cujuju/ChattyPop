@@ -1,5 +1,4 @@
-// Contract: an author's name carries what Discord draws with it in a server — the colour of their highest coloured
-// role, the icon of their highest role with one, their server tag, and APP for apps — from their current roles.
+// Author styles use current server roles: highest coloured role, highest role icon, server tag, and APP badge.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MS_PER_MIN } from '@shared/units';
 import { VERIFIED_BOT_FLAG, type RawRole } from '@shared/discord';

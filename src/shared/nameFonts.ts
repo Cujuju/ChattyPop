@@ -1,6 +1,4 @@
-// Nitro display-name fonts, as Discord's client maps them: its font enum (display_name_styles.font_id) to the
-// @font-face family its page declares. Read from Discord's web client; undocumented, so it may change. Fonts Discord
-// retired (Bangers, BioRhyme, Compagnon, Ribes, Hexagon) and DEFAULT draw in the default face, as in the client.
+// Maps undocumented Discord font ids to page families. Retired/default fonts use fallback faces; mappings can change with client deployments.
 
 /** `key`: the name's data-name-font hook (theme/nameFonts.css); `family`: Discord's @font-face family for the file. */
 export interface NameFont {
@@ -22,10 +20,7 @@ export const NAME_FONTS: Readonly<Record<number, NameFont>> = {
   16: { key: 'kalam', family: 'Journal' },
 };
 
-/**
- * Nitro display-name effects: Discord's effect enum (display_name_styles.effect_id) to the name's data-name-effect hook.
- * Read from Discord's web client (UNSPECIFIED 0 and its TEST_ values draw as none); undocumented, so it may change.
- */
+/** Maps undocumented Discord effect ids to data-name-effect hooks. Unspecified/test effects use none; client mappings can change. */
 export const NAME_EFFECTS = { 1: 'solid', 2: 'gradient', 3: 'neon', 4: 'toon', 5: 'pop', 6: 'glow', 7: 'prism', 8: 'gummy' } as const;
 export type NameEffect = (typeof NAME_EFFECTS)[keyof typeof NAME_EFFECTS];
 

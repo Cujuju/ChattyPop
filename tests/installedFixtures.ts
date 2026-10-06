@@ -1,5 +1,4 @@
-// Hand-written built plugins (docs/plugin-architecture.md §16) for the installed-plugin tests: plugin.json and ES modules
-// that read the host's SDK from globalThis, as a plugin build's shims do. Imports nothing that loads the plugin registry.
+// Built-plugin fixtures contain plugin.json and ES modules reading host SDK namespaces from globalThis. Imports do not load the registry.
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { inject } from 'vitest';

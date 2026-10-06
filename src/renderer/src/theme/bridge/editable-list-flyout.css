@@ -1,4 +1,4 @@
-/* @cujuju/solidjs-editable-list-flyout: declares its defaults on the element, unlayered, so :root alone would lose. */
+/* Editable-list-flyout element defaults require element-scoped overrides. */
 
 :root [data-cuj-elf] {
   --cuj-elf-popover-bg: var(--cp-surface-3);

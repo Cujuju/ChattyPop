@@ -1,5 +1,4 @@
-// Plugin folders an outside plugin is checked beside (plugin:check, release assets): its own repo's plugins. A stamped
-// anchor on a plugin not among them is accepted as absent.
+// Checks external plugins beside their repository siblings. Stamped anchors on absent siblings remain valid.
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { SHARED_ENTRY } from '../src/main/pluginBuild/descriptor';

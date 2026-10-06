@@ -1,7 +1,4 @@
-/* Settings → Jev → Queries: a filterable list of every built-in query beside the open query's editor
-   (JevQueryEditor.module.css). Below the width where both fit, the list becomes a picker above the editor.
-   Page frame is cp-settings-page/-title/-split (theme/shared-layout.css); [data-group] sets --group (identity.css).
-   Hooks: .row[aria-current='true'], .dot[data-on='true']. */
+/* Query settings use filterable list/editor splits, collapsing to a picker at narrow widths. Shared frame/group tokens and current/on hooks style entries. */
 
 /* Beside the view switch in the shared page head (SettingsLayout PageHead). */
 .counts {

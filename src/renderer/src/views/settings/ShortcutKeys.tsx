@@ -1,5 +1,4 @@
-// Settings → Desktop → Shortcuts: the show/hide shortcut, the leader key and each shortcut's key, captured from the next key press.
-// Capture modelled on StockApp's ShortcutHelpOverlay: Escape cancels, a lone modifier keeps listening, a conflict is refused.
+// Captures next keys for desktop/leader shortcuts. Escape cancels, lone modifiers keep listening and conflicts reject.
 import { For, Show, createSignal } from 'solid-js';
 import { bundledPlugin } from '@shared/bundledPlugins';
 import { hotkeyLabel, hotkeyOf } from '@shared/desktop';
@@ -46,10 +45,7 @@ export function HotkeyRow() {
   );
 }
 
-/**
- * A key's field: click it (or press Enter on it), then press the new key; Escape or leaving it cancels. `take` binds
- * the key or returns why not; a refused key keeps it listening.
- */
+/** Click/Enter starts capture; Escape/blur cancels. take binds or explains rejection; rejected keys keep capture active. */
 function KeyField(props: { id: string; class?: string; value: string; placeholder: string; take: (key: string) => string | null; setRefusal: (reason: string | null) => void }) {
   const [listening, setListening] = createSignal(false);
   const stop = (): void => {

@@ -1,7 +1,4 @@
-// Contract (docs/dms.md §3.6): sync keeps only the signed-in account's archived DMs current, never a group left nor an
-// unclaimed DM, and none before READY names the account. A channel sync stops keeping while queued or mid-sync
-// (archiving stopped, another account signed in, a group left) gets no further page. Archiving a DM refuses a message
-// request, a group left and another account's DM.
+// Syncs only the signed-in account’s eligible archived DMs after READY. Losing archive access stops queued or active sync. Requests and departed groups cannot be archived.
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';

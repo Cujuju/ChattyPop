@@ -1,5 +1,4 @@
-// A name as Discord draws it: its colour (role colour or gradient in a server, Nitro colours outside one) in their Nitro
-// name font, with a Nitro effect's hook; then, for an author, APP, their server tag and their role icon.
+// Draws server role colors/gradients or external Nitro colors with Nitro fonts/effect hooks. Authors additionally show APP, server tag and role icon.
 import { Show, createEffect, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { ArchiveMessage, PersonName } from '@shared/contract';
@@ -31,7 +30,7 @@ export function ServerTag(props: { tag: NonNullable<ArchiveMessage['author']['ta
   );
 }
 
-/** A button opening their profile; without `onClick`, plain text (a preview where nothing should open). */
+/** Opens profiles when onClick exists; otherwise renders plain text. */
 export function AuthorName(props: { author: DrawnName; class?: string; title?: string; onClick?: () => void }) {
   const a = () => props.author;
   createEffect(() => {

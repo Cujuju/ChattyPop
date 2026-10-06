@@ -51,11 +51,7 @@ export type AppEvent =
   | { type: 'self-changed'; userId: string }
   /** A channel's read mark moved to a message the owner saw: main marks it read on Discord, every surface re-reads counts. */
   | { type: 'channel-read'; channelId: string; messageId: string }
-  /**
-   * Someone is typing in a channel (Discord's TYPING_START, sent again every few seconds while they go on; their message
-   * arriving ends it). `name`: the server nickname or display name the payload carried, when it did. `verb`: a custom
-   * typing indicator's word in place of "typing" ("barking"), when Discord sent one.
-   */
+  /** Typing events refresh periodically until messages arrive. Optional name carries nickname/display name; verb carries custom typing wording. */
   | { type: 'typing'; channelId: string; userId: string; name?: string; verb?: string }
   | { type: 'plugin-notify'; pluginId: string; title: string; body: string; channelId?: string; messageId?: string };
 
@@ -109,12 +105,12 @@ export interface DiscordSlot {
 export interface DiscordProbe {
   loggedIn: boolean;
   capturedAt: number | null;
-  /** History page sizes the real client requested (spike #2 measurement). */
+  /** History page limits observed from client requests. */
   observedLimits: number[];
   username: string | null;
   guildCount: number | null;
   error: string | null;
-  /** Passive gateway capture (spike #3). */
+  /** Passive gateway capture. */
   gateway: {
     compress: string | null;
     frames: number;
@@ -126,10 +122,7 @@ export interface DiscordProbe {
 
 export const APP_EVENT_CHANNEL = 'app:event';
 
-/**
- * Renderer → main invoke channels, grouped as in RendererApi; the preload builds a forwarder for each. Checked against
- * RendererApi here, and the preload fails to type-check when a RendererApi method has no channel.
- */
+/** Renderer invoke channels map to RendererApi groups. Preload forwarders and type checks require every method to have a channel. */
 export const MAIN_INVOKE = {
   openRouter: {
     signIn: 'openrouter:sign-in',

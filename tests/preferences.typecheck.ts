@@ -1,6 +1,4 @@
-// Plugin preferences' type contract (docs/plugin-architecture.md §4): an undeclared name or a value of the wrong type
-// fails to compile in core and main, and a descriptor's own references must name declared preferences and fields.
-// Checked by `pnpm typecheck` (tsconfig.node.json includes tests/); nothing here runs.
+// Compile-only contracts reject undeclared preferences, wrong value types, and invalid descriptor fields in core and main. pnpm typecheck validates them.
 import { definePlugin, definePreference, finiteOr } from '@plugin-sdk/shared';
 import type { CoreContext } from '@plugin-sdk/core';
 import type { MainContext } from '@plugin-sdk/main';

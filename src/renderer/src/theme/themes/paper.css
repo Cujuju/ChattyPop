@@ -1,9 +1,4 @@
-/* Theme 'paper': warm off-white paper with near-black ink, for long reading with little glare. Atkinson
-   Hyperlegible type (its faces are declared in fonts.css) one step larger, relaxed line height, rounded cards spaced on
-   the ground. Every panel carries equal weight.
-   Contrast (WCAG 2.x, sRGB) checked 2026-09-27, all >= 4.5:1 (tests/themeContrast.test.ts holds them):
-   text-1 / text-2 / text-muted on surface-0..5: 16.3-11.7 / 10.3-7.5 / 6.7-4.9; text-on-accent on accent 6.4;
-   info on cite-bg 5.7; sections on surface-2 / 3 5.1-6.5, text-on-accent on each 6.0-6.9; platforms on surface-4 >= 4.7. */
+/* Paper uses warm off-white, Atkinson Hyperlegible, relaxed line height and equally weighted cards. Theme contrast tests cover text, accents, sections and platforms. */
 
 [data-theme='paper'] {
   --cp-color-scheme: light;

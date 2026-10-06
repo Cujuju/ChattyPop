@@ -1,5 +1,4 @@
-// What a bundled plugin's core side must register when it activates (docs/plugin-architecture.md §2): each core call
-// it declares, its completion reports' handlers, its rule kinds, its AI providers and its search ranker.
+// Checks activation registrations against declared core calls, completion handlers, rule kinds, AI providers and search rankers.
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { completionOf, membersOf } from '@shared/pluginChannels';
 import type { RuleSection } from '@shared/ruleKinds/types';

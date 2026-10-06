@@ -1,5 +1,4 @@
-// The privacy scope kept as a table by triggers: after every write that can change what is hidden, it holds what
-// the views it replaced derived (the oracle below, their frozen SQL), including through REPLACE, upserts and renames.
+// Privacy-scope triggers match frozen view SQL after writes, including REPLACE, upserts, and renames.
 import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import { describe, expect, it } from 'vitest';

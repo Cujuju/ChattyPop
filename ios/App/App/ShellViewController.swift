@@ -15,31 +15,29 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let backdropHandler = "shellBackdrop"
     // Mirrors COMPANION_PATHS.push in the companion plugin's shared/protocol.ts.
     private static let pushPath = "/push"
-    /// How long the previous PC gets to forget this phone's push address when it re-pairs; that PC may be off.
+    /// Timeout for revoking the previous PC’s push registration during re-pairing.
     private static let unsubscribeTimeout: TimeInterval = 10
     // Mirrors SHELL_NATIVE_GLOBAL and APNS_ENVIRONMENTS in src/shared/shell.ts.
     private static let nativeGlobal = "chattyPopShell"
     private static let developmentEnvironment = "development"
     private static let productionEnvironment = "production"
-    /// The notification tap that launched the app. The scene receives it before Capacitor's notification delegate
-    /// exists, so the first bridge to load hands it on.
+    /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
     static var launchNotification: UNNotificationResponse?
-    /// The default dark theme's ground (capacitor.config.ts ios.backgroundColor), until the page posts its own backdrop.
-    /// The keyboard's resize uncovers the window and this controller's view, which show in the keyboard's rounded corners.
+    /// Uses the default dark backdrop until the page publishes its own. The underlying window remains visible around the keyboard’s rounded corners.
     static let ground = UIColor(red: 9 / 255, green: 11 / 255, blue: 16 / 255, alpha: 1)
     private var origin: URL?
     private var pairingURL: URL?
     private var cookieStore: WKHTTPCookieStore?
     private var cookieRevision = 0
-    /// The keyboard's last announced frame, in its screen's coordinates; kept to refit when the window changes.
+    /// Last keyboard frame in screen coordinates, reused after window changes.
     private var keyboardFrame: CGRect?
-    /// How far the keyboard covers the web view's bottom, as last told to the page.
+    /// Latest bottom keyboard coverage published to the page.
     private var keyboardCover: CGFloat = 0
-    /// After the keyboard last moved, WebKit's offsets to reveal the focused field are undone until then.
+    /// Deadline for suppressing WebKit focus-scrolling offsets after keyboard movement.
     private var revealHeldUntil: Date?
     private var heldOffset: NSKeyValueObservation?
     private var restoringOffset = false
-    /// How long after the keyboard's animation WebKit may still try to reveal the focused field.
+    /// Additional focus-scroll suppression interval after keyboard animation.
     private static let revealSettle: TimeInterval = 0.3
     // Mirrors SHELL_KEYBOARD_PROPERTIES in src/shared/shell.ts (the theme's sizes.css reads them).
     private static let keyboardInsetProperty = "--cp-keyboard-inset"
@@ -89,7 +87,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
             alert.addAction(UIAlertAction(title: "Pair", style: .default) { [weak window] _ in
                 guard let window else { return }
-                // The PC this phone was paired with (another, or this one under a new pairing) would keep pushing to it.
+                // Revokes the previous PC’s push registration before changing pairings.
                 if let previous = try? SharedPairing.read() { unsubscribe(from: previous) }
                 do {
                     try SharedPairing.write(nil)
@@ -105,8 +103,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         }
     }
 
-    /// Asks `pairing`'s PC to stop pushing to this phone (DELETE /push with its pairing cookie). Best effort: a PC that is
-    /// off or unreachable keeps pushing until the phone is signed out in its Settings → Phone.
+    /// Requests DELETE /push with the pairing cookie. An unreachable PC retains its push registration until the phone is revoked in Settings.
     private static func unsubscribe(from pairing: CompanionPairing) {
         var request = URLRequest(url: pairing.origin.appendingPathComponent(pushPath), timeoutInterval: unsubscribeTimeout)
         request.httpMethod = "DELETE"
@@ -125,8 +122,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         return descriptor
     }
 
-    /// The APNs environment this build's aps-environment entitlement names, read from its provisioning profile. App Store and
-    /// TestFlight builds carry no profile and always use production.
+    /// Reads APNs environment from provisioning entitlements. App Store and TestFlight builds use production without a profile.
     private static let apsEnvironment: String = {
         // A simulator build has no profile, but its device tokens are sandbox ones.
         #if targetEnvironment(simulator)
@@ -158,7 +154,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         super.capacitorDidLoad()
         view.backgroundColor = Self.ground
         installKeyboardContainer()
-        // Plugins are loaded now; the push plugin keeps the tap until the page's listener takes it.
+        // The push plugin retains notification taps until the page listener subscribes.
         if let response = Self.launchNotification, let bridge {
             Self.launchNotification = nil
             bridge.notificationRouter.userNotificationCenter(UNUserNotificationCenter.current(), didReceive: response, withCompletionHandler: {})
@@ -199,9 +195,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         webView?.load(URLRequest(url: origin))
     }
 
-    /// capacitor.config.ts sets Keyboard resize 'none': the plugin's 'native' resize waits for the keyboard's animation
-    /// plus 0.2 s. Instead the web view stays full-window and the page moves itself, as a native app's content does: each
-    /// keyboard announcement tells it the cover and iOS's duration (publishKeyboard), and the page eases its inset over it.
+    /// Keyboard resize is disabled. The web view stays full-window; keyboard notifications publish coverage and animation duration for the page’s inset.
     private func installKeyboardContainer() {
         guard let webView else { return }
         let container = UIView(frame: webView.frame)
@@ -217,9 +211,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         ])
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)),
                                                name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
-        // WebKit scrolls the whole web view to reveal a focused field the keyboard covers, although the page lays itself out
-        // above the keyboard. While the keyboard is up or moving, a vertical offset WebKit sets is undone before it is
-        // drawn; once it settles, the focused field is revealed within its own scrolling box (publishKeyboard).
+        // Resets WebKit’s vertical offset while the keyboard is visible or moving. Once settled, reveals the focused field within its scrolling container.
         heldOffset = webView.scrollView.observe(\.contentOffset, options: [.old, .new]) { [weak self] scrollView, change in
             guard let self, !self.restoringOffset,
                   self.keyboardCover > 0 || (self.revealHeldUntil.map { Date() < $0 } ?? false),
@@ -230,28 +222,24 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             scrollView.contentOffset = CGPoint(x: new.x, y: old.y)
             self.restoringOffset = false
         }
-        // Capacitor's StatusBar plugin sets the web view's frame to the window's on appearing and rotating; the
-        // constraints take it back.
+        // Constraints restore the web view frame after StatusBar updates on appearance or rotation.
         (webView as? PairingWebView)?.frameChanged = { [weak container] in container?.setNeedsLayout() }
     }
 
-    /// A keyboard on this window's screen announces where it will be. An interactive dismiss sends a stream of these.
+    /// Keyboard-frame announcements for this screen; interactive dismissal emits multiple frames.
     @objc private func keyboardWillChangeFrame(_ note: Notification) {
         guard let screen = view.window?.screen,
               (note.object as? UIScreen).map({ $0 === screen }) ?? true,
               let end = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue else { return }
         keyboardFrame = end
-        // iOS's own duration, so the page moves at the keyboard's pace; an interactive dismiss's stream has none.
+        // Uses the native animation duration; interactive dismissal announcements have none.
         let duration = (note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0
         let opening = duration > 0 && end.minY < screen.bounds.maxY - 1
         revealHeldUntil = Date().addingTimeInterval(duration + Self.revealSettle)
         publishKeyboard(duration: duration, revealAfter: opening ? duration + Self.revealSettle : nil)
     }
 
-    /// Tells the page how far a docked keyboard over this window covers it, and how long iOS takes to get there; the page
-    /// eases --cp-keyboard-inset over that time (the theme's sizes.css). The web view never resizes: WebKit draws an
-    /// animated resize at the final size inside the moving frame, which pushes the page down. A floating keyboard covers
-    /// nothing, and the cover never exceeds the window.
+    /// Publishes docked-keyboard coverage and animation duration. Floating keyboards contribute zero; coverage is bounded by the window height.
     private func publishKeyboard(duration: TimeInterval = 0, revealAfter delay: TimeInterval? = nil) {
         guard let screen = view.window?.screen else { return }
         var cover: CGFloat = 0
@@ -267,7 +255,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             webView?.evaluateJavaScript("\(style).setProperty('\(Self.keyboardDurationProperty)', '\(ms)ms'); \(style).setProperty('\(Self.keyboardInsetProperty)', '\(cover)px')")
         }
         guard let delay else { return }
-        // Once the page has moved above the keyboard, the focused field is revealed within its own scrolling box.
+        // Reveals the focused field within its scrolling container after applying the keyboard inset.
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             self?.webView?.evaluateJavaScript("document.activeElement?.scrollIntoView({ block: 'nearest' })")
         }
@@ -275,11 +263,11 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // The window moved, resized or rotated: tell the page the keyboard's cover in the new bounds.
+        // Recomputes keyboard coverage after window movement, resize, or rotation.
         publishKeyboard()
     }
 
-    /// The page's `{ r, g, b }` (0–255): the surface above the keyboard, painted behind it on every theme change.
+    /// Page RGB backdrop, with 0–255 components, updated on theme changes.
     fileprivate func setBackdrop(_ message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame,
               let rgb = message.body as? [String: Any],
@@ -299,7 +287,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     }
 }
 
-/** A script message handler that doesn't retain the controller: the user content controller keeps its handlers. */
+/** Weak controller reference prevents retention through user-content message handlers. */
 private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
     private let receive: (WKScriptMessage) -> Void
 
@@ -311,7 +299,7 @@ private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
         receive(message)
     }
 }
-/** Swaps Capacitor's first request for the confirmed pairing page. A second load would cancel the first, and Capacitor shows its error page for a cancelled load. */
+/** Replaces Capacitor’s initial request with the confirmed pairing page. A separate load cancels the initial request and triggers Capacitor’s error page. */
 private final class PairingWebView: WKWebView {
     var initialURL: URL?
     /// Called when something other than its constraints may have moved it.

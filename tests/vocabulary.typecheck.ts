@@ -1,5 +1,4 @@
-// Jev switches' and notice kinds' type contract (docs/plugin-architecture.md §3, §4): a plugin names only the switches
-// and kinds its descriptor declares (or the host's switches); the host stamps them. Checked by `pnpm typecheck`.
+// Compile-only contracts restrict Jev switches and notice kinds to declared plugin or host vocabulary. The host stamps names; pnpm typecheck validates them.
 import { definePlugin } from '@plugin-sdk/shared';
 import type { CoreContext } from '@plugin-sdk/core';
 import type { MainContext } from '@plugin-sdk/main';

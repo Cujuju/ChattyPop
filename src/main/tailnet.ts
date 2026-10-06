@@ -1,5 +1,4 @@
-// Tailscale Serve for plugins (docs/plugin-architecture.md §3, tailnet publishing): publishes a loopback server on this
-// PC's tailnet name over HTTPS. The host records what it set, so config whose plugin is absent or off is removed.
+// Publishes loopback services over tailnet HTTPS. Tracks host-created configuration and removes ports for disabled/absent plugins.
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -98,11 +97,7 @@ const isPublication = (v: unknown): v is Publication => {
   return typeof p?.pluginId === 'string' && Number.isInteger(p.httpsPort) && typeof p.target === 'string';
 };
 
-/**
- * Plugins' Tailscale Serve config, recorded in a host file in the profile before it is set and dropped once removed.
- * Removal touches a port only while Serve still proxies it to the recorded target, so config the owner set is kept.
- * Calls run one at a time.
- */
+/** Records Serve configuration before setting it. Removes only ports still targeting the recorded service, preserving owner edits. Serializes calls. */
 export class TailnetServe {
   private chain: Promise<unknown> = Promise.resolve();
 

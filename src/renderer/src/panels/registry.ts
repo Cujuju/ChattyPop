@@ -29,10 +29,7 @@ export const PANELS = Object.fromEntries(Object.entries(COMPONENTS).map(([id, co
 
 export type { PanelId };
 
-/**
- * Built-in panels by id; plugin:<plugin>:<panel> ids resolve to a slot that mounts that plugin panel; a bundled plugin's
- * panel resolves while its plugin is on. Reactive: a panel appears when its plugin is turned on.
- */
+/** Resolves built-in/plugin panel ids reactively. Enabled plugin panels mount through slots; toggling on makes them available. */
 export function lookupPanel(id: string): PanelDef | undefined {
   if (isPluginPanelId(id)) return { title: findPluginPanel(id)?.title ?? id, component: () => createComponent(PluginPanelSlot, { id }) };
   const bundled = bundledPanel(id);

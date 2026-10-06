@@ -1,6 +1,4 @@
-# Publishes the Windows installer and latest.yml (what installed copies update from, main/updates.ts) as a GitHub
-# release tagged `v<version>`. Run it from Actions → Release app → Run workflow (releases main's head), or push a tag
-# `v<version>` naming a commit's own version (node scripts/runTs.mjs scripts/printVersion.ts prints it).
+# Publishes the Windows installer and latest.yml as v<version>. Manual runs release main; pushed tags must match the target commit’s version.
 name: Release app
 
 on:
@@ -22,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          # appVersion() counts the whole history: a shallow clone would undercount the version.
+          # Version calculation requires complete git history.
           fetch-depth: 0
 
       - name: Set up pnpm (packageManager)

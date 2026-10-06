@@ -1,5 +1,4 @@
-// Named 24-unit line icons for menus, headers and inline marks; base.css draws their stroke and default size (1em),
-// the caller's class any other size. Small standalone buttons use the solid set (solidIcons.tsx).
+// Named 24-unit line icons use base.css strokes/default 1em sizing; callers resize. Small standalone buttons use solidIcons.
 import type { JSX } from 'solid-js';
 import type { IconName } from './iconNames';
 

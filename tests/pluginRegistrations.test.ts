@@ -1,5 +1,4 @@
-// Registration checks (docs/plugin-architecture.md §2): a core activation that leaves out a call, completion handler,
-// rule kind or provider its descriptor declares fails, keeping nothing it registered; checkBundled holds audiences.
+// Missing declared registrations fail activation and discard its registrations. Descriptor checks enforce audiences.
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { defineChannels, definePlugin, defineRuleFilter } from '@plugin-sdk/shared';
 import { defineCorePlugin, type CoreContext, type ProviderImpl } from '@plugin-sdk/core';

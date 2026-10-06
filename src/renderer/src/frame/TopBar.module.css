@@ -1,5 +1,4 @@
-/* F2 top bar: the app frame above every layout. Class names are the contract with TopBar.tsx.
-   Chrome controls are ghost: no borders in the bar, so the search field and the layout track are the only outlined shapes. */
+/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only search and layout track outlined. */
 .root {
   position: relative;
   display: grid;
@@ -13,8 +12,7 @@
   background: var(--cp-chrome-paint, var(--cp-surface-0));
 }
 
-/* No rule under the bar: its ground fades out over what sits below (panel headers, their own fades included). The fade
-   alone is raised, not the bar, so the search results keep their popover rank. */
+/* Only the bar’s ground fade is raised; search results retain their popover stacking level. */
 .root::after {
   content: '';
   position: absolute;

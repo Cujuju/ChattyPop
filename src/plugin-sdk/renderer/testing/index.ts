@@ -1,6 +1,4 @@
-// Plugin SDK, renderer testing (docs/plugin-architecture.md §15): the window a plugin's renderer side runs in, over an
-// in-memory transport with an explicit audience, reaching a core (and main) test harness as the app's transports do.
-// Never bundled into the app: only tests import it (tests/pluginTesting.test.ts).
+// Test-only renderer harness uses audience-specific in-memory transport to core/main harnesses. Never bundled into the app.
 import { installApi } from '@/api';
 import type { AppEvent, RendererApi } from '@shared/contract';
 import { phoneAppEvent } from '@shared/phone';

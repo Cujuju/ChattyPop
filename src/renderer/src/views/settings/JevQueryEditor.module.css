@@ -1,6 +1,4 @@
-/* Settings → Jev → Queries: the open query's editor, scrolling content above a fixed footer with the save actions.
-   Group colour is --group from [data-group] on .detail (theme/identity.css). Labels, notes and the save button are cp-*.
-   Hooks: .status[data-kind]. */
+/* Query editors scroll above fixed save footers. Group/status attributes color shared labels/notes/actions. */
 .detail {
   display: flex;
   flex: 1 1 auto;

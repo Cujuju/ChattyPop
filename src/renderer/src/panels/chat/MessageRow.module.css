@@ -1,10 +1,5 @@
-/* Archive message row (MessageRow, Attachment's revisions), F2's chat log. Rows are absolutely positioned and
-   height-measured: vertical spacing is padding, never margin.
-   Hooks: .row[data-deleted|data-edited|data-focused|data-mention|data-menu='true'],
-   swipe to reply (ui/touch.ts swipeLeftToAct): .row[data-swipe='drag'|data-armed='true'], --swipe-x, --swipe-p. */
-/* Log grid: time | author | body; the first line of each shares one baseline. ui/LogParts.module.css .day spans it.
-   A swipe moves the row with the finger and springs it back on release; `translate` is none at rest, so a row is no
-   containing block then. Vertical pans stay the browser's scroll; sideways ones reach the swipe. */
+/* Measured absolute message rows use padding spacing. Deleted/edited/focused/mention/menu and swipe attributes drive styles; --swipe-x/p carry gesture state. */
+/* Log grid aligns time/author/body baselines. Swipe translation springs back; unset rest translation avoids containing blocks. Vertical pans scroll normally. */
 .row {
   position: relative;
   display: grid;
@@ -22,8 +17,7 @@
     translate var(--cp-duration-base) var(--cp-ease-out);
 }
 
-/* Lit under a mouse (the Alerts rows' wash; a tap lights nothing), when keys select it (its log row focused: the same
-   wash, never on a phone) and while its menu is open (right click, long press). */
+/* Highlights mouse hover, desktop keyboard selection and open menus. Phone taps do not highlight rows. */
 @media (hover: hover) {
   .row:hover,
   :global([data-row-key]:focus-visible) .row {
@@ -103,8 +97,7 @@
   scale: var(--cp-swipe-mark-armed-scale);
 }
 
-/* Phone: a long press opens the message menu (ui/touch.ts), so it must not start iOS's text selection or image callout.
-   The menu's Copy group copies the text. Safari needs the prefix. */
+/* Phone long presses open menus instead of iOS selection/image callouts. Copy actions supply text; Safari requires prefixed selection rules. */
 :global(html[data-surface='companion']) .row,
 :global(html[data-surface='companion']) .row * {
   -webkit-touch-callout: none;

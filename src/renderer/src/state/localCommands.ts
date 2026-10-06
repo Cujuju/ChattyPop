@@ -1,5 +1,4 @@
-// Discord's built-in commands that act rather than rewrite the text (/thread, /msg): filled in like an app's command,
-// then run by ChattyPop through the client's session instead of reaching an app.
+// Executes Discord action commands such as thread/msg through the embedded session, using app-style option entry.
 import { api } from '@/api';
 import { OPTION, type CommandEntry, type CommandOption, type OptionValue } from '@shared/commands';
 import { DISCORD_TEXT_MAX, GUILD_TEXT_CHANNEL_TYPE, THREAD_NAME_MAX } from '@shared/discord';

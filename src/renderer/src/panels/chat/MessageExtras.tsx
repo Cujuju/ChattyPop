@@ -25,8 +25,7 @@ export const hexColor = (n: number): string => `#${n.toString(HEX_RADIX).padStar
 /** A media file's pixel size as CSS variables: with data-sized, the stylesheet reserves its box before it loads. */
 export const mediaSizeVars = (s: MediaSize | null): JSX.CSSProperties => (s ? { '--media-w': s.width, '--media-h': s.height } : {});
 
-/** The reply line above a reply: small avatar, name and the start of the replied-to message; click jumps to it.
- *  pinged: the reply pinged its author, so the name reads @name, as Discord shows it. */
+/** Reply previews show avatar, author and leading text; click jumps to target. Pinged replies display @name. */
 export function ReplyLine(props: { reply: ArchiveReply; channelId: string; pinged: boolean }) {
   const preview = () => props.reply.content.split('\n')[0]!.slice(0, REPLY_PREVIEW_CHARS) || 'Click to see attachment';
   return (

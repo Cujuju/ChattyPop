@@ -37,10 +37,7 @@ export function ownEmoji(db: Db, authorId: string, limit: number): UsedEmoji[] {
 /** Newest messages read for the owner's reactions: anyone's, since the owner reacts to others' messages. */
 const SCANNED_FOR_REACTIONS_MAX = 20_000;
 
-/**
- * The owner's most-used reactions (a stored reaction's `me`), most used first (ties: most recent first), at most `limit`:
- * the hover bar's quick reactions. Super reactions don't set `me`, so they don't count.
- */
+/** Ranks owner reactions by usage, then recency, limited to limit. Super reactions lack me and do not count. */
 export function ownReactions(db: Db, limit: number): ArchiveEmoji[] {
   const rows = db
     .prepare(

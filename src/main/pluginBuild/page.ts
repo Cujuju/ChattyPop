@@ -16,7 +16,7 @@ const BUILT_HTML = 'page.html';
 /** The page's one script: a module with a relative src, which the build takes out and builds as the entry. */
 const ENTRY_SCRIPT = /[ \t]*<script type="module" src="(\.\/[^"]+)"><\/script>[ \t]*\r?\n?/;
 const ANY_SCRIPT = /<script\b/gi;
-/** A relative URL in the HTML: it would resolve against the page's URL, not its folder. */
+/** Relative HTML URLs resolve against page URLs rather than plugin folders. */
 const RELATIVE_URL = /\s(?:src|href)="(\.[^"]*)"/i;
 const HEAD_END = /<\/head>/i;
 

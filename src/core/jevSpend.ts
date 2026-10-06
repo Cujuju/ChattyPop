@@ -18,10 +18,7 @@ interface Tally {
 
 const empty = (): Tally => ({ requests: 0, pricedQuestions: 0, usd: 0, unpriced: 0, inputTokens: 0, outputTokens: 0, tokenless: 0 });
 
-/**
- * Tallies requests in memory and writes them within FLUSH_MS, then reports the new spend. While the database is
- * closed (the archive being moved) the tally waits; at most the last FLUSH_MS of requests is lost if the app is killed.
- */
+/** Buffers spend for FLUSH_MS, including while the database is closed. Abrupt termination can lose the latest buffer; flushes report updated spend. */
 export class JevSpendLedger {
   private readonly pending = new Map<string, Tally>();
   private timer: NodeJS.Timeout | undefined;

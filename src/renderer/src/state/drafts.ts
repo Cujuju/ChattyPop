@@ -1,5 +1,4 @@
-// The Archive composer's drafts, one per channel: text, attached files, and picked custom emoji, people and roles. Kept in IndexedDB as
-// they change, so a reload or a closed app finds them again; composer.ts sends them.
+// Per-channel text/files/entity selections persist in IndexedDB on changes and survive reloads/quits. composer.ts sends drafts.
 import { createStore } from 'solid-js/store';
 import { emojiToken, mentionToken, type MentionPick } from '@shared/compose';
 import type { ArchiveMessage, MentionCandidate } from '@shared/contract';

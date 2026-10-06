@@ -21,7 +21,7 @@ const MY_ROLE = '400000000000000001';
 const OTHER_ROLE = '400000000000000002';
 const NOW = Date.UTC(2026, 8, 30);
 
-/** Snowflake-ordered message ids: a later n is a newer message. */
+/** Increasing snowflake IDs represent newer messages. */
 const id = (n: number): string => String(500000000000000000n + BigInt(n));
 
 function setup() {

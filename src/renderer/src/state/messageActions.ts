@@ -32,10 +32,7 @@ async function pngOf(src: string): Promise<Blob> {
   return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Image could not be encoded'))), 'image/png'));
 }
 
-/**
- * Copies an image. The write starts within the tap with the PNG still on its way: Safari refuses a clipboard write that
- * waits for a fetch first. A failure shows as an alert: the menu has closed.
- */
+/** Starts clipboard writes within taps using pending PNG promises, preserving Safari activation. Failures alert after menu closure. */
 function copyImage(src: string): Promise<void> {
   return navigator.clipboard
     .write([new ClipboardItem({ 'image/png': pngOf(src) })])

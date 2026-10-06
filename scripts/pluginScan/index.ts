@@ -1,5 +1,4 @@
-// plugin:check's scan step (docs/plugin-architecture.md §16): a plugin folder's source against the rules the app's
-// tests checked while plugins lived in src/plugins. Tests, node_modules and the page's static files aren't scanned.
+// Checks plugin source boundaries. Excludes tests, dependencies, and static page files.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join, relative, resolve } from 'node:path';
 import { SHARED_ENTRY } from '../../src/main/pluginBuild/descriptor';
@@ -9,7 +8,7 @@ import { archiveViolations } from './sql';
 import { PAGE_DIR, SHELL_TIER, TESTS_DIR, TEST_FILE, globalViolations, importViolations, importsOf, tablePrefixViolations, userSelectViolations } from './rules';
 import { violation, type SourceFile } from './source';
 
-/** The page's static files, copied as they are (a service worker among them): not built, so no plugin code. */
+/** Static page files copy without compilation. */
 const PAGE_PUBLIC = `${PAGE_DIR}/public`;
 const NOT_SOURCE = 'node_modules';
 const SCRIPT = /\.[cm]?[jt]sx?$/;
@@ -35,7 +34,7 @@ function dependencies(pluginDir: string): Set<string> {
   return new Set(Object.keys((JSON.parse(readFileSync(file, 'utf8')) as { dependencies?: Record<string, string> }).dependencies ?? {}));
 }
 
-/** Release stamping rewrites the manifest's version literal in place (./manifest): a shape it can't find is refused. */
+/** Rejects manifest shapes unsupported by release stamping. */
 function stampViolations(files: SourceFile[]): string[] {
   const shared = files.find((f) => f.rel === SHARED_ENTRY);
   if (!shared) return [];
@@ -53,7 +52,7 @@ export interface ScanOptions {
   isPhoneTransport: boolean;
 }
 
-/** Every violation in `pluginDir`'s source, as `file:line: message`; none when it passes. Its folder name is its id (sourceDescriptor). */
+/** Reports source violations as file:line: message; plugin IDs match folder names. */
 export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions): string[] {
   const pluginDir = resolve(dirIn);
   const id = basename(pluginDir);

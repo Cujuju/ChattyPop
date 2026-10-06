@@ -1,5 +1,4 @@
-// AI read scope contracts (docs/plugin-architecture.md §3, AI read scope): every plugin AI request declares the channels
-// it reads, and the host checks them against the provider actually chosen and the effective local-AI-only policy.
+// Plugin AI requests declare channel scope, checked against the selected provider and effective local-only policy.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

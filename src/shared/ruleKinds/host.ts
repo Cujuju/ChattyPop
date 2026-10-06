@@ -137,10 +137,7 @@ export const linkDomains: RuleFilterKind<string[]> = {
 /** Absolute paths only (drive, UNC or POSIX root): a rule’s file cannot depend on the core’s working directory. */
 const ABSOLUTE_PATH = /^(?:[a-zA-Z]:[\\/]|\\\\|\/)/;
 export type RuleFileFormat = 'jsonl' | 'markdown';
-/**
- * File endings a file action may write, per format. Message text comes from other people, so a rule never writes a
- * file Windows would run or open as code (.cmd, .ps1, .html…).
- */
+/** File-action extensions are format-restricted because message text is untrusted. Excludes executable/script/web formats such as cmd, ps1 and html. */
 export const RULE_FILE_EXTENSIONS: Readonly<Record<RuleFileFormat, readonly string[]>> = {
   markdown: ['.md', '.markdown', '.txt'],
   jsonl: ['.jsonl', '.ndjson'],

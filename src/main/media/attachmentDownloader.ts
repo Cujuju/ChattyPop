@@ -109,10 +109,7 @@ export class AttachmentDownloader {
     }
   }
 
-  /**
-   * Downloads one attachment to `r.path`, outside the store (a pruned voice message being transcribed); null or the error.
-   * It appears there only once complete: a late or repeated download never exposes a partial file.
-   */
+  /** Downloads outside-store attachments atomically to r.path. Returns null or error; incomplete and repeated downloads never expose partial files. */
   async fetchTo(r: AttachmentFetch): Promise<string | null> {
     const partial = join(dirname(r.path), `${PARTIAL_DOWNLOAD_PREFIX}${randomUUID()}-${basename(r.path)}`);
     try {

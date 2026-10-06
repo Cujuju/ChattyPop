@@ -1,6 +1,4 @@
-// What Discord's client fetches when a name is clicked (profile, note), a profile's Mutual Friends tab is
-// opened or a reaction is hovered; asked as the client asks, through the embedded session. Callers pass
-// DiscordApi.prompt: the owner is waiting. Message goes through the DM service (dms.ts).
+// Fetches profiles, notes, mutual friends and reactors through embedded-session prompt calls. Message actions use the DM service.
 import { HTTP_NOT_FOUND, DiscordHttpError, reactionPathPart, type RawUser } from '@shared/discord';
 import type { ArchiveEmoji } from '@shared/contract';
 import type { Friend } from '@shared/dms';
@@ -10,7 +8,7 @@ import type { GatewayTap } from './gatewayTap';
 
 /** Discord's relationship type for a friend. */
 const FRIEND_RELATIONSHIP = 1;
-/** Reactors fetched per emoji: the names Discord's tooltip shows (Assumption: three, then "and N others"). */
+/** Reactors fetched per emoji for tooltip display. */
 export const REACTORS_FETCHED = 3;
 /** Discord's reaction type for a normal (not super) reaction. */
 const NORMAL_REACTION = 0;

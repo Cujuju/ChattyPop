@@ -1,5 +1,4 @@
-// The posting tier (docs/plugin-architecture.md §4): a plugin imports every export of @plugin-sdk/renderer/posting,
-// in the dev registry (plugin:check's scan) and installed (the build reads the host's published namespace).
+// Tests posting-tier exports through development registries and installed host namespaces.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';

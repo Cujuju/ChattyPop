@@ -1,5 +1,4 @@
-// Host test kit (`@chattypop/host-testing`, docs/plugin-architecture.md §16): what a plugin's tests outside this
-// checkout import from the host. Re-exports only, and no plugin's code (tests/pluginCheck.test.ts): plugins leave.
+// Host-testing entry re-exports helpers without importing plugin code.
 export * from '../helpers';
 export * from '../fakeJev';
 export * from '../hostRules';

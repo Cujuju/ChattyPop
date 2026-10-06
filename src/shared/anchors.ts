@@ -12,11 +12,7 @@ export type HostSettingsTabId = (typeof HOST_SETTINGS_TABS)[number];
 export const HOST_SETTINGS_PAGES = ['ai', 'archive'] as const satisfies readonly HostSettingsTabId[];
 export type SettingsPageId = (typeof HOST_SETTINGS_PAGES)[number];
 
-/**
- * Keyboard shortcuts (renderer state/shortcuts.ts), in the status bar's hint order, each with its default keys after the
- * leader key; the owner rebinds all but layout's fixed digits (state/shortcutBindings.ts). Layout's digits pick presets in the top bar's order; the switcher's key is the leader itself, pressed twice.
- * A plugin's shortcut is one other lowercase letter.
- */
+/** Shortcuts follow status-hint order. Owner rebinds keys except fixed layout digits; double leader opens switcher. Plugin shortcuts use other lowercase letters. */
 export const HOST_SHORTCUTS = {
   layout: ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
   live: ['a'],

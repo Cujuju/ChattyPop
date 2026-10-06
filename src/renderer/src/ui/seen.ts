@@ -4,10 +4,7 @@ import { markPanelSeen, panelShown } from '@/state/unread';
 import { inCompanion } from '@/state/ui';
 import { listen } from './listen';
 
-/**
- * True while `el` is on screen: inside the viewport (so not display:none, e.g. an inactive tab), its window not
- * minimized, and panel `id` not folded. Call from a component body; stops with its owner.
- */
+/** Component-owned visibility requires viewport presence, non-minimized window and unfolded panel. */
 export function createShown(el: Element, id: () => string): Accessor<boolean> {
   const [inView, setInView] = createSignal(false);
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState === 'visible');
@@ -18,10 +15,7 @@ export function createShown(el: Element, id: () => string): Accessor<boolean> {
   return createMemo(() => inView() && pageVisible() && !isPanelCollapsed(id()));
 }
 
-/**
- * True while this window has focus, as Discord's client requires before it marks a channel read: a window behind
- * another app's, or created hidden (the tray), isn't read. The phone has no other window: always true there.
- */
+/** Desktop read eligibility requires window focus, excluding tray/background windows. Phone always returns true. */
 export function createWindowFocused(): Accessor<boolean> {
   if (inCompanion) return () => true;
   const [focused, setFocused] = createSignal(document.hasFocus());

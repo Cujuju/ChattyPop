@@ -1,5 +1,4 @@
-// Shortcut keys the owner rebinds: each shortcut's declared key, or the owner's override. Pure, so tests read it;
-// state/shortcuts.ts wires it. Modelled on StockApp's registry overrides (client-solid/src/shortcuts/registry/overrides.ts).
+// Pure shortcut overrides resolve owner or declared keys; state/shortcuts.ts wires bindings.
 import { HOST_SHORTCUTS, type HostShortcutId } from '@shared/anchors';
 import { stampedName } from '@shared/bundledTypes';
 import { recordOf } from '@shared/normalize';
@@ -129,7 +128,7 @@ export function withBinding(overrides: BindingOverrides, def: ShortcutDef, key: 
   return next;
 }
 
-/** Bindings a former one shadows on the same key (a plugin installed later declaring a key an override took), by id. */
+/** Lists bindings shadowed by earlier keys, including newly installed plugin defaults. */
 export function shadowedBindings(bindings: readonly Binding[]): Map<string, Binding> {
   const shadowed = new Map<string, Binding>();
   bindings.forEach((b, i) => {

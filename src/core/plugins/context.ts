@@ -31,11 +31,7 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
   lifetime: Lifetime;
   session: {
     lastSeenAt(): number;
-    /**
-     * This activation continues the previous one without a gap: the plugin was on through the end of the previous app
-     * session and hasn't been off since. False on first run, after being off or absent from a build, or a failed start;
-     * then caches of what the archive held (history coverage) must be rebuilt.
-     */
+    /** True when activation follows uninterrupted enabled sessions. First run, disabled/absent builds or failed starts require rebuilding archive coverage caches. */
     resumed: boolean;
   };
   storage: {
@@ -76,11 +72,7 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
   ai: PluginAi<D>;
   jev: PluginJev<D>;
   net: {
-    /**
-     * HTTPS to a host the descriptor lists (network.hosts) or a subdomain of one, or HTTP(S) to the origin of an address
-     * the owner set (network.ownerUrls), redirects included; anything else rejects. The only way a plugin reaches the
-     * network (a test holds plugins to it). Scoped to the activation: it settles with PluginInactiveError when that ends.
-     */
+    /** Allows declared HTTPS hosts/subdomains and owner-configured HTTP(S) origins, including redirects. Other destinations reject; ending activation rejects pending requests with PluginInactiveError. */
     fetch: PluginFetch;
   };
   channels: {
@@ -94,10 +86,7 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
   log(...args: unknown[]): void;
 }
 
-/**
- * A plugin's core side (its folder's core/index.ts). activate may return a function that runs on unload. It is
- * synchronous: bundled plugins start during core init, before the catch-up asks their Jev questions.
- */
+/** Core-side activation is synchronous before Jev catch-up. It may return an unload callback. */
 export interface CorePlugin<D extends PluginDescriptor = PluginDescriptor> {
   plugin: D;
   activate(ctx: CoreContext<D>): void | (() => void);

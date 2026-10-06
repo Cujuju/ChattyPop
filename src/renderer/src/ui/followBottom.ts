@@ -17,11 +17,7 @@ export interface FollowBottom {
   detach: () => void;
 }
 
-/**
- * Scrolling shared by every chronological list: oldest at the top, newest at the bottom. At the bottom the list
- * follows new rows; scrolling up stops following until the user returns to the bottom. `pinned` (e.g. a window that
- * doesn't reach the newest rows, or a row held in view) also stops it.
- */
+/** Chronological lists follow new rows at bottom. Scrolling up or pinned state stops following until returning/unpinning. */
 export function createFollowBottom(pinned: () => boolean = () => false): FollowBottom {
   let scroller: HTMLElement | undefined;
   const [away, setAway] = createSignal(false);

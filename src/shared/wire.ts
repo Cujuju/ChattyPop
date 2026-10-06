@@ -8,16 +8,10 @@ const VOID_TAG = '$void';
 /** Characters converted per String.fromCharCode call; stays under engines' argument-count limits. */
 const BINARY_CHUNK = 0x8000;
 
-/**
- * What the phone transport carries exactly: JSON values, bytes (arriving as Uint8Array) and undefined (a whole value, a
- * property or an array element: a void result round-trips). An object shaped `{ $u8: string }` or `{ $void: true }` is read as its tag.
- */
+/** Wire carries JSON, Uint8Array bytes and undefined, including nested values. Reserved $u8/$void object shapes decode as tags. */
 export type WireValue = undefined | null | boolean | number | string | Uint8Array | readonly WireValue[] | { readonly [key: string]: WireValue };
 
-/**
- * `T` with every part the wire can't carry (a function, a Date, Map or class instance with methods, bigint, symbol, unknown)
- * turned into never; interfaces pass, though they lack WireValue's index signature.
- */
+/** WireChecked maps unsupported functions/classes/bigints/symbols/unknown to never while accepting interfaces without index signatures. */
 export type Wire<T> = T extends undefined | void | null | boolean | number | string
   ? T
   : T extends Uint8Array
@@ -58,10 +52,7 @@ export function encodeWire(value: unknown): string {
   });
 }
 
-/**
- * Parsed JSON `v` with its tags read. Not a JSON.parse reviver: one returning undefined deletes the element, leaving an
- * array hole that `every`/`some` skip. Entries are copied as data properties, so a `__proto__` key stays a key.
- */
+/** Decodes parsed wire tags without revivers, preserving undefined array elements. Copies data properties so __proto__ remains an ordinary key. */
 function revive(v: unknown): WireValue {
   if (Array.isArray(v)) return v.map(revive);
   if (typeof v !== 'object' || v === null) return v as WireValue;

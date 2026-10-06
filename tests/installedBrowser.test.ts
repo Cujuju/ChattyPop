@@ -1,5 +1,4 @@
-// Installed plugins in windows and the phone page (docs/plugin-architecture.md §16, Start): main serves the accepted
-// plugins' index and browser files only, and the loaders publish host modules first and leave out a plugin that fails.
+// Serves accepted installed-plugin browser files only. Loaders publish host modules first and omit failed plugins.
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

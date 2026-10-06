@@ -1,5 +1,4 @@
-// Search rankers (docs/plugin-architecture.md §3): active plugins reorder full-text hits after windows show them. A ranker
-// that is off, fails or returns anything but a reordering of what it was given leaves that order in place.
+// Active plugin rankers reorder displayed full-text hits. Disabled, failed or invalid rankers leave order unchanged.
 import type { SearchHit } from '@shared/contract';
 import { isObj } from '@shared/normalize';
 import { PluginInactiveError } from '@shared/pluginCall';
@@ -33,10 +32,7 @@ export function registerSearchRanker(order: number, rank: HostRanker, live: () =
 /** Unset, or a probability, as SearchHit.relevance holds. */
 const isRelevance = (v: unknown): boolean => v === undefined || (typeof v === 'number' && v >= 0 && v <= 1);
 
-/**
- * `given`'s own hits in `ranked`'s order, each taking `ranked`'s relevance when it sets one; null when `ranked` isn't a
- * reordering of `given` (by message id) or a relevance isn't a probability. The ranker's other fields are ignored.
- */
+/** Returns original hits reordered by message id with validated probability relevance. Invalid reorderings return null; other supplied fields are ignored. */
 export function reorderingOf(given: readonly SearchHit[], ranked: unknown): SearchHit[] | null {
   if (!Array.isArray(ranked) || ranked.length !== given.length) return null;
   const left = new Map(given.map((h) => [h.messageId, h]));
@@ -52,10 +48,7 @@ export function reorderingOf(given: readonly SearchHit[], ranked: unknown): Sear
   return out;
 }
 
-/**
- * `rank` as the host runs it: nothing once `live()` ends, and an answer arriving after is dropped (`fence`). A throw, a
- * rejection or a result that isn't a reordering is recorded with `fail`. It gets copies, so it can't change the host's hits.
- */
+/** Runs rankers on copied hits with lifetime fences. Records throws, rejections and invalid reorderings; late answers are discarded. */
 export const hostRanker =
   (rank: SearchRanker, live: () => boolean, fence: <T>(work: Promise<T>) => Promise<T>, fail: (err: unknown) => void): HostRanker =>
   async (query, hits) => {
@@ -74,11 +67,7 @@ export const hostRanker =
 const sameRanking = (a: readonly SearchHit[], b: readonly SearchHit[]): boolean =>
   a.length === b.length && a.every((h, i) => h.messageId === b[i]!.messageId && h.relevance === b[i]!.relevance);
 
-/**
- * `hits` through each active ranker in build order, each given the previous one's order; null when none changed it, so
- * the full-text order stands. Also null when a ranker whose order was used turned off before the last one answered:
- * later orders build on it, so none can stand without it. A list naming a message twice isn't one a ranker can reorder.
- */
+/** Chains active rankers in build order. Returns null for unchanged results, duplicate ids or an earlier contributing ranker disabled before completion. */
 export async function rankSearch(query: string, hits: readonly SearchHit[]): Promise<SearchHit[] | null> {
   if (new Set(hits.map((h) => h.messageId)).size !== hits.length) return null;
   let current = hits;

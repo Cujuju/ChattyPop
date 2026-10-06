@@ -1,5 +1,4 @@
-// Privacy mode: servers and channels marked private leave every view while it is on. The hidden_ids table (kept current
-// by triggers, hiddenScope.ts) and its hidden_channels view hold what is hidden right now; both are empty while it is off.
+// Privacy mode hides marked servers/channels. Trigger-maintained hidden_ids and hidden_channels are empty when disabled.
 import type { PrivacyScope } from '@shared/contract';
 import type { PluginDb } from '../plugins/pluginDb';
 
@@ -10,16 +9,13 @@ export const visibleChannelSql = (column: string): string => `${column} NOT IN (
 export const visibleChannelIds = (db: PluginDb, channelIds: string[]): Set<string> =>
   new Set(db.prepare(`SELECT value FROM json_each(?) WHERE ${visibleChannelSql('value')}`).pluck().all(JSON.stringify(channelIds)) as string[]);
 
-/**
- * SQL true while nothing is hidden. Uncorrelated, so SQLite evaluates it once per statement; it guards the per-row id
- * checks, which scan the hidden ids (a few rows) for every row while privacy mode hides something.
- */
+/** Uncorrelated SQL guard evaluates once per statement; hidden-id scans occur per row only when privacy scope is nonempty. */
 export const NOTHING_HIDDEN_SQL = 'NOT EXISTS (SELECT 1 FROM hidden_ids)';
 
 /** SQL true when `text` holds a hidden channel or server id (no guard: callers add NOTHING_HIDDEN_SQL). */
 const hiddenRefSql = (text: string): string => `EXISTS (SELECT 1 FROM hidden_ids h WHERE instr(${text}, h.id) > 0)`;
 
-/** SQL true when `text` holds no hidden channel or server id, as a <#id> mention or a discord.com/channels link would. */
+/** SQL excludes text containing hidden channel/server mentions or Discord channel links. */
 export const noHiddenRefSql = (text: string): string => `(${NOTHING_HIDDEN_SQL} OR NOT ${hiddenRefSql(text)})`;
 
 /** SQL true when message alias `m` is in a visible channel and names no hidden one. */

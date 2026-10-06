@@ -91,11 +91,7 @@ const SYSCOMMAND_MASK = 0xfff0;
 /** The WM_SYSCOMMAND command in a hooked message's wParam (pointer-sized). */
 const sysCommand = (wParam: Buffer): number => (wParam.length >= 8 ? Number(wParam.readBigUInt64LE()) : wParam.readUInt32LE()) & SYSCOMMAND_MASK;
 
-/**
- * The main window with the live Discord view over it; closing it first unloads the Discord page so the login persists.
- * Only the window's own close command (title bar, Alt+F4, taskbar) can hide it to the tray: a close from code or
- * another process (a bare WM_CLOSE, as agents send) still quits.
- */
+/** Graceful close unloads Discord to persist login. Only user window-close commands may hide to tray; programmatic/external WM_CLOSE quits. */
 export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; discord: DiscordView } {
   const saved = mainWindowState.get(MAIN_WINDOW_KEY);
   const win = new BrowserWindow({
@@ -138,7 +134,7 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
   win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
     if (sysCommand(wParam) !== SC_CLOSE) return;
     closeCommand = true;
-    // A command that led to no close (refused) must not mark a later one, from code, as the owner's.
+    // Refused close commands must not classify later programmatic closes as owner commands.
     setImmediate(() => (closeCommand = false));
   });
   win.on('minimize', () => {
@@ -161,8 +157,7 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
       if (!win.isDestroyed()) win.close();
     });
   });
-  // Windows ending the session (shutdown, restart, sign-out) would end the process without that close, losing the
-  // login: hold the session end while the graceful close runs; once ChattyPop exits, Windows carries on.
+  // Delays Windows session termination while graceful close preserves Discord login; shutdown continues after ChattyPop exits.
   win.on('query-session-end', (e) => {
     diag('session-end-query', { reasons: e.reasons, discordClosed });
     if (discordClosed) return;

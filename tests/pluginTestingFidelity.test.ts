@@ -1,6 +1,4 @@
-// The testing harness behaves as the app (docs/plugin-architecture.md §15): rule kinds come from the installed plugins,
-// events cross processes as copies, policy changes and session times come from core's own handlers, and main routes
-// core's events to windows and the phone.
+// Plugin tests use installed rule kinds, copied cross-process events, core policy/session handlers, and main routing to windows and phones.
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { AFTER_MESSAGE, defineChannels, definePlugin, defineRuleAction } from '@plugin-sdk/shared';
 import { defineCorePlugin } from '@plugin-sdk/core';

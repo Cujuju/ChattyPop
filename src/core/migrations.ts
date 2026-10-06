@@ -121,14 +121,14 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   CREATE INDEX plugin_annotations_message ON plugin_annotations(message_id);
   `,
   `
-  -- X posts fetched from FxTwitter for links Discord never previewed. state: ok (status_json set) | unavailable
-  -- (deleted, private or suspended; not retried) | error (outage or rate limit; retried later). Keyed by post id so
-  -- re-deriving links keeps them.
+  -- Caches FxTwitter posts by post id. ok stores status_json; unavailable is terminal; errors retry. Link re-derivation preserves cached posts.
+  --
+  --
   CREATE TABLE x_posts (status_id TEXT PRIMARY KEY, state TEXT NOT NULL, status_json TEXT, fetched_at INTEGER NOT NULL);
   `,
   `
-  -- Every Jev score for a message, below the alert cut-offs too, so cut-offs can be tuned without new requests.
-  -- subject: topic:<id> (meaning, 0-1), urgency (score, 0-2), aimed (addressed to the owner, 0-1).
+  -- Stores all Jev judgments for threshold changes without new requests. Subjects include topic meaning, urgency and owner-directed probability.
+  --
   CREATE TABLE jev_judgments (message_id TEXT NOT NULL, subject TEXT NOT NULL, value REAL NOT NULL, model TEXT NOT NULL,
                               judged_at INTEGER NOT NULL, PRIMARY KEY (message_id, subject));
   CREATE INDEX jev_judgments_subject ON jev_judgments(subject);
@@ -151,8 +151,8 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   ALTER TABLE alerts ADD COLUMN duplicate_of INTEGER;
   `,
   `
-  -- Jev's reading of a shared link: category, P(spam/scam/NSFW), expected worth level; asked = features asked (JSON).
-  -- Keyed by canonical URL: re-deriving links rebuilds the links table (new ids), the URL stays.
+  -- Jev link judgments store category, risk probabilities and worth level. Canonical URLs retain identity when link ids change during re-derivation.
+  --
   CREATE TABLE link_judgments (url TEXT PRIMARY KEY, category TEXT, flagged REAL, worth REAL, asked TEXT NOT NULL,
                                model TEXT NOT NULL, judged_at INTEGER NOT NULL);
   `,
@@ -167,8 +167,8 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   -- auto: its question rides the per-message Jev request for new messages.
   CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, jev_question TEXT,
                      auto INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
-  -- A tag on a message. state: jev (Jev's answer met the condition; value = that answer) | manual (added by the owner)
-  -- | removed (the owner took it off; Jev never re-applies it).
+  -- Message tag states: jev stores matching answers; manual records owner additions; removed prevents Jev reapplication.
+  --
   CREATE TABLE message_tags (message_id TEXT NOT NULL, tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
                              state TEXT NOT NULL, value REAL, updated_at INTEGER NOT NULL, PRIMARY KEY (message_id, tag_id));
   CREATE INDEX message_tags_tag ON message_tags(tag_id, state);
@@ -197,9 +197,9 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   UPDATE jev_spend SET tokenless_requests = requests;
   `,
   `
-  -- Speech-to-text of an audio attachment; kept when the audio file is pruned. seq: stable FTS rowid (see messages).
-  -- state: queued → fetching → running → done | failed (TranscriptState). priority: 1 requested by the owner, 0 automatic.
-  -- segments: JSON [{fromMs, toMs, text}].
+  -- Audio transcripts survive file pruning. seq is the FTS rowid; priority distinguishes owner requests; segments store timed text; state tracks processing.
+  --
+  --
   CREATE TABLE transcripts (seq INTEGER PRIMARY KEY, attachment_id TEXT NOT NULL UNIQUE, message_id TEXT NOT NULL,
                             state TEXT NOT NULL, priority INTEGER NOT NULL, requested_at INTEGER NOT NULL,
                             text TEXT, segments TEXT, language TEXT, model TEXT, error TEXT, done_at INTEGER);
@@ -218,9 +218,9 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   END;
   `,
   `
-  -- Server nicknames: the name Discord shows for a person in a server. nick NULL = no nickname there.
-  -- Seeded from archived live messages (they carry the author's member; compressed payloads are skipped), then kept
-  -- current from live messages and member events.
+  -- Caches server nicknames, with NULL meaning none. Seeds uncompressed archived member payloads; live messages and member events maintain them.
+  --
+  --
   CREATE TABLE members (guild_id TEXT NOT NULL, user_id TEXT NOT NULL, nick TEXT, updated_at INTEGER NOT NULL,
                         PRIMARY KEY (guild_id, user_id));
   INSERT INTO members (guild_id, user_id, nick, updated_at)

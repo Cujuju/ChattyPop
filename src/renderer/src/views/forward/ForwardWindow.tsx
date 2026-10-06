@@ -20,10 +20,7 @@ const TARGETS_SHOWN = 50;
 const LIST_ID = 'forward-targets';
 const optionId = (t: ForwardTarget): string => `forward-target-${t.channel.id}`;
 
-/**
- * Discord's Forward: search for where the message goes, pick it, add an optional note, Forward. The draft is locked while
- * it sends. Hidden, not closed, while privacy mode hides the message's channel.
- */
+/** Forward picks targets/notes and locks drafts during sending. Privacy-hidden source channels hide rather than close windows. */
 export function ForwardWindow() {
   const [query, setQuery] = createSignal('');
   const [chosen, setChosen] = createSignal<string | null>(null);
@@ -53,7 +50,7 @@ export function ForwardWindow() {
     }),
   );
   createEffect(on(query, () => nav.setActive(0), { defer: true }));
-  // Only a listed channel stays chosen: one filtered out (or hidden by privacy mode) would be sent to unseen.
+  // Clears selections removed by filtering/privacy to avoid sending to unseen targets.
   createEffect(() => {
     if (chosen() !== null && !chosenTarget()) setChosen(null);
   });
@@ -151,10 +148,7 @@ export function ForwardWindow() {
   );
 }
 
-/**
- * A server channel shows its server's icon; a DM its other person's avatar, else their initial; a group DM its own icon,
- * else a group mark (Discord's default group icons ship inside its client, not on its CDN).
- */
+/** Destination faces use guild icons, peer avatars/initials or group icons/marks. Discord’s default group icons are client-local. */
 function TargetAvatar(props: { target: ForwardTarget }) {
   const c = () => props.target.channel;
   const guild = () => directory().find((g) => g.id === c().guildId);

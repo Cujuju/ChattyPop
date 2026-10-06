@@ -25,17 +25,14 @@ export function pluginLifetime(pluginId: string): Lifetime & { end(): void } {
     signal,
     live: () => !signal.aborted,
     fence: (work) => {
-      void work.catch(() => undefined); // fenced after it ended: its later failure is nobody's to handle
+      void work.catch(() => undefined); // Ignore failures after lifetime expiration.
       return untilRevoked(signal, () => work);
     },
     end: () => controller.abort(new PluginInactiveError(pluginId)),
   };
 }
 
-/**
- * `fetch` scoped to `lifetime`: a request joins its signal, none is sent once it ended, and one still running then
- * settles with PluginInactiveError at once, even where the server or a redirect ignores the abort.
- */
+/** Fetch joins the activation signal. Ended lifetimes send nothing; pending requests immediately reject with PluginInactiveError, even if abort is ignored. */
 export const lifetimeFetch =
   (fetch: PluginFetch, lifetime: Pick<Lifetime, 'signal'>): PluginFetch =>
   (url, init = {}) =>

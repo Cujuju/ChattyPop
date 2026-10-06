@@ -1,6 +1,4 @@
-// Staged installs, updates and removals of installed plugins (docs/plugin-architecture.md §16), applied at start before
-// any plugin loads. Every step is a rename or a delete, so a crash at any point leaves a state the next start completes,
-// and applying twice changes nothing. A step that fails holds back that plugin's later steps until the next start.
+// Applies staged installs/updates/removals before loading plugins. Idempotent rename/delete steps recover crashes; failed steps defer that plugin’s remaining work.
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { HELD_DIR, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
@@ -26,10 +24,7 @@ function discard(root: string, id: string): void {
   renameSync(dir, trashPath(trash, id));
 }
 
-/**
- * Finishes replacements of staged copies (InstalledFolder.stage): a held copy whose replacement is staged is deleted;
- * one without goes back to `.staged`, since the swap never finished. Returns the ids whose held copy is still there.
- */
+/** Settles held staged copies: discard when replacement exists, otherwise restore to staged. Returns ids still held after failures. */
 function settleHeld(root: string, onError: (id: string, err: unknown) => void): Set<string> {
   const blocked = new Set<string>();
   for (const id of idsIn(join(root, HELD_DIR))) {
@@ -48,12 +43,7 @@ function settleHeld(root: string, onError: (id: string, err: unknown) => void): 
   return blocked;
 }
 
-/**
- * Applies the changes staged under `root` (the installed-plugins folder): held copies settle first; each
- * `.removed/<id>` discards `<id>`, then drops its marker; then each `.staged/<id>` discards `<id>` and takes its place.
- * The trash is emptied last. A step that fails is reported to `onError` and tried again at the next start; that plugin's
- * later steps wait for it, so a marker left behind can't remove the copy installed after it.
- */
+/** Settles held copies, applies removal markers then staged installs, and empties trash. Reports failures and defers that plugin’s later steps until next startup. */
 export function applyStaged(root: string, onError: (id: string, err: unknown) => void): void {
   const blocked = settleHeld(root, onError);
   for (const id of idsIn(join(root, REMOVED_DIR))) {

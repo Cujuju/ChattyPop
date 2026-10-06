@@ -41,10 +41,7 @@ export interface ModelRowsProps {
   fixedHere?: (why: string) => boolean;
 }
 
-/**
- * ModelRows picks a provider AND its model for one feature (Image text, Translation), from the providers the feature
- * lists; ProviderSelect picks only a provider, its model being Settings → AI's. No model is picked until one is chosen.
- */
+/** ModelRows selects feature provider/model; ProviderSelect uses the provider’s AI-settings model. No model defaults before selection. */
 export function ModelRows(props: ModelRowsProps) {
   const provider = (): ProviderModels | undefined => props.providers.find((p) => p.id === props.providerId);
   const providerOptions = () => [

@@ -140,10 +140,7 @@ export function privacyViolations(source: string): string[] {
   return [...new Set(source.match(/\b(?:privacy_visible|reference_visible|hidden_channels|hidden_ids)\b/g) ?? [])];
 }
 
-/**
- * Every SQL literal of plugin `pluginId` (its folder name) checked against its tables and views (imports included) and
- * `readers`, the all-data grants (allReadersFor); a granted file reading no all-data view is stale.
- */
+/** Checks SQL literals and imports against plugin tables, views, and all-data grants. Grants unused by their files are rejected. */
 export function archiveViolations(pluginId: string, files: readonly SourceFile[], readers: ReadonlyMap<string, string>): string[] {
   const offenders: string[] = [];
   const used = new Set<string>();

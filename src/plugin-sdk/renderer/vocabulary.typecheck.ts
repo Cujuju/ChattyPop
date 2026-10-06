@@ -1,5 +1,4 @@
-// Compile-time probe: a window names only the Jev switches its plugin declares (or the host's), and the renderer side
-// gives each declared switch its Settings row and each declared notice kind its phone choice (docs/plugin-architecture.md §3).
+// Compile-time checks restrict Jev switches to declared/host ids and require settings rows and phone choices for declared switches/notices.
 import { definePlugin } from '@plugin-sdk/shared';
 import { defineRendererPlugin } from '@plugin-sdk/renderer';
 import { jevSwitch } from '@plugin-sdk/renderer/kit';

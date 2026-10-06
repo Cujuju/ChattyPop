@@ -1,6 +1,4 @@
-/* Hover action bar (MessageActionBar): a raised strip a clearance above the hovered message's first line, at its right, so
-   it covers none of the message: quick reaction squares, Add reaction | divider | Edit, Reply, Forward, More.
-   Never wider than the row. MessageRow shows it; the row is its containing block. */
+/* Message hover bars sit above first lines within row width. Contain quick reactions, plugin actions and More; MessageRow owns visibility/positioning. */
 .bar {
   position: absolute;
   bottom: calc(100% - var(--row-pad-top) + var(--cp-action-bar-clearance));
@@ -49,7 +47,7 @@
   height: var(--cp-action-bar-clearance);
 }
 
-/* The topmost row's bar would be cut off by the log's top edge: it sits over the row's top instead. */
+/* Overlays topmost-row bars to avoid clipping at log edges. */
 .bar[data-inside='true'] {
   top: 0;
   bottom: auto;

@@ -14,7 +14,7 @@ const claude = (complete: LlmProvider['complete'], maxInputChars = 100_000) => (
   providers: [{ id: 'claude', provider: { id: 'claude', maxInputChars, complete, listModels: async () => [] } }],
 });
 
-/** A request someone else answers later. */
+/** Creates an externally resolved request. */
 interface Held<T> {
   signal: AbortSignal | undefined;
   answer(value: T): void;
@@ -42,10 +42,7 @@ interface Batch {
   asked: number;
   costUsd: number;
 }
-/**
- * A plugin making AI calls in sequence (`run`, as a chunked summary), Jev requests at once (`judgeMany`, as a range
- * run), and asking Jev once per activation, keeping its answer.
- */
+/** Fixture plugin issues sequential AI calls, concurrent Jev requests, and one retained Jev answer per activation. */
 const probe = definePlugin({
   manifest: { id: 'lifetimeprobe', name: 'Lifetime probe', version: '1', description: '' },
   channels: defineChannels<{ core: { run(steps: number): string; judgeMany(count: number): Batch } }>()({ core: { run: ['renderer'], judgeMany: ['renderer'] } }),

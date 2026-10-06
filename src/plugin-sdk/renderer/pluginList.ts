@@ -1,5 +1,4 @@
-// Plugin SDK, renderer: the window's one plugin list (docs/plugin-architecture.md §8). The SDK owns it, so plugins'
-// isActive/callable and host stores (state/plugins.ts re-exports it) read a single fetch over the @/api leaf.
+// Owns the window’s single plugin-list fetch. SDK activity/callability and host state re-exports share it through the API leaf.
 import { api, windowAudience } from '@/api';
 import { createResource, createSignal } from 'solid-js';
 import { BUNDLED_PLUGINS, channelAudiences } from '@shared/bundledPlugins';

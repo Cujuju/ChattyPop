@@ -40,11 +40,7 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
 const attachmentState = (a: { id: string; filename: string; description?: string | null; flags?: number | null }): string =>
   JSON.stringify([a.id, a.filename, a.description ?? null, a.flags ?? null]);
 
-/**
- * Brings a stored payload's attachments up to `m`'s when they differ. A re-fetch with unchanged text otherwise leaves
- * raw_json as first stored, and re-derivation from it would undo a rename or alt text. Call before deriveMessage, which
- * updates the rows compared. Other stored fields stay (a gateway payload's member, which a re-fetch lacks).
- */
+/** Updates stored attachment payloads before derivation so unchanged-text refetches preserve renames and alt text. Retains other gateway-only fields. */
 export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
   if (!Array.isArray(m.attachments)) return;
   const stored = db
@@ -55,11 +51,7 @@ export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
   if (payload) db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(JSON.stringify({ ...payload, attachments: m.attachments }), m.id);
 }
 
-/**
- * Records attachments (queued for download) and shared links for a stored message. An edit's rename, alt text and flags
- * (a spoiler toggle) update the row; an attachment the message no longer lists is marked removed, once: Discord can't re-add it.
- * Idempotent: safe on every insert and every MESSAGE_UPDATE (embeds often arrive later).
- */
+/** Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and repeated MESSAGE_UPDATE events. */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
     `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags)

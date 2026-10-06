@@ -23,12 +23,7 @@ export const dismissUnreadBanner = (): void => {
   setBanner(null);
 };
 
-/**
- * Keeps the open channel's mark at the newest message the owner has seen. `lookable`: the owner can look at the Archive
- * now. `seen`: the newest message on screen, undefined while none is in view (an open loading, scrolled up, a jump back).
- * The banner is what was unread when the channel was opened, or returned to after reading up to its newest; marking
- * waits for it, so it never counts what this view already marked. Call from the Archive view's body; stops with its owner.
- */
+/** Marks newest visible messages only when lookable and opening unread snapshot is ready. Banner preserves opening counts; owner disposal stops tracking. */
 export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string | undefined>): void {
   /** The channel whose banner is in: marking may start. */
   const [ready, setReady] = createSignal<string | null>(null);
@@ -63,10 +58,7 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     );
   };
 
-  /**
-   * The banner read again from its opening boundary, leaving out what was read elsewhere or sent by the owner since. While
-   * the opening snapshot is still out, it is taken again instead: its answer may predate the change.
-   */
+  /** Reloads banners from opening boundaries, excluding external reads and owner messages. Pending opening snapshots are retaken after changes. */
   const reconcile = (): void => {
     const channelId = archiveChannelId();
     if (!channelId) return;
@@ -119,8 +111,7 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     onAppEvent('setting-changed', (e) => {
       if (e.key === SETTINGS_KEYS.countedBots) reconcile();
     }),
-    // Discord's read state moved past what this view marked: a read in another client, or the owner's message. The
-    // echo of this view's own reads leaves the banner, as reading here does.
+    // External reads/owner sends advance Discord state beyond local marks. Local acknowledgment echoes preserve the banner.
     onAppEvent('read-states-changed', (e) => {
       const s = e.states.find((c) => c.channelId === archiveChannelId());
       if (s?.ackId && (marked === undefined || compareSnowflakes(s.ackId, marked) > 0)) {

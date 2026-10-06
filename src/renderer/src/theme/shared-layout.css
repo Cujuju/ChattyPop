@@ -1,6 +1,4 @@
-/* Shared cp-* layout classes: panel frame, the Settings page frame and rail (also used by Jev queries),
-   notes, the condition card and sidebar parts. Same layer and usage as shared-controls.css. Hooks: .cp-rail-item[data-current],
-   .cp-rail-item[data-muted], .cp-note[data-kind='error']. */
+/* Shared panel/settings/rail/note layouts use cp-shared layers. Rail current/muted and error-note data hooks control states. */
 @layer cp-shared {
   /* Panel root: a column under the shared header that never scrolls itself. */
   .cp-panel {

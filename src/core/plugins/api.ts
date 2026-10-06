@@ -102,11 +102,7 @@ export function migratePlugin(db: Db, pluginId: string, steps: readonly string[]
   }
 }
 
-/**
- * Builds the API object handed to one plugin's activate(). `guard` wraps plugin callbacks so a throw is recorded, not
- * fatal. Once the plugin unloads, what it still holds is inert: registrations, settings writes, notices and annotations
- * do nothing, and AI calls and database writes throw PluginInactiveError.
- */
+/** Builds activation-scoped APIs and guards callbacks. After unload, registrations/settings/notices/annotations are inert; AI and database writes throw PluginInactiveError. */
 export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, guard: (fn: () => unknown) => void): PluginApi {
   const { db } = deps;
   const settingKey = (key: string): string => pluginSettingKey(id, key);

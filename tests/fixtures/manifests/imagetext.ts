@@ -1,5 +1,4 @@
-// Image text: reads the text in images messages show (attachments, link previews, fetched posts' photos) on this
-// computer. Its text is derived text: rules, Jev, the Trading label's cashtags and search read it.
+// Defines image-text fixture metadata used by rules, Jev, cashtags, and search.
 import { defineChannels, definePlugin, definePreference } from '@plugin-sdk/shared';
 import { DEFAULT_IMAGE_TEXT_SETTINGS, normalizeImageTextSettings, type ImageFetchRequest, type ImageTextStatus } from './types';
 
@@ -18,10 +17,7 @@ export const STATUS_EVENT = 'status' as const;
 export const FETCH_IMAGE = 'fetchImage' as const;
 /** AttachmentNote.kind of an image's text. */
 export const IMAGE_TEXT_NOTE = 'image-text';
-/**
- * Downloads main is asked for at once, and so the imageFetched report's bound; a job needing one more waits for a
- * report. Assumption: images are small next to the link, so a few in parallel keep the queue ahead of the engine.
- */
+/** Concurrent image downloads; additional jobs wait for an imageFetched report. */
 export const IMAGE_FETCHES_MAX = 4;
 
 /** Core's calls: from Settings and the message menu, and main's answer to FETCH_IMAGE. */

@@ -85,10 +85,7 @@ const RENDERED_EMBED_TYPES = new Set(['rich', 'link', 'article', 'image', 'video
 /** Images Discord draws in one embed's gallery; it ignores any past these. */
 export const EMBED_GALLERY_MAX = 4;
 
-/**
- * A message's embeds as Discord draws them. Embeds sharing a URL are one card (a multi-photo post arrives as one embed
- * per photo): the first keeps its text, the later ones give it only their image.
- */
+/** Combines same-URL embeds into one card: first embed supplies text, later embeds contribute images. */
 export function embedsFrom(json: string | null): ArchiveEmbed[] {
   const embeds: ArchiveEmbed[] = [];
   const byUrl = new Map<string, ArchiveEmbed>();
@@ -186,11 +183,7 @@ export function repliesFor(db: Db, refs: { replyToId: string; refJson: string | 
 
 export const USER_MENTION = /<@!?(\d{15,21})>/g;
 
-/**
- * Names for every user @mentioned in a page's texts (messages and reply previews). With `channelId`, as Discord shows
- * them in that channel's server (nickname first); with null, their display names (text for AI, no server context).
- * The archive's users come first; names Discord sent with the messages (`known`) cover anyone it lacks.
- */
+/** Resolves mentioned names using archive users before payload-known names. Channel context prefers server nicknames; null context uses display names. */
 export function mentionNames(db: Db, texts: string[], known: Record<string, string>, channelId: string | null): Record<string, string> {
   const names = { ...known };
   const ids = [...new Set(texts.flatMap((t) => [...t.matchAll(USER_MENTION)].map((m) => m[1]!)))];

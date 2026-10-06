@@ -1,5 +1,4 @@
-// Custom Jev calls over a range: the owner's own question asked about each recent message of a channel, ranked.
-// On demand only; one request per message so the question can refer to `message` as everywhere else.
+// On-demand custom Jev questions rank recent channel messages. Each message gets an independent request with message state.
 import type { JevAskResult, JevRangeAsk } from '@shared/contract';
 import { validateJevSpec } from '@shared/jevQuestion';
 import { answerValue, sumCosts, type Answer, type DecisionProvider } from '../ai/decisions';
@@ -14,11 +13,7 @@ import { customQuestion } from './questions';
 /** Upper bound on messages asked about in one run: bounds cost (~$0.00002 each) and time (4 requests in flight). */
 export const ASK_RANGE_MAX = 400;
 
-/**
- * Asks the question about each of the channel's latest `limit` messages (threads included), newest first, and returns
- * them ranked by Jev's value (highest first). Refuses local-AI-only channels and leaves out local-AI-only threads; failed
- * requests are just left out.
- */
+/** Ranks latest channel messages, including threads, by Jev value. Refuses local-only channels, excludes local-only threads and omits failed requests. */
 export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvider, ask: JevRangeAsk): Promise<JevAskResult> {
   validateJevSpec(ask.question);
   assertHostedMayRead(db, ask.channelId);

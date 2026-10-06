@@ -1,8 +1,4 @@
-/* Theme entry. Order: toolkit stylesheets (layered defaults), tokens and sizes, bundled faces, themes, one bridge file per toolkit package,
-   base rules, native form controls, identity maps, then the shared cp-* classes.
-   Layers, lowest first: toolkit defaults, the reset and focus ring (base.css), the shared cp-* classes. Every unlayered rule
-   (bridge files, CSS modules) beats all three, so a module overrides a cp-* class whatever the load order.
-   Bridge order matches the former single file; editable-list-row must follow editable-list-flyout. */
+/* Loads toolkit defaults, tokens/sizes/fonts/themes, bridges, base/forms/identity/shared classes. Unlayered modules override layers; editable-list-row follows editable-list-flyout. */
 @layer cujuju-defaults, cp-base, cp-shared;
 @import '@cujuju/solidjs-seg-buttons/style.css';
 @import './tokens.css';

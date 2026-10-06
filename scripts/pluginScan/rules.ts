@@ -1,5 +1,4 @@
-// plugin:check's source rules (docs/plugin-architecture.md §9, §16), the scans the app's tests ran while plugins lived
-// in src/plugins. Each takes one file and returns its violations as `file:line: message`.
+// Per-file plugin source rules; violations use file:line: message.
 import { isBuiltin } from 'node:module';
 import { posix } from 'node:path';
 import { pluginTablePrefix } from '../../src/shared/bundledTypes';
@@ -7,7 +6,7 @@ import { HOST_MODULES } from '../../src/shared/installedPlugins';
 import { lineAt, violation, type SourceFile } from './source';
 import { lineOf, literalString, propertyName, readsVariable, syntaxOf, walk, type Node } from './syntax';
 
-/** A plugin's page folder: only its own files may import it (a window's registry must never load a page's code). */
+/** Only page files can import page code. */
 export const PAGE_DIR = 'page';
 /** The renderer tier that installs a page's API: only the phone transport's plugin imports it. */
 export const SHELL_TIER = '@plugin-sdk/renderer/shell';
@@ -18,11 +17,11 @@ const HOST_PACKAGES = ['@plugin-sdk', 'solid-js'];
 const inHostPackage = (spec: string): boolean => HOST_PACKAGES.some((p) => spec === p || spec.startsWith(`${p}/`));
 /** Node's network modules: plugins reach the network through `ctx.net`. */
 const NETWORK_MODULE = /^(?:node:)?(?:https?|net|tls|dgram)$/;
-/** The plugin's tests folder: test code, which the host's aliases serve and the build leaves out. */
+/** Test code uses host aliases and stays outside plugin builds. */
 export const TESTS_DIR = 'tests';
 /** A test file anywhere in the folder, with any script extension. */
 export const TEST_FILE = /\.test\.[cm]?[jt]sx?$/;
-/** A path to test code, with or without its extension: the scan skips it, so source mustn't import it. */
+/** Source imports cannot reach skipped test files. */
 const isTestPath = (rel: string): boolean => rel.split('/')[0] === TESTS_DIR || /\.test(?:\.[cm]?[jt]sx?)?$/.test(rel);
 
 /** A specifier's package name: `@scope/name` or `name`. */
@@ -58,10 +57,7 @@ export function importsOf(file: SourceFile): Import[] {
   return found.sort((x, y) => x.line - y.line);
 }
 
-/**
- * Imports only the host's SDK entries (and Solid), Node built-ins but its network modules, `dependencies` of the
- * plugin's package.json, and its own files; nothing outside `page/` imports `page/`.
- */
+/** Allows SDK tiers, Solid, permitted Node built-ins, declared dependencies, and local files. Only page/ can import page/; network built-ins are excluded. */
 export function importViolations(file: SourceFile, dependencies: ReadonlySet<string>): string[] {
   const inPage = (rel: string): boolean => rel.split('/')[0] === PAGE_DIR;
   return importsOf(file).flatMap(({ spec, line }) => {
@@ -86,7 +82,7 @@ export function tablePrefixViolations(file: SourceFile, pluginId: string): strin
   return [...file.text.matchAll(new RegExp(prefix, 'g'))].map((m) => violation(file.rel, lineAt(file.text, m.index), `literal table prefix ${prefix}: name tables with pluginTable or ctx.storage`));
 }
 
-/** Globals that reach the network or the app around the plugin's contexts, by the name code reads them by. */
+/** Global identifiers bypassing plugin network or application contexts. */
 const GLOBAL_NAMES: ReadonlySet<string> = new Set(['fetch', 'globalThis', 'createRequire']);
 /** Web connections a plugin opens only through its contexts. */
 const CONNECTIONS: ReadonlySet<string> = new Set(['XMLHttpRequest', 'WebSocket', 'EventSource']);
@@ -109,11 +105,7 @@ function reachedGlobal(node: Node, parent: Node | null, key: string | null): str
   return null;
 }
 
-/**
- * Network or app access outside plugin contexts: global `fetch` (bare, or on `window`/`self`), new web connections,
- * `sendBeacon`, `globalThis`, `createRequire`, preload's `chattypop` bridge. Syntax-tree match: `ctx.net.fetch`,
- * strings, comments pass.
- */
+/** Detects network and app access outside plugin contexts through syntax. Context methods, strings, and comments remain allowed. */
 export function globalViolations(file: SourceFile): string[] {
   const found: string[] = [];
   walk(syntaxOf(file), (node, parent, key) => {
@@ -123,11 +115,11 @@ export function globalViolations(file: SourceFile): string[] {
   return found;
 }
 
-/** `property: value` declarations in one rule body, by property, with each one's offset in the body. */
+/** Groups CSS declarations by property with source offsets. */
 const declared = (body: string): Map<string, { value: string; index: number }> =>
   new Map([...body.matchAll(/([\w-]+)\s*:\s*([^;{}]+);/g)].map((m) => [m[1]!, { value: m[2]!.trim(), index: m.index }]));
 
-/** Every `user-select` has a `-webkit-user-select` of the same value beside it: Safari (the phone) reads only that. */
+/** Requires matching -webkit-user-select beside user-select for Safari. */
 export function userSelectViolations(file: SourceFile): string[] {
   return [...file.text.matchAll(/\{([^{}]*)\}/g)].flatMap((rule) => {
     const d = declared(rule[1]!);

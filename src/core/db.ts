@@ -47,7 +47,7 @@ export function setSetting(db: Db, key: string, value: unknown): void {
   );
 }
 
-/** Keys are base64url: nothing that could end the PRAGMA string literal. */
+/** Base64url keys cannot terminate PRAGMA string literals. */
 const SAFE_KEY = /^[A-Za-z0-9_-]+$/;
 const keyLiteral = (key: string): string => {
   if (!SAFE_KEY.test(key)) throw new Error('Archive key has an unexpected format.');
@@ -83,11 +83,7 @@ export function openDb(path: string, key: string | null = null): Db {
   return db;
 }
 
-/**
- * Runs the pending `migrations` and installs the current archive views, in one transaction: a failed step leaves the
- * previous schema and views. Views are dropped while steps run (ALTER TABLE reparses every view) and installed after,
- * so they may read any table.
- */
+/** Runs migrations and installs current views atomically. Drops views during migrations to avoid ALTER TABLE reparsing intermediate definitions. */
 export function migrate(db: Db, migrations: readonly Migration[] = MIGRATIONS): void {
   const current = db.pragma('user_version', { simple: true }) as number;
   db.transaction(() => {

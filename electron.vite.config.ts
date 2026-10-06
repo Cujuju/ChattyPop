@@ -8,12 +8,12 @@ const shared = resolve(import.meta.dirname, 'src/shared');
 /** Plugins import only the Plugin SDK (docs/plugin-architecture.md). */
 const pluginSdk = resolve(import.meta.dirname, 'src/plugin-sdk');
 const hostAliases = { '@shared': shared, '@core': resolve(import.meta.dirname, 'src/core'), '@main': resolve(import.meta.dirname, 'src/main'), '@plugin-sdk': pluginSdk };
-/** Read once when the build or dev server starts; main, core and renderer all see this value. */
+/** Reads once at startup; main, core, and renderer share the value. */
 const versionDefine = { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) };
 /** electron-vite's renderer root: pages are named relative to it. */
 const rendererRoot = resolve(import.meta.dirname, 'src/renderer');
 export default defineConfig(({ command }) => {
-  // Only the dev server compiles in the plugin repos' clones; a build (dist, package, preview) ships none.
+  // Development builds include local plugin clones; production builds exclude them.
   const plugins = command === 'serve' ? devPluginSource() : NO_PLUGIN_SOURCE;
   return {
     main: {
@@ -21,11 +21,10 @@ export default defineConfig(({ command }) => {
       plugins: [bundledPlugins(import.meta.dirname, 'node', plugins)],
       define: versionDefine,
       build: {
-        // Source installs load the plugin build (src/main/pluginBuild) on demand; its build tools stay packages, not bundled.
+        // Source installs load plugin-build tools on demand as external packages.
         externalizeDeps: { include: ['vite', 'vite-plugin-solid'] },
         rollupOptions: {
-          // `core` runs in Electron utilityProcess (SQLite, ingest, AI, plugins). `index` boots main, importing `app`
-          // once installed plugins are decided; `app` is an entry beside core.js so its paths resolve.
+          // core runs in utilityProcess. index selects installed plugins before loading app; adjacent app and core entries preserve relative paths.
           input: {
             index: resolve(import.meta.dirname, 'src/main/index.ts'),
             app: resolve(import.meta.dirname, 'src/main/app.ts'),

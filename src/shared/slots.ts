@@ -1,5 +1,4 @@
-// Plugin items in host slots (docs/plugin-architecture.md §6): what a descriptor declares for each slot, the ids the
-// host stamps on them, and the check that a renderer side implements exactly those.
+// Slot contracts define declared items, stamped identities and exact renderer implementation checks.
 import {
   HOST_ATTACHMENT_ACTIONS,
   HOST_CHAT_FOOTER_ITEMS,
@@ -37,10 +36,7 @@ export const SLOT_KINDS = Object.keys(HOST_SLOT_ITEMS) as readonly SlotKind[];
 /** An item's id within its plugin: an identifier without dots, so a stamped id names one plugin and one item. */
 export const SLOT_LOCAL_ID = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
 
-/**
- * An item a plugin puts in a host slot: its local id and placement. Anchors are host items' bare ids or other items'
- * stamped ids. Its view is the renderer side's under the same local id.
- */
+/** Slot items declare local ids and placement. Anchors use bare host ids or stamped plugin ids; renderer views share local ids. */
 export type SlotDecl = { id: string } & Placement;
 /** A descriptor's items, by slot. */
 export type SlotDecls = { readonly [K in SlotKind]?: readonly SlotDecl[] };

@@ -114,7 +114,7 @@ function privacyReads(db: Db) {
   };
 }
 
-/** Migrates and seeds two perf archives (about 1.5 s alone); files run in parallel, so a loaded machine needs headroom. */
+/** Timeout for migrating and seeding two performance archives. */
 const SEEDED_ARCHIVES_TIMEOUT_MS = 30_000;
 
 describe('the privacy scope as a table', () => {

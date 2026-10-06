@@ -1,5 +1,4 @@
-// Contract (plugin-architecture §3, viewer-only-public-host §9, §13): message slots place plugins' items among the host's
-// while on. The host's posting anchors are empty; a posting plugin fills them.
+// Active plugin message items interleave with host slots; posting plugins fill empty host posting anchors.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { ArchiveMessage } from '@shared/contract';
@@ -8,12 +7,12 @@ import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { definePlugin, type PluginDescriptor, type SlotDecls } from '@plugin-sdk/shared';
 import { readSlots, type ReadSlotEntry } from '../src/renderer/src/plugins/readSlots';
 
-// The client runtime, so signals and cleanups run as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const SELF = 'me';
 const menus = vi.hoisted(() => [] as { label: string }[][][]);
-/** Places the menu's groups as the renderer's slots would; each test sets it. */
+/** Places menu groups according to renderer slots; each test sets the groups. */
 const placeMenu = vi.hoisted(() => ({ groups: (_m: unknown, _scope: unknown, host: unknown): unknown => host }));
 vi.mock('@/api', () => ({ api: {} }));
 vi.mock('@/plugins/slots', () => ({ messageMenuGroups: (m: unknown, scope: unknown, host: unknown) => placeMenu.groups(m, scope, host) }));

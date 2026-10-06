@@ -47,7 +47,7 @@ describe('person profile', () => {
     // Each place carries its server, for its icon.
     expect(p.channels.map((c) => [c.channelName, c.guildId, c.guildName])).toContainEqual(['hidden', SECRET.id, SECRET.name]);
     expect(p.nicknames.map((n) => n.nick).sort()).toEqual(['Shadow', 'T-Bone']);
-    // Each nickname names a channel of its server, the place its role colour is read for.
+    // Each nickname references a channel in its server for role-colour lookup.
     expect(p.nicknames.map((n) => [n.nick, n.channelId]).sort()).toEqual([['Shadow', 'c3'], ['T-Bone', 'c1']]);
     // One link row, at their latest share of it.
     expect(p.links).toHaveLength(1);

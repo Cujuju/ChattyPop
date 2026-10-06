@@ -1,5 +1,4 @@
-// Leader-key rules: every app shortcut is the leader, then one key. Pure, so tests read it; state/shortcuts.ts wires it.
-// Modelled on StockApp's press-then-key leader (client-solid/src/shortcuts/registry/dispatch.ts).
+// Pure leader-key rules support press-then-key shortcuts; state/shortcuts.ts wires dispatch.
 
 /** Space: the default leader. */
 export const DEFAULT_LEADER_KEY = ' ';
@@ -39,10 +38,7 @@ export type LeaderStep = { kind: 'pass' } | { kind: 'arm' } | { kind: 'disarm'; 
 
 const PASS: LeaderStep = { kind: 'pass' };
 
-/**
- * The leader arms only outside text fields and overlays, with no Ctrl, Alt or Win held. Armed, the next key runs its
- * shortcut (a key with none just disarms); Escape disarms; a chord, or focus moving into a field, disarms and keeps its key.
- */
+/** Leader requires no fields/overlays or Ctrl/Alt/Win. Next shortcut runs; unknown keys/Escape disarm. Chords/field focus disarm without consuming keys. */
 export function leaderStep(armed: boolean, press: KeyPress, ctx: LeaderContext): LeaderStep {
   const chord = press.ctrlKey || press.altKey || press.metaKey;
   if (!armed) {
@@ -70,10 +66,7 @@ export interface EscapeContext {
   escapeOwned: boolean;
 }
 
-/**
- * Plain Escape in a text field blurs it, so the leader works next. Not when a handler used that Escape (closed a
- * suggestion menu, cancelled a reply or an edit: it calls preventDefault), an IME is composing, or a window owns Escape.
- */
+/** Plain Escape blurs fields unless already handled, composing IME or owned by a window, enabling subsequent leader shortcuts. */
 export function escapeBlursField(press: EscapePress, ctx: EscapeContext): boolean {
   const plain = !press.ctrlKey && !press.altKey && !press.metaKey && !press.shiftKey;
   return press.key === 'Escape' && plain && !press.defaultPrevented && !press.isComposing && ctx.inField && !ctx.escapeOwned;

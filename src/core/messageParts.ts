@@ -1,6 +1,4 @@
-// Every part of a message a plugin can make text for: its media (attachments, its embeds' images and videos, the images
-// plugins found for its links), its embeds' text and the text of links no card shows. Part keys tie a plugin's notes and
-// derived text to what they are of.
+// Enumerates message media, embed text and link text without cards. Stable part keys attach plugin notes and derived text to their source.
 import { embedShowsPictures, embedVideoHasSound, mediaKind, mediaSize } from '@shared/media';
 import type { ArchiveEmbed, MediaSize } from '@shared/types/archive';
 import type { Db } from './db';

@@ -22,10 +22,7 @@ const HOST_ITEMS: readonly HostAttachmentAction[] = HOST_ATTACHMENT_ACTIONS.map(
 
 const px = (v: string): number => parseFloat(v) || 0;
 
-/**
- * The room the bar takes laid out as one row, whichever way it is laid out now: its buttons and the gaps between them,
- * its padding and border, and its inset from the tile's edge on both sides.
- */
+/** Measures single-row bar width including buttons, gaps, padding, borders and both tile-edge insets. */
 function rowWidth(bar: HTMLElement): number {
   const s = getComputedStyle(bar);
   const buttons = [...bar.children] as HTMLElement[];
@@ -34,11 +31,7 @@ function rowWidth(bar: HTMLElement): number {
   return buttons.reduce((w, b) => w + b.offsetWidth, 0) + gaps + box + 2 * px(s.right);
 }
 
-/**
- * The bar over a hovered attachment: plugins' actions (a posting plugin's Modify and Delete), then Download. One row,
- * or one column (data-stacked) on a tile too narrow for the row; never wrapped. The stylesheet shows it while the tile
- * is hovered or holds focus. Never on the phone, which has no hover.
- */
+/** Desktop attachment hover bars show plugin actions then Download. Narrow tiles use one column; bars never wrap or appear on phone. */
 function AttachmentBar(props: { message: ArchiveMessage; attachment: ArchiveAttachment }) {
   let bar!: HTMLDivElement;
   const [stacked, setStacked] = createSignal(false);

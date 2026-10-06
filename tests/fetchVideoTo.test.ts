@@ -12,7 +12,7 @@ const BYTES = 'video bytes';
 
 /** Sessions whose Discord one answers every fetch with BYTES and `headers`. */
 function sessions(headers: Record<string, string>): MediaSessions {
-  // Bytes, not a string: a string body would be given a text content type.
+  // Byte bodies avoid automatic text content types.
   const fetch = async () => new Response(new TextEncoder().encode(BYTES), { headers });
   return { discord: { fetch } as unknown as Session, web: {} as Session };
 }

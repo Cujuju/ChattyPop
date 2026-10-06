@@ -1,5 +1,4 @@
-// `pnpm plugin:check` (scripts/pluginCheck.ts) on a plugin folder outside the checkout: a sound folder passes every
-// step, and each kind of fault fails at its own step with a non-zero exit.
+// External-plugin checks pass valid fixtures and fail planted faults at their respective steps with nonzero exits.
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

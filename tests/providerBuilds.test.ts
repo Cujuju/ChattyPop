@@ -1,5 +1,4 @@
-// Provider and panel fixture plugins in subset builds: builds pass checkBundled, declare their providers, and get
-// default layouts showing the usage slot's panel (and Digest) only for built plugins.
+// Subset-build fixtures validate providers and layouts; usage and Digest panels appear only for included plugins.
 import { describe, expect, it } from 'vitest';
 import { providerDeclarations } from '@shared/aiProviders';
 import { anchorCatalog, checkBundled } from '@shared/bundledCheck';

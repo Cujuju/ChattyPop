@@ -109,10 +109,7 @@ export function candidates(query: string, exclude: ReadonlySet<string> = new Set
   return q ? out.filter((p) => `${p.name}\n${p.detail}`.toLocaleLowerCase().includes(q)) : out;
 }
 
-/**
- * Picks a write is sending, and picks Discord gave no clear answer for (they may exist): neither is sent again. Kept
- * here, not in the window, so closing and reopening it can't send them twice; another account's are dropped.
- */
+/** Retains in-flight and uncertain recipient picks outside windows to prevent duplicate sends across reopening. Account changes discard other-account picks. */
 const [sending, setSending] = createSignal<ReadonlySet<string>>(new Set());
 const [unconfirmed, setUnconfirmed] = createSignal<ReadonlySet<string>>(new Set());
 const withKey = (set: ReadonlySet<string>, key: string, on: boolean): ReadonlySet<string> => {
@@ -123,17 +120,14 @@ const withKey = (set: ReadonlySet<string>, key: string, on: boolean): ReadonlySe
 };
 onAppEvent('self-changed', () => void setUnconfirmed(new Set<string>()));
 
-/**
- * Enter in the To field picks the highlighted person, as Forward's Enter picks its highlighted target; it sends only with
- * no one highlighted (an empty list), or with Ctrl (or Cmd).
- */
+/** To-field Enter chooses highlighted people; sends only without highlights or with Ctrl/Cmd. */
 export const enterSends = (e: Pick<KeyboardEvent, 'ctrlKey' | 'metaKey'>, highlighted: boolean): boolean => e.ctrlKey || e.metaKey || !highlighted;
 
 /** What a write is for: the conversation added to (none: a start) and the people, in any order. */
 export const pickKey = (addingTo: string | null, people: readonly string[]): string => `${addingTo ?? 'new'}:${[...people].sort().join(',')}`;
 /** A write for these picks is in flight. */
 export const pickSending = (key: string): boolean => sending().has(key);
-/** A write for these picks got no clear answer: sending them again could make the conversation twice. */
+/** Uncertain recipient writes remain non-retryable to avoid duplicate conversations. */
 export const pickUnconfirmed = (key: string): boolean => unconfirmed().has(key);
 
 /** §4.3: an archived conversation opens in the Archive with the typing in its composer; any other in the live client. */
@@ -147,12 +141,7 @@ async function showConversation(channelId: string, opening: number): Promise<voi
   } else openLive({ id: channelId, guildId: DM_GUILD_ID });
 }
 
-/**
- * Starts a conversation with `people` (one person's open DM sends nothing), or adds them to `addTo`; main archives or
- * declines a conversation this makes as it stores it. What it leads to is shown, unless the window closed meanwhile; a
- * group added to shows its new members, and an add that stopped part way keeps the window. An `uncertain` outcome shows
- * nothing, and its picks are never sent again.
- */
+/** Starts/adds conversation recipients and applies archive choices. Partial failures keep dialogs; uncertain picks never resend. Closed windows suppress navigation. */
 export async function sendPicks(addTo: DmChannel | undefined, people: string[], archive: boolean): Promise<DmOutcome> {
   const key = pickKey(addTo?.id ?? null, people);
   // One person with an open DM sends nothing, so only a request is held back.

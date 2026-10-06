@@ -1,6 +1,4 @@
-// A main side's ctx.discord: reads for every plugin, writes only with descriptor `discord: { write: true }`, and never
-// the host's client itself (docs/plugin-architecture.md §4). Reads are paced; writes aren't, an automatic post's one wait
-// being humanPause. The type side is src/plugin-sdk/main/services.typecheck.ts.
+// Plugins receive paced Discord reads. Descriptor-authorized writes bypass read pacing; automatic posts use humanPause. The host client remains private.
 import { describe, expect, it, vi } from 'vitest';
 import { definePlugin, type PluginDescriptor } from '@plugin-sdk/shared';
 import type { DiscordClient } from '../src/main/discord/client';

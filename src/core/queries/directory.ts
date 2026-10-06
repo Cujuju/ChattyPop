@@ -9,13 +9,7 @@ import { dmBlocks, ownPrivateChannelSql } from './dmDirectory';
 import { unreadParams, unreadSql } from './readMarks';
 import { visibleChannelSql } from './privacy';
 
-/**
- * Servers and channels privacy mode leaves visible; each channel's newCount and notableCount count unread messages
- * (unreadSql: after its read mark and Discord's read state, else after `unseenSince`; none of `readerId`'s own: the
- * account signed in, else the last one); mentionCount is Discord's unread mention count (read_states). A one-to-one DM
- * names its other person for their avatar: the DM list's recipient, else (while its roster is unknown) its newest sender who isn't
- * `selfId`, once the owner is known. DMs are `selfId`'s only, newest activity first, each with its `dm` block.
- */
+/** Lists privacy-visible channels with Archive/Discord unread counts and Discord mention counts. Owned DMs sort by activity and include roster/display metadata. */
 export function directory(db: Db, unseenSince: number, selfId: string | null = null, readerId: string | null = selfId): DirectoryGuild[] {
   const notable = storedMatchSql(NOTABLE_QUERY, 'j', 'notable_');
   const guilds = db
@@ -40,8 +34,8 @@ export function directory(db: Db, unseenSince: number, selfId: string | null = n
               c.icon, peer.id AS peerId, peer.avatar AS peerAvatar
        FROM channels c
        LEFT JOIN read_states rs ON rs.channel_id = c.id
-       -- The CASE runs the message lookup only for a one-to-one DM with neither its person nor its roster kept; a join
-       -- condition would run it for every channel.
+       -- CASE limits fallback peer lookups to one-to-one DMs without stored peers/rosters, avoiding per-channel joins.
+       --
        LEFT JOIN users peer ON peer.id = COALESCE(c.peer_id, CASE WHEN c.kind = @dm AND c.recipients IS NULL AND @self != '' THEN (SELECT m.author_id FROM messages m
          WHERE m.channel_id = c.id AND m.author_id != @self ORDER BY m.ts DESC LIMIT 1) END)
        WHERE ${visibleChannelSql('c.id')} AND ${ownPrivateChannelSql('c')} ORDER BY c.position, c.name`,

@@ -7,7 +7,7 @@ export const SECRETS_DIR = 'secrets';
 
 const secretPath = (file: string): string => profilePath(SECRETS_DIR, file);
 
-/** Throws unless the OS keystore can encrypt; checked before anything that would end in storing a secret. */
+/** Checks OS encryption availability before secret storage. */
 export function requireSecretStorage(): void {
   if (!safeStorage.isEncryptionAvailable()) throw new Error('OS encryption is unavailable, so the key cannot be stored safely.');
 }

@@ -102,7 +102,7 @@ function CozyRow(props: MessageRowProps) {
   const m = () => props.message;
   const swipe = swipeToReply(m);
   const bar = createActionBar(props);
-  // Resolved once: reading a JSX prop again would build it again.
+  // Resolve JSX props once to avoid rebuilding content.
   const gutter = children(() => props.gutter);
   return (
     <article
@@ -162,17 +162,14 @@ function CozyRow(props: MessageRowProps) {
   );
 }
 
-/**
- * The hover action bar: shown while a mouse is over the row, focus is in the bar, or the row's menu is open (opened from
- * the bar's More, the pointer has left). Never on the phone, which has the long-press menu and swipe to reply, nor over the editor.
- */
+/** Shows action bars for hover, bar focus or open menus. Excludes phone and active editors. */
 function createActionBar(props: MessageRowProps) {
   const [hovered, setHovered] = createSignal(false);
   const [focused, setFocused] = createSignal(false);
   return {
     enter: (e: PointerEvent) => void (e.pointerType === 'mouse' && setHovered(true)),
     leave: () => void setHovered(false),
-    /** Focus inside the bar keeps it: unmounting the focused button would drop the focus. */
+    /** Retain focused bars to preserve button focus. */
     focusWithin: (inside: boolean) => void setFocused(inside),
     shown: () => !inCompanion && props.editing !== true && (hovered() || focused() || contextMenu()?.messageId === props.message.id),
   };

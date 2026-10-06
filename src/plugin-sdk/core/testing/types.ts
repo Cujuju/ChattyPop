@@ -22,7 +22,7 @@ export type RuleSection = 'triggers' | 'match' | 'filters' | 'actions';
 /** Who a core call comes from, as its transport stamps it: a desktop window, the phone, or main. */
 export type CallerAudience = 'renderer' | 'phone' | 'main';
 
-/** A provider the test scripts, declared and registered as a provider plugin's would be. */
+/** Scripted provider declaration/registration for tests. */
 export interface ScriptedProvider {
   /** A provider id (`<plugin id>` or `<plugin id>.<name>`); stored AI settings name it. */
   id: string;

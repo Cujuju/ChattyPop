@@ -1,6 +1,4 @@
-// The main testing harness (docs/plugin-architecture.md §15): a plugin's main side started by the host's own main-side
-// starter over a core harness, with main's notification policy, plugin states, phone gateway and live labels, and
-// stand-ins for what lives outside the process (Discord's session, dialogs, the OS keystore, the network).
+// Runs main plugins through real host routing, notifications, states, phone and labels atop core harnesses. External session/dialog/keystore/network services are stand-ins.
 import { join } from 'node:path';
 import type { AppEvent } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
@@ -76,8 +74,7 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
     secrets: { read: (file) => secrets.get(file) ?? null, write: (file, value) => void secrets.set(file, value), delete: (file) => void secrets.delete(file) },
     diag,
     core: coreClient,
-    // One stand-in for both lanes; a test doesn't wait out the automatic-post pause. Posting unlocked: a plugin's tests
-    // don't install the plugin that unlocks it (the lock's own contract is tests/postingLock.test.ts).
+    // Shares both Discord lanes without automatic-post waits. Posting starts unlocked; separate posting-lock tests cover the unlocking contract.
     discord: { paced: o.discord ?? NO_DISCORD, prompt: o.discord ?? NO_DISCORD, humanPause: async () => undefined, posting: { unlocked: async () => true } },
     emojiIndex: { all: () => Object.values(emojis).flat(), forGuild: async (_api, guildId) => [...(emojis[guildId] ?? [])] },
     mediaDir: side.mediaDir,
@@ -88,8 +85,7 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
     phone: hub,
     pages: rendererPages(join(side.profileDir, 'renderer'), null),
     tailnet: { publish: () => Promise.reject(new TailnetError('This test has no tailnet.')), withdraw: async () => undefined, reconcile: async () => undefined },
-    // As main's router (coreEvents.ts publish), for core's events and main plugins' alike: windows get a plugin event
-    // when its audiences include them, each its own copy over IPC; the phone's hub filters its own.
+    // Routes core/main plugin events like coreEvents.publish: audience-filtered windows receive separate copies; the phone hub applies its own filtering.
     publish: (e) => {
       if (reaches(e, 'renderer')) windows.forEach((fn) => fn(structuredClone(e)));
       hub.broadcast(e);

@@ -7,10 +7,7 @@ import { inCompanion } from './ui';
 /** Whether `a` can be saved: its file is held here. */
 export const canSave = (a: ArchiveAttachment): boolean => a.status === 'stored' && a.sha256 !== null;
 
-/**
- * A window asks main, which shows a save dialog and copies the file. The phone's page needs nothing: its media route is
- * its own origin, so the link's `download` saves there.
- */
+/** Desktop saves use main dialogs/copies. Phone media shares page origin, allowing native download links. */
 export const savesThroughMain = !inCompanion;
 
 /** Saves `a`; a failed copy (a full disk, a folder it may not write to) says why. */

@@ -1,5 +1,4 @@
-// Links: the Links panel's feed of shared links, Jev's reading of them (category, spam/scam/NSFW, worth
-// reading), and X posts Discord never previewed, fetched from FxTwitter. The link index itself is the host's.
+// Defines link fixture metadata for its panel, Jev queries, and FxTwitter previews of unpreviewed X posts.
 import { defineChannels, definePlugin, definePreference, finiteOr, type JevFeatureDecl, type JevQueryDecl, type Platform } from '@plugin-sdk/shared';
 import type { LinkFilter, LinkItem, LinkPageQuery } from './types';
 

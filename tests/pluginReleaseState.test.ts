@@ -1,5 +1,4 @@
-// Plugin release state (scripts/pluginReleaseState.ts, docs/plugin-architecture.md §16): each plugin's manifest version
-// on main against its newest listed release, read from a real repo's history.
+// Compares manifest and marketplace versions against real plugin-repository history.
 import { describe, expect, it } from 'vitest';
 import { nextVersion, raisedVersion, readStates } from '../scripts/pluginReleaseState';
 import { GIT_TEST_TIMEOUT_MS, commit, git, listed, out, pluginRepo, pull, sharedFile, sharedSource } from './pluginReleaseHarness';

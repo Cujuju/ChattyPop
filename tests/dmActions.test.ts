@@ -1,9 +1,4 @@
-// Contract (docs/dms.md §4.1, §4.4): the rename and leave dialogs close once their conversation leaves the list (privacy
-// mode hid it, it closed, another account signed in), so nothing of it, its name included, stays on screen. DM rows are
-// keyed by channel id, so a directory read keeps them (focus, arrow keys); the mute flyout finds its row as it opens.
-// While a group's roster is unknown, its members flyout claims no count, no crown and no removing. Mark as read is offered
-// only while the DM is unread by the sidebar's rule (dmRules.isUnread), so a read DM sends Discord no ack. While posting is
-// locked, the menus offer no Discord write (mute, rename, add, leave, close) and an open dialog closes.
+// DM dialogs follow visibility and posting permissions. Rows retain identity; unknown rosters omit member controls. Read actions acknowledge only unread DMs.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { DirectoryChannel } from '@shared/contract';
@@ -11,7 +6,7 @@ import { DM_CHANNEL_TYPE, DM_GUILD_ID, GROUP_DM_CHANNEL_TYPE } from '@shared/dis
 import { isUnread, type DmChannel } from '../src/renderer/src/state/dmRules';
 import { setPostingUnlocked } from './postingSwitch';
 
-// The client runtime, so effects run as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const env = vi.hoisted(() => ({ list: (_channels: DirectoryChannel[]): void => undefined, menus: [] as unknown[] }));

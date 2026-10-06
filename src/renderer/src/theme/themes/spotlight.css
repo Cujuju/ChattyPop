@@ -1,9 +1,4 @@
-/* Theme 'spotlight': neutral graphite with a mint accent. Primary panels are lit (lifted ground, section-tinted
-   header, filled icon, section ring); reference panels recede (dimmed text, muted header). IBM Plex type.
-   Contrast (WCAG 2.x, sRGB) checked 2026-09-25, all >= 4.5:1:
-   text-1 / text-2 / text-muted on surface-0..5: 17.1-12.7 / 11.6-8.6 / 6.9-5.1; on primary ground 15.3 / - / 6.1;
-   reference text-1 / text-2 on surface-3 10.2 / 7.6; text-on-accent on accent 12.5; info on cite-bg 9.8;
-   sections on surface-3 6.5-11.7; text-on-accent on each section (badge, filled tile) 7.0-12.7. */
+/* Spotlight uses graphite, mint and IBM Plex. Primary panels brighten; reference panels recede. Documented September 2026 contrasts meet 4.5:1. */
 
 [data-theme='spotlight'] {
   --cp-ground: #0a0a0b;

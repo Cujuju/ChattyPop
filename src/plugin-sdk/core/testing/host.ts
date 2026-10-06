@@ -1,6 +1,4 @@
-// The core testing harness (docs/plugin-architecture.md §15): a plugin's core side under the real plugin host and the
-// adapters core init wires (AI registry and read scope, archive, rule kinds, completions, transports' envelopes and
-// codecs), with scripted AI, a network stand-in and a clock injected where the host takes them.
+// Runs core plugins through real host adapters with scripted AI, network stand-ins and injected clocks.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -44,7 +42,7 @@ const NO_PHONE_EXTRAS = (): never => {
   throw new Error('The core test harness has no Discord session or media store.');
 };
 
-/** A scripted provider's declaration, as its plugin's would be. */
+/** Declares scripted test providers. */
 const scriptedDeclaration = (id: string, local: boolean, images: boolean): DeclaredProvider => ({
   id,
   label: id,
@@ -73,7 +71,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   const db = openDb(join(dir, 'archive.db'));
   const events: AppEvent[] = [];
   const listeners = new Set<(e: AppEvent) => void>();
-  // Each process gets its own copy, as core's transports carry events: a later change to the emitted value reaches none.
+  // Clones emitted events per process; subsequent mutations do not propagate.
   const emit = (e: AppEvent): void => {
     events.push(structuredClone(e));
     listeners.forEach((fn) => fn(structuredClone(e)));
@@ -149,7 +147,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     backfillFromMs: () => 0,
     selfId: () => self,
     lastSeenAt: () => lastSeen,
-    // Text retention isn't modelled (§15): a channel's tier changes nothing stored.
+    // Harness omits text retention; changing channel tiers does not alter stored text.
     applyTextTier: async () => undefined,
     autoArchiveSinceMs: () => normalizeArchiveSettings(getSetting(db, SETTINGS_KEYS.archive)).autoArchiveSinceMs,
   });

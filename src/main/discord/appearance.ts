@@ -1,6 +1,4 @@
-// The owner's Discord custom theme, read from their own user settings (protobuf, base64) for Settings → Appearance.
-// Field numbers verified 2026-10-02 against a live account: PreloadedUserSettings.appearance (13) → client_theme_settings
-// (3) → custom theme (4) { colors (1, repeated "#rrggbb"), gradient_angle (3), base_mix (4) }; appearance.theme (1).
+// Verified 2026-10-02 protobuf fields: appearance 13 → client_theme_settings 3 → custom theme 4; colors 1, angle 3, base_mix 4; appearance.theme 1.
 import { CUSTOM_THEME_MIN_COLORS, normalizeCustomTheme, type CustomTheme } from '@shared/settings';
 import type { DiscordClient } from './client';
 import { fields, message, varintOf } from './settingsProto';

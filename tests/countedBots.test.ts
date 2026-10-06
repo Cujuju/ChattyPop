@@ -200,7 +200,7 @@ describe('bot identity upgrade', () => {
       user.run(id, id);
       message.run(id, CH, id, payload);
     }
-    // A later partial author payload must not erase the earlier bot evidence.
+    // Partial author payloads preserve previously stored bot evidence.
     message.run('partial', CH, 'plain', JSON.stringify({ author: { username: 'plain' } }));
     // Another damaged payload for a known bot must not prevent recovery from its good one.
     message.run('bad-first', CH, 'compressed', 'malformed');

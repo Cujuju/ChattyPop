@@ -1,5 +1,4 @@
-// Development plugins (the folders PLUGIN_DIRS_ENV names): which ones a build includes, served to each process as a
-// virtual module. A plugin left out ships none of its code.
+// Generates process-specific virtual modules for selected development plugins. Excluded plugins ship no code.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, delimiter, dirname, extname, isAbsolute, join, resolve, sep } from 'node:path';
 import { parseAst, runnerImport, transformWithEsbuild, type Plugin } from 'vite';
@@ -8,15 +7,12 @@ import { HOST_MODULES, SHARED_HOST_MODULE, type Platform, type TierHostModuleId 
 
 /** Comma-separated plugin ids a build includes. Unset: every plugin folder (pluginFolders); `none` (or empty): none. */
 export const BUNDLED_PLUGINS_ENV = 'CHATTYPOP_PLUGINS';
-/**
- * Absolute folders, joined by the OS path delimiter: local clones of the plugin repos' `plugins` folders, run by `pnpm
- * dev` with hot reload. Only the dev server reads it (devPluginSource).
- */
+/** Absolute plugin-repository folders joined by the OS path delimiter; consumed only by the development server. */
 export const PLUGIN_DIRS_ENV = 'CHATTYPOP_PLUGIN_DIRS';
-/** Selects no plugins. Spelled out because cmd.exe and Windows PowerShell 5 can't set a variable to empty (it unsets it: all). */
+/** Selects no plugins. Windows shells unset empty environment variables; an unset selection includes all plugins. */
 export const NO_PLUGINS = 'none';
 const VIRTUAL_PREFIX = 'virtual:bundled-plugins/';
-/** Each process's entry inside a plugin folder; a plugin without one has no part in that process. */
+/** Process entry filenames; absent entries contribute no code. */
 const ENTRIES: Readonly<Record<string, string>> = {
   shared: 'shared/index.ts',
   core: 'core/index.ts',
@@ -24,14 +20,14 @@ const ENTRIES: Readonly<Record<string, string>> = {
   renderer: 'renderer/index.tsx',
 };
 
-/** The folders of plugin folders: each of `dirsEnv` (PLUGIN_DIRS_ENV), none when unset. Throws on a relative or missing one. */
+/** Parses plugin folders from dirsEnv. Unset means none; relative or missing folders throw. */
 export function pluginDirs(dirsEnv: string | undefined): string[] {
   const dirs = (dirsEnv ?? '').split(delimiter).map((d) => d.trim()).filter(Boolean);
   for (const d of dirs) if (!isAbsolute(d) || !existsSync(d)) throw new Error(`${PLUGIN_DIRS_ENV} names ${d}, which isn't an absolute, existing folder.`);
   return dirs.map((d) => resolve(d));
 }
 
-/** Every plugin folder in `dirs`, by id, in folder order. Throws on an id two folders share, or one named `none`. */
+/** Lists plugin folders by ID in folder order. Duplicate IDs and the reserved ID none throw. */
 export function pluginFolders(dirs: readonly string[]): Map<string, string> {
   const folders = new Map<string, string>();
   for (const dir of dirs) {
@@ -54,13 +50,13 @@ export interface PluginSource {
 }
 /** No plugin folders: every build that ships, and the host's tests. */
 export const NO_PLUGIN_SOURCE: PluginSource = {};
-/** The dev loop's plugins: this process's environment. Read only by `pnpm dev`, so a user-level variable never ships. */
+/** Reads plugin sources from the development process environment. */
 export const devPluginSource = (): PluginSource => ({ dirs: process.env[PLUGIN_DIRS_ENV], selection: process.env[BUNDLED_PLUGINS_ENV] });
 
 /** `source`'s plugin folders. */
 const buildFolders = (source: PluginSource): Map<string, string> => pluginFolders(pluginDirs(source.dirs));
 
-/** Plugin ids the build includes, in folder order. Throws on an id with no folder, so a typo can't ship a build without it. */
+/** Returns selected plugin IDs in folder order; unknown IDs throw. */
 export function selectedPlugins(folders: ReadonlyMap<string, string>, env: string | undefined): string[] {
   const all = [...folders.keys()];
   if (env === undefined) return all;
@@ -75,7 +71,7 @@ export function selectedPlugins(folders: ReadonlyMap<string, string>, env: strin
 const entryFiles = (folders: ReadonlyMap<string, string>, ids: readonly string[], entry: string): string[] =>
   ids.map((p) => join(folders.get(p)!, entry).replaceAll('\\', '/')).filter(existsSync);
 
-/** Module source importing `files`' default exports as a list bound to `binding` (an export or a declaration). */
+/** Generates a list of default imports bound to binding. */
 const listOf = (files: readonly string[], binding: string): string =>
   [...files.map((f, i) => `import p${i} from ${JSON.stringify(f)};`), `${binding} [${files.map((_, i) => `p${i}`).join(', ')}];`].join('\n');
 
@@ -83,10 +79,7 @@ const listOf = (files: readonly string[], binding: string): string =>
 const catalogs = new Map<string, Promise<unknown>>();
 const CATALOG_ENTRY = 'virtual:bundled-plugins-catalog';
 
-/**
- * Anchor catalog of every plugin folder (`anchorCatalog`), for a build that leaves plugins out: its anchors resolve
- * through it. A plugin's anchors are checked when a registry includes it.
- */
+/** Complete plugin anchor catalog for subset builds. Registry inclusion validates each plugin’s anchors. */
 function catalogOf(root: string, folders: ReadonlyMap<string, string>): Promise<unknown> {
   const key = [...folders.values()].join(delimiter);
   const known = catalogs.get(key);
@@ -105,7 +98,7 @@ function catalogOf(root: string, folders: ReadonlyMap<string, string>): Promise<
     plugins: [{
       name: 'chattypop-bundled-plugins-catalog',
       resolveId: (id) => (id === CATALOG_ENTRY || id.startsWith(VIRTUAL_PREFIX) ? `\0${id}` : undefined),
-      // The host modules descriptors import see a build with no plugins; descriptors don't read the registry.
+      // Descriptor imports resolve host modules with no plugins included.
       load: (id) => (id === `\0${CATALOG_ENTRY}` ? code : id.startsWith(`\0${VIRTUAL_PREFIX}`) ? 'export default []; export const catalog = null;' : undefined),
     }],
   }).then((r) => r.module.default);
@@ -119,15 +112,12 @@ const INSTALLED_SHARED = `${INSTALLED_PREFIX}shared`;
 const HOST_EXPORTS = `${INSTALLED_PREFIX}host-exports`;
 /** Node code that loads installed plugins' modules, as generated registries import it. */
 const INSTALLED_RUNTIME = 'src/main/plugins/installed/runtime.ts';
-/**
- * Node host modules main's boot can't load before the plugin registry exists (their imports reach it), so it checks
- * installed plugins' imports of them against their export names, read from source here: every node tier.
- */
+/** Reads node-tier exports from source so installed-plugin import validation runs before loading the plugin registry. */
 const STATIC_HOST_MODULES = HOST_MODULES.node.filter((id) => id !== SHARED_HOST_MODULE);
-/** The node registry that publishes each tier module: complete, so a tier no process publishes is a type error. */
+/** Complete node-tier publication registry; missing tiers fail type checking. */
 const NODE_TIER_PUBLISHERS = { '@plugin-sdk/core': 'core', '@plugin-sdk/main': 'main' } as const satisfies Record<TierHostModuleId<'node'>, 'core' | 'main'>;
 
-/** Module source that publishes host modules `ids`: a namespace import of each, and the `{ id: namespace }` argument. */
+/** Generates namespace imports and host-module publication arguments. */
 const publishing = (ids: readonly string[]): { imports: string[]; modules: string } => ({
   imports: ids.map((id, i) => `import * as host${i} from ${JSON.stringify(id)};`),
   modules: `{ ${ids.map((id, i) => `${JSON.stringify(id)}: host${i}`).join(', ')} }`,
@@ -168,7 +158,7 @@ const browserRendererRegistry = (root: string, files: readonly string[]): string
     'export default [...build, ...(await installedRenderers())];',
   ].join('\n');
 
-/** Node: core's or main's registry: the build's entries, then the accepted plugins' sides, after publishing the SDK tiers they read. */
+/** Publishes SDK tiers before bundled and accepted installed-plugin node entries. */
 const nodeSideRegistry = (root: string, files: readonly string[], side: 'core' | 'main'): string => {
   const tiers = STATIC_HOST_MODULES.filter((id) => NODE_TIER_PUBLISHERS[id] === side);
   const { imports, modules } = publishing([SHARED_HOST_MODULE, ...tiers]);
@@ -187,7 +177,7 @@ const nodeSideRegistry = (root: string, files: readonly string[], side: 'core' |
 type AstNode = { type: string; name?: string; value?: unknown; id?: AstNode | null; exported?: AstNode | null; declaration?: AstNode | null; declarations?: AstNode[]; specifiers?: AstNode[] };
 const exportedName = (n: AstNode): string => (n.type === 'Identifier' ? n.name! : String(n.value));
 
-/** The names `file` (TypeScript) exports at run time: types are erased, and `export *` is refused, since its names aren't listed. */
+/** Lists runtime TypeScript exports. Erases types and rejects export *. */
 async function exportNames(file: string): Promise<string[]> {
   const { code } = await transformWithEsbuild(readFileSync(file, 'utf8'), file, { loader: 'ts' });
   return (parseAst(code).body as AstNode[]).flatMap((node): string[] => {
@@ -213,11 +203,7 @@ async function hostExportsModule(root: string): Promise<string> {
   return `export default JSON.parse(${JSON.stringify(JSON.stringify(names))});`;
 }
 
-/**
- * Resolves `virtual:bundled-plugins/<process>` to a module whose default export lists that process's entries. The
- * shared registry also exports `catalog`: every plugin folder's anchors when the build leaves some out, else null. On
- * `node`, core's and main's registries append the installed plugins main's start accepted (installedPlugins.ts).
- */
+/** Generates process-specific bundled-plugin entries. Shared catalog includes omitted plugins’ anchors; node registries append accepted installed plugins. */
 export function bundledPlugins(root: string, platform: Platform, source: PluginSource): Plugin {
   const folders = buildFolders(source);
   const ids = selectedPlugins(folders, source.selection);
@@ -241,17 +227,17 @@ export function bundledPlugins(root: string, platform: Platform, source: PluginS
       const registry = listOf(files, 'export default');
       if (process !== 'shared') return registry;
       if (!partial) return `${registry}\nexport const catalog = null;`;
-      // Parsed, not an object literal, where a `__proto__` key would set the prototype instead of naming an item.
+      // JSON parsing preserves __proto__ as a key rather than an object-literal prototype setter.
       return catalogOf(root, folders).then((catalog) => `${registry}\nexport const catalog = JSON.parse(${JSON.stringify(JSON.stringify(catalog))});`);
     },
   };
 }
 
-/** A plugin's own page (docs/plugin-architecture.md §2): its HTML, whose scripts are relative to it, and public files. */
+/** Plugin HTML, relative script entries, and public page files. */
 const PAGE_HTML = 'page/index.html';
-/** Inside the page folder: files copied to the renderer output root (a service worker, install icons). */
+/** Static page files copied to the renderer output root. */
 const PAGE_PUBLIC_DIR = 'public';
-/** Content types for public page files in development; the build copies them and the serving plugin types them. */
+/** Development content types for public page files. */
 const DEV_MIME: Readonly<Record<string, string>> = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json',
@@ -281,21 +267,18 @@ function filesUnder(dir: string): string[] {
 /** The installed-page shell's build input name: its file name without `.html`. */
 const SHELL_INPUT = basename(INSTALLED_PAGE_SHELL, extname(INSTALLED_PAGE_SHELL));
 
-/**
- * Renderer build inputs for the selected plugins' pages: `<id>.html` at the renderer root, which exists only as this
- * plugin's module (pagesPlugin). A plugin left out of the build ships no page. The installed-page shell is always built.
- */
+/** Selected plugin pages build as <id>.html. Excluded plugins have no page; the installed-page shell always builds. */
 export function pageInputs(rendererRoot: string, source: PluginSource): Record<string, string> {
   const ids = [...selectedPages(source).keys()];
   if (ids.includes(SHELL_INPUT)) throw new Error(`Plugin ${SHELL_INPUT}'s page would replace the host's ${INSTALLED_PAGE_SHELL}.`);
   return Object.fromEntries([...ids, SHELL_INPUT].map((id) => [id, join(rendererRoot, `${id}.html`)]));
 }
 
-/** The host's page bootstrap (theme, then the plugin registry), from the renderer root; a page's entry runs after it. */
+/** Renderer-root bootstrap loads theme and registry before page entries. */
 export const PAGE_BOOTSTRAP = '/src/plugins/page.ts';
-/** The installed pages' bootstrap: the page bootstrap, then the entry main names in the page (docs/plugin-architecture.md §16). */
+/** Installed-page bootstrap loads the shared bootstrap, then the named entry. */
 export const INSTALLED_PAGE_BOOTSTRAP = '/src/plugins/installedPage.ts';
-/** The installed-page shell: only its head is used, which main puts into each installed page it serves. */
+/** Installed-page shell head inserted into served plugin pages. */
 const SHELL_HTML = `<!doctype html>
 <html>
   <head>
@@ -307,17 +290,13 @@ const SHELL_HTML = `<!doctype html>
 /** A page's first module script, where the host's bootstrap goes in front of it. */
 const FIRST_MODULE_SCRIPT = /<script type="module"/;
 
-/** `html` with the host's bootstrap as its first module script, so the registry is installed before the page renders. */
+/** Prepends host bootstrap as the first module script. */
 function withBootstrap(html: string): string {
   if (!FIRST_MODULE_SCRIPT.test(html)) throw new Error('A plugin page needs a module script entry.');
   return html.replace(FIRST_MODULE_SCRIPT, `<script type="module" src="${PAGE_BOOTSTRAP}"></script>\n    $&`);
 }
 
-/**
- * Serves and builds plugin pages as if they sat at the renderer root: `<id>.html` loads the plugin's page/index.html,
- * with the host's bootstrap before its own entry; its relative scripts resolve inside the plugin's page folder, and
- * page/public files are served (dev) and copied (build) to the output root. Also the installed-page shell.
- */
+/** Plugin pages load host bootstrap before their entry. Relative scripts resolve within page/; page/public files serve in development and copy to the output root. */
 export function pagesPlugin(rendererRoot: string, source: PluginSource): Plugin {
   const pages = selectedPages(source);
   const htmlId = (id: string): string => join(rendererRoot, `${id}.html`).replaceAll(sep, '/');
@@ -352,7 +331,7 @@ export function pagesPlugin(rendererRoot: string, source: PluginSource): Plugin 
         }
         const page = [...pages].find(([id]) => path === `/${id}.html`);
         if (page) {
-          // The browser resolves relative scripts against the URL, not the plugin folder: point them at the files.
+          // Rewrites relative script URLs to plugin files.
           const html = withBootstrap(readFileSync(join(page[1], basename(PAGE_HTML)), 'utf8')).replace(/src="\.\/([^"]+)"/g, (_m, file: string) => `src="/@fs/${join(page[1], file).replaceAll(sep, '/')}"`);
           void server.transformIndexHtml(path, html).then((out) => res.setHeader('content-type', 'text/html').end(out), next);
           return;

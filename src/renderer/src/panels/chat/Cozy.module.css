@@ -1,6 +1,4 @@
-/* Cozy Archive layout: avatar | name + time heading a group of consecutive messages from one author.
-   Layered on MessageRow.module.css .row (shared body styles); [data-density] makes these rules outrank it regardless of load order.
-   Hooks: .row[data-grouped='true']. Rows are height-measured: spacing is padding only. */
+/* Cozy rows group avatar/name/time over consecutive author messages. data-density overrides shared row styles; measured rows use padding spacing. */
 .row[data-density='cozy'] {
   grid-template-columns: var(--cp-chat-avatar) minmax(0, 1fr);
   align-items: start;
@@ -59,8 +57,7 @@
   gap: var(--cp-space-3);
 }
 
-/* Continuation rows show their time in the gutter, on the text's baseline, only on hover or focus.
-   Centred under the avatar; justify-self lets a time wider than the gutter overflow evenly on both sides. */
+/* Continuation times appear in centered avatar gutters on hover/focus. justify-self permits symmetric overflow for wide timestamps. */
 .gutterTime {
   align-self: first baseline;
   justify-self: center;

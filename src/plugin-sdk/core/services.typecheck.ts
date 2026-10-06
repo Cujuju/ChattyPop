@@ -1,5 +1,5 @@
-// Compile-time probe: the core SDK hands plugins its own interfaces, never a host service class (docs/plugin-architecture.md §4).
-// @ts-expect-error The host's Jev judge is not an SDK export; plugins use ctx.jev.judgments and ctx.archive.replyTargets.
+// Compile-time SDK boundary probe: host judge is private; use ctx.jev.judgments and ctx.archive.replyTargets.
+// @ts-expect-error Host judge is not exported.
 import { MessageJudge } from '@plugin-sdk/core';
 // @ts-expect-error Nor is the importer as a slice of the host's Archive class; plugins get Importer.
 import type { ArchiveImporter } from '@plugin-sdk/core';

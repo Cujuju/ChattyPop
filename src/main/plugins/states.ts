@@ -41,13 +41,7 @@ export type Dispose = (reason: StopReason) => void | Promise<void>;
 /** Starts one run of a resource while its plugin is on, given the run's lifetime; returns what stops it. */
 export type RunStart = (run: Lifetime) => void | Dispose | Promise<void | Dispose>;
 
-/**
- * Keeps `start`'s resource running exactly while `active()` is true, each run with a fresh lifetime of plugin
- * `pluginId`: it ends before the run's disposer runs (or when its start fails), so the run's late effects refuse. A run
- * still starting when the plugin turns off (or the app quits) ends at once; once its start returns, it is disposed.
- * Transitions are serialized, so a quick off/on never leaves two running; `stop()` ends it for good (app quit). A throw
- * from start or its disposer goes to `failed`.
- */
+/** Serializes active resource transitions with fresh lifetimes. Ends lifetimes before disposal or failed starts; late starts dispose afterward. stop permanently ends resources; failures are reported. */
 export function whileActive(pluginId: string, active: () => boolean, start: RunStart, failed: (error: unknown) => void): { sync(): Promise<void>; stop(): Promise<void> } {
   let run: ReturnType<typeof pluginLifetime> | null = null;
   let dispose: Dispose | null = null;

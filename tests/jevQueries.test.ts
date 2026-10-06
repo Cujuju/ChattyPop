@@ -18,7 +18,7 @@ import { probeRule, ruleHarness, type Harness } from './ruleHarness';
 import { ARRIVAL } from '../src/core/arrival';
 
 const def = (id: string) => jevQueryDef(id)!;
-/** A query as a plugin would declare it, read as `use` says. */
+/** Declares a plugin query with the configured read mode. */
 const declared = (use: JevQueryUse, defaults: CustomJevQuestion, placeholders?: string[]): JevQueryDef => ({
   id: `r2.${use}`,
   group: 'Messages',

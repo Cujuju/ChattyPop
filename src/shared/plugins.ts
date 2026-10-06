@@ -1,11 +1,6 @@
-// Plugin contract (docs/plugins.md). Plugins are full trust: ESM loaded into the core process, no sandbox.
-// The API version is the compatibility promise: a plugin loads when its apiVersion's major equals the host's.
+// Full-trust ESM plugins run unsandboxed in core. Matching API major versions determine compatibility.
 
-/**
- * 1.1: renderer entry (panels) and rpc.handle. 1.2: ai.decide (Jev). 2.0: AI requests declare `reads`; query.* return
- * only what privacy mode shows. 3.0: ai.complete names its provider (no default provider); ai.providers lists them. A
- * plugin written for another major doesn't load.
- */
+/** API evolution: 1.1 renderer/RPC; 1.2 Jev; 2.0 read scopes/privacy queries; 3.0 explicit providers. Other major versions cannot load. */
 export const PLUGIN_API_VERSION = '3.0.0';
 /** What this major changed from the one before, for the load error of a plugin written for an older major. */
 export const PLUGIN_API_MAJOR_CHANGES = 'ai.complete names the provider it asks (provider; ai.providers lists them): there is no default provider';
@@ -43,10 +38,7 @@ export type PluginQuestion =
   | { type: 'choice'; instructions: unknown; criteria: Record<string, unknown> }
   | { type: 'score'; instructions: unknown; criteria: unknown[] };
 
-/**
- * The channels whose text an AI request carries: their ids (a thread by its own), or 'all'. A hosted model is refused
- * a channel set to local AI only (or a thread under one), and 'all' while any channel is.
- */
+/** AI read scopes name channel ids or all. Hosted requests reject effective local-only channels, including inherited thread policy and all-channel reads. */
 export type ReadScope = readonly string[] | 'all';
 
 export interface PluginDecideRequest {
@@ -68,7 +60,7 @@ export interface PluginMessage {
   channelId: string;
   authorId: string;
   ts: number;
-  /** The text, then the transcript of any voice message (which may arrive later, as an edit would). */
+  /** Message content followed by delayed voice transcript edits. */
   content: string;
 }
 
@@ -120,17 +112,11 @@ export interface PluginApi {
   };
   settings: { get(key: string): unknown; set(key: string, value: unknown): void };
   ai: {
-    /**
-     * Asks AI provider `provider` (an id from providers()) with its Settings → AI model and effort; rejects while it can't
-     * run or is turned off. `reads` names the channels the prompt was taken from.
-     */
+    /** Calls explicit providers with configured model/effort. Disabled/unavailable providers reject; reads declares source channels. */
     complete(req: { provider: string; system: string; prompt: string; schema?: Record<string, unknown>; reads: ReadScope }): Promise<{ text: string; json?: unknown }>;
     /** API 3.0: every AI provider, with why it can't be asked now (null while it can). */
     providers(): { id: string; label: string; local: boolean; unavailable: string | null }[];
-    /**
-     * API 1.2: typed judgments from Jev (the decision model): yes/no probabilities, one-of choices and scores, never
-     * generated text. Throws when Settings → Jev → plugins is off or no Jev key is set.
-     */
+    /** API 1.2 returns Jev probabilities, choices and scores rather than generated text. Disabled plugin decisions or missing keys throw. */
     decide(req: PluginDecideRequest): Promise<PluginDecideResult>;
   };
   /** A Windows notification; clicking it opens the message when one is given. */

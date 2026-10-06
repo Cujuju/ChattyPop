@@ -1,6 +1,4 @@
-// A plugin's database handle (docs/plugin-architecture.md §8): the statement surface over the archive, whose writes
-// throw PluginInactiveError once its lifetime ends, however long a statement, iterator or transaction is held. Reads
-// stay open. Nothing it returns reaches the raw connection, and it never runs statements that change that connection.
+// Activation-scoped database writes throw after unload; reads remain available. Wrappers expose neither raw connections nor connection-changing statements.
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
@@ -106,10 +104,7 @@ function fencedIterator<R>(it: IterableIterator<R>, check: () => void): Iterable
   return fenced;
 }
 
-/**
- * `stmt` with its runs fenced when it writes; the modifiers return the wrapper, never the raw statement, and switch on
- * when called bare, as better-sqlite3's do (which reject an undefined argument).
- */
+/** Fences writing statement runs. Modifiers return wrappers and retain better-sqlite3’s bare-call behavior. */
 function fencedStatement(stmt: RawStatement, fence: () => void): PluginStatement {
   const check = stmt.readonly ? (): void => undefined : fence;
   const wrapper: PluginStatement = {

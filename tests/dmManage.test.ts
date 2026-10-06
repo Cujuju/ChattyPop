@@ -1,7 +1,4 @@
-// Contract (docs/dms.md §3.5): managing a DM writes only a private channel of the account signed in, in the live
-// client's shapes: add (a DM becomes a new group), close or leave (quietly only for a group), rename (groups only) and
-// mute; each answer is stored at once, but a close's: the gateway's CHANNEL_DELETE closes it. Mark read acks Discord's
-// newest message, archived or not.
+// DM management requires the signed-in account’s private channel. Answers merge immediately except closes, which await gateway deletion. Read acknowledgements use Discord’s newest message.
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

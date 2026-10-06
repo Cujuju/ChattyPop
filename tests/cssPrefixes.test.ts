@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { userSelectViolations } from '../scripts/pluginScan/rules';
 import { PLUGINS_DIR } from './rendererGraph';
 
-// The build adds no vendor prefixes; Safari (the phone companion) reads only `-webkit-user-select`. plugin:check's scan applies the same rule.
+// Requires Safari’s -webkit-user-select prefix; plugin scanning applies the same rule.
 /** Host styles and fixture plugin folders; the app holds no plugins. */
 const CSS_DIRS = [resolve(__dirname, '../src/renderer/src'), PLUGINS_DIR];
 

@@ -1,5 +1,4 @@
-// The all-data allowlist (docs/plugin-architecture.md §3): plugin files, by `<plugin folder>/<path>`, that may read
-// `archive_all_*` views, each with its reason. File permissions, never host-table exemptions.
+// Per-file grants for archive_all_* reads, keyed by plugin folder and path; each grant records its reason.
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
@@ -26,10 +25,10 @@ export const ALL_READERS: Readonly<Record<string, string>> = {
 const HOST_LIST = 'scripts/pluginScan/allReaders.ts';
 /** A plugin repo holds its plugins in this folder (`plugins/<id>/`). */
 const PLUGINS_FOLDER = 'plugins';
-/** A plugin repo's own grants, beside its plugins folder, shaped as ALL_READERS; that repo's owner answers for them. */
+/** Repository-owned all-data grants beside plugins/, using ALL_READERS format. */
 export const REPO_ALL_READERS = 'all-readers.json';
 
-/** Each granted file for the plugin in `pluginDir`, mapped to the list granting it: the host's, then its repo's. */
+/** Maps granted plugin files to host and repository grant lists. */
 export function allReadersFor(pluginDir: string): ReadonlyMap<string, string> {
   const grants = new Map(Object.keys(ALL_READERS).map((key) => [key, HOST_LIST]));
   const pluginsDir = dirname(pluginDir);

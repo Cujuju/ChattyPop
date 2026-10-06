@@ -1,6 +1,4 @@
-// Checks of plugins' descriptors (docs/plugin-architecture.md §6, §9): ids, namespaces, duplicates and anchors. Pure
-// functions of a descriptor set: the build runs them over its registry and every plugin folder (the catalog a partial
-// build emits), and a set installed at run time validates the same way.
+// Pure descriptor checks validate ids, namespaces, duplicates and anchors identically across builds/catalogs and runtime installs.
 import { checkArchiveRefs } from './archiveRefs';
 import { HOST_SEARCH_KEYS } from './searchTokens';
 import { HOST_JEV_FEATURES, PROVIDER_ID, isHostJevFeature } from './aiSettings';
@@ -20,10 +18,7 @@ const MANAGED_RULE_KEY = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 /** A Jev switch key or notice kind before the host stamps `<plugin id>.`: an identifier, likewise. */
 const LOCAL_NAME = MANAGED_RULE_KEY;
 
-/**
- * Throws unless adoption alias source `old` is a pre-plugin name: `name`-shaped (dotless, so never a stamped
- * `<id>.<local>` identity, which adoption would rewrite in place) and no host item of its kind (`host`) now.
- */
+/** Adoption sources must be dotless pre-plugin names and cannot conflict with current host items of that kind. */
 function checkAliasSource(id: string, what: string, old: string, name: RegExp, host: readonly string[]): void {
   if (!name.test(old) || host.includes(old)) throw new Error(`${id} adopts ${what} ${old}: a pre-plugin name, not a stamped or host one`);
 }
@@ -47,10 +42,7 @@ const JEV_QUERY_ID = /^[a-z][A-Za-z0-9]*\.[a-z][A-Za-z0-9]*$/;
 /** An empty catalog dictionary: no prototype, so any declared id (`__proto__` too) is an own entry. */
 const dict = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
-/**
- * Every anchorable item a set of plugins declares, with the anchor it follows (null: none). Over every plugin folder, it
- * lets a build that leaves an anchor's owner out tell that anchor from a typo and place items as the full build does.
- */
+/** Catalogs declared anchorable items, including omitted plugins, to distinguish missing owners from typos and preserve full-build placement. */
 export interface AnchorCatalog {
   /** The plugins it describes: here, so an anchor on one of them that names nothing it declares is a typo. */
   plugins: string[];
@@ -66,10 +58,7 @@ export interface AnchorCatalog {
   jevQueries: Record<string, { group: string; anchor: PlacementAnchor | null }>;
 }
 
-/**
- * The anchor catalog of `list`'s declarations; plain data, so a build can emit it for plugins it leaves out. Throws on
- * a slot item declared twice, which a catalog keyed by id would otherwise keep once.
- */
+/** Creates serializable anchor catalogs and rejects duplicate slot declarations before keyed storage can hide them. */
 export function anchorCatalog(list: readonly PluginDescriptor[]): AnchorCatalog {
   const slots = Object.fromEntries(SLOT_KINDS.map((kind) => [kind, dict()])) as AnchorCatalog['slots'];
   const catalog: AnchorCatalog = { plugins: list.map((p) => p.manifest.id), panels: dict(), tabs: dict(), shortcuts: dict(), slots, notices: dict(), jevFeatures: dict(), jevQueries: dict() };
@@ -125,11 +114,7 @@ function checkSlots(p: PluginDescriptor): void {
   }
 }
 
-/**
- * Throws on a channel section that isn't core, main or events; a member without audiences or naming one its section
- * can't have; a call's options outside core; a core call the phone may make that doesn't state `writes`, or writes
- * without a decoder; or a completion report outside core, not main-only, or without a positive integer max.
- */
+/** Validates channel sections/audiences, core-only options, phone write flags/decoders and main-only core completion reports with positive integer capacity. */
 function checkChannels(id: string, channels: AnyChannels | undefined): void {
   for (const [section, members] of Object.entries(channels?.audiences ?? {})) {
     if (!Object.hasOwn(SECTION_AUDIENCES, section)) throw new Error(`${id} channels: no section ${section} (core, main or events).`);
@@ -156,11 +141,7 @@ function checkChannels(id: string, channels: AnyChannels | undefined): void {
   }
 }
 
-/**
- * Throws on a Jev switch key or notice kind that isn't a local identifier, a switch key the host uses, a stamped name
- * declared twice, a switch placed by anything but a host switch or the plugin's own, a query naming a switch neither it nor the host declares or placed both ways, and an alias (adopts.jevFeatures,
- * adopts.noticeKinds) that lands on nothing declared or that another plugin also claims. Over the descriptors alone.
- */
+/** Validates local/unique switch and notice ids, declared placement/query references and adoption targets. Rejects conflicting aliases and host-switch collisions. */
 function checkVocabulary(p: PluginDescriptor, once: (what: string, id: string) => void): void {
   const id = p.manifest.id;
   const features = new Set<string>();
@@ -179,7 +160,7 @@ function checkVocabulary(p: PluginDescriptor, once: (what: string, id: string) =
   }
   for (const q of p.jev?.queries ?? []) {
     if (!JEV_QUERY_ID.test(q.id)) throw new Error(`${id} Jev query ${q.id}: its id must match ${JEV_QUERY_ID}`);
-    // Settings lists queries by group: one in no group would never be listed or asked.
+    // Queries require groups to appear in settings and requests.
     if (!JEV_QUERY_GROUPS.includes(q.group)) throw new Error(`${id} Jev query ${q.id}: no group ${String(q.group)} (${JEV_QUERY_GROUPS.join(', ')})`);
     for (const f of q.features) if (!features.has(f) && !isHostJevFeature(f)) throw new Error(`${id} Jev query ${q.id}: no switch ${f}`);
     const { after, before } = q as { after?: string; before?: string }; // an untyped descriptor may give both

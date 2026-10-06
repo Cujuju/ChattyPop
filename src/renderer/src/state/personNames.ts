@@ -1,5 +1,4 @@
-// People's names as they show in a place (core personNames), kept current: read per person and place, asked for in one
-// batch per place, read again when names change (archive-changed.namesChanged) and cleared when privacy mode changes.
+// Batches name reads per place/person. Name events refresh cached values; privacy changes clear them.
 import { createStore, reconcile } from 'solid-js/store';
 import type { PersonName } from '@shared/contract';
 import { api } from '@/api';

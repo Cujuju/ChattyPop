@@ -8,11 +8,9 @@
 /* success #6fce8a on success-bg 6.5, on surface-0 9.9; danger #f0a0a0 on danger-bg 7.2 */
 /* accent-2 #b5d17a on surface-1 10.9; author-4 #c39cf0 on surface-1 8.3, on surface-cited 7.2; text-muted on surface-cited 6.2 */
 /* platform colours on surface-3 / 4: youtube 6.3 / 5.7, reddit 7.5 / 6.7, instagram 8.1 / 7.3, tiktok 11.0 / 9.9, twitch 7.6 / 6.8 */
-/* section colours on surface-2 / 3, and text-on-accent on each (header badge): summary 7.8 / 7.5, 8.2; provider 9.9 / 9.5, 10.4;
-   rules 10.8 / 10.3, 11.3; alerts 7.9 / 7.6, 8.3; links 8.4 / 8.1, 8.8; chat 7.4 / 7.1, 7.8 */
+/* Section/header badge contrasts exceed 7:1 on default surfaces. */
 
-/* The default theme. [data-theme='night'] also scopes it to an element, e.g. a theme preview inside another theme.
-   Other themes (themes/*.css) override these on [data-theme='<id>'], set on <html> by Settings → Appearance. */
+/* Default night theme scopes to root or data-theme=night previews. Other theme files override tokens selected by Appearance settings. */
 :root,
 [data-theme='night'] {
   /* Native controls, scrollbars and form widgets follow this; light themes set light. */
@@ -24,10 +22,7 @@
 
   /* Grounds and surfaces, darkest to lightest */
   --cp-ground: #090b10; /* window ground behind all panels */
-  /* Paints: background values (not colours) a custom gradient theme (theme/customTheme.ts) sets to show its gradient:
-     --cp-ground-paint, --cp-body-paint, --cp-chrome-paint, --cp-panel-paint, --cp-window-paint. Unset here: each use
-     site falls back to its colour token, resolved on the painted element, so scoped surfaces (data-importance) apply.
-     Colour mixes read the colour tokens, never these. */
+  /* Custom gradient paint tokens fall back to element-scoped color tokens when unset. Color mixes use colors rather than background paints. */
   --cp-surface-0: #0c0f15; /* chrome: top bar, sidebar, status bar, splitter */
   --cp-surface-1: #10131a; /* app base, chat panel, segmented-control track */
   --cp-surface-2: #141822; /* bands: sub-headers, provider row, quoted original, search field */
@@ -35,8 +30,7 @@
   --cp-surface-4: #1f2532; /* raised controls, selected rows */
   --cp-surface-5: #2b3242; /* selected segment, neutral chips, kbd, meter tracks */
   --cp-surface-cited: #1a2130; /* message row referenced by a summary citation */
-  /* A message that pings the owner: Discord's gold wash and leading bar, the same in every theme (as in Discord), and
-     apart from the accent, which themes recolour and which means selection. */
+  /* Owner mentions use theme-independent Discord gold wash/bars, distinct from theme selection accents. */
   --cp-mention: #f0b232;
   --cp-mention-bg: color-mix(in srgb, var(--cp-mention) 10%, transparent);
   --cp-mention-bg-menu: color-mix(in srgb, var(--cp-mention) 18%, transparent); /* its menu is open */
@@ -123,8 +117,7 @@
   --cp-section-tile-mix: 20%; /* section colour share in the icon tile */
   --cp-section-stripe-h: 2px; /* coloured rule along a header's top edge */
 
-  /* Panel frame and header. Themes rescope these (and surfaces, text) per [data-importance] to make primary panels
-     stand out. --cp-section resolves per panel, so section-dependent values are shares here; the mix is in the modules. */
+  /* Themes scope panel/header surfaces by importance. Section-dependent tokens store proportions; modules mix panel-resolved --cp-section. */
   --cp-layout-pad: 0px; /* inset round the whole layout */
   --cp-panel-gap: 0px; /* space between neighbouring panels; 0: they meet at a divider */
   --cp-panel-divider-w: var(--cp-border-w); /* line between neighbouring panels */
@@ -190,8 +183,7 @@
   --cp-spoiler-pill-bg: color-mix(in srgb, var(--cp-ground) 75%, transparent); /* text-1 reads on it over any media */
   --cp-spoiler-pill-bg-hover: color-mix(in srgb, var(--cp-ground) 90%, transparent);
 
-  /* Font families. UI: Windows' own Segoe UI (hinted for small sizes); the Variable cut is used where installed (Win 11).
-     Mono is for code only. Segoe UI has no 500 weight: medium renders as regular on Windows. */
+  /* UI uses Segoe UI/Variable where available; mono is code-only. Segoe UI lacks 500 weight, so Windows renders medium as regular. */
   --cp-font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
   --cp-font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, 'SF Mono', Menlo,
     'DejaVu Sans Mono', ui-monospace, monospace;
@@ -258,8 +250,7 @@
   --cp-ring-cutout: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-3);
   --cp-glow-success: 0 0 6px var(--cp-success); /* live capture indicator */
 
-  /* The gradient edge (cp-stroke, shared-controls.css): the theme's two chroma colours, dimmed toward the element's own
-     fill until focus is inside. The message box, the hover bar, the archive search and the layout switcher wear it. */
+  /* cp-stroke supplies theme chroma gradients dimmed toward component fill until focus. Used by composer, hover bar, search and layout switcher. */
   --cp-stroke: linear-gradient(90deg, var(--cp-accent), var(--cp-link));
   --cp-stroke-idle-mix: 55%; /* of the stroke's colours over the element's fill while idle */
   --cp-stroke-fill: var(--cp-surface-3); /* the fill inside the stroke; an element on another ground sets its own */
@@ -274,7 +265,7 @@
   --cp-duration-slow: 180ms;
   --cp-ease: ease;
   --cp-ease-out: cubic-bezier(0.2, 0, 0, 1);
-  --cp-ease-keyboard: cubic-bezier(0.38, 0.7, 0.125, 1); /* iOS's keyboard motion (its private curve 7): an approximation (assumption); its duration comes from iOS exactly */
+  --cp-ease-keyboard: cubic-bezier(0.38, 0.7, 0.125, 1); /* Approximates iOS keyboard curve 7; duration comes directly from iOS. */
   --cp-duration-sweep: 1400ms; /* indeterminate progress, one pass */
 
   /* Z-index layers */

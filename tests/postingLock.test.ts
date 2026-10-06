@@ -1,7 +1,4 @@
-// Contract (docs/plugin-architecture.md §4, posting lock): main refuses writes with PostingLocked, from a window, the
-// phone and plugins' ctx.discord alike, when made and before each attempt, until a plugin that is on declares
-// `unlocks: { posting: true }`; turning it off locks again. Reactions, read acks and reads stay open. Fixture
-// descriptors, never a real plugin.
+// Posting locks gate window, phone, and plugin writes before each attempt. Enabled unlocking plugins release the gate; disabling restores it. Reads, reactions, and acknowledgements remain available.
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { MAIN_INVOKE } from '@shared/contract';

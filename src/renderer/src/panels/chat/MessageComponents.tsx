@@ -40,8 +40,7 @@ export function InteractionLine(props: { interaction: ArchiveInteraction }) {
 /** An app's still-thinking note, its buttons, menus and layout blocks, and the only-you-can-see-this mark. Read-only while posting is locked. */
 export function MessageComponents(props: { message: ArchiveMessage }) {
   const m = () => props.message;
-  // One action per message: a press shows busy and any error under the message, as Discord does. Busy also while a press
-  // from an earlier copy of this row (the log re-creates rows scrolled away) is still on its way.
+  // Serializes message component actions and displays busy/errors. Busy state survives virtual-row recreation while previous actions remain pending.
   const own = createAction();
   const action: Action = { ...own, busy: () => own.busy() || componentPending(m().id) };
   return (

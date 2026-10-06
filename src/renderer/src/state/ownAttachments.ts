@@ -1,5 +1,4 @@
-// The owner's attachments on their own messages: Discord's Modify Attachment (alt text, spoiler) and Delete, each asked
-// in a dialog first. Both save as an edit of the message's kept attachments.
+// Owner attachment modify/delete dialogs save edits to retained message attachments.
 import { api } from '@/api';
 import { createSignal } from 'solid-js';
 import type { KeptAttachment } from '@shared/compose';

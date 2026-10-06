@@ -38,7 +38,7 @@ export interface CompletionResult {
   json?: unknown;
   /** As reported by the provider for this call; absent when it reports none. */
   usage?: TokenUsage;
-  /** What the call costs, or would cost, at the model's API list rates in USD; absent when unknown or there is none (local). */
+  /** USD cost or estimate at API list rates; absent for unknown or local costs. */
   apiCostUsd?: number;
 }
 
@@ -78,5 +78,5 @@ export interface ProviderInfo extends ProviderDecl {
   unavailable: string | null;
 }
 
-/** ~25k tokens: far inside hosted context windows, keeps each call's latency and plan cost moderate. */
+/** Completion output token cap. */
 export const HOSTED_MAX_INPUT_CHARS = 100_000;

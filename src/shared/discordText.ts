@@ -1,11 +1,7 @@
-// Discord's inline tokens in message text, and the same text as plain words for places that can't draw them
-// (desktop notifications, search hit lines). Views that can draw them use ui/Markdown's InlineMarkdown.
+// Parses Discord inline tokens and plain-text equivalents for notifications/search. Drawable views use InlineMarkdown.
 import { MS_PER_S } from './units';
 
-/**
- * One inline token: custom emoji <a:name:id>, user <@id> / <@!id>, role <@&id>, channel <#id>, timestamp <t:unix:style>.
- * Groups: 1 emoji name, 2 user id, 3 channel id, 4 unix seconds (role has none).
- */
+/** Parses custom emoji, user/role/channel mentions and timestamps. Capture groups identify emoji names, users, channels and Unix seconds; roles have none. */
 export const DISCORD_TOKEN = /<a?:(\w{2,32}):\d{15,21}>|<@!?(\d{15,21})>|<@&\d{15,21}>|<#(\d{15,21})>|<t:(-?\d{1,13})(?::[tTdDfFR])?>/g;
 
 /** Names the plain text uses for mentions: users from the message's own mention list, channels from the caller. */
@@ -25,10 +21,7 @@ export function plainDiscordText(text: string, names: MentionNames = {}): string
   });
 }
 
-/**
- * Moves a cut at `i` in `text` out of any token it falls inside: back to the token's start, or with `past` to its end.
- * A snippet cut there keeps whole tokens, so they still render.
- */
+/** Moves snippet cuts to token starts or, with past, token ends, preserving whole renderable tokens. */
 export function cutOutsideTokens(text: string, i: number, past: boolean): number {
   for (const m of text.matchAll(DISCORD_TOKEN)) {
     const start = m.index;

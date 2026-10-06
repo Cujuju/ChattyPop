@@ -1,6 +1,4 @@
-/* Forward window (ForwardWindow), inside the shared window surface (ui/WindowChrome.module.css):
-   .pick: a search field over the scrolling destinations (avatar | name and server | choice mark);
-   .compose: the quoted message, the note, and Cancel / Forward. Only the destination list scrolls. */
+/* Forward window lays out searchable scrolling destinations, quoted message/note and actions within shared chrome. Only destinations scroll. */
 .window {
   width: min(var(--cp-forward-w), calc(100vw - 2 * var(--cp-dialog-inset)));
   height: min(var(--cp-forward-h), calc(100vh - 2 * var(--cp-dialog-inset)));

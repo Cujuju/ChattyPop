@@ -32,13 +32,10 @@ export function messageTime(ms: number, today: number): string {
 }
 
 const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
-/** Days before today a list age names by weekday; a seventh would repeat today's name. */
+/** Weekday-age window excludes repeated current weekdays. */
 const WEEKDAY_SPAN_DAYS = 6;
 
-/**
- * A list row's age, Discord's DM list style: "now", "5m", "2h", then the weekday within the past week ("Tue"), else "12 Sep"
- * (with the year when it differs). `today`: local midnight.
- */
+/** Formats DM-style ages: now, minutes, hours, weekday, day/month and differing years. today is local midnight. */
 export function listAge(ms: number, now: number, today: number): string {
   const age = Math.max(0, now - ms);
   if (age < MS_PER_MIN) return 'now';

@@ -9,11 +9,7 @@ const LIGHTBOX_COVER = 'lightbox';
 /** The backdrop has faded out once the image is dragged down this share of the window's height. */
 const PULL_FADE_WINDOW_SHARE = 0.5;
 
-/**
- * Full-size image viewer over the whole window, as Discord pops an image out. Esc, the backdrop, the close button or
- * dragging the fitted image down closes it. Pinch or wheel zooms, a drag pans the zoomed image, a double-tap or
- * double-click toggles zoomed and fitted.
- */
+/** Fullscreen image viewer closes via Escape/backdrop/button/fitted downward drag. Pinch/wheel zoom, zoomed drag pans and double activation toggles fit. */
 export function Lightbox() {
   let dialog!: HTMLDialogElement;
   const zoom = createZoom(() => setLightbox(null));

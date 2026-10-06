@@ -42,7 +42,7 @@ export class Archive {
     private readonly db: Db,
     /** Sees every new or changed message text (topics, rules), with how and when it arrived. */
     private readonly onText: (m: TextMessage, arrived: Arrived) => void = () => {},
-    /** Sees a message whose links gained text after it arrived (Discord's preview came later); its own text is unchanged. */
+    /** Reports unchanged messages whose linked text arrived after ingestion. */
     private readonly onLinkedText: (m: TextMessage, arrived: Arrived) => void = () => {},
     /** Sees a message stored or updated (embeds arrive by update): the images it shows may be new. */
     private readonly onShown: (messageId: string) => void = () => {},
@@ -119,11 +119,7 @@ export class Archive {
     return this.db.transaction(() => changeRecipient(this.db, channelId, user, added, selfId))();
   }
 
-  /**
-   * Stores threads whose parent channel is archived; a thread is archived exactly when its parent is.
-   * Threads of other channels are ignored. Returns the stored threads that have messages left to sync:
-   * activity newer than the synced range, or backfill unfinished inside the window starting at `backfillFromMs`.
-   */
+  /** Archives threads with archived parents. Returns threads needing activity sync or unfinished backfill within the requested window. */
   upsertThreads(threads: RawThread[], backfillFromMs: number): string[] {
     const stmt = this.db.prepare(
       `INSERT INTO channels (id, guild_id, name, kind, parent_id, opted_in)
@@ -195,10 +191,7 @@ export class Archive {
     return this.optedIn.has(channelId);
   }
 
-  /**
-   * Inserts new messages; for known ones whose content changed, keeps the prior text as a revision. `via`: how they
-   * reached ChattyPop (only gateway arrivals can be live); a message keeps the way it first arrived.
-   */
+  /** Inserts messages and retains changed text as revisions. Arrival source remains the first source; only gateway arrivals can be live. */
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult {
     const result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
     const getMsg = this.db.prepare('SELECT content, edited_ts, pruned_at FROM messages WHERE id = ?');
@@ -280,11 +273,7 @@ export class Archive {
     return this.optedIn.has(d.channel_id) && applyReactionEvent(this.db, t, d, selfId);
   }
 
-  /**
-   * After re-fetching a contiguous window, a stored message inside it that Discord no longer returned was deleted
-   * while ChattyPop wasn't watching. Retention-pruned rows count too: they were fetched before, so absence means deletion.
-   * Ephemeral messages (only the owner saw them, live) are never in history, so absence says nothing about them.
-   */
+  /** Marks previously fetched messages missing from a contiguous refetch as deleted, including retention-pruned rows. Excludes ephemeral messages, which never appear in history. */
   reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number, at: number): number {
     if (!this.optedIn.has(channelId)) return 0;
     const seen = new Set(seenIds);

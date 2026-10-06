@@ -1,7 +1,4 @@
-// Releases every plugin in a plugin repo that needs it (docs/plugin-architecture.md §16, Releasing):
-// `pnpm plugin:release-changed <pluginsRepoDir> --repo <owner/name> [--dry-run] [--only ids] [--sdk-rebuild]`.
-// Finishes pending versions first, then stamps a new version on each changed plugin in one release-intent commit,
-// pushes it, and publishes each at that commit. CI runs it on every push to main (the plugin repos' workflow).
+// Completes pending releases, stamps changed plugins in one pushed intent commit, and publishes them. Plugin-repository CI runs this on main pushes.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -27,7 +24,7 @@ export interface ReleaseChangedOptions {
   dryRun: boolean;
   /** Only these plugin ids; all when absent. */
   only?: readonly string[];
-  /** Also release plugins whose newest listed release was built for another PLUGIN_SDK_VERSION this host can still run. */
+  /** Releases plugins built against another supported SDK version. */
   sdkRebuild: boolean;
   gh?: Gh;
   git?: Git;
@@ -98,7 +95,7 @@ export async function releaseChanged(options: ReleaseChangedOptions): Promise<Re
     for (const s of pending) log(`Would publish ${releaseTag(s.id, s.version)} at ${s.target}`);
   } else if (pending.length) {
     for (const s of pending) await publish(s.id, s.version, s.target);
-    // Listing commits moved main: stamp from it, with any edits that landed after the pending stamps.
+    // Uses the refreshed main after pending-release listing commits.
     catchUp(git, dir);
     states = readStates(git, dir, only);
   }
@@ -106,8 +103,7 @@ export async function releaseChanged(options: ReleaseChangedOptions): Promise<Re
   const planned = states.flatMap((s) => {
     if (s.kind === 'unstamped') return [{ id: s.id, version: s.version }];
     if (s.kind !== 'settled') return [];
-    // A release this SDK can't run (another major) is rebuilt on any run, so a new major reaches every plugin unasked;
-    // the app keeps offering older hosts the newest release they can run.
+    // Rebuilds releases from incompatible SDK majors. Older hosts retain their newest compatible release.
     const rebuild = sdkMismatch(s.listed.sdk) !== null || (sdkRebuild && s.listed.sdk !== PLUGIN_SDK_VERSION);
     return s.changed || rebuild ? [{ id: s.id, version: raisedVersion(s.version, s.changed ?? ['patch']) }] : [];
   });
@@ -131,7 +127,7 @@ export async function releaseChanged(options: ReleaseChangedOptions): Promise<Re
   return result;
 }
 
-/** Writes each planned version, checks the stamped descriptors, commits the release intent and pushes it; its commit. */
+/** Stamps planned versions, validates descriptors, and pushes one release-intent commit. */
 async function stamp(git: Git, dir: string, planned: readonly { id: string; version: string }[]): Promise<string> {
   const paths = planned.map((p) => sharedPath(p.id));
   try {
@@ -151,7 +147,7 @@ async function stamp(git: Git, dir: string, planned: readonly { id: string; vers
   gitOut(git, dir, ['commit', '--allow-empty', '-m', intentSubject(planned.map((p) => releaseTag(p.id, p.version)))]);
   const pushed = git(dir, ['push', 'origin', `HEAD:${BRANCH}`]);
   if (pushed.code !== 0) {
-    // Only this run's own commit is undone; the push that beat it has its own run, which starts from fresh main.
+    // Reverts only this run’s rejected intent commit; the winning push starts its own release run.
     gitOut(git, dir, ['reset', '--keep', 'HEAD~1']);
     throw new Error(`Pushing the release intent was rejected; nothing is pending. ${pushed.stderr.trim()}`);
   }

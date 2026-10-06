@@ -1,11 +1,7 @@
 import type { PrivacyScope } from '@shared/contract';
 import { SNOWFLAKE_ID } from '@shared/discord';
 
-/**
- * The stylesheet hiding privacy mode's servers and channels in the Discord page; empty when nothing is hidden. Selectors
- * key on Discord's stable data attributes, links and CDN paths (checked against the live client 2026-09-26).
- * Residual: text that names a hidden channel without its id (a #mention, a folder's hover tooltip) stays visible.
- */
+/** Hides privacy-marked entities using live-verified Discord selectors. Text lacking hidden ids, including plain mentions and folder tooltips, remains visible. */
 export function privacyCss(scope: PrivacyScope): string {
   // Ids go into selectors, so only snowflakes pass.
   const guilds = scope.guildIds.filter((id) => SNOWFLAKE_ID.test(id));

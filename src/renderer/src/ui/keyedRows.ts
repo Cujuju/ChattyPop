@@ -1,5 +1,4 @@
-// Rows keyed by id: a <For> over the ids keeps each row (its element, focus) across reads that make new objects for the
-// same ids, as every directory read does; each row reads its item by id, so it still shows the newest.
+// Keys For rows by id to preserve elements/focus across object refreshes. Each row resolves current item values by id.
 import { createMemo, type Accessor } from 'solid-js';
 
 export interface KeyedRows<T> {

@@ -30,7 +30,7 @@ export function SyncStatusPanel() {
       .map((c) => ({ c, p: syncProgress[c.id] }))
       .filter((r) => r.p && r.p.phase !== 'idle');
 
-  /** Collapsed sidebar: the dot's tooltip carries what the full panel would list. */
+  /** Collapsed sidebar tooltip summarizes full-panel status. */
   const summary = (): string =>
     rows().length
       ? rows()

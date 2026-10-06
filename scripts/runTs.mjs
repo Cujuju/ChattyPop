@@ -1,5 +1,4 @@
-// Runs a TypeScript script with Vite's module runner (a dependency already): `node scripts/runTs.mjs <file.ts> ...args`.
-// The script's `main(args)` export runs with the arguments after its path; its exit code is main's result.
+// Runs a TypeScript module through Vite’s runner. Calls main(args) with remaining arguments and uses its result as the exit code.
 import { resolve } from 'node:path';
 import { runnerImport } from 'vite';
 

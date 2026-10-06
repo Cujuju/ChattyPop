@@ -1,8 +1,7 @@
-// The posting lock for renderer state tests: stand-ins for the plugin list and the bundled descriptors state/posting reads,
-// with one fixture plugin declaring `unlocks: { posting: true }`. Mock both modules from these, then flip the lock.
+// Mocks plugin lists and bundled descriptors with one posting-unlocking fixture, allowing renderer tests to flip the gate.
 import { createRequire } from 'node:module';
 
-// The client runtime, as the tests that use this mock solid-js to.
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 const { createSignal } = createRequire(import.meta.url)('solid-js/dist/solid.cjs') as typeof import('solid-js');
 
 const UNLOCKER = 'posting-unlocker';

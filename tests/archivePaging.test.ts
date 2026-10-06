@@ -1,5 +1,4 @@
-// Contract: after a jump the Archive's window can stop short of the newest message; it pages newer messages in
-// (`after`), oldest first, without gaps or repeats, until it reaches the newest.
+// Archive paging after a jump loads newer messages oldest-first, without gaps or duplicates, until the newest message.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MS_PER_S } from '@shared/units';
 import type { Db } from '../src/core/db';

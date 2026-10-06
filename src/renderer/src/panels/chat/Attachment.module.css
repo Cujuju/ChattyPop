@@ -48,7 +48,7 @@
   text-overflow: ellipsis;
 }
 
-/* Cut with an ellipsis in a narrow column: an unwrapped line wider than the log would scroll it sideways. */
+/* Ellipsizes attachment names to prevent horizontal log overflow. */
 .fileMeta {
   flex: 0 1 auto;
   min-width: 0;
@@ -100,13 +100,12 @@
   aspect-ratio: var(--media-w) / var(--media-h);
 }
 
-/* The browser's player is a fixed 300px: kept inside a narrow log column, which would otherwise scroll sideways. */
+/* Constrains browser audio players to narrow columns despite their default 300px width. */
 .audio {
   max-width: 100%;
 }
 
-/* An attachment's frame (AttachmentTile): one grid cell its media, spoiler cover and marks share, as wide as the media,
-   so the bar sits at the media's corner. Hooks: [data-covered='true'] (spoiler not yet revealed), [data-removed='true']. */
+/* AttachmentTile shares one grid cell across media, spoiler cover and marks. Covered/removed data attributes drive states. */
 .tile {
   position: relative;
   display: grid;
@@ -119,7 +118,7 @@
   grid-area: 1 / 1;
 }
 
-/* Clipped while covered: the blur would bleed past the media's corners. */
+/* Clips spoiler blur at media corners. */
 .tile[data-covered='true'] {
   overflow: hidden;
   border-radius: var(--cp-radius-md);
@@ -134,9 +133,7 @@
   opacity: var(--cp-attachment-removed-opacity);
 }
 
-/* The spoiler cover, as Discord's: the button is the centred pill; its ::before is the veil over the whole tile and part
-   of its hit area, so a click anywhere reveals. Its z-index (a grid item's) lifts both over the media; the bar and the
-   removed mark come later and paint over it. */
+/* Spoiler pill’s veil covers the tile and extends its hit area. Bar/removal marks paint above it. */
 .spoiler {
   z-index: var(--cp-z-base);
   place-self: center;
@@ -196,10 +193,7 @@
   grid-area: 1 / 2;
 }
 
-/* Attachment hover bar: the message hover bar's surface (cp-stroke in the markup, MessageActionBar.module.css) inset at
-   the tile's top-right. Shown while the tile is hovered or holds keyboard focus; until then it takes no clicks. Not
-   composed from that bar: its row positioning and hover bridge don't apply here. One row; a column (data-stacked, set by
-   AttachmentTile.tsx) when the tile is narrower than the row and its insets. That measurement reads `right`. */
+/* Attachment bars appear on hover/focus without intercepting hidden clicks. Narrow tiles use measured stacked columns; right inset participates in sizing. */
 .bar {
   position: absolute;
   top: var(--cp-space-3);
@@ -220,7 +214,7 @@
   flex-direction: column;
 }
 
-/* Keyboard focus, not any focus: a clicked picture keeps focus after its viewer closes, which would pin the bar open. */
+/* Uses keyboard focus so clicked images do not keep hover bars pinned after viewer closure. */
 .tile:hover > .bar,
 .tile:has(:focus-visible) > .bar {
   opacity: 1;
@@ -260,9 +254,7 @@
   }
 }
 
-/* Two or more images and videos (MediaMosaic): one grid of cropped cells, then the status line. Rows of two or three
-   square cells, equal widths; a lone leading row (7 and 10 tiles) is one wide cell. Hooks: .grid[data-count] (all
-   tiles), .row[data-count] (that row's). */
+/* Media mosaics use equal-width square rows of two/three, with wide leading cells for seven/ten tiles. Grid/row counts drive styles. */
 .mosaic {
   display: flex;
   flex-direction: column;
@@ -286,8 +278,7 @@
   gap: var(--cp-space-1);
 }
 
-/* A cell: its share of the row, cropped, in place of the single attachment's own sizing. Overflow clipped, so its
-   automatic minimum size is zero and a large picture can't stretch the row. */
+/* Mosaic cells crop media and clip overflow, removing automatic minimums so large images cannot stretch rows. */
 .row > .tile {
   width: auto;
   max-width: none;

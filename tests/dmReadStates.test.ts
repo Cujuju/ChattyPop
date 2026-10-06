@@ -1,7 +1,4 @@
-// Contract (docs/dms.md §3.3): main's read states project each DM's last read message and mute end to core (null: not
-// muted; MUTED_FOREVER: until unmuted), re-sent on READY, MESSAGE_ACK, USER_GUILD_SETTINGS_UPDATE and CHANNEL_CREATE.
-// Server channels carry their mention count only. A field main doesn't know is left out; core keeps a field a count
-// leaves out, and drops a row with nothing to say. A partial READY merges; a READY for another account starts over.
+// Projects DM read and mute state into core. Unknown fields remain absent; partial READY merges, account changes replace state. Server channels retain mention counts only.
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import type { ReadStateCount, ReadStateScope } from '@shared/contract';

@@ -17,12 +17,11 @@ const config: Configuration = {
   ],
   // Native deps ship Node-API prebuilds; no rebuild against Electron headers.
   npmRebuild: false,
-  // The tray loads the icon by path (main/mainWindow.ts appIconPath); Windows reads .ico files from disk, not asar.
+  // Tray icons load from disk; Windows .ico loading requires an unpacked file.
   extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
   // Native SQLite prebuilds cannot load from inside an asar archive.
   asarUnpack: ['node_modules/better-sqlite3-multiple-ciphers/prebuilds/**'],
-  // Installers and latest.yml go to this public repo's releases (.github/workflows/release.yml), so the app updates
-  // (main/updates.ts) without a token.
+  // Publishes installers and latest.yml to public releases for token-free updates.
   publish: { provider: 'github', owner: 'Cujuju', repo: 'ChattyPop', releaseType: 'release' },
   win: {
     target: 'nsis',

@@ -1,6 +1,4 @@
-/* Settings sections' own controls, beside the cards of SettingsCard.module.css. The window is SettingsDialog.module.css;
-   Appearance and Jev queries have their own modules. Check controls take their look from theme/forms.css;
-   buttons, hints and errors are cp-* (theme/shared-controls.css). */
+/* Settings controls use shared forms/buttons/hints/errors. Dialog, cards, Appearance and Jev queries own separate modules. */
 
 /* A usage chip (plan window, key model) with an optional action inside it. */
 .usageWindow {
@@ -23,8 +21,7 @@
   gap: var(--cp-space-3);
 }
 
-/* A chip's own action (e.g. 'Remove' a model from a key) sits inside the chip at chip scale. Unlayered, so it would also
-   beat cp-button's hover; the hover rule below restores it. */
+/* Chip-scale actions override shared button styles; following hover rules restore button hover appearance. */
 .usageWindow > .button {
   height: calc(var(--cp-chip-h) - 2 * var(--cp-space-1));
   padding: 0 var(--cp-space-3);

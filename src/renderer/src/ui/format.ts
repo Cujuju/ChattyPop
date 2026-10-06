@@ -37,7 +37,7 @@ export const jevValueText = (kind: 'noul' | 'choice' | 'score', value: number, c
 
 const CENT = 0.01;
 const USD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
-/** Two significant digits: Jev bills fractions of a cent, which cents alone would show as $0.00. */
+/** Uses two significant digits to show sub-cent Jev costs. */
 const USD_FRACTION = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumSignificantDigits: 2 });
 
 /** Dollars: cents from a cent up ($0.41), two significant digits below ($0.000015). */

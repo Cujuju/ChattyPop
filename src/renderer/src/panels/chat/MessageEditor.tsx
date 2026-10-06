@@ -8,11 +8,7 @@ import styles from './MessageEditor.module.css';
 /** The edit session the editor last took focus for. */
 let focusedSession: number | null = null;
 
-/**
- * Discord's in-place editor for one of the owner's messages, in place of its text: Enter saves (on the desktop; on the phone it
- * adds a line and the hint's save link saves), Shift+Enter adds a line, Esc cancels. The row's own touch and menu gestures
- * stop here, so the field keeps its native ones.
- */
+/** In-place owner-message editor: desktop Enter saves, Shift+Enter adds lines, Escape cancels; phone Enter adds lines. Stops row gestures to preserve native editing. */
 export function MessageEditor() {
   const action = createAction();
   let input!: HTMLTextAreaElement;
@@ -26,8 +22,7 @@ export function MessageEditor() {
     e.stopPropagation();
     cancelEdit();
   };
-  // A new Edit takes the focus with the caret at the end. The log re-creates a row scrolled away and back: that only
-  // restores focus its removal dropped, without scrolling or moving the caret, and never takes it from another field.
+  // New edits focus at text end. Virtual-row restoration restores lost focus without scrolling/caret changes or stealing another field’s focus.
   onMount(() => {
     const session = editSession();
     if (session !== focusedSession) {

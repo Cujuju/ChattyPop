@@ -1,5 +1,4 @@
-// Contract: saving an archived attachment copies its stored file to where the owner picks, offering its own name; a bad
-// hash is refused before any dialog, and a cancelled dialog writes nothing.
+// Saving attachments copies stored files to selected paths using their filenames. Invalid hashes fail before dialogs; cancellation writes nothing.
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

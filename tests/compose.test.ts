@@ -16,7 +16,7 @@ const CHANNEL = '200000000000000001';
 const MESSAGE = '300000000000000001';
 const STICKER = '400000000000000001';
 
-/** A DiscordApi that records each POST and PUT upload and answers as Discord would. */
+/** Records POSTs and PUT uploads with configured Discord responses. */
 function fakeApi() {
   const posts: [string, Record<string, unknown>][] = [];
   const uploads: string[] = [];

@@ -32,10 +32,7 @@ function RuleItem(props: { rule: Rule; current: boolean; onToggle: (on: boolean)
   );
 }
 
-/**
- * Settings → Rules: the rule list (yours, then built in) with a filter and each rule's switch, and beside
- * it the open rule as one page. Narrow windows get a rule picker instead of the list.
- */
+/** Lists filtered owner rules then built-ins with switches beside one editor. Narrow windows replace lists with pickers. */
 export function RulesSection() {
   const toggling = createAction();
   const current = (): number | typeof NEW | typeof DRAFT | null => {

@@ -1,5 +1,4 @@
-// Archive search query syntax: free words plus `key:value` operators, each negatable with a leading '-'.
-// Shared so the renderer shows problems as the owner types, and core builds SQL from the same parse.
+// Shared archive query parser handles free words and negatable key:value operators. Renderer diagnostics and core SQL use identical parsing.
 import { oneOf } from './normalize';
 
 /** Result orders: by time either way, or best match first (full-text score, then plugins' search rankers). */

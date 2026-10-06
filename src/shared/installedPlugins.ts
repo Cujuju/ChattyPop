@@ -1,6 +1,4 @@
-// Installed plugins (docs/plugin-architecture.md §16): descriptor plugins built outside the app's build and loaded from
-// the profile at start. This is the built-output contract every producer (release asset, source build, local folder)
-// writes and the loader reads. Pure: every process and the build tooling import it.
+// Pure installed-output contract covers profile-loaded descriptors from releases, source builds and local folders. Shared by loaders and tooling.
 import { INSTALLED_CONTENT_TYPES, INSTALLED_PHONE_PATH } from './installedBrowser';
 import { PLUGIN_ID_PATTERN } from './plugins';
 
@@ -33,10 +31,7 @@ export const HOST_MODULES_KEY = Symbol.for('chattypop.hostModules');
 /** Every platform's first host module: each process's shared step publishes it before loading plugins' shared sides. */
 export const SHARED_HOST_MODULE = '@plugin-sdk/shared';
 
-/**
- * Modules the host provides, by platform: a plugin build leaves these out and reads the host's instance, so a plugin
- * never carries a second SDK or Solid runtime (a second Solid can't track the host's signals).
- */
+/** Platform host modules stay external to plugin builds, reusing host SDK/Solid instances so signals share one runtime. */
 export const HOST_MODULES = {
   node: [SHARED_HOST_MODULE, '@plugin-sdk/core', '@plugin-sdk/main'],
   browser: [SHARED_HOST_MODULE, '@plugin-sdk/renderer', '@plugin-sdk/renderer/kit', '@plugin-sdk/renderer/posting', '@plugin-sdk/renderer/shell', 'solid-js', 'solid-js/web', 'solid-js/store'],
@@ -158,7 +153,7 @@ const list = (v: unknown, what: string): unknown[] => {
   return v;
 };
 
-/** Public files, below this, would be shadowed by the phone's installed-file path. */
+/** Rejects public paths shadowed by phone installed-file routes. */
 const PUBLIC_DIR = `${INSTALLED_PLATFORM_DIRS.browser}/${INSTALLED_PAGE_PUBLIC_DIR}/`;
 const SHADOWED_PUBLIC_DIR = `${PUBLIC_DIR}${INSTALLED_PHONE_PATH.slice(1)}`;
 

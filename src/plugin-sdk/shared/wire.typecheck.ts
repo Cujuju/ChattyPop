@@ -1,5 +1,4 @@
-// Compile-time probe: what the phone sends or receives is a WireValue, and every core call it may make states whether it
-// writes, a writing one with a decoder (docs/plugin-architecture.md §5; run time: tests/pluginWire.test.ts).
+// Compile-time wire probe requires WireValue phone payloads and write declarations with decoders for writing core calls.
 import { defineChannels, type Decoder, type IsWire } from '@plugin-sdk/shared';
 
 interface Row {

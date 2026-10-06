@@ -1,5 +1,4 @@
-// The renderer's module graph as the bundler loads it: each source file's runtime imports, resolved through the
-// renderer's aliases, for the boundary and initialization tests (docs/plugin-architecture.md §9).
+// Resolves runtime renderer imports through aliases for boundary and initialization tests.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
@@ -22,10 +21,7 @@ const INSTALLED_LOADERS = {
   renderer: join(ROOT, 'src/renderer/src/plugins/installedRenderers.ts'),
 };
 const SOURCE_EXTENSIONS = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
-/**
- * Imports and re-exports that load code, in source order. `import type` and `export type` are erased; an
- * `import { type X }` still loads its module (verbatimModuleSyntax), so it counts.
- */
+/** Counts runtime imports and re-exports in source order. Erases type-only statements; mixed type imports still load modules under verbatimModuleSyntax. */
 const STATIC_IMPORT = /^\s*(?:import|export)\s+(?!type\s)(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]/gms;
 /** A dynamic import that runs (not a type position such as `import('./x').Type`). */
 const DYNAMIC_IMPORT = /\bimport\(\s*['"]([^'"]+)['"]\s*\)(?!\s*\.\s*[A-Z])/g;

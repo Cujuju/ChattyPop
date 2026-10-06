@@ -109,8 +109,7 @@
 }
 
 /* Opted-in channel row (a button that opens the channel): '#' then name, count right-aligned in mono. */
-/* On the phone (its drawer) a row is a list row (--cp-row-h, phone.css) in Body text; a thread's name is a step smaller,
-   its elbow meeting the row's middle. The server heading is a Headline. */
+/* Phone channel rows use Body text and row-height tokens; threads use smaller names/centered elbows, server headings use Headline. */
 :global(html[data-surface='companion']) .channel {
   font-size: var(--cp-text-base);
 }
@@ -134,8 +133,7 @@
   padding-right: var(--cp-header-inset);
 }
 
-/* '#' in a box as wide as a section tile, centred on the icon column; the name then lines up with the section labels.
-   The count ends as far inside the row's right edge as the '#' glyph starts inside its left. */
+/* Centers # in a section-tile-width icon column. Names align with section labels; counts mirror glyph edge inset. */
 :global(html[data-surface='companion']) .channel {
   gap: var(--cp-space-4);
   padding-left: calc(var(--cp-drawer-icon-x) - var(--cp-space-4) - var(--cp-drawer-mark-w) / 2);

@@ -16,14 +16,7 @@ const openRowMenu = (row: HTMLElement): void => {
   content.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + KEYBOARD_MENU_INSET_PX, clientY: r.top + KEYBOARD_MENU_INSET_PX }));
 };
 
-/**
- * The log's canvas: each visible row placed and measured once drawn. Place inside the scroll container. One element
- * per row key, so a new row doesn't reload its neighbours' images.
- *
- * Keyboard: the log is one Tab stop (the last row focused, else the newest in view). Up/Down move a row (older rows load
- * as the top nears); the menu key or Shift+F10 opens the focused row's menu (its right-click menu), as does a
- * `contextmenu` aimed at the row itself (a screen reader's menu command).
- */
+/** Measures keyed virtual rows inside scrollers. One Tab stop supports arrows/loading older rows and keyboard/contextmenu row menus. */
 export function VirtualRows<R extends { key: string }>(props: { log: VirtualLog<R>; class?: string; children: (row: Accessor<R>) => JSX.Element }) {
   return (
     <VirtualLogCanvas log={props.log.log} class={props.class} onRowMenu={openRowMenu}>

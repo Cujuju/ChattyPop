@@ -1,5 +1,4 @@
-// Discord's reaction tooltip: the emoji large, then ":name: reacted by A, B and N others". Shown while a pointer
-// rests on a pill, or after a long press on a touch screen (which then doesn't toggle the reaction).
+// Reaction tooltips show emoji and reactor names after pointer rests or touch holds. Long presses suppress reaction toggles.
 import { Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import type { ArchiveMessage, ArchiveReaction, PersonMatch } from '@shared/contract';
@@ -9,9 +8,9 @@ import { cachedThenLive } from '@/state/cachedLive';
 import { onPointerDownOutside } from '@/ui/listen';
 import styles from './ReactionTip.module.css';
 
-/** A pointer resting this long on a pill shows its tip; passing over doesn't fetch. Assumption: Discord's feel. */
+/** Pointer dwell delay before showing/fetching reaction tips. */
 const HOVER_DELAY_MS = 300;
-/** Gap between the tip and the viewport's edge when it would run off. */
+/** Viewport clearance for overflowing reaction tips. */
 const EDGE_GAP_PX = 8;
 
 /** "A", "A and B", "A, B and C", "A, B, C and 4 others". */
@@ -62,10 +61,7 @@ function Tip(props: { message: ArchiveMessage; reaction: ArchiveReaction; anchor
   );
 }
 
-/**
- * Wraps a reaction pill: a pointer resting on it (mouse, pen) or a long press (touch: touch.ts's gesture, which fires
- * contextmenu) shows its tip. `consumeHold()` is true once after that long press, so the pill's click skips toggling.
- */
+/** Wraps pills with pointer-rest/touch-hold tooltips. consumeHold returns true once to suppress the post-hold click toggle. */
 export function ReactionTipAnchor(props: {
   message: ArchiveMessage;
   reaction: ArchiveReaction;

@@ -18,11 +18,7 @@ const PANEL_ID = /^[a-z][a-z0-9:_-]{0,120}$/i;
 /** Panels that can't leave the main window: chat hosts the native Discord view. */
 const MAIN_ONLY = new Set(['chat', 'channels', 'status-bar']);
 
-/**
- * Panels opened in their own window: not modal, nothing behind them dimmed, kept above the main window (owned by it)
- * and closed with it. One window per panel; opening it again focuses it. Those still open when the app closes reopen on
- * the next start, once the main window shows.
- */
+/** One owned nonmodal window per panel. Reopening focuses it; main close closes panels. Previously open panels restore after main shows. */
 export class PanelWindows {
   private readonly open = new Map<string, BrowserWindow>();
   private readonly states = new WindowStateFile(STATE_FILE);

@@ -1,3 +1,2 @@
-// Project-level settings for both configurations. Signing stays out of git: put
-// DEVELOPMENT_TEAM = <team id> in the gitignored Signing.xcconfig next to this file.
+// Shared project settings. DEVELOPMENT_TEAM comes from the gitignored Signing.xcconfig.
 #include? "Signing.xcconfig"

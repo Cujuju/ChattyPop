@@ -12,10 +12,7 @@
   min-height: 0;
 }
 
-/* F2: one 1px divider between neighbouring panels; themes may space panels apart instead (--cp-panel-gap). Where a
-   resize handle sits between them the handle is the divider or gap; otherwise (an auto-sized neighbour such as the
-   status bar) it is drawn on the trailing sibling. [hidden] children (docked in a collapsed rail) are skipped; a
-   handle never neighbours one. */
+/* Panel dividers use resize handles or trailing siblings. Themes may replace dividers with gaps; hidden collapsed-rail children are skipped. */
 .split[data-dir='row'] > :not(.handle, [hidden]) ~ :not(.handle, [hidden], .handle + *) {
   margin-left: var(--cp-panel-gap);
   border-left: var(--cp-panel-divider-w) solid var(--cp-border);
@@ -70,8 +67,7 @@
   outline: none;
 }
 
-/* Slot grounds follow F2 regions: sidebar and status bar are chrome, insight panels are raised, chat is base.
-   Panels paint their own chrome over this and never set a ground themselves. */
+/* Slot surfaces follow chrome/raised/base regions; panels paint their own chrome without setting backgrounds. */
 .slot {
   position: relative;
   border-radius: var(--cp-panel-radius);
@@ -104,8 +100,7 @@
   background: var(--cp-panel-paint, var(--cp-surface-3));
 }
 
-/* Panel drag and drop. .dropZones covers a panel while another is dragged; .dropPreview[data-zone] shows where the
-   dragged panel will land: an edge half (docks beside) or the whole panel (center: swap). */
+/* Drag overlays show allowed drop zones; edge previews dock beside targets, center previews swap. */
 .dropZones {
   position: absolute;
   inset: 0;

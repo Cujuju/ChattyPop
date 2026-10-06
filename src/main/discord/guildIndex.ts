@@ -18,10 +18,7 @@ export interface GuildIndexSpec<Raw, Item> {
 
 type GatewayGuild<Raw> = { id: string } & Partial<Record<GuildIndexSpec<Raw, unknown>['field'], Raw[]>>;
 
-/**
- * Every server's list, read from the embedded client's own gateway traffic (READY, GUILD_CREATE, the update event), so
- * listing all servers costs no requests. A server the gateway didn't cover is fetched once.
- */
+/** Builds guild lists from embedded gateway traffic without requests. Fetches uncovered servers once. */
 export class GuildIndex<Raw, Item> {
   private readonly byGuild = new Map<string, Item[]>();
 

@@ -1,5 +1,4 @@
-// A rule's file action: appends the message to a file the owner picked, a line (Markdown) or an object (JSON Lines)
-// per run. The run claim makes it at most once per message: a crash between the claim and the write skips that message.
+// Appends Markdown or JSON Lines to owner-selected files. Run claims prevent duplicates; crashes after claiming can skip writes.
 import { appendFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { hasRuleFileExtension } from '@shared/ruleKinds/host';

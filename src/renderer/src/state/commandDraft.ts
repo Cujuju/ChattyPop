@@ -1,5 +1,4 @@
-// The slash command being filled in, per channel, as Discord's message bar holds it: a pill per option in the bar
-// (required ones from the start, optional ones as added), each with its typed text and the value it stands for.
+// Per-channel slash drafts retain required/added optional pills with typed text and resolved values.
 import { api } from '@/api';
 import { createStore, produce } from 'solid-js/store';
 import { OPTION, type CommandChoice, type CommandEntry, type CommandOption, type CommandRun } from '@shared/commands';
@@ -35,7 +34,7 @@ export function cancelCommand(channelId: string): void {
   setDrafts(channelId, undefined);
 }
 
-// Changed in place: a store merges a returned object into the old one, so a key left out of it would stay.
+// Mutates drafts in place; store merges retain omitted keys.
 const change = (channelId: string, fn: (d: CommandDraft) => void): void =>
   void setDrafts(channelId, produce((d) => d && fn(d)));
 

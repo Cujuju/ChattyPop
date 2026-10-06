@@ -1,7 +1,4 @@
-/* Look vocabulary: interactive rows, chips, segments, buttons and links (docs/plugin-architecture.md §14). Look only.
-   States are ARIA attributes where one exists (aria-pressed, aria-checked, aria-current), else data attributes.
-   Hooks: .row[data-hover='raise'], .row[data-press], .row[data-state='dimmed'], .button[data-variant],
-   .link[data-underline='always']. Order matters: a state rule follows the hover rule it overrides. */
+/* Look-only controls use ARIA/data states. State rules follow overridden hover rules; hooks cover row hover/press/state, button variants and link underlines. */
 
 /* List row: a hover wash that fades in. raise: a rounded tile that lifts to surface-4; press: a pressed wash;
    dimmed: past or inactive. */
@@ -244,8 +241,7 @@
   outline-offset: var(--cp-focus-ring-offset);
 }
 
-/* A quiet pill that is a button (a person's tag, which searches for it): its edge and text brighten on hover.
-   chip: the profile's role chip shape, where it sits in the same window as roles. */
+/* Clickable tag pills brighten text/edges on hover. chip uses the profile role-chip shape. */
 .pillButton {
   border: var(--cp-border-w) solid var(--cp-border-subtle);
   border-radius: var(--cp-radius-pill);

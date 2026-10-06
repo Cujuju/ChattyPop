@@ -1,5 +1,4 @@
-// Search rankers (docs/plugin-architecture.md §3): active plugins reorder full-text hits in build order; one that is off,
-// fails or returns anything but a reordering leaves the order it was given, and a failure is recorded on its plugin.
+// Active rankers reorder hits in build order. Disabled, failed, or invalid rankers preserve input order; failures are recorded on the plugin.
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
 import { defineCorePlugin, type CorePlugin, type SearchRanker } from '@plugin-sdk/core';

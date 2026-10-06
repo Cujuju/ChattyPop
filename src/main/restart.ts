@@ -32,10 +32,7 @@ delete env.${JOB_ENV};
 })();
 `;
 
-/**
- * Under `pnpm dev` the dev server stops with Electron, so app.relaunch() would start a window with nothing to load:
- * the pnpm script runs again instead, with Electron's own arguments. Null when not started by a package script.
- */
+/** Dev relaunch reruns the package script with Electron arguments because its server stops with Electron. Returns null outside package-script launches. */
 function devRelaunchJob(): RelaunchJob | null {
   const script = process.env['npm_lifecycle_event'];
   if (app.isPackaged || !script) return null;
@@ -67,11 +64,7 @@ function relaunchAfterExit(): void {
 /** The quit step armed by a close under way; a second request only closes again, so one step follows. */
 let armed: (() => void) | null = null;
 
-/**
- * Quits ChattyPop through the graceful window close, then runs `atQuit`: never app.quit() or app.exit(), since only that
- * close keeps the Discord login. `atQuit` is armed for the quit the close leads to, so a close the owner cancels (unsaved
- * changes kept) runs nothing. While one is armed, another request only closes again.
- */
+/** Arms atQuit only for completed graceful window closure. Canceled closes run nothing; repeated requests close again. Preserves Discord login without direct app.quit/exit. */
 export function closeThen(win: BrowserWindow, atQuit: () => void): void {
   if (!armed) {
     const step = atQuit;

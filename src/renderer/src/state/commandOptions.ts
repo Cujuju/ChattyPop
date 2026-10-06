@@ -1,5 +1,4 @@
-// A slash command's options as Discord's message bar takes them: typed text is the value of a text or number option;
-// a choice, true/false, person, role or channel is picked from the list above the bar. DOM-free, so it is tested directly.
+// DOM-free slash options parse text/numbers or selected choice/bool/person/role/channel values from composer lists.
 import { OPTION, type CommandOption, type OptionValue } from '@shared/commands';
 import type { SelectKind } from '@shared/components';
 
@@ -32,10 +31,7 @@ export const picksFromList = (o: CommandOption): boolean => o.type === OPTION.bo
 const isNumeric = (o: CommandOption): boolean => o.type === OPTION.integer || o.type === OPTION.number;
 const outside = (n: number, min: number | null, max: number | null): boolean => (min !== null && n < min) || (max !== null && n > max);
 
-/**
- * Typed text as the option's value: text within its length limits, or a number (whole for integers) within its range.
- * Null when the text is empty or not a valid value, and always for options picked from a list or a file.
- */
+/** Parses text/number bounds, requiring whole integers. Empty/invalid values and list/file options return null. */
 export function typedValue(o: CommandOption, raw: string): FilledOption | null {
   if (raw === '' || picksFromList(o) || o.type === OPTION.attachment) return null;
   if (!isNumeric(o)) return outside(raw.length, o.minLength, o.maxLength) ? null : { value: raw, label: raw };

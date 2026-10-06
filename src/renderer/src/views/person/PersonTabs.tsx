@@ -1,5 +1,4 @@
-// The Person window's archive column: the Archive block (its figures, searches, nicknames and plugins' person
-// sections) stays on top; under it, tabs over where they post, their links, and Discord's mutual servers and friends.
+// Person Archive summaries remain above tabs for posting locations, links and Discord mutual servers/friends.
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { PersonProfile } from '@shared/contract';

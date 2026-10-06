@@ -2,10 +2,7 @@
 import type { DecisionProvider } from './decisions';
 import type { LlmProvider } from './types';
 
-/**
- * `run`'s result until `revoked` aborts: a call made after rejects with the abort reason, and so does one still running
- * when it aborts (at once, even if the callee ignores its signal) or whose result arrives after.
- */
+/** Rejects pending, subsequent and late results with the abort reason when revoked, even if the callee ignores cancellation. */
 export function untilRevoked<T>(revoked: AbortSignal, run: () => Promise<T>): Promise<T> {
   if (revoked.aborted) return Promise.reject(revoked.reason as Error);
   return new Promise<T>((resolve, reject) => {
@@ -33,10 +30,7 @@ export function untilRevoked<T>(revoked: AbortSignal, run: () => Promise<T>): Pr
 /** `signal` and `revoked` both, for a request that either may cancel. */
 export const joined = (revoked: AbortSignal, signal?: AbortSignal): AbortSignal => (signal ? AbortSignal.any([signal, revoked]) : revoked);
 
-/**
- * `provider` until `revoked` aborts (its plugin turned off). A running completion gets the abort through its signal and
- * settles at once when `revoked` or its own signal (a deadline) aborts, even if the provider ignores it.
- */
+/** Revokes a provider on unload; forwards cancellation and promptly settles completions on revocation or deadline, even if the provider ignores cancellation. */
 export function revocable(provider: LlmProvider, revoked: AbortSignal): LlmProvider {
   const { planUsage } = provider;
   return {

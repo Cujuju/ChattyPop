@@ -1,13 +1,7 @@
-// The owner's panel colours: each overrides a panel's section colour (--cp-section), which its header, stripe, icon and
-// toolbar button all read. Rules key on data-panel-color (the panel's own id, panelIdentity), not data-section, so
-// panels sharing a section (folder plugins' 'plugin') are coloured one by one. Each is pushed until it reads on every surface a panel can wear in the current theme
-// (importance-scoped ones included) and carries text-on-accent (the header badge).
+// Per-panel colors override --cp-section through data-panel-color, including shared sections. Adjusts contrast on all theme surfaces and supplies badge foregrounds.
 import { hexToRgb, readableOn, type Rgb } from './color';
 
-/**
- * The style element holding the overrides: a rule per panel, so any element carrying its data-panel-color takes it.
- * `html` in the selector outranks identity.css's [data-section] rules on the same element whatever the stylesheet order.
- */
+/** Generates one override rule per panel. html specificity beats section identity rules regardless of stylesheet order. */
 const STYLE_ID = 'cp-panel-colors';
 const SURFACE_TOKENS = [0, 1, 2, 3, 4, 5].map((n) => `--cp-surface-${n}`);
 const TEXT_ON_SECTION = '--cp-text-on-accent';
@@ -35,10 +29,7 @@ function panelBackgrounds(root: HTMLElement): Rgb[] {
   return colors;
 }
 
-/**
- * Applies the panel colours to the document, over the theme `root` currently wears; an empty record clears them.
- * `extraBackgrounds`: colours the theme paints that aren't surface tokens (a custom theme's veiled gradient).
- */
+/** Applies panel colors against root’s theme and extra non-token backgrounds. Empty records clear overrides. */
 export function wearPanelColors(root: HTMLElement, colors: Record<string, string>, extraBackgrounds: Rgb[]): void {
   let style = document.getElementById(STYLE_ID);
   const ids = Object.keys(colors);

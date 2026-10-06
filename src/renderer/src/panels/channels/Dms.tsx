@@ -30,10 +30,7 @@ function moveFocus(list: HTMLElement | undefined, from: Element | null, step: 1 
   rows[Math.min(Math.max(i + step, 0), rows.length - 1)]?.focus();
 }
 
-/**
- * The sidebar's DMs mode (docs/dms.md §4.1): search, New message, filter chips, then the account's DMs in Discord's order,
- * with Requests and Closed folded at the bottom. On the phone, or while posting is locked, it has no New message.
- */
+/** DM sidebar shows search, filters and activity-ordered owned DMs, with folded Requests/Closed. New message appears only on unlocked desktop. */
 export function Dms() {
   const emptyText = (): string =>
     dmSearch().trim() || dmFilter() !== 'all'

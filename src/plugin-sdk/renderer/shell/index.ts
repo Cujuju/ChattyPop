@@ -1,6 +1,4 @@
-// Plugin SDK, renderer shell (docs/plugin-architecture.md §3, phone transport and plugin page): the phone's API and
-// transport plumbing, a page's root, and the host's phone slots and shell parts a phone page composes. Only the plugin
-// whose descriptor declares `phone.transport` imports it (plugin:check's scan). First-party and unversioned.
+// First-party phone/page SDK exposes transport plumbing, root and host shell slots. Only declared phone transport plugins may import it.
 export { createPhoneRendererApi, type PhoneRendererApi, type PhoneTransport } from './phoneApi';
 export { installRendererApi, pageEvents, pageFetch, reloadPage } from './transport';
 export { showPhoneTextSize, startPage } from './page';

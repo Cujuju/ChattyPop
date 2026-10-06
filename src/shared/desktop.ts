@@ -1,5 +1,4 @@
-// Desktop shell settings and state (Settings → Desktop): the tray, starting at sign-in, the show/hide shortcut and
-// updates. Main keeps the settings in a profile file, since they apply before core opens the archive.
+// Desktop settings cover tray, sign-in startup, shortcuts and updates. Main stores them in profile files before archive startup.
 import { bool, isObj } from './normalize';
 import type { UnreadTotals } from './unread';
 
@@ -27,7 +26,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   indicateAlerts: false,
 };
 
-/** Modifiers a hotkey may hold, in accelerator order. Shift alone would take a typed character from every app. */
+/** Allowed accelerator modifiers in order. Excludes Shift-only shortcuts that intercept typed characters globally. */
 const MODIFIERS = ['Ctrl', 'Alt', 'Shift', 'Super'] as const;
 const TAKING_MODIFIERS = new Set<string>(['Ctrl', 'Alt', 'Super']);
 const HOTKEY_KEY = /^(?:[A-Z0-9]|F(?:[1-9]|1\d|2[0-4])|Space)$/;
@@ -96,7 +95,7 @@ export type UpdateStatus =
 
 export interface DesktopState {
   settings: DesktopSettings;
-  /** Whether Windows starts ChattyPop at sign-in; null where it can't (a dev run would start bare Electron). */
+  /** Windows sign-in startup state; null where unsupported, including dev. */
   openAtLogin: boolean | null;
   /** The hotkey is set but another app holds it. */
   hotkeyTaken: boolean;

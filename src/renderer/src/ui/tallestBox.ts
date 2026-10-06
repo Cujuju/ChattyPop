@@ -1,10 +1,7 @@
 // The tallest of several observed boxes, for a parent keeping clear of elements that lie over its content.
 import { createSignal, onCleanup } from 'solid-js';
 
-/**
- * Observes each element given to `observe` (its border box: padding changes alone, as a phone's home-bar inset, count)
- * until it leaves the document. `height` is the tallest one's, zero with none. Call inside a component.
- */
+/** Observes document-resident border-box heights, including padding changes. Returns tallest height or zero; call inside a component. */
 export function createTallestBox(): { height: () => number; observe: (el: Element) => void } {
   const [height, setHeight] = createSignal(0);
   const heights = new Map<Element, number>();

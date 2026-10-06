@@ -1,5 +1,4 @@
-// What Discord's own client shows of a person and of a reaction, beyond the archive: fetched live through the
-// embedded session, cached in the archive so it shows at once and while Discord is unreachable.
+// Caches embedded-session profile/reaction data beyond the archive for immediate/offline display.
 import type { RawUser } from '../discord';
 import type { PersonMatch } from './people';
 

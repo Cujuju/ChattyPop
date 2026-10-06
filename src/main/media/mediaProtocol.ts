@@ -37,23 +37,7 @@ const upstreamError = (status: number): Response => new Response('upstream error
 const serveMedia = (m: Media | null, range: string | null): Response =>
   m ? rangedResponse(range, m.bytes.length, m.type, (start, end) => new Uint8Array(m.bytes.subarray(start, end + 1))) : notFound();
 
-/**
- * cp-media://icon/<guildId>/<hash>      server icon, fetched once through the Discord session and cached.
- * cp-media://role-icon/<roleId>/<hash>  role icon beside a member's name, likewise.
- * cp-media://tag-badge/<guildId>/<hash> server tag badge beside a user's name, likewise.
- * cp-media://channel-icon/<channelId>/<hash> a group DM's icon, likewise.
- * cp-media://decoration/<asset>[/animated] avatar decoration, still or animated, likewise.
- * cp-media://name-font/<family>          a Nitro display-name font, found in the Discord page's CSS, fetched once and cached.
- * cp-media://attachment/<sha256>.<ext>  archived attachment from the content-addressed store.
- * cp-media://thumb/?u=<media url>        link-preview image (Discord's media proxy or X's image host), cached.
- * cp-media://proxied/?u=<media url>      full-size media from the same hosts (GIF videos, full images), cached as-is.
- * cp-media://avatar/<userId>/<hash|default>[/large] user avatar, fetched once through the Discord session and cached.
- * cp-media://banner/<userId>/<hash>      profile banner; cp-media://badge/<hash>: profile badge icon. Same session, cached.
- * cp-media://gif/?u=<Klipy url>          GIF search preview, fetched without Discord's session, not stored.
- * cp-media://sticker/<id>.json           Lottie sticker animation, fetched once through the Discord session and cached.
- * Attachments and the thumb, proxied and gif routes answer 
-ange (the request's Range header) with the bytes it asks for.
- */
+/** cp-media serves cached Discord assets, archived attachments, proxied previews/full media and uncached Klipy GIFs. Attachment/thumb/proxied/gif routes support byte ranges. */
 export type MediaHandler = (url: URL, range?: string | null) => Promise<Response>;
 
 /** `fontUrl`: where the Discord page loads a display-name font family from; null while it can't say. */

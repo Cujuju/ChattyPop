@@ -2,16 +2,12 @@ import { getSetting, parseRawJson, setSetting, type Db } from '../db';
 import { deriveMessage, type DerivableMessage } from './deriveMessage';
 
 /** Bump when attachment/link derivation rules change; stored messages are re-derived on startup. */
-const DERIVE_VERSION = 8; // 2: custom emoji; 3: canonical link URLs; 4: one URL per X post; 5: bots share only unfurled links, one URL per Reddit post; 6: TikTok and Instagram fixer mirrors; 7: attachment alt text, renames, removals; 8: attachment flags
+const DERIVE_VERSION = 8; // Derivation versions: 2 emoji; 3 canonical URLs; 4 X posts; 5 unfurled bot links/Reddit posts; 6 fixer mirrors; 7 attachment metadata/removals; 8 flags.
 const DERIVE_VERSION_KEY = 'archive.deriveVersion';
 /** Rows per read during re-derivation; bounds memory for large archives. */
 const REDERIVE_BATCH_ROWS = 1000;
 
-/**
- * Re-derives attachments and links from stored raw JSON when the derivation rules changed
- * (DERIVE_VERSION bump) or for messages stored before derivation existed. Idempotent. Returns the messages re-derived.
- * `rebuilt` runs inside the transaction once links are rebuilt (plugins keyed on them prune theirs).
- */
+/** Re-derives stored payloads after version changes or missing derivation. Returns processed messages; rebuilt runs transactionally after links rebuild. */
 export function rederiveIfStale(db: Db, rebuilt: () => void): number {
   const stored = getSetting(db, DERIVE_VERSION_KEY);
   if (stored === DERIVE_VERSION) return 0;

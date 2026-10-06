@@ -30,7 +30,7 @@ export const TOOL_QUERIES: readonly JevQueryDef[] = [
       question: 'Judging by `recent`, does this channel regularly discuss `topic`?',
       yes: 'the topic comes up regularly here',
       no: 'it does not, or only in passing',
-      // A suggestion should be a clear fit, not a maybe.
+      // Channel suggestion confidence threshold.
       minProbability: 0.6,
     },
   },

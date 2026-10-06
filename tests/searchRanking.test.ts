@@ -1,5 +1,4 @@
-// A window's search: full-text results show first; after a pause the active search rankers may reorder them, and only
-// the latest query's answer lands. A ranker's failure or null answer keeps the full-text order.
+// Search shows full-text results first, then delayed ranking. Only the latest query response applies; null or failed ranking preserves full-text order.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SearchHit } from '@shared/contract';
 import type { SearchSort } from '@shared/searchQuery';

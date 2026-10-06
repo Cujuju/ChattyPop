@@ -34,8 +34,7 @@
   object-fit: contain;
   border-radius: var(--cp-radius-md);
   box-shadow: var(--cp-shadow-dialog);
-  /* Zoom (createZoom.ts): translate + scale from the top-left, eased except while a finger or the mouse drives it.
-     The image takes every touch gesture, so a pinch zooms it rather than the page. */
+  /* Image zoom uses top-left translate/scale, easing except during direct manipulation. Image captures touches for image-specific pinch zoom. */
   transform-origin: 0 0;
   transition: transform var(--cp-duration-base) var(--cp-ease-out);
   touch-action: none;

@@ -1,6 +1,4 @@
-/* Floating window frame, layered on the caller's surface class (e.g. Settings .dialog): non-modal, so no backdrop.
-   Position and size are inline (dragged, resized, restored); this file sets the frame's behaviour only.
-   Hooks: the first <header> inside is the drag handle; .grip[data-edge] are the edge and corner resize bands. */
+/* Nonmodal floating frames layer on caller surfaces. Inline geometry supports header dragging and data-edge resize grips. */
 .window {
   position: fixed;
   inset: auto;

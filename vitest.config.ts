@@ -12,8 +12,7 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
       { find: '@core', replacement: resolve(import.meta.dirname, 'src/core') },
       { find: '@main', replacement: resolve(import.meta.dirname, 'src/main') },
       { find: '@plugin-sdk', replacement: resolve(import.meta.dirname, 'src/plugin-sdk') },
-      // The host test kit plugin tests outside this checkout import (docs/plugin-architecture.md §16): its index, or
-      // a listed helper in tests/ by name.
+      // Host-testing aliases expose the entry module and allowlisted helpers to external plugin tests.
       { find: /^@chattypop\/host-testing$/, replacement: resolve(import.meta.dirname, 'tests/hostTesting/index.ts') },
       { find: new RegExp(`^@chattypop/host-testing/(${HOST_TESTING_FILES.join('|')})$`), replacement: `${resolve(import.meta.dirname, 'tests').replaceAll('\\', '/')}/$1` },
       { find: '@', replacement: resolve(import.meta.dirname, 'src/renderer/src') },

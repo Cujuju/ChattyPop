@@ -1,5 +1,4 @@
-// Plugin SDK, renderer shell: the phone's renderer API (docs/plugin-architecture.md §3, phone transport). The host owns
-// what the phone may do (shared/phone.ts); the transport's owner supplies only how calls and events travel.
+// Host defines permitted phone calls/events; transport plugins supply delivery only.
 import type { AppEvent, RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
 import { phoneMayCallPlugin, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';

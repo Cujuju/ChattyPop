@@ -55,10 +55,7 @@ export const AA_TARGET = AA_TEXT + CONTRAST_ROUNDING_MARGIN;
 /** `c`'s weakest contrast against the colours in `on`. */
 export const minContrast = (c: Rgb, on: Rgb[]): number => Math.min(...on.map((bg) => contrast(c, bg)));
 
-/**
- * `c` at its own hue, lightness pushed until it meets AA_TARGET against every colour in `on`: first toward whichever of
- * white or black reads better there, then the other way; the best ratio found when neither direction gets there.
- */
+/** Preserves hue while adjusting lightness toward best contrasting extremes until AA_TARGET is met on all backgrounds; otherwise returns best measured contrast. */
 export function readable(c: Rgb, on: Rgb[]): Rgb {
   const [h, s, l] = hueSatLight(c);
   const lightenFirst = minContrast(WHITE, on) >= minContrast(BLACK, on);

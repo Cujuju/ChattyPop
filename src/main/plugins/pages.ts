@@ -1,5 +1,4 @@
-// The renderer's pages as HTTP replies (main ctx.pages): the build folder, or Vite's dev server in `pnpm dev`, for a
-// plugin that serves its page outside the app; and installed plugins' pages, files and pages' public files.
+// Serves renderer build files or Vite dev responses for external plugin pages, plus installed plugin pages/public assets.
 import { createReadStream } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
@@ -33,7 +32,7 @@ export interface Pages {
   response(path: string, search?: string): Promise<Response>;
 }
 
-/** File under `root` for a URL path; null when it would leave `root` or is malformed. */
+/** Resolves URL files within root. Malformed or escaping paths return null. */
 export function staticFile(root: string, urlPath: string): string | null {
   let path: string;
   try {
@@ -46,10 +45,7 @@ export function staticFile(root: string, urlPath: string): string | null {
   return file.startsWith(root.endsWith(sep) ? root : root + sep) ? file : null;
 }
 
-/**
- * `path` and `search` on the dev server's own origin: set as the URL's parts, never resolved against it, so a path like
- * `//host/x` can't name another server. null for a path that isn't one.
- */
+/** Sets path/search on the dev-server origin without URL resolution, preventing //host escapes. Invalid paths return null. */
 function devTarget(devUrl: string, path: string, search: string): URL | null {
   if (!path.startsWith('/')) return null;
   const url = new URL(devUrl);
@@ -114,7 +110,7 @@ export function rendererPages(dir: string, devUrl: string | null, installed: Ins
       if (devUrl) {
         const target = devTarget(devUrl, path, search);
         if (!target) return new Response(null, { status: HTTP_NOT_FOUND });
-        // No redirects: one could leave the dev server. Hot reload doesn't reach a page served elsewhere; reload it.
+        // Rejects dev-server redirects. External pages require manual reload instead of hot reload.
         return (await fetch(target, { redirect: 'error' }).catch(() => null)) ?? new Response(null, { status: HTTP_BAD_GATEWAY });
       }
       const file = staticFile(dir, path);

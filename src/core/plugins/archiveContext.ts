@@ -70,10 +70,7 @@ export interface PluginArchive {
   derivedText: {
     /** Whether the plugin's text for a message is still coming (queued, running, or waiting for its source). */
     provide(p: { pending(messageId: string): boolean }): void;
-    /**
-     * The plugin's text for `messageId` settled: stored, indexed and dispatched as an edit; null: none came. `record`:
-     * the plugin's own writes that must land with the text, run in the same transaction.
-     */
+    /** Settles plugin message text, indexes it and dispatches an edit. null means absent; record bookkeeping shares the transaction. */
     settle(messageId: string, t: DerivedText | null, record?: () => void): void;
     /** Any plugin's text for the message is still coming. */
     pending(messageId: string): boolean;
@@ -81,10 +78,7 @@ export interface PluginArchive {
     onSettled(fn: (messageId: string) => void): void;
     /** Every plugin's texts of these messages' parts (DerivedText.part), its own included; empty ones left out. */
     ofParts(messageIds: readonly string[]): PartText[];
-    /**
-     * Names the part of the plugin's own texts stored without one (its key → part key), e.g. from before parts existed.
-     * Texts with a part are left alone; nothing is matched again.
-     */
+    /** Assigns parts to this plugin’s unassigned texts. Existing parts remain; no rematching occurs. */
     tagParts(parts: ReadonlyMap<string, string>): void;
   };
   parts: {
@@ -96,24 +90,15 @@ export interface PluginArchive {
   images: {
     /** Each message's images (attachments, embeds, link images), in the order it shows them; one with none is left out. */
     of(messageIds: readonly string[]): Map<string, MessageImage[]>;
-    /**
-     * A message was stored or updated (its embeds came later), or a link it shares gained images: what it shows may be
-     * new. Runs inside ingest, so it must only note work, never do it.
-     */
+    /** Reports stored/updated messages or newly available link images during ingest. Handlers must record work without executing it. */
     onShown(fn: (messageId: string) => void): void;
   };
   linkImages: {
-    /**
-     * The plugin's images for link `url` (a fetched post's photos), replacing any it set before; messages sharing the link
-     * are reported to images.onShown. `record`: the plugin's own writes, in the same transaction.
-     */
+    /** Replaces plugin images for a URL and reports sharing messages to images.onShown. record bookkeeping shares the transaction. */
     set(url: string, images: readonly LinkImage[], record?: () => void): void;
   };
   linkText: {
-    /**
-     * The plugin's text for link `url` (a fetched post), read before Discord's preview as what messages link to; a
-     * message whose link gains text by it is judged again. `record`: the plugin's own writes, in the same transaction.
-     */
+    /** Upserts plugin link text ahead of Discord previews. Newly covered messages are rejudged; record bookkeeping shares the transaction. */
     set(url: string, text: string, record?: () => void): void;
   };
   messageLabels: {

@@ -1,6 +1,4 @@
-// The renderer SDK's tiers (docs/plugin-architecture.md §9): none loads the plugin registry or a plugin, however
-// indirectly, and the contract loads nothing of the host but the @/api leaf. That plugins reach the SDK only through its
-// tiers is plugin:check's scan (tests/pluginScan.test.ts).
+// Renderer SDK tiers cannot load registries or plugins. Contracts depend only on @/api; plugin scanning enforces SDK tier imports.
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLUGINS_DIR, ROOT, closure } from './rendererGraph';
@@ -11,10 +9,7 @@ const TIERS = { contract: CONTRACT, kit: join(SDK_DIR, 'kit/index.ts'), posting:
 const HOST_DIR = join(ROOT, 'src/renderer/src');
 /** The renderer API leaf: the one host module the contract loads (it queues calls until a transport installs). */
 const API_LEAF = join(HOST_DIR, 'api.ts');
-/**
- * The browser shared registry's installed-plugin loader (§16) and what it loads: shared code completing the shared
- * registry, which the contract may load. It publishes the shared SDK tier.
- */
+/** Installed shared-registry loader completes declarations and publishes the shared SDK tier. */
 const SHARED_LOADER = join(HOST_DIR, 'plugins/installedShared.ts');
 const SHARED_LOADER_OWN = [SHARED_LOADER, join(HOST_DIR, 'plugins/installedLoader.ts'), join(ROOT, 'src/plugin-sdk/shared/index.ts')];
 /** What only page entries load: the registry, and the entries themselves. */

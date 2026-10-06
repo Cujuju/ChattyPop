@@ -1,5 +1,4 @@
-// Discord's read states (docs.discord.food → Read State): each channel's last read message and unread mention count, as
-// Discord's own client keeps them from its gateway traffic, and acknowledging a channel read from ChattyPop.
+// Maintains gateway read states and unread mentions, and acknowledges channels read from ChattyPop.
 import type { ReadStateCount, ReadStateScope } from '@shared/contract';
 import { DM_CHANNEL_TYPES, MUTED_FOREVER, compareSnowflakes } from '@shared/discord';
 import type { DiscordApi } from './api';
@@ -70,13 +69,7 @@ interface ReadState {
 const mentionsOf = (s: ReadState): number => s.counted + s.pings.length;
 const UNREAD: ReadState = { counted: 0, pings: [] };
 
-/**
- * Each channel's unread mention count, kept as Discord's client keeps it: READY's read states, then +1 for each new
- * message that pings the owner (Discord's rule: a user, role or everyone mention not suppressed; every message in an
- * unmuted DM), reset by a read anywhere (MESSAGE_ACK) or the owner's own message. A DM's count also carries its last
- * read message and mute end.
- * Residual: a server set to notify on all messages with "mention on all messages" counts every message on Discord, not here.
- */
+/** Tracks READY mentions, unsuppressed pings and unmuted DMs; reads/owner messages reset counts. DM state includes ack/mute; server mention-on-all-messages behavior is unsupported. */
 export class ReadStates {
   private self: string | null = null;
   /** A MESSAGE_ACK's field names were noted this session (they are undocumented). */
@@ -108,11 +101,7 @@ export class ReadStates {
     tap.on('dispatch', ({ t, d }) => this.apply(t, d));
   }
 
-  /**
-   * Marks `channelId` read up to `messageId` on Discord, as its client does when the channel is viewed. Shown at once:
-   * pings after it keep counting. One ack per channel is in flight; newer ones coalesce into the next. A failure returns
-   * to Discord's state, with the pings that came meanwhile.
-   */
+  /** Optimistically acknowledges reads, preserving later pings. Serializes/coalesces channel acks; failures restore Discord state plus intervening pings. */
   ack(channelId: string, messageId: string): void {
     const before = this.states.get(channelId) ?? UNREAD;
     if (before.ackId && compareSnowflakes(messageId, before.ackId) <= 0) return;
@@ -311,10 +300,7 @@ export class ReadStates {
     this.put(channelId, state);
   }
 
-  /**
-   * What core keeps for a channel: its mention count and last read message (core's unread counts leave out what it
-   * covers), and for a DM its mute end. A field this session doesn't know is left out, so core keeps its stored value.
-   */
+  /** Persists known mention/ack fields and DM mute end. Omits unknown session fields so stored values survive. */
   private count(channelId: string): ReadStateCount {
     const s = this.states.get(channelId);
     const count: ReadStateCount = { channelId, ...(s ? { mentionCount: mentionsOf(s) } : {}) };

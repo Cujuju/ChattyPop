@@ -1,7 +1,4 @@
-// Publishes one plugin version to its marketplace repo (docs/plugin-architecture.md §16, Releasing): ensureReleased
-// drives tag, release, asset and marketplace.json listing to done from whatever partial state an earlier run left,
-// deleting or replacing nothing but a failed upload's empty placeholder. GitHub calls go through `gh`, git calls
-// through `git`, both injectable.
+// Publishes a plugin version through injectable git and gh calls. Resumes tags, releases, assets, and marketplace listings; replaces only failed uploads’ empty placeholders.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs';
@@ -35,7 +32,7 @@ export const runGit: Git = (dir, args) => {
   return { code: r.status ?? 1, stdout: r.stdout, stderr: r.stderr };
 };
 
-/** How many times a marketplace.json write is tried when another write lands between its read and its write. */
+/** Maximum retries for concurrent marketplace writes. */
 const INDEX_WRITE_ATTEMPTS = 3;
 const NOT_FOUND = /HTTP 404/;
 const CONFLICT = /HTTP 409/;
@@ -58,11 +55,7 @@ async function ghRun(gh: Gh, args: readonly string[]): Promise<void> {
   if (r.code !== 0) throw failed(`gh ${args[0]} ${args[1]}`, r);
 }
 
-/**
- * marketplace.json (`raw`, null when the repo has none) with `release` added to plugin `manifest.id`: newest first,
- * refusing a version already listed. The plugin's name and description follow its newest release; every other field
- * of the file stays as it was.
- */
+/** Adds a unique release newest-first. Name and description follow the newest release; other marketplace fields remain unchanged. */
 export function withRelease(raw: unknown, manifest: Pick<InstalledManifest, 'id' | 'name' | 'description'>, release: MarketplaceRelease): Record<string, unknown> {
   const index = structuredClone((raw ?? { format: MARKETPLACE_FORMAT, plugins: [] }) as Record<string, unknown>);
   const parsed = parseMarketplaceIndex(index);
@@ -82,7 +75,7 @@ export function withRelease(raw: unknown, manifest: Pick<InstalledManifest, 'id'
 
 const sha256Of = (file: string): string => createHash('sha256').update(readFileSync(file)).digest('hex');
 
-/** Packs `dir`'s contents (plugin.json at the archive root, no top-level folder) into `file`; returns its sha256. */
+/** Packs directory contents at the archive root and returns SHA-256. */
 export async function pack(dir: string, file: string): Promise<string> {
   await create({ gzip: true, portable: true, cwd: dir, file }, readdirSync(dir).sort());
   return sha256Of(file);
@@ -97,7 +90,7 @@ async function assetManifest(file: string, dir: string): Promise<InstalledManife
 
 export const assetName = (id: string, version: string): string => `${id}-${version}.tar.gz`;
 
-/** A built release asset: the archive, its plugin.json, and the release notes recording what built it. */
+/** Built archive, manifest, and provenance notes. */
 export interface BuiltAsset {
   file: string;
   manifest: InstalledManifest;
@@ -127,7 +120,7 @@ interface ReleaseView {
 
 const UPLOADED = 'uploaded';
 
-/** The commit tag `tag` points at on `repo` (an annotated tag peeled), or null when there is none. */
+/** Resolves a tag’s commit, peeling annotated tags; returns null if absent. */
 async function tagCommit(gh: Gh, repo: string, tag: string): Promise<string | null> {
   const ref = await ghApi(gh, [`repos/${repo}/git/ref/tags/${tag}`], true);
   if (ref === null) return null;
@@ -145,10 +138,7 @@ async function viewRelease(gh: Gh, repo: string, tag: string): Promise<ReleaseVi
   throw failed(`gh release view ${tag}`, r);
 }
 
-/**
- * Lists `entry` in `repo`'s marketplace.json, at the read sha; a conflicting write is re-read and retried. True when it
- * wrote, false when the version was listed already (with the same tag and sha256, else it throws).
- */
+/** Writes marketplace.json using its SHA, retrying conflicts. Returns false for an identical existing version; conflicting tag or checksum throws. */
 export async function listRelease(gh: Gh, repo: string, manifest: Pick<InstalledManifest, 'id' | 'name' | 'description'>, entry: MarketplaceRelease): Promise<boolean> {
   const path = `repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`;
   for (let attempt = 1; ; attempt++) {
@@ -197,7 +187,7 @@ export async function ensureReleased({ repo, id, version, target, buildAsset, wo
     log(`Released ${tag} on ${repo}`);
   } else {
     const asset = before.assets.find((a) => a.name === name);
-    // The only thing ever deleted: a failed upload's placeholder, which holds no content (GitHub's documented remedy).
+    // Removes empty failed-upload placeholders.
     if (asset && asset.state !== UPLOADED) {
       await ghRun(gh, ['release', 'delete-asset', tag, name, '--repo', repo, '--yes']);
       log(`Removed ${tag}'s incomplete ${name} (${asset.state})`);

@@ -10,10 +10,7 @@ const attachment = (typeLike: string | null): string =>
 /** SQL reading JSON `path` (a constant, never user text) from a message's payload; `alias` '' for an unaliased table. */
 export const rawJsonSql = (path: string, alias = 'm'): string => `json_extract(msg_json(${alias ? `${alias}.` : ''}raw_json), '${path}')`;
 
-/**
- * SQL per kind for message alias `m`, true when the message carries it. Attachments and links are the derived tables
- * (so derive a message before checking it); the rest reads the raw payload, which retention may have dropped.
- */
+/** SQL content-kind predicates for message alias m. Attachments/links require derivation; other kinds use raw payloads, which retention may remove. */
 export const CONTENT_SQL: Readonly<Record<ContentKind, string>> = {
   voice: `(COALESCE(${rawJsonSql('$.flags')}, 0) & ${VOICE_MESSAGE_FLAG}) != 0`,
   audio: attachment('audio/%'),

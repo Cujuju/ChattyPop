@@ -13,10 +13,7 @@ export function panelIds(node: LayoutNode): LayoutPanelId[] {
   return node.children.flatMap((c: LayoutNode) => panelIds(c));
 }
 
-/**
- * The same tree with panels `a` and `b` exchanged: structure and sizes stay, so the result is always valid. When only
- * one is in the tree, the other takes its place.
- */
+/** Swaps panels without changing tree structure/sizes. If only one exists, the other replaces it. */
 export function swapPanels(node: LayoutNode, a: LayoutPanelId, b: LayoutPanelId): LayoutNode {
   if (node.kind === 'panel') return node.id === a ? { kind: 'panel', id: b } : node.id === b ? { kind: 'panel', id: a } : node;
   if (node.kind === 'tabs') return { ...node, children: node.children.map((c) => swapPanels(c, a, b) as typeof c) };
@@ -41,7 +38,7 @@ export function panelShowing(root: LayoutNode, id: LayoutPanelId, anchors: reado
   return below ? { below } : { outside: true };
 }
 
-/** The tree without panel `id`; a split left with one child becomes that child. Null when nothing would remain. */
+/** Removes panels and collapses single-child splits. Returns null for empty trees. */
 export function removePanel(node: LayoutNode, id: LayoutPanelId): LayoutNode | null {
   if (node.kind === 'panel') return node.id === id ? null : node;
   if (node.kind === 'tabs') {
@@ -101,10 +98,7 @@ export function bakeSizes(node: LayoutNode, byPath: Record<string, number[]> | u
   return { ...node, sizes: effectiveSizes(node.sizes, byPath?.[path]), children };
 }
 
-/**
- * Whether `node`'s extent along `axis` is set by its content rather than a share: a folded panel's height, or a split
- * whose every child is content-sized that way (an 'auto' entry counts along the split's own direction).
- */
+/** Checks content-sized extents: folded panel height or splits whose children are all content-sized along the axis; auto counts along split direction. */
 export function contentSized(node: LayoutNode, axis: 'row' | 'column', isCollapsed: (id: LayoutPanelId) => boolean): boolean {
   if (node.kind === 'panel') return axis === 'column' && isCollapsed(node.id);
   if (node.kind === 'tabs') return false;
@@ -120,10 +114,7 @@ export function normalizeShares(sizes: SplitSize[]): SplitSize[] {
 /** Index of the first share-sized entry after `i`, or -1: a resize handle after `i` trades space with it. */
 export const nextShare = (sizes: SplitSize[], i: number): number => sizes.findIndex((s, k) => k > i && s !== 'auto');
 
-/**
- * Shares after moving the boundary between share-sized entries `a` and `b` by `deltaPx`, from their pixel sizes and
- * minimums at drag start. Content-sized entries between them keep their size; the pair's share total is kept.
- */
+/** Resizes share-sized boundary pairs from drag-start pixels/minimums, preserving combined shares. Intervening content-sized entries keep their sizes. */
 export function resizeShares(sizes: SplitSize[], a: number, b: number, px: [number, number], min: [number, number], deltaPx: number): SplitSize[] {
   const [fa, fb] = [sizes[a] as number, sizes[b] as number];
   const total = px[0] + px[1];
@@ -143,10 +134,7 @@ export type DropZone = DockSide | 'center';
 /** Share of a target's width or height, from each edge, that docks there when its middle also accepts a drop. */
 const DOCK_EDGE_SHARE = 0.25;
 
-/**
- * Zone under a point (`x`, `y` as 0–1 fractions of the target) among `allowed`: the nearest allowed edge, or the
- * middle when it is allowed and the point is outside every edge band. Null when nothing is allowed.
- */
+/** Selects nearest allowed edge or eligible center from normalized target coordinates. Returns null when no zones are allowed. */
 export function dropZoneAt(allowed: readonly DropZone[], x: number, y: number): DropZone | null {
   const dist: Record<DockSide, number> = { left: x, right: 1 - x, top: y, bottom: 1 - y };
   const nearest = allowed.reduce<DockSide | null>((a, z) => (z === 'center' || (a !== null && dist[a] <= dist[z]) ? a : z), null);
@@ -170,10 +158,7 @@ const meanShare = (sizes: SplitSize[]): number => {
 const holds = (node: LayoutNode, id: LayoutPanelId): boolean =>
   node.kind === 'panel' ? node.id === id : node.kind === 'tabs' && node.children.some((c) => c.id === id);
 
-/**
- * Inserts `moved` on `side` of `target`. In a split along that axis it joins as a sibling, halving the target's share;
- * otherwise the target's slot becomes a two-way split. A content-sized target's slot takes the split's mean share.
- */
+/** Inserts moved beside target, halving target shares in matching splits or creating a two-way split. Content-sized targets receive mean shares. */
 function dock(node: LayoutNode, moved: PanelRef, target: LayoutPanelId, side: DockSide): LayoutNode {
   if (holds(node, target)) return pair(node, moved, side);
   if (node.kind !== 'split') return node;
@@ -195,10 +180,7 @@ function dock(node: LayoutNode, moved: PanelRef, target: LayoutPanelId, side: Do
   return { ...node, sizes, children };
 }
 
-/**
- * Moves panel `id` to `side` of panel `target`, adding it when it isn't in the layout yet (dragged from the panel
- * toolbar). Returns `root` itself when the target is missing or they are the same.
- */
+/** Moves/adds panels beside targets. Missing targets or self-moves return the original root. */
 export function movePanel(root: LayoutNode, id: LayoutPanelId, target: LayoutPanelId, side: DockSide): LayoutNode {
   const ids = panelIds(root);
   if (id === target || !ids.includes(target)) return root;

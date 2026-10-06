@@ -1,6 +1,4 @@
-// A plugin's channel contract (docs/plugin-architecture.md §5): the calls each side serves and the events core emits,
-// each member with the audiences that may reach it. Arguments, results and payloads cross processes: structured-cloneable,
-// and WireValues (wire.ts) for members the phone reaches.
+// Channel contracts declare calls/events and audiences. Cross-process payloads require structured cloning; phone-accessible members additionally require WireValues.
 
 import { unwrapPluginCall, type PluginCallResult } from './pluginCall';
 import type { IsWire } from './wire';
@@ -23,10 +21,7 @@ export interface ChannelShapes {
   events?: object;
 }
 
-/**
- * A core call main reports finished work through (§3 completion reports): main-only, with the most issued keys the
- * host's ledger keeps (the oldest past it is forgotten, and its report refused).
- */
+/** Main-only core completion calls declare ledger capacity. Full ledgers refuse new issued keys until earlier work reports or withdraws. */
 export interface CompletionMember {
   readonly audiences: readonly ['main'];
   readonly completion: { readonly max: number };
@@ -35,10 +30,7 @@ export interface CompletionMember {
 /** Checks and shapes a call's arguments as it arrives, before the handler runs; throws the reason they are refused. */
 export type Decoder<Args extends readonly unknown[] = readonly unknown[]> = (args: readonly unknown[]) => Args;
 
-/**
- * A core call declared with options: `writes`, whether it changes anything (stated for every call the phone may make);
- * `decode`, its arguments' check on every transport, required when the phone may make a call that writes.
- */
+/** Core call options declare writes and decode transport arguments. Phone calls require write declarations; writing phone calls require decoders. */
 export interface CallMember<Args extends readonly unknown[] = readonly unknown[]> {
   readonly audiences: readonly Audience[];
   readonly writes?: boolean;
@@ -83,10 +75,7 @@ export interface Channels<S extends ChannelShapes = ChannelShapes, A extends Cha
   readonly shapes?: S;
 }
 
-/**
- * Declares a contract: `defineChannels<Shapes>()({ core: { status: { audiences: ['renderer', 'phone'], writes: false } }, … })`.
- * Members the phone reaches are held to PhoneChecked by type (and checkBundled at run time).
- */
+/** defineChannels binds typed member shapes to contracts. Phone members satisfy PhoneChecked at compile time and bundled checks at runtime. */
 export const defineChannels =
   <S extends ChannelShapes>() =>
   <const A extends ChannelSpec<S>>(audiences: A & PhoneChecked<S, A>): Channels<S, A> => ({ audiences });

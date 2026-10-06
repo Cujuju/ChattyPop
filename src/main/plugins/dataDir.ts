@@ -10,11 +10,7 @@ import { profilePath } from '../storageLocation';
 /** Under the app profile; one folder per plugin id. */
 const PLUGIN_DATA_DIR = 'plugin-data';
 
-/**
- * The plugin data root, created, with adopted profile folders (PluginDescriptor.adopts.dataDir) moved in: a rename on
- * the same volume. A folder that can't be moved (a file held open) stays in use where it is this run, and the move is
- * tried again next start.
- */
+/** Creates plugin data roots and adopts profile folders by same-volume rename. Failed moves use the old folder this run and retry next startup. */
 export function pluginDataDirs(): PluginDataDirs {
   const root = profilePath(PLUGIN_DATA_DIR);
   mkdirSync(root, { recursive: true });

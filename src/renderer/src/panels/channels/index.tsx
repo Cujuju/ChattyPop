@@ -19,11 +19,7 @@ import { Icon } from '@/ui/icons';
 import styles from './Channels.module.css';
 import { Rail } from './Rail';
 
-/**
- * Servers mode: opted-in channels grouped by server; "browse" lists every server to opt channels in or out. DMs mode:
- * the account's direct messages (Dms.tsx). On the phone (its drawer) both are read-only: choosing channels and
- * collapsing the sidebar stay on the desktop.
- */
+/** Server mode groups opted-in channels and offers browsing; DM mode lists owned conversations. Phone drawer selection/configuration remains read-only. */
 export function ChannelsPanel() {
   const servers = (): boolean => sidebarMode() === 'servers';
   /** Browse belongs to Servers mode; DMs mode keeps it for when Servers returns. */

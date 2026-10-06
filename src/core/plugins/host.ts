@@ -54,7 +54,7 @@ interface Loaded {
   deactivate?: () => void;
 }
 
-/** A bundled plugin in this build: its descriptor, and its core side when it has one (Plan usage has none). */
+/** Bundled descriptor and optional core side. */
 interface BundledEntry {
   plugin: PluginDescriptor;
   core: CorePlugin | null;
@@ -205,10 +205,7 @@ export class PluginHost {
     this.deps.emit({ type: 'plugins-changed' });
   }
 
-  /**
-   * Ends every activation, leaving each plugin's switch and continuity as they are: the archive is about to close, and
-   * work still running would write to a closed database. The app restarts after.
-   */
+  /** Ends activations before archive closure without changing switches or continuity. The app restarts afterward. */
   endActivations(): void {
     for (const p of this.plugins.values()) if (p.status === 'active') this.unload(p);
   }
@@ -243,10 +240,7 @@ export class PluginHost {
     }));
   }
 
-  /**
-   * Called inside ingest. onMessage handlers run afterwards so a slow or failing plugin never holds up archiving;
-   * bundled onText handlers run now (they only note work), and a throw is recorded, never breaking ingest.
-   */
+  /** Ingest defers onMessage handlers. Bundled onText handlers only record work synchronously; plugin errors are recorded without interrupting archiving. */
   dispatchMessage(m: TextMessage, arrived: Arrived, source: TextSource): void {
     const message: PluginMessage = { id: m.id, channelId: m.channelId, authorId: m.authorId, ts: m.ts, content: m.content };
     for (const p of this.active()) {
@@ -302,11 +296,7 @@ export class PluginHost {
     return [...this.plugins.values()].filter((p) => p.status === 'active');
   }
 
-  /**
-   * A call into a plugin's core side, from `origin` as the transport stamped it. A bundled plugin answers only the
-   * audiences its channel contract declares; a folder plugin only its panels. A folder plugin's throw is also recorded
-   * on the plugin; a bundled plugin's is only the caller's to show (an import of a bad file is not a broken plugin).
-   */
+  /** Dispatches transport-stamped core calls to declared bundled audiences or folder panels. Records folder errors; bundled errors remain caller-visible only. */
   async call(origin: Audience, pluginId: string, name: string, args: unknown[]): Promise<unknown> {
     const p = this.plugins.get(pluginId);
     const reaches = p?.entry ? audiencesOf(p.entry.plugin.channels, 'core', name).includes(origin) : p?.origin === 'folder' && origin === 'renderer';
@@ -336,10 +326,7 @@ export class PluginHost {
     }
   }
 
-  /**
-   * Lists the installed plugins that don't run in this process, with why: those main's start refused, and accepted ones
-   * whose descriptor failed to load here. One whose id is taken (a refused copy of a bundled plugin) gets its own key.
-   */
+  /** Lists installed plugins refused by main or failing core descriptor load. Conflicting ids receive separate diagnostic keys. */
   private listUnloaded(): void {
     const listed = new Set(this.bundled.map((b) => b.plugin.manifest.id));
     const failed = this.installed.start.accepted

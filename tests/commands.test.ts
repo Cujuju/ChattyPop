@@ -29,7 +29,7 @@ function fakeTap() {
   return { tap: tap as unknown as GatewayTap, send };
 }
 
-/** A DiscordApi recording POSTs; `onInteraction` answers each posted interaction on the gateway, as Discord would. */
+/** Records DiscordApi POSTs; onInteraction supplies gateway responses for posted interactions. */
 function fakeApi(onInteraction: (body: Record<string, unknown>) => void = () => {}) {
   const posts: [string, Record<string, unknown>][] = [];
   const gets: string[] = [];

@@ -1,6 +1,4 @@
-// Installed plugins through the registries (docs/plugin-architecture.md §16): with INSTALLED_ENV set as main's boot sets
-// it, every registry lists the accepted plugins after the build's, core and main load their sides, and core's plugin
-// host runs them and lists the refused ones. Modules that load the registry are imported only once the env is set.
+// With INSTALLED_ENV set before registry imports, accepted installed plugins follow bundled entries. Core and main load their sides; refusals appear in the plugin list.
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { INSTALLED_ENV, type InstalledStart } from '@shared/installedPlugins';

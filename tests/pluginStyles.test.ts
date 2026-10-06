@@ -1,5 +1,4 @@
-// Plugin styling split (docs/plugin-architecture.md §14): the theme owns how things look; a plugin's CSS lays out its
-// own elements with tokens, and the look vocabulary sets look only, so the two never set the same property.
+// Themes own appearance; plugin CSS owns token-based layout. The look vocabulary and layout rules set distinct properties.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,10 +6,7 @@ import { declarations, isCustomProperty, isLook, lookCustomProperties, pluginVio
 import { PLUGINS_DIR } from './rendererGraph';
 
 const ROOT = resolve(__dirname, '..');
-/**
- * Fixture plugin folders (renderer modules and a page): the app holds no plugins. `pnpm plugin:check` runs the same
- * check (checkStyles) on each plugin's own folder.
- */
+/** Fixture renderer and page styles use the same checkStyles validation as external plugins. */
 /** The host's styles: the theme, its look vocabulary and host modules. */
 const RENDERER_DIR = resolve(ROOT, 'src/renderer/src');
 const LOOK_DIR = resolve(RENDERER_DIR, 'theme/look');

@@ -74,11 +74,7 @@ export function storageInfo(): StorageInfo {
   return { dir: cfg.archiveDir, previousDir: cfg.verifyOnOpen ? null : (cfg.previousDir ?? null) };
 }
 
-/**
- * Asks for a folder, then stops the archive, copies its files there, verifies sizes (and the database byte for
- * byte), points the config at the copy and restarts. The original stays until deleted from Settings. On failure the
- * partial copy is removed and the app restarts on the original.
- */
+/** Copies archive to an owner-selected folder, verifies sizes/database bytes, updates location and restarts. Keeps original; failures remove partial copies and restart original. */
 export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise<void> {
   const from = storageConfig().archiveDir;
   const to = await pickFolder(win, 'Move the archive to…');

@@ -1,5 +1,4 @@
-// Managing a DM (docs/dms.md §4.2, §4.4): the row menu, the mute and members flyouts, and the rename and leave dialogs.
-// Each write goes through main's DM service; a failure shows inline where it was asked for.
+// DM menus/flyouts/dialogs send writes through main’s DM service. Failures appear inline at the requesting control.
 import { api } from '@/api';
 import { createEffect, createRoot, createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
@@ -110,10 +109,7 @@ export function muteMenu(c: DmChannel, surface: DmSurface): MenuGroup[] {
   ];
 }
 
-/**
- * Mute… opens the lengths at `anchor`, looked up as it opens: a row may be drawn anew since its menu opened. Gone (the
- * row left the list), nothing opens. A muted DM unmutes at once.
- */
+/** Resolves mute anchors when opening, tolerating redrawn rows. Missing rows open nothing; muted DMs unmute immediately. */
 export function muteItem(c: DmChannel, anchor: () => Element | null | undefined, surface: DmSurface, side: 'below' | 'beside'): MenuItem {
   const open = (): void => {
     const at = anchor();

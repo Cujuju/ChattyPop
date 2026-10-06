@@ -1,5 +1,4 @@
-// AI providers this build declares (docs/plugin-architecture.md §3, AI providers): Settings → AI, provider choices and
-// request routing read them by id. Host modules only: it reads the bundled registry, which plugins never import.
+// Host-only provider registry supplies settings, choices and routing by id. Reads bundled registry; plugins must not import it.
 import { BUNDLED_PLUGINS, bundledJevFeatures } from './bundledPlugins';
 import type { PluginDescriptor } from './bundledTypes';
 import type { ProviderDecl } from './descriptorParts';

@@ -70,11 +70,7 @@ export function messagesByIds(db: Db, ids: string[]): ArchiveMessage[] {
   return hydrate(db, db.prepare(`${SELECT_MESSAGE} WHERE m.id IN (${ids.map(() => '?').join(',')}) AND ${visibleMessageSql('m')}`).all(...ids) as Row[]);
 }
 
-/**
- * One page of a channel's archived messages in chronological order, with revisions and attachments.
- * `before`: messages older than that id; `after`: newer than it; `around`: a window centred on it (citation jumps);
- * none: newest.
- */
+/** Returns chronological message pages with revisions/attachments. before/after bound ids; around centers citation jumps; default selects newest messages. */
 export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
   const select = `${SELECT_MESSAGE} WHERE m.channel_id = ? AND ${visibleMessageSql('m')}`;
   const newestFirst = 'ORDER BY m.ts DESC, length(m.id) DESC, m.id DESC';

@@ -1,7 +1,4 @@
-// A custom gradient theme's tokens, derived from the owner's stops the way Discord's custom themes are: a base colour
-// (the darkest stop's hue for a dark base, the lightest's for a light one) veils the gradient by `baseMix`. Panels and
-// chrome wear that veil over the gradient; opaque surfaces are the veil over the stops' average. Text and accent are
-// pushed until they meet AA on the worst surface, so any stops stay readable. Tokens not derived come from the base theme.
+// Derives gradient-theme veils/surfaces from stops and baseMix. Adjusts text/accent for worst-surface AA contrast; remaining tokens inherit the base theme.
 import { DEFAULT_CUSTOM_THEME, type CustomTheme } from '@shared/settings';
 import { AA_TARGET, AA_TEXT, FULL, MAX_CHANNEL, PUSH_STEP, average, contrast, hexToRgb, hsl, hueSatLight, luminance, mix, readable, rgbToHex, type Rgb } from './color';
 
@@ -27,10 +24,7 @@ export const gradientImage = (t: CustomTheme): string => `linear-gradient(${t.an
 /** The gradient as a background value, fixed to the viewport so every painter shows one continuous gradient. */
 const gradientPaint = (t: CustomTheme): string => `${gradientImage(t)} fixed`;
 
-/**
- * Foregrounds a custom theme inherits from its base theme (sections, links, status, platforms). Each was checked only on
- * the base theme's surfaces, so it is re-pushed to read on the derived ones.
- */
+/** Rechecks inherited section/link/status/platform foregrounds against derived surfaces and adjusts contrast. */
 export const INHERITED_FOREGROUNDS = [
   ...['summary', 'provider', 'alerts', 'links', 'chat', 'plans', 'tags', 'rules', 'stats'].map((s) => `--cp-section-${s}`),
   ...['youtube', 'reddit', 'instagram', 'tiktok', 'twitch'].map((p) => `--cp-platform-${p}`),
@@ -49,10 +43,7 @@ const THIRD = 1 / 3;
 /** `b` at `pct` percent over `a`, unrounded, for searching along a blend. */
 const mixExact = (a: Rgb, b: Rgb, pct: number): Rgb => a.map((v, i) => v + (b[i]! - v) * (pct / FULL)) as unknown as Rgb;
 
-/**
- * The darkest colour `veil` at `veilPct` makes over the blend from `a` to `b`. Luminance along an sRGB blend is convex,
- * so its minimum may lie between the stops (its maximum never does); ternary search finds it.
- */
+/** Finds darkest veiled sRGB blend using ternary search. Convex luminance may have interior minima but endpoint maxima. */
 function darkestVeiledPoint(a: Rgb, b: Rgb, veil: Rgb, veilPct: number): Rgb {
   const at = (t: number): Rgb => mixExact(mixExact(a, b, t * FULL), veil, veilPct);
   let lo = 0;
@@ -89,9 +80,7 @@ function derive(t: CustomTheme): Derived {
   // White or black: text at its extreme, which the veil must leave readable.
   const textExtreme: Rgb = dark ? [MAX_CHANNEL, MAX_CHANNEL, MAX_CHANNEL] : [0, 0, 0];
   const t1Start = hsl(h, Math.min(s, TEXT_SATURATION_MAX), TEXT_LIGHTNESS[t.base].t1);
-  // Opaque surfaces: the base veiling the stops' average, lifted toward text level by level. Panels and chrome: a
-  // surface veiling the gradient. Light text's worst point is the brightest, always a stop (convexity); dark text's is
-  // the darkest, which can fall between stops.
+  // Opaque surfaces veil averaged stops and lift toward text. Gradient contrast checks endpoint maxima for light text and possible interior minima for dark text.
   const layers = (veilPct: number): Layers => {
     const ground = mix(average(stops), base, veilPct);
     const surfaces = SURFACE_LIFT.map((lift) => mix(ground, t1Start, lift));
@@ -110,10 +99,7 @@ function derive(t: CustomTheme): Derived {
 /** Every colour text can sit on in a custom theme, for checking colours drawn over it (the owner's panel colours). */
 export const customBackgrounds = (t: CustomTheme): Rgb[] => derive(t).backgrounds;
 
-/**
- * Every token a custom theme sets, as `--cp-*` name to value, for inline style on the themed element. `inherited`: the
- * base theme's INHERITED_FOREGROUNDS values (hex); each is pushed until it reads on the derived backgrounds.
- */
+/** Returns custom --cp-* token values. Adjusts inherited base foregrounds against derived backgrounds. */
 export function customThemeTokens(t: CustomTheme, inherited: Partial<Record<string, string>> = {}): Record<string, string> {
   const { ground, surfaces, backgrounds, baseMix, h, s, t1Start } = derive(t);
   const textSat = Math.min(s, TEXT_SATURATION_MAX);
@@ -161,10 +147,7 @@ interface Styled {
   style: { setProperty(name: string, value: string): void; removeProperty(name: string): unknown };
 }
 
-/**
- * Sets a custom theme's tokens inline on `el` (over its data-theme's), or clears them for null. `tokenOf` reads a token
- * as `el` now resolves it; it runs after the clear, so INHERITED_FOREGROUNDS come from the base theme.
- */
+/** Clears prior inline theme tokens before resolving base foregrounds, then sets custom tokens. null removes overrides. */
 export function wearCustomTheme(el: Styled, t: CustomTheme | null, tokenOf: (token: string) => string): void {
   for (const name of CUSTOM_TOKEN_NAMES) el.style.removeProperty(name);
   if (!t) return;

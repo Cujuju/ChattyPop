@@ -1,6 +1,4 @@
-// Completion reports (docs/plugin-architecture.md §3): main's reports of work a bundled plugin handed it. The host keeps
-// each report's ledger of issued keys for the core process, and runs the latest activation's handler with a finalizer
-// that grants only a report's bookkeeping, also once the plugin is off.
+// Tracks issued main-work completion keys and invokes the latest activation’s handler. Finalizers grant report-specific bookkeeping, including after unload.
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import { completionOf, type AnyChannels, type CompletionsOf, type EventsOf } from '@shared/pluginChannels';
 import type { ActionResult } from '../rules/actions';
@@ -22,19 +20,11 @@ export type CoreFinalize<D> = Omit<Finalize, 'channels'> & {
 
 /** Completion reports (§3): main's reports of work the plugin handed it, handled apart from its ordinary calls. */
 export interface PluginCompletions<D extends PluginDescriptor> {
-  /**
-   * Hands work to main under `key`: records it (while on), then runs `send`, the writes and emit handing it over; report
-   * `name` names it when the work finishes. A throwing `send` withdraws the key and rethrows. False, running nothing,
-   * while off or while the declared max are still unreported.
-   */
+  /** Records a completion key before send. A throwing send withdraws it; disabled or full ledgers return false without sending. */
   dispatch(name: CompletionName<D>, key: string, send: () => void): boolean;
   /** Stops expecting report `name` for `key` (the plugin gave up waiting and ignores a late one), freeing its place. */
   withdraw(name: CompletionName<D>, key: string): void;
-  /**
-   * Handles report `name`: `fn` runs for a key this core process issued (each reported once) or one `accept` finds
-   * persisted, with `finalize` granting the report's only writes until `fn` returns. The latest activation's handler
-   * stays while the plugin is off; a report nothing issued or accepts resolves undefined. Waits are the plugin's own.
-   */
+  /** Handles issued or accepted persisted keys once. finalize grants only report writes until handler return; latest handler survives unload. Unknown reports resolve undefined. */
   handle<K extends CompletionName<D>>(
     name: K,
     options: { key(...args: ReportArgs<D, K>): string; accept?(...args: ReportArgs<D, K>): boolean },
@@ -96,10 +86,7 @@ export class CompletionLedger {
 
   constructor(private readonly channels: AnyChannels | undefined) {}
 
-  /**
-   * Records `key` as issued for report `name`; false, recording nothing, while the declared max are unreported. An issued
-   * key is never dropped for room: it stays until reported or withdrawn, so a late report is never lost.
-   */
+  /** Records issued completion keys unless capacity is full. Keeps keys until reported or withdrawn; never evicts pending work. */
   issue(name: string, key: string): boolean {
     const declared = completionOf(this.channels, name);
     if (!declared) throw new Error(`No completion report ${name} is declared.`);

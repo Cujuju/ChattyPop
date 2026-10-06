@@ -18,7 +18,7 @@ const v3 = (patch: Record<string, unknown> = {}) => ({
   actions: [],
   ...patch,
 });
-/** Plugins declaring the action types old recorded runs name, as builds with those plugins would. */
+/** Declares plugins for action types referenced by recorded runs. */
 const owners: PluginDescriptor[] = ['alerts.notify', 'tags.apply', 'summaries.summarize'].map((type) => {
   const id = type.split('.')[0]!;
   return {

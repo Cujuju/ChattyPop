@@ -12,10 +12,7 @@ interface Stored {
   active: Record<string, number>;
 }
 
-/**
- * A plugin resumes when it was on through the end of the previous core session and hasn't been off since. Anything
- * else (first run, turned off, absent from a build, failed to start) is a gap: archive work ran without it.
- */
+/** Resumes only across uninterrupted enabled core sessions. First run, disablement, absent builds and failed starts create archive coverage gaps. */
 export class ActivationContinuity {
   private previous: Stored = { session: 0, active: {} };
   private current: Stored = { session: 0, active: {} };

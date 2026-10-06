@@ -1,6 +1,4 @@
-// `pnpm plugin:release-changed` (scripts/pluginReleaseChanged.ts, docs/plugin-architecture.md §16) on a real plugin
-// repo and a fake gh: pending versions finish first, changed plugins are stamped in one pushed intent commit and
-// published there, and every failure leaves a state the next plain run finishes.
+// Real-repository release tests use fake gh. Pending versions finish first; changed plugins share one pushed intent commit. Failures preserve resumable state.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';

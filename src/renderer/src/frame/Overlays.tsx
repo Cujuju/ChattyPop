@@ -15,7 +15,7 @@ import { DmDialog } from '@/views/dmDialog/DmDialog';
 import { DeleteMessageDialog } from '@/views/deleteMessage/DeleteMessageDialog';
 import { DeleteAttachmentDialog, ModifyAttachmentDialog } from '@/views/attachment/AttachmentDialogs';
 
-/** The overlays panels open (image viewer, Jev, Person, Conversation, Forward and New message windows, DM dialogs, the delete-message and attachment dialogs, bot forms, reaction picker, right-click menu), in every window that shows panels. */
+/** Mounts shared panel overlays: viewers, message/DM dialogs, bot forms, reaction picker and context menu in every panel window. */
 export function Overlays() {
   return (
     <>

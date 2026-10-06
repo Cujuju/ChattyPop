@@ -1,13 +1,8 @@
-// Derived text (docs/research.md §7.1 → Wave 2 design): text a plugin makes for a message (a transcript). The host
-// keeps and indexes it (derived_texts, fts_derived_texts); message text, content and search read it after the content.
-// Link text: a plugin's text for a link (a fetched post), kept in link_texts and read as what messages link to.
+// Stores and indexes plugin-derived message text and link text. Content and search include derived text; linked text describes shared URLs.
 import type { Db } from './db';
 import { textedLinkCount } from './queries/messageText';
 
-/**
- * Stores or replaces (by `source`) one derived text of a message. `record`: the plugin's own writes (its job marked
- * done), in the same transaction, so a crash can't leave one without the other.
- */
+/** Upserts derived text by source. record writes plugin bookkeeping in the same transaction. */
 export function storeDerivedText(db: Db, messageId: string, source: string, order: number, text: string, record?: () => void, part: string | null = null): void {
   // The content reads as order 0 (MESSAGE_TEXT_SQL).
   if (!Number.isInteger(order) || order <= 0) throw new Error(`A derived text's order must be a positive integer, not ${order}.`);
@@ -20,10 +15,7 @@ export function storeDerivedText(db: Db, messageId: string, source: string, orde
   })();
 }
 
-/**
- * Names the part of `source`-prefixed texts stored before parts existed (`parts`: its key → part key). Only texts with
- * no part change; nothing is re-read or re-matched, so old messages fire no rules again.
- */
+/** Assigns parts to existing source-prefixed texts without parts. Does not re-read or re-match old messages. */
 export function tagDerivedParts(db: Db, sourcePrefix: string, parts: ReadonlyMap<string, string>): void {
   const tag = db.prepare('UPDATE derived_texts SET part = ? WHERE source = ? AND part IS NULL');
   db.transaction(() => {
@@ -53,10 +45,7 @@ export function partTexts(db: Db, messageIds: readonly string[]): PartText[] {
   return rows.map((r) => ({ messageId: r.messageId, pluginId: r.source.slice(0, r.source.indexOf(':')), part: r.part, text: r.text }));
 }
 
-/**
- * Stores or replaces (by `source`) a plugin's text for link `url`, with `record` in the same transaction. Returns the
- * messages whose links gained text by it (none had text for that link before), to be judged again.
- */
+/** Upserts plugin link text and bookkeeping atomically. Returns messages whose links first gained text from this source for rejudgment. */
 export function storeLinkText(db: Db, url: string, source: string, text: string, record?: () => void): string[] {
   return db.transaction(() => {
     const ids = db

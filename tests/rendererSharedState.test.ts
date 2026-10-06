@@ -1,12 +1,11 @@
-// The renderer's app-event hub and plugin list are one instance each (docs/plugin-architecture.md §8): the SDK owns
-// them and host stores build on them, so one subscription and one fetch serve every reader.
+// Host stores share the SDK event hub and plugin list, using one subscription and fetch.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
 
 const probe = definePlugin({ manifest: { id: 'probe', name: 'Probe', version: '1', description: '' } });
 
-// The client runtime, so resources load as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const env = vi.hoisted(() => ({

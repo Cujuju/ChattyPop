@@ -4,10 +4,7 @@ import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import { MAIN_INVOKE } from '@shared/contract';
 import { SHA256_HEX, attachmentFileName, attachmentShard } from '@shared/media';
 
-/**
- * Saving an archived attachment where the owner picks. A link's `download` can't do it in a window: the media scheme is
- * another origin than the page, so Chromium navigates instead, which the window's guard refuses.
- */
+/** Saves archived attachments through an owner-selected path. Cross-origin media-scheme links navigate instead of downloading and are blocked by window guards. */
 export function registerMediaHandlers(attachmentsDir: string): void {
   ipcMain.handle(MAIN_INVOKE.media.saveAttachment, async (e, sha256: unknown, filename: unknown) => {
     if (typeof sha256 !== 'string' || !SHA256_HEX.test(sha256) || typeof filename !== 'string' || !filename) throw new Error('Not an archived attachment.');

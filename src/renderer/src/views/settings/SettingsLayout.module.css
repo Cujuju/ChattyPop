@@ -1,7 +1,4 @@
-/* Settings pages: a head (title, one line of purpose, page actions), then either a rail of sections beside the open
-   one (SectionsPage) or a single body (Page). Page frame, title, split, rail and rail entries are the cp-settings- and cp-rail-
-   classes (theme/shared-layout.css), shared with Jev queries; cards, rows and notes are SettingsCard.module.css.
-   Hook: [data-group] (Jev group colour, theme/identity.css). */
+/* Settings pages share title/actions and rail/body frames with Jev queries. Cards/rows/notes use SettingsCard; data-group supplies Jev colors. */
 /* Title and page actions share the first row; the lede runs the full width under both. */
 .head {
   display: grid;

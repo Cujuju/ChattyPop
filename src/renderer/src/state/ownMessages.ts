@@ -18,7 +18,7 @@ const selfId = createPushedValue(
 interface EditDraft {
   message: ArchiveMessage;
   text: string;
-  /** One per Edit: a save finishing late clears only its own session, not a later edit of the same message. */
+  /** Late saves clear only their original edit sessions. */
   session: number;
 }
 const [draft, setDraft] = createSignal<EditDraft | null>(null);
@@ -61,10 +61,7 @@ export async function confirmDelete(m: ArchiveMessage): Promise<void> {
   if (draft()?.message.id === m.id) setDraft(null);
 }
 
-/**
- * Opens the editor on `m` in its row. Another panel's Edit shows the message in the Archive first; a panel window has
- * no Archive and hands the edit to the main window.
- */
+/** Opens inline editors; other panels first navigate to Archive. Panel windows forward edits to the main window. */
 export function startEdit(m: ArchiveMessage): void {
   if (inPanelWindow) return api.showInMainWindow(m.channelId, m.id, { compose: 'edit' });
   // The editor is drawn in the message's row, so the Archive must show the channel with the message loaded.
@@ -85,11 +82,7 @@ export function lastEditable(channelId: string): ArchiveMessage | null {
   return null;
 }
 
-/**
- * Saves the draft; unchanged text just closes, as in Discord. Emptied text on a message with nothing else offers to delete
- * it instead (Discord refuses an empty message); declining keeps the editor open. The row shows the new text once the
- * archive has the update.
- */
+/** Unchanged drafts close editors. Empty content-only messages offer deletion; declining preserves edits. Updated text displays after archive ingestion. */
 export async function saveEdit(): Promise<void> {
   const d = draft();
   if (!d) return;

@@ -1,11 +1,9 @@
-// Contract (docs/dms.md §4.3): New message never sends the same people twice. Picks still sending, or that Discord gave
-// no clear answer for, stay held after the window closes and reopens; a write finishing after its window closed opens
-// nothing. Enter picks the highlighted person; it sends only with none highlighted, or with Ctrl.
+// Pending and uncertain recipient picks survive window closure. Late writes open no window. Enter picks a highlighted recipient; otherwise Enter or Ctrl submits.
 import { createRequire } from 'node:module';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DmOutcome } from '@shared/dms';
 
-// The client runtime, so signals behave as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const env = vi.hoisted(() => ({

@@ -9,8 +9,7 @@ import { archiveChannelId, archiveState } from './archive';
 import { onAppEvent } from './events';
 import { isSelf } from './ownMessages';
 
-/** The open channel's typists by user id, in the order they began (snowflake keys aren't array indices, so insertion
- * order holds); another channel's events are dropped. `name` '' until core names them (a DM's event carries none). */
+/** Tracks current-channel typists in insertion order. Drops other-channel events; names remain empty until core resolution. */
 const [typists, setTypists] = createStore<Record<string, Typist>>({});
 /** Names core gave for ids whose events carry none. */
 const [names, setNames] = createStore<Record<string, string>>({});
@@ -28,7 +27,7 @@ onAppEvent('typing', (e) => {
   clearTimeout(timers.get(e.userId));
   timers.set(e.userId, setTimeout(() => drop(e.userId), TYPING_TTL_MS));
   const name = e.name ?? names[e.userId] ?? '';
-  // Edited in place: replacing the record would move the typist to the end of the order.
+  // Update typists in place to preserve insertion order.
   setTypists(
     produce((t) => {
       const typist = (t[e.userId] ??= { name });
@@ -40,8 +39,7 @@ onAppEvent('typing', (e) => {
   if (!name) void nameOf(e.userId);
 });
 
-/** Core's display name for a typist whose event named none, filled in only while they're still nameless (a later
- * event may have brought a server nickname); a stranger to the archive stays nameless (and unlisted). */
+/** Fills unnamed active typists from core display names without overwriting newer event nicknames. Unknown archive users remain unlisted. */
 async function nameOf(userId: string): Promise<void> {
   const [person] = await api.core.peopleByIds([userId]).catch(() => []);
   if (!person) return;

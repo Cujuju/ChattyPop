@@ -1,7 +1,4 @@
-/* Discord's profile as the Person window's rail: banner, avatar hanging over it in a ring of the rail's colour, then the
-   person, scrolling on its own. Folded (the window too narrow for the rail beside a list, PersonView.module.css) it is a
-   header: avatar beside the name, details in columns.
-   Inline hooks: --banner-color (their accent colour), --role-color per role. Own hooks: --avatar, --banner-h, --pad-x. */
+/* Profile rails overlap avatars on banners. Narrow layouts fold into headers; banner/role colors and avatar/banner/padding tokens drive appearance. */
 .card {
   --avatar: var(--cp-profile-avatar-folded);
   --banner-h: var(--cp-profile-banner-h-folded);

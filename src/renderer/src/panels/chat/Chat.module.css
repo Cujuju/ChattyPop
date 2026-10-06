@@ -5,8 +5,7 @@
   overflow: hidden;
 }
 
-/* Live segment marker: a success dot before the label. Needs class={styles.live} on the Live SegButton.
-   Segments lay out as a column (theme/bridge/seg-buttons.css), so the dot is positioned in reserved leading padding. */
+/* Live SegButton uses styles.live for a leading success dot. Column segment layout reserves padding for its positioned marker. */
 /* Group + button classes outrank the bridge's size-step padding (:root .csb-btn-sm). */
 :global(.csb-group) > .live:global(.csb-btn) {
   position: relative;

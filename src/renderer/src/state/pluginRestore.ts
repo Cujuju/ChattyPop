@@ -22,7 +22,7 @@ export const restoreLoadError = loadError;
 export const restoreChecking = (): boolean => actionBusy(actionKey.refresh);
 
 let loadGeneration = 0;
-/** Reads absent plugins from core, then fetches listings not read since this start; a later load wins. */
+/** Loads absent plugins and startup-uncached listings; latest loads win. */
 export async function loadRestore(): Promise<void> {
   const mine = ++loadGeneration;
   try {

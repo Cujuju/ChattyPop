@@ -14,10 +14,7 @@ import styles from './ReactionPicker.module.css';
 
 const PICKER_COVER = 'reaction-picker';
 
-/**
- * Discord's reaction picker: one emoji list with a bar of section marks (EmojiList). On the desktop a popover where Add
- * reaction was chosen; on a phone a bottom sheet over the keyboard, closed by dragging its handle down. Shift keeps it open.
- */
+/** Reaction picker uses sectioned EmojiList, desktop popovers and draggable phone sheets. Shift keeps it open. */
 export function ReactionPicker() {
   return <Show when={reactionPicker()} keyed>{(s) => <PickerAt state={s} />}</Show>;
 }

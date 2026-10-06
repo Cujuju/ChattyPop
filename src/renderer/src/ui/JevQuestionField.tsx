@@ -74,10 +74,7 @@ const WORDING = {
 /** The probability ends of a threshold slider, in words. */
 const PROBABILITY_SCALE = ['More often, less sure', 'Only when Jev is sure'];
 
-/**
- * An owner-written Jev question and which answers meet it: a rule's match, when a tag applies, or a built-in
- * query's condition (Settings → Jev → Queries), with the parts the app reads locked.
- */
+/** Edits owner Jev questions and matching-answer conditions for rules, tags and built-ins. Host-read portions remain locked. */
 export function JevQuestionField(props: {
   value: CustomJevQuestion | null;
   onChange: (q: CustomJevQuestion | null) => void;

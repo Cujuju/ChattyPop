@@ -24,10 +24,7 @@ export interface UnreadSource {
   kind?: UnreadKind;
 }
 
-/**
- * Discord's own unread badge count: read-state mention counts summed (every unread DM message, each ping in a server
- * channel), message requests left out as Discord leaves them out. Muted DMs carry no count.
- */
+/** Sums Discord mention states for unread badges, excluding requests and muted DMs. Includes all unread DM messages and server pings. */
 export const chatUnreadCount = (guilds: readonly DirectoryGuild[]): number =>
   guilds.reduce((sum, g) => sum + g.channels.reduce((n, c) => n + (c.dm?.request ? 0 : c.mentionCount), 0), 0);
 

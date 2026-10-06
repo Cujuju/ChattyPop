@@ -17,7 +17,7 @@ export interface TagsCoreCalls {
   messageTags(messageId: string): MessageTagChip[];
   /** Messages carrying a tag, newest first. */
   taggedMessages(tagId: number, limit: number): TaggedMessage[];
-  /** How many messages a range run would ask about, for its cost estimate. */
+  /** Counts messages in a range for cost estimation. */
   tagRangeCount(req: TagRangeRequest): number;
   /** Asks the chosen tags' Jev questions about every message in a range and applies the tags they meet. */
   tagRange(req: TagRangeRequest): Promise<TagRangeResult>;

@@ -1,5 +1,4 @@
-// A rule's Alert history: its direct matches (keywords, or narrowing alone) over the whole archive, as topics kept
-// theirs. Messages older than the rule land read; nothing else runs for them.
+// Builds direct-match alert history across the archive. Messages predating the rule become read history without running other actions.
 import type { ContentKind } from '@shared/messageContent';
 import { ruleKind } from '@shared/ruleKinds';
 import type { TextMessage } from '../arrival';

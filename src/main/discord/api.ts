@@ -75,10 +75,7 @@ const apiUrl = (path: string, query: DiscordQuery): URL => {
   return url;
 };
 
-/**
- * prompt: what the owner asked for, and automatic posts (whose one wait is their own pause): sent as soon as the request
- * in flight finishes, ahead of paced requests still waiting. paced: background work, a pace apart.
- */
+/** Prompt requests follow the in-flight request ahead of queued paced work. Background requests retain configured pacing. */
 type Lane = 'prompt' | 'paced';
 
 interface Job {
@@ -87,10 +84,7 @@ interface Job {
   fail: (err: unknown) => void;
 }
 
-/**
- * REST client that speaks through the embedded Discord page with the client's own captured headers. Its own methods are
- * paced (background work); `prompt` holds nothing back. Both share one queue, so no two requests are ever in flight.
- */
+/** Uses embedded Discord session headers. Prompt and paced requests share a single queue; only one request runs at a time. */
 export class DiscordApi implements DiscordClient {
   private lastRequestAt = 0;
   private readonly lanes: Record<Lane, Job[]> = { prompt: [], paced: [] };
@@ -139,11 +133,7 @@ export class DiscordApi implements DiscordClient {
     return this.paced.delete(path, opts);
   }
 
-  /**
-   * One lane's requests. 429/5xx are retried, so a body that must not apply twice carries a nonce Discord enforces (a
-   * message's `nonce` + `enforce_nonce`); a write sent `once` (postOnce) retries a rate limit only, since a server error
-   * may have been applied.
-   */
+  /** Retries 429/5xx requests. Repeatable writes need enforced nonces; once writes retry only rate limits because server errors may follow successful writes. */
   private client(lane: Lane): DiscordClient {
     const paced = lane === 'paced';
     const request = <T>(url: URL, method: PageRequest['method'], body: PageRequest['body'], opts: WriteOptions = {}): Promise<T> =>
@@ -177,10 +167,7 @@ export class DiscordApi implements DiscordClient {
     });
   }
 
-  /**
-   * Sends one request at a time, each lane in its own order: a prompt request as soon as the one in flight finishes,
-   * else the oldest paced request once a pace has passed since the last request.
-   */
+  /** Runs one request at a time, preserving lane order. Prompt requests precede paced requests; paced requests wait since the last send. */
   private async pump(): Promise<void> {
     if (this.pumping) return;
     this.pumping = true;
@@ -236,10 +223,7 @@ export class DiscordApi implements DiscordClient {
     });
   }
 
-  /**
-   * The pump paces a request's first attempt; paced: false skips the pace before a retry (a rate limit is still waited
-   * out). `guard` runs after every wait, just before each attempt goes.
-   */
+  /** Pump paces first attempts. paced false skips retry pacing, preserving rate-limit waits; guard runs immediately before every attempt. */
   private async send<T>(
     url: URL,
     method: PageRequest['method'],

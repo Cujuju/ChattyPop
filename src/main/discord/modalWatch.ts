@@ -7,10 +7,7 @@ const MODAL_BINDING = '__chattyPopModal';
 const OPEN = '1';
 const CLOSED = '0';
 
-/**
- * Runs in the Discord page: reports whether a modal (image viewer, profile, confirm) is open. Discord marks each with
- * the standard aria-modal; checks coalesce per task, as the message list mutates constantly.
- */
+/** In-page aria-modal watcher reports open Discord modals. Coalesces mutation checks per task. */
 const WATCH_SCRIPT = `(() => {
   if (window.${MODAL_BINDING}Watching) return;
   window.${MODAL_BINDING}Watching = true;

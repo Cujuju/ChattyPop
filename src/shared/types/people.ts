@@ -2,11 +2,7 @@
 import type { AuthorStyle } from './archive';
 import type { NameEffect } from '../nameFonts';
 
-/**
- * How a person's name shows in a place (personNames), as Discord draws it there. In a server: their nickname, the
- * colour or Enhanced Role Style of their highest coloured role, and their Nitro font. Outside one: their display name and
- * their whole Nitro style (font, colours, effect).
- */
+/** Names use server nicknames/highest colored role styles with Nitro fonts; outside servers use display names/full Nitro styling. */
 export interface PersonName {
   id: string;
   name: string;
@@ -42,10 +38,7 @@ export interface PersonProfile {
   avatar: string | null;
   /** What Discord draws with their name anywhere: Nitro font, avatar decoration, server tag. */
   style: Pick<AuthorStyle, 'font' | 'decoration' | 'tag'>;
-  /**
-   * Server nicknames, per server they have one in. `channelId`: a visible channel of that server, the place their name
-   * is read for there (personNames: role colour, font); null when the archive holds none.
-   */
+  /** Server nicknames include visible channel context for role/font reads. channelId is null when no visible archived channel exists. */
   nicknames: { guildId: string; guildName: string | null; nick: string; channelId: string | null }[];
   totals: { messages: number; edited: number; deleted: number; links: number; attachments: number };
   /** Their first and last archived message; null when none are visible. */

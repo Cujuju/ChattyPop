@@ -46,13 +46,10 @@ export interface OwnerReaction extends OwnerMessageRef {
   add: boolean;
 }
 
-/**
- * An edit of one of the owner's messages: new text (Discord's Edit), the attachments it keeps (an attachment's Modify and
- * Delete), or both. What it leaves out stays as it is.
- */
+/** Owner-message edits may change text, retained attachments or both. Omitted fields remain unchanged. */
 export interface OwnerEdit extends OwnerMessageRef {
   text?: string;
-  /** Every attachment the message keeps, as it should be; one left out is removed from the message. */
+  /** Complete retained attachment list; omitted attachments are removed. */
   attachments?: KeptAttachment[];
 }
 
@@ -161,7 +158,7 @@ export interface MentionPick {
   kind?: 'user' | 'role';
 }
 
-/** Text Discord itself pings by: a role so named takes a `~N` token, or sending would ping the role instead. */
+/** Ambiguous role-name tokens receive ~N suffixes to prevent unintended role pings. */
 const GROUP_MENTION_WORDS: ReadonlySet<string> = new Set(['everyone', 'here']);
 
 /** The `@token` a picked person (their username, as Discord's composer shows it) or role (its name) shows as in the text. */
@@ -175,8 +172,7 @@ const mentionMarkup = (p: MentionPick): string => (p.kind === 'role' ? `<@&${p.i
 export function expandMentionTokens(text: string, picked: Map<string, MentionPick>): string {
   const tokens = [...picked.keys()].sort((a, b) => b.length - a.length).map(escapeRegex);
   if (!tokens.length) return text;
-  // Not after a word (an email address); not followed by more of a name (`@bob` in `@bobby`, `@bob.smith`, `@bob~1`).
-  // A name character is a letter, digit or mark of any script.
+  // Mention names cannot follow words or prefix longer names. Name characters include Unicode letters, digits and marks.
   const name = '[\\p{L}\\p{N}\\p{M}_]';
   return text.replace(new RegExp(`(?<!${name}|@)@(${tokens.join('|')})(?!${name}|~|\\.${name})`, 'gu'), (_, token: string) => mentionMarkup(picked.get(token)!));
 }
@@ -199,11 +195,7 @@ const appending =
   (text: string): string | null =>
     text ? `${text} ${face}` : face;
 
-/**
- * Discord's built-in commands: typed as `/name text` and turned into plain text before sending, as the client does
- * (Discord itself only ever gets a message). `apply` returns null when the command needs text it wasn't given.
- * `messageOptional`: whether the text after it may be left out (the menu shows it as an optional option).
- */
+/** Rewrites /name text built-ins to plain messages. apply returns null for missing required text; messageOptional controls optional menu arguments. */
 export const BUILTIN_COMMANDS = [
   { name: 'shrug', description: 'Appends ¯\\_(ツ)_/¯ to your message.', messageOptional: true, apply: appending(SHRUG) },
   { name: 'tableflip', description: 'Appends (╯°□°)╯︵ ┻━┻ to your message.', messageOptional: true, apply: appending(TABLEFLIP) },

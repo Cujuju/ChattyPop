@@ -31,8 +31,7 @@ import { createVirtualLog } from '@/ui/virtualLog';
 import { VirtualRows } from '@/ui/VirtualRows';
 import styles from './Archive.module.css';
 
-/** Row-height guesses before measurement (rows are measured once drawn): a message with its author line, one grouped
- * under the previous, a day divider. Closer guesses leave less to correct as rows are measured mid-scroll. */
+/** Initial row-height estimates cover authored/grouped messages and day dividers. Drawn measurements correct estimates during scrolling. */
 const ESTIMATED_ROW_PX = 44;
 const ESTIMATED_GROUPED_PX = 26;
 const ESTIMATED_DAY_PX = 32;
@@ -64,8 +63,7 @@ export function ArchiveView() {
     }
     return out;
   });
-  // The footer column's height as drawn (typing line and items): it lies over the log (Archive.module.css), so the log
-  // ends that far above its bottom edge and its overlays sit above it. A remount (keyed on the channel) re-observes.
+  // Measures overlaid footer height to clear log content/overlays. Channel-keyed remounts re-observe it.
   const footer = createTallestBox();
 
   // `log` is declared below (it reads vlog.holding); only read once rows are measured.
@@ -109,10 +107,7 @@ export function ArchiveView() {
   // Nothing selected yet: reopen the last channel shown, else the first archived one.
   createEffect(() => openRestoredArchive(channels()));
 
-  // Follows new messages unless the user scrolled up, the window doesn't reach the newest (a jump far back), or a jumped-to
-  // message is held in view.
-  // On the phone, nor while the Archive is off screen (the app in the background, another section shown), so what
-  // arrives meanwhile stays below where the owner left off.
+  // Follows newest messages unless scrolled away, viewing old windows or holding citation targets. Phone/background/offscreen views retain previous reading position.
   const [offScreen, setOffScreen] = createSignal(false);
   const log = createFollowBottom(() => !atNewest() || vlog.holding() || offScreen());
 

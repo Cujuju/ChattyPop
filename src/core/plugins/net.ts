@@ -1,5 +1,4 @@
-// A bundled plugin's network access (ctx.net.fetch): HTTPS to the hosts its descriptor lists, and the addresses the
-// owner set for it, every redirect hop checked the same way. Discord is never reachable (law 4).
+// Bundled network access allows declared HTTPS hosts and owner addresses, validating every redirect. Discord access is excluded.
 import { canonicalHost, isDiscordHost, pluginSettingKey, type PluginDescriptor } from '@shared/bundledTypes';
 import type { OwnerUrl } from '@shared/descriptorParts';
 import { isObj } from '@shared/normalize';
@@ -50,24 +49,18 @@ export function ownerOrigins(urls: readonly OwnerUrl[], read: (setting: string) 
   };
 }
 
-/**
- * A plugin's ctx.net.fetch in any process, from its descriptor: `network.hosts`, and `network.ownerUrls` as saved when
- * each request is sent. `read` returns a setting by its stored key (sync in core, over IPC in main); `send` is the network.
- */
+/** Builds descriptor-scoped fetch using declared hosts and owner URLs read per request. read supplies settings; send performs transport. */
 export function descriptorFetch(plugin: PluginDescriptor, read: (settingKey: string) => unknown, send?: NetworkSend): PluginFetch {
   const id = plugin.manifest.id;
   return pluginFetch(id, plugin.network?.hosts ?? [], ownerOrigins(plugin.network?.ownerUrls ?? [], (name) => read(pluginSettingKey(id, name))), send);
 }
 
-/**
- * Fetch for plugin `pluginId`, limited to HTTPS to `hosts` and to the origins `owner` returns (read per request).
- * Redirects are followed here, so each hop is checked before `send` (the global fetch by default) sends it.
- */
+/** Limits fetch to HTTPS hosts and configured origins. Checks every redirect hop before sending. */
 export function pluginFetch(pluginId: string, hosts: readonly string[], owner: () => Promise<readonly string[]>, send: NetworkSend = globalSend): PluginFetch {
   const listed = (u: URL): boolean => u.protocol === 'https:' && hostListed(hosts, u.hostname);
   const ownerSet = async (u: URL): Promise<boolean> => OWNER_URL_PROTOCOLS.has(u.protocol) && (await owner()).includes(u.origin);
   const check = async (u: URL): Promise<void> => {
-    // Discord first, whichever list would allow it (law 4).
+    // Reject Discord before evaluating allowlists (law 4).
     if (isDiscordHost(u.hostname) || (!listed(u) && !(await ownerSet(u))))
       throw new Error(`${pluginId} may not fetch ${u.origin}: not a declared network host or an address set for it`);
   };

@@ -1,5 +1,4 @@
-// Shared harness for the DM write tests: a real core over a temp archive, signed in as SELF, and a DiscordWriter fake.
-// Test files using it mock 'electron' (main's diagnostics reads app paths).
+// DM-write harness: real temporary archive and core signed in as SELF, with a fake DiscordWriter. Tests mock Electron paths.
 import type { RawPrivateChannel } from '@shared/discord';
 import { DM_CHANNEL_TYPE, GROUP_DM_CHANNEL_TYPE } from '@shared/discord';
 import type { CoreMethod } from '@shared/contract';
@@ -29,10 +28,7 @@ export const people = (n: number): string[] => Array.from({ length: n }, (_, i) 
 export const dm: RawPrivateChannel = { id: DM, type: DM_CHANNEL_TYPE, recipients: [BOB] };
 export const group: RawPrivateChannel = { id: GROUP, type: GROUP_DM_CHANNEL_TYPE, name: 'crew', owner_id: SELF, recipients: [CY, DI] };
 
-/**
- * A fresh archive holding a server channel, `dm` and `group`, plus core's methods over it as main calls them. `signIn`
- * names another account, in core and main alike, as a READY would.
- */
+/** Creates server, DM, and group channels with core handlers. signIn changes the account in both core and main. */
 export function dmArchive(o: { autoArchiveSinceMs?: number } = {}) {
   let self: string | null = SELF;
   const db: Db = tempDb();
@@ -69,10 +65,7 @@ export interface Write {
   opts?: unknown;
 }
 
-/**
- * A DiscordWriter recording each write and answering from `answer` (a thrown error fails that write). As DiscordApi does,
- * it runs a write's guard just before sending, after `queued` (the queue wait); a guard that throws sends nothing.
- */
+/** Records writes and returns configured answers. Runs guards after the queue wait; thrown guards prevent sending. */
 export function writer(answer: (method: string, path: string) => unknown = () => undefined, queued: () => void = () => undefined) {
   const writes: Write[] = [];
   const run = (method: string, path: string, body?: unknown, options?: { guard?: () => void }): Promise<unknown> => {

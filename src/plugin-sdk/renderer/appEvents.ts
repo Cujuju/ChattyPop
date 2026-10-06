@@ -40,10 +40,7 @@ export function onAppEventDebounced<T extends AppEvent['type']>(type: T, ms: num
   };
 }
 
-/**
- * Messages whose plugin parts changed: chips or attachment notes on `ids`, or on any message (null) when a plugin
- * turned on or off. Every view holding message snapshots re-reads them here. Returns an unsubscribe function.
- */
+/** Subscribes to changed plugin message parts. ids targets rows; null covers plugin toggles. Snapshot views re-read affected messages; returns unsubscribe. */
 export function onMessagePartsChanged(fn: (ids: string[] | null) => void): () => void {
   const offs = [
     onAppEvent('message-labels-changed', (e) => fn(e.messageIds)),

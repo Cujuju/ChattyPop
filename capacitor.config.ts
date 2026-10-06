@@ -7,10 +7,9 @@ const config: CapacitorConfig = {
   webDir: 'mobile/www',
   appendUserAgent: SHELL_USER_AGENT_TOKEN,
   server: { errorPath: 'offline.html' },
-  // The default dark theme's ground: the native window behind the web view shows in the keyboard's rounded corners.
+  // Default dark backdrop visible around the keyboard’s rounded corners.
   ios: { contentInset: 'never', backgroundColor: '#090b10' },
-  // Pushes show as banners with sound while the app is open too, as the web app's do.
-  // The shell's controller resizes the web view for the keyboard, in step with it (ShellViewController.swift).
+  // Foreground pushes show banners with sound. ShellViewController publishes keyboard insets to the page.
   plugins: { Keyboard: { resize: 'none' }, PushNotifications: { presentationOptions: ['alert', 'sound'] } },
 };
 export default config;

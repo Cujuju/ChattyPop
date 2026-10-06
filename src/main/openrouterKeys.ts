@@ -10,10 +10,7 @@ const LEGACY_LABEL = 'OpenRouter key';
 
 const write = (keys: OpenRouterKeyEntry[]): void => writeSecret(KEYS_FILE, JSON.stringify(keys));
 
-/**
- * Stored keys, decrypted with the OS keystore (DPAPI on Windows); empty when none or unreadable.
- * A legacy single key becomes one key paying for any model, which is how it was used.
- */
+/** Decrypts stored keys with the OS keystore; missing/unreadable storage returns empty. Legacy keys become unrestricted model-payment keys. */
 export function loadOpenRouterKeys(): OpenRouterKeyEntry[] {
   try {
     const stored = readSecret(KEYS_FILE);

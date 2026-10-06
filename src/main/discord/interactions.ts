@@ -1,5 +1,4 @@
-// Slash commands, autocomplete, message buttons and menus, and bot forms: posted as Discord's own client posts them.
-// Discord answers 204; the result arrives on the client's gateway, matched here by the interaction's nonce.
+// Posts slash commands, autocomplete, component interactions and forms as the client does. Matches gateway results by nonce after HTTP 204.
 import {
   INTERACTION,
   OPTION,

@@ -29,10 +29,7 @@ const DEFAULT_FLAGS = 'iu';
 
 const splitKeywords = (text: string): string[] => text.split(',').map((t) => t.trim()).filter(Boolean);
 
-/**
- * A rule's keyword matcher: plain keywords, a rule built from word lists (compiled to a regex), or a raw regex
- * with flag switches. Shows the resulting regex, any error, and a tester against sample text and the archive.
- */
+/** Builds plain, word-list or raw-regex matchers with flags. Shows compiled regex/errors and sample/archive testers. */
 export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchValue) => void; channelIds: string[] | null; contains: ContentKind[] | null }) {
   const initial = (): Mode => (props.value.spec ? 'builder' : REGEX_PATTERN.test(props.value.pattern.trim()) ? 'regex' : 'keywords');
   const [mode, setMode] = createSignal<Mode>(initial());

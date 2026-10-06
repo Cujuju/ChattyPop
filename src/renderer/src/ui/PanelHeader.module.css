@@ -1,6 +1,4 @@
-/* Panel header shared by every panel. Colour comes from --cp-section (theme/identity.css resolves it from data-section).
-   Band: section-tinted wash fading into surface-2, a section stripe on top, icon tile, title, then meta and actions.
-   Narrow columns: items wrap onto a second line (actions stay trailing) instead of clipping. */
+/* Section-colored panel headers contain stripe, tile, title, metadata/actions. Narrow headers wrap trailing actions instead of clipping. */
 /* Width container for the header, so it can drop its icon tile in narrow columns (see the @container rule below). */
 .frame {
   flex: 0 0 auto;
@@ -15,9 +13,7 @@
   gap: var(--cp-space-2) var(--cp-space-4);
   flex: 0 0 auto;
   min-width: 0;
-  /* A shell whose own controls lie over the header's first line (the phone's menu, search and section buttons) sets
-     --cp-header-min-h to their line's height, and the insets to clear them; --cp-header-inset-top extends the band up
-     behind the phone's status bar, the content staying below it. Unset, the header keeps its own. */
+  /* Shell controls set header minimum height/insets; top insets extend paint behind status bars while content remains below. Unset tokens retain defaults. */
   min-height: calc(var(--cp-header-min-h, var(--cp-header-h)) + var(--cp-header-inset-top, 0px));
   /* The top stripe (inset shadow) covers part of the band: extra top padding keeps content centred in what is visible. */
   padding: calc(var(--cp-space-2) + var(--cp-header-stripe-h) + var(--cp-header-inset-top, 0px)) var(--cp-header-inset-end, var(--cp-space-4)) var(--cp-space-2)
@@ -30,8 +26,7 @@
   box-shadow: inset 0 var(--cp-header-stripe-h) 0 var(--cp-section);
 }
 
-/* Icon tile: section colour on its own wash (or filled, per theme), a fixed square so titles line up across panels.
-   A shell that puts its own control where the tile sits (the phone's menu button) sets --cp-header-tile-display: none. */
+/* Fixed icon tiles align panel titles and use section colors. Shell menu controls can hide tiles with --cp-header-tile-display. */
 .tile {
   display: var(--cp-header-tile-display, inline-grid);
   place-content: center;
@@ -43,8 +38,7 @@
   color: color-mix(in srgb, var(--cp-section) var(--cp-header-icon-mix), var(--cp-header-icon-base));
 }
 
-/* Narrow sidebar: title and two icon actions fit on one line without the tile (12 + 22 + 8 + 47 + 8 + 52 + 8 = 157px).
-   Literal: container conditions can't read custom properties. */
+/* 157px narrow-sidebar condition fits title and two actions without tile. Container conditions cannot read custom properties. */
 @container panel-header (max-width: 160px) {
   .tile {
     display: none;
@@ -56,8 +50,7 @@
   height: calc(var(--cp-header-icon) + var(--cp-header-icon-grow));
 }
 
-/* Title and meta on one clipped line. The group grows from zero but never below the title, so when space runs out
-   the meta wraps onto the hidden second line first; only then do the actions wrap below. */
+/* Title/meta share a clipped line. Metadata wraps into hidden overflow before actions wrap below. */
 .titleGroup {
   display: flex;
   flex-wrap: wrap;
@@ -93,8 +86,7 @@
   border-radius: var(--cp-radius-sm);
 }
 
-/* No rule under the header: its band fades out over the panel's first lines. Collapsed, the header is the whole panel
-   and the split draws the divider below it, so no fade either. */
+/* Header bands fade over initial panel lines. Collapsed panels omit fades because split dividers supply their lower edge. */
 .header {
   position: relative;
   z-index: var(--cp-z-edge-fade);
@@ -172,8 +164,7 @@ button.badge {
   min-height: var(--cp-hit-min);
 }
 
-/* Trailing group: pushed to the end of whichever line it lands on. Wider than the header (phone), it shrinks to
-   the line and its shrinkable children (a select with min-width: 0) give way; buttons and notes keep their size. */
+/* Trailing groups remain end-aligned and shrink to phone line width. Flexible selects yield; buttons/notes retain size. */
 .actions {
   display: flex;
   align-items: center;

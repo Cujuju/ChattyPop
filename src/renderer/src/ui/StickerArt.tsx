@@ -5,10 +5,7 @@ import { lottieStickerUrl, stickerArtUrl } from '@shared/media';
 
 type StickerLike = Pick<Sticker, 'id' | 'name' | 'formatType'>;
 
-/**
- * A sticker's art: an image, or a Lottie animation drawn while on screen. `playOnHover` holds a Lottie sticker on its
- * first frame until hovered (Discord's picker); otherwise it loops. Size and look come from `class`.
- */
+/** Renders sticker images or visible Lottie animations. playOnHover pauses at first frame until hovered; otherwise loops. Caller class supplies size/style. */
 export function StickerArt(props: { sticker: StickerLike; class?: string; playOnHover?: boolean }) {
   return (
     <Show

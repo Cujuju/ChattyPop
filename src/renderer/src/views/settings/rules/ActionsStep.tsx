@@ -60,7 +60,7 @@ export function ActionsStep(props: {
 
   return (
     <Step title="Then">
-      {/* By position: a keyed list would remount an edited action and lose focus. */}
+      {/* Position-based action rows preserve focus during edits. */}
       <Index each={props.actions}>
         {(a, i) => (
           <div class={styles.action} data-open={isOpen(a().id)}>

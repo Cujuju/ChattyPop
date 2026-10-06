@@ -43,11 +43,7 @@ function Face(props: { person: Candidate; class: string | undefined }) {
   );
 }
 
-/**
- * Discord's New message (docs/dms.md §4.3): people picked in a To field from the open DMs and friends; two or more make a
- * group. One person with an open DM opens it without a request. Adding to a conversation offers friends not in it.
- * Locked while it sends; picks still sending, or that Discord didn't confirm, are never sent again, even after reopening.
- */
+/** Selects DM/friend recipients or additional friends; multiple recipients create groups. Existing open DMs need no request. Pending/uncertain picks remain deduplicated across reopening. */
 export function NewMessageWindow() {
   const [query, setQuery] = createSignal('');
   const [picked, setPicked] = createSignal<Candidate[]>([]);

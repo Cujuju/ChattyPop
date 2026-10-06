@@ -1,5 +1,4 @@
-// Descriptor-owned Jev switches and notice kinds (docs/plugin-architecture.md §3, §7): stamped `<plugin id>.<local>`,
-// unique over whatever set is installed, adopted from pre-plugin keys, and kept while their owner is absent.
+// Stamps plugin vocabulary as pluginId.local, validates uniqueness, adopts legacy keys, and retains keys for absent plugins.
 import { describe, expect, it } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
 import { checkBundled } from '@shared/bundledCheck';
@@ -125,7 +124,7 @@ describe('checkBundled over the installed descriptors', () => {
     const self = definePlugin({ manifest: manifest('probe'), jev: { features: [{ key: 'on', default: false, after: 'probe.on' }] } });
     expect(() => checkBundled([self])).toThrow(/Jev switch probe\.on: its placement loops/);
     expect(() => checkBundled([definePlugin({ manifest: manifest('probe'), notices: [{ kind: 'a', after: 'probe.x' }] })])).toThrow(/Notice kind probe\.a follows probe\.x/);
-    // A plugin that isn't here may be installed later: its kind is no typo.
+    // Preserves vocabulary for plugins absent from the current build.
     expect(() => checkBundled([definePlugin({ manifest: manifest('probe'), notices: [{ kind: 'a', after: 'nowhere.x' }] })])).not.toThrow();
     const both = { manifest: manifest('probe'), notices: [{ kind: 'a', after: 'plugin', before: 'plugin' }] } as unknown as PluginDescriptor;
     expect(() => checkBundled([both])).toThrow(/notice kind a: one of after or before/);
@@ -134,7 +133,7 @@ describe('checkBundled over the installed descriptors', () => {
 
   it('rejects an alias from a stamped or host identity, which adoption would rewrite or take over', () => {
     const one = definePlugin({ manifest: manifest('one'), jev: { features: [{ key: 'a', default: false }] }, notices: [{ kind: 'n' }], slots: { phoneSections: [{ id: 'pane' }] } });
-    // Adopting `one.a` into `a` would write one.a, then delete it as the old key.
+    // Adopting one.a as a collides with the legacy key’s deletion.
     expect(() => checkBundled([{ ...one, adopts: { jevFeatures: { 'one.a': 'a' } } }])).toThrow(/adopts Jev switch one\.a: a pre-plugin name/);
     expect(() => checkBundled([{ ...one, adopts: { noticeKinds: { plugin: 'n' } } }])).toThrow(/adopts notice kind plugin: a pre-plugin name/);
     expect(() => checkBundled([{ ...one, adopts: { noticeKinds: { 'other.n': 'n' } } }])).toThrow(/adopts notice kind other\.n/);

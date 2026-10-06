@@ -1,5 +1,4 @@
-// Deterministic archive shaped like a real one (servers, threads, DMs, links, judgments) for query-plan and parity
-// tests. Host tables only: a plugin's test adds rows over these messages.
+// Deterministic host archive with servers, threads, DMs, links, and judgements for query-plan and parity tests. Plugin tests add their own rows.
 import type { Db } from '../src/core/db';
 
 /** Row counts to seed; `REAL_ARCHIVE` matches the archive the review measured. */
@@ -8,7 +7,7 @@ export interface PerfScale {
   judgments: number;
 }
 export const REAL_ARCHIVE: PerfScale = { messages: 34_000, judgments: 50_000 };
-/** Small enough for every test run, large enough that a scan and an index lookup plan differently. */
+/** Fixture scale distinguishes scan and indexed query plans. */
 export const TEST_ARCHIVE: PerfScale = { messages: 3_000, judgments: 4_000 };
 
 const GUILDS = 3;
@@ -23,7 +22,7 @@ const RESHARE_EVERY = 3;
 /** Every Nth message mentions a channel, which privacy mode may hide. */
 const MENTION_EVERY = 17;
 const JUDGMENT_SUBJECTS = ['aimed', 'question', 'urgency', 'topic:1', 'topic:2'];
-/** The first seeded message's time; message i is STEP_MINUTES later per step. */
+/** First seeded message time; each subsequent message advances by STEP_MINUTES. */
 export const START_TS = Date.UTC(2024, 0, 1);
 const MINUTE_MS = 60_000;
 const STEP_MINUTES = 29;

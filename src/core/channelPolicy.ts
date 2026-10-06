@@ -14,10 +14,7 @@ const EFFECTIVE = `SELECT c.id,
 /** SQL: ids of channels (with their threads) whose messages may only go to a local model. */
 export const LOCAL_ONLY_IDS_SQL = `SELECT id FROM (${EFFECTIVE}) WHERE localOnly = 1`;
 
-/**
- * SQL condition: messages whose `channelColumn` is that channel's id may go to a hosted model. Every per-row source query
- * feeding one applies it, since a parent's policy says nothing about a stricter thread under it.
- */
+/** SQL filter for hosted-model eligibility. Apply per message channel; threads may have stricter policies than their parents. */
 export const hostedMayReadSql = (channelColumn: string): string => `${channelColumn} NOT IN (${LOCAL_ONLY_IDS_SQL})`;
 
 /** Channels (with their threads) whose messages may only go to a local model. */

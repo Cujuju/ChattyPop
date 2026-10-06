@@ -1,5 +1,4 @@
-// A Discord answer the archive caches: the cached copy shows at once, a live fetch replaces it, and when the
-// fetch fails the cached copy stays, marked stale so the view can say how old it is.
+// Shows cached Discord answers immediately, replaces with live responses and retains stale cached values on failure.
 import { createResource } from 'solid-js';
 
 export interface CachedLive<T> {
@@ -17,10 +16,7 @@ interface Answer<S, T> {
   v: T | null;
 }
 
-/**
- * `source` keys both reads (falsy: nothing to show). `live` runs only when `wantLive` says so for the cached copy
- * (default: always), e.g. when a cached reactor list's count no longer matches.
- */
+/** source keys cached/live reads; falsy sources show nothing. wantLive controls refresh from cached state, defaulting to always. */
 export function cachedThenLive<S, T>(
   source: () => S | false | null | undefined,
   cached: (s: S) => Promise<T | null>,

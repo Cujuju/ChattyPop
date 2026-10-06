@@ -1,6 +1,4 @@
-// Plugin publishing (scripts/pluginRelease.ts, scripts/pluginAsset.ts, docs/plugin-architecture.md §16): the asset is
-// the build folder's contents at the archive root, released at its target commit and listed in marketplace.json newest
-// first. ensureReleased converges from any partial state an interrupted run leaves, never replacing anything.
+// Release assets contain build outputs at the archive root. Marketplace entries sort newest-first; interrupted releases resume without replacing completed artifacts.
 import { cpSync, existsSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { list, extract } from 'tar';

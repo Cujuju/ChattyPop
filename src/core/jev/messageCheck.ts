@@ -32,10 +32,7 @@ const toResult = (id: string, label: string, a: Answer): JevCheckResult['checks'
   ...answerValue(a),
 });
 
-/**
- * Runs the standard checks, the class labels, every rule's own Jev question and an optional ad-hoc question on one
- * message. Refuses local-AI-only channels. Nothing is stored: it runs only when the owner asks.
- */
+/** Runs standard, class, rule and optional ad-hoc checks on demand. Refuses local-only channels; stores nothing. */
 export async function checkMessage(
   db: Db,
   judge: MessageJudge,
@@ -54,7 +51,7 @@ export async function checkMessage(
     labels.set(id, label);
   };
   for (const c of standardChecks()) add(c.id, c.label, c.question);
-  // A class the text settles shows that answer, as its label would; Jev isn't asked it.
+  // Text-certain class answers skip Jev and display as labels.
   const certain: Record<string, Answer> = {};
   for (const c of CLASSES) {
     const settled = c.certain?.(m);

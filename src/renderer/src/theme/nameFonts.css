@@ -1,6 +1,4 @@
-/* Nitro display-name fonts as Discord's client sets them: its face (registered by ui/nameFonts.ts as
-   cp-name-<key>) and letter-spacing, the default face behind it. No synthesised bold: each file has one weight.
-   Hook: [data-name-font='<key>'] (shared/nameFonts.ts). */
+/* Nitro font hooks select registered cp-name-key faces and letter spacing. Single-weight files disable synthetic bold; default faces provide fallback. */
 [data-name-font] {
   font-synthesis: none;
 }

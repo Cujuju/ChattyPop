@@ -1,5 +1,4 @@
-/* A Jev question's condition (JevQuestionField) inside its cp-condition card: the sentence with the value, the control
-   that sets it, and its scale. Its hint is cp-hint, which the builder's roomy rule sizes. */
+/* Condition cards show value sentences, controls and scales. Builder roomy rules size shared hints. */
 .conditionText {
   color: var(--cp-text-1);
   font-size: var(--cp-text-md);

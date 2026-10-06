@@ -1,7 +1,6 @@
 /* Native form controls, F2 look, app-wide. Modules add size and layout only. */
 
-/* Text fields and selects: surface-0 well, accent edge on focus. An <input> with no type attribute is a text field too.
-   Nesting keeps specificity at (0,1,1) for the states, same as the flat rules it replaced. */
+/* Text inputs/selects use surface wells and accent focus edges. Missing input type counts as text; nested state specificity remains 0,1,1. */
 input:where(
   :not([type]),
   [type='text'],
@@ -47,9 +46,7 @@ select {
   cursor: pointer;
 }
 
-/* Phone companion: iOS zooms the page into any field set under 16px when it gets focus, and leaves it zoomed. On that
-   surface every text field and select is set at the phone size. Important: it overrides each module's own size, as a
-   platform limit (like reduced motion in base.css). */
+/* Phone text fields/selects enforce 16px-or-larger sizes with important overrides to prevent persistent iOS focus zoom. */
 html[data-surface='companion']
   :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'], [type='button'], [type='submit']), textarea, select) {
   font-size: var(--cp-phone-text) !important;

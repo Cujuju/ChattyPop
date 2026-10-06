@@ -1,6 +1,4 @@
-// Installed plugins at main's start (docs/plugin-architecture.md §16): staged changes applied, then each plugin accepted
-// or refused in id order. Main's boot entry runs it before the app, so nothing here may load the plugin registry
-// (@shared/bundledPlugins), which lists what this decides (tests/installedPlugins.test.ts).
+// Applies staged changes before app imports, then accepts/refuses plugins by id. Must not load the registry whose contents this step decides.
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import * as sharedSdk from '@plugin-sdk/shared';
@@ -23,20 +21,13 @@ export type BootLog = (event: string, detail: Record<string, unknown>) => void;
 const pluginFolders = (root: string): string[] =>
   existsSync(root) ? readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.')).map((e) => e.name).sort() : [];
 
-/**
- * The host modules a node side may import, as the start checks them: the shared tier's namespace, which it publishes;
- * core's and main's export names, read from their source by the build, since their modules load the plugin registry.
- */
+/** Publishes shared namespaces and build-extracted core/main export names for startup validation without loading registry-dependent modules. */
 function nodeModules(): ProvidedModules {
   publishHostModules({ '@plugin-sdk/shared': sharedSdk });
   return { '@plugin-sdk/shared': sharedSdk, ...Object.fromEntries(Object.entries(hostExports).map(([id, names]) => [id, exportSet(names)])) };
 }
 
-/**
- * Applies staged changes under `root` (the profile's installed-plugins folder), then decides this start's installed
- * plugins in id order: its manifest first (checkManifest), then its node shared module, loaded synchronously, and its
- * descriptor beside the build's and those accepted before it (acceptInstalled). A refusal or throw refuses that plugin alone.
- */
+/** Applies staging, then validates manifests and synchronous shared descriptors in id order against bundled/accepted plugins. Refusals affect only that plugin. */
 export function prepareInstalled(root: string, log: BootLog): InstalledStart {
   applyStaged(root, (id, err) => log('installed-plugin-staging-failed', { pluginId: id, message: errorMessage(err) }));
   const provided = nodeModules();

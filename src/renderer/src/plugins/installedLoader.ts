@@ -1,7 +1,4 @@
-// Loads installed plugins' browser sides (docs/plugin-architecture.md §16, Start) for the registries: the shared step
-// (descriptors) and the renderer step (stylesheets, renderer entries). A plugin whose browser side fails is left out
-// and reported; the window keeps working. Reached only from the registries' wiring (./installedShared,
-// ./installedRenderers), which bring the host modules; this module imports none, so it can be tested alone.
+// Loads installed shared/renderers/styles with injected host modules. Failed plugins are reported/excluded while windows continue; only registry wiring imports this module.
 import type { AnchorCatalog } from '@shared/bundledCheck';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { hostModules, publishHostModules } from '@shared/hostModules';
@@ -67,11 +64,7 @@ async function manifests(io: LoaderIo): Promise<InstalledManifest[]> {
   });
 }
 
-/**
- * The shared step: publishes `@plugin-sdk/shared`, then imports each accepted plugin's shared.js in order. Those that
- * loaded are kept as main's start would keep them (acceptInstalled) beside `build` and its `catalog`: one anchored on a
- * plugin that failed here is left out too.
- */
+/** Publishes shared SDK, imports accepted descriptors in order, then validates against bundled/accepted catalog. Plugins anchored to failed entries are excluded. */
 export async function loadShared(io: LoaderIo, sdkShared: object, build: readonly PluginDescriptor[], catalog: AnchorCatalog | null): Promise<SharedLoaded[]> {
   publishHostModules({ '@plugin-sdk/shared': sdkShared });
   const loaded: SharedLoaded[] = [];
@@ -101,11 +94,7 @@ async function addStylesheets(io: LoaderIo, manifest: InstalledManifest): Promis
   return removeAll;
 }
 
-/**
- * The renderer step, over the plugins whose shared side loaded: publishes the renderer tiers and Solid, then for each
- * adds its stylesheets (awaited, so nothing renders unstyled) and imports its renderer.js. A plugin without one may
- * declare no slot items. The entries returned have views for exactly their declared slot items.
- */
+/** Publishes renderer tiers/Solid, awaits styles, then imports renderer entries. Returned views exactly match declared slot items; renderer-less plugins cannot declare items. */
 export async function loadRenderers(io: LoaderIo, shared: readonly SharedLoaded[], modules: TierHostModules<'browser'>): Promise<RendererPlugin[]> {
   publishHostModules(modules);
   const entries: RendererPlugin[] = [];

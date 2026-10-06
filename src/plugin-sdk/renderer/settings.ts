@@ -4,10 +4,7 @@ import { createEffect, createSignal, on, type Accessor } from 'solid-js';
 import { onAppEvent } from './appEvents';
 
 export interface SettingOptions<T> {
-  /**
-   * Fills the setting when nothing valid is stored (the stored value normalizes to `fallback`), e.g. on first run. A
-   * rejected seed stores nothing: seeding is tried again when `seedWhen` next turns true.
-   */
+  /** Seeds settings when stored values normalize to fallback. Rejected seeds write nothing and retry when seedWhen next becomes true. */
   seed?: () => Promise<T>;
   /** Whether `seed` can read now (e.g. its plugin is on and callable here). Reactive; seeding waits for it. Default: always. */
   seedWhen?: () => boolean;
@@ -20,11 +17,7 @@ export interface SettingExtras<T> {
   loaded: Promise<void>;
 }
 
-/**
- * A signal persisted in the archive's settings table. Starts at `fallback`, adopts the stored value
- * once loaded (passed through `normalize`, which must return a valid value for any input), and
- * writes every change back.
- */
+/** Archive-persisted signal starts with fallback, adopts normalized stored values, then writes changes. normalize must accept any input and return a valid value. */
 export function createSetting<T>(
   key: string,
   fallback: T,

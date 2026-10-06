@@ -1,5 +1,4 @@
-// The Person window's rail, as Discord's profile draws it: banner, avatar with decoration, name in their font,
-// username with pronouns, server tag and badges, Message, then bio, member-since dates, roles, note and connections.
+// Profile rails display banners/decorations, styled identity, badges, Message, biography, membership dates, roles, notes and connections.
 import { For, Show, createEffect } from 'solid-js';
 import type { DiscordProfile, PersonProfile } from '@shared/contract';
 import { snowflakeToMs } from '@shared/discord';
@@ -19,10 +18,7 @@ import { ensureNameFont } from '@/ui/nameFonts';
 import { look } from '@/theme/look';
 import styles from './ProfileCard.module.css';
 
-/**
- * Discord's Message button (docs/dms.md §3.6): their DM, shown where a sidebar pick shows it; an open one is found in the
- * directory with no request. Not on the phone, for yourself, or while posting is locked (it can start a DM).
- */
+/** Message opens the existing directory DM without requesting it. Hidden for phone/self/locked posting because it can create DMs. */
 function message(userId: string): void {
   messagePerson(userId)
     .then(closePerson)

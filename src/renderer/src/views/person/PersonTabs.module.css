@@ -1,6 +1,4 @@
-/* The Person window's archive column: the Archive block, then a tab bar that sticks while its list scrolls and wraps
-   in a narrow window. The column is the width container its rows read. Rows are the look vocabulary's row role; stat
-   tiles its card role; this file holds their layout. */
+/* Person archive column keeps Archive summaries above sticky/wrapping tabs. Container queries size row/card layouts; vocabulary supplies appearance. */
 .main {
   container-type: inline-size;
   min-width: 0;
@@ -147,8 +145,7 @@ span.nick {
   color: var(--cp-text-1);
 }
 
-/* Back to top, shown while the column is scrolled: an icon in a square the height of a body button, centred on the
-   first row of tabs (a tab's padding, then its line). */
+/* Scrolled columns show body-button-height back-to-top squares aligned with the first tab row. */
 .toTop {
   display: inline-grid;
   place-content: center;
@@ -326,8 +323,7 @@ span.nick {
   text-align: right;
 }
 
-/* A column under 420px (a narrow window, or just past the rail's breakpoint): the figures sit three to a row, so
-   the five never leave one alone, and a row's meta drops under its text. */
+/* Below 420px, figures use three columns and row metadata moves below text. */
 @container (width < 420px) {
   .stat {
     flex-basis: calc((100% - 2 * var(--cp-space-4)) / 3);

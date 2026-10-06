@@ -1,5 +1,4 @@
-// Contract (plans/viewer-only-public-host.md §8, §13 E2): the public host draws no message box. Its Archive footer's
-// composer anchor draws nothing, who is typing always mounts, and a plugin's footer item renders.
+// Archive footer omits the host composer, mounts typing state, and renders plugin footer items.
 import { readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -23,7 +22,7 @@ const MOVED = [
 type View = { Component: (p: object) => unknown };
 type Item = View & { id: string };
 type Entry = { plugin: PluginDescriptor; contributions: { chatFooter?: Record<string, View> } };
-// Renderer modules: imported by path so the node type-check doesn't follow them (they name DOM types).
+// Path imports keep DOM types outside node type checking.
 const slotsPath = '../src/renderer/src/plugins/messageSlots';
 const footerPath = '../src/renderer/src/panels/chat/archiveFooter';
 const { messageSlots } = (await import(slotsPath)) as {

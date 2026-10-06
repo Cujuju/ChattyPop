@@ -16,7 +16,7 @@ const painted = (stops: string[]): string[] =>
   );
 const VEIL = /^color-mix\(in srgb, (#[0-9a-f]{6}) (\d+)%, transparent\)$/;
 
-// The owner's Discord theme (verified 2026-10-02), plus stops chosen to defeat readability: bright on dark, dark on light, mid grey, no veil.
+// Discord theme fixture plus contrast-challenging gradient stops.
 const THEMES: [string, CustomTheme][] = [
   ['owner', { colors: ['#1a0425', '#a418b9', '#380933'], angle: 14, baseMix: 74, base: 'dark' }],
   ['bright stops, dark base, no veil', { colors: ['#ffff00', '#ffffff'], angle: 90, baseMix: 0, base: 'dark' }],

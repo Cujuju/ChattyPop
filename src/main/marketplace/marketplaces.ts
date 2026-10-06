@@ -1,5 +1,4 @@
-// Marketplaces (docs/plugin-architecture.md §16): the added repos and their tokens, their listings as last fetched, and
-// installs staged for the next start. No Electron here: the profile, secrets, fetch and build are injected.
+// Manages marketplace repos/tokens, cached listings and staged installs. Profile, secrets, fetch and build are injected; no Electron dependency.
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { isAbsolute, join, relative, resolve } from 'node:path';

@@ -27,10 +27,7 @@ function findOnPath(file: string): string | undefined {
 /** A native executable on PATH (`name.exe` on Windows), or undefined. */
 export const findExecutable = (name: string): string | undefined => findOnPath(exeName(name));
 
-/**
- * Resolves a user-installed CLI to a shell-free launch. On Windows an npm shim is followed to its
- * package's JS bin, run with the Node that sits beside the shim (or the one on PATH).
- */
+/** Resolves shell-free CLI launches. Windows npm shims resolve to their JavaScript bin and adjacent or PATH Node. */
 export function resolveCli(name: string, npmPackage: string): Launch | undefined {
   if (!IS_WINDOWS) {
     const found = findOnPath(name);

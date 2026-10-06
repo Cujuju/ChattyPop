@@ -10,10 +10,7 @@ import { plainNameSql } from '../queries/names';
 import type { TextMessage } from '../arrival';
 import { BATCH_STATE, batchKey } from './messageBatch';
 
-/**
- * Jev judges only messages from the last day onward. Older backfill would land as already-read history,
- * and a new or edited topic still shows what it would have caught since yesterday.
- */
+/** Judges messages from the last day onward. Older backfill is read history; edited topics retain yesterday’s matches. */
 export const MEANING_LOOKBACK_MS = MS_PER_DAY;
 /** Preceding messages sent as context, so a short reply ("same", "it's out") can be understood without diluting the state. */
 const CONTEXT_BEFORE = 2;
@@ -22,18 +19,11 @@ const SETTLED_BY_TEXT = 'text';
 /** Introduces a message's linked text inside `message`, so Jev reads it as part of what the message says. */
 const LINKED_MARK = 'linked post:';
 
-/**
- * Most messages in one request. Measured at 25 (4,980 messages, Oct 2026): labels matched one-message requests within
- * their own run-to-run jitter at the cut-off, at half the cost. Larger is unmeasured; a refused batch is asked again
- * one message at a time, so this also bounds that retry.
- */
+/** Caps batch size at 25. October 2026 measurements matched single-message label jitter at half cost; failed batches retry individually. */
 const MESSAGES_PER_REQUEST = 25;
 /** Jev's answers for one message, keyed by subject; a missing subject means no usable answer. */
 export type Answers = Record<string, Answer>;
-/**
- * Whether the question asked under `subject` is still the one its asker asks now (not edited, replaced or disposed).
- * Checked as the answer arrives: a stale answer is neither stored nor returned, so it never counts as done.
- */
+/** Checks question freshness when answers arrive. Edited, replaced or disposed questions produce no stored or returned answers. */
 export type Fresh = (subject: string) => boolean;
 /** For callers whose questions can't go stale while asked. */
 const ALWAYS_FRESH: Fresh = () => true;
@@ -59,19 +49,11 @@ export interface BatchResult {
   costs: (number | null)[];
 }
 
-/**
- * One Jev request per live message carrying every question that applies to it, keyed by jev_judgments subject; re-runs
- * and catch-up put several messages in one request (judgeMany). Every answer is stored: noul and score in `value`; a
- * choice in `label`, with its probability in `value`. Each message's state: it, its reply target and the two before it.
- */
+/** Live requests combine all message questions; catch-up batches messages. Stores answer values/labels with reply and two preceding messages as context. */
 export class MessageJudge {
   constructor(private readonly db: PluginDb) {}
 
-  /**
-   * Fire and forget. `certain`: answers the text settled, stored beside Jev's. Returns false when nothing was asked or
-   * settled (no text, older than the lookback, or only questions for a local-AI-only channel); otherwise exactly one of
-   * `onAnswers` (with the fresh answers only) or `onFailed` runs later.
-   */
+  /** Fire-and-forget judgment with text-certain answers. Returns false if nothing settles; otherwise invokes exactly one fresh-answer or failure callback. */
   judge(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, onAnswers: (a: Answers) => void, onFailed: () => void, certain: Answers = {}, fresh: Fresh = ALWAYS_FRESH): boolean {
     if (!m.content || m.ts < Date.now() - MEANING_LOOKBACK_MS) return false;
     // Every message-level Jev call passes here: a local-AI-only channel's text never goes to Jev (OpenRouter).
@@ -84,10 +66,7 @@ export class MessageJudge {
     return true;
   }
 
-  /**
-   * What Jev reads about a message: the two messages before it, what it replies to, and the message itself with the text
-   * of what it links to, so a bare link is judged by its post.
-   */
+  /** Context includes the message, reply target, two preceding messages and linked text, so bare links include post content. */
   stateFor(m: TextMessage): Record<string, unknown> {
     const reply = this.replyTo(m);
     const linked = m.linked ? `\n(${LINKED_MARK} ${clipMessage(m.linked)})` : '';
@@ -98,20 +77,12 @@ export class MessageJudge {
     };
   }
 
-  /**
-   * An owner-requested judgment of any message, however old (range tagging): stored like the rest. Returns only the
-   * `certain` answers for a local-AI-only channel, whose text never goes to Jev; stale answers (`fresh`) are dropped.
-   */
+  /** Owner-requested judgments ignore age. Local-only channels return text-certain answers only; stale answers are discarded. */
   async judgeNow(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, opts: JudgeOptions = {}): Promise<{ answers: Answers; costUsd: number | null }> {
     return this.ask(jev, m, isLocalOnly(this.db, m.channelId) ? {} : questions, opts.certain ?? {}, opts.fresh ?? ALWAYS_FRESH);
   }
 
-  /**
-   * Judges many messages in few requests (re-runs, catch-up). Each question carries its own message's state and the
-   * request's state is empty (messageBatch.ts). Stored as single judgments are. A message with a question that can't
-   * carry it is asked alone; a failed batch asks its messages again one at a time. A
-   * local-AI-only channel's questions are dropped; its settled answers are still stored.
-   */
+  /** Batches messages with independent state. Unsupported questions or failed batches retry individually. Local-only questions are dropped; text-certain answers are stored. */
   async judgeMany(jev: DecisionProvider, items: BatchItem[]): Promise<BatchResult> {
     const result: BatchResult = { answers: new Map(), failed: new Set(), costs: [] };
     type Batch = { members: { item: BatchItem; keys: Record<string, string> }[]; questions: Record<string, Question>; chars: number };

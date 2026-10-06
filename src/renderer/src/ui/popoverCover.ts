@@ -1,7 +1,4 @@
-// Every open popover reports the area it covers (state/windows overlay covers), so the native Discord view, which draws
-// above all renderer UI, hides where a popover overlaps it. Automatic, so none needs wiring of its own: native top-layer
-// popovers from any package (the colour picker, number picker pop-outs) and the app's own floating surfaces (.cp-popover:
-// menus, selects, pickers). A hidden one measures empty and covers nothing.
+// Automatically tracks native/app popover bounds to hide overlapping native Discord views. Hidden popovers cover nothing.
 import { coverOf, setOverlayCover } from '@/state/windows';
 
 interface Tracked {
@@ -54,11 +51,7 @@ function trackAppPopovers(node: Node): void {
   for (const el of node.querySelectorAll<HTMLElement>(APP_POPOVER)) track(el);
 }
 
-/**
- * Starts tracking popovers for this window. Native popovers: `toggle` doesn't bubble but is seen in capture; one removed
- * while open hides without a toggle event (the spec's removal steps fire none). App popovers: tracked while in the DOM.
- * So DOM additions and removals are watched.
- */
+/** Tracks captured native toggle events and DOM additions/removals. Removed open native popovers lack toggle events; app popovers track DOM presence. */
 export function trackPopoverCovers(): void {
   document.addEventListener(
     'toggle',

@@ -3,10 +3,7 @@
 /** A query string's values; undefined ones are left out. */
 export type DiscordQuery = Record<string, string | number | undefined>;
 
-/**
- * Where the live client says an action came from (its X-Context-Properties); passed per call, never captured. No
- * location: the client's `{}`, as it sends for a DM opened from a profile.
- */
+/** Supplies per-call X-Context-Properties, never captured session context. Missing location uses the client’s empty object. */
 export interface RequestContext {
   location?: string;
 }

@@ -1,5 +1,4 @@
-// Per-message Jev questions that aren't topics (tags, notable, classes…). They ride in the same one request per
-// message as topic questions, for live messages and the lookback catch-up, only while their feature is on.
+// Enabled per-message Jev questions share topic requests for live messages and lookback catch-up.
 import type { JevFeature } from '@shared/settings';
 import type { Answer, Question } from '../ai/decisions';
 import type { LiveAt, TextMessage } from '../arrival';
@@ -11,7 +10,7 @@ export interface MessageQuestion {
   feature: JevFeature | readonly JevFeature[];
   /** The question for this message, or null when it doesn't apply. */
   question: (m: TextMessage, ctx: QuestionContext) => Question | null;
-  /** An answer the text settles on its own; when given, it is stored as Jev's would be and Jev isn't asked. */
+  /** Stores text-certain answers without asking Jev. */
   certain?: (m: TextMessage) => Answer | null;
   /** Runs after the answer is stored. `liveAt`: when a live message was checked; null for catch-up and re-asks. */
   onAnswer?: (m: TextMessage, a: Answer, liveAt: LiveAt) => void;
@@ -32,11 +31,7 @@ export interface StoredAnswer {
   label: string | null;
 }
 
-/**
- * Who asks a question, which sets its place in the request: host built-ins, then bundled plugins' in build order,
- * then those a plugin asks for the owner (custom tags). Independent of when each registered, so plugin off/on keeps
- * the order. A plugin's `id` owns the question's chips.
- */
+/** Orders questions by host built-ins, bundled build order, then owner questions. Registration timing never changes order; plugin id owns chips. */
 export type QuestionOwner = 'host' | { plugin: string; buildIndex: number; forOwner?: boolean };
 
 const ownerRank = (o: QuestionOwner): [number, number] =>

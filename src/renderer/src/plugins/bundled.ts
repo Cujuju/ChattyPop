@@ -1,5 +1,4 @@
-// The build's plugin registry (docs/plugin-architecture.md §9): loads every bundled plugin's renderer side and installs
-// them for the host's slots. Only page entries import it (main.tsx, ./page.ts); plugins and the SDK never do.
+// Build registry installs bundled renderer contributions. Only page entries import it; plugins/SDK exclude it.
 import entries from 'virtual:bundled-plugins/renderer';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { checkSlotViews } from '@shared/slots';

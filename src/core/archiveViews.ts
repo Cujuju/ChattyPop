@@ -27,11 +27,7 @@ const search = 'SELECT rowid AS seq, fts_messages AS query, rank FROM fts_messag
 const names = `SELECT c.id AS channel_id, mem.user_id, mem.nick AS name
   FROM members mem JOIN channels c ON c.guild_id = mem.guild_id`;
 
-/**
- * The managed public views, name → SELECT. Explicit columns keep host schema additions outside the plugin contract.
- * openDb installs them after every upgrade, so they may read any table; changing one needs no migration.
- * Every host view named archive_* is managed: one dropped from here is dropped from the database.
- */
+/** Managed archive_* views use explicit columns. openDb installs current definitions after migrations and removes retired views. */
 export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_all_messages: messages,
   archive_messages: `${messages} WHERE ${visibleMessageSql('m')}`,
@@ -69,10 +65,7 @@ export function dropArchiveViews(db: Db): void {
   for (const name of storedArchiveViews(db).keys()) db.exec(`DROP VIEW "${name}"`);
 }
 
-/**
- * Makes the stored managed views the registry's: drops retired ones and recreates changed or missing ones, each checked
- * to bind (CREATE VIEW alone doesn't), so a broken definition fails the caller's transaction. Writes nothing when current.
- */
+/** Reconciles managed views and checks binding inside the caller transaction. Unchanged views require no writes; invalid definitions fail the transaction. */
 export function installArchiveViews(db: Db): void {
   const stored = storedArchiveViews(db);
   for (const name of stored.keys()) if (!Object.hasOwn(ARCHIVE_VIEWS, name)) db.exec(`DROP VIEW "${name}"`);

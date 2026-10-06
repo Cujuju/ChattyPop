@@ -16,10 +16,7 @@ export interface Typist {
 /** The line's parts: names set in bold, the rest plain. */
 export type TypingPart = { kind: 'name'; text: string } | { kind: 'text'; text: string };
 
-/**
- * Discord's phrasing: "A is typing…", "A and B are typing…", "A, B, and C are typing…", "Several people are typing…".
- * A custom verb shows only while its owner types alone, as on Discord. Empty when no one types.
- */
+/** Formats one/two/three/several typists; custom verbs apply only to sole typists. No typists yields empty text. */
 export function typingParts(typists: readonly Typist[]): TypingPart[] {
   if (!typists.length) return [];
   if (typists.length > NAMED_TYPISTS_MAX) return [{ kind: 'text', text: `Several people are ${DEFAULT_VERB}…` }];

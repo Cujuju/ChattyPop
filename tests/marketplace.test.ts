@@ -117,7 +117,7 @@ describe('release installs', () => {
   });
 
   it("installs without a token on one API call, the default branch: the index and assets come from GitHub's file hosts", async () => {
-    // GitHub allows 60 anonymous API calls an hour; at four per install, a new owner ran out after fifteen plugins.
+    // Tests marketplace access without per-install anonymous API queries.
     const f = fixture();
     const m = f.make();
     await m.add(REPO, null);

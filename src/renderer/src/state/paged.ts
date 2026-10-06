@@ -1,10 +1,7 @@
 import type { Accessor, Setter } from 'solid-js';
 import { createStore, reconcile, unwrap } from 'solid-js/store';
 
-/**
- * createResource `storage` for a list: a refetch updates items in place, matched by id, so each keeps its object and
- * a <For> keeps its row (focus, scroll position) instead of rebuilding the list.
- */
+/** Matches refetched list items by id to retain objects and For rows, preserving focus/scroll position. */
 export function keyedById<T extends { id: string | number }>(init: T[] | undefined): [Accessor<T[]>, Setter<T[] | undefined>] {
   const [store, setStore] = createStore<{ items: T[] }>({ items: init ?? [] });
   const set = (v?: T[] | ((prev: T[]) => T[] | undefined)): T[] => {
@@ -24,28 +21,19 @@ export interface PagedState<T> {
 
 export interface PagedList<T> {
   state: PagedState<T>;
-  /** Replaces the rows with what `fetch` resolves to. A later reload supersedes it (resolves false, changes nothing). */
+  /** Replaces rows from fetch results; superseded reloads return false without changes. */
   reload(fetch: () => Promise<{ items: T[]; reachedStart: boolean }>): Promise<boolean>;
   /** Prepends the previous (older) page; resolves with how many rows were added (the view keeps its scroll anchor). */
   loadOlder(): Promise<number>;
-  /**
-   * Appends the next (newer) page, for a list loaded around an older row; resolves with the page's length (fewer than
-   * a page: the newest is reached), or null when nothing was read (no fetcher, a load under way, superseded).
-   */
+  /** Appends newer pages and returns length; short pages reach newest. Returns null for missing fetchers, active loads or superseded reads. */
   loadNewer(): Promise<number | null>;
-  /**
-   * Fetches, then replaces the rows with `apply(result, rows at that moment)`, keeping row identity by id. A reload
-   * started meanwhile, or a later-started update that already applied, supersedes it (resolves false, changes nothing).
-   */
+  /** Applies fetched updates against current rows while preserving ids. Newer reloads/applied updates supersede stale results with false. */
   update<R>(fetch: () => Promise<R>, apply: (result: R, items: readonly T[]) => T[]): Promise<boolean>;
   /** Replaces the rows in place, keeping row identity by id; only for rows already in hand (no read since). */
   setItems(items: T[]): void;
 }
 
-/**
- * A chronological list loaded a page at a time, newest page first. Generation tokens drop pages and updates from a
- * superseded load, so a slow response for an old filter, channel or privacy mode never lands in the current list.
- */
+/** Loads chronological lists newest page first. Generation tokens discard superseded pages/updates after filter, channel or privacy changes. */
 export function createPagedList<T extends { id: string | number }>(
   pageSize: number,
   fetchOlder: (oldest: T) => Promise<T[]>,
@@ -53,7 +41,7 @@ export function createPagedList<T extends { id: string | number }>(
 ): PagedList<T> {
   const [state, setState] = createStore<PagedState<T>>({ items: [], loading: false, reachedStart: false });
   let generation = 0;
-  /** Updates started, and the latest-started one applied: an earlier-started read never overwrites a later one. */
+  /** Earlier updates cannot overwrite later applied reads. */
   let updates = 0;
   let appliedUpdate = 0;
 

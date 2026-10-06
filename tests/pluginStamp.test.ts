@@ -1,12 +1,10 @@
-// Release stamping (scripts/pluginScan/manifest.ts, docs/plugin-architecture.md §16): the definePlugin manifest's
-// version literal is found through syntax and replaced in place, in both shapes plugins use; anything else is refused,
-// and plugin:check's scan refuses it too.
+// Release stamping replaces manifest version literals in both supported definePlugin forms. Unsupported syntax fails stamping and plugin scanning.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { manifestVersion, stampVersion } from '../scripts/pluginScan/manifest';
 
-/** A copy of every public plugin's shared/index.ts as it was when stamping came: both manifest shapes, inline and a const. */
+/** Frozen public-plugin manifests covering inline and const declaration forms. */
 const MANIFESTS = join(import.meta.dirname, 'fixtures/manifests');
 const REL = 'shared/index.ts';
 const stamp = (text: string, version = '9.8.7'): string => stampVersion(text, version, REL);

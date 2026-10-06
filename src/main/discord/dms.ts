@@ -1,6 +1,4 @@
-// The one place that writes private channels (docs/dms.md §3.5): each write in the live client's own request shape,
-// checked first (dmChecks.ts), and each channel Discord answers with stored in core at once through the gateway's merge
-// path, so the gateway's echo changes nothing and no write waits for it. A close is the exception: the gateway closes it.
+// Validates private-channel writes and immediately merges Discord responses into core. Gateway echoes are idempotent; close state changes only through gateway events.
 import { DM_CHANNEL_TYPE, DM_CHANNEL_TYPES, DiscordHttpError, GROUP_DM_CHANNEL_TYPE, snowflakeArg, type RawPrivateChannel } from '@shared/discord';
 import { DM_UNCERTAIN_TEXT, MUTE_UNTIL_UNMUTED, isMuteWindow, type DmOutcome, type PrivateChannelFacts } from '@shared/dms';
 import type { ArchivedGatewayEvent } from '@shared/contract';
@@ -13,10 +11,7 @@ import { DiscordAuthError } from './api';
 import type { DiscordWriter, RequestContext } from './client';
 import { checkAdd, checkArchiveChoice, checkManageable, checkRename, checkStart, type Friends } from './dmChecks';
 
-/**
- * The locations the live client names for these actions (its action creators, read 2026-10-01). `direct`: a DM opened
- * from a profile or another DM open, for which it names none.
- */
+/** Client action locations; direct profile/DM opens omit location. */
 export const DM_CONTEXT = {
   start: { location: 'New Group DM' },
   add: { location: 'Add Friends to DM' },
@@ -64,12 +59,7 @@ interface SignedIn {
 export class DmService {
   constructor(private readonly d: DmServiceDeps) {}
 
-  /**
-   * Starts a conversation with `recipients`, as the client's New Group DM does. One person the owner already has an
-   * open DM with sends nothing. Sent once: with no clear answer it may exist, so it is never sent again. `archive`, the
-   * owner's choice for a new conversation, applies as core first stores it. One Discord answers with that core held
-   * before (a closed DM reopened) is `opened`, and keeps its own archive state.
-   */
+  /** Starts conversations once; existing open one-person DMs need no request. New channels receive chosen archive state; reopened known channels retain theirs. */
   async start(recipients: unknown, archive?: unknown): Promise<DmOutcome> {
     return this.open(recipients, checkArchiveChoice(archive), DM_CONTEXT.start);
   }
@@ -100,11 +90,7 @@ export class DmService {
     return { kind: made ? 'created' : 'opened', channelId: channel.id };
   }
 
-  /**
-   * Adds friends, one PUT each in order, as the client does. On a one-to-one DM the first makes a new group (201, its
-   * channel), sent once as a start is, and `archive` applies to it as core first stores it; the rest join that group (204).
-   * A PUT failing after one went through ends it with the rest `failed`, named against the conversation they'd join.
-   */
+  /** Adds friends sequentially. First one-to-one addition creates a group once with chosen archive state; later additions join it. Failures report remaining recipients. */
   async add(channelId: unknown, userIds: unknown, archive?: unknown): Promise<DmOutcome> {
     const choice = checkArchiveChoice(archive);
     const as = await this.signedIn();
@@ -130,7 +116,7 @@ export class DmService {
         await this.store(as, made ? 'CHANNEL_CREATE' : 'CHANNEL_UPDATE', answer, made && !known.has(answer.id) ? choice : undefined);
         target = answer.id;
       } else if (makesGroup) {
-        // A new group Discord didn't name: adding the rest to the DM would make more groups.
+        // Stop after an unnamed new group; additional DM writes can create separate groups.
         return { kind: this.uncertainUnlessRefused(new Error('No group in the answer.'), path) };
       } else {
         const user = this.d.friends.user(userId);
@@ -140,11 +126,7 @@ export class DmService {
     return reached();
   }
 
-  /**
-   * Closes a DM or leaves a group: one call. A DM closes as the client closes one (silent=false); a group can be left
-   * quietly. Sent once: a retry after a server error could find it gone (Unknown Channel). Core closes it on the
-   * gateway's CHANNEL_DELETE only, never on this answer, which can land after a newer reopen.
-   */
+  /** Closes DMs or leaves groups once. Core closes only on CHANNEL_DELETE, avoiding stale responses overriding newer reopens. */
   async close(channelId: unknown, quietly: unknown): Promise<void> {
     if (quietly !== undefined && typeof quietly !== 'boolean') throw new Error('Leave quietly, or not.');
     const as = await this.signedIn();
@@ -184,18 +166,12 @@ export class DmService {
     return { id, facts };
   }
 
-  /**
-   * Every private channel core holds, taken before a write that may make one: the gateway can store a new one before
-   * Discord's answer arrives, so being held after it says nothing.
-   */
+  /** Snapshots held private channels before writes; gateway events may insert new channels before REST responses. */
   private async knownChannels(): Promise<Set<string>> {
     return new Set(await this.d.core.call('privateChannelIds'));
   }
 
-  /**
-   * The account a write is checked and sent as: named by READY in main and in core alike (else READY is still arriving),
-   * with a guard that stops the write unsent once another account signs in.
-   */
+  /** Requires matching main/core READY account identity. Guard prevents unsent writes after account changes. */
   private async signedIn(): Promise<SignedIn> {
     const self = await this.d.core.call('selfId');
     if (!self || self !== this.d.account()) throw new Error('Discord is still loading: try again once it has.');
@@ -234,10 +210,7 @@ export class DmService {
     return 'uncertain';
   }
 
-  /**
-   * Discord's answer, merged as the gateway's own copy of it is (idempotent with that later dispatch), under the account
-   * it was sent as; core skips it once another account signed in.
-   */
+  /** Merges responses idempotently under the sending account. Core skips them if another account signed in. */
   private async store(as: SignedIn, t: Extract<ArchivedGatewayEvent, `CHANNEL_${string}`>, payload: unknown, archive?: boolean): Promise<void> {
     await this.d.core.call('applyDmWrite', as.account, t, payload, archive);
   }

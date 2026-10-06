@@ -49,7 +49,7 @@ const PLAN_QUERY_DEF: JevQueryDecl<'planDetection'> = {
       },
     ],
     alertOn: ['plan', 'decision'],
-    // Each hit is an LLM call; on a real day 0.7 passed 13 of 1,699 messages, nearly all real, and 0.6 added noise.
+    // Each passing plan judgement starts an LLM extraction call.
     minProbability: 0.7,
   },
 };

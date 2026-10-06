@@ -18,10 +18,7 @@ export const detachable = (id: LayoutPanelId): boolean => movable(id) && id !== 
 const EVERY_ZONE: readonly DropZone[] = ['left', 'right', 'top', 'bottom', 'center'];
 /** The sidebar (Archive) column splits above or below Channels; the frame itself never moves, so no swap. */
 const SIDEBAR_ZONES: readonly DropZone[] = ['top', 'bottom'];
-/**
- * Where panel `dragged` may land on panel `target`; empty when it takes no drops. A panel from outside the layout
- * (the toolbar) replaces the target on a centre drop, so only a target that may leave the layout takes one.
- */
+/** Returns allowed panel drop zones. External center replacements require removable targets; non-droppable targets return none. */
 export function dropZones(target: LayoutPanelId, dragged: LayoutPanelId): readonly DropZone[] {
   const zones = movable(target) ? EVERY_ZONE : target === 'channels' ? SIDEBAR_ZONES : [];
   const adding = !panelIds(currentLayout().root).includes(dragged);
@@ -51,10 +48,7 @@ export const panelOrder = (): LayoutPanelId[] =>
 /** Panels on the top bar's toolbar: every one that can open in a window or be dragged into the layout. */
 export const toolbarPanels = (): LayoutPanelId[] => [...panelOrder().filter(detachable), ...pluginPanels().map((p) => p.layoutId)];
 
-/**
- * Right-click menu on a panel header: open in a window, swap with another movable panel, add a panel that isn't in
- * the layout below, remove this one from the layout, rename or delete a custom layout.
- */
+/** Panel header menu opens windows, swaps/adds/removes panels, and renames/deletes custom layouts. */
 export function panelMenu(id: LayoutPanelId): MenuGroup[] {
   if (!movable(id)) return [];
   const inLayout = panelIds(currentLayout().root);

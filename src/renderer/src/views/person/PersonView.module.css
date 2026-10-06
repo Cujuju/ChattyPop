@@ -1,5 +1,4 @@
-/* Person window inside the shared window surface (ui/WindowChrome.module.css): Discord's profile as a rail beside the
-   archive column, each scrolling on its own. The body is the width container both read (ProfileCard, PersonTabs). */
+/* Person windows show independently scrolling profile rails and archive columns. Body container width drives both layouts. */
 .body {
   container-type: inline-size;
   gap: 0;

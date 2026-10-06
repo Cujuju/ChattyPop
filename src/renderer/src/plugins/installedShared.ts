@@ -1,6 +1,4 @@
-// The shared registry's installed plugins (docs/plugin-architecture.md §16, Start): the build's browser shared registry
-// awaits installedDescriptors() (bundledPlugins.ts). It loads the shared SDK tier only: a renderer tier reads the shared
-// registry, which is still evaluating here (tests/rendererBoundary.test.ts).
+// Shared registry loads only shared SDK while evaluating. Renderer tiers depend on this registry and cannot load here.
 import * as sdkShared from '@plugin-sdk/shared';
 import type { AnchorCatalog } from '@shared/bundledCheck';
 import type { PluginDescriptor } from '@shared/bundledTypes';

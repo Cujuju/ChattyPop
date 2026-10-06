@@ -1,7 +1,4 @@
-// Rule matching on every stored message text: gates, narrowing and direct matches (keywords, contents, an @mention
-// or reply to the owner), then one Jev request per message carrying every rule's question (meaning, the owner's own,
-// built-ins), the registered per-message questions and urgency. A match fires its rule (RuleEngine.fire); only live
-// matches notify, and not when Jev rates the message not urgent.
+// Runs gates/direct matches, then shared Jev questions and urgency. Matches fire rules; only live, urgent matches notify.
 import type { RawUser } from '@shared/discord';
 import type { JevRerunResult } from '@shared/jevQueries';
 import type { JevFeature } from '@shared/settings';
@@ -63,11 +60,7 @@ export class RuleMatcher {
     if (first) this.catchUpJudgments(); // "Aimed at you" can only be judged once the owner is known
   }
 
-  /**
-   * Every new or edited message, once derived (its attachments and links stored). `arrived`: how and when ChattyPop
-   * got the text; a transcript's is its message's first arrival, timed when its audio was queued. `askJev` false: only
-   * direct matches and the answers its text settles (MessageQuestion.certain); Jev isn't asked.
-   */
+  /** Processes new/edited messages after derivation. arrived records text source/time; askJev false permits direct matches and text-certain answers only. */
   check(m: TextMessage, arrived: Arrived, askJev = true): void {
     const eventId = this.engine.nextEventId();
     this.engine.kinds.message(m);
@@ -117,10 +110,7 @@ export class RuleMatcher {
     return false;
   }
 
-  /**
-   * Every Jev question that applies to `m` now, or null. `judged` (catch-up) drops subjects already answered; urgency
-   * is asked only for a live message that has or may get an alert. `askJev` false keeps only the settled answers.
-   */
+  /** Collects current questions, excluding answered catch-up subjects. Urgency applies only to possible live alerts; askJev false keeps text-certain answers. */
   private request(
     eventId: number,
     m: TextMessage,
@@ -178,10 +168,7 @@ export class RuleMatcher {
     return r && questionSignature(r.spec) === signature ? r : undefined;
   }
 
-  /**
-   * Fires the rules Jev matched, runs registered handlers, then notifies every new alert of this message unless not
-   * urgent. `answers` holds only fresh subjects; a rule sharing one is still skipped if it was itself edited meanwhile.
-   */
+  /** Fires fresh Jev matches and handlers, then notifies new urgent alerts. Skips rules edited while their shared answers were pending. */
   private apply(m: TextMessage, answers: Answers, req: Request, liveAt: LiveAt): void {
     for (const { r, q, signature } of req.rules) {
       const a = answers[q.subject];
@@ -197,10 +184,7 @@ export class RuleMatcher {
     this.engine.kinds.settle({ eventId: req.eventId, m, answers });
   }
 
-  /**
-   * Re-asks these subjects' questions about past messages (Settings → Jev → Queries → Run on past messages) and acts on
-   * the answers as for missed ones. Questions whose Settings → Jev switch is off aren't asked.
-   */
+  /** Re-asks enabled subjects over past messages and processes answers as missed-message results. */
   async rejudge(messages: TextMessage[], subjects: Set<string>): Promise<JevRerunResult> {
     const due: { m: TextMessage; req: Request }[] = [];
     for (const m of messages) {
@@ -245,10 +229,7 @@ export class RuleMatcher {
     });
   }
 
-  /**
-   * Matches the lookback window again and asks Jev whatever it still lacks: after an interrupted run, a time with
-   * Jev off, a new or edited rule, or a newly known owner. Subjects already answered are skipped.
-   */
+  /** Rematches lookback and asks unanswered subjects after interruptions, disablement, rule edits or newly known owner identity. */
   catchUpJudgments(): void {
     const since = Date.now() - MEANING_LOOKBACK_MS;
     const judged = this.judge.judgedSince(since);
@@ -272,10 +253,7 @@ export class RuleMatcher {
     void this.judgeAll(due);
   }
 
-  /**
-   * Judges past messages in batched requests and acts on each one's answers as for a missed message. Every feature's Jev
-   * uses the same route, so the first request's provider carries them all.
-   */
+  /** Batches past-message judgments and processes results as missed messages. All feature questions share the first request’s provider route. */
   private async judgeAll(due: { m: TextMessage; req: Request }[]): Promise<BatchResult> {
     const jev = due[0]?.req.jev;
     if (!jev) return { answers: new Map(), failed: new Set(), costs: [] };

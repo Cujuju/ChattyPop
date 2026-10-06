@@ -1,5 +1,4 @@
-// The renderer API host code reaches (docs/plugin-architecture.md §3, plugin page): the Electron preload's, or the one
-// a page's transport installs. A leaf: host modules may call it while loading, whichever runs first.
+// Leaf renderer API uses Electron preload or installed page transport. Host modules may call it before transport installation.
 import { unwrap } from 'solid-js/store';
 import type { RendererApi } from '@shared/contract';
 import { isPostingCall, keepPostingLocked } from '@shared/posting';
@@ -18,10 +17,7 @@ let draining = false;
 /** The API, if one is there yet and nothing waits: a transport's, else the preload's (present before any script in the app's windows). */
 const live = (): RendererApi | undefined => (draining ? undefined : (installed ?? window.chattypop));
 
-/**
- * The audience this window's calls carry (docs/plugin-architecture.md §5). The preload's windows are the desktop's; a
- * page without it reaches the app through the phone's transport (createPhoneRendererApi, the only one a page installs).
- */
+/** Preload calls carry desktop audiences; external page calls use the phone transport audience. */
 export const windowAudience = (): 'renderer' | 'phone' => (window.chattypop ? 'renderer' : 'phone');
 
 /** Installs a transport's API; calls made earlier run now, in the order they were made. Once per page. */
@@ -31,7 +27,7 @@ export function installApi(api: RendererApi): void {
   draining = true;
   try {
     for (let run = waiting.shift(); run; run = waiting.shift()) {
-      // A failing subscription has no caller to tell; the page's error handler does, and later work still runs.
+      // Reports subscription failures through page error handlers while continuing queued work.
       try {
         run(api);
       } catch (err) {

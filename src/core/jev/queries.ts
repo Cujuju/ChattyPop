@@ -1,5 +1,4 @@
-// The effective built-in Jev queries (Settings → Jev → Queries): request form, condition, strength and label, from the
-// owner's edit or the default. Every built-in Jev call goes through here, so an edit applies wherever the query runs.
+// Resolves built-in Jev query forms, conditions, strengths and labels from owner edits or defaults. All built-in calls use these settings.
 import { effectiveJevQuery, jevQueryDef, type JevQueryDef, type JevQueryOverrides } from '@shared/jevQueries';
 import type { CustomJevQuestion } from '@shared/jevQuestion';
 import { answerValue, type Answer, type Question } from '../ai/decisions';
@@ -47,10 +46,7 @@ export function queryRequest(id: string, fill: QueryFill = {}): Question {
   }
 }
 
-/**
- * Whether an answer meets a question's condition, as a 0–1 strength (null = not met): yes/no at its threshold; a ticked
- * option at its threshold; a score at or above its level (then the chance of that level or higher).
- */
+/** Returns 0–1 condition strength, or null when unmet: threshold probability for yes/no/options, or probability of the required score level or higher. */
 export function specMatch(q: CustomJevQuestion): (a: Answer) => number | null {
   switch (q.type) {
     case 'noul':
@@ -131,10 +127,7 @@ export function storedMatchSql(id: string, alias: string, prefix: string): SqlPa
   }
 }
 
-/**
- * A stored answer's 0–1 strength as SQL, for ordering: a yes probability; a score's position between its lowest and
- * highest level; a pick-one's probability when a ticked option was chosen, else its complement.
- */
+/** SQL ordering strength: yes probability, normalized score position, or selected-option probability/complement according to whether the option is enabled. */
 export function storedStrengthSql(id: string, alias: string, prefix: string): SqlPart {
   const q = jevQuery(id);
   switch (q.type) {

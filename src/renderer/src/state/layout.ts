@@ -54,10 +54,7 @@ const EMPTY_LAYOUT: LayoutNode = { kind: 'split', dir: 'row', sizes: [], childre
 export const currentLayout = (): LayoutDoc => ({ ...storedLayout(), root: projection().root ?? EMPTY_LAYOUT });
 export const isCustomLayout = (id: LayoutId): boolean => id in customLayouts();
 
-/**
- * Applies a structural edit to the current layout. Saved split fractions are keyed by path, which the edit can shift,
- * so they are baked into the tree first and then cleared. Changing a preset first copies it into a new custom layout.
- */
+/** Bakes path-keyed split fractions into trees before structural edits and clears them afterward. Editing presets first creates custom copies. */
 function editLayout(edit: (root: LayoutNode) => LayoutNode | null): void {
   const root = editStoredLayout(storedLayout().root, sizeOverrides()[layoutId()], edit);
   if (!root) return;
@@ -129,10 +126,7 @@ const projection = createMemo(() => {
   return projectLayout(storedLayout().root, (id) => hidden.has(id));
 });
 
-/**
- * Once per retirement: a saved layout a retired panel was taken out of is stored without it, and its dragged sizes are
- * cleared, since they are keyed by split path and the removal shifts paths.
- */
+/** Persists retired-panel removals once and clears dragged sizes because split paths shift. */
 void Promise.all([customLayoutsLoaded, sizeOverridesLoaded]).then(() => {
   if (!reshaped.size) return;
   const ids = new Set(reshaped);
@@ -201,20 +195,14 @@ export function setPanelCollapsed(id: string, collapsed: boolean): void {
 /** The latest request to bring a panel into view; its slot scrolls into view and a tab group holding it selects it. A new object per request. */
 export const [revealRequest, setRevealRequest] = createSignal<{ id: LayoutPanelId } | null>(null);
 
-/**
- * Brings panel `id` into view: unfolds it and selects its tab, or opens it outside the layout when the layout doesn't hold it.
- * Residual: a panel docked in a collapsed sidebar stays hidden until the sidebar expands.
- */
+/** Unfolds/selects panels or opens absent panels in windows. Collapsed sidebar panels remain hidden until sidebar expansion. */
 export function revealPanel(id: LayoutPanelId): void {
   if (!isPlaced(id)) return openPanel(id);
   setPanelCollapsed(id, false);
   setRevealRequest({ id });
 }
 
-/**
- * Shows panel `id` asked for from elsewhere (a menu item): a layout lacking it gains it below the first of `anchors` it
- * holds, else the panel opens outside the layout (its window), so it never depends on another plugin's panel.
- */
+/** Adds requested panels below the first available anchor; without anchors, opens a window. Avoids dependence on other plugin panels. */
 export function showPanel(id: LayoutPanelId, anchors: readonly LayoutPanelId[]): void {
   const showing = outsideLayout ? { outside: true } : panelShowing(currentLayout().root, id, anchors);
   if ('below' in showing) addPanelBelow(showing.below, id);

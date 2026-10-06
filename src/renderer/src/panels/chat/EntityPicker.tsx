@@ -14,10 +14,7 @@ const PLACEHOLDERS: Record<Exclude<SelectKind, 'string'>, string> = {
   channel: 'Find a channel',
 };
 
-/**
- * Picks people, roles or channels of a server by name: chosen ones show as chips, typing lists matches (arrows, Enter,
- * Escape). Up to `max` can be chosen; with one, a new pick replaces the old.
- */
+/** Picks server people/roles/channels by name with arrow/Enter/Escape controls. max bounds selection; single-selection picks replace previous values. */
 export function EntityPicker(props: {
   kind: Exclude<SelectKind, 'string'>;
   guildId: string;

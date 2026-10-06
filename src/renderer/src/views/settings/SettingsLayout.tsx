@@ -82,11 +82,7 @@ export function RailItem(props: {
   );
 }
 
-/**
- * A Settings page as a list of sections beside the open one (the Jev queries layout): each entry says what the section
- * holds right now, so the page reads at a glance and one section is edited at a time. Narrow windows get a picker.
- * `notice` sits between the head and the sections, for what concerns every section (a pending restart).
- */
+/** Settings sections show current summaries beside one editor; narrow windows use pickers. notice sits between page heading and sections. */
 export function SectionsPage(props: { id: string; title: string; lede?: JSX.Element; right?: JSX.Element; notice?: JSX.Element; sections: SettingsSectionDef[] }) {
   /** The page's stored section while it still has it, else its first. */
   const openId = () => {
@@ -183,10 +179,7 @@ export function Card(props: { title?: string; meta?: JSX.Element; children: JSX.
   );
 }
 
-/**
- * One setting: its name with its control on the right, then what it does across the full width, then `children`
- * (a follow-up field, a list). `for` ties the name to the control.
- */
+/** Settings rows place name/control above full-width explanation and children. for associates labels with controls. */
 export function Row(props: { label: JSX.Element; for?: string; hint?: JSX.Element; control?: JSX.Element; children?: JSX.Element }) {
   return (
     <div class={card.row}>

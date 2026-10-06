@@ -1,5 +1,4 @@
-// A rule compiled once per reload (gates as sets, keywords as a regex), the facts about one message its checks
-// read (each read once, lazily), and the checks that need no Jev: gates, narrowing, and a direct match.
+// Compiles rule gates/regexes per reload. Message facts load lazily once; gates, narrowing and direct matches require no Jev.
 import type { Platform } from '@shared/links';
 import type { ContentKind } from '@shared/messageContent';
 import { runsOnMissed, type RuleSpec } from '@shared/rules';
@@ -137,10 +136,7 @@ export const factsReader = (db: Db): ((m: TextMessage) => MessageFacts) => {
   return (m) => new MessageFacts(db, read, m);
 };
 
-/**
- * The gates, cheapest first: armed (only messages sent since), edits, missed messages, who, then where (a channel
- * covers its threads). A missed message passes only when the rule takes them and has an action that acts on them.
- */
+/** Checks armed time, edits, missed messages, author and location in cost order. Missed messages require both acceptance and an applicable action. */
 export function gatesPass(r: CompiledRule, f: MessageFacts, a: QuestionContext): boolean {
   const { m } = f;
   const g = r.spec.gates;

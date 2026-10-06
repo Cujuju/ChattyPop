@@ -1,6 +1,4 @@
-// Main's boot entry (docs/plugin-architecture.md §16). Synchronously, before app 'ready': the app identity and profile,
-// custom schemes and Chromium switches; then installed plugins are decided, and only then is the app imported, since
-// its plugin registry lists what that decides. Nothing that must precede 'ready' may follow the import.
+// Boot establishes identity/profile, schemes and Chromium switches before ready. Decides installed plugins before importing the app and plugin registry.
 import { app } from 'electron';
 import { INSTALLED_ENV, INSTALLED_PLUGINS_DIR, type InstalledStart } from '@shared/installedPlugins';
 import { errorMessage } from '@shared/errors';
@@ -32,8 +30,7 @@ function decideInstalled(): InstalledStart {
     return { accepted: [], refused: [] };
   }
 }
-// One process per profile: a second would apply staged changes and clear install work under the running one. The
-// running one raises its window instead (app.ts); this one has opened nothing, so it quits.
+// Enforces one process per profile to protect staged installs. Secondary instances open nothing and quit; the running instance raises its window.
 if (app.requestSingleInstanceLock()) {
   // Core inherits it (CoreClient), so both processes load the same plugins.
   process.env[INSTALLED_ENV] = encodeInstalledStart(profilePath(INSTALLED_PLUGINS_DIR), decideInstalled());

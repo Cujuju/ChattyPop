@@ -1,11 +1,10 @@
-// Renderer core clients (docs/plugin-architecture.md §5): a window's client holds only the members its audience serves,
-// and a plugin resource reads as its fallback once the plugin turns off, whenever core's answer arrives.
+// Renderer clients expose audience-served members only. Disabled resources return their fallback regardless of late answers.
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 import { reader, type RangeQuery } from './p2Fixtures';
 
-// The client runtime, so effects and resources react as in a window (node resolves solid-js to its server build).
+// Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 // The build includes the reader plugin, so the registry knows its calls' audiences.
 vi.mock('virtual:bundled-plugins/shared', async () => ({ default: [(await import('./p2Fixtures')).reader], catalog: null }));

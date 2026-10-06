@@ -1,6 +1,4 @@
-/* @cujuju/solidjs-seg-buttons: colour via its variables, geometry via rules below.
-   F2 segmented control: a recessed track with borderless segments; the selected one is a raised neutral step.
-   Accent is not spent here: it belongs to the primary action, selection and unread. */
+/* F2 segmented controls use recessed tracks and raised neutral selection. Variables supply color; bridge rules supply geometry. */
 
 :root {
   --seg-active-bg: var(--cp-surface-5);

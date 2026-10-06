@@ -60,8 +60,7 @@
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
 }
 
-/* A chrome bar's edge without a rule: its ::after (below) or ::before (above) lies over the content past the edge,
-   the chrome ground fading out. The component places the box (--cp-edge-fade-h tall). */
+/* Chrome edge pseudo-elements fade over adjacent content. Components position boxes using --cp-edge-fade-h. */
 .fadeBelow::after {
   background: inherit;
   mask-image: linear-gradient(to bottom, var(--cp-edge-fade-ramp));

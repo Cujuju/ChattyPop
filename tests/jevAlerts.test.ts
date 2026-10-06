@@ -41,7 +41,7 @@ const topic = (pattern: string, description: string | null) =>
       { name: pattern || description! },
     ),
   );
-/** A per-message question a plugin would register, on while its switch `feature` is. */
+/** Registers a per-message question gated by the feature switch. */
 const perMessage = (subject: string, feature: `${string}.${string}`): void => {
   unregister.push(registerMessageQuestion({ subject, feature, question: () => ({ type: 'noul', instructions: `${subject}?` }) }));
   jev.on[feature] = true;

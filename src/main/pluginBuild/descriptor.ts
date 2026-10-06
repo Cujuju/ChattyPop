@@ -1,6 +1,4 @@
-// An installed plugin build's descriptor (its shared side's default export), which plugin.json's id, name, version and
-// description come from: evaluated from source against a ChattyPop checkout, or from the built node/shared.js
-// against the host modules this process has published.
+// Evaluates shared descriptors from source or built node/shared.js using published host modules. Supplies plugin.json identity/version/description.
 import { existsSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -47,10 +45,7 @@ export async function sourceDescriptor(pluginDir: string, repoRoot: string, anch
   return module.default;
 }
 
-/**
- * Imports the built node/shared.js through the host modules this process published (the app's main process does at
- * start). The import stays in this process's module cache; the start loads the installed copy from its own path.
- */
+/** Imports built shared descriptors using published host modules. Import caches stay process-local; startup imports installed copies from their own paths. */
 export async function builtDescriptor(sharedJs: string): Promise<PluginDescriptor> {
   const hosts = (globalThis as Record<symbol, Record<string, unknown> | undefined>)[HOST_MODULES_KEY];
   if (!hosts?.['@plugin-sdk/shared']) throw new Error('Building without a ChattyPop checkout reads the descriptor through the host\'s @plugin-sdk/shared, which this process hasn\'t published.');

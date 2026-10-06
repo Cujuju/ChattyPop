@@ -79,10 +79,7 @@ export function migrationIndex(step: string | Migration): number {
   return i;
 }
 
-/**
- * Runs MIGRATIONS[from, to) on `db` and records the version. Reaching the current version installs the archive views, as
- * openDb does after an upgrade; an older version (a frozen fixture) has none.
- */
+/** Runs MIGRATIONS[from, to) and records the version. Current-version fixtures install archive views; older frozen fixtures omit them. */
 export function applyMigrations(db: Db, from: number, to = MIGRATIONS.length): void {
   db.transaction(() => {
     for (const step of MIGRATIONS.slice(from, to)) applyMigration(db, step);

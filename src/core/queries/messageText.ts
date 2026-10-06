@@ -2,18 +2,12 @@
 import type { Db } from '../db';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from '../arrival';
 
-/**
- * SQL for a message's text as AI consumers read it: its content, then its derived texts (transcripts)
- * in order. Unmarked, so a marker word can't match topic patterns. `m` is the messages alias.
- */
+/** SQL combines message content and ordered derived text for AI. Omits markers to avoid accidental pattern matches; m aliases messages. */
 export const MESSAGE_TEXT_SQL = `COALESCE((SELECT group_concat(part, char(10)) FROM (
                                     SELECT 0 AS k, m.content AS part WHERE m.content != ''
                                     UNION ALL SELECT d.ord, d.text FROM derived_texts d WHERE d.message_id = m.id AND d.text != '' ORDER BY k)), '')`;
 
-/**
- * SQL for the text of link row alias `l`, null when it has none: a plugin's text for it (a fetched X post, link_texts),
- * else Discord's preview title and description. The plugin's wins: it is the full text.
- */
+/** SQL chooses plugin link text before Discord preview title/description. Returns null if neither exists; l aliases links. */
 export const linkTextSql = (l: string): string => `COALESCE(
   (SELECT t.text FROM link_texts t WHERE t.url = ${l}.url AND t.text != '' ORDER BY t.rowid LIMIT 1),
   NULLIF(trim(COALESCE(${l}.title, '') || char(10) || COALESCE(${l}.description, ''), char(10) || ' '), ''))`;
@@ -44,11 +38,7 @@ export function textedLinkCount(db: Db, messageId: string): number {
   return db.prepare(`SELECT COUNT(text) FROM (${linkTextsSql('?')})`).pluck().get(messageId) as number;
 }
 
-/**
- * The arrival of text added to a stored message after it arrived (a transcript, a link's text): how its message first
- * arrived, timed `at`, as its first text (not an edit). A message stored before arrivals were recorded counts as fetched,
- * so its added text is never live.
- */
+/** Added derived/link text retains original arrival source with supplied timestamp. Legacy messages count as fetched, never live. */
 export function addedTextArrival(db: Db, messageId: string, at: number): Arrived {
   const via = db.prepare('SELECT arrived_via FROM messages WHERE id = ?').pluck().get(messageId) as Arrival | null | undefined;
   return { via: via ?? ARRIVAL.sync, at, edit: false };

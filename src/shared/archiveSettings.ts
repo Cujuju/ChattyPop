@@ -16,10 +16,7 @@ export interface PaceTiming {
 /** Every randomized wait varies by ± this fraction, so requests don't form a machine-regular rhythm. */
 export const WAIT_JITTER = 0.35;
 
-/**
- * Gentle ≈ a person scrolling back through history (a page every few seconds, images as they appear).
- * Normal is roughly twice as fast. Discord's rate-limit headers and 429 backoff apply on top of both.
- */
+/** Gentle pacing approximates scrolling history; Normal doubles it. Discord rate-limit headers and 429 backoff apply to both. */
 export const PACE_TIMING: Record<SyncPace, PaceTiming> = {
   gentle: { apiMs: 3000, mediaMs: 1500, jitter: WAIT_JITTER },
   normal: { apiMs: 1500, mediaMs: 500, jitter: WAIT_JITTER },
@@ -64,10 +61,7 @@ export const REVERIFY_DAYS_MIN = 1;
 /** Each re-checked day is re-fetched every start; beyond a month the cost outweighs catching old edits. */
 export const REVERIFY_DAYS_MAX = 30;
 
-/**
- * full: kept as captured. compressed: the raw Discord payload is zstd-compressed (lossless, about half the size).
- * summary-only: compressed, and once an active coverage provider covers a message its text and payload are removed; the row stays so citations resolve.
- */
+/** full retains captured payloads; compressed uses lossless zstd; summary-only removes covered text/payload while retaining citation rows. */
 export const TEXT_TIERS = ['full', 'compressed', 'summary-only'] as const;
 export type TextTier = (typeof TEXT_TIERS)[number];
 /** A quarter: recent history keeps its full payload. */
