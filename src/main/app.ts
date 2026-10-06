@@ -45,10 +45,10 @@ import { registerMarketplaceHandlers } from './marketplace/ipc';
 import { buildFromSource } from './marketplace/sourceBuild';
 import { Desktop } from './desktop';
 import { createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
-import { AttachmentDownloader } from './media/attachmentDownloader';
+import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
-import { fetchImageTo, fetchVideoTo } from './media/thumbStore';
+import { fetchImageTo, fetchVideoTo, type PosterSource } from './media/thumbStore';
 import { PanelWindows } from './panelWindows';
 import { PhoneHub, type DiscordCalls } from './phone/hub';
 import bundledMain, { failed as failedMain } from 'virtual:bundled-plugins/main';
@@ -110,7 +110,11 @@ void app.whenReady().then(() => {
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
-  const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef?.webContents, family));
+  const posterSource = async (id: string): Promise<PosterSource | null> => {
+    const a = await core.call('attachmentSource', id);
+    return a ? { stored: a.url, fresh: () => freshAttachmentUrl(discordApi, a) } : null;
+  };
+  const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef?.webContents, family), posterSource);
   handleMediaScheme(serveMedia);
   handlePluginScheme(core);
   // The installed plugins main accepted at start, for windows and the phone page.

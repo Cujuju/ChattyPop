@@ -9,7 +9,7 @@ import { isNameFontFamily } from '@shared/nameFonts';
 import { DISCORD_CDN, ensureEmoji, fetchOnceToFile } from './cdnCache';
 import type { MediaDirs } from './mediaDirs';
 import { rangedResponse } from './ranges';
-import { gifPreview, proxiedMedia, thumb, type Media, type MediaSessions } from './thumbStore';
+import { attachmentPoster, gifPreview, proxiedMedia, thumb, type Media, type MediaSessions, type PosterSource } from './thumbStore';
 
 /** Rendered at 20–32 CSS px; 64 covers 2x displays. */
 const ICON_SIZE_PX = 64;
@@ -37,11 +37,19 @@ const upstreamError = (status: number): Response => new Response('upstream error
 const serveMedia = (m: Media | null, range: string | null): Response =>
   m ? rangedResponse(range, m.bytes.length, m.type, (start, end) => new Uint8Array(m.bytes.subarray(start, end + 1))) : notFound();
 
-/** cp-media serves cached Discord assets, archived attachments, proxied previews/full media and uncached Klipy GIFs. Attachment/thumb/proxied/gif routes support byte ranges. */
+/** cp-media serves cached Discord assets, archived attachments and their video stills, proxied previews/full media and uncached Klipy GIFs. Attachment/thumb/proxied/gif routes support byte ranges. */
 export type MediaHandler = (url: URL, range?: string | null) => Promise<Response>;
 
-/** `fontUrl`: where the Discord page loads a display-name font family from; null while it can't say. */
-export function mediaHandler(dirs: MediaDirs, sessions: MediaSessions, fontUrl: (family: string) => Promise<string | null>): MediaHandler {
+/**
+ * `fontUrl`: where the Discord page loads a display-name font family from; null while it can't say. `posterSource`: where
+ * a video attachment's still comes from; null once the attachment left Discord.
+ */
+export function mediaHandler(
+  dirs: MediaDirs,
+  sessions: MediaSessions,
+  fontUrl: (family: string) => Promise<string | null>,
+  posterSource: (attachmentId: string) => Promise<PosterSource | null>,
+): MediaHandler {
   const discordSession = sessions.discord;
   return async (url, range = null) => {
     const parts = url.pathname.split('/').filter(Boolean);
@@ -53,6 +61,7 @@ export function mediaHandler(dirs: MediaDirs, sessions: MediaSessions, fontUrl: 
     if (url.host === 'name-font') return serveNameFont(dirs.nameFonts, discordSession, fontUrl, decodeURIComponent(parts[0] ?? ''));
     if (url.host === 'attachment') return serveAttachment(dirs.attachments, parts[0], range);
     if (url.host === 'emoji') return serveEmoji(dirs.emojis, discordSession, parts[0]);
+    if (url.host === 'poster') return serveMedia(await servePoster(dirs.previews, sessions, posterSource, parts[0]).catch(() => null), range);
     if (url.host === 'proxied') return serveMedia(await proxiedMedia(sessions, dirs.proxied, url.searchParams.get('u') ?? '').catch(() => null), range);
     if (url.host === 'thumb') return serveMedia(await thumb(sessions, dirs.previews, url.searchParams.get('u') ?? '').catch(() => null), range);
     if (url.host === 'gif') return serveMedia(await gifPreview(sessions, url.searchParams.get('u') ?? '').catch(() => null), range);
@@ -162,6 +171,13 @@ async function serveAvatar(dir: string, ses: Session, userId: string | undefined
   const status = await fetchOnceToFile(ses, src, file);
   if (status !== null) return upstreamError(status);
   return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[ext]! } });
+}
+
+/** cp-media://poster/<attachment id>: a video attachment's still, fetched once. */
+async function servePoster(dir: string, sessions: MediaSessions, posterSource: (attachmentId: string) => Promise<PosterSource | null>, id?: string): Promise<Media | null> {
+  if (!id || !SNOWFLAKE_ID.test(id)) return null;
+  const source = await posterSource(id);
+  return source ? attachmentPoster(sessions, dir, id, source) : null;
 }
 
 async function serveAttachment(dir: string, name: string | undefined, range: string | null): Promise<Response> {

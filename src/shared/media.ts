@@ -72,6 +72,8 @@ export const STORED_MEDIA_MIME: Readonly<Record<string, string>> = {
 export const attachmentFileName = (sha256: string, filename: string): string => `${sha256}.${fileExt(filename)}`;
 
 export const attachmentUrl = (sha256: string, filename: string): string => mediaUrl('attachment', attachmentFileName(sha256, filename));
+/** A video attachment's still from Discord's media proxy, fetched once; 404 when it has none. */
+export const attachmentPosterUrl = (attachmentId: string): string => mediaUrl('poster', attachmentId);
 
 /** Discord's attachment flags this app reads. */
 export const ATTACHMENT_FLAG = { spoiler: 1 << 3 } as const;

@@ -6,6 +6,8 @@ import type { Session } from 'electron';
 import { emojiExt } from '@shared/emoji';
 
 export const DISCORD_CDN = 'https://cdn.discordapp.com';
+/** A signed attachment URL that expired answers one of these; a fresh one is read from its message. */
+export const EXPIRED_STATUSES: ReadonlySet<number> = new Set([403, 404]);
 /** Largest render is a jumbo emoji (--cp-emoji-jumbo, 48 CSS px); 128 keeps it sharp up to ~2.5x displays. */
 export const EMOJI_SIZE_PX = 128;
 

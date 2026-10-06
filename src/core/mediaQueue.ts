@@ -7,11 +7,12 @@ import type { Db } from './db';
 export const mediaQueueHandlers = (
   db: () => Db,
   onStored: (attachmentId: string) => void,
-): Pick<CoreMethods, 'pendingAttachments' | 'attachmentStored' | 'attachmentFailed' | 'pendingEmojis' | 'emojiDone'> => ({
+): Pick<CoreMethods, 'pendingAttachments' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'pendingEmojis' | 'emojiDone'> => ({
   pendingAttachments: (limit) => {
     skipPrunedPending(db());
     return pendingAttachments(db(), limit);
   },
+  attachmentSource: (id) => attachmentSource(db(), id),
   attachmentStored: (id, sha256, bytes) => {
     attachmentStored(db(), id, sha256, bytes);
     onStored(id);
@@ -28,6 +29,17 @@ export function pendingAttachments(db: Db, limit: number): PendingAttachment[] {
        WHERE status = 'pending' ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
     )
     .all(limit) as PendingAttachment[];
+}
+
+/** Where an attachment is fetched from; null once it or its message left Discord. */
+export function attachmentSource(db: Db, id: string): PendingAttachment | null {
+  const row = db
+    .prepare(
+      `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename FROM attachments a
+       JOIN messages m ON m.id = a.message_id WHERE a.id = ? AND a.removed_at IS NULL AND m.deleted_at IS NULL`,
+    )
+    .get(id) as PendingAttachment | undefined;
+  return row ?? null;
 }
 
 export function attachmentStored(db: Db, id: string, sha256: string, bytes: number): void {

@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
-import { attachmentUrl, attachmentView } from '@shared/media';
+import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
 import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
@@ -68,9 +68,11 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
         </button>
       </Match>
       <Match when={attachmentView(a()) === 'video'}>
-        {/* Metadata, not "none": an attachment has no poster, so it shows its first frame. Only on-screen rows mount. */}
+        {/* The proxy's still: iOS paints no frame before play, and a codec the desktop lacks paints none. Metadata, not
+            "none": without a still it shows its first frame, where it can. Only on-screen rows mount. */}
         <video
           src={src(a())}
+          poster={attachmentPosterUrl(a().id)}
           data-sized={size() !== null}
           style={mediaSizeVars(size())}
           controls

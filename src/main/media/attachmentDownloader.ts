@@ -13,17 +13,15 @@ import { attachmentFileName, attachmentShard } from '@shared/media';
 import type { CoreClient } from '../coreClient';
 import type { DiscordApi } from '../discord/api';
 import { jittered } from '../sync/pace';
-import { ensureEmoji } from './cdnCache';
+import { EXPIRED_STATUSES, ensureEmoji } from './cdnCache';
 
 /** Rows claimed per pass; downloads run one at a time. */
 const BATCH_SIZE = 20;
-/** Signed CDN URLs that expired answer 403/404; refresh by re-reading the message once. */
-const EXPIRED_STATUSES = new Set([403, 404]);
 
 /** Downloads in flight are written under this prefix and renamed into place; never part of the archive (an archive move skips them). */
 export const PARTIAL_DOWNLOAD_PREFIX = '.part-';
 
-type AttachmentRef = Pick<PendingAttachment, 'id' | 'messageId' | 'channelId' | 'url'>;
+export type AttachmentRef = Pick<PendingAttachment, 'id' | 'messageId' | 'channelId' | 'url'>;
 
 /** Downloads queued attachments into a content-addressed store: <dir>/<attachmentShard>/<attachmentFileName>. */
 /** One attachment to download outside the store (a plugin's attachments.fetchTo). */
@@ -127,7 +125,7 @@ export class AttachmentDownloader {
   private async fetchBody(a: AttachmentRef): Promise<ReadableStream<Uint8Array>> {
     let res = await this.ses.fetch(a.url);
     if (EXPIRED_STATUSES.has(res.status)) {
-      const fresh = await this.freshUrl(a);
+      const fresh = await freshAttachmentUrl(this.api, a);
       if (fresh) res = await this.ses.fetch(fresh);
     }
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
@@ -154,12 +152,13 @@ export class AttachmentDownloader {
     else await rename(tmp, dest);
     return { sha, bytes };
   }
+}
 
-  private async freshUrl(a: AttachmentRef): Promise<string | undefined> {
-    const page = await this.api.get<{ id: string; attachments?: { id: string; url: string }[] }[]>(`channels/${a.channelId}/messages`, {
-      around: a.messageId,
-      limit: 1,
-    });
-    return page.find((m) => m.id === a.messageId)?.attachments?.find((x) => x.id === a.id)?.url;
-  }
+/** A fresh signed CDN URL for an attachment whose stored one expired, read from its message; undefined once it's gone. */
+export async function freshAttachmentUrl(api: Pick<DiscordApi, 'get'>, a: AttachmentRef): Promise<string | undefined> {
+  const page = await api.get<{ id: string; attachments?: { id: string; url: string }[] }[]>(`channels/${a.channelId}/messages`, {
+    around: a.messageId,
+    limit: 1,
+  });
+  return page.find((m) => m.id === a.messageId)?.attachments?.find((x) => x.id === a.id)?.url;
 }

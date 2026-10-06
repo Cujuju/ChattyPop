@@ -8,6 +8,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Session } from 'electron';
 import { DISCORD_MEDIA_PROXY_HOST, KLIPY_MEDIA_HOST, X_MEDIA_HOST } from '@shared/media';
 import { BYTES_PER_MB } from '@shared/units';
+import { DISCORD_CDN, EXPIRED_STATUSES } from './cdnCache';
 
 /** Link cards show previews up to ~320 CSS px; a 640 box covers 2x displays. The proxy fits within the box. */
 const THUMB_BOX_PX = 640;
@@ -84,12 +85,12 @@ function remote(raw: string, s: MediaSessions): { url: URL; ses: Session; previe
   return null;
 }
 
-/** Fetched once and cached at <dir>/<sha256(key)>, its content type beside it in <file>.type. */
-async function cached(dir: string, key: string, ses: Session, fetchUrl: string): Promise<Media | null> {
+/** Fetched once and cached at <dir>/<sha256(key)>, its content type beside it in <file>.type; else the refusal's status. */
+async function fetchCached(dir: string, key: string, ses: Session, fetchUrl: string): Promise<Media | { status: number }> {
   const file = join(dir, createHash('sha256').update(key).digest('hex'));
   if (existsSync(file) && existsSync(`${file}.type`)) return { bytes: await readFile(file), type: await readFile(`${file}.type`, 'utf8') };
   const res = await limited(() => ses.fetch(fetchUrl));
-  if (!res.ok) return null;
+  if (!res.ok) return { status: res.status };
   const type = res.headers.get('content-type') ?? 'application/octet-stream';
   const bytes = Buffer.from(await res.arrayBuffer());
   await mkdir(dir, { recursive: true });
@@ -98,10 +99,43 @@ async function cached(dir: string, key: string, ses: Session, fetchUrl: string):
   return { bytes, type };
 }
 
+async function cached(dir: string, key: string, ses: Session, fetchUrl: string): Promise<Media | null> {
+  const m = await fetchCached(dir, key, ses, fetchUrl);
+  return 'status' in m ? null : m;
+}
+
 /** Link-preview image, scaled by its host to fit THUMB_BOX_PX where the host can; null for hosts not in remote(). */
 export async function thumb(s: MediaSessions, dir: string, raw: string): Promise<Media | null> {
   const r = remote(raw, s);
   return r ? cached(dir, r.url.href, r.ses, r.preview.href) : null;
+}
+
+/** Discord's attachment CDN. Its media proxy serves the same signed path, and a still frame of a video. */
+const ATTACHMENT_CDN_HOST = new URL(DISCORD_CDN).hostname;
+const ATTACHMENT_PROXY_HOST = 'media.discordapp.net';
+/** Poster cache keys: by attachment id, since its signed URL changes. */
+const POSTER_KEY_PREFIX = 'attachment-poster:';
+
+/** Where a video attachment's still comes from: its archived CDN URL, then a fresh one once that expired. */
+export interface PosterSource {
+  stored: string;
+  fresh(): Promise<string | undefined>;
+}
+
+/** A video attachment's still, from Discord's media proxy at THUMB_BOX_PX; null when the proxy gives none. */
+export async function attachmentPoster(s: MediaSessions, dir: string, attachmentId: string, source: PosterSource): Promise<Media | null> {
+  const from = async (cdnUrl: string | undefined): Promise<Media | { status: number } | null> => {
+    const url = cdnUrl ? httpsUrl(cdnUrl) : null;
+    if (url?.hostname !== ATTACHMENT_CDN_HOST) return null;
+    url.hostname = ATTACHMENT_PROXY_HOST;
+    const r = remote(url.href, s)!;
+    return fetchCached(dir, POSTER_KEY_PREFIX + attachmentId, r.ses, r.preview.href);
+  };
+  const first = await from(source.stored);
+  if (!first || !('status' in first)) return first;
+  if (!EXPIRED_STATUSES.has(first.status)) return null;
+  const again = await from(await source.fresh());
+  return again && !('status' in again) ? again : null;
 }
 
 /** A GIF search preview from Klipy's host, fetched without Discord's session and not stored; null for other hosts. */

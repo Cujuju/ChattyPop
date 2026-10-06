@@ -212,6 +212,8 @@ export interface CoreMethods {
   /** Previews keyword matches among scoped recent archived messages. */
   patternPreview(pattern: string, channelIds: string[] | null, contains: ContentKind[] | null): PatternPreview;
   pendingAttachments(limit: number): PendingAttachment[];
+  /** Where an attachment is fetched from (a video's poster); null once it or its message left Discord. */
+  attachmentSource(id: string): PendingAttachment | null;
   attachmentStored(id: string, sha256: string, bytes: number): void;
   attachmentFailed(id: string, error: string): void;
   pendingEmojis(limit: number): PendingEmoji[];
