@@ -25,7 +25,8 @@ html[data-surface='companion'] {
   --cp-switch-h: 28px;
   --cp-switch-w: calc(var(--cp-switch-h) * 7 / 4); /* the desktop track's 7:4 */
   --cp-hit-min: 28px; /* a compact control inside text or a badge: Apple's minimum */
-  --cp-composer-send: 36px; /* Discord iOS's Send button, the owner's choice over the 44pt control size */
+  --cp-composer-h: 58px; /* Discord iOS's message box at one line, its edge included (its app, 2026-10-06): Send 11pt from every outer edge */
+  --cp-composer-send: 36px; /* Discord iOS's Send button (measured 2026-10-06), the owner's choice over the 44pt control size */
   --cp-composer-send-icon: 24px; /* 6px clear of its edge, as a thumb icon is */
   --cp-header-primary-icon: var(--cp-composer-send); /* the phone's accent actions share one size: Summarize as Send */
 
