@@ -69,6 +69,10 @@ interface ReadState {
 const mentionsOf = (s: ReadState): number => s.counted + s.pings.length;
 const UNREAD: ReadState = { counted: 0, pings: [] };
 
+interface AckQueue {
+  next: string | null;
+}
+
 /** Tracks READY mentions, unsuppressed pings and unmuted DMs; reads/owner messages reset counts. DM state includes ack/mute; server mention-on-all-messages behavior is unsupported. */
 export class ReadStates {
   private self: string | null = null;
@@ -78,7 +82,7 @@ export class ReadStates {
   /** Discord's state from before an ack of ours, by channel, while it is sending: a failure returns to it. */
   private readonly rollbacks = new Map<string, ReadState>();
   /** Channels with an ack in flight, each with the newer message to ack once it lands (null: none). */
-  private readonly sending = new Map<string, string | null>();
+  private readonly sending = new Map<string, AckQueue>();
   /** The owner's roles, by server. */
   private readonly roles = new Map<string, Set<string>>();
   /** The owner's notification settings, by server ('' = DMs). */
@@ -107,34 +111,39 @@ export class ReadStates {
     if (before.ackId && compareSnowflakes(messageId, before.ackId) <= 0) return;
     if (!this.rollbacks.has(channelId)) this.rollbacks.set(channelId, before);
     this.put(channelId, { ackId: messageId, counted: 0, pings: before.pings.filter((id) => compareSnowflakes(id, messageId) > 0) });
-    if (this.sending.has(channelId)) {
-      this.sending.set(channelId, messageId);
+    const pending = this.sending.get(channelId);
+    if (pending) {
+      pending.next = messageId;
       return;
     }
-    void this.send(channelId, messageId, this.self);
+    const queue: AckQueue = { next: null };
+    this.sending.set(channelId, queue);
+    void this.send(channelId, messageId, this.self, queue);
   }
 
-  private async send(channelId: string, messageId: string, self: string | null): Promise<void> {
-    this.sending.set(channelId, null);
+  private async send(channelId: string, messageId: string, self: string | null, queue: AckQueue): Promise<void> {
+    queue.next = null;
     try {
       // token: the old ack token, which Discord's read state service ignores and answers null. The guard keeps an ack
       // from going out after another account signed in.
       await this.api.post(`channels/${channelId}/messages/${messageId}/ack`, { token: null }, {
         guard: () => {
-          if (this.self !== self) throw new Error('Another Discord account signed in.');
+          if (this.self !== self || this.sending.get(channelId) !== queue) throw new Error('Another Discord account signed in.');
         },
       });
     } catch (err) {
       this.diag('read-state-ack-failed', { message: err instanceof Error ? err.message : String(err) });
+      if (this.sending.get(channelId) !== queue) return;
       const back = this.rollbacks.get(channelId);
       // A newer ack queued covers this one; with none, Discord's state stands.
-      if (!this.sending.get(channelId) && back && self === this.self) {
+      if (!queue.next && back && self === this.self) {
         this.rollbacks.delete(channelId);
         this.put(channelId, back);
       }
     }
-    const next = this.sending.get(channelId);
-    if (next && self === this.self) return this.send(channelId, next, self);
+    if (this.sending.get(channelId) !== queue) return;
+    const next = queue.next;
+    if (next && self === this.self) return this.send(channelId, next, self, queue);
     this.sending.delete(channelId);
     this.rollbacks.delete(channelId);
   }
@@ -201,6 +210,7 @@ export class ReadStates {
   private ready(d: Record<string, unknown>): void {
     const self = (d['user'] as { id: string } | undefined)?.id ?? null;
     const switched = this.self !== null && self !== this.self;
+    if (self !== this.self) this.sending.clear();
     if (switched) {
       this.states.clear();
       this.settings.clear();

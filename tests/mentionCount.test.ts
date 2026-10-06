@@ -307,6 +307,20 @@ describe("Discord's read states: reading a channel in ChattyPop", () => {
     await settle();
     expect(s.posts).toEqual([]);
   });
+
+  it.each([false, true])('a request before READY cannot swallow a read after READY (previous account: %s)', async (signedIn) => {
+    const s = setup();
+    if (signedIn) s.ready();
+    const release = s.hold();
+    s.states.ack(GENERAL, id(11));
+    s.send('READY', { user: { id: '900000000000000002' }, read_state: { entries: [], partial: false } });
+    s.states.ack(GENERAL, id(12));
+    release();
+    await settle();
+    await settle();
+    expect(s.posts).toEqual([{ path: `channels/${GENERAL}/messages/${id(12)}/ack`, json: { token: null } }]);
+    expect(s.projected.get(GENERAL)?.ackId).toBe(id(12));
+  });
 });
 
 describe("Discord's read states: the stored counts", () => {
