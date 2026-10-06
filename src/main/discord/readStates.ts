@@ -278,7 +278,7 @@ export class ReadStates {
       return;
     }
     if (state.ackId && compareSnowflakes(m.id, state.ackId) <= 0) return;
-    if (!this.pings(m)) return;
+    if (state.pings.includes(m.id) || !this.pings(m)) return;
     // An ack sending may fail: the state it returns to counts this ping too.
     const back = this.rollbacks.get(m.channel_id);
     if (back && !(back.ackId && compareSnowflakes(m.id, back.ackId) <= 0)) this.rollbacks.set(m.channel_id, { ...back, pings: [...back.pings, m.id] });
