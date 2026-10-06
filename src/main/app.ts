@@ -14,6 +14,7 @@ import {
   isComposeIntent,
   type AppEvent,
   type CoreMethod,
+  type PendingAttachment,
 } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { loadArchiveKey } from './archiveKey';
@@ -48,7 +49,7 @@ import { createMainWindow, loadRenderer, rendererWindowOptions } from './mainWin
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
-import { fetchImageTo, fetchVideoTo, type PosterSource } from './media/thumbStore';
+import { attachmentPoster, fetchImageTo, fetchVideoTo, posterKept, type PosterSource } from './media/thumbStore';
 import { PanelWindows } from './panelWindows';
 import { PhoneHub, type DiscordCalls } from './phone/hub';
 import bundledMain, { failed as failedMain } from 'virtual:bundled-plugins/main';
@@ -110,9 +111,10 @@ void app.whenReady().then(() => {
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
+  const posterOf = (a: PendingAttachment): PosterSource => ({ stored: a.url, fresh: () => freshAttachmentUrl(discordApi, a) });
   const posterSource = async (id: string): Promise<PosterSource | null> => {
     const a = await core.call('attachmentSource', id);
-    return a ? { stored: a.url, fresh: () => freshAttachmentUrl(discordApi, a) } : null;
+    return a ? posterOf(a) : null;
   };
   const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef?.webContents, family), posterSource);
   handleMediaScheme(serveMedia);
@@ -122,7 +124,16 @@ void app.whenReady().then(() => {
   handleInstalledScheme(installed);
   /** Set while the archive is being moved: downloads and sync stop writing to it. */
   let archiveMoving = false;
-  const downloader = new AttachmentDownloader(media.attachments, media.emojis, discordSession, discordApi, core, currentPace, async () => !archiveMoving && (await pace.syncEnabled()));
+  const downloader = new AttachmentDownloader(
+    media.attachments,
+    media.emojis,
+    discordSession,
+    discordApi,
+    core,
+    currentPace,
+    async () => !archiveMoving && (await pace.syncEnabled()),
+    { kept: (id) => posterKept(media.previews, id), keep: (a) => attachmentPoster(mediaSessions, media.previews, a.id, async () => posterOf(a)) },
+  );
 
   ipcMain.handle(CORE_INVOKE_CHANNEL, (_e, method: string, params: unknown[]) => {
     if (!rendererCoreMethods.has(method)) throw new Error(`core method not available to renderer: ${method}`);

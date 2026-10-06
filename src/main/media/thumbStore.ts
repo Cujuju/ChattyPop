@@ -86,9 +86,18 @@ function remote(raw: string, s: MediaSessions): { url: URL; ses: Session; previe
 }
 
 /** Fetched once and cached at <dir>/<sha256(key)>, its content type beside it in <file>.type; else the refusal's status. */
+const cacheFile = (dir: string, key: string): string => join(dir, createHash('sha256').update(key).digest('hex'));
+
+/** What was cached for `key`; null when never fetched. */
+async function readCached(dir: string, key: string): Promise<Media | null> {
+  const file = cacheFile(dir, key);
+  return existsSync(file) && existsSync(`${file}.type`) ? { bytes: await readFile(file), type: await readFile(`${file}.type`, 'utf8') } : null;
+}
+
 async function fetchCached(dir: string, key: string, ses: Session, fetchUrl: string): Promise<Media | { status: number }> {
-  const file = join(dir, createHash('sha256').update(key).digest('hex'));
-  if (existsSync(file) && existsSync(`${file}.type`)) return { bytes: await readFile(file), type: await readFile(`${file}.type`, 'utf8') };
+  const file = cacheFile(dir, key);
+  const kept = await readCached(dir, key);
+  if (kept) return kept;
   const res = await limited(() => ses.fetch(fetchUrl));
   if (!res.ok) return { status: res.status };
   const type = res.headers.get('content-type') ?? 'application/octet-stream';
@@ -122,8 +131,21 @@ export interface PosterSource {
   fresh(): Promise<string | undefined>;
 }
 
-/** A video attachment's still, from Discord's media proxy at THUMB_BOX_PX; null when the proxy gives none. */
-export async function attachmentPoster(s: MediaSessions, dir: string, attachmentId: string, source: PosterSource): Promise<Media | null> {
+/** Whether the attachment's still is kept. */
+export function posterKept(dir: string, attachmentId: string): boolean {
+  const file = cacheFile(dir, POSTER_KEY_PREFIX + attachmentId);
+  return existsSync(file) && existsSync(`${file}.type`);
+}
+
+/**
+ * A video attachment's still, from Discord's media proxy at THUMB_BOX_PX. Kept for good, so it outlives the attachment on
+ * Discord; `source` is asked only before then. Null when the proxy gives none or `source` has none.
+ */
+export async function attachmentPoster(s: MediaSessions, dir: string, attachmentId: string, posterSource: () => Promise<PosterSource | null>): Promise<Media | null> {
+  const kept = await readCached(dir, POSTER_KEY_PREFIX + attachmentId);
+  if (kept) return kept;
+  const source = await posterSource();
+  if (!source) return null;
   const from = async (cdnUrl: string | undefined): Promise<Media | { status: number } | null> => {
     const url = cdnUrl ? httpsUrl(cdnUrl) : null;
     if (url?.hostname !== ATTACHMENT_CDN_HOST) return null;

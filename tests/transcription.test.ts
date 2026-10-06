@@ -82,7 +82,7 @@ describe("main's download of a job's audio", () => {
     });
     const ses = { fetch: async () => new Response(body) } as unknown as Session;
     const unused = {} as DiscordApi & CoreClient;
-    const downloader = new AttachmentDownloader(tempDir(), tempDir(), ses, unused, unused, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true);
+    const downloader = new AttachmentDownloader(tempDir(), tempDir(), ses, unused, unused, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, { kept: () => true, keep: async () => null });
     const dir = tempDir();
     const path = join(dir, 'a.audio');
     const done = downloader.fetchTo({ attachmentId: 'a', messageId: 'm', channelId: 'c', url: 'https://cdn.example/a', path });

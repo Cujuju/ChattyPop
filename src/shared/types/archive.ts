@@ -378,6 +378,7 @@ export interface PendingAttachment {
   channelId: string;
   url: string;
   filename: string;
+  contentType: string | null;
 }
 
 /** One message's exchange, oldest first. `linkedIds`: joined to it by Discord replies; the rest grouped by time and participants. */

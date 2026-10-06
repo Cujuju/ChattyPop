@@ -173,11 +173,9 @@ async function serveAvatar(dir: string, ses: Session, userId: string | undefined
   return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[ext]! } });
 }
 
-/** cp-media://poster/<attachment id>: a video attachment's still, fetched once. */
+/** cp-media://poster/<attachment id>: a video attachment's still, fetched once and kept. */
 async function servePoster(dir: string, sessions: MediaSessions, posterSource: (attachmentId: string) => Promise<PosterSource | null>, id?: string): Promise<Media | null> {
-  if (!id || !SNOWFLAKE_ID.test(id)) return null;
-  const source = await posterSource(id);
-  return source ? attachmentPoster(sessions, dir, id, source) : null;
+  return id && SNOWFLAKE_ID.test(id) ? attachmentPoster(sessions, dir, id, () => posterSource(id)) : null;
 }
 
 async function serveAttachment(dir: string, name: string | undefined, range: string | null): Promise<Response> {
