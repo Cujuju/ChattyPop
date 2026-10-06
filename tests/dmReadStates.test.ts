@@ -75,7 +75,7 @@ describe("main's DM read and mute projection", () => {
   it("MESSAGE_ACK sends a DM's new last read message, with its mute", () => {
     const s = setup();
     s.send('READY', ready([{ channel_id: DM, muted: true }]));
-    s.send('MESSAGE_ACK', { channel_id: DM, message_id: id(7) });
+    s.send('MESSAGE_ACK', { channel_id: DM, message_id: id(7), mention_count: 0 });
     expect(s.last(DM)).toEqual({ channelId: DM, mentionCount: 0, ackId: id(7), muteEndsMs: MUTED_FOREVER });
   });
 

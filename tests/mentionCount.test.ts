@@ -39,14 +39,19 @@ function setup() {
     },
   };
   const counts = new Map<string, number>();
+  const projected = new Map<string, ReadStateCount>();
   const errors: string[] = [];
   const states = new ReadStates(
     tap as unknown as GatewayTap,
     api as never,
     (changed: ReadStateCount[], scope: ReadStateScope) => {
       if (scope !== 'merge') counts.clear();
+      if (scope !== 'merge') projected.clear();
       // An absent count keeps the stored one, as core does.
-      for (const c of changed) if (c.mentionCount !== undefined) counts.set(c.channelId, c.mentionCount);
+      for (const c of changed) {
+        projected.set(c.channelId, c);
+        if (c.mentionCount !== undefined) counts.set(c.channelId, c.mentionCount);
+      }
     },
     (event, data) => void (event === 'read-state-ack-failed' && errors.push(String(data['message']))),
     () => NOW,
@@ -71,7 +76,7 @@ function setup() {
       release();
     };
   };
-  return { states, send, ready, message, dm, counts, posts, errors, hold, failPosts: () => void (fail = true) };
+  return { states, send, ready, message, dm, counts, projected, posts, errors, hold, failPosts: () => void (fail = true) };
 }
 
 describe("Discord's read states: the sidebar's mention count", () => {
@@ -150,6 +155,56 @@ describe("Discord's read states: the sidebar's mention count", () => {
     expect(s.counts.get(GENERAL)).toBe(2);
   });
 
+  it('an external read without a count keeps pings newer than the acknowledged message', () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    s.message(12, { mentions: [{ id: ME }] });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11) });
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(11), mentionCount: 1 });
+  });
+
+  it('an omitted or null acknowledgment count retains mentions whose messages are unknown', () => {
+    const s = setup();
+    s.ready({ readState: [{ id: GENERAL, last_message_id: id(10), mention_count: 2 }] });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11) });
+    expect(s.counts.get(GENERAL)).toBe(2);
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(12), mention_count: null });
+    expect(s.counts.get(GENERAL)).toBe(2);
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(13), mention_count: 0 });
+    expect(s.counts.get(GENERAL)).toBe(0);
+  });
+
+  it('ignores acknowledgments of non-channel read states', () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11), ack_type: 5, mention_count: 0 });
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(10), mentionCount: 1 });
+  });
+
+  it('an external read count includes its retained pings exactly once', () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    s.message(12, { mentions: [{ id: ME }] });
+    s.message(13, { mentions: [{ id: ME }] });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11), mention_count: 2 });
+    expect(s.counts.get(GENERAL)).toBe(2);
+    s.states.ack(GENERAL, id(12));
+    expect(s.counts.get(GENERAL)).toBe(1);
+  });
+
+  it('a delayed ordinary read cannot undo a newer read, while a manual unread can', () => {
+    const s = setup();
+    s.ready();
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(13) });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11) });
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(13), mentionCount: 0 });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11), mention_count: 2, manual: true });
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(11), mentionCount: 2 });
+  });
+
   it('ignores a message older than the last read (one a sync delivers late)', () => {
     const s = setup();
     s.ready();
@@ -222,6 +277,24 @@ describe("Discord's read states: reading a channel in ChattyPop", () => {
     await settle();
     await settle();
     expect(s.posts.map((p) => p.path)).toEqual([`channels/${GENERAL}/messages/${id(11)}/ack`, `channels/${GENERAL}/messages/${id(13)}/ack`]);
+  });
+
+  it('an older ack echo keeps the queued read and restores the confirmed state if the queued read fails', async () => {
+    const s = setup();
+    s.ready();
+    s.message(11, { mentions: [{ id: ME }] });
+    s.message(12, { mentions: [{ id: ME }] });
+    const release = s.hold();
+    s.states.ack(GENERAL, id(11));
+    s.states.ack(GENERAL, id(12));
+    s.message(13, { mentions: [{ id: ME }] });
+    s.send('MESSAGE_ACK', { channel_id: GENERAL, message_id: id(11), mention_count: 2 });
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(12), mentionCount: 1 });
+    s.failPosts();
+    release();
+    await settle();
+    await settle();
+    expect(s.projected.get(GENERAL)).toMatchObject({ ackId: id(11), mentionCount: 2 });
   });
 
   it('never sends a read once another account has signed in', async () => {

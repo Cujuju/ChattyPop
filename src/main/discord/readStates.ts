@@ -179,10 +179,11 @@ export class ReadStates {
         return;
       }
       case 'MESSAGE_ACK': {
-        const a = d as { channel_id: string; message_id: string; mention_count?: number };
+        const a = d as { channel_id: string; message_id: string; mention_count?: number | null; manual?: boolean; ack_type?: number };
+        if ((a.ack_type ?? CHANNEL_READ_STATE) !== CHANNEL_READ_STATE) return;
         if (!this.ackSeen) this.diag('read-state-ack-fields', { fields: Object.keys(a) });
         this.ackSeen = true;
-        this.confirm(a.channel_id, { ackId: a.message_id, counted: typeof a.mention_count === 'number' ? a.mention_count : 0, pings: [] });
+        this.acknowledged(a.channel_id, a.message_id, a.mention_count, a.manual === true);
         return;
       }
       case 'MESSAGE_CREATE': {
@@ -292,6 +293,21 @@ export class ReadStates {
   private put(channelId: string, state: ReadState): void {
     this.states.set(channelId, state);
     this.onCounts([this.count(channelId)], 'merge');
+  }
+
+  /** Gateway acknowledgments retain later pings; older echoes confirm rollback state without undoing a pending read. */
+  private acknowledged(channelId: string, messageId: string, count: number | null | undefined, manual: boolean): void {
+    const state = this.states.get(channelId) ?? UNREAD;
+    const back = this.rollbacks.get(channelId);
+    const confirmed = back ?? state;
+    if (!manual && confirmed.ackId && compareSnowflakes(messageId, confirmed.ackId) < 0) return;
+    const pings = confirmed.pings.filter((id) => compareSnowflakes(id, messageId) > 0);
+    const read: ReadState = { ackId: messageId, counted: typeof count === 'number' ? Math.max(0, count - pings.length) : state.counted, pings };
+    if (!manual && back && state.ackId && compareSnowflakes(messageId, state.ackId) < 0) {
+      this.rollbacks.set(channelId, read);
+      return;
+    }
+    this.confirm(channelId, read);
   }
 
   /** Discord's own word on a channel (its ack, or the owner's message): an ack of ours sending has nothing to return to. */
