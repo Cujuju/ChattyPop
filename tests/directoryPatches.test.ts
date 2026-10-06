@@ -4,6 +4,7 @@ import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEvent, DirectoryChannel, DirectoryGuild } from '@shared/contract';
 import { DM_CHANNEL_TYPE, DM_GUILD_ID } from '@shared/discord';
+import { SETTINGS_KEYS } from '@shared/settings';
 
 // The client runtime, so resources load as in a window (node resolves solid-js to its server build).
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
@@ -77,5 +78,17 @@ describe("the renderer's directory", () => {
     send({ type: 'read-states-changed', states: [{ channelId: DM, muteEndsMs: 9 }] });
     const after = directory()[0]!.channels[0]!;
     expect([after.mentionCount, after.dm?.ackId, after.dm?.muteEndsMs]).toEqual([2, '500000000000000004', 9]);
+  });
+
+  it('refreshes new and notable counts on bot policy changes, but ignores unrelated preferences', async () => {
+    const pending = env.reads.length;
+    send({ type: 'setting-changed', key: SETTINGS_KEYS.appearance, value: {} });
+    expect(env.reads).toHaveLength(pending);
+    send({ type: 'setting-changed', key: SETTINGS_KEYS.countedBots, value: ['bot'] });
+    expect(env.reads).toHaveLength(pending + 1);
+    const changed = { ...dmRow(DM, '500000000000000001'), newCount: 2, notableCount: 1 };
+    for (const resolve of env.reads.splice(0)) resolve(guilds(changed));
+    await settle();
+    expect(directory()[0]!.channels[0]).toMatchObject({ newCount: 2, notableCount: 1 });
   });
 });

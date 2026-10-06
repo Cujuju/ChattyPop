@@ -26,7 +26,7 @@ import type {
   PlanUsageWindow,
   ProviderStatus,
 } from './types/ai';
-import type { ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadMark } from './types/archive';
+import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
 import type { MentionCandidate, PersonMatch, PersonName, PersonProfile } from './types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
 import type { ArchivedGatewayEvent } from './types/ipc';
@@ -92,9 +92,14 @@ export interface CoreMethods {
   allMuted(channelIds: readonly string[]): boolean;
   /**
    * What is unread in a channel for the owner: how many, and the first; null when nothing is. `sinceId`: count from that
-   * message (a banner's first unread) instead of the Archive's mark, still leaving out what Discord marks read.
+   * message (or captured opening boundary) instead of the Archive's mark. `localReadId`: when recounting an opening
+   * banner, ignore Discord acknowledgments up to this view's own read; acknowledgments beyond it still clear the banner.
    */
-  channelUnread(channelId: string, sinceId?: string): UnreadMark | null;
+  channelUnread(channelId: string, since?: string | UnreadBoundary, localReadId?: string): UnreadMark | null;
+  /** Opening unread count and its boundary before bot filtering, so changing the selection can recount the banner. */
+  channelUnreadSnapshot(channelId: string): UnreadSnapshot;
+  /** Bots seen in visible archived channels, including history kept after archiving was stopped. */
+  archivedBots(): ArchivedBot[];
   /**
    * The Archive showed `messageId`, the newest message on screen: moves the channel's read mark up to it (never back) and,
    * when it moved, acknowledges it on Discord ('channel-read').

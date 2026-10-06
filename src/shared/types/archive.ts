@@ -331,6 +331,26 @@ export interface UnreadMark {
   firstTs: number;
 }
 
+/** An opening unread boundary, kept independently of bot selection and the source row's lifetime. */
+export interface UnreadBoundary {
+  id: string;
+  ts: number;
+  /** A later external read this opening has observed; never ignored when local reading catches up to it. */
+  ackId?: string;
+}
+
+export interface UnreadSnapshot {
+  boundary: UnreadBoundary | null;
+  unread: UnreadMark | null;
+}
+
+/** A bot that authored a visible archived message, named for Settings. */
+export interface ArchivedBot {
+  id: string;
+  name: string;
+  username: string;
+}
+
 /**
  * A channel's unread mention count in Discord's read state (main/discord/readStates.ts), and a DM's read and mute state.
  * Each field is absent when unknown (or, for the DM fields, not a DM): the stored value stands.

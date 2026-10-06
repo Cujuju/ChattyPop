@@ -5,6 +5,7 @@ import type { AppEvent, DirectoryChannel, DirectoryGuild, ReadStateCount } from 
 import { DM_CHANNEL_TYPES, DM_GUILD_ID, THREAD_CHANNEL_TYPES, byDmActivity, compareSnowflakes } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
 import { chatUnreadCount } from '@shared/unread';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { onAppEvent } from './events';
 import { unreadCounts } from './unreadCounts';
 
@@ -72,6 +73,9 @@ const applyReadStates =
 onAppEvent('archive-changed', () => void refetchDirectory());
 // A read mark moved, here or on another surface: new and notable counts change.
 onAppEvent('channel-read', () => void refetchDirectory());
+onAppEvent('setting-changed', (e) => {
+  if (e.key === SETTINGS_KEYS.countedBots) void refetchDirectory();
+});
 onAppEvent('dm-activity', (e) => patchDirectory(raiseDmActivity(e.channelId, e.lastMessageId)));
 onAppEvent('read-states-changed', (e) => {
   patchDirectory(applyReadStates(e.states));

@@ -6,7 +6,7 @@ import type { Db } from '../db';
 import { NOTABLE_QUERY, NOTABLE_SUBJECT } from '../jev/notable';
 import { storedMatchSql } from '../jev/queries';
 import { dmBlocks, ownPrivateChannelSql } from './dmDirectory';
-import { unreadSql } from './readMarks';
+import { unreadParams, unreadSql } from './readMarks';
 import { visibleChannelSql } from './privacy';
 
 /**
@@ -46,7 +46,7 @@ export function directory(db: Db, unseenSince: number, selfId: string | null = n
          WHERE m.channel_id = c.id AND m.author_id != @self ORDER BY m.ts DESC LIMIT 1) END)
        WHERE ${visibleChannelSql('c.id')} AND ${ownPrivateChannelSql('c')} ORDER BY c.position, c.name`,
     )
-    .all({ unseen: unseenSince, notable: NOTABLE_SUBJECT, dm: DM_CHANNEL_TYPE, self: selfId ?? '', reader: readerId ?? '', ...notable.params }) as {
+    .all({ unseen: unseenSince, notable: NOTABLE_SUBJECT, dm: DM_CHANNEL_TYPE, self: selfId ?? '', reader: readerId ?? '', ...notable.params, ...unreadParams(db) }) as {
     id: string;
     guildId: string;
     name: string;

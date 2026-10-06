@@ -204,7 +204,34 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   'ALTER TABLE attachments ADD COLUMN flags INTEGER;',
   // The owner's Discord sidebar order (main/discord/guildOrder.ts), 0 = top; apart from guilds, as READY names it before sync stores them.
   'CREATE TABLE guild_order (guild_id TEXT PRIMARY KEY, position INTEGER NOT NULL);',
+  storedBotAuthors,
 ];
+
+/** Keep bot identity after retention drops payloads; decode old payloads once during upgrade, never while counting. */
+export function storedBotAuthors(db: Db): void {
+  db.exec('ALTER TABLE users ADD COLUMN bot INTEGER NOT NULL DEFAULT 0;');
+  const rows = db.prepare('SELECT author_id, raw_json FROM messages WHERE raw_json IS NOT NULL').iterate() as Iterable<{
+    author_id: string;
+    raw_json: string | Buffer;
+  }>;
+  const mark = db.prepare('UPDATE users SET bot = 1 WHERE id = ? AND bot = 0');
+  const known = new Set<string>();
+  for (const row of rows) {
+    if (known.has(row.author_id)) continue;
+    let bot = false;
+    try {
+      const payload = JSON.parse(rawJsonText(row.raw_json)!) as { author?: { bot?: boolean } } | null;
+      bot = payload?.author?.bot === true;
+    } catch {
+      // A damaged legacy payload must not prevent the archive opening; another message may identify its author.
+      continue;
+    }
+    if (!bot) continue;
+    known.add(row.author_id);
+  }
+  // This driver forbids writes while an iterator is active; keep only the discovered ids until it finishes.
+  for (const id of known) mark.run(id);
+}
 
 /**
  * Discord's name styling: a member's role ids (JSON array; NULL until a payload carried them), each server's

@@ -4,9 +4,10 @@ import type { Archive } from './archive';
 import type { Db } from './db';
 import { applyGatewayEvent, type GatewayDeps } from './gatewayEvents';
 import { directory } from './queries/directory';
+import { archivedBots } from './queries/bots';
 import { messagePage, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
-import { lastReader, markRead, newestMessageId, unreadMark } from './queries/readMarks';
+import { lastReader, markRead, newestMessageId, unreadMark, unreadSnapshot } from './queries/readMarks';
 import { putGuildOrder } from './queries/guildOrder';
 import { putReadStates } from './queries/readStates';
 import { applyAccessFacts } from './access';
@@ -17,6 +18,8 @@ type Handlers = Pick<
   CoreMethods,
   | 'directory'
   | 'channelUnread'
+  | 'channelUnreadSnapshot'
+  | 'archivedBots'
   | 'markChannelRead'
   | 'markDmRead'
   | 'upsertGuilds'
@@ -91,10 +94,15 @@ export function archiveHandlers(o: {
       const db = o.ready().db;
       return directory(db, o.lastSeenAt(), o.selfId(), reader(db));
     },
-    channelUnread: (channelId, sinceId) => {
+    channelUnread: (channelId, sinceId, localReadId) => {
       const db = o.ready().db;
-      return unreadMark(db, channelId, o.lastSeenAt(), reader(db), sinceId);
+      return unreadMark(db, channelId, o.lastSeenAt(), reader(db), sinceId, localReadId);
     },
+    channelUnreadSnapshot: (channelId) => {
+      const db = o.ready().db;
+      return unreadSnapshot(db, channelId, o.lastSeenAt(), reader(db));
+    },
+    archivedBots: () => archivedBots(o.ready().db, o.selfId()),
     markChannelRead: (channelId, messageId) => {
       // Read here is read on Discord: main acknowledges the message shown, as Discord's client does. Every surface
       // re-reads its counts on the event.

@@ -2,7 +2,8 @@
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { decodeWire, encodeWire } from '@plugin-sdk/shared';
-import { PHONE_CORE_METHODS as COMPANION_CORE_METHODS, PHONE_EVENT_TYPES as COMPANION_EVENT_TYPES, phoneGetsAppEvent, phoneMayCallCore } from '@shared/phone';
+import { PHONE_CORE_METHODS as COMPANION_CORE_METHODS, PHONE_EVENT_TYPES as COMPANION_EVENT_TYPES, phoneAppEvent, phoneGetsAppEvent, phoneMayCallCore } from '@shared/phone';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { RENDERER_CORE_METHODS } from '@shared/contract';
 import { staticFile } from '../src/main/plugins/pages';
 import { voice } from './aPhoneEvents';
@@ -15,6 +16,13 @@ vi.mock('virtual:bundled-plugins/shared', async () => ({ default: (await import(
 const DESKTOP_ONLY = ['setSetting', 'openRouterKeys', 'openRouterBalances', 'createRule', 'deleteRule', 'setChannelPolicy', 'setPluginEnabled', 'pluginCall', 'jevAskRange', 'jevRerun', 'tagRange'];
 
 describe('companion contract', () => {
+  it('receives bot-count policy changes and can refresh the banner, while the bot picker stays desktop-only', () => {
+    const event = { type: 'setting-changed', key: SETTINGS_KEYS.countedBots, value: ['bot'] } as const;
+    expect(phoneAppEvent(event)).toEqual(event);
+    expect(phoneMayCallCore('channelUnreadSnapshot')).toBe(true);
+    expect(phoneMayCallCore('archivedBots')).toBe(false);
+    expect(phoneMayCallCore('setSetting')).toBe(false);
+  });
   it('lets the phone call only renderer methods, never the desktop-only ones', () => {
     for (const m of COMPANION_CORE_METHODS) expect(RENDERER_CORE_METHODS).toContain(m);
     for (const m of DESKTOP_ONLY) expect(COMPANION_CORE_METHODS).not.toContain(m);

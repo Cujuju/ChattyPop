@@ -14,16 +14,18 @@ const kept = (column: string, known: string): string => `${column} = CASE WHEN @
 export function upsertUser(db: Db, u: RawUser): void {
   const tag = serverTag(u);
   db.prepare(
-    `INSERT INTO users (id, username, global_name, avatar, tag_guild_id, tag, tag_badge, name_style, decoration)
-     VALUES (@id, @username, @globalName, @avatar, @tagGuildId, @tag, @tagBadge, @nameStyle, @decoration)
-     ON CONFLICT(id) DO UPDATE SET username = excluded.username, global_name = excluded.global_name, avatar = excluded.avatar,
+    `INSERT INTO users (id, username, global_name, avatar, tag_guild_id, tag, tag_badge, name_style, decoration, bot)
+     VALUES (@id, @username, @globalName, @avatar, @tagGuildId, @tag, @tagBadge, @nameStyle, @decoration, @bot)
+     ON CONFLICT(id) DO UPDATE SET username = excluded.username, ${kept('global_name', 'globalNameKnown')}, ${kept('avatar', 'avatarKnown')},
        ${kept('tag_guild_id', 'tagKnown')}, ${kept('tag', 'tagKnown')}, ${kept('tag_badge', 'tagKnown')},
-       ${kept('name_style', 'styleKnown')}, ${kept('decoration', 'decorationKnown')}`,
+       ${kept('name_style', 'styleKnown')}, ${kept('decoration', 'decorationKnown')}, ${kept('bot', 'botKnown')}`,
   ).run({
     id: u.id,
     username: u.username,
     globalName: u.global_name ?? null,
     avatar: u.avatar ?? null,
+    globalNameKnown: u.global_name !== undefined ? 1 : 0,
+    avatarKnown: u.avatar !== undefined ? 1 : 0,
     tagGuildId: tag?.guildId ?? null,
     tag: tag?.tag ?? null,
     tagBadge: tag?.badge ?? null,
@@ -32,6 +34,8 @@ export function upsertUser(db: Db, u: RawUser): void {
     tagKnown: u.primary_guild !== undefined ? 1 : 0,
     styleKnown: u.display_name_styles !== undefined ? 1 : 0,
     decorationKnown: u.avatar_decoration_data !== undefined ? 1 : 0,
+    bot: u.bot === true ? 1 : 0,
+    botKnown: typeof u.bot === 'boolean' ? 1 : 0,
   });
 }
 

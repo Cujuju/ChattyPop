@@ -1,7 +1,8 @@
 // The Archive's last-read marks: moved to the newest message the owner sees, and the "new messages since" banner.
 import { api } from '@/api';
 import { createEffect, createSignal, on, onCleanup, untrack, type Accessor } from 'solid-js';
-import type { UnreadMark } from '@shared/contract';
+import type { UnreadBoundary, UnreadMark } from '@shared/contract';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { compareSnowflakes } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT } from '@shared/phone';
 import { archiveChannelId, archiveState } from './archive';
@@ -37,6 +38,9 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   let marked: string | undefined;
   /** The mark had reached the newest loaded message when the view was last put away. */
   let caughtUp = false;
+  /** All unread messages at opening, before bot filtering; remains valid after this view marks them read. */
+  let boundary: UnreadBoundary | null = null;
+  let openingDismissal = dismissals;
   /** Bumped when the desktop is reachable again: a mark that failed goes again. */
   const [retries, setRetries] = createSignal(0);
 
@@ -45,10 +49,13 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     const request = ++requests;
     const dismissed = dismissals;
     setReady(null);
-    void api.core.channelUnread(channelId).then(
-      (unread) => {
+    boundary = null;
+    void api.core.channelUnreadSnapshot(channelId).then(
+      (snapshot) => {
         if (request !== requests) return;
-        if (dismissed === dismissals) setBanner(unread);
+        boundary = snapshot.boundary;
+        openingDismissal = dismissed;
+        if (dismissed === dismissals) setBanner(snapshot.unread);
         setReady(channelId);
       },
       // No banner, but reading still moves the mark.
@@ -57,24 +64,25 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   };
 
   /**
-   * The banner read again from its first unread, leaving out what was read elsewhere or sent by the owner since. While
+   * The banner read again from its opening boundary, leaving out what was read elsewhere or sent by the owner since. While
    * the opening snapshot is still out, it is taken again instead: its answer may predate the change.
    */
   const reconcile = (): void => {
     const channelId = archiveChannelId();
     if (!channelId) return;
     if (untrack(ready) !== channelId) return snapshot(channelId);
-    const b = untrack(banner);
-    if (!b || b.channelId !== channelId) return;
+    if (!boundary || openingDismissal !== dismissals) return;
     const request = ++requests;
     const dismissed = dismissals;
-    void api.core.channelUnread(channelId, b.firstId).then((unread) => {
+    void api.core.channelUnread(channelId, boundary, marked).then((unread) => {
       if (request === requests && dismissed === dismissals) setBanner(unread);
     }, () => undefined);
   };
 
   createEffect(
     on(archiveChannelId, (channelId) => {
+      requests++;
+      boundary = null;
       marked = undefined;
       caughtUp = false;
       setBanner(null);
@@ -108,11 +116,18 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   window.addEventListener(DESKTOP_CONNECTED_EVENT, retry);
   const offs = [
     onAppEvent('self-changed', reconcile),
+    onAppEvent('setting-changed', (e) => {
+      if (e.key === SETTINGS_KEYS.countedBots) reconcile();
+    }),
     // Discord's read state moved past what this view marked: a read in another client, or the owner's message. The
     // echo of this view's own reads leaves the banner, as reading here does.
     onAppEvent('read-states-changed', (e) => {
       const s = e.states.find((c) => c.channelId === archiveChannelId());
-      if (s?.ackId && (marked === undefined || compareSnowflakes(s.ackId, marked) > 0)) reconcile();
+      if (s?.ackId && (marked === undefined || compareSnowflakes(s.ackId, marked) > 0)) {
+        // An external read stays external after this view catches up; policy changes must never resurrect it.
+        if (boundary && (!boundary.ackId || compareSnowflakes(s.ackId, boundary.ackId) > 0)) boundary = { ...boundary, ackId: s.ackId };
+        reconcile();
+      }
     }),
   ];
   onCleanup(() => {

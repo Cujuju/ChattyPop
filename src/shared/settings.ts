@@ -8,6 +8,8 @@ export * from './archiveSettings';
 export const SETTINGS_KEYS = {
   ai: 'ai',
   archive: 'archive',
+  /** Bots whose archived messages count as new (Settings → Archive → New-message counts). */
+  countedBots: 'archive.countedBots',
   discordSidebar: 'discordSidebar',
   notifications: 'notifications',
   /** The owner's edits to built-in Jev queries, by query id (Settings → Jev → Queries). */
@@ -55,6 +57,10 @@ export const SETTINGS_KEYS = {
   /** The channel the Archive view last opened (renderer state/archive.ts). */
   archiveChannel: 'archive.channel',
 } as const;
+
+/** Bot ids only: defaults to none, drops malformed entries and duplicates. */
+export const normalizeCountedBots = (v: unknown): string[] =>
+  Array.isArray(v) ? [...new Set(v.filter((id): id is string => typeof id === 'string' && id.length > 0))] : [];
 
 /** The Chat area's sources (SETTINGS_KEYS.chatSource). */
 export const CHAT_SOURCES = ['live', 'archive'] as const;

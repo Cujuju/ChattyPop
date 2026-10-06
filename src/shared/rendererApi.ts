@@ -164,6 +164,8 @@ export const RENDERER_CORE_METHODS = [
   'setSetting',
   'directory',
   'channelUnread',
+  'channelUnreadSnapshot',
+  'archivedBots',
   'markChannelRead',
   'markDmRead',
   'syncState',

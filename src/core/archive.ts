@@ -245,6 +245,8 @@ export class Archive {
       if (u.author && typeof u.content === 'string' && u.timestamp) this.ingestMessages([u as RawMessage], ARRIVAL.gateway);
       return;
     }
+    // Author facts survive payload pruning and partial author replacement below.
+    if (u.author) upsertUser(this.db, u.author);
     if (row.pruned_at) return;
     const mergedObj = { ...(parseRawJson<object>(row.raw_json) ?? {}), ...u };
     const merged = JSON.stringify(mergedObj);

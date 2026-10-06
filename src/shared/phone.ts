@@ -16,6 +16,7 @@ export const PHONE_CORE_METHODS = [
   'getSetting',
   'directory',
   'channelUnread',
+  'channelUnreadSnapshot',
   'markChannelRead',
   'syncState',
   'aiStatus',
@@ -86,6 +87,8 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingView>> = {
   [SETTINGS_KEYS.searchSort]: true,
   [SETTINGS_KEYS.discordSidebar]: true,
   [SETTINGS_KEYS.archiveDensity]: true,
+  // The count policy changes the directory and opening banner; its event reaches open phone views too.
+  [SETTINGS_KEYS.countedBots]: true,
   // Each provider's switch and model, and the Jev switches; not the Ollama address or how Jev connects.
   [SETTINGS_KEYS.ai]: ['providers', 'jev'],
   // Sync status shows how far back a new channel is filled in.

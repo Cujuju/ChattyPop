@@ -23,6 +23,7 @@ import { countText, formatBytes } from '@/ui/format';
 import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
 import { EncryptionControl } from './EncryptionControl';
+import { BotCounts } from './BotCounts';
 import { ReverifyControls } from './ReverifyControls';
 import { StorageLocation } from './StorageLocation';
 import { Card, Note, NumberField, Row, SectionsPage, Stat, Stats, choiceOptions, settingsControl as c, type ChoiceText } from './SettingsLayout';
@@ -79,6 +80,7 @@ export function ArchiveSection() {
           body: SyncBody,
         },
         { id: 'posting', label: 'Automatic posts', meta: () => `pause ${pauseRangeText(s().automaticPostPauseS)}`, body: PostingBody },
+        { id: 'new-counts', label: 'New-message counts', meta: () => 'Choose which bots count', body: BotCounts },
         {
           id: 'recheck',
           label: 'Re-check on startup',

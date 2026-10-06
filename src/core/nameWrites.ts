@@ -3,9 +3,9 @@
 // request and sends archive-changed.namesChanged, scoped to the servers written.
 import type { Db } from './db';
 
-/** Per table, the columns a shown name or a channel's access reads (queries/names.ts, personNames.ts, mentions.ts). */
+/** Columns affecting names, access, or author count policy; every writer shares the archive refresh notification. */
 const NAME_COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  users: ['username', 'global_name', 'name_style'],
+  users: ['username', 'global_name', 'name_style', 'bot'],
   members: ['nick', 'roles', 'left_at'],
   roles: ['position', 'color', 'raw_json'],
   guilds: ['features', 'owner_id'],
