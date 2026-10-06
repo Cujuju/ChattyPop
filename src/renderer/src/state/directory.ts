@@ -26,7 +26,9 @@ async function readDirectory(): Promise<DirectoryGuild[]> {
 }
 
 /** Servers and channels known to the archive, with opt-in flags and stored-message counts. */
-export const [directory, { refetch: refetchDirectory, mutate: mutateDirectory }] = createResource(readDirectory, { initialValue: [] });
+export const [directory, { refetch, mutate: mutateDirectory }] = createResource(readDirectory, { initialValue: [] });
+/** Each invalidation must read core again, including events in the same turn as a previous read. */
+export const refetchDirectory = () => refetch(false);
 
 function patchDirectory(patch: Patch): void {
   sinceRead?.push(patch);

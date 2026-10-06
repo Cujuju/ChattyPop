@@ -90,4 +90,16 @@ describe("the renderer's directory", () => {
     await settle();
     expect(directory()[0]!.channels[0]).toMatchObject({ newCount: 2, notableCount: 1 });
   });
+
+  it('does not lose an inactive channel change delivered in the same turn as a read state', async () => {
+    const old = { ...dmRow(OTHER, '500000000000000002'), newCount: 0 };
+    send({ type: 'read-states-changed', states: [{ channelId: DM, mentionCount: 0 }] });
+    const before = env.reads.shift()!;
+    send({ type: 'archive-changed', channelIds: [OTHER] });
+    before(guilds(old));
+    await settle();
+    for (const resolve of env.reads.splice(0)) resolve(guilds({ ...old, newCount: 1 }));
+    await settle();
+    expect(directory()[0]!.channels[0]!.newCount).toBe(1);
+  });
 });
