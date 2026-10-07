@@ -154,6 +154,7 @@ describe('phone settings', () => {
     // Its writes take the look back out: the PC keeps its own theme, whatever the phone wears.
     expect(phoneLookWrite('appearance', { theme: 'paper', custom: { a: 1 } }, own, { theme: 'tide' })).toEqual({ theme: 'tide', custom: { a: 1 } });
     expect(phoneLookWrite('appearance', { theme: 'paper' }, follows, { theme: 'tide' })).toEqual({ theme: 'paper' });
+    for (const bad of [null, 'paper', ['paper']]) expect(phoneLookWrite('appearance', bad, own, { theme: 'tide' })).toEqual({ theme: 'tide' });
     expect(phoneLookEvent({ type: 'setting-changed', key: 'archive.density', value: 'compact' }, own)).toEqual({ type: 'setting-changed', key: 'archive.density', value: 'cozy' });
     const other: AppEvent = { type: 'rules-changed' };
     expect(phoneLookEvent(other, own)).toBe(other);

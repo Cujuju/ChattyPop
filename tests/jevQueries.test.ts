@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { JEV_QUERIES, jevQueryDef, validateJevQuery, type JevQueryDef, type JevQueryUse } from '@shared/jevQueries';
 import type { CustomJevQuestion } from '@shared/jevQuestion';
+import type { AppEvent } from '@shared/contract';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { ruleSubject } from '@shared/rules';
 import { MS_PER_DAY } from '@shared/units';
 import type { Db } from '../src/core/db';
@@ -104,20 +106,24 @@ describe('edited queries drive the features', () => {
     expect(notable()).toBe(1);
   });
 
-  it('saving validates, stores and applies; null resets', () => {
+  it('saving validates, stores, applies and publishes; null resets', () => {
+    const emitted: AppEvent[] = [];
     const h = jevQueryHandlers(
       () => db,
       () => {
         throw new Error('unused');
       },
+      (e) => void emitted.push(e),
     );
     const tags = def(TAG_QUERY).defaults as Extract<CustomJevQuestion, { type: 'choice' }>;
     expect(() => h.setJevQuery(TAG_QUERY, { ...tags, options: [] })).toThrow();
     h.setJevQuery(TAG_QUERY, { ...tags, minProbability: 0.9 });
     expect(h.jevQueryOverrides()).toHaveProperty([TAG_QUERY]);
     expect((jevQuery(TAG_QUERY) as { minProbability: number }).minProbability).toBe(0.9);
+    expect(emitted.at(-1)).toEqual({ type: 'setting-changed', key: SETTINGS_KEYS.jevQueries, value: h.jevQueryOverrides() });
     h.setJevQuery(TAG_QUERY, null);
     expect(jevQuery(TAG_QUERY)).toBe(tags);
+    expect(emitted).toHaveLength(2);
   });
 });
 

@@ -17,6 +17,14 @@ export interface OpenRouterKeyRouting {
   anyModel: boolean;
 }
 
+/** `v` as key routing; throws when it isn't one (a label string, model id strings, a boolean anyModel). */
+export function decodeKeyRouting(v: unknown): OpenRouterKeyRouting {
+  const r = v as Partial<Record<keyof OpenRouterKeyRouting, unknown>> | null;
+  if (typeof r !== 'object' || r === null || typeof r.label !== 'string' || typeof r.anyModel !== 'boolean') throw new TypeError('Not key routing.');
+  if (!Array.isArray(r.models) || !r.models.every((m): m is string => typeof m === 'string')) throw new TypeError('Key routing models must be model ids.');
+  return { label: r.label, models: r.models, anyModel: r.anyModel };
+}
+
 /** A stored key as the renderer sees it: never the secret. */
 export interface OpenRouterKeyInfo extends OpenRouterKeyRouting {
   id: string;

@@ -56,6 +56,8 @@ export const SETTINGS_KEYS = {
   chatSource: 'chat.source',
   /** The channel the Archive view last opened (renderer state/archive.ts). */
   archiveChannel: 'archive.channel',
+  /** Plugin restore offers the owner dismissed or deferred (shared/pluginRestore.ts). */
+  pluginsRestore: 'plugins.restore',
 } as const;
 
 /** Bot ids only: defaults to none, drops malformed entries and duplicates. */
