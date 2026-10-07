@@ -3,6 +3,7 @@ import { For, Show, createSignal } from 'solid-js';
 import { bundledPlugin } from '@shared/bundledPlugins';
 import { hotkeyLabel, hotkeyOf } from '@shared/desktop';
 import { desktopState, patchDesktopSettings } from '@/state/desktop';
+import { inCompanion } from '@/state/ui';
 import { DEFAULT_LEADER_KEY, MODIFIER_KEYS, keyLabel } from '@/state/leaderRules';
 import { pluginActive } from '@/state/plugins';
 import { LAYOUT_KEYS, LAYOUT_NAME, leaderRefusal, rebindRefusal, shadowedBindings, withBinding, type ShortcutDef } from '@/state/shortcutBindings';
@@ -30,12 +31,14 @@ export function HotkeyRow() {
       for="desktop-hotkey"
       hint="From any app. Needs Ctrl, Alt or Win."
       control={
-        <div class={styles.keyControl}>
-          <input id="desktop-hotkey" readOnly placeholder="Press a shortcut" value={hotkey() ? hotkeyLabel(hotkey()!) : ''} disabled={!desktopState()} onKeyDown={onKeyDown} />
-          <SettingsButton disabled={!hotkey()} onClick={() => void patchDesktopSettings({ hotkey: null })}>
-            Clear
-          </SettingsButton>
-        </div>
+        <Show when={!inCompanion} fallback={<input id="desktop-hotkey" readOnly placeholder="Not set" value={hotkey() ? hotkeyLabel(hotkey()!) : ''} />}>
+          <div class={styles.keyControl}>
+            <input id="desktop-hotkey" readOnly placeholder="Press a shortcut" value={hotkey() ? hotkeyLabel(hotkey()!) : ''} disabled={!desktopState()} onKeyDown={onKeyDown} />
+            <SettingsButton disabled={!hotkey()} onClick={() => void patchDesktopSettings({ hotkey: null })}>
+              Clear
+            </SettingsButton>
+          </div>
+        </Show>
       }
     >
       <Show when={desktopState()?.hotkeyTaken && desktopState()?.settings.hotkey}>
@@ -70,16 +73,18 @@ function KeyField(props: { id: string; class?: string; value: string; placeholde
     if (!reason) setListening(false);
   };
   return (
-    <input
-      id={props.id}
-      class={props.class}
-      readOnly
-      placeholder={props.placeholder}
-      value={listening() ? '' : props.value}
-      onClick={() => setListening(true)}
-      onBlur={stop}
-      onKeyDown={onKeyDown}
-    />
+    <Show when={!inCompanion} fallback={<input id={props.id} class={props.class} readOnly placeholder="Not set" value={props.value} />}>
+      <input
+        id={props.id}
+        class={props.class}
+        readOnly
+        placeholder={props.placeholder}
+        value={listening() ? '' : props.value}
+        onClick={() => setListening(true)}
+        onBlur={stop}
+        onKeyDown={onKeyDown}
+      />
+    </Show>
   );
 }
 
@@ -100,9 +105,11 @@ export function LeaderKeyRow() {
       control={
         <div class={styles.keyControl}>
           <KeyField id="desktop-leader-key" value={keyLabel(leaderKey())} placeholder="Press Space or a symbol" take={take} setRefusal={setRefusal} />
-          <SettingsButton disabled={leaderKey() === DEFAULT_LEADER_KEY} title={`Reset to ${keyLabel(DEFAULT_LEADER_KEY)}`} onClick={() => setRefusal(take(DEFAULT_LEADER_KEY))}>
-            Default
-          </SettingsButton>
+          <Show when={!inCompanion}>
+            <SettingsButton disabled={leaderKey() === DEFAULT_LEADER_KEY} title={`Reset to ${keyLabel(DEFAULT_LEADER_KEY)}`} onClick={() => setRefusal(take(DEFAULT_LEADER_KEY))}>
+              Default
+            </SettingsButton>
+          </Show>
         </div>
       }
     >
@@ -138,7 +145,7 @@ function BindingKey(props: { def: ShortcutDef }) {
         {props.def.name}
         <Show when={origin(props.def)}>{(o) => <span class={styles.keyOrigin}>{o()}</span>}</Show>
       </label>
-      <Show when={overridden()}>
+      <Show when={!inCompanion && overridden()}>
         <button type="button" class={styles.keyReset} aria-label={resetLabel()} title={resetLabel()} onClick={() => setRefusal(take(null))}>
           <Icon name="undo" />
         </button>
@@ -156,7 +163,9 @@ function BindingKey(props: { def: ShortcutDef }) {
 export function ShortcutKeyList() {
   return (
     <div class={styles.keys}>
-      <p class={styles.keysHint}>Click a key to change it.</p>
+      <Show when={!inCompanion} fallback={<Note>Change shortcuts with your PC's keyboard.</Note>}>
+        <p class={styles.keysHint}>Click a key to change it.</p>
+      </Show>
       <ul class={styles.keyList}>
         <li class={styles.key}>
           <span class={styles.keyName}>

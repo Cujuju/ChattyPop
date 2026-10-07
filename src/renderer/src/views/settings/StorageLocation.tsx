@@ -2,6 +2,7 @@ import { Show } from 'solid-js';
 import type { StorageMovePhase } from '@shared/contract';
 import { BYTES_PER_MB } from '@shared/units';
 import { deletePreviousArchive, moveArchive, storageInfo, storageMove } from '@/state/storage';
+import { inCompanion } from '@/state/ui';
 import { Card, Note, Row } from './SettingsLayout';
 import styles from './Settings.module.css';
 
@@ -34,9 +35,11 @@ export function StorageLocation() {
         label={storageInfo()?.dir ?? '…'}
         hint="Moving copies the database and media to the new folder, checks the copy, then restarts there. The original stays until you delete it."
         control={
-          <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void moveArchive()}>
-            Move archive…
-          </button>
+          <Show when={!inCompanion}>
+            <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void moveArchive()}>
+              Move archive…
+            </button>
+          </Show>
         }
       >
         <Show when={storageMove()}>
@@ -49,12 +52,17 @@ export function StorageLocation() {
             label="Previous copy"
             hint={dir()}
             control={
-              <button type="button" class={`cp-button ${styles.button}`} onClick={() => void deletePreviousArchive()}>
-                Delete previous copy…
-              </button>
+              <Show when={!inCompanion}>
+                <button type="button" class={`cp-button ${styles.button}`} onClick={() => void deletePreviousArchive()}>
+                  Delete previous copy…
+                </button>
+              </Show>
             }
           />
         )}
+      </Show>
+      <Show when={inCompanion}>
+        <Note>Move the archive or delete its previous copy on your PC.</Note>
       </Show>
     </Card>
   );
