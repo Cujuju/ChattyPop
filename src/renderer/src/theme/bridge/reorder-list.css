@@ -1,0 +1,14 @@
+/* @cujuju/solid-reorder-list: in place of its default CSS. The primitive owns transform, transition, z-index and position. */
+
+/* A row that drags: its text doesn't select, and the pointer says it can be picked up. */
+[data-reorder-id] {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The row being dragged lifts off the list. */
+.reorder-active {
+  box-shadow: var(--cp-shadow-flyout);
+  cursor: grabbing;
+}

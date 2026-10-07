@@ -19,6 +19,7 @@
   },
   "packageManager": "pnpm@12.5.1",
   "dependencies": {
+    "@cujuju/solid-reorder-list": "github:Cujuju/solid-reorder-list#v0.3.0-rc.4",
     "@cujuju/solidjs-color-picker": "0.3.0",
     "@cujuju/solidjs-pill-number-picker": "0.5.1",
     "@cujuju/solidjs-seg-buttons": "0.3.0",

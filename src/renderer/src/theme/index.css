@@ -26,6 +26,7 @@
 @import './bridge/select-flyout.css';
 @import './bridge/editable-list-flyout.css';
 @import './bridge/editable-list-row.css';
+@import './bridge/reorder-list.css';
 @import './base.css';
 @import './forms.css';
 @import './identity.css';

@@ -63,6 +63,8 @@ export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
 export { QrCode } from '@/ui/QrCode';
 export { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
+// Drag to reorder a list; the theme styles its rows (theme/bridge/reorder-list.css).
+export { createReorderList } from '@cujuju/solid-reorder-list';
 export { unreadCount, totalUnreadCount } from '@/state/unreadCounts';
 
 // App state and navigation.

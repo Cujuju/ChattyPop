@@ -8,6 +8,8 @@ allowBuilds:
   # Squirrel installer helper; ChattyPop packages with NSIS/dir.
   electron-winstaller: false
   esbuild: true
+  # The owner's drag-to-reorder package, from GitHub at v0.3.0-rc.4 (not on npm): its prepare step builds dist.
+  '@cujuju/solid-reorder-list@https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919': true
 
 # Exempts local packages from pnpm’s minimum release age.
 minimumReleaseAgeExclude:

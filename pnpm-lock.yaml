@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@cujuju/solid-reorder-list':
+        specifier: github:Cujuju/solid-reorder-list#v0.3.0-rc.4
+        version: https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919(solid-js@1.9.15)
       '@cujuju/solidjs-color-picker':
         specifier: 0.3.0
         version: 0.3.0(solid-js@1.9.15)
@@ -368,6 +371,12 @@ packages:
     resolution: {integrity: sha512-csSpfNeN49Hx9JaQBSJEIiEbOLtXg3kcc2IpScq2fu5L520h3AWEvsxoH8Srk1jxfRKepaJ4S4sqSC3foI4AgA==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
+
+  '@cujuju/solid-reorder-list@https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919':
+    resolution: {gitHosted: true, integrity: sha512-L5lzXJ8/JYJXwNuV7ManxKcu+qmEENY4GE8puJBFrPAdf0AY3bCNirGRWDXVU6GnmZkx+dy5Gr48MfDze9O02w==, tarball: https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919}
+    version: 0.3.0-rc.4
+    peerDependencies:
+      solid-js: ^1.8.0
 
   '@cujuju/solidjs-color-picker@0.3.0':
     resolution: {integrity: sha512-ETPit9BjLft6QkiKyx1DERheAJylpaF0cjgbE6/OwTmzxZHUrKfEYFGLO55u9EQGLUISinKVbu/GfecdHUcnpw==}
@@ -2740,6 +2749,10 @@ snapshots:
   '@capacitor/status-bar@8.0.3(@capacitor/core@8.5.2)':
     dependencies:
       '@capacitor/core': 8.5.2
+
+  '@cujuju/solid-reorder-list@https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919(solid-js@1.9.15)':
+    dependencies:
+      solid-js: 1.9.15
 
   '@cujuju/solidjs-color-picker@0.3.0(solid-js@1.9.15)':
     dependencies:
