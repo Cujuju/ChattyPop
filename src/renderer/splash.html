@@ -8,11 +8,19 @@
     <link rel="stylesheet" href="./src/theme/splash.css" />
   </head>
   <body class="splash">
-    <img class="splash-icon" src="../../build/icon.svg" alt="" />
-    <h1 class="splash-name">ChattyPop</h1>
-    <p class="splash-status" id="splash-status">Starting…</p>
-    <div class="splash-progress" id="splash-progress" role="progressbar" aria-label="Startup progress" aria-valuemin="0">
-      <div class="splash-progress-fill"></div>
+    <div class="splash-window">
+      <main class="splash-hero">
+        <div class="splash-mark">
+          <img class="splash-icon" src="../../build/icon.svg" alt="" />
+        </div>
+        <h1 class="splash-name">ChattyPop</h1>
+      </main>
+      <footer class="splash-foot">
+        <div class="splash-progress" id="splash-progress" role="progressbar" aria-label="Startup progress" aria-valuemin="0">
+          <div class="splash-progress-fill"></div>
+        </div>
+        <p class="splash-status" id="splash-status">Starting…</p>
+      </footer>
     </div>
   </body>
 </html>

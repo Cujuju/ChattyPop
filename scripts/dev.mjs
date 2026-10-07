@@ -4,8 +4,8 @@
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
-import { Worker, isMainThread } from 'node:worker_threads';
-import { SPLASH_SHOWN_MESSAGE } from '../src/shared/splash.mjs';
+import { Worker, isMainThread, parentPort } from 'node:worker_threads';
+import { DEV_LAUNCH_ENV, SPLASH_SHOWN_MESSAGE } from '../src/shared/splash.mjs';
 
 // electron-vite's dev server sets it before resolving its config; the config's helpers read it.
 process.env.NODE_ENV_ELECTRON_VITE = 'development';
@@ -18,7 +18,17 @@ if (isMainThread) {
   const electron = createRequire(import.meta.url)('electron');
   // Set in shells hosted by Electron apps; it would make the binary run as plain Node.
   const { ELECTRON_RUN_AS_NODE: _asNode, ...env } = process.env;
-  const splash = spawn(electron, [join(import.meta.dirname, 'devSplash.mjs')], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'], env });
+  /** The launch so far, for the splashes (src/shared/splash.mjs): this process's start and the steps done, epoch ms. */
+  const launch = { start: performance.timeOrigin, done: {} };
+  const splash = spawn(electron, [join(import.meta.dirname, 'devSplash.mjs')], {
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    env: { ...env, [DEV_LAUNCH_ENV]: JSON.stringify(launch) },
+  });
+  const finish = (id) => {
+    launch.done[id] = Date.now();
+    // It may already be gone (closed by hand).
+    if (splash.connected) splash.send(id);
+  };
   const fail = (err) => {
     console.error(err);
     splash.kill();
@@ -26,6 +36,7 @@ if (isMainThread) {
   };
   const built = new Promise((resolve, reject) => {
     const worker = new Worker(new URL(import.meta.url));
+    worker.on('message', finish);
     worker.on('error', reject);
     worker.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`The main and preload build exited with code ${code}.`))));
   });
@@ -38,8 +49,8 @@ if (isMainThread) {
     // electron-vite's form: no trailing slash; main loads it and appends queries and page names.
     env.ELECTRON_RENDERER_URL = server.resolvedUrls.local[0].replace(/\/$/, '');
     await built;
-    // The splash marks the step done; it may already be gone (closed by hand).
-    if (splash.connected) splash.send('build');
+    finish('build');
+    env[DEV_LAUNCH_ENV] = JSON.stringify(launch);
   } catch (err) {
     fail(err);
   }
@@ -56,6 +67,8 @@ if (isMainThread) {
 } else {
   const { build } = await vite();
   const { main, preload } = await devConfig();
-  await build(main);
+  // Main's modules are parsed and linked at its buildEnd: most of the build. Rendering and preload follow.
+  const compiled = { name: 'dev-launch-compiled', buildEnd: () => parentPort.postMessage('compile') };
+  await build({ ...main, plugins: [...(main.plugins ?? []), compiled] });
   await build(preload);
 }

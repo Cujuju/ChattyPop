@@ -1,15 +1,42 @@
-/* Startup splash (splash.html): 360x240 frameless window. Night tokens are the first-run look; main may set the owner's colour tokens inline on <html>. Imports stay relative (raw file:// in dev). */
+/* Startup splash (splash.html): 360x240 frameless, transparent window. Night tokens are the first-run look; main may set the owner's colour tokens inline on <html>. Imports stay relative (raw file:// in dev). */
 @import './tokens.css';
 @import './sizes.css';
 
 :root {
   /* Splash-only literals: no app token covers these. */
-  --splash-icon-size: 64px; /* app mark: dominant in a 240px-tall window, leaves room for name, status, bar */
+  --splash-window-radius: 8px; /* Windows 11's window corner radius: the splash reads as a native window */
+  --splash-light: white; /* light from above: a sheen on dark grounds, near invisible on light ones */
+  --splash-shade: black; /* shadow: deepens dark and light grounds alike */
+  --splash-sheen-mix: 4%; /* light share at the window's top: a lift, not a gradient you notice */
+  --splash-floor-mix: 4%; /* shade share at the window's bottom: past this a light ground turns grey */
+  --splash-rim-mix: 7%; /* light share of the inner top rim */
+  --splash-icon-size: 72px; /* app mark: dominant in a 240px-tall window, leaves room for name, status, bar */
+  --splash-icon-shadow: 0 6px 14px color-mix(in srgb, var(--splash-shade) 35%, transparent); /* lifts the mark's dark tile off a dark ground */
+  --splash-glow-size: 220px; /* accent halo behind the mark: about three marks wide, fades before the edges */
+  --splash-glow-mix: 20%; /* accent share at the halo's centre: warmth, not a spotlight */
   --splash-progress-w: 50%; /* track spans half the window: reads as a bar, not a rule */
+  --splash-well-shadow: inset 0 1px 1px color-mix(in srgb, var(--splash-shade) 25%, transparent); /* the track sits in the surface */
+  --splash-fill-tail-mix: 30%; /* shade share at the fill's start: it deepens behind the leading edge */
+  --splash-fill-edge-mix: 30%; /* light share at the fill's leading edge: the bright point travels with it */
+  --splash-fill-glow: 0 0 8px color-mix(in srgb, var(--cp-accent) 55%, transparent); /* the fill lights the track around it */
+  --splash-fill-duration: 450ms; /* --splash-done's ease: steps closer together than this chain into one glide; a lone step still settles quickly */
   --splash-pulse-min-opacity: 0.4; /* reduced-motion pulse floor: visibly alive, never vanishes */
-  --splash-sweep-mix: 40%; /* accent share of the track's idle sweep: alive, yet dimmer than the fill */
+  --splash-sweep-mix: 35%; /* accent share of the track's idle sweep: alive, yet dimmer than the fill */
 
   color-scheme: var(--cp-color-scheme);
+}
+
+/* Main's progress, set on #splash-progress. Registered as numbers so they transition; the fill's width derives from them each frame. */
+@property --splash-done {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --splash-glide {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
 }
 
 *,
@@ -18,36 +45,77 @@
   box-sizing: border-box;
 }
 
+/* Transparent, so the rounded corners show the desktop. The look sits on .splash-window: a body background would paint the whole canvas. */
 html,
 body {
   width: 100%;
   height: 100%;
   margin: 0;
   overflow: hidden;
+  background: transparent;
 }
 
-/* Whole window drags: it has no OS frame. Border marks the edge on dark desktops. */
+/* Whole window drags: it has no OS frame. */
 body {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--cp-space-4);
-  border: var(--cp-border-w) solid var(--cp-border);
-  background: var(--cp-surface-1);
-  color: var(--cp-text-1);
-  font-family: var(--cp-font-sans);
-  line-height: var(--cp-leading-tight);
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
   -webkit-app-region: drag;
 }
 
+/* Border marks the edge on any desktop; the rim catches light from above. */
+.splash-window {
+  display: grid;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  padding-bottom: var(--cp-space-8);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--splash-window-radius);
+  background-color: var(--cp-surface-1);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--cp-surface-1), var(--splash-light) var(--splash-sheen-mix)),
+    color-mix(in srgb, var(--cp-surface-1), var(--splash-shade) var(--splash-floor-mix))
+  );
+  box-shadow: inset 0 var(--cp-border-w) 0 color-mix(in srgb, var(--splash-light) var(--splash-rim-mix), transparent);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  line-height: var(--cp-leading-tight);
+}
+
+.splash-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-6);
+}
+
+/* Isolated so the halo sits under the mark but over the window's ground. */
+.splash-mark {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+}
+
+.splash-mark::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: var(--cp-z-behind);
+  width: var(--splash-glow-size);
+  height: var(--splash-glow-size);
+  translate: -50% -50%;
+  background-image: radial-gradient(closest-side, color-mix(in srgb, var(--cp-accent) var(--splash-glow-mix), transparent), transparent);
+}
+
 .splash-icon {
   width: var(--splash-icon-size);
   height: var(--splash-icon-size);
-  margin-bottom: var(--cp-space-2);
+  filter: drop-shadow(var(--splash-icon-shadow));
   -webkit-user-drag: none;
 }
 
@@ -58,21 +126,36 @@ body {
   letter-spacing: var(--cp-tracking-title);
 }
 
+.splash-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-4);
+  width: 100%;
+}
+
 .splash-status {
   margin: 0;
   font-size: var(--cp-text-xs);
   color: var(--cp-text-muted);
 }
 
-/* Determinate track: main sets --splash-done (0..1) on it as startup steps finish. */
+/* Determinate track. Main sets --splash-done (0..1, work finished), --splash-glide (0..1, >= done: the running step's expected reach) and --splash-glide-ms on it. Unclipped so the fill's glow shows. */
 .splash-progress {
   position: relative;
   width: var(--splash-progress-w);
   height: var(--cp-meter-h-sm);
-  margin-top: var(--cp-space-2);
-  overflow: hidden;
   border-radius: var(--cp-radius-pill);
   background-color: var(--cp-surface-5);
+  box-shadow: var(--splash-well-shadow);
+}
+
+/* Only once main's first state has painted: the app's splash takes over the launcher's mid-way and must not re-fill from 0.
+   Glide runs linearly at the expected pace; its floor keeps a 0ms glide from snapping the bar ahead of done's ease. */
+[data-splash-live] .splash-progress {
+  transition:
+    --splash-done var(--splash-fill-duration) var(--cp-ease-out),
+    --splash-glide max(var(--splash-glide-ms, 0ms), var(--splash-fill-duration)) linear;
 }
 
 /* Liveness while a step runs: a dim accent highlight sweeps the track; the fill paints over it. */
@@ -80,6 +163,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background-image: linear-gradient(
     to right,
     transparent,
@@ -91,14 +175,21 @@ body {
   animation: splash-sweep var(--cp-duration-sweep) var(--cp-ease) infinite alternate;
 }
 
-/* Clamped so an out-of-range value never overflows or inverts the bar. */
+/* The further of done and glide. Clamped so an out-of-range value never overflows or inverts the bar. No width transition: its inputs animate.
+   The gradient spans the fill, so its brightest point rides the leading edge. */
 .splash-progress-fill {
   position: relative;
-  width: clamp(0%, calc(var(--splash-done, 0) * 100%), 100%);
+  width: clamp(0%, calc(max(var(--splash-done), var(--splash-glide)) * 100%), 100%);
   height: 100%;
   border-radius: var(--cp-radius-pill);
   background-color: var(--cp-accent);
-  transition: width var(--cp-duration-slow) var(--cp-ease-out);
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--cp-accent), var(--splash-shade) var(--splash-fill-tail-mix)),
+    var(--cp-accent),
+    color-mix(in srgb, var(--cp-accent), var(--splash-light) var(--splash-fill-edge-mix))
+  );
+  box-shadow: var(--splash-fill-glow);
 }
 
 @keyframes splash-sweep {
@@ -111,15 +202,19 @@ body {
   }
 }
 
-/* Reduced motion: the highlight stays centred and fades; the fill steps without easing. */
+/* Reduced motion: the highlight stays centred and fades; the fill shows finished work only and steps without easing. */
 @media (prefers-reduced-motion: reduce) {
   .splash-progress::before {
     background-position-x: 50%;
     animation-name: splash-pulse;
   }
 
-  .splash-progress-fill {
+  [data-splash-live] .splash-progress {
     transition: none;
+  }
+
+  .splash-progress-fill {
+    width: clamp(0%, calc(var(--splash-done) * 100%), 100%);
   }
 }
 

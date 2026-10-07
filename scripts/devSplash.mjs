@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { app } from 'electron';
-import { openSplash, readSplashTheme } from '../src/main/splashWindow.mjs';
-import { SPLASH_THEME_FILE } from '../src/shared/splash.mjs';
+import { openSplash, readSplashTheme, readSplashTimeline } from '../src/main/splashWindow.mjs';
+import { DEV_LAUNCH_ENV, SPLASH_THEME_FILE, SPLASH_TIMELINE_FILE } from '../src/shared/splash.mjs';
 
 const root = join(import.meta.dirname, '..');
 /** The app's profile in dev: CHATTYPOP_PROFILE_DIR when set (main/storageLocation.ts), else Electron's default for the package name. */
@@ -13,10 +13,16 @@ const profileDir = process.env.CHATTYPOP_PROFILE_DIR || join(app.getPath('appDat
 // Its own throwaway profile, not the app's or a shared "Electron" one.
 app.setPath('userData', join(tmpdir(), 'chattypop-dev-splash'));
 
-/** Steps dev.mjs finished before the window opened. */
-const early = [];
+const last = readSplashTimeline(join(profileDir, SPLASH_TIMELINE_FILE), true);
+/** dev.mjs's start: the launch's. */
+const { start } = JSON.parse(process.env[DEV_LAUNCH_ENV]);
+/** Steps dev.mjs finished before the window opened: epoch ms by step id. */
+const early = {};
 let splash = null;
-process.on('message', (id) => (splash ? splash.finish(id) : early.push(id)));
+process.on('message', (id) => {
+  if (splash) splash.finish(id);
+  else early[id] = Date.now();
+});
 void app.whenReady().then(() => {
-  splash = openSplash({ page: join(root, 'src/renderer/splash.html'), theme: readSplashTheme(join(profileDir, SPLASH_THEME_FILE)), dev: true, done: early });
+  splash = openSplash({ page: join(root, 'src/renderer/splash.html'), theme: readSplashTheme(join(profileDir, SPLASH_THEME_FILE)), dev: true, last: last?.steps, start, done: early });
 });

@@ -3,8 +3,10 @@
 import { join } from 'node:path';
 import { app, ipcMain, type BrowserWindow } from 'electron';
 import { MAIN_INVOKE } from '@shared/contract';
-import { SPLASH_SHOWN_MESSAGE, SPLASH_THEME_FILE, type SplashPhaseId } from '@shared/splash.mjs';
-import { openSplash, readSplashTheme, writeSplashTheme } from './splashWindow.mjs';
+import { errorMessage } from '@shared/errors';
+import { DEV_LAUNCH_ENV, SPLASH_SHOWN_MESSAGE, SPLASH_THEME_FILE, SPLASH_TIMELINE_FILE, type SplashPhaseId, type SplashSteps } from '@shared/splash.mjs';
+import { diag } from './diagnostics';
+import { openSplash, readSplashTheme, readSplashTimeline, writeSplashTheme, writeSplashTimeline } from './splashWindow.mjs';
 import { profilePath } from './storageLocation';
 
 /** out/main, beside out/renderer where the build puts the splash page. */
@@ -13,6 +15,21 @@ const dev = (): boolean => !!process.env['ELECTRON_RENDERER_URL'];
 
 /** In dev, the source page: the dev server may still be busy transforming the app when this loads. */
 const splashPage = (): string => (dev() ? join(app.getAppPath(), 'src/renderer/splash.html') : join(here, '../renderer/splash.html'));
+
+/** What the dev launcher (scripts/dev.mjs) passed: its start and the steps it finished, epoch ms. */
+interface DevLaunch {
+  start: number;
+  done: SplashSteps;
+}
+
+function devLaunch(): DevLaunch | null {
+  try {
+    const v = JSON.parse(process.env[DEV_LAUNCH_ENV] ?? 'null') as Partial<DevLaunch> | null;
+    return v && Number.isFinite(v.start) && v.done && typeof v.done === 'object' ? (v as DevLaunch) : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Tells a launcher that spawned the app (scripts/dev.mjs) to close its splash; once. */
 let launcherReleased = false;
@@ -37,14 +54,33 @@ export function startSplash(main: BrowserWindow, startHidden: boolean): StartupS
     releaseLauncherSplash();
     return { finish: () => undefined };
   }
-  // In dev the launcher built the app before starting it.
-  const splash = openSplash({ page: splashPage(), theme: readSplashTheme(profilePath(SPLASH_THEME_FILE)), dev: dev(), done: dev() ? ['build'] : [] });
+  // In dev the launcher built the app before starting it, and its start begins the launch; else this process's start does.
+  const launch = dev() ? devLaunch() : null;
+  const start = launch?.start ?? performance.timeOrigin;
+  const timelineFile = profilePath(SPLASH_TIMELINE_FILE);
+  const splash = openSplash({
+    page: splashPage(),
+    theme: readSplashTheme(profilePath(SPLASH_THEME_FILE)),
+    dev: dev(),
+    last: readSplashTimeline(timelineFile, dev())?.steps,
+    start,
+    done: launch?.done ?? (dev() ? { compile: start, build: start } : {}),
+  });
+  // The next launch places its steps by this one. A dev start without the launcher has no build time to save.
+  if (!dev() || launch) {
+    void splash.complete
+      .then((steps) => writeSplashTimeline(timelineFile, dev(), { steps }))
+      .catch((err: unknown) => diag('splash-timeline-save-failed', { message: errorMessage(err) }));
+  }
   void splash.shown.then(releaseLauncherSplash);
   const close = (): void => {
     releaseLauncherSplash();
     splash.close();
   };
-  main.once('show', close);
+  main.once('show', () => {
+    splash.finish('window');
+    close();
+  });
   main.once('closed', close);
   return splash;
 }
