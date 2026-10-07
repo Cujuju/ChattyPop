@@ -154,7 +154,7 @@ Replaces phase A's build-time address.
    and the app has the handler; elsewhere it does nothing. It posts each capture to `SHELL_SAVE_MEDIA_HANDLER` as ordered
    base64 `ShellMediaPiece`s of 4 MiB, awaiting each reply, so one piece is in flight. `ShellMediaSaver.swift` writes
    them to a temporary file, then adds it with `PHAssetCreationRequest` after asking for add-only access. Only the
-   paired origin's main frame may post. A new capture's first piece abandons an unfinished one.
+   paired origin's main frame (same scheme, host and port) may post, as for `shellBackdrop` and `shellNetwork`. A new capture's first piece abandons an unfinished one, and any failed piece discards it.
 3. **Network:** `ShellNetworkMonitor.swift` watches `NWPathMonitor`. `ShellViewController` dispatches
    `SHELL_NETWORK_EVENT` with `{ cellular }` on each change, and after each page load: its document-start script posts
    to `shellNetwork` on `load`, after the page's scripts have added their listeners.

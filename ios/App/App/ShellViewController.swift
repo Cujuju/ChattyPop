@@ -26,6 +26,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let networkEvent = "cp-shell-network"
     /// Posted by this app's own load script, asking for the network state (publishNetwork).
     private static let networkHandler = "shellNetwork"
+    /// WKSecurityOrigin reports a scheme's default port as 0; the saved origin is https.
+    private static let httpsDefaultPort = 443
     /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
     private static let mediaSaver = ShellMediaSaver()
     private let network = ShellNetworkMonitor()
@@ -286,7 +288,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
 
     /// Page RGB backdrop, with 0–255 components, updated on theme changes.
     fileprivate func setBackdrop(_ message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,
+        guard Self.isPairedPage(message.frameInfo),
               let rgb = message.body as? [String: Any],
               let r = (rgb["r"] as? NSNumber)?.doubleValue,
               let g = (rgb["g"] as? NSNumber)?.doubleValue,
@@ -297,24 +299,39 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         view.window?.backgroundColor = color
     }
 
+    /// Same scheme, host and effective port as the saved origin, which validatedOrigin limits to https. A nil or 0 port is https's default.
+    private static func isPairedOrigin(scheme: String?, host: String?, port: Int?) -> Bool {
+        guard let paired = savedOrigin, let pairedScheme = paired.scheme, let pairedHost = paired.host,
+              let scheme, let host else { return false }
+        let effectivePort = { (port: Int?) -> Int in
+            guard let port, port != 0 else { return httpsDefaultPort }
+            return port
+        }
+        return scheme.lowercased() == pairedScheme.lowercased() && host.lowercased() == pairedHost.lowercased()
+            && effectivePort(port) == effectivePort(paired.port)
+    }
+
+    /// The paired desktop's page, in the main frame: the only sender the page-facing handlers act for.
+    private static func isPairedPage(_ frame: WKFrameInfo) -> Bool {
+        let sender = frame.securityOrigin
+        return frame.isMainFrame && isPairedOrigin(scheme: sender.`protocol`, host: sender.host, port: sender.port)
+    }
+
     /// A camera capture's pieces, saved to Photos (ShellMediaSaver). Only the paired page may add to the library.
     fileprivate func saveMedia(_ message: WKScriptMessage, reply: @escaping (Any?, String?) -> Void) {
-        let sender = message.frameInfo.securityOrigin
-        guard message.frameInfo.isMainFrame, sender.`protocol` == "https",
-              let host = Self.savedOrigin?.host, sender.host.lowercased() == host.lowercased() else {
-            return reply(nil, "Only the paired page may save to Photos.")
-        }
+        guard Self.isPairedPage(message.frameInfo) else { return reply(nil, "Only the paired page may save to Photos.") }
         Self.mediaSaver.receive(message.body) { error in reply(nil, error) }
     }
 
     fileprivate func networkRequested(_ message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame else { return }
+        guard Self.isPairedPage(message.frameInfo) else { return }
         publishNetwork()
     }
 
-    /// Dispatches the network event with the current route; nothing until the first path is known.
+    /// Dispatches the network event with the current route to the paired page; nothing until the first path is known.
     private func publishNetwork() {
-        guard let cellular = network.cellular else { return }
+        guard let cellular = network.cellular, let url = webView?.url,
+              Self.isPairedOrigin(scheme: url.scheme, host: url.host, port: url.port) else { return }
         webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(Self.networkEvent)', { detail: { cellular: \(cellular) } }))")
     }
 
