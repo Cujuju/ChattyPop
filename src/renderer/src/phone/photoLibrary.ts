@@ -14,7 +14,11 @@ import {
   type ShellAssetExport,
   type ShellAssetPage,
   type ShellPhotosRequest,
+  type ShellVideoShrink,
 } from '@shared/shell';
+import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE, effectiveVideoQualityFor } from '@shared/videoEncode';
+import { deviceChatSettings } from '@/state/chatSettings';
+import { onCellular } from '@/state/network';
 
 export { shellThumbUrl as photoThumbUrl, type PhotoAccess, type ShellAsset as PhotoAsset, type ShellAssetPage as PhotoPage } from '@shared/shell';
 
@@ -62,14 +66,25 @@ function bytesOf(base64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+/** What the app shrinks a video to before the page reads it: the device's send quality, or nothing for Best. */
+function videoShrink(): ShellVideoShrink | undefined {
+  const quality = effectiveVideoQualityFor(deviceChatSettings(), onCellular());
+  if (quality === 'best') return undefined;
+  const { shortSide, videoBitrate } = ENCODE_PRESETS[quality];
+  return { shortSide, videoBitrate, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE };
+}
+
 /**
- * Library item `id` as a File for the composer's upload path: the app exports it (HEIC as JPEG, HEVC as H.264) to a file, which
- * is read here piece by piece, one in flight; the last read deletes it. A failed read releases it.
+ * Library item `id` as a File for the composer's upload path: the app exports it (HEIC as JPEG, HEVC as H.264, a video shrunk
+ * to the device's send quality) to a file, which is read here piece by piece, one in flight; the last read deletes it. A failed
+ * read releases it.
  */
 export async function photoFile(id: string): Promise<File> {
   const photos = handler();
   if (!photos) throw new Error('This app version cannot read Photos.');
-  const { token, name, type, size } = (await photos.postMessage({ op: 'export', id })) as ShellAssetExport;
+  const shrink = videoShrink();
+  const request: ShellPhotosRequest = shrink ? { op: 'export', id, shrink } : { op: 'export', id };
+  const { token, name, type, size } = (await photos.postMessage(request)) as ShellAssetExport;
   // Each piece joins the Blob as it comes, so the page holds one piece's bytes at a time; WebKit keeps the rest.
   let read = new Blob([]);
   try {

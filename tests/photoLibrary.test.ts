@@ -3,6 +3,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SHELL_ASSET_READ_BYTES, SHELL_CAPABILITIES, SHELL_NATIVE_GLOBAL, SHELL_PHOTOS_HANDLER, SHELL_PHOTOS_PAGE_MAX, type PhotoAccess, type ShellAssetPage, type ShellPhotosRequest } from '@shared/shell';
 
+import { DEFAULT_DEVICE_CHAT_SETTINGS, type DeviceChatSettings } from '@shared/chatSettings';
+import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE } from '@shared/videoEncode';
+
+const device = vi.hoisted(() => ({ settings: null as DeviceChatSettings | null, cellular: false }));
+vi.mock('../src/renderer/src/state/chatSettings', () => ({ deviceChatSettings: () => device.settings }));
+vi.mock('../src/renderer/src/state/network', () => ({ onCellular: () => device.cellular }));
+
 // A path import keeps DOM types outside node type checking.
 const libraryPath = '../src/renderer/src/phone/photoLibrary';
 const library = (await import(libraryPath)) as {
@@ -25,6 +32,8 @@ const postMessage = (request: ShellPhotosRequest): Promise<unknown> => {
 };
 
 beforeEach(() => {
+  device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'best' };
+  device.cellular = false;
   requests = [];
   answer = () => 'full';
   vi.stubGlobal('webkit', { messageHandlers: { [SHELL_PHOTOS_HANDLER]: { postMessage } } });
@@ -95,5 +104,21 @@ describe('with it', () => {
     answer = () => ({ token: 'T', name: 'a.jpg', type: 'image/jpeg', size: 0 });
     expect((await library.photoFile('a')).size).toBe(0);
     expect(requests.map((r) => r.op)).toEqual(['export']);
+  });
+
+  it("asks the app to shrink a video to the device's send quality, and not for Best", async () => {
+    answer = (r) => (r.op === 'export' ? { token: 'T', name: 'a.mp4', type: 'video/mp4', size: 0 } : undefined);
+    const exportOf = async (): Promise<ShellPhotosRequest | undefined> => {
+      requests = [];
+      await library.photoFile('v');
+      return requests[0];
+    };
+    expect(await exportOf()).toEqual({ op: 'export', id: 'v' });
+    device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'standard' };
+    const shrinkOf = (preset: (typeof ENCODE_PRESETS)[keyof typeof ENCODE_PRESETS]) => ({ ...preset, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE });
+    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf(ENCODE_PRESETS.standard) });
+    device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'best', dataSaving: true };
+    device.cellular = true;
+    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf(ENCODE_PRESETS.dataSaver) });
   });
 });

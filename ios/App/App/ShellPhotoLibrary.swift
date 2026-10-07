@@ -14,6 +14,12 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     private static let idKey = "id"
     private static let tokenKey = "token"
     private static let lengthKey = "length"
+    // Mirrors ShellVideoShrink.
+    private static let shrinkKey = "shrink"
+    private static let shortSideKey = "shortSide"
+    private static let videoBitrateKey = "videoBitrate"
+    private static let audioBitrateKey = "audioBitrate"
+    private static let maxFrameRateKey = "maxFrameRate"
     /// Mirrors SHELL_ASSET_READ_BYTES.
     private static let readMax = 4 * 1024 * 1024
     /// Mirrors SHELL_PHOTOS_PAGE_MAX.
@@ -86,7 +92,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         case "export":
             guard let id = fields[Self.idKey] as? String, !id.isEmpty else { return finish(nil, LibraryError.malformed) }
             guard Self.readable else { return finish(nil, LibraryError.notAllowed) }
-            export(id) { result in
+            export(id, shrink: Self.shrinkTarget(fields[Self.shrinkKey])) { result in
                 switch result {
                 case .success(let file): finish(file, nil)
                 case .failure(let error): finish(nil, error)
@@ -159,14 +165,23 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     // MARK: Export
 
-    private func export(_ id: String, done: @escaping (Result<[String: Any], Error>) -> Void) {
+    /// An export request's `shrink`, when whole and positive.
+    private static func shrinkTarget(_ value: Any?) -> ShellVideoShrinker.Target? {
+        guard let fields = value as? [String: Any] else { return nil }
+        let number = { (key: String) -> Int? in (fields[key] as? NSNumber).map(\.intValue).flatMap { $0 > 0 ? $0 : nil } }
+        guard let shortSide = number(shortSideKey), let videoBitrate = number(videoBitrateKey),
+              let audioBitrate = number(audioBitrateKey), let maxFrameRate = number(maxFrameRateKey) else { return nil }
+        return ShellVideoShrinker.Target(shortSide: shortSide, videoBitrate: videoBitrate, audioBitrate: audioBitrate, maxFrameRate: maxFrameRate)
+    }
+
+    private func export(_ id: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {
         guard let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject else { return done(.failure(LibraryError.notFound)) }
         let resources = PHAssetResource.assetResources(for: asset)
         let original = resources.first { $0.type == .photo || $0.type == .video }?.originalFilename ?? Self.fallbackName
         let stem = (original as NSString).deletingPathExtension
         switch asset.mediaType {
         case .image: exportPhoto(asset, stem: stem, done: done)
-        case .video: exportVideo(asset, stem: stem, done: done)
+        case .video: exportVideo(asset, stem: stem, shrink: shrink, done: done)
         default: done(.failure(LibraryError.notFound))
         }
     }
@@ -194,23 +209,41 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         }
     }
 
-    /// The video as edited. An unedited H.264 original is copied as it is; anything else (HEVC, an edit) is exported as H.264 MP4.
-    private func exportVideo(_ asset: PHAsset, stem: String, done: @escaping (Result<[String: Any], Error>) -> Void) {
+    /// The video as edited. An unedited H.264 original that needs no shrinking is copied as it is. With `shrink`, anything else is
+    /// re-encoded to it (ShellVideoShrinker); without, exported as H.264 MP4 at full size.
+    private func exportVideo(_ asset: PHAsset, stem: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {
         let options = PHVideoRequestOptions()
         options.isNetworkAccessAllowed = true
         options.version = .current
         options.deliveryMode = .highQualityFormat
         PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { [exports] video, _, _ in
             guard let video else { return done(.failure(LibraryError.notExported)) }
+            nonisolated(unsafe) let source = video
             Task {
-                if let file = video as? AVURLAsset, await Self.isH264(file),
+                guard let mime = UTType.mpeg4Movie.preferredMIMEType else { return done(.failure(LibraryError.notExported)) }
+                let name = "\(stem).\(Self.movieExtension)"
+                let fits = await { () async -> Bool in
+                    guard let shrink, let side = try? await ShellVideoShrinker.shortSide(of: source) else { return true }
+                    return side <= shrink.shortSide
+                }()
+                if fits, let file = source as? AVURLAsset, await Self.isH264(file),
                    let kind = UTType(filenameExtension: file.url.pathExtension), kind.conforms(to: .movie),
-                   let mime = kind.preferredMIMEType {
-                    return done(exports.add(copying: file.url, name: "\(stem).\(file.url.pathExtension)", type: mime))
+                   let originalMime = kind.preferredMIMEType {
+                    return done(exports.add(copying: file.url, name: "\(stem).\(file.url.pathExtension)", type: originalMime))
                 }
-                guard let session = AVAssetExportSession(asset: video, presetName: AVAssetExportPresetHighestQuality),
-                      let mime = UTType.mpeg4Movie.preferredMIMEType else { return done(.failure(LibraryError.notExported)) }
                 let url = exports.newFile(extension: Self.movieExtension)
+                if let shrink {
+                    do {
+                        try await ShellVideoShrinker.shrink(source, to: url, target: shrink)
+                        return done(exports.add(moved: url, name: name, type: mime))
+                    } catch {
+                        try? FileManager.default.removeItem(at: url)
+                        return done(.failure(error))
+                    }
+                }
+                guard let session = AVAssetExportSession(asset: source, presetName: AVAssetExportPresetHighestQuality) else {
+                    return done(.failure(LibraryError.notExported))
+                }
                 session.outputURL = url
                 session.outputFileType = .mp4
                 session.shouldOptimizeForNetworkUse = true
@@ -221,7 +254,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
                         try? FileManager.default.removeItem(at: url)
                         return done(.failure(finished.error ?? LibraryError.notExported))
                     }
-                    done(exports.add(moved: url, name: "\(stem).\(Self.movieExtension)", type: mime))
+                    done(exports.add(moved: url, name: name, type: mime))
                 }
             }
         }

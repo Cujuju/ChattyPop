@@ -22,6 +22,7 @@
 		C0A1E5000000000000000017 /* ShellNetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000015 /* ShellNetworkMonitor.swift */; };
 		C0A1E5000000000000000019 /* ShellPhotoLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000018 /* ShellPhotoLibrary.swift */; };
 		C0A1E500000000000000001B /* ShellAssetSchemeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E500000000000000001A /* ShellAssetSchemeHandler.swift */; };
+		C0A1E500000000000000001D /* ShellVideoShrinker.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E500000000000000001C /* ShellVideoShrinker.swift */; };
 		C0A1E500000000000000000A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000002 /* ShareViewController.swift */; };
 		C0A1E500000000000000000B /* SharedPairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DBC11AFFF54EBAB5B735D4 /* SharedPairing.swift */; };
 		C0A1E500000000000000000C /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000001 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -69,6 +70,7 @@
 		C0A1E5000000000000000015 /* ShellNetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellNetworkMonitor.swift; sourceTree = "<group>"; };
 		C0A1E5000000000000000018 /* ShellPhotoLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellPhotoLibrary.swift; sourceTree = "<group>"; };
 		C0A1E500000000000000001A /* ShellAssetSchemeHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellAssetSchemeHandler.swift; sourceTree = "<group>"; };
+		C0A1E500000000000000001C /* ShellVideoShrinker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellVideoShrinker.swift; sourceTree = "<group>"; };
 		C0A1E5000000000000000001 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0A1E5000000000000000002 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		C0A1E5000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -123,6 +125,7 @@
 				C0A1E5000000000000000015 /* ShellNetworkMonitor.swift */,
 				C0A1E5000000000000000018 /* ShellPhotoLibrary.swift */,
 				C0A1E500000000000000001A /* ShellAssetSchemeHandler.swift */,
+				C0A1E500000000000000001C /* ShellVideoShrinker.swift */,
 				F1DBC11AFFF54EBAB5B735D4 /* SharedPairing.swift */,
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -265,6 +268,7 @@
 				C0A1E5000000000000000017 /* ShellNetworkMonitor.swift in Sources */,
 				C0A1E5000000000000000019 /* ShellPhotoLibrary.swift in Sources */,
 				C0A1E500000000000000001B /* ShellAssetSchemeHandler.swift in Sources */,
+				C0A1E500000000000000001D /* ShellVideoShrinker.swift in Sources */,
 				5DD82A6EDDEF444AA1817716 /* SharedPairing.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 			);

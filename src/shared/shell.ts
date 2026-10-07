@@ -105,7 +105,9 @@ export interface ShellAssetExport {
  * - `request`: PhotoAccess, asking the owner first if not yet asked.
  * - `manage`: PhotoAccess, after the owner changes which photos a `limited` app may read.
  * - `recent`: a ShellAssetPage of photos and videos, newest first, `offset` items in, at most `limit` (SHELL_PHOTOS_PAGE_MAX).
- * - `export`: a ShellAssetExport of item `id`, HEIC as JPEG and HEVC as H.264, written to a file in the app.
+ * - `export`: a ShellAssetExport of item `id`, HEIC as JPEG and HEVC as H.264, written to a file in the app. With `shrink`, a
+ *   video is re-encoded to it unless it's an unedited H.264 original already within its size. WebKit holds the page's File in
+ *   memory (measured on an iPhone 17 Pro Max: a 450 MB video added about 480 MB to the page), so a video is cut down first.
  * - `read`: base64 of up to `length` (SHELL_ASSET_READ_BYTES at most) bytes of export `token` from `offset`. The read that reaches
  *   its end deletes the file. The bytes come this way because WebKit blocks an https page's fetch from an app scheme as mixed content.
  * - `release`: deletes export `token` unread. A relaunch deletes every export.
@@ -115,9 +117,20 @@ export type ShellPhotosRequest =
   | { op: 'request' }
   | { op: 'manage' }
   | { op: 'recent'; offset: number; limit: number }
-  | { op: 'export'; id: string }
+  | { op: 'export'; id: string; shrink?: ShellVideoShrink }
   | { op: 'read'; token: string; offset: number; length: number }
   | { op: 'release'; token: string };
+/** A video export's target (ShellVideoShrinker.swift): the shorter side and video rate of a page encode preset (EncodePreset). */
+export interface ShellVideoShrink {
+  /** The output's shorter side, px; a smaller video keeps its size. */
+  shortSide: number;
+  /** Video bitrate at the full shorter side, bit/s, scaled down by area below it. */
+  videoBitrate: number;
+  /** AAC bitrate, bit/s. */
+  audioBitrate: number;
+  /** Frames per second at most. */
+  maxFrameRate: number;
+}
 /** The most items one `recent` request returns. */
 export const SHELL_PHOTOS_PAGE_MAX = 200;
 /** The most bytes one `read` returns: each is copied as base64 text in the app and the page, so this bounds both (about 5.6 MB of text). */
