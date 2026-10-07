@@ -149,6 +149,16 @@
   outline-offset: var(--cp-focus-ring-offset-inset);
 }
 
+/* A cell's picture: unseen until it has loaded (data-loaded), then faded in over the cell's ground, so none pops in. */
+.mediaThumb {
+  opacity: 0;
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+.mediaThumb[data-loaded='true'] {
+  opacity: 1;
+}
+
 /* A cell's pick mark: a ring over any picture; picked (data-picked), the accent disc carrying its order. */
 .pickMark {
   border: var(--cp-media-pick-ring) solid var(--cp-text-1);

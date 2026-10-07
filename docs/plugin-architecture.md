@@ -580,7 +580,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `replyBand`, `pingToggle` | The box's top band (a reply); Discord's @ON/@OFF | `aria-pressed` |
 | `quietButton`, `pillClose` | A muted control brightening under the pointer; a pill's × | — |
 | `fileTile`, `filePreview`, `removeBadge` | An attached file's tile, its preview, and its floating remove button | `data-state="blank"` |
-| `sheetGrabber`, `mediaCell`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; a media grid cell; a cell's pick mark; a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"` (`mediaCell`); `data-picked` (`pickMark`) |
+| `sheetGrabber`, `mediaCell`, `mediaThumb`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; a media grid cell; its picture, faded in once loaded; a cell's pick mark; a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"` (`mediaCell`); `data-loaded` (`mediaThumb`); `data-picked` (`pickMark`) |
 | `popover`, `popoverHead` | A popover over the box (menus, suggestions, pickers); its sticky heading | — |
 | `listOption` | A keyboard-navigable choice in a popover's list | `aria-selected` |
 | `emojiGlyph`, `round` | An emoji at reaction size; a circle (avatars, app icons) | — |

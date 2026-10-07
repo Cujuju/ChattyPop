@@ -79,6 +79,15 @@
   background: var(--cp-surface-1);
   color: var(--cp-text-1);
   box-shadow: var(--cp-shadow-dialog);
+  /* Snaps to a detent's height, and springs back from a short pull. */
+  transition:
+    height var(--cp-duration-base) var(--cp-ease-out),
+    translate var(--cp-duration-base) var(--cp-ease-out);
+}
+
+/* The finger leads while it pulls (pullToClose). */
+.sheet[data-pull='true'] {
+  transition: none;
 }
 
 /* Side drawer: a modal dialog sliding in from the start edge; its closed position is the component's (structure). */
