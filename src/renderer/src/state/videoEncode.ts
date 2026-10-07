@@ -3,141 +3,120 @@
 //
 //   prepareUpload(file, quality, { limitBytes, signal?, onProgress? }) → the File to upload.
 //     Non-video files come back unchanged; a video comes back as the smaller of the original and its `<base>.mp4`
-//     re-encode, stepping down to Data Saver while still over limitBytes. Throws VideoUploadError (message is for the UI)
-//     when nothing fits, or the signal's reason when aborted. onProgress gets 0..1 per encode pass.
+//     re-encode, stepping down to Data Saver while nothing fits limitBytes. Throws VideoUploadError (message is for the
+//     UI) when nothing fits, or the signal's reason when aborted. onProgress gets 0..1 per encode attempt.
 //   effectiveVideoQuality() → the quality to pass: this device's choice, Data Saver on cellular while Data Saving is on.
 //
-// Decisions and presets: shared/videoEncode.ts. Memory: input is read in slices; the output (≈ its size, held until the
-// MP4 is finalized so its index can lead) collects as Blob parts.
-import type { ConversionAudioOptions, Input, InputAudioTrack, StreamTargetChunk } from 'mediabunny';
+// Sequencing: shared/videoUpload.ts. Presets and rules: shared/videoEncode.ts. Output memory: state/videoEncodeOutput.ts.
+import type { Conversion, ConversionAudioOptions, Input, InputAudioTrack } from 'mediabunny';
 import type { VideoQuality } from '@shared/chatSettings';
 import {
   AUDIO_BITRATE,
   ENCODE_PRESETS,
   MAX_AUDIO_CHANNELS,
-  MP4_TYPE,
-  chooseUpload,
   displaySize,
   effectiveVideoQualityFor,
-  encodeQualityFor,
   expectedEncodedBytes,
-  isVideoType,
+  frameRateCap,
   mp4Name,
-  outputFrameRate,
-  retryQuality,
   targetSize,
   videoBitrateFor,
-  videoLimitMessage,
   worthEncoding,
-  type EncodePreset,
-  type EncodeResult,
-  type VideoLimitReason,
+  type EncodeQuality,
 } from '@shared/videoEncode';
+import { prepareVideoUpload, type EncodeAt, type EncodeAttempt, type PrepareUploadOptions } from '@shared/videoUpload';
 import { deviceChatSettings } from './chatSettings';
 import { onCellular } from './network';
+import { uploadOutput } from './videoEncodeOutput';
+
+export { VideoUploadError, type PrepareUploadOptions } from '@shared/videoUpload';
 
 type Mediabunny = typeof import('mediabunny');
-
-export interface PrepareUploadOptions {
-  /** The destination's upload limit, bytes. */
-  limitBytes: number;
-  signal?: AbortSignal;
-  onProgress?(fraction: number): void;
-}
-
-/** A video that can't go up within the limit; `message` is written for the UI. */
-export class VideoUploadError extends Error {
-  constructor(readonly reason: VideoLimitReason, limitBytes: number) {
-    super(videoLimitMessage(reason, limitBytes));
-    this.name = 'VideoUploadError';
-  }
-}
 
 /** The quality uploads use now. Reactive. */
 export const effectiveVideoQuality = (): VideoQuality => effectiveVideoQualityFor(deviceChatSettings(), onCellular());
 
+export const prepareUpload = (file: File, quality: VideoQuality, opts: PrepareUploadOptions): Promise<File> =>
+  prepareVideoUpload(file, quality, opts, encodeWithMediabunny);
+
 const VIDEO_CODEC = 'avc';
 const AUDIO_CODEC = 'aac';
-/** Packets read to measure the source frame rate: two seconds at the cap. */
-const FRAME_RATE_SAMPLE_PACKETS = 120;
+const UNSUPPORTED: EncodeAttempt = { kind: 'unsupported' };
+const SKIPPED: EncodeAttempt = { kind: 'skipped' };
 
-export async function prepareUpload(file: File, quality: VideoQuality, opts: PrepareUploadOptions): Promise<File> {
-  if (!isVideoType(file.type)) return file;
-  let target = encodeQualityFor(quality, file.size, opts.limitBytes);
-  while (target) {
-    opts.signal?.throwIfAborted();
-    const { result, encoded } = await encode(file, ENCODE_PRESETS[target], opts);
-    const choice = chooseUpload(file.size, result, opts.limitBytes);
-    if ('send' in choice) return choice.send === 'encoded' && encoded ? encoded : file;
-    const next = retryQuality(target, choice);
-    if (!next) throw new VideoUploadError(choice.fail, opts.limitBytes);
-    target = next;
-  }
-  return file;
-}
-
-const UNSUPPORTED = { result: { kind: 'unsupported' } } as const;
-const SKIPPED = { result: { kind: 'skipped' } } as const;
-type Encoded = { result: EncodeResult; encoded?: File };
-
-async function encode(file: File, preset: EncodePreset, opts: PrepareUploadOptions): Promise<Encoded> {
+const encodeWithMediabunny: EncodeAt = async (file, quality, { limitBytes, signal, onProgress }) => {
   if (typeof VideoEncoder === 'undefined' || typeof VideoDecoder === 'undefined') return UNSUPPORTED;
   const mb = await import('mediabunny');
+  signal?.throwIfAborted();
   const input = new mb.Input({ source: new mb.BlobSource(file), formats: mb.ALL_FORMATS });
+  let conversion: Conversion | null = null;
+  // Disposing the input fails its pending reads, so an abort stops preparation as well as the conversion.
+  const cancel = (): void => {
+    input.dispose();
+    void conversion?.cancel();
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
   try {
-    return await encodeInput(mb, input, file, preset, opts);
+    return await encodeInput(mb, input, file, quality, limitBytes, onProgress, (c) => (conversion = c));
   } finally {
+    signal?.removeEventListener('abort', cancel);
     input.dispose();
   }
-}
+};
 
-async function encodeInput(mb: Mediabunny, input: Input, file: File, preset: EncodePreset, { limitBytes, signal, onProgress }: PrepareUploadOptions): Promise<Encoded> {
+async function encodeInput(
+  mb: Mediabunny,
+  input: Input,
+  file: File,
+  quality: EncodeQuality,
+  limitBytes: number,
+  onProgress: PrepareUploadOptions['onProgress'],
+  started: (conversion: Conversion) => void,
+): Promise<EncodeAttempt> {
   if (!(await input.canRead())) return UNSUPPORTED;
   const video = await input.getPrimaryVideoTrack();
   if (!video) return UNSUPPORTED;
   const audio = await input.getPrimaryAudioTrack();
 
   const coded = { width: await video.getSquarePixelWidth(), height: await video.getSquarePixelHeight() };
-  const size = targetSize(displaySize(coded, await video.getRotation()), preset);
-  const bitrate = videoBitrateFor(size, preset);
+  const upright = displaySize(coded, await video.getRotation());
+  const size = targetSize(upright, ENCODE_PRESETS[quality]);
+  const bitrate = videoBitrateFor(upright, quality);
   const expected = expectedEncodedBytes(await input.computeDuration(), bitrate, audio !== null);
   if (!worthEncoding(file.size, expected, limitBytes)) return SKIPPED;
   // Constant: measured on desktop, variable overshot the target up to 2× on busy frames; the size has to stay predictable.
-  const quality = new mb.Quality({ bitrate, bitrateMode: 'constant' });
-  if (!(await mb.canEncodeVideo(VIDEO_CODEC, { ...size, quality }))) return UNSUPPORTED;
+  const videoQuality = new mb.Quality({ bitrate, bitrateMode: 'constant' });
+  if (!(await mb.canEncodeVideo(VIDEO_CODEC, { ...size, quality: videoQuality }))) return UNSUPPORTED;
   const audioOptions = audio ? await audioOptionsFor(mb, audio) : undefined;
   if (audioOptions === null) return UNSUPPORTED;
-  const { averagePacketRate } = await video.computePacketStats(FRAME_RATE_SAMPLE_PACKETS);
 
-  const parts: Blob[] = [];
-  const output = new mb.Output({ format: new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new mb.StreamTarget(blobParts(parts), { chunked: true }) });
+  const { output, toFile } = uploadOutput(mb);
+  const keepFrame = frameRateCap();
   const conversion = await mb.Conversion.init({
     input,
     output,
     tracks: 'primary',
-    // Both sides given and already aspect-correct, so 'fill' never distorts.
-    video: { ...size, fit: 'fill', codec: VIDEO_CODEC, quality, frameRate: outputFrameRate(averagePacketRate), forceTranscode: true },
+    video: {
+      // Both sides given and already aspect-correct, so 'fill' never distorts.
+      ...size,
+      fit: 'fill',
+      codec: VIDEO_CODEC,
+      quality: videoQuality,
+      forceTranscode: true,
+      // Dropping keeps variable timing as is; Mediabunny's frameRate option would pad slower sources up to a constant rate.
+      process: (sample) => (keepFrame(sample.timestamp) ? sample : null),
+    },
     audio: audioOptions,
     showWarnings: false,
   });
-  if (!conversion.utilizedTracks.includes(video) || (audio && !conversion.utilizedTracks.includes(audio))) return UNSUPPORTED;
-  if (onProgress) conversion.onProgress = (fraction) => onProgress(fraction);
-
-  const cancel = (): void => void conversion.cancel();
-  signal?.throwIfAborted();
-  signal?.addEventListener('abort', cancel, { once: true });
-  try {
-    await conversion.execute();
-  } catch (err) {
-    if (signal?.aborted) throw signal.reason;
-    // Probes can pass yet the encoder fail on the frames (e.g. HDR); treat it as no support for this file.
-    console.warn('[video encode]', err);
+  started(conversion);
+  if (!conversion.utilizedTracks.includes(video) || (audio && !conversion.utilizedTracks.includes(audio))) {
+    await conversion.cancel();
     return UNSUPPORTED;
-  } finally {
-    signal?.removeEventListener('abort', cancel);
   }
-  const encoded = new File(parts, mp4Name(file.name), { type: MP4_TYPE });
-  return { result: { kind: 'encoded', bytes: encoded.size }, encoded };
+  if (onProgress) conversion.onProgress = (fraction) => onProgress(fraction);
+  await conversion.execute();
+  return { kind: 'encoded', file: toFile(mp4Name(file.name)) };
 }
 
 /** AAC at AUDIO_BITRATE; an AAC source is copied where this device can't encode AAC; null when neither works. */
@@ -148,16 +127,4 @@ async function audioOptionsFor(mb: Mediabunny, audio: InputAudioTrack): Promise<
     return { codec: AUDIO_CODEC, numberOfChannels, quality, forceTranscode: true };
   }
   return (await audio.getCodec()) === AUDIO_CODEC ? {} : null;
-}
-
-/** A sink for the muxer's writes; fastStart 'in-memory' writes in order, so each chunk appends. */
-function blobParts(parts: Blob[]): WritableStream<StreamTargetChunk> {
-  let written = 0;
-  return new WritableStream({
-    write(chunk) {
-      if (chunk.position !== written) throw new Error(`MP4 write at ${chunk.position}, expected ${written}`);
-      parts.push(new Blob([chunk.data]));
-      written += chunk.data.byteLength;
-    },
-  });
 }

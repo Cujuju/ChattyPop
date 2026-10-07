@@ -1,5 +1,5 @@
 // Re-encoding a video on the sending device before upload: the presets and every decision around them, as pure functions.
-// state/videoEncode.ts runs them through Mediabunny.
+// shared/videoUpload.ts sequences them; state/videoEncode.ts runs them through Mediabunny.
 import type { DeviceChatSettings, VideoQuality } from './chatSettings';
 import { BYTES_PER_MB } from './units';
 
@@ -27,12 +27,14 @@ export const ENCODE_PRESETS: Record<EncodeQuality, EncodePreset> = {
 export const AUDIO_BITRATE = 128 * BITS_PER_KBIT;
 /** Stereo: more channels are downmixed. */
 export const MAX_AUDIO_CHANNELS = 2;
-/** Faster sources are resampled to this rate; slower ones keep their own timing. */
+/** Frames closer together than this rate allows are dropped; slower timing is kept as it is. */
 export const MAX_FRAME_RATE = 60;
+/** Slot-boundary slack, in frames, so float error on a source exactly at MAX_FRAME_RATE never drops a frame. */
+const FRAME_SLOT_TOLERANCE = 1e-3;
 /** What 'best' re-encodes at when the original is over the upload limit. */
 export const OVER_LIMIT_QUALITY: EncodeQuality = 'standard';
-/** The next smaller quality tried when a re-encode is still over the limit; null when none is left. */
-export const STEP_DOWN: Record<EncodeQuality, EncodeQuality | null> = { standard: 'dataSaver', dataSaver: null };
+/** Encode qualities, largest first: a failed attempt steps to the next, and none gets more bits than one before it. */
+export const QUALITY_ORDER: readonly EncodeQuality[] = ['standard', 'dataSaver'];
 /** Least share of a fitting original's size a re-encode must save: it costs a wait on the scale of the video's length, so it must buy a clear cut. */
 export const MIN_SAVINGS = 1 / 3;
 export const MP4_TYPE = 'video/mp4';
@@ -68,14 +70,28 @@ export function targetSize(display: VideoSize, preset: EncodePreset): VideoSize 
   return { width: evenFloor(display.width * scale), height: evenFloor(display.height * scale) };
 }
 
-/** The preset's video bitrate, scaled by area for outputs smaller than its shorter side. */
-export function videoBitrateFor(size: VideoSize, preset: EncodePreset): number {
+/** A preset's own rate for `size`: scaled by area below its shorter side. */
+function presetBitrate(size: VideoSize, preset: EncodePreset): number {
   const areaRatio = (Math.min(size.width, size.height) / preset.shortSide) ** 2;
-  return Math.round(preset.videoBitrate * Math.min(1, areaRatio));
+  return preset.videoBitrate * Math.min(1, areaRatio);
 }
 
-/** The output frame rate, or undefined to keep the source's timing. */
-export const outputFrameRate = (sourceFps: number): number | undefined => (sourceFps > MAX_FRAME_RATE ? MAX_FRAME_RATE : undefined);
+/** Video bitrate for an upright `source` at `quality`: its preset's rate, capped by every larger quality's rate for that source. */
+export function videoBitrateFor(source: VideoSize, quality: EncodeQuality): number {
+  const larger = QUALITY_ORDER.slice(0, QUALITY_ORDER.indexOf(quality) + 1).map((q) => ENCODE_PRESETS[q]);
+  return Math.round(Math.min(...larger.map((preset) => presetBitrate(targetSize(source, preset), preset))));
+}
+
+/** A frame filter for one encode: true keeps the frame at `timestampS`; at most one frame per 1/MAX_FRAME_RATE slot. */
+export function frameRateCap(): (timestampS: number) => boolean {
+  let lastSlot = -Infinity;
+  return (timestampS) => {
+    const slot = Math.floor(timestampS * MAX_FRAME_RATE + FRAME_SLOT_TOLERANCE);
+    if (slot <= lastSlot) return false;
+    lastSlot = slot;
+    return true;
+  };
+}
 
 /** Estimated encoded size, bytes, ignoring container overhead. */
 export const expectedEncodedBytes = (durationS: number, videoBitrate: number, hasAudio: boolean): number =>
@@ -98,9 +114,9 @@ export function chooseUpload(originalBytes: number, result: EncodeResult, limitB
   return { fail: result.kind === 'unsupported' ? 'unsupported' : 'tooLarge' };
 }
 
-/** The quality to retry at after choice, or null to stop: only a re-encode still over the limit steps down. */
+/** The quality to retry at after `choice`, or null to stop: any failure steps down while a smaller quality is left. */
 export const retryQuality = (quality: EncodeQuality, choice: UploadChoice): EncodeQuality | null =>
-  'fail' in choice && choice.fail === 'tooLarge' ? STEP_DOWN[quality] : null;
+  'fail' in choice ? (QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1] ?? null) : null;
 
 /** The UI's message for a video that can't go up. */
 export function videoLimitMessage(reason: VideoLimitReason, limitBytes: number): string {

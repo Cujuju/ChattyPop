@@ -15,7 +15,7 @@ import {
   expectedEncodedBytes,
   isVideoType,
   mp4Name,
-  outputFrameRate,
+  frameRateCap,
   retryQuality,
   targetSize,
   videoBitrateFor,
@@ -53,21 +53,46 @@ describe('target size', () => {
 });
 
 describe('bitrate and frame rate', () => {
-  it("uses the preset's rate at its full size", () => {
-    expect(videoBitrateFor({ width: 720, height: 1564 }, standard)).toBe(standard.videoBitrate);
-    expect(videoBitrateFor({ width: 852, height: 480 }, dataSaver)).toBe(dataSaver.videoBitrate);
+  it("uses the preset's rate when the source fills it", () => {
+    const portrait = { width: 1320, height: 2868 };
+    expect(videoBitrateFor(portrait, 'standard')).toBe(standard.videoBitrate);
+    expect(videoBitrateFor(portrait, 'dataSaver')).toBe(dataSaver.videoBitrate);
   });
 
-  it('scales the rate by area below the preset size', () => {
-    expect(videoBitrateFor({ width: 640, height: 360 }, standard)).toBe(standard.videoBitrate / 4);
+  it('scales the rate by area for sources below the preset size', () => {
+    expect(videoBitrateFor({ width: 640, height: 360 }, 'standard')).toBe(standard.videoBitrate / 4);
   });
 
-  it('caps the frame rate, else keeps the source timing', () => {
-    expect(outputFrameRate(120)).toBe(MAX_FRAME_RATE);
-    expect(outputFrameRate(MAX_FRAME_RATE)).toBeUndefined();
-    expect(outputFrameRate(29.97)).toBeUndefined();
+  it('never gives Data Saver more bits than Standard for the same source', () => {
+    // Regression: at 640×360, Data Saver's own area scaling gave 562,500 bit/s against Standard's 500,000.
+    expect(videoBitrateFor({ width: 640, height: 360 }, 'dataSaver')).toBe(videoBitrateFor({ width: 640, height: 360 }, 'standard'));
+    for (let short = 2; short <= 2160; short += 2) {
+      for (const source of [{ width: Math.round((short * 16) / 9), height: short }, { width: short, height: short * 2 }]) {
+        expect(videoBitrateFor(source, 'dataSaver')).toBeLessThanOrEqual(videoBitrateFor(source, 'standard'));
+      }
+    }
+  });
+  const kept = (fps: number, seconds: number, start = 0): number => {
+    const keep = frameRateCap();
+    let n = 0;
+    for (let i = 0; i < fps * seconds; i++) if (keep(start + i / fps)) n++;
+    return n;
+  };
+
+  it('keeps every frame at or under the cap, whatever the source rate', () => {
+    expect(kept(MAX_FRAME_RATE, 10)).toBe(MAX_FRAME_RATE * 10);
+    expect(kept(59.94, 10)).toBe(Math.ceil(59.94 * 10));
+    expect(kept(30, 10, 3.7)).toBe(300);
   });
 
+  it('drops frames above the cap anywhere in the video, not only past a sampled prefix', () => {
+    // Regression: the cap read the average rate of the first packets, so a later 120 FPS stretch went through uncapped.
+    const keep = frameRateCap();
+    const times = [...Array.from({ length: 300 }, (_, i) => i / 30), ...Array.from({ length: 1200 }, (_, i) => 10 + i / 120)];
+    const after = times.filter((t) => keep(t)).filter((t) => t >= 10);
+    expect(after.length).toBe(10 * MAX_FRAME_RATE);
+    for (let i = 1; i < after.length; i++) expect(after[i]! - after[i - 1]!).toBeGreaterThan(1 / MAX_FRAME_RATE / 2);
+  });
   it('estimates size from duration and rates', () => {
     const seconds = 98;
     expect(expectedEncodedBytes(seconds, standard.videoBitrate, true)).toBe((seconds * (standard.videoBitrate + AUDIO_BITRATE)) / 8);
@@ -115,8 +140,12 @@ describe('when to re-encode', () => {
     expect(retryQuality('dataSaver', { fail: 'tooLarge' })).toBeNull();
   });
 
-  it('never steps down when the device cannot encode or a file was chosen', () => {
-    expect(retryQuality('standard', { fail: 'unsupported' })).toBeNull();
+  it('steps down when Standard is refused too: a device may encode 852×480 but not 1280×720', () => {
+    expect(retryQuality('standard', { fail: 'unsupported' })).toBe('dataSaver');
+    expect(retryQuality('dataSaver', { fail: 'unsupported' })).toBeNull();
+  });
+
+  it('never steps down once a file was chosen', () => {
     expect(retryQuality('standard', { send: 'encoded' })).toBeNull();
     expect(retryQuality('standard', { send: 'original' })).toBeNull();
   });

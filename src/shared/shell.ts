@@ -21,7 +21,7 @@ export const SHELL_NATIVE_GLOBAL = 'chattyPopShell';
 export const SHELL_KEYBOARD_PROPERTIES = { inset: '--cp-keyboard-inset', duration: '--cp-keyboard-duration' } as const;
 /** Window CustomEvent the app dispatches on each network change and in reply to SHELL_NETWORK_HANDLER, detail a ShellNetworkDetail (state/network.ts). */
 export const SHELL_NETWORK_EVENT = 'cp-shell-network';
-/** Native script message handler the page posts {} to for the current SHELL_NETWORK_EVENT. */
+/** Native script message handler the page posts `{}` to for the current SHELL_NETWORK_EVENT. */
 export const SHELL_NETWORK_HANDLER = 'shellNetwork';
 export interface ShellNetworkDetail {
   cellular: boolean;
