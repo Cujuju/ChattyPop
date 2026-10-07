@@ -70,19 +70,19 @@ export async function photoFile(id: string): Promise<File> {
   const photos = handler();
   if (!photos) throw new Error('This app version cannot read Photos.');
   const { token, name, type, size } = (await photos.postMessage({ op: 'export', id })) as ShellAssetExport;
-  const parts: Uint8Array<ArrayBuffer>[] = [];
+  // Each piece joins the Blob as it comes, so the page holds one piece's bytes at a time; WebKit keeps the rest.
+  let read = new Blob([]);
   try {
-    for (let offset = 0; offset < size; ) {
-      const piece = bytesOf((await photos.postMessage({ op: 'read', token, offset, length: SHELL_ASSET_READ_BYTES })) as string);
+    while (read.size < size) {
+      const piece = bytesOf((await photos.postMessage({ op: 'read', token, offset: read.size, length: SHELL_ASSET_READ_BYTES })) as string);
       if (!piece.length) throw new Error('The photo or video ended early.');
-      parts.push(piece);
-      offset += piece.length;
+      read = new Blob([read, piece]);
     }
   } catch (err) {
     void photos.postMessage({ op: 'release', token }).catch(() => {});
     throw err;
   }
-  return new File(parts, name, { type });
+  return new File([read], name, { type });
 }
 
 /** Calls `listener` whenever the readable library changes; returns its removal. */
