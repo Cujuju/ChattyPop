@@ -15,7 +15,7 @@ const [composerFocus, setComposerFocus] = createSignal(0);
 export { composerFocus };
 export const focusComposer = (): void => void setComposerFocus((n) => n + 1);
 
-export { attachFiles, customEmojiToken, draftError, draftFiles, draftText, mentionCandidateToken, removeFile, setDraftText, type DraftFile } from './drafts';
+export { attachFiles, attachLongPaste, customEmojiToken, draftError, draftFiles, draftText, mentionCandidateToken, removeFile, setDraftText, type DraftFile } from './drafts';
 
 /** The reply the composer carries: the target, while it is in this channel. */
 const replyIn = (channelId: string): OwnerMessage['replyTo'] => {

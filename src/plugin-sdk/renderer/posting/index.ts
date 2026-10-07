@@ -4,6 +4,7 @@
 // The draft, its send paths and the outbox.
 export {
   attachFiles,
+  attachLongPaste,
   composerFocus,
   customEmojiToken,
   draftError,

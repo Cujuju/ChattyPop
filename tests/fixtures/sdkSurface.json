@@ -1,5 +1,5 @@
 {
-  "version": "2.18.0",
+  "version": "2.19.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -421,6 +421,7 @@
       "anyNameMatches",
       "appIconUrl",
       "attachFiles",
+      "attachLongPaste",
       "canChangeAttachment",
       "canDelete",
       "canEdit",

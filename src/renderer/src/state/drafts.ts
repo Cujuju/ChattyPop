@@ -2,7 +2,7 @@
 import { createStore } from 'solid-js/store';
 import { UPLOAD_BYTES_CEILING, emojiToken, mentionToken, type MentionPick } from '@shared/compose';
 import type { ArchiveMessage, MentionCandidate } from '@shared/contract';
-import { DISCORD_FILES_PER_MESSAGE_MAX } from '@shared/discord';
+import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX } from '@shared/discord';
 import type { CustomEmoji } from '@shared/emoji';
 import { mediaKind } from '@shared/media';
 import { BYTES_PER_MB } from '@shared/units';
@@ -131,6 +131,27 @@ export function attachFiles(channelId: string, files: File[]): void {
         : null,
   );
   saveFiles(channelId);
+}
+
+/** The file a long paste becomes, named and typed as Discord's. */
+const LONG_PASTE_NAME = 'message.txt';
+const LONG_PASTE_TYPE = 'text/plain';
+
+/**
+ * Attaches a plain-text paste as message.txt when it would push the field past Discord's message limit, as Discord does
+ * (it converts at 4000, Nitro's limit; the field here holds DISCORD_TEXT_MAX). True when it took the paste; the field's
+ * own paste is then prevented. A paste carrying files is left to the caller.
+ */
+export function attachLongPaste(channelId: string, e: ClipboardEvent & { currentTarget: HTMLTextAreaElement | HTMLInputElement }): boolean {
+  const data = e.clipboardData;
+  if (!data || data.files.length) return false;
+  const pasted = data.getData(LONG_PASTE_TYPE);
+  const field = e.currentTarget;
+  const replaced = (field.selectionEnd ?? 0) - (field.selectionStart ?? 0);
+  if (field.value.length - replaced + pasted.length <= DISCORD_TEXT_MAX) return false;
+  e.preventDefault();
+  attachFiles(channelId, [new File([pasted], LONG_PASTE_NAME, { type: LONG_PASTE_TYPE })]);
+  return true;
 }
 
 export function removeFile(channelId: string, id: number): void {
