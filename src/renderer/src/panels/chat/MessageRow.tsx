@@ -197,7 +197,7 @@ function accountName(m: ArchiveMessage): string | null {
   return u && u.toLowerCase() !== m.author.name.toLowerCase() ? u : null;
 }
 
-function Avatar(props: { message: ArchiveMessage }) {
+export function Avatar(props: { message: ArchiveMessage }) {
   const a = () => props.message.author;
   const img = () => <img data-avatar class={`${cozy.avatar} ${look.avatar}`} src={avatarUrl(a().id, a().avatar)} alt="" loading="lazy" onClick={() => openPerson(a().id)} />;
   // The decoration frames the avatar, as in Discord: still, animated while the message is hovered.

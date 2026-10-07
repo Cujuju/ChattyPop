@@ -6,7 +6,7 @@ import { newNonce } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT, DesktopUnreachableError } from '@shared/phone';
 import { isPostingLocked } from '@shared/posting';
 import { errorText } from '@/ui/format';
-import { idbEntries, idbSet, whenWritten } from '@/ui/idbStore';
+import { idbEntries, idbGet, idbSet, whenWritten } from '@/ui/idbStore';
 import { restoreDraft, type SavedDraft } from './drafts';
 import { MS_PER_S } from '@shared/units';
 import { SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxRecord } from './outboxQueue';
@@ -24,6 +24,37 @@ const CLAIM_LOCK = 'chattypop-outbox-claim';
 /** Unique per page load (crypto.randomUUID needs a secure context; a snowflake doesn't). */
 const pageId = newNonce();
 const ownKey = KEY_PREFIX + pageId;
+/** Each message's files, stored once by its nonce: queue saves rewrite records often, and files can be gigabytes. */
+const FILES_PREFIX = 'outbox-files:';
+/** Nonces whose files this page has stored. */
+const keptFiles = new Set<string>();
+
+/** Saves the queue's records without their files; each message's files are written once and removed with it. */
+function saveQueue(records: OutboxRecord<SavedDraft>[]): void {
+  const live = new Set(records.map((r) => r.message.nonce));
+  for (const r of records) {
+    if (!r.files.length || keptFiles.has(r.message.nonce)) continue;
+    keptFiles.add(r.message.nonce);
+    idbSet(FILES_PREFIX + r.message.nonce, r.files);
+  }
+  for (const nonce of keptFiles) {
+    if (live.has(nonce)) continue;
+    keptFiles.delete(nonce);
+    idbSet(FILES_PREFIX + nonce, undefined);
+  }
+  idbSet(ownKey, records.length ? records.map((r) => ({ ...r, files: [] })) : undefined);
+}
+
+/** Saved records with their files read back; this page now keeps those files. */
+async function withFiles(records: OutboxRecord<SavedDraft>[]): Promise<OutboxRecord<SavedDraft>[]> {
+  return Promise.all(
+    records.map(async (r) => {
+      const files = (await idbGet<File[]>(FILES_PREFIX + r.message.nonce)) ?? [];
+      if (files.length) keptFiles.add(r.message.nonce);
+      return { ...r, files };
+    }),
+  );
+}
 
 /** A slow phone uplink (~2 Mbit/s); a piece slower than this counts as stalled. */
 const MIN_UPLOAD_BYTES_PER_S = 256 * 1024;
@@ -63,7 +94,7 @@ const box = createOutbox<SavedDraft>({
   errorText,
   unreachable: (err) => err instanceof DesktopUnreachableError,
   restore: restoreDraft,
-  save: (records) => idbSet(ownKey, records.length ? records : undefined),
+  save: saveQueue,
   now: Date.now,
   unlocked: postingUnlocked,
   locked: isPostingLocked,
@@ -73,9 +104,9 @@ export const { outgoing, sendingDismissed, dismissSending, enqueue, retrySend, e
 type SavedQueue = [key: string, records: OutboxRecord<SavedDraft>[]];
 
 /** Sends `queues` from this page; its own save lands before theirs are removed, so a reload between loses none. */
-function adopt(queues: SavedQueue[]): void {
+async function adopt(queues: SavedQueue[]): Promise<void> {
   if (!queues.length) return;
-  box.load(queues.flatMap(([, records]) => records));
+  box.load(await withFiles(queues.flatMap(([, records]) => records)));
   for (const [key] of queues) idbSet(key, undefined);
 }
 
@@ -87,7 +118,7 @@ async function adoptLeftovers(): Promise<void> {
   await locks.request(CLAIM_LOCK, async () => {
     const live = new Set((await locks.query()).held?.map((l) => l.name));
     const saved = await idbEntries<OutboxRecord<SavedDraft>[]>(KEY_PREFIX);
-    adopt(saved.filter(([key]) => key !== ownKey && !live.has(LIVE_LOCK_PREFIX + key.slice(KEY_PREFIX.length))));
+    await adopt(saved.filter(([key]) => key !== ownKey && !live.has(LIVE_LOCK_PREFIX + key.slice(KEY_PREFIX.length))));
     await whenWritten();
   });
 }
