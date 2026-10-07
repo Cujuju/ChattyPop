@@ -7,9 +7,7 @@ import type { ArchiveDensity } from '@/state/archive';
 import { messageLink, openMessageMenu } from '@/state/messageActions';
 import { mentionsMe } from '@/state/ownMessages';
 import { openPerson } from '@/state/person';
-import { postingUnlocked } from '@/state/posting';
 import { pluginPresents } from '@/state/plugins';
-import { canReply, startReply } from '@/state/reply';
 import { contextMenu, inCompanion } from '@/state/ui';
 import { SolidIcon } from '@/ui/solidIcons';
 import styles from './MessageRow.module.css';
@@ -17,13 +15,13 @@ import { today } from '@/state/clock';
 import { clockTime as time, messageTime } from '@/ui/format';
 import { Markdown } from '@/ui/Markdown';
 import { isEmojiOnly } from '@/ui/mdParse';
-import { swipeLeftToAct } from '@/ui/touch';
 import { rowMenuTarget } from '@/ui/VirtualRows';
 import { Note } from './Attachment';
 import { Attachments } from './Attachments';
 import { AuthorName } from './AuthorName';
 import { MessageActionBar } from './MessageActionBar';
 import { presentedParts } from './ownedParts';
+import { rowGestures } from './rowGestures';
 import { MessageEditor } from './MessageEditor';
 import { InteractionLine, MessageComponents } from './MessageComponents';
 import { Embeds, Reactions, ReplyLine, Stickers, textIsEmbedLink } from './MessageExtras';
@@ -60,7 +58,7 @@ export function MessageRow(props: MessageRowProps) {
 
 function CompactRow(props: MessageRowProps) {
   const m = () => props.message;
-  const swipe = swipeToReply(m);
+  const gestures = rowGestures(m);
   const bar = createActionBar(props);
   return (
     <article
@@ -73,10 +71,10 @@ function CompactRow(props: MessageRowProps) {
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
       onContextMenu={(e) => openMessageMenu(e, m())}
-      onTouchStart={swipe.onTouchStart}
-      onTouchMove={swipe.onTouchMove}
-      onTouchEnd={swipe.onTouchEnd}
-      onTouchCancel={swipe.onTouchCancel}
+      onTouchStart={gestures.onTouchStart}
+      onTouchMove={gestures.onTouchMove}
+      onTouchEnd={gestures.onTouchEnd}
+      onTouchCancel={gestures.onTouchCancel}
       onPointerEnter={bar.enter}
       onPointerLeave={bar.leave}
     >
@@ -100,7 +98,7 @@ function CompactRow(props: MessageRowProps) {
 
 function CozyRow(props: MessageRowProps) {
   const m = () => props.message;
-  const swipe = swipeToReply(m);
+  const gestures = rowGestures(m);
   const bar = createActionBar(props);
   // Resolve JSX props once to avoid rebuilding content.
   const gutter = children(() => props.gutter);
@@ -117,10 +115,10 @@ function CozyRow(props: MessageRowProps) {
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
       onContextMenu={(e) => openMessageMenu(e, m())}
-      onTouchStart={swipe.onTouchStart}
-      onTouchMove={swipe.onTouchMove}
-      onTouchEnd={swipe.onTouchEnd}
-      onTouchCancel={swipe.onTouchCancel}
+      onTouchStart={gestures.onTouchStart}
+      onTouchMove={gestures.onTouchMove}
+      onTouchEnd={gestures.onTouchEnd}
+      onTouchCancel={gestures.onTouchCancel}
       onPointerEnter={bar.enter}
       onPointerLeave={bar.leave}
     >
@@ -174,13 +172,6 @@ function createActionBar(props: MessageRowProps) {
     shown: () => !inCompanion && props.editing !== true && (hovered() || focused() || contextMenu()?.messageId === props.message.id),
   };
 }
-
-/** A swipe to the left on the row replies to its message, as in Discord's app; not while posting is locked. */
-const swipeToReply = (m: () => ArchiveMessage) =>
-  swipeLeftToAct(
-    () => startReply(m()),
-    () => postingUnlocked() && canReply(m()),
-  );
 
 /** The reply arrow a swipe reveals at the row's trailing edge; the stylesheet grows it with the swipe. */
 function SwipeReplyMark() {
