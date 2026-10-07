@@ -99,7 +99,7 @@ describe('who can see a channel, from the gateway', () => {
 
 describe("member searches on the client's gateway socket", () => {
   /** `lostReply`: CDP fails after the page sent the frame, so whether it went is unknown. */
-  function fake(open = true, lostReply = false, gapMs = 0) {
+  function fake(open = true, lostReply = false, perWindow?: number) {
     const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
     const frames: unknown[] = [];
     let lookups = 0;
@@ -115,7 +115,7 @@ describe("member searches on the client's gateway socket", () => {
         return Promise.resolve({});
       },
     };
-    return { requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, gapMs), tap, frames, lookups: () => lookups };
+    return { requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, perWindow), tap, frames, lookups: () => lookups };
   }
 
   const nonceOf = (frame: unknown): string => (frame as { d: { nonce: string } }).d.nonce;
@@ -142,26 +142,32 @@ describe("member searches on the client's gateway socket", () => {
     expect(f.lookups()).toBe(1);
   });
 
-  it("spaces searches by the gap, and by Discord's RATE_LIMITED wait for op 8", async () => {
+  it("sends at once until the window's share is used, then when the oldest leaves it; and waits out Discord's RATE_LIMITED for op 8", async () => {
     vi.useFakeTimers();
     try {
-      const GAP_MS = 1000;
+      const PER_WINDOW = 2;
+      const WINDOW_MS = 60_000;
       const RETRY_S = 5;
-      const f = fake(true, false, GAP_MS);
+      const f = fake(true, false, PER_WINDOW);
       await f.requests.request('g1', 'ann');
-      const next = f.requests.request('g2', 'bob');
-      await vi.advanceTimersByTimeAsync(GAP_MS - 1);
-      expect(f.frames).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await f.requests.request('g1', 'bob');
+      expect(f.frames).toHaveLength(2);
+      const next = f.requests.request('g2', 'cy');
+      await vi.advanceTimersByTimeAsync(WINDOW_MS - 2);
+      expect(f.frames).toHaveLength(2);
       await vi.advanceTimersByTimeAsync(1);
       await next;
-      expect(f.frames).toHaveLength(2);
+      expect(f.frames).toHaveLength(3);
+      // The window has room again: the RATE_LIMITED wait alone holds the next.
+      await vi.advanceTimersByTimeAsync(WINDOW_MS);
       f.tap.emit('dispatch', { t: 'RATE_LIMITED', s: null, d: { opcode: 8, retry_after: RETRY_S, meta: {} } });
-      const limited = f.requests.request('g3', 'cy');
+      const limited = f.requests.request('g3', 'dee');
       await vi.advanceTimersByTimeAsync(RETRY_S * 1000 - 1);
-      expect(f.frames).toHaveLength(2);
+      expect(f.frames).toHaveLength(3);
       await vi.advanceTimersByTimeAsync(1);
       await limited;
-      expect(f.frames).toHaveLength(3);
+      expect(f.frames).toHaveLength(4);
     } finally {
       vi.useRealTimers();
     }
@@ -181,6 +187,23 @@ describe("member searches on the client's gateway socket", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('skips text a shorter answer found every match for, in that server, until a new session', async () => {
+    const f = fake();
+    const answer = (frame: unknown, count: number): void =>
+      void f.tap.emit('dispatch', { t: 'GUILD_MEMBERS_CHUNK', s: 2, d: { guild_id: 'g1', members: Array(count).fill({}), chunk_index: 0, chunk_count: 1, nonce: nonceOf(frame) } });
+    await f.requests.request('g1', 'an');
+    answer(f.frames[0], 3);
+    await f.requests.request('g1', 'ann');
+    await f.requests.request('g2', 'ann');
+    await f.requests.request('g1', 'bo');
+    answer(f.frames[2], 10);
+    await f.requests.request('g1', 'bob');
+    f.tap.emit('dispatch', { t: 'READY', s: 3, d: {} });
+    await f.requests.request('g1', 'ann');
+    const queries = f.frames.map((fr) => `${(fr as { d: { guild_id: string[] } }).d.guild_id[0]}:${(fr as { d: { query: string } }).d.query}`);
+    expect(queries).toEqual(['g1:an', 'g2:ann', 'g1:bo', 'g1:bob', 'g1:ann']);
   });
 
   it("doesn't resend a search whose send may have gone through", async () => {

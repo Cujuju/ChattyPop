@@ -16,11 +16,14 @@ const DISCORD_NAME_MAX_CHARS = 32;
  * and a lost answer (a reconnect) stops blocking that text.
  */
 const MEMBER_ANSWER_TIMEOUT_MS = 10_000;
+/** Discord closes a connection that sends more than this many gateway frames in a window, the client's own included. */
+const GATEWAY_SENDS_PER_WINDOW = 120;
+const GATEWAY_SEND_WINDOW_MS = 60 * MS_PER_S;
 /**
- * Least time between our searches, from every window and the phone. Discord allows 120 gateway sends a minute per
- * connection, shared with the client's own heartbeats and requests: one a second keeps ours to half of that.
+ * Our searches a window may hold, from every window and the phone: half, leaving the rest to the client. Typing is
+ * answered at once (the renderer debounces as the client does); only a sustained run of searches waits.
  */
-export const MEMBER_REQUEST_GAP_MS = MS_PER_S;
+export const MEMBER_REQUESTS_PER_WINDOW = GATEWAY_SENDS_PER_WINDOW / 2;
 /** CDP handles taken here; released together when the socket is looked up again. */
 const OBJECT_GROUP = 'chattypop-gateway';
 
@@ -37,36 +40,54 @@ const SEND = `function (frame) {
   return true;
 }`;
 
+/** One part of Discord's answer to a search; a search's answer is usually one. */
+interface Chunk {
+  nonce?: string;
+  members?: unknown[];
+  chunk_index?: number;
+  chunk_count?: number;
+}
+
 type Cdp = Pick<WebContents['debugger'], 'sendCommand'>;
 
 /** A sent search awaiting its GUILD_MEMBERS_CHUNK, matched by the nonce it carried. */
 interface Pending {
   key: string;
+  /** Members its chunks carried so far. */
+  found: number;
   expiry: ReturnType<typeof setTimeout>;
 }
 
 /**
  * Serializes CDP socket access to preserve handles. Deduplicates in-flight and answered server/query pairs per gateway
- * session, spaces sends by `gapMs` and Discord's RATE_LIMITED waits, and drops a search a newer one for its server replaced.
+ * session, skips text a shorter answered text already found every match for, keeps to `perWindow` sends and Discord's
+ * RATE_LIMITED waits, and drops a search a newer one for its server replaced.
  */
 export class MemberRequests {
   private socket: string | null = null;
-  /** When the next search may be sent. */
-  private nextAt = 0;
+  /** When Discord's RATE_LIMITED lets the next search go. */
+  private limitedUntil = 0;
+  /** When our searches in the current window went, oldest first. */
+  private readonly sentAt: number[] = [];
   /** The newest search asked for each server, by sequence number. */
   private readonly newest = new Map<string, number>();
   private asked = 0;
   private readonly answered = new Set<string>();
+  /**
+   * Answered texts that found fewer than the limit: every member matching them. Discord matches names by prefix, so
+   * longer text starting with one finds a subset, all already known.
+   */
+  private readonly complete = new Set<string>();
   private readonly pending = new Map<string, Pending>();
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly cdp: Cdp,
     private readonly tap: Pick<GatewayTap, 'on' | 'own'>,
-    private readonly gapMs = MEMBER_REQUEST_GAP_MS,
+    private readonly perWindow = MEMBER_REQUESTS_PER_WINDOW,
   ) {
     tap.on('dispatch', ({ t, d }) => {
-      if (t === 'GUILD_MEMBERS_CHUNK') return this.answer(d as { nonce?: string; chunk_index?: number; chunk_count?: number });
+      if (t === 'GUILD_MEMBERS_CHUNK') return this.answer(d as Chunk);
       if (t === 'RATE_LIMITED') return this.limited(d as { opcode?: number; retry_after?: number });
       if (t !== 'READY') return;
       // A new session: Discord's answers so far stay archived, the old socket's handle goes.
@@ -79,18 +100,21 @@ export class MemberRequests {
   }
 
   /** Our search's last chunk arrived: that text is answered for the session. */
-  private answer(c: { nonce?: string; chunk_index?: number; chunk_count?: number }): void {
+  private answer(c: Chunk): void {
     const p = c.nonce === undefined ? undefined : this.pending.get(c.nonce);
-    if (!p || (c.chunk_index ?? 0) + 1 < (c.chunk_count ?? 1)) return;
+    if (!p) return;
+    p.found += c.members?.length ?? 0;
+    if ((c.chunk_index ?? 0) + 1 < (c.chunk_count ?? 1)) return;
     clearTimeout(p.expiry);
     this.pending.delete(c.nonce!);
     this.answered.add(p.key);
+    if (p.found < MEMBER_REQUEST_LIMIT) this.complete.add(p.key);
   }
 
   /** Discord refused a search for now: none goes before its retry_after (seconds). */
   private limited(r: { opcode?: number; retry_after?: number }): void {
     if (r.opcode !== REQUEST_GUILD_MEMBERS_OP || !(Number(r.retry_after) > 0)) return;
-    this.nextAt = Math.max(this.nextAt, Date.now() + Number(r.retry_after) * MS_PER_S);
+    this.limitedUntil = Math.max(this.limitedUntil, Date.now() + Number(r.retry_after) * MS_PER_S);
     diag('member-request-rate-limited', { retryAfterS: r.retry_after });
   }
 
@@ -98,6 +122,15 @@ export class MemberRequests {
     for (const p of this.pending.values()) clearTimeout(p.expiry);
     this.pending.clear();
     this.answered.clear();
+    this.complete.clear();
+  }
+
+  /** When the next search may go: after any RATE_LIMITED wait, and once the window has room. */
+  private nextAt(): number {
+    const now = Date.now();
+    while (this.sentAt.length && this.sentAt[0]! <= now - GATEWAY_SEND_WINDOW_MS) this.sentAt.shift();
+    const roomAt = this.sentAt.length < this.perWindow ? 0 : this.sentAt[this.sentAt.length - this.perWindow]! + GATEWAY_SEND_WINDOW_MS;
+    return Math.max(this.limitedUntil, roomAt);
   }
 
   /** False when no open gateway socket was found; the archive's members are then all there is. */
@@ -105,7 +138,7 @@ export class MemberRequests {
     const mine = ++this.asked;
     this.newest.set(guildId, mine);
     return this.serial(async () => {
-      const wait = this.nextAt - Date.now();
+      const wait = this.nextAt() - Date.now();
       if (wait > 0) await sleep(wait);
       // Replaced while waiting (the owner typed on): the newer search asks for what is wanted now.
       if (this.newest.get(guildId) !== mine) return true;
@@ -123,7 +156,7 @@ export class MemberRequests {
   private async ask(guildId: string, query: string): Promise<boolean> {
     const q = query.trim().slice(0, DISCORD_NAME_MAX_CHARS).toLocaleLowerCase();
     const key = `${guildId}:${q}`;
-    if (!q || this.answered.has(key) || [...this.pending.values()].some((p) => p.key === key)) return true;
+    if (!q || this.answered.has(key) || [...this.complete].some((k) => key.startsWith(k)) || [...this.pending.values()].some((p) => p.key === key)) return true;
     // Discord echoes the nonce in its answer (at most 32 bytes: a UUID's hex digits).
     const nonce = randomUUID().replaceAll('-', '');
     const frame = JSON.stringify({ op: REQUEST_GUILD_MEMBERS_OP, d: { guild_id: [guildId], query: q, limit: MEMBER_REQUEST_LIMIT, presences: true, nonce } });
@@ -135,8 +168,8 @@ export class MemberRequests {
       this.socket = null;
       sent = await this.send(frame);
     }
-    if (sent !== 'closed') this.nextAt = Date.now() + this.gapMs;
-    if (sent === 'sent') this.pending.set(nonce, { key, expiry: setTimeout(() => this.pending.delete(nonce), MEMBER_ANSWER_TIMEOUT_MS) });
+    if (sent !== 'closed') this.sentAt.push(Date.now());
+    if (sent === 'sent') this.pending.set(nonce, { key, found: 0, expiry: setTimeout(() => this.pending.delete(nonce), MEMBER_ANSWER_TIMEOUT_MS) });
     else diag('member-request-not-sent', { reason: sent });
     return sent === 'sent';
   }
