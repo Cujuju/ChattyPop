@@ -23,7 +23,7 @@ export class VideoUploadError extends Error {
   }
 }
 
-/** The file to upload: non-video unchanged, else the smaller of the original and each attempt, stepping down while none fits. */
+/** The file to upload: non-video unchanged, else chooseUpload's pick, stepping down while none fits or the device refuses. */
 export async function prepareVideoUpload(file: File, quality: VideoQuality, opts: PrepareUploadOptions, encodeAt: EncodeAt): Promise<File> {
   if (!isVideoType(file.type)) return file;
   const { signal, limitBytes } = opts;
@@ -32,11 +32,15 @@ export async function prepareVideoUpload(file: File, quality: VideoQuality, opts
     signal?.throwIfAborted();
     const attempt = await attemptEncode(encodeAt, file, target, opts);
     signal?.throwIfAborted();
-    const choice = chooseUpload(file.size, attempt.kind === 'encoded' ? { kind: 'encoded', bytes: attempt.file.size } : attempt, limitBytes);
+    const result = attempt.kind === 'encoded' ? { kind: 'encoded' as const, bytes: attempt.file.size } : attempt;
+    const choice = chooseUpload(file.size, result, limitBytes);
+    const next = retryQuality(target, result, choice);
+    if (next) {
+      target = next;
+      continue;
+    }
     if ('send' in choice) return choice.send === 'encoded' && attempt.kind === 'encoded' ? attempt.file : file;
-    const next = retryQuality(target, choice);
-    if (!next) throw new VideoUploadError(choice.fail, limitBytes);
-    target = next;
+    throw new VideoUploadError(choice.fail, limitBytes);
   }
   return file;
 }

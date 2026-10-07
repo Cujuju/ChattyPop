@@ -103,8 +103,16 @@ async function encodeInput(
       codec: VIDEO_CODEC,
       quality: videoQuality,
       forceTranscode: true,
-      // Dropping keeps variable timing as is; Mediabunny's frameRate option would pad slower sources up to a constant rate.
-      process: (sample) => (keepFrame(sample.timestamp) ? sample : null),
+      // Capping keeps variable timing as is; Mediabunny's frameRate option would pad slower sources up to a constant rate.
+      process: (sample) => {
+        const timing = keepFrame({ timestampS: sample.timestamp, durationS: sample.duration });
+        if (!timing) return null;
+        if (timing.timestampS !== sample.timestamp) {
+          sample.setTimestamp(timing.timestampS);
+          sample.setDuration(timing.durationS);
+        }
+        return sample;
+      },
     },
     audio: audioOptions,
     showWarnings: false,

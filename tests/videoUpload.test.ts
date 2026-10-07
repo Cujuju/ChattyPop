@@ -48,6 +48,21 @@ describe('prepareVideoUpload', () => {
     expect(enc.asked).toEqual(['standard', 'dataSaver']);
   });
 
+  it('tries Data Saver after a refused Standard even when the original fits', async () => {
+    // Regression: a fitting original returned before the step down, so Data Saver was never tried.
+    const enc = encoder({ dataSaver: () => Promise.resolve(encoded(3000)) });
+    const result = await prepareVideoUpload(video(9000), 'standard', { limitBytes: 10_000 }, enc);
+    expect(result.size).toBe(3000);
+    expect(enc.asked).toEqual(['standard', 'dataSaver']);
+  });
+
+  it('keeps a fitting original when the re-encode saves less than MIN_SAVINGS', async () => {
+    // Regression: a 9,999-byte encode replaced a 10,000-byte original.
+    const original = video(10_000);
+    const enc = encoder({ standard: () => Promise.resolve(encoded(9999)) });
+    expect(await prepareVideoUpload(original, 'standard', { limitBytes: LIMIT }, enc)).toBe(original);
+  });
+
   it('steps down when Standard is still over the limit, and fails as too large when Data Saver is too', async () => {
     const enc = encoder({ standard: () => Promise.resolve(encoded(2 * LIMIT)), dataSaver: () => Promise.resolve(encoded(LIMIT + 1)) });
     await expect(prepareVideoUpload(video(3 * LIMIT), 'best', { limitBytes: LIMIT }, enc)).rejects.toMatchObject({ reason: 'tooLarge' });

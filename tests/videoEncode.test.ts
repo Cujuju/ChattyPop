@@ -75,7 +75,7 @@ describe('bitrate and frame rate', () => {
   const kept = (fps: number, seconds: number, start = 0): number => {
     const keep = frameRateCap();
     let n = 0;
-    for (let i = 0; i < fps * seconds; i++) if (keep(start + i / fps)) n++;
+    for (let i = 0; i < fps * seconds; i++) if (keep({ timestampS: start + i / fps, durationS: 1 / fps })) n++;
     return n;
   };
 
@@ -89,9 +89,19 @@ describe('bitrate and frame rate', () => {
     // Regression: the cap read the average rate of the first packets, so a later 120 FPS stretch went through uncapped.
     const keep = frameRateCap();
     const times = [...Array.from({ length: 300 }, (_, i) => i / 30), ...Array.from({ length: 1200 }, (_, i) => 10 + i / 120)];
-    const after = times.filter((t) => keep(t)).filter((t) => t >= 10);
+    const after = times.filter((t) => keep({ timestampS: t, durationS: t < 10 ? 1 / 30 : 1 / 120 })).filter((t) => t >= 10);
     expect(after.length).toBe(10 * MAX_FRAME_RATE);
     for (let i = 1; i < after.length; i++) expect(after[i]! - after[i - 1]!).toBeGreaterThan(1 / MAX_FRAME_RATE / 2);
+  });
+
+  it('moves a capped frame that lasts past its slot to the next slot instead of dropping its time', () => {
+    // Regression: a 0.008 s frame then one lasting 9.992 s dropped the second, leaving a 0.008 s video.
+    const keep = frameRateCap();
+    expect(keep({ timestampS: 0, durationS: 0.008 })).toEqual({ timestampS: 0, durationS: 0.008 });
+    const moved = keep({ timestampS: 0.008, durationS: 9.992 });
+    expect(moved?.timestampS).toBeCloseTo(1 / MAX_FRAME_RATE);
+    expect(moved!.timestampS + moved!.durationS).toBeCloseTo(10);
+    expect(keep({ timestampS: 10, durationS: 1 / 30 })).not.toBeNull();
   });
   it('estimates size from duration and rates', () => {
     const seconds = 98;
@@ -136,27 +146,40 @@ describe('when to re-encode', () => {
   });
 
   it('steps a re-encode still over the limit down from Standard to Data Saver, then stops', () => {
-    expect(retryQuality('standard', { fail: 'tooLarge' })).toBe('dataSaver');
-    expect(retryQuality('dataSaver', { fail: 'tooLarge' })).toBeNull();
+    expect(retryQuality('standard', { kind: 'encoded', bytes: 2 * LIMIT }, { fail: 'tooLarge' })).toBe('dataSaver');
+    expect(retryQuality('dataSaver', { kind: 'encoded', bytes: 2 * LIMIT }, { fail: 'tooLarge' })).toBeNull();
   });
 
   it('steps down when Standard is refused too: a device may encode 852×480 but not 1280×720', () => {
-    expect(retryQuality('standard', { fail: 'unsupported' })).toBe('dataSaver');
-    expect(retryQuality('dataSaver', { fail: 'unsupported' })).toBeNull();
+    expect(retryQuality('standard', { kind: 'unsupported' }, { fail: 'unsupported' })).toBe('dataSaver');
+    expect(retryQuality('dataSaver', { kind: 'unsupported' }, { fail: 'unsupported' })).toBeNull();
+  });
+
+  it('steps down from a refused Standard even when the original fits', () => {
+    // Regression: a fitting original went up as is without trying Data Saver.
+    expect(retryQuality('standard', { kind: 'unsupported' }, { send: 'original' })).toBe('dataSaver');
+    expect(retryQuality('dataSaver', { kind: 'unsupported' }, { send: 'original' })).toBeNull();
   });
 
   it('never steps down once a file was chosen', () => {
-    expect(retryQuality('standard', { send: 'encoded' })).toBeNull();
-    expect(retryQuality('standard', { send: 'original' })).toBeNull();
+    expect(retryQuality('standard', { kind: 'encoded', bytes: 1 }, { send: 'encoded' })).toBeNull();
+    expect(retryQuality('standard', { kind: 'skipped' }, { send: 'original' })).toBeNull();
   });
 });
 
 describe('which file goes up', () => {  const original = 8 * BYTES_PER_MB;
 
-  it('sends the re-encode only when smaller', () => {
-    expect(chooseUpload(original, { kind: 'encoded', bytes: original - 1 }, LIMIT)).toEqual({ send: 'encoded' });
+  it('sends a fitting original over a re-encode that saves less than MIN_SAVINGS', () => {
+    // Regression: the threshold gated only the estimate, so a 0.01% saving replaced the original.
+    const cutoff = original * (1 - MIN_SAVINGS);
+    expect(chooseUpload(original, { kind: 'encoded', bytes: cutoff }, LIMIT)).toEqual({ send: 'encoded' });
+    expect(chooseUpload(original, { kind: 'encoded', bytes: cutoff + 1 }, LIMIT)).toEqual({ send: 'original' });
     expect(chooseUpload(original, { kind: 'encoded', bytes: original }, LIMIT)).toEqual({ send: 'original' });
     expect(chooseUpload(original, { kind: 'skipped' }, LIMIT)).toEqual({ send: 'original' });
+  });
+
+  it('sends any smaller re-encode that fits when the original is over the limit', () => {
+    expect(chooseUpload(LIMIT + 2, { kind: 'encoded', bytes: LIMIT }, LIMIT)).toEqual({ send: 'encoded' });
   });
 
   it('sends the original when the device cannot encode and it fits, else fails as unsupported', () => {

@@ -82,14 +82,28 @@ export function videoBitrateFor(source: VideoSize, quality: EncodeQuality): numb
   return Math.round(Math.min(...larger.map((preset) => presetBitrate(targetSize(source, preset), preset))));
 }
 
-/** A frame filter for one encode: true keeps the frame at `timestampS`; at most one frame per 1/MAX_FRAME_RATE slot. */
-export function frameRateCap(): (timestampS: number) => boolean {
+export interface FrameTiming {
+  timestampS: number;
+  durationS: number;
+}
+
+/**
+ * A frame filter for one encode, at most one frame per 1/MAX_FRAME_RATE slot: the frame's timing, or null to drop it.
+ * A frame in a taken slot that lasts past it moves to the next slot, so no shown time is lost.
+ */
+export function frameRateCap(): (frame: FrameTiming) => FrameTiming | null {
   let lastSlot = -Infinity;
-  return (timestampS) => {
-    const slot = Math.floor(timestampS * MAX_FRAME_RATE + FRAME_SLOT_TOLERANCE);
-    if (slot <= lastSlot) return false;
-    lastSlot = slot;
-    return true;
+  return (frame) => {
+    const slot = Math.floor(frame.timestampS * MAX_FRAME_RATE + FRAME_SLOT_TOLERANCE);
+    if (slot > lastSlot) {
+      lastSlot = slot;
+      return frame;
+    }
+    const nextSlotS = (lastSlot + 1) / MAX_FRAME_RATE;
+    const endS = frame.timestampS + frame.durationS;
+    if (endS <= nextSlotS + FRAME_SLOT_TOLERANCE / MAX_FRAME_RATE) return null;
+    lastSlot += 1;
+    return { timestampS: nextSlotS, durationS: endS - nextSlotS };
   };
 }
 
@@ -97,26 +111,30 @@ export function frameRateCap(): (timestampS: number) => boolean {
 export const expectedEncodedBytes = (durationS: number, videoBitrate: number, hasAudio: boolean): number =>
   (durationS * (videoBitrate + (hasAudio ? AUDIO_BITRATE : 0))) / BITS_PER_BYTE;
 
+const savesEnough = (originalBytes: number, bytes: number): boolean => bytes <= originalBytes * (1 - MIN_SAVINGS);
+
 /** Whether to re-encode: always over the limit; within it, only when the estimate saves at least MIN_SAVINGS. */
 export const worthEncoding = (originalBytes: number, expectedBytes: number, limitBytes: number): boolean =>
-  originalBytes > limitBytes || expectedBytes <= originalBytes * (1 - MIN_SAVINGS);
+  originalBytes > limitBytes || savesEnough(originalBytes, expectedBytes);
 
 /** How a re-encode went: done, skipped (not worthEncoding), or impossible on this device. */
 export type EncodeResult = { kind: 'encoded'; bytes: number } | { kind: 'skipped' } | { kind: 'unsupported' };
 export type VideoLimitReason = 'unsupported' | 'tooLarge';
 export type UploadChoice = { send: 'encoded' | 'original' } | { fail: VideoLimitReason };
 
-/** Send the smaller of the original and the re-encode; fail when even that is over the limit. */
+/** The re-encode when it's smaller and either the original is over the limit or it saves MIN_SAVINGS; fail when nothing fits. */
 export function chooseUpload(originalBytes: number, result: EncodeResult, limitBytes: number): UploadChoice {
-  const encodedSmaller = result.kind === 'encoded' && result.bytes < originalBytes;
-  const bytes = encodedSmaller ? result.bytes : originalBytes;
-  if (bytes <= limitBytes) return { send: encodedSmaller ? 'encoded' : 'original' };
+  const originalFits = originalBytes <= limitBytes;
+  const useEncoded =
+    result.kind === 'encoded' && result.bytes < originalBytes && (!originalFits || savesEnough(originalBytes, result.bytes));
+  const bytes = useEncoded ? result.bytes : originalBytes;
+  if (bytes <= limitBytes) return { send: useEncoded ? 'encoded' : 'original' };
   return { fail: result.kind === 'unsupported' ? 'unsupported' : 'tooLarge' };
 }
 
-/** The quality to retry at after `choice`, or null to stop: any failure steps down while a smaller quality is left. */
-export const retryQuality = (quality: EncodeQuality, choice: UploadChoice): EncodeQuality | null =>
-  'fail' in choice ? (QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1] ?? null) : null;
+/** The quality to retry at, or null to stop: a failure or a refused encode steps down while a smaller quality is left. */
+export const retryQuality = (quality: EncodeQuality, result: EncodeResult, choice: UploadChoice): EncodeQuality | null =>
+  'fail' in choice || result.kind === 'unsupported' ? (QUALITY_ORDER[QUALITY_ORDER.indexOf(quality) + 1] ?? null) : null;
 
 /** The UI's message for a video that can't go up. */
 export function videoLimitMessage(reason: VideoLimitReason, limitBytes: number): string {
