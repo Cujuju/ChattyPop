@@ -165,7 +165,8 @@ export class DiscordApi implements DiscordClient {
       }
       return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: !opts.once, paced, context: opts.context, guard: opts.guard }));
     };
-    const json = (v: unknown): PageRequest['body'] => ({ text: JSON.stringify(v) });
+    // Undefined sends no body (typing), as the client does.
+    const json = (v: unknown): PageRequest['body'] => (v === undefined ? undefined : { text: JSON.stringify(v) });
     return {
       get: <T>(path: string, query: DiscordQuery = {}, opts?: RequestOptions) => request<T>(path, query, 'GET', undefined, opts),
       post: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(path, {}, 'POST', json(body), opts),

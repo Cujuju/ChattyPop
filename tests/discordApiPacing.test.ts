@@ -141,3 +141,22 @@ describe('automatic post pause', () => {
     expect(normalizeArchiveSettings({ automaticPostPauseS: 2.5 }).automaticPostPauseS).toBe(2.5);
   });
 });
+
+describe('Discord request bodies', () => {
+  it('sends a POST without a body (typing) with no body and no Content-Type, as the client does', async () => {
+    const scripts: string[] = [];
+    const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined, own: () => () => undefined };
+    const evaluate = async (script: string) => {
+      scripts.push(script);
+      return { status: 204, headers: {}, body: '' };
+    };
+    const bare = new DiscordApi(() => discordPage(evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
+    const typed = bare.prompt.postOnce('channels/1/typing', undefined);
+    await vi.advanceTimersByTimeAsync(0);
+    await typed;
+    const req = JSON.parse(/const q = (\{.*\});/.exec(scripts[0]!)![1]!) as { method: string; headers: Record<string, string>; body?: unknown };
+    expect(req.method).toBe('POST');
+    expect(req.body).toBeUndefined();
+    expect(Object.keys(req.headers)).not.toContain('Content-Type');
+  });
+});

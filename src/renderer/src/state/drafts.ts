@@ -83,6 +83,8 @@ export function setDraftText(channelId: string, text: string): void {
   ensure(channelId);
   setDrafts(channelId, 'text', text);
   saveText(channelId);
+  // Others see the owner typing; main renews it no oftener than the client does. Locked posting refuses it.
+  if (text) void api.discord.typing(channelId).catch(() => undefined);
 }
 
 /** The `:token:` to insert for a picked custom emoji; sending turns it into Discord's markup. */

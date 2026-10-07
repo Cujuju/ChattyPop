@@ -90,6 +90,8 @@ export interface RendererApi {
     roles(guildId: string): Promise<GuildRole[]>;
     /** Asks Discord for a server's members whose names start with `query`, as its `@` autocomplete does; they reach the archive as members change. */
     requestMembers(guildId: string, query: string): Promise<void>;
+    /** The owner is typing in a channel: others see them typing, as in the live client. */
+    typing(channelId: string): Promise<void>;
     /** Starts a public thread in a text channel, with its first message when given (Discord's /thread). */
     createThread(t: NewThread): Promise<void>;
     /** Sends a direct message to one person (Discord's /msg). */

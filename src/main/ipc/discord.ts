@@ -11,6 +11,7 @@ import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
+import { OwnerTyping } from '../discord/ownTyping';
 import type { GatewayDirectory } from '../discord/directory';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
 import type { AccountChatSettings } from '../discord/chatSettings';
@@ -127,6 +128,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     if (typeof query !== 'string') throw new Error('Not a member search.');
     await memberRequests.request(snowflakeArg(guildId, 'server'), query);
   };
+  const ownTyping = new OwnerTyping(d.discord.tap, account, poster);
+  const typing = (channelId: unknown): Promise<void> => ownTyping.typing(snowflakeArg(channelId, 'channel'));
   const startThread = (t: unknown): Promise<void> => createThread(poster, t);
   // Friends from the client's gateway: the profile's Friends Since, and who a group may hold.
   const friends = new FriendIndex(d.discord.tap);
@@ -168,7 +171,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
   ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
+  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

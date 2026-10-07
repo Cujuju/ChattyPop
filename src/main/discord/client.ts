@@ -33,9 +33,9 @@ export interface DiscordReader {
 
 /** Writes, relative to /api/v9/ (upload excepted); in the same queue as the reads. */
 export interface DiscordWriter {
-  /** Retries 429/5xx, so a body that must not apply twice carries a nonce Discord enforces. */
+  /** Retries 429/5xx, so a body that must not apply twice carries a nonce Discord enforces. `json` undefined sends no body. */
   post<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T>;
-  /** For a body Discord can't deduplicate (no nonce): retries a rate limit, never a server error. */
+  /** For a body Discord can't deduplicate (no nonce): retries a rate limit, never a server error. `json` undefined sends no body. */
   postOnce<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T>;
   /** Without a body (adding a reaction); resolves with Discord's answer, unchecked, if it sent one. */
   put(path: string, opts?: WriteOptions): Promise<unknown>;

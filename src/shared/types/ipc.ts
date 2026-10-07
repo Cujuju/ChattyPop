@@ -179,6 +179,7 @@ export const MAIN_INVOKE = {
     submitModal: 'discord:submit-modal',
     roles: 'discord:roles',
     requestMembers: 'discord:request-members',
+    typing: 'discord:typing',
     createThread: 'discord:create-thread',
     votePoll: 'discord:vote-poll',
     sendDirect: 'discord:send-direct',
