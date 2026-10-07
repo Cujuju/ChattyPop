@@ -1,5 +1,5 @@
 // Host defines permitted phone calls/events; transport plugins supply delivery only.
-import type { AppEvent, RendererApi } from '@shared/contract';
+import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
 import { phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
 
@@ -33,13 +33,20 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
   const relay = <K extends PhoneDiscordMethod>(method: K): DiscordApi[K] =>
     ((...params: unknown[]) => transport.call({ group: 'discord', method, params })) as DiscordApi[K];
 
+  /** A main call the phone makes through the desktop by its channel (PHONE_MAIN_CALLS). */
+  const viaMain =
+    <F extends (...args: never[]) => Promise<unknown>>(channel: string): F =>
+      ((...params: unknown[]) => transport.call({ group: 'main', method: channel, params })) as unknown as F;
+  const { openRouter, typeSafe, storage, desktop, marketplace } = MAIN_INVOKE;
+
   const listeners = new Set<(e: AppEvent) => void>();
   let listening = false;
 
   const api: RendererApi = {
     core,
-    openRouter: { signIn: unavailable('OpenRouter sign-in'), addKey: unavailable('Key setup'), updateKey: unavailable('Key setup'), removeKey: unavailable('Key setup') },
-    typeSafe: { setKey: unavailable('Key setup'), removeKey: unavailable('Key setup') },
+    // Sign-in opens the PC's browser; keys typed here travel to the desktop, which encrypts and keeps them.
+    openRouter: { signIn: unavailable('OpenRouter sign-in'), addKey: viaMain(openRouter.addKey), updateKey: viaMain(openRouter.updateKey), removeKey: viaMain(openRouter.removeKey) },
+    typeSafe: { setKey: viaMain(typeSafe.setKey), removeKey: viaMain(typeSafe.removeKey) },
     discord: {
       setSlot: ignored,
       setSidebar: ignored,
@@ -55,7 +62,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       forward: relay('forward'),
       react: relay('react'),
       gifs: relay('gifs'),
-      customTheme: unavailable('Importing a Discord theme'),
+      customTheme: viaMain(MAIN_INVOKE.discord.customTheme),
       expressions: relay('expressions'),
       commands: relay('commands'),
       runCommand: relay('runCommand'),
@@ -78,7 +85,8 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       renameDm: unavailable('Renaming a group'),
       muteDm: unavailable('Muting a conversation'),
     },
-    storage: { info: unavailable('Storage'), move: unavailable('Moving the archive'), deletePrevious: unavailable('Storage'), setEncrypted: unavailable('Encryption') },
+    // Moving the archive picks a folder on the PC.
+    storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), setEncrypted: viaMain(storage.setEncrypted) },
     plugins: {
       // A member whose audiences leave out the phone fails here, not at the desktop.
       callCore: (pluginId, name, args) =>
@@ -91,26 +99,26 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     // The phone's page saves through its browser: the media route is its own origin, so a download link works there.
     media: { saveAttachment: unavailable('Saving files') },
     desktop: {
-      state: unavailable('Desktop settings'),
-      set: unavailable('Desktop settings'),
-      setOpenAtLogin: unavailable('Desktop settings'),
+      state: viaMain(desktop.state),
+      set: viaMain(desktop.set),
+      setOpenAtLogin: viaMain(desktop.setOpenAtLogin),
       setBadge: () => Promise.resolve(),
-      checkForUpdate: unavailable('Updates'),
-      installUpdate: unavailable('Updates'),
+      checkForUpdate: viaMain(desktop.checkForUpdate),
+      installUpdate: viaMain(desktop.installUpdate),
     },
     marketplace: {
-      state: unavailable('Plugin marketplaces'),
-      add: unavailable('Plugin marketplaces'),
-      remove: unavailable('Plugin marketplaces'),
-      setToken: unavailable('Plugin marketplaces'),
-      refresh: unavailable('Plugin marketplaces'),
-      install: unavailable('Plugin marketplaces'),
-      installLocal: unavailable('Plugin marketplaces'),
-      uninstall: unavailable('Plugin marketplaces'),
-      cancel: unavailable('Plugin marketplaces'),
+      state: viaMain(marketplace.state),
+      add: viaMain(marketplace.add),
+      remove: viaMain(marketplace.remove),
+      setToken: viaMain(marketplace.setToken),
+      refresh: viaMain(marketplace.refresh),
+      install: viaMain(marketplace.install),
+      installLocal: viaMain(marketplace.installLocal),
+      uninstall: viaMain(marketplace.uninstall),
+      cancel: viaMain(marketplace.cancel),
     },
-    openPluginsFolder: unavailable('The plugins folder'),
-    restartApp: unavailable('Restarting ChattyPop'),
+    openPluginsFolder: unavailable('Opening the plugins folder'),
+    restartApp: viaMain(APP_RESTART_CHANNEL),
     openPanelWindow: () => Promise.resolve(),
     showInMainWindow: ignored,
     onEvent: (listener) => {

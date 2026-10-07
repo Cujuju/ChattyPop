@@ -149,6 +149,7 @@ export {
   normalizePhoneLook,
   phoneLookEvent,
   phoneLookSetting,
+  phoneLookWrite,
   type PhoneLook,
   type PhoneTextSize,
 } from '@shared/phoneLook';

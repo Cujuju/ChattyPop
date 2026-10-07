@@ -1,6 +1,7 @@
 // Settings → Desktop in main: the settings file, Windows' sign-in start, the show/hide hotkey, the tray and updates.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { app, globalShortcut, ipcMain, type BrowserWindow } from 'electron';
+import { handleMain } from './ipc/mainCalls';
 import { MAIN_INVOKE, type AppEvent } from '@shared/contract';
 import { DEFAULT_DESKTOP_SETTINGS, indicatedUnread, normalizeDesktopSettings, type DesktopSettings, type DesktopState } from '@shared/desktop';
 import { NO_UNREAD, normalizeUnreadTotals, type UnreadTotals } from '@shared/unread';
@@ -131,16 +132,16 @@ export class Desktop {
 
   private registerHandlers(): void {
     const { desktop } = MAIN_INVOKE;
-    ipcMain.handle(desktop.state, () => this.state());
-    ipcMain.handle(desktop.set, (_e, patch: unknown) => this.set(normalizeDesktopSettings({ ...this.settings, ...(patch as object) })));
-    ipcMain.handle(desktop.setOpenAtLogin, (_e, on: unknown) => this.setOpenAtLogin(on === true));
+    handleMain(desktop.state, () => this.state());
+    handleMain(desktop.set, (patch) => this.set(normalizeDesktopSettings({ ...this.settings, ...(patch as object) })));
+    handleMain(desktop.setOpenAtLogin, (on) => this.setOpenAtLogin(on === true));
     ipcMain.handle(desktop.setBadge, (e, unread: unknown) => {
       // The main window's own totals; panel windows hold copies of the same stores.
       if (e.sender !== this.win?.webContents) return;
       this.unread = normalizeUnreadTotals(unread);
       this.showUnread();
     });
-    ipcMain.handle(desktop.checkForUpdate, () => this.updates?.check());
-    ipcMain.handle(desktop.installUpdate, () => this.win && this.updates?.install(this.win));
+    handleMain(desktop.checkForUpdate, () => this.updates?.check());
+    handleMain(desktop.installUpdate, () => this.win && this.updates?.install(this.win));
   }
 }

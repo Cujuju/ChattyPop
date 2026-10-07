@@ -171,7 +171,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     on: (fn) => (listeners.add(fn), () => listeners.delete(fn)),
     afterSwitch: [],
   };
-  phone = new PhoneHub({ core: { call: port.call as never }, discord: NO_PHONE_EXTRAS, media: NO_PHONE_EXTRAS, active: () => true }).gateway;
+  phone = new PhoneHub({ core: { call: port.call as never }, discord: NO_PHONE_EXTRAS, main: NO_PHONE_EXTRAS, media: NO_PHONE_EXTRAS, active: () => true }).gateway;
   const link = coreLink(port);
   const wire = <T>(value: unknown): T => decodeWire(encodeWire(value)) as T;
   const send = {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 import { type PluginDescriptor } from '@shared/bundledTypes';
 import { checkBundled } from '@shared/bundledCheck';
-import { DEFAULT_PHONE_LOOK, PHONE_LOOK_KEYS, normalizePhoneLook, phoneLookEvent, phoneLookSetting } from '@shared/phoneLook';
+import { DEFAULT_PHONE_LOOK, PHONE_LOOK_KEYS, normalizePhoneLook, phoneLookEvent, phoneLookSetting, phoneLookWrite } from '@shared/phoneLook';
 import type { AppEvent } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { tempDir } from './helpers';
@@ -22,7 +22,8 @@ const { PhoneCallRefused, PhoneHub, PhoneRouteMissing } = await import('../src/m
 const { createMainContext } = await import('../src/main/plugins/context');
 const { whileActive } = await import('../src/main/plugins/states');
 const { readSecret, SECRET_FILES } = await import('../src/main/secretFile');
-const { PHONE_HOST_SETTINGS, PHONE_WRITABLE_SETTINGS } = await import('../src/shared/phone');
+const { PHONE_HOST_SETTINGS, PHONE_UNSHARED_SETTINGS } = await import('../src/shared/phone');
+const { MAIN_INVOKE } = await import('../src/shared/contract');
 const { SETTINGS_KEYS } = await import('../src/shared/settings');
 const { rendererPages } = await import('../src/main/plugins/pages');
 
@@ -47,7 +48,7 @@ function harness(): Harness {
   const on = new Set(['probe', 'plain']);
   const core = { call: vi.fn(async (method: string, ...params: unknown[]) => ({ method, params })) };
   const discord = { send: vi.fn(async () => 'sent') };
-  const hub = new PhoneHub({ core: core as never, discord: () => discord as never, media: async (url) => new Response(url.href), active: (id) => on.has(id) });
+  const hub = new PhoneHub({ core: core as never, discord: () => discord as never, main: async () => undefined, media: async (url) => new Response(url.href), active: (id) => on.has(id) });
   return { hub, core, discord, on, published: [] };
 }
 
@@ -92,29 +93,14 @@ describe('phone settings', () => {
     'plugin.gone.settings': { model: 'DESKTOP-ONLY' },
     'plugin.gone.config': { enabled: true },
   };
-  /** What the phone's stores read of each, and nothing of the rest. */
-  const PHONE_SEES: Record<string, unknown> = {
-    appearance: { theme: 'tide' },
-    privacyMode: true,
-    savedSearches: ['from:ann'],
-    discordSidebar: { serversHidden: true, channelsCollapsed: false },
-    'archive.density': 'compact',
-    archive: { backfillDays: 7 },
-    ai: { providers: { claude: { enabled: true } }, jev: { catchUpBadges: true } },
-    'layout.preset': 'reading',
-    'layout.custom': { mine: { name: 'Mine' } },
-    'layout.collapsedPanels': ['stats'],
-    'layout.sidebarCollapsed': true,
-    'plugin.inbox.sort': 'rule',
-    'plugin.inbox.ruleIds': [1],
-    'plugin.commands.commands': { ask: { enabled: true, prefix: 'ask' }, query: { enabled: false, prefix: 'q' } },
-    'plugin.digest.settings': { defaultRange: '24h' },
-    'plugin.digest.seenId': 3,
-  };
+  /** Stored keys the phone reads as unset: one window's own place, keys nothing declares, a plugin absent from this build. */
+  const UNSHARED = ['layout.sizes', 'layout.windows', 'plugin.voice.settings', 'plugin.gone.settings', 'plugin.gone.config'];
+  /** Every other setting the phone reads whole, desktop-only parts (prompts, addresses) included: its Settings edits them. */
+  const PHONE_SEES = Object.fromEntries(Object.entries(STORED).filter(([key]) => !UNSHARED.includes(key)));
 
-  it('reads only the settings the phone uses, and only the parts it uses, on calls and change events alike', async () => {
+  it('reads every shared setting whole, on calls and change events alike, and nothing of the rest', async () => {
     const core = { call: vi.fn(async (method: string, key: unknown) => (method === 'getSetting' ? STORED[key as string] : null)) };
-    const hub = new PhoneHub({ core: core as never, discord: () => ({}) as never, media: async () => new Response(), active: () => true });
+    const hub = new PhoneHub({ core: core as never, discord: () => ({}) as never, main: async () => undefined, media: async () => new Response(), active: () => true });
     const events: AppEvent[] = [];
     const { gateway } = hub.connect('probe', { broadcast: (e) => void events.push(e), notify: () => undefined });
     for (const [key, value] of Object.entries(STORED)) {
@@ -124,20 +110,36 @@ describe('phone settings', () => {
     expect(events).toEqual(Object.entries(PHONE_SEES).map(([key, value]) => ({ type: 'setting-changed', key, value })));
   });
 
-  it('writes only the settings the phone may write, stored through their normalizers', async () => {
+  it('writes config settings and plugin preferences; its own view choices and unshared keys never reach the PC', async () => {
     const core = { call: vi.fn(async () => undefined) };
-    const hub = new PhoneHub({ core: core as never, discord: () => ({}) as never, media: async () => new Response(), active: () => true });
+    const hub = new PhoneHub({ core: core as never, discord: () => ({}) as never, main: async () => undefined, media: async () => new Response(), active: () => true });
     const { gateway } = hub.connect('probe', { broadcast: () => undefined, notify: () => undefined });
-    await gateway.call('core', 'setSetting', [SETTINGS_KEYS.countedBots, ['b1', 'b1', '', 7, 'b2']]);
-    expect(core.call).toHaveBeenLastCalledWith('setSetting', SETTINGS_KEYS.countedBots, ['b1', 'b2']);
-    for (const key of [SETTINGS_KEYS.privacyMode, SETTINGS_KEYS.appearance, 'plugin.digest.settings']) {
+    for (const [key, value] of [[SETTINGS_KEYS.ai, { defaultProvider: 'codex' }], [SETTINGS_KEYS.countedBots, ['b1']], ['plugin.digest.settings', { defaultRange: '7d' }]] as const) {
+      await gateway.call('core', 'setSetting', [key, value]);
+      expect(core.call, key).toHaveBeenLastCalledWith('setSetting', key, value);
+    }
+    for (const key of [SETTINGS_KEYS.privacyMode, SETTINGS_KEYS.archiveDensity, SETTINGS_KEYS.layoutPreset, SETTINGS_KEYS.settingsTab, 'plugin.gone.settings', 'layout.sizes']) {
       await expect(gateway.call('core', 'setSetting', [key, true]), key).rejects.toBeInstanceOf(PhoneCallRefused);
     }
-    expect(core.call).toHaveBeenCalledTimes(1);
+    expect(core.call).toHaveBeenCalledTimes(3);
   });
 
-  it('a setting the phone may write, it reads whole: its write never overwrites parts it cannot see', () => {
-    for (const key of Object.keys(PHONE_WRITABLE_SETTINGS)) expect(PHONE_HOST_SETTINGS[key], key).toBe(true);
+  it('classifies every host setting: shared with the phone (config or view) or kept to each window', () => {
+    const keys: string[] = Object.values(SETTINGS_KEYS);
+    const classified = [...Object.keys(PHONE_HOST_SETTINGS), ...PHONE_UNSHARED_SETTINGS];
+    expect([...classified].sort()).toEqual([...keys].sort());
+  });
+
+  it("reaches main's Settings calls by channel, but none needing the PC's screen", async () => {
+    const main = vi.fn(async (channel: string) => channel);
+    const hub = new PhoneHub({ core: { call: vi.fn() } as never, discord: () => ({}) as never, main, media: async () => new Response(), active: () => true });
+    const { gateway } = hub.connect('probe', { broadcast: () => undefined, notify: () => undefined });
+    await expect(gateway.call('main', MAIN_INVOKE.typeSafe.setKey, ['k'])).resolves.toBe(MAIN_INVOKE.typeSafe.setKey);
+    expect(main).toHaveBeenLastCalledWith(MAIN_INVOKE.typeSafe.setKey, ['k']);
+    for (const channel of [MAIN_INVOKE.openRouter.signIn, MAIN_INVOKE.storage.move, MAIN_INVOKE.rules.pickFile, MAIN_INVOKE.plugins.callMain, MAIN_INVOKE.desktop.setBadge, 'nope']) {
+      await expect(gateway.call('main', channel, []), channel).rejects.toBeInstanceOf(PhoneCallRefused);
+    }
+    expect(main).toHaveBeenCalledOnce();
   });
 
   it("a phone's own look stands in for the desktop's theme and density, and only where it chose", () => {
@@ -149,6 +151,9 @@ describe('phone settings', () => {
     expect(phoneLookSetting('appearance', undefined, own)).toEqual({ theme: 'paper' });
     expect(phoneLookSetting('archive.density', 'compact', own)).toBe('cozy');
     expect(phoneLookSetting('privacyMode', true, own)).toBe(true);
+    // Its writes take the look back out: the PC keeps its own theme, whatever the phone wears.
+    expect(phoneLookWrite('appearance', { theme: 'paper', custom: { a: 1 } }, own, { theme: 'tide' })).toEqual({ theme: 'tide', custom: { a: 1 } });
+    expect(phoneLookWrite('appearance', { theme: 'paper' }, follows, { theme: 'tide' })).toEqual({ theme: 'paper' });
     expect(phoneLookEvent({ type: 'setting-changed', key: 'archive.density', value: 'compact' }, own)).toEqual({ type: 'setting-changed', key: 'archive.density', value: 'cozy' });
     const other: AppEvent = { type: 'rules-changed' };
     expect(phoneLookEvent(other, own)).toBe(other);

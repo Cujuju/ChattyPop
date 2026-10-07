@@ -3,6 +3,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, ipcMain, session, shell } from 'electron';
+import { callMain, handleMain } from './ipc/mainCalls';
 import {
   CORE_INVOKE_CHANNEL,
   PANEL_WINDOW_CHANNEL,
@@ -179,7 +180,7 @@ void app.whenReady().then(() => {
   states.refresh();
   // The Discord calls exist once their handlers are registered (below); a transport connects only after that.
   let discordCalls: DiscordCalls | undefined;
-  const phone = new PhoneHub({ core, discord: () => discordCalls!, media: serveMedia, active: (id) => states.active(id) });
+  const phone = new PhoneHub({ core, discord: () => discordCalls!, main: callMain, media: serveMedia, active: (id) => states.active(id) });
   const { toRenderer, toMain, publish, notifications } = routeCoreEvents({ win, panelWindows, core, downloader, phone });
   desktop.attach(win, toMain);
   ipcMain.on(SHOW_IN_MAIN_CHANNEL, (_e, channelId: unknown, messageId: unknown, compose: unknown) => {
@@ -239,7 +240,7 @@ void app.whenReady().then(() => {
   });
   registerMarketplaceHandlers({ build: buildFromSource });
   ipcMain.handle(PLUGINS_OPEN_FOLDER_CHANNEL, async () => void (await shell.openPath(pluginsDir)));
-  ipcMain.handle(APP_RESTART_CHANNEL, () => restartApp(win));
+  handleMain(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
   discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting });

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { INSTALLED_PAGE_BOOTSTRAP, PAGE_BOOTSTRAP, pageInputs, pagesPlugin } from '../bundledPlugins';
 import { INSTALLED_PAGE_SHELL } from '@shared/installedBrowser';
 import { SETTINGS_KEYS } from '@shared/settings';
+import { MAIN_INVOKE } from '@shared/contract';
 import { rendererPages, staticFile } from '../src/main/plugins/pages';
 import { tempDir } from './helpers';
 
@@ -103,7 +104,7 @@ describe('a transport page', () => {
     installRendererApi(createPhoneRendererApi({ call, listen: () => undefined }), '/media/');
     const leaf = '@/api';
     const { api } = (await import(leaf)) as {
-      api: { core: { status(): Promise<string>; setSetting(key: string, value: unknown): Promise<void> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
+      api: { core: { status(): Promise<string>; setSetting(key: string, value: unknown): Promise<void> }; desktop: { state(): Promise<unknown> }; storage: { move(): Promise<void> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
     };
     await expect(api.core.status()).resolves.toBe('up');
     expect(call).toHaveBeenCalledExactlyOnceWith({ group: 'core', method: 'status', params: [] });
@@ -112,9 +113,13 @@ describe('a transport page', () => {
     expect(call).toHaveBeenCalledOnce();
     await api.core.setSetting(SETTINGS_KEYS.countedBots, ['b1']);
     expect(call).toHaveBeenLastCalledWith({ group: 'core', method: 'setSetting', params: [SETTINGS_KEYS.countedBots, ['b1']] });
+    // Main's Settings calls travel by channel; one needing the PC's screen is refused here.
+    await api.desktop.state();
+    expect(call).toHaveBeenLastCalledWith({ group: 'main', method: MAIN_INVOKE.desktop.state, params: [] });
+    await expect(api.storage.move()).rejects.toThrow(/only on the desktop/);
     // A plugin member for desktop windows only is refused on the phone, never sent.
     await expect(api.plugins.callCore('plans', 'list', [1])).rejects.toThrow(/only on the desktop/);
-    expect(call).toHaveBeenCalledTimes(2);
+    expect(call).toHaveBeenCalledTimes(3);
     expect(mediaUrl('avatar', '1')).toBe('/media/avatar/1');
   });
 });
