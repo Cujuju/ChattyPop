@@ -47,19 +47,39 @@ final class ShellMediaSaver {
         queue.async { [folder] in try? FileManager.default.removeItem(at: folder) }
     }
 
+    /// A message body read as a ShellMediaPiece.
+    private struct Piece {
+        let id: String
+        let index: Int
+        let last: Bool
+        let type: String
+        let base64: String
+
+        init?(_ body: Any) {
+            guard let fields = body as? [String: Any],
+                  let id = fields[ShellMediaSaver.idKey] as? String, !id.isEmpty,
+                  let index = (fields[ShellMediaSaver.indexKey] as? NSNumber)?.intValue,
+                  let last = (fields[ShellMediaSaver.lastKey] as? NSNumber)?.boolValue,
+                  let type = fields[ShellMediaSaver.typeKey] as? String,
+                  let base64 = fields[ShellMediaSaver.dataKey] as? String else { return nil }
+            self.id = id
+            self.index = index
+            self.last = last
+            self.type = type
+            self.base64 = base64
+        }
+    }
+
     /// Takes one piece. `done`, on the main queue, gets nil once it's written (the last piece: once saved), else the reason it failed.
     func receive(_ body: Any, done: @escaping (String?) -> Void) {
         let finish = { (error: Error?) in DispatchQueue.main.async { done(error?.localizedDescription) } }
-        guard let piece = body as? [String: Any],
-              let id = piece[Self.idKey] as? String, !id.isEmpty,
-              let index = (piece[Self.indexKey] as? NSNumber)?.intValue,
-              let last = (piece[Self.lastKey] as? NSNumber)?.boolValue,
-              let type = piece[Self.typeKey] as? String,
-              let base64 = piece[Self.dataKey] as? String else { return finish(SaveError.malformed) }
+        let piece = Piece(body)
         queue.async { [self] in
+            // Every failure, a malformed piece included, discards the unfinished capture's file.
             do {
-                try write(id: id, index: index, type: type, base64: base64)
-                guard last else { return finish(nil) }
+                guard let piece else { throw SaveError.malformed }
+                try write(piece)
+                guard piece.last else { return finish(nil) }
                 let file = try end()
                 save(file, finish)
             } catch {
@@ -69,14 +89,14 @@ final class ShellMediaSaver {
         }
     }
 
-    private func write(id: String, index: Int, type: String, base64: String) throws {
-        guard let data = Data(base64Encoded: base64) else { throw SaveError.malformed }
-        if index == 0 {
+    private func write(_ piece: Piece) throws {
+        guard let data = Data(base64Encoded: piece.base64) else { throw SaveError.malformed }
+        if piece.index == 0 {
             // A new capture replaces one cut short.
             discard()
-            transfer = try begin(id: id, type: type)
+            transfer = try begin(id: piece.id, type: piece.type)
         }
-        guard var current = transfer, current.id == id, current.nextIndex == index else { throw SaveError.outOfOrder }
+        guard var current = transfer, current.id == piece.id, current.nextIndex == piece.index else { throw SaveError.outOfOrder }
         try current.handle.write(contentsOf: data)
         current.nextIndex += 1
         transfer = current
@@ -95,13 +115,24 @@ final class ShellMediaSaver {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let url = folder.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
         guard FileManager.default.createFile(atPath: url.path, contents: nil) else { throw SaveError.fileNotCreated }
-        return Transfer(id: id, url: url, handle: try FileHandle(forWritingTo: url), resource: resource, nextIndex: 0)
+        do {
+            return Transfer(id: id, url: url, handle: try FileHandle(forWritingTo: url), resource: resource, nextIndex: 0)
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
     }
 
+    /// Takes the finished capture off `transfer`; a failed close removes its file, as `discard` would.
     private func end() throws -> Transfer {
         guard let done = transfer else { throw SaveError.outOfOrder }
         transfer = nil
-        try done.handle.close()
+        do {
+            try done.handle.close()
+        } catch {
+            try? FileManager.default.removeItem(at: done.url)
+            throw error
+        }
         return done
     }
 
