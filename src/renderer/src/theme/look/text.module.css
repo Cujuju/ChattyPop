@@ -119,6 +119,10 @@
   color: var(--cp-danger);
 }
 
+.text[data-tone='success'] {
+  color: var(--cp-success);
+}
+
 /* The nearest [data-section]'s colour (theme/identity.css). */
 .text[data-tone='section'] {
   color: var(--cp-section);

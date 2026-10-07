@@ -534,7 +534,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 
 | Role | Look | Attributes |
 |---|---|---|
-| `text` | Type ramp and text tones | `data-size` (2xs, xs, sm, md, base, lg, xl), `data-weight` (medium, semibold), `data-line` (none, tight, normal, relaxed; meta: a row's meta line; chip: inline chips; pill: count pills), `data-case` (upper), `data-tracking` (label, label-sm, title), `data-font` (sans, mono), `data-figures` (tabular), `data-tone` (primary, secondary, muted, accent, danger, section) |
+| `text` | Type ramp and text tones | `data-size` (2xs, xs, sm, md, base, lg, xl), `data-weight` (medium, semibold), `data-line` (none, tight, normal, relaxed; meta: a row's meta line; chip: inline chips; pill: count pills), `data-case` (upper), `data-tracking` (label, label-sm, title), `data-font` (sans, mono), `data-figures` (tabular), `data-tone` (primary, secondary, muted, accent, danger, success, section) |
 | `ground`, `chrome`, `base` | The window ground; chrome (surface-0); the app base (surface-1) | — |
 | `card` | Recessed card holding a form or tool | — |
 | `banner` | A notice set apart from its surroundings | — |

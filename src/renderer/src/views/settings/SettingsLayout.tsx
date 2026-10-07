@@ -1,4 +1,4 @@
-import { For, Show, createMemo, type JSX } from 'solid-js';
+import { For, Show, createMemo, splitProps, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { Select, type SelectOption } from '@/ui/Select';
 import { setSettingsSections, settingsSections } from '@/state/ui';
@@ -290,7 +290,8 @@ export const FormField = (props: { id: string; label: string; children: JSX.Elem
 /** Class names for controls placed in rows: a compact select or field, a narrow number, a button group; and a group of rows in a card. */
 export const settingsControl = { select: card.select, number: card.number, wide: card.wide, buttons: card.buttons, unit: card.unit, cardBody: card.cardBody, group: card.group } as const;
 
-/** A settings action button: the shared button, with room between an icon and its text. Other attributes pass through. */
-export const SettingsButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'class' | 'type'>) => (
-  <button type="button" {...props} class={`cp-button ${settings.button}`} />
-);
+/** A settings action button: the shared button, with room between an icon and its text; `tone="danger"` is the danger button. Other attributes pass through. */
+export const SettingsButton = (props: Omit<JSX.ButtonHTMLAttributes<HTMLButtonElement>, 'class' | 'type'> & { tone?: 'danger' }) => {
+  const [local, rest] = splitProps(props, ['tone']);
+  return <button type="button" {...rest} class={`${local.tone === 'danger' ? 'cp-danger' : 'cp-button'} ${settings.button}`} />;
+};
