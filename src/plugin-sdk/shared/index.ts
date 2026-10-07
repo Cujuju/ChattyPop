@@ -113,6 +113,17 @@ export { RULE_SPEC_VERSION } from '@shared/ruleVersion';
 export { MESSAGE_TRIGGER } from '@shared/ruleKinds/host';
 export { contentSummary, type ContentKind } from '@shared/messageContent';
 export { plainDiscordText } from '@shared/discordText';
+// Discord polls: the limits a new one is held to, and the owner's draft.
+export {
+  POLL_ANSWER_MAX,
+  POLL_ANSWERS_MAX,
+  POLL_ANSWERS_MIN,
+  POLL_DURATION_DEFAULT_HOURS,
+  POLL_DURATIONS,
+  POLL_QUESTION_MAX,
+  pollDraftError,
+  type PollDraft,
+} from '@shared/polls';
 
 export { avatarUrl, mediaSize } from '@shared/media';
 

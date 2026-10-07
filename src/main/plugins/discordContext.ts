@@ -43,6 +43,7 @@ export function pluginDiscord<D extends PluginDescriptor>(plugin: D, d: PluginDi
     post: <T>(path: string, json: unknown, opts?: WriteOptions) => writer.post<T>(path, json, opts),
     postOnce: <T>(path: string, json: unknown, opts?: WriteOptions) => writer.postOnce<T>(path, json, opts),
     put: (path, opts) => writer.put(path, opts),
+    putJson: <T>(path: string, json: unknown, opts?: WriteOptions) => writer.putJson<T>(path, json, opts),
     patch: <T>(path: string, json: unknown, opts?: WriteOptions) => writer.patch<T>(path, json, opts),
     delete: (path, opts) => writer.delete(path, opts),
     upload: (uploadUrl, bytes) => writer.upload(uploadUrl, bytes),

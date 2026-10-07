@@ -3,6 +3,7 @@ import type { PluginCallResult } from './pluginCall';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
 import type { ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
+import type { OwnerPollVote } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
@@ -65,6 +66,8 @@ export interface RendererApi {
     forward(f: OwnerForward): Promise<void>;
     /** Adds or takes back the owner's reaction; resolves once the archive shows it. Rejects with Discord's reason. */
     react(r: OwnerReaction): Promise<void>;
+    /** Sets the owner's vote on a poll (no answers takes it back); resolves once the archive shows it. Rejects with Discord's reason. */
+    votePoll(v: OwnerPollVote): Promise<void>;
     /** GIFs matching the query, or trending GIFs for an empty one. */
     gifs(query: string): Promise<Gif[]>;
     /** The owner's custom theme as set in Discord; rejects when Discord has none. */

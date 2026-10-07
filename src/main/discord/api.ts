@@ -123,6 +123,11 @@ export class DiscordApi implements DiscordClient {
     return this.paced.put(path, opts);
   }
 
+  /** PUT a JSON body to `path`, paced (DiscordWriter.putJson). */
+  putJson<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T> {
+    return this.paced.putJson<T>(path, json, opts);
+  }
+
   /** PATCH a JSON body to `path`, paced. */
   patch<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T> {
     return this.paced.patch<T>(path, json, opts);
@@ -145,6 +150,7 @@ export class DiscordApi implements DiscordClient {
       post: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'POST', json(body), opts),
       postOnce: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'POST', json(body), { ...opts, once: true }),
       put: (path: string, opts?: WriteOptions) => request<unknown>(at(path), 'PUT', undefined, opts),
+      putJson: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'PUT', json(body), opts),
       patch: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'PATCH', json(body), opts),
       delete: (path: string, opts?: WriteOptions) => request<unknown>(at(path), 'DELETE', undefined, opts),
       upload: (uploadUrl: string, bytes: Buffer) => this.upload(uploadUrl, bytes),

@@ -27,6 +27,7 @@ const NO_DISCORD: DiscordClient = {
   post: refuse('Discord session'),
   postOnce: refuse('Discord session'),
   put: refuse('Discord session'),
+  putJson: refuse('Discord session'),
   patch: refuse('Discord session'),
   delete: refuse('Discord session'),
   upload: refuse('Discord session'),

@@ -151,6 +151,8 @@
   --cp-emoji-jumbo: 48px; /* emoji in a message that is only emoji */
   --cp-text-code: 0.875em; /* inline and block code, relative to the surrounding text */
   --cp-embed-max-w: 520px; /* embed card and its media */
+  --cp-poll-w: 440px; /* a poll card: Discord's width, short of an embed's */
+  --cp-poll-mark: 20px; /* a poll answer's choice circle or box */
   --cp-embed-desc-lines: 4; /* lines of a link or video preview's description */
   --cp-embed-thumb: 80px; /* thumbnail beside an embed's text */
   --cp-embed-gallery-ratio: 3 / 2; /* a multi-photo embed's gallery box: about Discord's, two portrait crops side by side */

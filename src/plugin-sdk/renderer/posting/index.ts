@@ -13,6 +13,7 @@ export {
   removeFile,
   sendDraft,
   sendGif,
+  sendPoll,
   setDraftText,
   type DraftFile,
 } from '@/state/composer';

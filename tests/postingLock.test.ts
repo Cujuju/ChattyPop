@@ -49,7 +49,7 @@ function owner(queued: () => void = () => undefined): DiscordClient & { sent: st
     sent.push(`${verb} ${path}`);
     return { id: MESSAGE, attachments: [] };
   };
-  return { sent, get: async <T>() => [] as T, post: record('post') as never, postOnce: record('postOnce') as never, put: record('put'), patch: record('patch') as never, delete: record('delete'), upload: record('upload') as never };
+  return { sent, get: async <T>() => [] as T, post: record('post') as never, postOnce: record('postOnce') as never, put: record('put'), putJson: record('putJson') as never, patch: record('patch') as never, delete: record('delete'), upload: record('upload') as never };
 }
 
 /** The real registrations over fakes; `state.list` is core's plugin list as the gate reads it, changeable mid-test. */

@@ -39,6 +39,8 @@ export interface DiscordWriter {
   postOnce<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T>;
   /** Without a body (adding a reaction); resolves with Discord's answer, unchecked, if it sent one. */
   put(path: string, opts?: WriteOptions): Promise<unknown>;
+  /** PUTs a JSON body that sets a whole state (a poll vote), so a retry can't apply it twice. */
+  putJson<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T>;
   patch<T>(path: string, json: unknown, opts?: WriteOptions): Promise<T>;
   /** Resolves with Discord's answer, unchecked, if it sent one (a closed DM's channel). */
   delete(path: string, opts?: WriteOptions): Promise<unknown>;

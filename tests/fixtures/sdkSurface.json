@@ -1,5 +1,5 @@
 {
-  "version": "2.15.0",
+  "version": "2.16.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -42,6 +42,12 @@
       "PHONE_TEXT_SIZES",
       "PLATFORMS",
       "PLATFORM_INFO",
+      "POLL_ANSWERS_MAX",
+      "POLL_ANSWERS_MIN",
+      "POLL_ANSWER_MAX",
+      "POLL_DURATIONS",
+      "POLL_DURATION_DEFAULT_HOURS",
+      "POLL_QUESTION_MAX",
       "PROVIDER_DISPLAY_NAME_MAX",
       "PUBLIC_THREAD_TYPE",
       "RULE_SPEC_VERSION",
@@ -124,6 +130,7 @@
       "plainDiscordText",
       "pluginSetting",
       "pluginTable",
+      "pollDraftError",
       "privateChannelName",
       "reactionPathPart",
       "recordOf",
@@ -474,6 +481,7 @@
       "searchGifs",
       "sendDraft",
       "sendGif",
+      "sendPoll",
       "sendingDismissed",
       "setCommandTail",
       "setDraftText",

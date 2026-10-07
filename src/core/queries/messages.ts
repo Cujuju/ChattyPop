@@ -1,4 +1,5 @@
 // Archive message pages with attachments, host judgments and plugin labels.
+import { pollFrom, type RawPoll } from '@shared/polls';
 import type { ArchiveAttachment, ArchiveEmbed, ArchiveMessage, AttachmentNote, MessageLabel, MessagePageQuery } from '@shared/contract';
 import { questionLabels } from '../jev/messageQuestions';
 import type { MessageAnnotation } from '@shared/plugins';
@@ -50,6 +51,7 @@ interface Row {
   componentsJson: string | null;
   interactionJson: string | null;
   legacyInteractionJson: string | null;
+  pollJson: string | null;
 }
 
 /** Every column an ArchiveMessage is built from; callers add the WHERE clause. */
@@ -61,7 +63,7 @@ const SELECT_MESSAGE = `SELECT m.id, m.channel_id AS channelId, m.ts, m.edited_t
                          ${rawJsonSql('$.sticker_items')} AS stickersJson, ${rawJsonSql('$.referenced_message')} AS refJson,
                          ${rawJsonSql('$.mentions')} AS mentionsJson, ${rawJsonSql('$.mention_everyone')} AS mentionEveryone, ${rawJsonSql('$.flags')} AS flags, ${rawJsonSql('$.application_id')} AS applicationId,
                          ${rawJsonSql('$.components')} AS componentsJson, ${rawJsonSql('$.interaction_metadata')} AS interactionJson,
-                         ${rawJsonSql('$.interaction')} AS legacyInteractionJson
+                         ${rawJsonSql('$.interaction')} AS legacyInteractionJson, ${rawJsonSql('$.poll')} AS pollJson
                   FROM messages m LEFT JOIN users u ON u.id = m.author_id`;
 
 /** Archived messages by id, as the Archive shows them; ids not in the archive, or hidden by privacy mode, are left out. */
@@ -226,6 +228,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       applicationId: r.applicationId ?? (components.length ? r.authorId : null),
       components,
       interaction: interactionFrom(r.interactionJson, r.legacyInteractionJson),
+      poll: pollFrom(parseJson(r.pollJson) as RawPoll | null),
     };
   });
 }

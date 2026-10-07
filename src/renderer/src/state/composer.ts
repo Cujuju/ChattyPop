@@ -3,6 +3,7 @@ import { createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens, pickedMentionNames, type Gif, type OwnerMessage } from '@shared/compose';
 import { newNonce } from '@shared/discord';
+import type { PollDraft } from '@shared/polls';
 import { convertEmoticons } from '@shared/emoticons';
 import { discordChatSettings } from './chatSettings';
 import { takeDraft } from './drafts';
@@ -59,6 +60,20 @@ export function sendGif(channelId: string, gif: Gif, query: string): void {
     channelId,
     label: 'GIF',
     message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() },
+    files: [],
+    mentions: {},
+    draft: null,
+  });
+}
+
+/** Queues a poll on its own, as Discord's poll creator posts it; the typed draft stays. main checks it as Discord would. */
+export function sendPoll(channelId: string, poll: PollDraft): void {
+  const replyTo = replyIn(channelId);
+  if (replyTo) cancelReply();
+  enqueue({
+    channelId,
+    label: `Poll: ${poll.question.trim()}`,
+    message: { channelId, text: '', replyTo, files: [], stickerId: null, gif: null, poll, nonce: newNonce() },
     files: [],
     mentions: {},
     draft: null,

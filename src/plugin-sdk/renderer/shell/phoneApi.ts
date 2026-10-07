@@ -77,6 +77,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       roles: relay('roles'),
       requestMembers: relay('requestMembers'),
       createThread: relay('createThread'),
+      votePoll: relay('votePoll'),
       sendDirect: relay('sendDirect'),
       profile: relay('profile'),
       mutualFriends: relay('mutualFriends'),

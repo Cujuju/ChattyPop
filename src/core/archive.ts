@@ -32,6 +32,8 @@ import { THREAD_KINDS_SQL } from './queries/channelScope';
 import { rawJsonSql } from './queries/messageContent';
 import { addedTextArrival, textMessage, textedLinkCount } from './queries/messageText';
 import { applyReactionEvent, type ReactionEvent } from './reactions';
+import { applyOwnPollVoteTo, applyPollVoteEvent, type PollVoteEvent } from './pollVotes';
+import type { OwnerPollVote } from '@shared/polls';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from './arrival';
 
 /** Archive reads/writes. All message mutation goes through here so edits and deletes are never lost. */
@@ -266,6 +268,16 @@ export class Archive {
   /** After a re-derive that left a message's own text alone: passes it on when more of its links now have text than `texted`. */
   private noteLinkedText(id: string, texted: number, at: number): void {
     if (textedLinkCount(this.db, id) > texted) this.onLinkedText(this.stored(id), addedTextArrival(this.db, id, at));
+  }
+
+  /** Poll vote events on an archived message (see pollVotes.ts); `selfId` tells the owner's own apart. */
+  applyPollVote(t: 'MESSAGE_POLL_VOTE_ADD' | 'MESSAGE_POLL_VOTE_REMOVE', d: PollVoteEvent, selfId: string | null): boolean {
+    return this.optedIn.has(d.channel_id) && applyPollVoteEvent(this.db, t, d, selfId);
+  }
+
+  /** The owner's vote on an archived poll, applied before the gateway's echo (which then changes nothing). */
+  applyOwnPollVote(v: OwnerPollVote): boolean {
+    return this.optedIn.has(v.channelId) && applyOwnPollVoteTo(this.db, v);
   }
 
   /** Reaction events on an archived message (see reactions.ts); `selfId` tells the owner's own apart. */

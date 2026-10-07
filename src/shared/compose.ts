@@ -1,4 +1,5 @@
 // The Archive composer's contract: a message the owner posts, GIF results, and the emoji and stickers they can pick.
+import type { PollDraft } from './polls';
 import type { CustomEmoji, GuildEmoji } from './emoji';
 import { escapeRegex } from './keywordPattern';
 import type { ArchiveEmoji } from './types/archive';
@@ -25,6 +26,8 @@ export interface OwnerMessage {
   stickerId: string | null;
   /** A GIF picked in the GIF picker: `text` is its page URL, as the live client sends it; `query` found it. */
   gif: { id: string; query: string } | null;
+  /** A poll the message carries (the message's text may be empty). Absent: none. */
+  poll?: PollDraft | null;
   /** Made once by the sender and kept across retries: Discord enforces it, so a retried send can't post twice. */
   nonce: string;
   /**

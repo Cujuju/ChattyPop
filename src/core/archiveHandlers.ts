@@ -49,6 +49,7 @@ type Handlers = Pick<
   | 'messagePage'
   | 'messageById'
   | 'applyOwnReaction'
+  | 'applyOwnPollVote'
   | 'ingestSyncPage'
 >;
 
@@ -187,6 +188,9 @@ export function archiveHandlers(o: {
       const event = { channel_id: r.channelId, message_id: r.messageId, emoji: r.emoji, user_id: self ?? undefined };
       // Unknown self: the gateway's copy applies it alone.
       if (self && archive().applyReaction(r.add ? 'MESSAGE_REACTION_ADD' : 'MESSAGE_REACTION_REMOVE', event, self)) o.noteChanged(r.channelId);
+    },
+    applyOwnPollVote: (v) => {
+      if (archive().applyOwnPollVote(v)) o.noteChanged(v.channelId);
     },
     syncState: (channelId) => archive().syncState(channelId),
     reconcileDeletes: (channelId, seenIds, sinceTs, untilTs) => {

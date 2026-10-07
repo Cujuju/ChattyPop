@@ -2,6 +2,7 @@
 import type { ArchivedGatewayEvent } from '@shared/contract';
 import { DM_CHANNEL_TYPES, snowflakeToMs, type RawMember, type RawMessage, type RawMessageUpdate, type RawPrivateChannel, type RawRole, type RawThread, type RawUser } from '@shared/discord';
 import type { Archive } from './archive';
+import type { PollVoteEvent } from './pollVotes';
 import { ARRIVAL } from './arrival';
 
 export interface GatewayDeps {
@@ -59,6 +60,12 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
     case 'MESSAGE_REACTION_REMOVE_EMOJI': {
       const r = d as Parameters<Archive['applyReaction']>[1];
       if (a.applyReaction(t, r, deps.selfId())) deps.changed(r.channel_id);
+      return;
+    }
+    case 'MESSAGE_POLL_VOTE_ADD':
+    case 'MESSAGE_POLL_VOTE_REMOVE': {
+      const v = d as PollVoteEvent;
+      if (a.applyPollVote(t, v, deps.selfId())) deps.changed(v.channel_id);
       return;
     }
     case 'THREAD_CREATE':

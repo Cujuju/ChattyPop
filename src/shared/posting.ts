@@ -17,6 +17,7 @@ export const POSTING_CALLS = [
   'useComponent',
   'submitModal',
   'createThread',
+  'votePoll',
   'sendDirect',
   'startDm',
   'dmWith',

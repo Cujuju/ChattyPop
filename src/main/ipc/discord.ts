@@ -1,4 +1,5 @@
 import { ipcMain, type BrowserWindow, type Session } from 'electron';
+import { votePollAsOwner } from '../discord/polls';
 import { handleMain } from './mainCalls';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from '@shared/commands';
@@ -83,6 +84,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const forward = (f: unknown): Promise<void> => forwardAsOwner(poster, f);
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
+  // A vote is a post (locked as one); the archive takes it before this resolves, as a reaction.
+  const votePoll = async (v: unknown): Promise<void> => d.core.call('applyOwnPollVote', await votePollAsOwner(poster, v));
   handleMain(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
   // The archive's copy of the account's settings holds the change before this resolves.
   const setChatSettings = async (change: unknown): Promise<void> => {
@@ -162,7 +165,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
   ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.owner, d.discord.tap, recent));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
+  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

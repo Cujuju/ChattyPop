@@ -8,7 +8,7 @@ vi.mock('../src/main/diagnostics', () => ({ diag: () => undefined }));
 
 const { createMainContext } = await import('../src/main/plugins/context');
 
-const WRITES = ['post', 'postOnce', 'put', 'patch', 'delete', 'upload'] as const;
+const WRITES = ['post', 'postOnce', 'put', 'putJson', 'patch', 'delete', 'upload'] as const;
 
 /** A host client recording each request as `<verb> <path>`. */
 function hostClient(): DiscordClient & { sent: string[] } {
@@ -23,6 +23,7 @@ function hostClient(): DiscordClient & { sent: string[] } {
     post: record('post') as DiscordClient['post'],
     postOnce: record('postOnce') as DiscordClient['postOnce'],
     put: record('put'),
+    putJson: record('putJson') as DiscordClient['putJson'],
     patch: record('patch') as DiscordClient['patch'],
     delete: record('delete'),
     upload: record('upload'),

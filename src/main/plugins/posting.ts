@@ -64,6 +64,7 @@ export function postingClient(client: DiscordClient, gate: PostingGate): Discord
     post: <T>(path: string, json: unknown, opts?: WriteOptions) => locked(exemptWrite('post', path), opts, (o) => client.post<T>(path, json, o)),
     postOnce: <T>(path: string, json: unknown, opts?: WriteOptions) => locked(exemptWrite('post', path), opts, (o) => client.postOnce<T>(path, json, o)),
     put: (path: string, opts?: WriteOptions) => locked(exemptWrite('put', path), opts, (o) => client.put(path, o)),
+    putJson: <T>(path: string, json: unknown, opts?: WriteOptions) => locked(false, opts, (o) => client.putJson<T>(path, json, o)),
     patch: <T>(path: string, json: unknown, opts?: WriteOptions) => locked(false, opts, (o) => client.patch<T>(path, json, o)),
     delete: (path: string, opts?: WriteOptions) => locked(exemptWrite('delete', path), opts, (o) => client.delete(path, o)),
     upload: async (url: string, bytes: Buffer) => {

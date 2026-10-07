@@ -1,4 +1,5 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
+import { checkPollDraft, pollPayload, type PollDraft } from '@shared/polls';
 import type { DirectMessage, NewThread } from '@shared/commands';
 import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
@@ -38,6 +39,8 @@ export interface OutgoingMessage {
   /** Files already uploaded to Discord's upload slots. */
   attachments?: UploadedFile[];
   stickerIds?: string[];
+  /** A poll, as checkPollDraft returned it. */
+  poll?: PollDraft | null;
   /** The sender's, when it may retry; else a fresh one. */
   nonce?: string;
   /** Run before each post attempt, after any queue wait; throwing stops it unsent. */
@@ -60,6 +63,7 @@ export async function sendMessage(api: DiscordWriter, channelId: string, m: Outg
     allowed_mentions: m.allowedMentions,
     ...(m.attachments?.length ? { attachments: m.attachments } : {}),
     ...(m.stickerIds?.length ? { sticker_ids: m.stickerIds } : {}),
+    ...(m.poll ? { poll: pollPayload(m.poll) } : {}),
     ...(m.replyTo ? { message_reference: { channel_id: m.replyTo.channelId, message_id: m.replyTo.messageId } } : {}),
     ...(m.forwardOf ? { message_reference: forwardReference(m.forwardOf) } : {}),
   }, m.guard ? { guard: m.guard } : undefined);
@@ -127,11 +131,12 @@ export function checkOwnerMessage(v: unknown): OwnerMessage {
   const stickerId = m.stickerId ? snowflakeArg(m.stickerId, 'sticker') : null;
   const g = m.gif;
   if (g && (typeof g.id !== 'string' || typeof g.query !== 'string')) throw new Error('Not a GIF to send.');
-  if (!m.text.trim() && !m.files.length && !uploads.length && !stickerId) throw new Error('Write a message first.');
+  const poll = m.poll ? checkPollDraft(m.poll) : null;
+  if (!m.text.trim() && !m.files.length && !uploads.length && !stickerId && !poll) throw new Error('Write a message first.');
   const nonce = snowflakeArg(m.nonce, 'nonce');
   const w = m.postWithinMs;
   if (w !== undefined && !Number.isFinite(w)) throw new Error('Not a time to post within.');
-  return { channelId, text: m.text, replyTo, files: m.files, uploads, stickerId, gif: g ? { id: g.id, query: g.query } : null, nonce, ...(w === undefined ? {} : { postWithinMs: w }) };
+  return { channelId, text: m.text, replyTo, files: m.files, uploads, stickerId, gif: g ? { id: g.id, query: g.query } : null, ...(poll ? { poll } : {}), nonce, ...(w === undefined ? {} : { postWithinMs: w }) };
 }
 
 /** Posts what the owner wrote in the Archive composer: uploads its small files, then the message with those and its finished uploads. */
@@ -157,6 +162,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
     replyTo: m.replyTo ? { channelId: m.channelId, messageId: m.replyTo.messageId } : null,
     attachments,
     stickerIds: m.stickerId ? [m.stickerId] : [],
+    poll: m.poll ?? null,
     nonce: m.nonce,
     guard,
   });

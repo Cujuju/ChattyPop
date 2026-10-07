@@ -3,6 +3,7 @@ import type { PluginCallResult } from './pluginCall';
 import type { Audience } from './pluginChannels';
 import type { UsedCommand } from './commands';
 import type { OwnerReaction, UsedEmoji } from './compose';
+import type { OwnerPollVote } from './polls';
 import type { RawChannel, RawGuild, RawMessage, RawPrivateChannel, RawRole, RawThread, RawUser } from './discord';
 import type { PrivateChannelFacts } from './dms';
 import type { ContentKind } from './messageContent';
@@ -164,6 +165,8 @@ export interface CoreMethods {
   putReadStates(counts: ReadStateCount[], scope: ReadStateScope): void;
   /** Main added or removed the owner's reaction on Discord: the archive shows it before the gateway echo (which then changes nothing). */
   applyOwnReaction(r: OwnerReaction): void;
+  /** The owner's poll vote, applied to the archive before the call resolves. */
+  applyOwnPollVote(v: OwnerPollVote): void;
   syncState(channelId: string): SyncState;
   /** Marks deleted every stored message of the channel in [sinceTs, untilTs] that a fresh fetch no longer returned; returns how many. */
   reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number): number;

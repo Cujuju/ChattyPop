@@ -1,0 +1,151 @@
+/* A message's Discord poll: a card of answers, each a choice while voting and a share bar once results show. */
+.poll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  max-width: var(--cp-poll-w);
+  margin-top: var(--cp-space-2);
+  padding: var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-sans);
+}
+
+.question {
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.hint,
+.meta {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+}
+
+/* A choice, or a result over its share (--v, 0-1, set by Poll); the owner's own in the accent. */
+.answer {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  min-height: var(--cp-touch-h);
+  padding: var(--cp-space-2) var(--cp-space-5);
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  text-align: start;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+button.answer:not(:disabled):hover {
+  border-color: var(--cp-border);
+}
+
+.answer[aria-checked='true'],
+.answer[data-mine='true'] {
+  border-color: var(--cp-accent);
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: calc(var(--v) * 100%);
+  background: var(--cp-surface-5);
+}
+
+.answer[data-mine='true'] .fill {
+  background: var(--cp-accent-wash-strong);
+}
+
+.answerText {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.emoji {
+  width: var(--cp-reaction-emoji);
+  height: var(--cp-reaction-emoji);
+}
+
+.count {
+  flex: 0 0 auto;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The choice's mark: a circle for one answer, a box for several; filled in the accent once picked. */
+.mark {
+  flex: 0 0 auto;
+  width: var(--cp-poll-mark);
+  height: var(--cp-poll-mark);
+  border: var(--cp-media-pick-ring) solid var(--cp-text-muted);
+  border-radius: var(--cp-radius-full);
+}
+
+.mark[data-shape='box'] {
+  border-radius: var(--cp-radius-sm);
+}
+
+[aria-checked='true'] > .mark {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+  box-shadow: inset 0 0 0 var(--cp-media-pick-ring) var(--cp-surface-3);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+}
+
+.meta {
+  flex: 1 1 auto;
+}
+
+.link {
+  color: var(--cp-link);
+  font-size: var(--cp-text-sm);
+}
+
+.link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.vote {
+  min-height: var(--cp-btn-h-sm);
+  padding: 0 var(--cp-space-6);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.vote:hover:not(:disabled) {
+  background: var(--cp-accent-hover);
+}
+
+.vote:disabled,
+.link:disabled {
+  opacity: var(--cp-opacity-disabled);
+}
