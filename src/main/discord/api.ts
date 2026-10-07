@@ -7,13 +7,12 @@ import { diag, redactIds } from '../diagnostics';
 import { jittered } from '../sync/pace';
 import type { HeaderCapture } from './capture';
 import type { PageWorld } from './pageWorld';
+import { RateLimits, routeKey } from './rateLimits';
 import { contextProperties, type DiscordClient, type DiscordQuery, type RequestContext, type RequestOptions, type WriteOptions } from './client';
 
 const API_BASE = 'https://discord.com/api/v9/';
 /** Hard floor before a paced request whatever the pace setting says (the prompt lane isn't paced). */
 const MIN_REQUEST_INTERVAL_MS = 1000;
-/** Upper bound on a single advisory wait; Discord sometimes reports absurd reset times (per DCE). */
-const MAX_RATE_LIMIT_WAIT_MS = 60 * MS_PER_S;
 /** Retries for 429/5xx before giving up on one request. */
 const MAX_ATTEMPTS = 5;
 
@@ -77,16 +76,20 @@ export function discordReason(body: string): string {
   }
 }
 
-const apiUrl = (path: string, query: DiscordQuery): URL => {
+/** `path` under /api/v9/ with `query`; one resolving anywhere else (an absolute URL, `/...`, `..`) is refused before any header is attached. */
+export function apiUrl(path: string, query: DiscordQuery = {}): URL {
   const url = new URL(path, API_BASE);
+  if (!url.href.startsWith(API_BASE)) throw new Error(`Not a Discord API path: ${path}`);
   for (const [k, v] of Object.entries(query)) if (v !== undefined) url.searchParams.set(k, String(v));
   return url;
-};
+}
 
 /** Prompt requests follow the in-flight request ahead of queued paced work. Background requests retain configured pacing. */
 type Lane = 'prompt' | 'paced';
 
 interface Job {
+  /** Its rate-limit route (rateLimits.ts). */
+  route: string;
   /** Sends the request and settles its caller; never rejects. */
   run: () => Promise<void>;
   fail: (err: unknown) => void;
@@ -101,6 +104,7 @@ export class DiscordApi implements DiscordClient {
   private pacedDueAt: number | null = null;
   /** Ends the pump's pace wait early. */
   private wake: (() => void) | null = null;
+  private readonly limits = new RateLimits();
   private readonly paced = this.client('paced');
   /** For what the owner does and automatic posts: not held back (the owner's choice). */
   readonly prompt = this.client('prompt');
@@ -149,18 +153,24 @@ export class DiscordApi implements DiscordClient {
   /** Retries 429/5xx requests. Repeatable writes need enforced nonces; once writes retry only rate limits because server errors may follow successful writes. */
   private client(lane: Lane): DiscordClient {
     const paced = lane === 'paced';
-    const request = <T>(url: URL, method: PageRequest['method'], body: PageRequest['body'], opts: WriteOptions = {}): Promise<T> =>
-      this.enqueue(lane, () => this.send<T>(url, method, body, { retryServerErrors: !opts.once, paced, context: opts.context, guard: opts.guard }));
+    const request = <T>(path: string, query: DiscordQuery, method: PageRequest['method'], body: PageRequest['body'], opts: WriteOptions = {}): Promise<T> => {
+      let url: URL;
+      try {
+        url = apiUrl(path, query);
+      } catch (err) {
+        return Promise.reject(err);
+      }
+      return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: !opts.once, paced, context: opts.context, guard: opts.guard }));
+    };
     const json = (v: unknown): PageRequest['body'] => ({ text: JSON.stringify(v) });
-    const at = (path: string): URL => new URL(path, API_BASE);
     return {
-      get: <T>(path: string, query: DiscordQuery = {}, opts?: RequestOptions) => request<T>(apiUrl(path, query), 'GET', undefined, opts),
-      post: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'POST', json(body), opts),
-      postOnce: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'POST', json(body), { ...opts, once: true }),
-      put: (path: string, opts?: WriteOptions) => request<unknown>(at(path), 'PUT', undefined, opts),
-      putJson: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'PUT', json(body), opts),
-      patch: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(at(path), 'PATCH', json(body), opts),
-      delete: (path: string, opts?: WriteOptions) => request<unknown>(at(path), 'DELETE', undefined, opts),
+      get: <T>(path: string, query: DiscordQuery = {}, opts?: RequestOptions) => request<T>(path, query, 'GET', undefined, opts),
+      post: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(path, {}, 'POST', json(body), opts),
+      postOnce: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(path, {}, 'POST', json(body), { ...opts, once: true }),
+      put: (path: string, opts?: WriteOptions) => request<unknown>(path, {}, 'PUT', undefined, opts),
+      putJson: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(path, {}, 'PUT', json(body), opts),
+      patch: <T>(path: string, body: unknown, opts?: WriteOptions) => request<T>(path, {}, 'PATCH', json(body), opts),
+      delete: (path: string, opts?: WriteOptions) => request<unknown>(path, {}, 'DELETE', undefined, opts),
       upload: (uploadUrl: string, bytes: Buffer) => this.upload(uploadUrl, bytes),
     };
   }
@@ -173,15 +183,15 @@ export class DiscordApi implements DiscordClient {
     if (res.status < 200 || res.status >= 300) throw new Error(`Upload failed (${res.status}).`);
   }
 
-  private enqueue<T>(lane: Lane, request: () => Promise<T>): Promise<T> {
+  private enqueue<T>(lane: Lane, route: string, request: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      this.lanes[lane].push({ run: () => request().then(resolve, reject), fail: reject });
+      this.lanes[lane].push({ route, run: () => request().then(resolve, reject), fail: reject });
       this.wake?.();
       void this.pump();
     });
   }
 
-  /** Runs one request at a time, preserving lane order. Prompt requests precede paced requests; paced requests wait since the last send. */
+  /** Runs one request at a time, preserving lane order. Prompt requests precede paced requests; paced requests wait since the last send, and out their route's rate limit. */
   private async pump(): Promise<void> {
     if (this.pumping) return;
     this.pumping = true;
@@ -196,7 +206,7 @@ export class DiscordApi implements DiscordClient {
         if (!paced) return;
         if (this.pacedDueAt === null) {
           try {
-            this.pacedDueAt = this.lastRequestAt + (await this.paceGap());
+            this.pacedDueAt = Math.max(this.lastRequestAt + (await this.paceGap()), this.limits.until(paced.route));
           } catch (err) {
             this.lanes.paced.shift();
             paced.fail(err);
@@ -249,8 +259,12 @@ export class DiscordApi implements DiscordClient {
       guard,
     }: { retryServerErrors?: boolean; paced?: boolean; context?: RequestContext | undefined; guard?: RequestOptions['guard'] } = {},
   ): Promise<T> {
+    const route = routeKey(method, url);
     for (let attempt = 1; ; attempt++) {
       if (paced && attempt > 1) await sleep(Math.max(0, this.lastRequestAt + (await this.paceGap()) - Date.now()));
+      // Discord's stated wait for this route, or for every route.
+      const limited = this.limits.until(route) - Date.now();
+      if (limited > 0) await sleep(limited);
       await guard?.();
       const headers = this.capture.current;
       const page = this.page();
@@ -263,7 +277,10 @@ export class DiscordApi implements DiscordClient {
         ...(context ? { 'X-Context-Properties': contextProperties(context) } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       };
-      const res = await pageFetch(page, url.toString(), { method, headers: sent, body, credentials: 'include' });
+      // Ours, not the client's: header capture must not take it for the client's latest.
+      const release = this.capture.own(method, url.href);
+      const res = await pageFetch(page, url.href, { method, headers: sent, body, credentials: 'include' }).finally(release);
+      this.limits.note(route, res);
       const redactedPath = redactIds(url.pathname);
 
       if (res.status === 401) {
@@ -273,8 +290,8 @@ export class DiscordApi implements DiscordClient {
       }
       if ((res.status === 429 || (retryServerErrors && res.status >= 500)) && attempt < MAX_ATTEMPTS) {
         diag('api-retry', { path: redactedPath, status: res.status });
-        const retryAfterS = Number(res.headers['retry-after']);
-        await sleep(Number.isFinite(retryAfterS) && retryAfterS > 0 ? retryAfterS * MS_PER_S : 2 ** attempt * MS_PER_S);
+        // A stated wait is kept in limits and waited out at the loop's top; without one, back off.
+        if (this.limits.until(route) <= Date.now()) await sleep(2 ** attempt * MS_PER_S);
         continue;
       }
       if (res.status < 200 || res.status >= 300) {
@@ -282,16 +299,8 @@ export class DiscordApi implements DiscordClient {
         throw new DiscordHttpError(`Discord ${res.status} on ${redactedPath}${reason ? `: ${reason}` : ''}`, res.status);
       }
 
-      await honorAdvisoryLimit(res.headers);
       // 204 No Content (a reaction PUT, for one) has no body to parse.
       return (res.body ? JSON.parse(res.body) : undefined) as T;
     }
   }
-}
-
-/** When a bucket is exhausted, wait out its reset before the next request (DCE's approach). */
-async function honorAdvisoryLimit(headers: Record<string, string>): Promise<void> {
-  const remaining = Number(headers['x-ratelimit-remaining']);
-  const resetAfterS = Number(headers['x-ratelimit-reset-after']);
-  if (remaining === 0 && Number.isFinite(resetAfterS)) await sleep(Math.min(resetAfterS * MS_PER_S, MAX_RATE_LIMIT_WAIT_MS));
 }

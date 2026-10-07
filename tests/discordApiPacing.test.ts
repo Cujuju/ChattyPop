@@ -25,7 +25,7 @@ beforeEach(() => {
       return { status: 200, headers: {}, body: '{}' };
     },
   };
-  const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
+  const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined, own: () => () => undefined };
   api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: PACE_MS, mediaMs: 0, jitter: 0 }));
 });
 afterEach(() => vi.useRealTimers());
@@ -88,7 +88,7 @@ describe('Discord request pacing', () => {
         return { status: 200, headers: {}, body: '{}' };
       },
     };
-    const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
+    const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined, own: () => () => undefined };
     const slow = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     const all = Promise.all([slow.get('a'), slow.prompt.get('b'), slow.prompt.get('c'), slow.get('d')]);
     await vi.advanceTimersByTimeAsync(10_000);

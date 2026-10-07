@@ -25,9 +25,14 @@ export const SESSION_HEADERS: ReadonlySet<string> = new Set([
 export const sessionHeaders = (headers: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(headers).filter(([k]) => SESSION_HEADERS.has(k.toLowerCase())));
 
-/** Observes the embedded client's own API traffic: captures auth headers and the page sizes it requests. */
+/** A request's identity as webRequest reports it. */
+const requestKey = (method: string, url: string): string => `${method} ${url}`;
+
+/** Observes the embedded client's own API traffic: captures auth headers and the page sizes it requests. ChattyPop's requests are not the client's. */
 export class HeaderCapture {
   private headers: ClientHeaders | undefined;
+  /** ChattyPop's requests in flight, by requestKey: they replay captured headers, so they say nothing new. */
+  private readonly ours = new Map<string, number>();
   /** History page limits observed from the live client. */
   readonly observedLimits: number[] = [];
 
@@ -37,6 +42,7 @@ export class HeaderCapture {
   constructor(ses: Session) {
     ses.webRequest.onBeforeSendHeaders({ urls: [API_URL_PATTERN] }, (details, callback) => {
       const h = details.requestHeaders;
+      if (this.ours.has(requestKey(details.method, details.url))) return callback({ requestHeaders: h });
       const authorization = h['Authorization'] ?? h['authorization'];
       if (authorization && details.webContentsId !== undefined) {
         const wasAbsent = this.headers === undefined;
@@ -59,6 +65,17 @@ export class HeaderCapture {
         diag('discord-auth-failure', { status: details.statusCode, path: redactIds(new URL(details.url).pathname) });
       }
     });
+  }
+
+  /** Marks a request ChattyPop is about to send; call the result once it has been answered. */
+  own(method: string, url: string): () => void {
+    const key = requestKey(method, url);
+    this.ours.set(key, (this.ours.get(key) ?? 0) + 1);
+    return () => {
+      const n = (this.ours.get(key) ?? 1) - 1;
+      if (n > 0) this.ours.set(key, n);
+      else this.ours.delete(key);
+    };
   }
 
   get current(): ClientHeaders | undefined {

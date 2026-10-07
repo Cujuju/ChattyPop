@@ -42,7 +42,7 @@ describe('X-Context-Properties', () => {
   it('rides only on the call that passes it, never on the next', async () => {
     const scripts: string[] = [];
     const page = { isDestroyed: () => false, evaluate: async (s: string) => (scripts.push(s), { status: 200, headers: {}, body: '{}' }) };
-    const capture = { current: { authorization: 'token', extra: { 'X-Super-Properties': 'props' } }, invalidate: () => undefined };
+    const capture = { current: { authorization: 'token', extra: { 'X-Super-Properties': 'props' } }, invalidate: () => undefined, own: () => () => undefined };
     const api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     await api.prompt.postOnce('users/@me/channels', { recipients: [BOB.id] }, { context: DM_CONTEXT.start });
     await api.prompt.post('channels/1/messages', { content: 'hi' });
@@ -62,7 +62,7 @@ describe("a request's guard", () => {
       evaluate: (s: string) =>
         scripts.push(s) === 1 ? new Promise((resolve) => (release = () => resolve(answered))) : Promise.resolve(answered),
     };
-    const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
+    const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined, own: () => () => undefined };
     const api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     let switched = false;
     const first = api.prompt.post('channels/1/messages', { content: 'hi' });
