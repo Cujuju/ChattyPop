@@ -1,6 +1,8 @@
 // Searches guild members through client gateway op 8. GUILD_MEMBERS_CHUNK responses arrive through the tap.
 import { randomUUID } from 'node:crypto';
 import type { WebContents } from 'electron';
+import { sleep } from '@shared/async';
+import { MS_PER_S } from '@shared/units';
 import { diag } from '../diagnostics';
 import type { GatewayTap } from './gatewayTap';
 
@@ -14,6 +16,11 @@ const DISCORD_NAME_MAX_CHARS = 32;
  * and a lost answer (a reconnect) stops blocking that text.
  */
 const MEMBER_ANSWER_TIMEOUT_MS = 10_000;
+/**
+ * Least time between our searches, from every window and the phone. Discord allows 120 gateway sends a minute per
+ * connection, shared with the client's own heartbeats and requests: one a second keeps ours to half of that.
+ */
+export const MEMBER_REQUEST_GAP_MS = MS_PER_S;
 /** CDP handles taken here; released together when the socket is looked up again. */
 const OBJECT_GROUP = 'chattypop-gateway';
 
@@ -38,9 +45,17 @@ interface Pending {
   expiry: ReturnType<typeof setTimeout>;
 }
 
-/** Serializes CDP socket access to preserve handles. Deduplicates in-flight and answered server/query pairs per gateway session. */
+/**
+ * Serializes CDP socket access to preserve handles. Deduplicates in-flight and answered server/query pairs per gateway
+ * session, spaces sends by `gapMs` and Discord's RATE_LIMITED waits, and drops a search a newer one for its server replaced.
+ */
 export class MemberRequests {
   private socket: string | null = null;
+  /** When the next search may be sent. */
+  private nextAt = 0;
+  /** The newest search asked for each server, by sequence number. */
+  private readonly newest = new Map<string, number>();
+  private asked = 0;
   private readonly answered = new Set<string>();
   private readonly pending = new Map<string, Pending>();
   private queue: Promise<unknown> = Promise.resolve();
@@ -48,9 +63,11 @@ export class MemberRequests {
   constructor(
     private readonly cdp: Cdp,
     tap: GatewayTap,
+    private readonly gapMs = MEMBER_REQUEST_GAP_MS,
   ) {
     tap.on('dispatch', ({ t, d }) => {
       if (t === 'GUILD_MEMBERS_CHUNK') return this.answer(d as { nonce?: string; chunk_index?: number; chunk_count?: number });
+      if (t === 'RATE_LIMITED') return this.limited(d as { opcode?: number; retry_after?: number });
       if (t !== 'READY') return;
       // A new session: Discord's answers so far stay archived, the old socket's handle goes.
       void this.serial(async () => {
@@ -70,6 +87,13 @@ export class MemberRequests {
     this.answered.add(p.key);
   }
 
+  /** Discord refused a search for now: none goes before its retry_after (seconds). */
+  private limited(r: { opcode?: number; retry_after?: number }): void {
+    if (r.opcode !== REQUEST_GUILD_MEMBERS_OP || !(Number(r.retry_after) > 0)) return;
+    this.nextAt = Math.max(this.nextAt, Date.now() + Number(r.retry_after) * MS_PER_S);
+    diag('member-request-rate-limited', { retryAfterS: r.retry_after });
+  }
+
   private forget(): void {
     for (const p of this.pending.values()) clearTimeout(p.expiry);
     this.pending.clear();
@@ -78,7 +102,15 @@ export class MemberRequests {
 
   /** False when no open gateway socket was found; the archive's members are then all there is. */
   request(guildId: string, query: string): Promise<boolean> {
-    return this.serial(() => this.ask(guildId, query));
+    const mine = ++this.asked;
+    this.newest.set(guildId, mine);
+    return this.serial(async () => {
+      const wait = this.nextAt - Date.now();
+      if (wait > 0) await sleep(wait);
+      // Replaced while waiting (the owner typed on): the newer search asks for what is wanted now.
+      if (this.newest.get(guildId) !== mine) return true;
+      return this.ask(guildId, query);
+    });
   }
 
   /** Runs `step` after every earlier one has settled. */
@@ -101,6 +133,7 @@ export class MemberRequests {
       this.socket = null;
       sent = await this.send(frame);
     }
+    if (sent !== 'closed') this.nextAt = Date.now() + this.gapMs;
     if (sent === 'sent') this.pending.set(nonce, { key, expiry: setTimeout(() => this.pending.delete(nonce), MEMBER_ANSWER_TIMEOUT_MS) });
     else diag('member-request-not-sent', { reason: sent });
     return sent === 'sent';

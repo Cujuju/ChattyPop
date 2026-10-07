@@ -99,7 +99,7 @@ describe('who can see a channel, from the gateway', () => {
 
 describe("member searches on the client's gateway socket", () => {
   /** `lostReply`: CDP fails after the page sent the frame, so whether it went is unknown. */
-  function fake(open = true, lostReply = false) {
+  function fake(open = true, lostReply = false, gapMs = 0) {
     const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
     const frames: unknown[] = [];
     let lookups = 0;
@@ -115,7 +115,7 @@ describe("member searches on the client's gateway socket", () => {
         return Promise.resolve({});
       },
     };
-    return { requests: new MemberRequests(cdp as never, tap as unknown as GatewayTap), tap, frames, lookups: () => lookups };
+    return { requests: new MemberRequests(cdp as never, tap as unknown as GatewayTap, gapMs), tap, frames, lookups: () => lookups };
   }
 
   const nonceOf = (frame: unknown): string => (frame as { d: { nonce: string } }).d.nonce;
@@ -134,12 +134,37 @@ describe("member searches on the client's gateway socket", () => {
     expect(f.lookups()).toBe(2);
   });
 
-  it('runs concurrent searches one at a time, so a lookup never frees a handle another is using', async () => {
+  it('runs concurrent searches one at a time, so a lookup never frees a handle another is using; a newer one for its server replaces a queued one', async () => {
     const f = fake();
-    const sent = await Promise.all(['a', 'b', 'c'].map((q) => f.requests.request('g1', q)));
+    const sent = await Promise.all([f.requests.request('g1', 'a'), f.requests.request('g2', 'b'), f.requests.request('g1', 'c')]);
     expect(sent).toEqual([true, true, true]);
-    expect(f.frames).toHaveLength(3);
+    expect(f.frames.map((fr) => (fr as { d: { query: string } }).d.query)).toEqual(['b', 'c']);
     expect(f.lookups()).toBe(1);
+  });
+
+  it("spaces searches by the gap, and by Discord's RATE_LIMITED wait for op 8", async () => {
+    vi.useFakeTimers();
+    try {
+      const GAP_MS = 1000;
+      const RETRY_S = 5;
+      const f = fake(true, false, GAP_MS);
+      await f.requests.request('g1', 'ann');
+      const next = f.requests.request('g2', 'bob');
+      await vi.advanceTimersByTimeAsync(GAP_MS - 1);
+      expect(f.frames).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await next;
+      expect(f.frames).toHaveLength(2);
+      f.tap.emit('dispatch', { t: 'RATE_LIMITED', s: null, d: { opcode: 8, retry_after: RETRY_S, meta: {} } });
+      const limited = f.requests.request('g3', 'cy');
+      await vi.advanceTimersByTimeAsync(RETRY_S * 1000 - 1);
+      expect(f.frames).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1);
+      await limited;
+      expect(f.frames).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('asks again for text whose answer never came, once the wait runs out; not for answered text', async () => {
