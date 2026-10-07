@@ -136,6 +136,15 @@
   transition: opacity var(--cp-duration-fast) var(--cp-ease);
 }
 
+/* The grid's outer top corners (data-corner on its first row's end cells): rounder, as Discord's grid. */
+.mediaCell[data-corner='top-start'] {
+  border-start-start-radius: var(--cp-media-grid-corner);
+}
+
+.mediaCell[data-corner='top-end'] {
+  border-start-end-radius: var(--cp-media-grid-corner);
+}
+
 /* Its ::after, over the picture (the component places the box): picked (aria-pressed), an accent ring and wash. */
 .mediaCell::after {
   border-radius: inherit;

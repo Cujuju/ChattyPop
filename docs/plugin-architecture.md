@@ -542,7 +542,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `wash` | A block in the section colour's wash | — |
 | `ruleBelow`, `ruleAbove` | A rule under or over a region | `data-rule="subtle"` (between list rows, within a popover) |
 | `fadeBelow`, `fadeAbove` | A chrome bar's edge without a rule: its `::after` / `::before` fades the chrome ground out over the content past the edge (the component places the box, `--cp-edge-fade-h` tall) | — |
-| `sheet`, `drawer` | Bottom sheet and side drawer dialogs, with their backdrop | — |
+| `sheet`, `drawer` | Bottom sheet and side drawer dialogs, with their backdrop; a deep sheet is near-black glass that sets pictures apart | `data-tone="deep"` (`sheet`) |
 | `silentFocus` | A container focused on opening draws no ring | — |
 | `row` | List row: a hover wash that fades in | `data-hover="raise"` (a rounded tile lifting to surface-4), `data-press` (pressed wash), `data-state="dimmed"` |
 | `valueRow`, `coverControl` | A settings row showing its value, and the native control laid unseen over it | — |
@@ -580,7 +580,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `replyBand`, `pingToggle` | The box's top band (a reply); Discord's @ON/@OFF | `aria-pressed` |
 | `quietButton`, `pillClose` | A muted control brightening under the pointer; a pill's × | — |
 | `fileTile`, `filePreview`, `removeBadge` | An attached file's tile, its preview, and its floating remove button | `data-state="blank"` |
-| `sheetGrabber`, `mediaCell`, `mediaThumb`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; a rounded media grid cell, picked drawn on the `::after` the component places over its picture; the picture, faded in once loaded; a picked cell's check mark (an unpicked one has none); a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"` (`mediaCell`); `data-loaded` (`mediaThumb`) |
+| `sheetGrabber`, `mediaCell`, `mediaThumb`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; a rounded media grid cell, picked drawn on the `::after` the component places over its picture; the picture, faded in once loaded; a picked cell's check mark (an unpicked one has none); a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"`, `data-corner="top-start\|top-end"` (`mediaCell`); `data-loaded` (`mediaThumb`) |
 | `popover`, `popoverHead` | A popover over the box (menus, suggestions, pickers); its sticky heading | — |
 | `listOption` | A keyboard-navigable choice in a popover's list | `aria-selected` |
 | `emojiGlyph`, `round` | An emoji at reaction size; a circle (avatars, app icons) | — |

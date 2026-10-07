@@ -1,6 +1,7 @@
 /* Paper uses warm off-white, Atkinson Hyperlegible, relaxed line height and equally weighted cards. Theme contrast tests cover text, accents, sections and platforms. */
 
 [data-theme='paper'] {
+  --cp-sheet-deep: color-mix(in srgb, var(--cp-surface-1) 85%, transparent); /* light themes keep dark text, so their deep sheet stays light, only see-through */
   --cp-color-scheme: light;
 
   --cp-ground: #e9e4da;

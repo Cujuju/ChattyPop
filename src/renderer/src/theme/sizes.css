@@ -199,6 +199,7 @@
   --cp-attach-sheet-h: 50dvh; /* the phone's attach sheet with its media grid: half the screen, the newest rows in view */
   --cp-media-grid-gap: var(--cp-space-2); /* between the attach sheet's rounded media cells: wide enough that each cell's corners read */
   --cp-media-pick-ring: 2px; /* a picked media cell's ring: thick enough to read over any picture */
+  --cp-media-grid-corner: 16px; /* the media grid's outer top corners, rounder than a cell, following the sheet's curve as Discord's grid does */
   --cp-media-pick-mark: 22px; /* a picked media cell's check disc, iOS Photos' selection circle */
   --cp-attach-action-disc: var(--cp-quick-reaction-phone); /* an attach action's disc: the message sheet's quick-reaction size, so the phone's sheets share one disc */
   --cp-typing-h: 20px; /* the "is typing…" line above the message box: one line of xs text, 4px above and below */

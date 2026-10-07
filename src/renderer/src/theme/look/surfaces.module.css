@@ -85,6 +85,13 @@
     translate var(--cp-duration-base) var(--cp-ease-out);
 }
 
+/* A deep sheet (data-tone='deep'): near-black glass, the page blurred under it, so pictures on it stand apart. */
+.sheet[data-tone='deep'] {
+  background: var(--cp-sheet-deep);
+  -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-frost-blur));
+}
+
 /* The finger leads while it pulls (pullToClose). */
 .sheet[data-pull='true'] {
   transition: none;
