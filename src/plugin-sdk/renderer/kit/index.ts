@@ -62,8 +62,10 @@ export { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 export { unreadCount, totalUnreadCount } from '@/state/unreadCounts';
 
 // App state and navigation.
-export { openArchive, shownChannelId } from '@/state/archive';
+export { archivePlace, openArchive, openArchiveAt, shownChannelId, type ArchivePlace } from '@/state/archive';
 export { now } from '@/state/clock';
+// Which bots count as new messages (Settings → Archive → New-message counts).
+export { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } from '@/state/countedBots';
 export { archivedChannels, channelById, channelLabel, channelSigil, directory, isThread, loadDirectory } from '@/state/directory';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPerson } from '@/state/person';

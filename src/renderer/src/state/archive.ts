@@ -75,22 +75,57 @@ async function loadWindow(channelId: string, around: string | null): Promise<boo
   return loaded;
 }
 
+/**
+ * Where the owner was in a channel's log: a message and its bottom edge above the view's bottom, in pixels (the virtual
+ * log's `bottomOf`). The phone keeps it across page reloads.
+ */
+export interface ArchivePlace {
+  channelId: string;
+  messageId: string;
+  bottom: number;
+}
+/** The place the last open asked for (openArchiveAt): the view puts its message back there, unhighlighted, as it lands. */
+export const [openingPlace, setOpeningPlace] = createSignal<ArchivePlace | null>(null);
+
 /** Opens a channel in the Archive view at its newest messages, or around `messageId`. A panel window has no Archive: the main window opens it. */
 export async function openArchive(channelId: string, messageId?: string): Promise<void> {
   if (inPanelWindow) return api.showInMainWindow(channelId, messageId);
+  setFocusMessageId(messageId ?? null);
+  setOpeningPlace(null);
+  await open(channelId, messageId ?? null);
+}
+
+/** Opens `place`'s channel around its message, the view putting it back where it was; at the newest when it is gone. */
+export async function openArchiveAt(place: ArchivePlace): Promise<void> {
+  setFocusMessageId(null);
+  setOpeningPlace(place);
+  await open(place.channelId, place.messageId);
+}
+
+async function open(channelId: string, around: string | null): Promise<void> {
   setArchiveChannelId(channelId);
   if (!inCompanion && channelId !== lastArchiveChannel()) void setLastArchiveChannel(channelId);
-  setFocusMessageId(messageId ?? null);
   // Its last-read mark moves once the Archive shows it on screen (lastRead.ts).
   setChatSource('archive');
   const ticket = ++opens;
   setArchiveOpening(true);
   try {
-    if (await loadWindow(channelId, messageId ?? null)) setArchiveLoads((n) => n + 1);
+    if (await loadWindow(channelId, around)) setArchiveLoads((n) => n + 1);
   } finally {
     // A superseded open leaves the flag to the open that superseded it.
     if (ticket === opens) setArchiveOpening(false);
   }
+}
+
+/** The view's reader of where the owner is (ArchiveView): undefined while unknown (no view, an open landing), null at the newest. */
+let placeReader: () => ArchivePlace | null | undefined = () => undefined;
+export const archivePlace = (): ArchivePlace | null | undefined => placeReader();
+/** Sets the view's place reader; returns its removal. */
+export function readArchivePlaceWith(read: () => ArchivePlace | null | undefined): () => void {
+  placeReader = read;
+  return () => {
+    if (placeReader === read) placeReader = () => undefined;
+  };
 }
 
 /** Privacy mode changed: close the open channel if it is now hidden, else reload what is loaded (messages may be hidden or back). */

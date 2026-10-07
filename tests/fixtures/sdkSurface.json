@@ -1,5 +1,5 @@
 {
-  "version": "2.7.0",
+  "version": "2.9.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -291,6 +291,7 @@
       "aiSettings",
       "aiText",
       "appearanceSettings",
+      "archivePlace",
       "archivedChannels",
       "changeDeviceChatSettings",
       "changeDiscordChatSettings",
@@ -301,7 +302,10 @@
       "clockTime",
       "conditionWording",
       "countText",
+      "countedBots",
+      "countedBotsLoaded",
       "createAction",
+      "createArchivedBots",
       "createFollowBottom",
       "createPagedList",
       "createVirtualLog",
@@ -330,6 +334,7 @@
       "now",
       "onPointerDownOutside",
       "openArchive",
+      "openArchiveAt",
       "openMessageMenuById",
       "openPerson",
       "openRule",
@@ -354,6 +359,7 @@
       "rules",
       "saveCameraCaptures",
       "scrolledFromTop",
+      "setBotCounted",
       "setProviderDisplayName",
       "setSearchOpen",
       "setSyncAcrossClients",

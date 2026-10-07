@@ -40,6 +40,11 @@ vi.mock('@/ui/idbStore', () => ({
   whenWritten: async () => undefined,
 }));
 vi.mock('../src/renderer/src/state/drafts', () => ({ restoreDraft: () => false }));
+// The chat settings store subscribes to app events on import; this test reads only their defaults.
+vi.mock('../src/renderer/src/state/chatSettings', async () => {
+  const { DEFAULT_DEVICE_CHAT_SETTINGS, DEFAULT_DISCORD_CHAT_SETTINGS } = await import('@shared/chatSettings');
+  return { deviceChatSettings: () => DEFAULT_DEVICE_CHAT_SETTINGS, discordChatSettings: () => DEFAULT_DISCORD_CHAT_SETTINGS };
+});
 // No Web Locks here: the outbox reads every saved queue directly once it takes them over.
 vi.stubGlobal('navigator', {});
 vi.stubGlobal('window', { addEventListener: () => undefined });

@@ -22,6 +22,8 @@ const { PhoneCallRefused, PhoneHub, PhoneRouteMissing } = await import('../src/m
 const { createMainContext } = await import('../src/main/plugins/context');
 const { whileActive } = await import('../src/main/plugins/states');
 const { readSecret, SECRET_FILES } = await import('../src/main/secretFile');
+const { PHONE_HOST_SETTINGS, PHONE_WRITABLE_SETTINGS } = await import('../src/shared/phone');
+const { SETTINGS_KEYS } = await import('../src/shared/settings');
 const { rendererPages } = await import('../src/main/plugins/pages');
 
 const manifest = (id: string) => ({ id, name: id, version: '1', description: '' });
@@ -120,6 +122,22 @@ describe('phone settings', () => {
       hub.broadcast({ type: 'setting-changed', key, value });
     }
     expect(events).toEqual(Object.entries(PHONE_SEES).map(([key, value]) => ({ type: 'setting-changed', key, value })));
+  });
+
+  it('writes only the settings the phone may write, stored through their normalizers', async () => {
+    const core = { call: vi.fn(async () => undefined) };
+    const hub = new PhoneHub({ core: core as never, discord: () => ({}) as never, media: async () => new Response(), active: () => true });
+    const { gateway } = hub.connect('probe', { broadcast: () => undefined, notify: () => undefined });
+    await gateway.call('core', 'setSetting', [SETTINGS_KEYS.countedBots, ['b1', 'b1', '', 7, 'b2']]);
+    expect(core.call).toHaveBeenLastCalledWith('setSetting', SETTINGS_KEYS.countedBots, ['b1', 'b2']);
+    for (const key of [SETTINGS_KEYS.privacyMode, SETTINGS_KEYS.appearance, 'plugin.digest.settings']) {
+      await expect(gateway.call('core', 'setSetting', [key, true]), key).rejects.toBeInstanceOf(PhoneCallRefused);
+    }
+    expect(core.call).toHaveBeenCalledTimes(1);
+  });
+
+  it('a setting the phone may write, it reads whole: its write never overwrites parts it cannot see', () => {
+    for (const key of Object.keys(PHONE_WRITABLE_SETTINGS)) expect(PHONE_HOST_SETTINGS[key], key).toBe(true);
   });
 
   it("a phone's own look stands in for the desktop's theme and density, and only where it chose", () => {

@@ -88,8 +88,8 @@ export class AppTray {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: `Open ${APP_NAME}`, click: () => this.actions.open() },
-        { label: this.update ? `Restart to update to ${this.update}` : `Restart ${APP_NAME}`, click: () => this.actions.restart() },
         { type: 'separator' },
+        { label: this.update ? `Restart to update to ${this.update}` : `Restart ${APP_NAME}`, click: () => this.actions.restart() },
         { label: `Quit ${APP_NAME}`, click: () => this.actions.quit() },
       ]),
     );

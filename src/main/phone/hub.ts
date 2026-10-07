@@ -2,7 +2,7 @@
 import type { AppEvent, CoreMethod } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';
-import { PHONE_DISCORD_METHODS, phoneAppEvent, phoneMayCallCore, phoneSetting, type PhoneCallGroup, type PhoneDiscordMethod } from '@shared/phone';
+import { PHONE_DISCORD_METHODS, phoneAppEvent, phoneMayCallCore, phoneSetting, phoneSettingWrite, type PhoneCallGroup, type PhoneDiscordMethod } from '@shared/phone';
 import type { CoreClient } from '../coreClient';
 import type { MediaHandler } from '../media/mediaProtocol';
 
@@ -110,6 +110,11 @@ export class PhoneHub {
   private async call(group: PhoneCallGroup, method: string, params: unknown[]): Promise<unknown> {
     // A setting as the phone may read it (phoneSetting), the same cut as its change events.
     if (group === 'core' && method === 'getSetting') return phoneSetting(String(params[0]), await this.d.core.call('getSetting', String(params[0])));
+    // Only PHONE_WRITABLE_SETTINGS, stored through their normalizers; any other write is refused below.
+    if (group === 'core' && method === 'setSetting') {
+      const write = phoneSettingWrite(String(params[0]), params[1]);
+      if (write) return await this.d.core.call('setSetting', String(params[0]), write.value);
+    }
     if (group === 'core' && phoneMayCallCore(method)) return await this.d.core.call(method as CoreMethod, ...(params as []));
     // Stamped 'phone' here: core answers only members whose audiences include the phone.
     if (group === 'plugins' && method === 'callCore' && typeof params[0] === 'string' && typeof params[1] === 'string' && Array.isArray(params[2]))

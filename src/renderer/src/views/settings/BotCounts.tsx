@@ -1,5 +1,5 @@
 import { For, Show, createSignal } from 'solid-js';
-import { countedBots, countedBotsLoaded, createArchivedBots, setCountedBots } from '@/state/countedBots';
+import { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } from '@/state/countedBots';
 import { failure, settled } from '@plugin-sdk/renderer/settled';
 import { errorMessage } from '@shared/errors';
 import { Switch } from '@/ui/Switch';
@@ -13,8 +13,7 @@ export function BotCounts() {
   void countedBotsLoaded.then(() => setReady(true), (err) => setError(errorMessage(err)));
   const toggle = (id: string, on: boolean): void => {
     setError(null);
-    const rest = countedBots().filter((x) => x !== id);
-    void setCountedBots(on ? [...rest, id] : rest).catch((err) => setError(errorMessage(err)));
+    void setBotCounted(id, on).catch((err) => setError(errorMessage(err)));
   };
   return (
     <>
