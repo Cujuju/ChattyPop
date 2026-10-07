@@ -2,13 +2,10 @@ import type { JSX } from 'solid-js';
 import { contextMenu } from '@/state/ui';
 import { isTypingTarget } from './keys';
 import { listen } from './listen';
+import { LONG_PRESS_MS, TOUCH_SLOP_PX } from './taps';
 
 /** Sideways travel that commits a swipe: past an accidental nudge, well short of the screen's width. */
 export const SWIPE_COMMIT_PX = 56;
-/** A still press held this long opens the menu: iOS's own long-press default (UILongPressGestureRecognizer). */
-const LONG_PRESS_MS = 500;
-/** A finger drifting this far is moving, not pressing: about Android's touch slop (8dp). */
-const TOUCH_SLOP_PX = 10;
 /** Past the commit point a swiped row drags this much heavier, as iOS rubber-bands an overscroll. */
 const OVERPULL_RATIO = 0.25;
 
