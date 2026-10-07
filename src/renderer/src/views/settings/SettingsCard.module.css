@@ -222,12 +222,20 @@
   overflow-wrap: anywhere;
 }
 
-/* Switches, numbers and buttons stay beside the label; text fields and selects drop under it. */
+/* Switches, numbers and single buttons stay beside the label; text fields, selects and wrapping groups (colour
+   stops) drop under it, so a group never squeezes the label. */
 :global(html[data-surface='companion'])
-  .rowMain:has(> .rowControl :is(select, textarea, input:not([type='checkbox'], [type='radio'], [type='number'], [type='range'], [type='color']))) {
+  .rowMain:has(> .rowControl :is(select, textarea, input:not([type='checkbox'], [type='radio'], [type='number'], [type='range'], [type='color']), .buttons:not(:empty))) {
   flex-direction: column;
   align-items: stretch;
   gap: var(--cp-space-3);
+}
+
+/* Fields under their label take its width, whatever width their own module gives (a plugin's field). */
+:global(html[data-surface='companion'])
+  .rowControl :is(select, textarea, input:not([type='checkbox'], [type='radio'], [type='number'], [type='range'], [type='color'])) {
+  width: 100%;
+  min-width: 0;
 }
 
 /* A select beside its follow-up (a size cap's GB field): each on its own line. */
