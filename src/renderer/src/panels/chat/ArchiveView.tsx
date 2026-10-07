@@ -2,7 +2,21 @@ import { For, Show, batch, createEffect, createMemo, createSignal, on, onCleanup
 import type { ArchiveMessage, UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import { MS_PER_MIN } from '@shared/units';
-import { archiveChannelId, archiveDensity, archiveLoads, archiveOpening, archiveState, atNewest, focusMessageId, loadNewer, loadOlder, openArchive, openRestoredArchive } from '@/state/archive';
+import {
+  archiveChannelId,
+  archiveDensity,
+  archiveLoads,
+  archiveOpening,
+  archiveState,
+  atNewest,
+  focusMessageId,
+  loadNewer,
+  loadOlder,
+  openArchive,
+  openRestoredArchive,
+  openingPlace,
+  readArchivePlaceWith,
+} from '@/state/archive';
 import { attachFiles } from '@/state/composer';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
@@ -37,8 +51,11 @@ const ESTIMATED_GROUPED_PX = 26;
 const ESTIMATED_DAY_PX = 32;
 /** Load older messages when the top is within this many rows. */
 const LOAD_OLDER_THRESHOLD_ROWS = 10;
+/** At the newest within this: an engine keeping whole-pixel offsets leaves a sub-pixel remainder. */
+const AT_NEWEST_SLOP_PX = 1;
 
-type Row = { kind: 'day'; key: string; label: string } | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean };
+/** A day divider names the message it heads. */
+type Row = { kind: 'day'; key: string; label: string; messageId: string } | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean };
 
 /** The layout panel the Archive is the body of (the phone's Archive section shares its id). */
 const CHAT_PANEL: PanelId = 'chat';
@@ -55,7 +72,7 @@ export function ArchiveView() {
     for (const m of archiveState.items) {
       const label = dayLabel(m.ts);
       const newDay = label !== lastDay;
-      if (newDay) out.push({ kind: 'day', key: `day-${m.id}`, label });
+      if (newDay) out.push({ kind: 'day', key: `day-${m.id}`, label, messageId: m.id });
       lastDay = label;
       const grouped = !newDay && prev !== undefined && prev.author.id === m.author.id && m.ts - prev.ts < GROUP_GAP_MS && m.replyToId === null;
       out.push({ kind: 'msg', key: m.id, message: m, grouped });
@@ -119,7 +136,9 @@ export function ArchiveView() {
     on(archiveLoads, (n) => {
       queueMicrotask(() => {
         const focus = focusMessageId();
+        const place = openingPlace();
         if (vlog.holdRow(focus)) log.detach();
+        else if (place && vlog.holdRow(place.messageId, { bottom: place.bottom })) log.detach();
         else if (!focus) log.scrollToNewest();
         setPlaced(n);
       });
@@ -127,6 +146,21 @@ export function ArchiveView() {
   );
   /** The last open is loaded and placed: the rows and following are its own. */
   const settled = (): boolean => !archiveOpening() && placed() === archiveLoads();
+  // Where the owner is, for the phone to reopen after a reload: the newest message in view and its bottom edge; null at
+  // the newest; unknown while an open lands.
+  onCleanup(
+    readArchivePlaceWith(() => {
+      const channelId = archiveChannelId();
+      if (!channelId || !settled()) return undefined;
+      if (atNewest() && !vlog.holding() && vlog.log.distanceFromBottom() <= AT_NEWEST_SLOP_PX) return null;
+      const key = vlog.log.inViewKey();
+      const row = key === null ? undefined : vlog.rowByKey(key);
+      // A day divider stands for the message it heads.
+      const messageId = row?.kind === 'day' ? row.messageId : row?.message.id;
+      const bottom = messageId === undefined ? null : vlog.log.bottomOf(messageId);
+      return messageId !== undefined && bottom !== null ? { channelId, messageId, bottom } : undefined;
+    }),
+  );
   /** The newest message the owner can see: the last row, while the view follows the bottom of a settled open. */
   const seenNewest = (): string | undefined => (settled() && log.following() ? archiveState.items.at(-1)?.id : undefined);
 

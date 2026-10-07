@@ -22,7 +22,7 @@
     "@cujuju/solidjs-color-picker": "0.3.0",
     "@cujuju/solidjs-pill-number-picker": "0.5.1",
     "@cujuju/solidjs-seg-buttons": "0.3.0",
-    "@cujuju/solidjs-virtual-log": "0.1.0",
+    "@cujuju/solidjs-virtual-log": "0.2.0",
     "better-sqlite3-multiple-ciphers": "13.0.3",
     "electron-updater": "6.8.9",
     "emojibase-data": "17.0.0",

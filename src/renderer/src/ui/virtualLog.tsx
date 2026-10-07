@@ -1,5 +1,5 @@
 import type { Accessor } from 'solid-js';
-import { createVirtualLog as createLog, type VirtualLogController } from '@cujuju/solidjs-virtual-log';
+import { createVirtualLog as createLog, type Align, type VirtualLogController } from '@cujuju/solidjs-virtual-log';
 import { tokenPx } from './format';
 import { registerVirtualScroller } from './virtualScrollers';
 
@@ -13,8 +13,8 @@ export interface VirtualLog<R extends { key: string }> {
   onScroll: () => Promise<void>;
   /** Brings the row with this key into view, if it's in the log. */
   scrollToKey: (key: string) => void;
-  /** Centers keyed rows through measurement/growth until user scrolling/removal. null releases; missing keys return false. */
-  holdRow: (key: string | null) => boolean;
+  /** Centers a keyed row (or holds it at `align`, a place bottomOf read) until user scrolling/removal. null releases; missing keys return false. */
+  holdRow: (key: string | null, align?: Align) => boolean;
   /** A row is held (holdRow) and the user hasn't scrolled since. */
   holding: Accessor<boolean>;
   /** The canvas height: the rows' total (plus a runway while older rows remain), changed only at rest. */

@@ -176,8 +176,8 @@ importers:
         specifier: 0.3.0
         version: 0.3.0(solid-js@1.9.15)
       '@cujuju/solidjs-virtual-log':
-        specifier: 0.1.0
-        version: 0.1.0(solid-js@1.9.15)
+        specifier: 0.2.0
+        version: 0.2.0(solid-js@1.9.15)
       better-sqlite3-multiple-ciphers:
         specifier: 13.0.3
         version: 13.0.3
@@ -387,8 +387,8 @@ packages:
     peerDependencies:
       solid-js: '>=1.7.0'
 
-  '@cujuju/solidjs-virtual-log@0.1.0':
-    resolution: {integrity: sha512-snX62vbHGPK8uwlppBZvhmXGieEjm2SpeudYEK0eucXY01YoczQevyaE3kV0KsluYVh6mdUVhQQ7UTRSFlFO1A==}
+  '@cujuju/solidjs-virtual-log@0.2.0':
+    resolution: {integrity: sha512-xVUa4F1N83pq3+gjrZ7Lrv3aj4bsHAgqJHT60lpw6edEihv9WuFHVZkg4JBQbI2XghLQbQ1P+OSAL0PZY016RQ==}
     peerDependencies:
       solid-js: '>=1.7.0'
 
@@ -2746,7 +2746,7 @@ snapshots:
     dependencies:
       solid-js: 1.9.15
 
-  '@cujuju/solidjs-virtual-log@0.1.0(solid-js@1.9.15)':
+  '@cujuju/solidjs-virtual-log@0.2.0(solid-js@1.9.15)':
     dependencies:
       solid-js: 1.9.15
 

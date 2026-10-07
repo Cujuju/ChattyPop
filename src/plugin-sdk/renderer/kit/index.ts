@@ -62,7 +62,7 @@ export { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 export { unreadCount, totalUnreadCount } from '@/state/unreadCounts';
 
 // App state and navigation.
-export { openArchive, shownChannelId } from '@/state/archive';
+export { archivePlace, openArchive, openArchiveAt, shownChannelId, type ArchivePlace } from '@/state/archive';
 export { now } from '@/state/clock';
 export { archivedChannels, channelById, channelLabel, channelSigil, directory, isThread, loadDirectory } from '@/state/directory';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
