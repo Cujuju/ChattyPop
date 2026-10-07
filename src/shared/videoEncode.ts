@@ -31,6 +31,10 @@ export const MAX_AUDIO_CHANNELS = 2;
 export const MAX_FRAME_RATE = 60;
 /** What 'best' re-encodes at when the original is over the upload limit. */
 export const OVER_LIMIT_QUALITY: EncodeQuality = 'standard';
+/** The next smaller quality tried when a re-encode is still over the limit; null when none is left. */
+export const STEP_DOWN: Record<EncodeQuality, EncodeQuality | null> = { standard: 'dataSaver', dataSaver: null };
+/** Least share of a fitting original's size a re-encode must save: it costs a wait on the scale of the video's length, so it must buy a clear cut. */
+export const MIN_SAVINGS = 1 / 3;
 export const MP4_TYPE = 'video/mp4';
 const MP4_EXTENSION = '.mp4';
 /** H.264 4:2:0 needs even dimensions. */
@@ -77,7 +81,11 @@ export const outputFrameRate = (sourceFps: number): number | undefined => (sourc
 export const expectedEncodedBytes = (durationS: number, videoBitrate: number, hasAudio: boolean): number =>
   (durationS * (videoBitrate + (hasAudio ? AUDIO_BITRATE : 0))) / BITS_PER_BYTE;
 
-/** How a re-encode went: done, skipped (it wouldn't be smaller), or impossible on this device. */
+/** Whether to re-encode: always over the limit; within it, only when the estimate saves at least MIN_SAVINGS. */
+export const worthEncoding = (originalBytes: number, expectedBytes: number, limitBytes: number): boolean =>
+  originalBytes > limitBytes || expectedBytes <= originalBytes * (1 - MIN_SAVINGS);
+
+/** How a re-encode went: done, skipped (not worthEncoding), or impossible on this device. */
 export type EncodeResult = { kind: 'encoded'; bytes: number } | { kind: 'skipped' } | { kind: 'unsupported' };
 export type VideoLimitReason = 'unsupported' | 'tooLarge';
 export type UploadChoice = { send: 'encoded' | 'original' } | { fail: VideoLimitReason };
@@ -89,6 +97,10 @@ export function chooseUpload(originalBytes: number, result: EncodeResult, limitB
   if (bytes <= limitBytes) return { send: encodedSmaller ? 'encoded' : 'original' };
   return { fail: result.kind === 'unsupported' ? 'unsupported' : 'tooLarge' };
 }
+
+/** The quality to retry at after choice, or null to stop: only a re-encode still over the limit steps down. */
+export const retryQuality = (quality: EncodeQuality, choice: UploadChoice): EncodeQuality | null =>
+  'fail' in choice && choice.fail === 'tooLarge' ? STEP_DOWN[quality] : null;
 
 /** The UI's message for a video that can't go up. */
 export function videoLimitMessage(reason: VideoLimitReason, limitBytes: number): string {

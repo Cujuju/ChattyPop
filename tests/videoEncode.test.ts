@@ -7,6 +7,7 @@ import {
   AUDIO_BITRATE,
   ENCODE_PRESETS,
   MAX_FRAME_RATE,
+  MIN_SAVINGS,
   chooseUpload,
   displaySize,
   effectiveVideoQualityFor,
@@ -15,9 +16,11 @@ import {
   isVideoType,
   mp4Name,
   outputFrameRate,
+  retryQuality,
   targetSize,
   videoBitrateFor,
   videoLimitMessage,
+  worthEncoding,
 } from '@shared/videoEncode';
 
 const { standard, dataSaver } = ENCODE_PRESETS;
@@ -94,8 +97,32 @@ describe('quality', () => {
   });
 });
 
-describe('which file goes up', () => {
-  const original = 8 * BYTES_PER_MB;
+describe('when to re-encode', () => {
+  const original = 6 * BYTES_PER_MB;
+
+  it('re-encodes a file that fits only when it saves at least MIN_SAVINGS', () => {
+    const cutoff = original * (1 - MIN_SAVINGS);
+    expect(worthEncoding(original, cutoff, LIMIT)).toBe(true);
+    expect(worthEncoding(original, cutoff + 1, LIMIT)).toBe(false);
+  });
+
+  it('always tries over the limit, even when the estimate is no smaller', () => {
+    expect(worthEncoding(LIMIT + 1, 2 * LIMIT, LIMIT)).toBe(true);
+  });
+
+  it('steps a re-encode still over the limit down from Standard to Data Saver, then stops', () => {
+    expect(retryQuality('standard', { fail: 'tooLarge' })).toBe('dataSaver');
+    expect(retryQuality('dataSaver', { fail: 'tooLarge' })).toBeNull();
+  });
+
+  it('never steps down when the device cannot encode or a file was chosen', () => {
+    expect(retryQuality('standard', { fail: 'unsupported' })).toBeNull();
+    expect(retryQuality('standard', { send: 'encoded' })).toBeNull();
+    expect(retryQuality('standard', { send: 'original' })).toBeNull();
+  });
+});
+
+describe('which file goes up', () => {  const original = 8 * BYTES_PER_MB;
 
   it('sends the re-encode only when smaller', () => {
     expect(chooseUpload(original, { kind: 'encoded', bytes: original - 1 }, LIMIT)).toEqual({ send: 'encoded' });

@@ -3,8 +3,8 @@
 //
 //   prepareUpload(file, quality, { limitBytes, signal?, onProgress? }) → the File to upload.
 //     Non-video files come back unchanged; a video comes back as the smaller of the original and its `<base>.mp4`
-//     re-encode. Throws VideoUploadError (message is for the UI) when the result is over limitBytes, or the signal's
-//     reason when aborted. onProgress gets 0..1 while encoding.
+//     re-encode, stepping down to Data Saver while still over limitBytes. Throws VideoUploadError (message is for the UI)
+//     when nothing fits, or the signal's reason when aborted. onProgress gets 0..1 per encode pass.
 //   effectiveVideoQuality() → the quality to pass: this device's choice, Data Saver on cellular while Data Saving is on.
 //
 // Decisions and presets: shared/videoEncode.ts. Memory: input is read in slices; the output (≈ its size, held until the
@@ -24,9 +24,11 @@ import {
   isVideoType,
   mp4Name,
   outputFrameRate,
+  retryQuality,
   targetSize,
   videoBitrateFor,
   videoLimitMessage,
+  worthEncoding,
   type EncodePreset,
   type EncodeResult,
   type VideoLimitReason,
@@ -61,13 +63,17 @@ const FRAME_RATE_SAMPLE_PACKETS = 120;
 
 export async function prepareUpload(file: File, quality: VideoQuality, opts: PrepareUploadOptions): Promise<File> {
   if (!isVideoType(file.type)) return file;
-  const target = encodeQualityFor(quality, file.size, opts.limitBytes);
-  if (!target) return file;
-  opts.signal?.throwIfAborted();
-  const { result, encoded } = await encode(file, ENCODE_PRESETS[target], opts);
-  const choice = chooseUpload(file.size, result, opts.limitBytes);
-  if ('fail' in choice) throw new VideoUploadError(choice.fail, opts.limitBytes);
-  return choice.send === 'encoded' && encoded ? encoded : file;
+  let target = encodeQualityFor(quality, file.size, opts.limitBytes);
+  while (target) {
+    opts.signal?.throwIfAborted();
+    const { result, encoded } = await encode(file, ENCODE_PRESETS[target], opts);
+    const choice = chooseUpload(file.size, result, opts.limitBytes);
+    if ('send' in choice) return choice.send === 'encoded' && encoded ? encoded : file;
+    const next = retryQuality(target, choice);
+    if (!next) throw new VideoUploadError(choice.fail, opts.limitBytes);
+    target = next;
+  }
+  return file;
 }
 
 const UNSUPPORTED = { result: { kind: 'unsupported' } } as const;
@@ -85,7 +91,7 @@ async function encode(file: File, preset: EncodePreset, opts: PrepareUploadOptio
   }
 }
 
-async function encodeInput(mb: Mediabunny, input: Input, file: File, preset: EncodePreset, { signal, onProgress }: PrepareUploadOptions): Promise<Encoded> {
+async function encodeInput(mb: Mediabunny, input: Input, file: File, preset: EncodePreset, { limitBytes, signal, onProgress }: PrepareUploadOptions): Promise<Encoded> {
   if (!(await input.canRead())) return UNSUPPORTED;
   const video = await input.getPrimaryVideoTrack();
   if (!video) return UNSUPPORTED;
@@ -94,7 +100,8 @@ async function encodeInput(mb: Mediabunny, input: Input, file: File, preset: Enc
   const coded = { width: await video.getSquarePixelWidth(), height: await video.getSquarePixelHeight() };
   const size = targetSize(displaySize(coded, await video.getRotation()), preset);
   const bitrate = videoBitrateFor(size, preset);
-  if (expectedEncodedBytes(await input.computeDuration(), bitrate, audio !== null) >= file.size) return SKIPPED;
+  const expected = expectedEncodedBytes(await input.computeDuration(), bitrate, audio !== null);
+  if (!worthEncoding(file.size, expected, limitBytes)) return SKIPPED;
   // Constant: measured on desktop, variable overshot the target up to 2× on busy frames; the size has to stay predictable.
   const quality = new mb.Quality({ bitrate, bitrateMode: 'constant' });
   if (!(await mb.canEncodeVideo(VIDEO_CODEC, { ...size, quality }))) return UNSUPPORTED;
