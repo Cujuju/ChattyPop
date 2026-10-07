@@ -1,8 +1,9 @@
-import { For, Match, Switch, createSignal, type JSX } from 'solid-js';
+import { For, Match, Switch, createSignal, useContext, type JSX } from 'solid-js';
 import { emojiUrl } from '@shared/emoji';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { clockTime } from './format';
+import { SpoilersShown } from './spoilers';
 import { parseInline, parseMarkdown, type MdBlock, type MdInline } from './mdParse';
 import styles from './Markdown.module.css';
 
@@ -38,7 +39,9 @@ function formatTime(unix: number, style: string): string {
 }
 
 function Spoiler(props: { children: JSX.Element; inert: boolean }) {
-  const [shown, setShown] = createSignal(false);
+  const [revealed, setShown] = createSignal(false);
+  const uncovered = useContext(SpoilersShown);
+  const shown = (): boolean => uncovered() || revealed();
   // Inert spoilers remain hidden inside clickable rows to avoid activating those rows.
   if (props.inert) return <span class={styles.spoiler} data-shown="false">{props.children}</span>;
   return (

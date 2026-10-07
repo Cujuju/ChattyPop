@@ -32,7 +32,7 @@ const ref = { channelId: CHANNEL, messageId: MESSAGE };
 const REACTION = `channels/${CHANNEL}/messages/${MESSAGE}/reactions/%F0%9F%91%8D/@me`;
 const ACK = `channels/${CHANNEL}/messages/${MESSAGE}/ack`;
 /** Calls that write but are exempt from the lock (owner's choice), and reads, which aren't writes. */
-const EXEMPT = ['react'];
+const EXEMPT = ['react', 'setChatSettings'];
 const READS = ['refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'shownChannel', 'probe', 'friends'];
 
 const info = (id: string, status: PluginInfo['status']): PluginInfo =>

@@ -154,6 +154,8 @@ export const MAIN_INVOKE = {
     gifs: 'discord:gifs',
     /** The owner's custom theme from their Discord settings (Settings → Appearance import). */
     customTheme: 'discord:custom-theme',
+    /** Writes Chat settings to the owner's Discord account (SyncedChatSettings). */
+    setChatSettings: 'discord:set-chat-settings',
     expressions: 'discord:expressions',
     commands: 'discord:commands',
     runCommand: 'discord:run-command',

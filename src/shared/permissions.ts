@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   VIEW_CHANNEL: 1n << 10n,
   SEND_MESSAGES: 1n << 11n,
   SEND_TTS_MESSAGES: 1n << 12n,
+  MANAGE_MESSAGES: 1n << 13n,
   EMBED_LINKS: 1n << 14n,
   ATTACH_FILES: 1n << 15n,
   READ_MESSAGE_HISTORY: 1n << 16n,

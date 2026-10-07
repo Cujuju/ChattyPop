@@ -78,6 +78,9 @@ export { querySearch, setSearchOpen } from '@/state/search';
 export { openMessageMenuById } from '@/state/messageActions';
 export { showJevQuery } from '@/state/jevNavigation';
 export { jevSwitch, type JevSwitch } from './jevSwitch';
+// Discord's Chat settings as this device shows them (Settings → Chat), and the double-tap emoji's choice.
+export { changeDeviceChatSettings, changeDiscordChatSettings, deviceChatSettings, discordChatSettings, setSyncAcrossClients } from '@/state/chatSettings';
+export { ChatEmoji, DoubleTapEmojiPicker } from '@/views/settings/DoubleTapEmoji';
 export { lastPlanUsageOf, planUsageFailureOf, planUsageLoadingOf, planUsageOf, refetchPlanUsage, usageReporters } from '@/state/providerUsage';
 // AI providers (docs/plugin-architecture.md §3, AI providers).
 export { availableProviders as aiProviders, localProviderNames, providerRuns } from '@/state/aiProviders';

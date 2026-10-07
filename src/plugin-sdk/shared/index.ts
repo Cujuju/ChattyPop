@@ -152,5 +152,26 @@ export {
   type PhoneLook,
   type PhoneTextSize,
 } from '@shared/phoneLook';
+// Discord's Chat settings: the account's (synced) and each device's own; the settings a phone keeps for itself.
+export {
+  DEFAULT_DEVICE_CHAT_RECORD,
+  DEFAULT_DEVICE_CHAT_SETTINGS,
+  DEFAULT_DISCORD_CHAT_SETTINGS,
+  SPOILER_MODES,
+  SPOILER_MODE_LABELS,
+  SWIPE_ACTIONS,
+  SWIPE_ACTION_LABELS,
+  VIDEO_QUALITIES,
+  VIDEO_QUALITY_LABELS,
+  normalizeDeviceChatRecord,
+  type DeviceChatRecord,
+  type DeviceChatSettings,
+  type DiscordChatSettings,
+  type SpoilerMode,
+  type SwipeAction,
+  type SyncedChatSettings,
+  type VideoQuality,
+} from '@shared/chatSettings';
+export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from '@shared/phoneDevice';
 export type { OwnerMessage } from '@shared/compose';
 export type { DirectoryGuild } from '@shared/contract';

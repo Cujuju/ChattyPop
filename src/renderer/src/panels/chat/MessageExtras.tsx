@@ -98,8 +98,11 @@ export const isMediaOnly = (e: ArchiveEmbed): boolean => e.type === 'gifv' || (e
 export const textIsEmbedLink = (content: string, embeds: ArchiveEmbed[]): boolean =>
   embeds.some((e) => isMediaOnly(e) && e.url !== null && e.url === content.trim());
 
-/** `brief`: every card's description is clamped, a bot's too (a list of previews, where a card is one of many). */
-export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string, string>; brief?: boolean }) {
+/**
+ * `brief`: every card's description is clamped, a bot's too (a list of previews, where a card is one of many). `hideMedia`:
+ * no images or videos (Discord's "When posted as links" off): a media-only embed shows only its notes, a card only its text.
+ */
+export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string, string>; brief?: boolean; hideMedia?: boolean }) {
   return (
     <For each={props.embeds}>
       {(e) => (
@@ -107,7 +110,9 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
           when={!isMediaOnly(e)}
           fallback={
             <>
-              <EmbedMedia embed={e} />
+              <Show when={!props.hideMedia}>
+                <EmbedMedia embed={e} />
+              </Show>
               <EmbedNotes embed={e} />
             </>
           }
@@ -150,13 +155,13 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
                   </div>
                 )}
               </Show>
-              <Show when={e.imageUrl || e.videoUrl || (LARGE_THUMB_TYPES.has(e.type) && e.thumbnailUrl)}>
+              <Show when={!props.hideMedia && (e.imageUrl || e.videoUrl || (LARGE_THUMB_TYPES.has(e.type) && e.thumbnailUrl))}>
                 <EmbedMedia embed={e} />
               </Show>
               <Show when={e.footer}>{(f) => <span class={styles.embedFooter}>{f()}</span>}</Show>
               <EmbedNotes embed={e} />
             </div>
-            <Show when={e.thumbnailUrl && !e.imageUrl && !e.videoUrl && !LARGE_THUMB_TYPES.has(e.type)}>
+            <Show when={!props.hideMedia && e.thumbnailUrl && !e.imageUrl && !e.videoUrl && !LARGE_THUMB_TYPES.has(e.type)}>
               <img class={styles.embedThumb} src={thumbUrl(e.thumbnailUrl!)} alt="" loading="lazy" />
             </Show>
           </article>

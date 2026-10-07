@@ -1,5 +1,5 @@
 // One attachment's frame in the log: its spoiler cover, its removed mark and the bar Discord shows at its top-right on hover.
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Show, createSignal, onCleanup, onMount, useContext, type JSX } from 'solid-js';
 import { HOST_ATTACHMENT_ACTIONS } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
 import type { AttachmentBarView, HostAttachmentAction } from '@/plugins/messageSlots';
@@ -7,6 +7,7 @@ import { attachmentActionItems } from '@/plugins/slots';
 import { canSave, saveAttachment } from '@/state/savedFiles';
 import { inCompanion } from '@/state/ui';
 import { SolidIcon } from '@/ui/solidIcons';
+import { SpoilersShown } from '@/ui/spoilers';
 import { HoverBarButton } from './HoverBarButton';
 import styles from './Attachment.module.css';
 
@@ -53,7 +54,8 @@ function AttachmentBar(props: { message: ArchiveMessage; attachment: ArchiveAtta
 /** An attachment's frame: covered while it is a spoiler not yet revealed, marked once removed from its message. */
 export function AttachmentTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; children: JSX.Element }) {
   const [revealed, setRevealed] = createSignal(false);
-  const covered = () => props.attachment.spoiler && !revealed();
+  const uncovered = useContext(SpoilersShown);
+  const covered = () => props.attachment.spoiler && !revealed() && !uncovered();
   return (
     <div class={styles.tile} data-covered={covered()} data-removed={props.attachment.removed}>
       {props.children}
