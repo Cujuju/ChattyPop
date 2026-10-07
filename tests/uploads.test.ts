@@ -13,7 +13,10 @@ const NONCE = '100000000000000009';
 const HTTP_OK = 200;
 const HTTP_FORBIDDEN = 403;
 
-/** Electron's ClientRequest as Uploads drives it: writes acknowledged (unless `hold`), the store's answer on end. */
+/**
+ * Electron's ClientRequest as Uploads drives it: writes acknowledged (unless `hold`); on end, 'close' and then the store's
+ * answer, Electron 44's order (verified 2026-10-06).
+ */
 class FakeRequest extends EventEmitter {
   static hold = false;
   chunkedEncoding = false;
@@ -27,6 +30,8 @@ class FakeRequest extends EventEmitter {
     if (!FakeRequest.hold) done();
   }
   end(): void {
+    // Regression: Uploads read this 'close' as a dropped connection, failing every upload before Discord answered.
+    this.emit('close');
     const res = new EventEmitter() as EventEmitter & { statusCode: number };
     res.statusCode = this.status;
     this.emit('response', res);

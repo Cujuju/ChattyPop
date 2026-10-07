@@ -142,18 +142,17 @@ export class Uploads {
     const request = net.request({ method: 'PUT', url: u.url, session: this.session, useSessionCookies: false });
     request.chunkedEncoding = true;
     u.request = request;
+    // Electron 44 emits 'close' once the body is sent, before 'response' (verified 2026-10-06): it isn't the end of the
+    // exchange. A lost connection is an 'error'; a hung one, the sender's finishUpload timeout.
     u.answered = new Promise<number>((resolve, reject) => {
-      let responded = false;
       request.on('response', (res) => {
-        responded = true;
         res.on('data', () => undefined);
         res.on('end', () => resolve(res.statusCode));
         res.on('error', reject);
       });
       request.on('error', reject);
-      // Dropped (idle) or closed without an answer: a piece waiting on it fails instead of hanging.
+      // Dropped (idle): a piece waiting on it fails instead of hanging.
       request.on('abort', () => reject(new Error(UPLOAD_GONE)));
-      request.on('close', () => responded || reject(new Error('The upload connection closed.')));
     });
     // Rejections are read by chunk() and finish(); an unread one must not surface as unhandled.
     u.answered.catch(() => undefined);
