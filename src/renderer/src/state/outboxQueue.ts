@@ -88,6 +88,8 @@ const TIMED_OUT = 'Sending is taking too long. It may still arrive; retrying wit
 const INTERRUPTED = 'The app closed while this was sending.';
 const UNREACHABLE = 'Can’t reach the desktop. Retrying when it’s back.';
 const CHECK_FIRST = 'Couldn’t confirm it was sent. Check the channel first: Retry now could post it twice.';
+/** An automatic retry stopped before posting: past the nonce window, only the owner's Retry may send it. */
+class CheckFirst extends Error {}
 
 interface Entry<D> {
   job: OutboxJob<D>;
@@ -96,6 +98,8 @@ interface Entry<D> {
   uploads: string[] | null;
   /** The files as prepared for upload; kept across retries while the page lives. */
   prepared: File[] | null;
+  /** This attempt is a retry by itself (not the owner's): it may post only while Discord still dedupes its nonce. */
+  automatic: boolean;
 }
 
 export function createOutbox<D>(deps: OutboxDeps<D>) {
@@ -131,8 +135,8 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     deps.save(records);
   }
 
-  const update = (channelId: string, id: number, change: Partial<Outgoing>): void =>
-    void setOutbox(channelId, (list) => list.map((o) => (o.id === id ? { ...o, ...change } : o)));
+  /** In place, so a reader of other fields (the log's rows read ids) isn't woken by progress. */
+  const update = (channelId: string, id: number, change: Partial<Outgoing>): void => void setOutbox(channelId, (o) => o.id === id, change);
 
   function patch(channelId: string, id: number, change: Partial<Outgoing>): void {
     update(channelId, id, change);
@@ -148,7 +152,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
 
   function add(job: OutboxJob<D>, state: Pick<Outgoing, 'status' | 'error'>, saved?: OutboxRecord<D>): void {
     const id = nextId++;
-    entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null });
+    entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, automatic: false });
     const row: Outgoing = { id, label: job.label, text: job.message.text, files: job.files, ...state, editable: job.draft !== null, phase: null, progress: null };
     setOutbox(produce((all) => void (all[job.channelId] ??= []).push(row)));
     undismiss(job.channelId);
@@ -209,6 +213,11 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
         let failure: string | null = null;
         try {
           await uploadFiles(channelId, id, e);
+          // A retry by itself that outlived the nonce window (a long re-upload) must not post: it could post twice.
+          if (e.automatic && e.firstSentAt !== null && deps.now() - e.firstSentAt >= NONCE_DEDUPE_MS) {
+            e.unreachable = false;
+            throw new CheckFirst();
+          }
           // Saved before the post goes: after a reload, firstSentAt says it may have posted.
           e.firstSentAt ??= deps.now();
           patch(channelId, id, { phase: 'posting', progress: null });
@@ -241,8 +250,11 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
             continue;
           }
           // Never put back in the composer on its own: a lost answer can hide a post that went through, and only a resend reuses its nonce.
-          e.unreachable = deps.unreachable(err);
-          failure = e.unreachable ? UNREACHABLE : deps.errorText(err);
+          if (err instanceof CheckFirst) failure = CHECK_FIRST;
+          else {
+            e.unreachable = deps.unreachable(err);
+            failure = e.unreachable ? UNREACHABLE : deps.errorText(err);
+          }
         }
         if (failure === null) finish(channelId, id);
         else {
@@ -275,7 +287,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       if (!head || !e?.unreachable) continue;
       if (e.firstSentAt === null || deps.now() - e.firstSentAt < NONCE_DEDUPE_MS) {
         waiting = true;
-        retrySend(channelId, head.id);
+        retrySend(channelId, head.id, true);
       } else {
         e.unreachable = false;
         patch(channelId, head.id, { error: CHECK_FIRST });
@@ -284,8 +296,10 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     if (waiting) scheduleRetry();
   }
 
-  /** Sends the channel's failed head again, then the rest behind it. */
-  function retrySend(channelId: string, id: number): void {
+  /** Sends the channel's failed head again, then the rest behind it. `automatic`: a retry by itself, not the owner's Retry. */
+  function retrySend(channelId: string, id: number, automatic = false): void {
+    const e = entries.get(id);
+    if (e) e.automatic = automatic;
     patch(channelId, id, { status: 'queued', error: null });
     void pump(channelId);
   }

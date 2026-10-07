@@ -9,7 +9,7 @@ import type { DiscordWriter } from './client';
 import type { UploadedFile } from './send';
 
 /** An upload with no piece for this long is dropped: its sender gave up or went away. */
-const UPLOAD_IDLE_MS = 10 * MS_PER_MIN;
+export const UPLOAD_IDLE_MS = 10 * MS_PER_MIN;
 const HTTP_OK_MIN = 200;
 const HTTP_OK_MAX = 299;
 
@@ -30,6 +30,10 @@ interface Upload {
   /** Discord's store answered (its status), or the request failed. */
   answered: Promise<number> | null;
   finished: boolean;
+  /** A piece is being sent: pieces go one at a time. */
+  writing: boolean;
+  /** The message's uploads, this one included: activity on any keeps them all, so earlier files don't expire while later ones go. */
+  batch: Set<string>;
   idle: ReturnType<typeof setTimeout> | undefined;
 }
 
@@ -58,37 +62,45 @@ export class Uploads {
     const { attachments: slots } = await api.post<{ attachments: DiscordSlot[] }>(`channels/${channelId}/attachments`, {
       files: filesArg.map((f, i) => ({ id: String(i), filename: f.name, file_size: f.size, is_clip: false })),
     });
-    return filesArg.map((f, i) => {
+    const batch = new Set<string>();
+    const refs = filesArg.map((f, i) => {
       const slot = slots.find((s) => String(s.id) === String(i));
       if (!slot) throw new Error('Discord returned no upload slot for a file.');
-      const token = randomUUID();
-      const upload: Upload = { channelId, name: f.name, size: f.size, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, idle: undefined };
-      this.held.set(token, upload);
-      this.touch(token, upload);
-      return { token, name: f.name, size: f.size };
+      return { f, slot, token: randomUUID() };
     });
+    for (const { f, slot, token } of refs) {
+      batch.add(token);
+      this.held.set(token, { channelId, name: f.name, size: f.size, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
+    }
+    this.touch(batch);
+    return refs.map(({ f, token }) => ({ token, name: f.name, size: f.size }));
   }
 
   /** Sends the next piece on; resolves once it is handed to the network. Pieces arrive in order, from offset 0. */
   async chunk(tokenArg: unknown, offset: unknown, bytes: unknown): Promise<void> {
-    const [token, u] = this.get(tokenArg);
-    if (u.finished || offset !== u.sent) throw new Error('That upload piece is out of order.');
+    const [, u] = this.get(tokenArg);
+    if (u.finished || u.writing || offset !== u.sent) throw new Error('That upload piece is out of order.');
     if (!(bytes instanceof Uint8Array) || !bytes.length || bytes.length > UPLOAD_CHUNK_BYTES || u.sent + bytes.length > u.size) throw new Error('Not an upload piece.');
-    this.touch(token, u);
-    const request = u.request ?? this.open(u);
-    await new Promise<void>((resolve, reject) => {
-      // An early answer (a refusal) or a network error fails the piece rather than leaving it waiting.
-      void u.answered!.then(() => reject(new Error('Discord stopped the upload.')), reject);
-      request.write(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), undefined, () => resolve());
-    });
-    u.sent += bytes.length;
+    u.writing = true;
+    this.touch(u.batch);
+    try {
+      const request = u.request ?? this.open(u);
+      await new Promise<void>((resolve, reject) => {
+        // An early answer (a refusal), a network error or an abort fails the piece rather than leaving it waiting.
+        void u.answered!.then(() => reject(new Error('Discord stopped the upload.')), reject);
+        request.write(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), undefined, () => resolve());
+      });
+      u.sent += bytes.length;
+    } finally {
+      u.writing = false;
+    }
   }
 
   /** Ends the upload once every byte was sent; throws Discord's refusal. */
   async finish(tokenArg: unknown): Promise<void> {
     const [token, u] = this.get(tokenArg);
     if (u.finished) return;
-    if (u.sent !== u.size) throw new Error('That upload is missing pieces.');
+    if (u.writing || u.sent !== u.size) throw new Error('That upload is missing pieces.');
     const request = u.request ?? this.open(u);
     request.end();
     const status = await u.answered!.catch((err: unknown) => {
@@ -100,7 +112,7 @@ export class Uploads {
       throw new Error(`Discord refused the upload (${status}).`);
     }
     u.finished = true;
-    this.touch(token, u);
+    this.touch(u.batch);
   }
 
   /** The finished uploads a message to `channelId` references, in order; they are released. Throws UPLOAD_GONE for one not held. */
@@ -131,21 +143,31 @@ export class Uploads {
     request.chunkedEncoding = true;
     u.request = request;
     u.answered = new Promise<number>((resolve, reject) => {
+      let responded = false;
       request.on('response', (res) => {
+        responded = true;
         res.on('data', () => undefined);
         res.on('end', () => resolve(res.statusCode));
         res.on('error', reject);
       });
       request.on('error', reject);
+      // Dropped (idle) or closed without an answer: a piece waiting on it fails instead of hanging.
+      request.on('abort', () => reject(new Error(UPLOAD_GONE)));
+      request.on('close', () => responded || reject(new Error('The upload connection closed.')));
     });
     // Rejections are read by chunk() and finish(); an unread one must not surface as unhandled.
     u.answered.catch(() => undefined);
     return request;
   }
 
-  private touch(token: string, u: Upload): void {
-    clearTimeout(u.idle);
-    u.idle = setTimeout(() => this.drop(token), UPLOAD_IDLE_MS);
+  /** Restarts the idle clock of every upload in the batch. */
+  private touch(batch: ReadonlySet<string>): void {
+    for (const token of batch) {
+      const u = this.held.get(token);
+      if (!u) continue;
+      clearTimeout(u.idle);
+      u.idle = setTimeout(() => this.drop(token), UPLOAD_IDLE_MS);
+    }
   }
 
   private drop(token: string): void {

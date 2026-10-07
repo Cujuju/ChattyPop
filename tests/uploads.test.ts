@@ -1,11 +1,11 @@
 // Main's uploads (discord/uploads.ts): a slot per file within the channel's limit; pieces in order, streamed on;
 // a message names only finished uploads in its channel, and they are released once Discord accepts it.
 import { EventEmitter } from 'node:events';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
 import { BYTES_PER_GB, BYTES_PER_MB } from '@shared/units';
 import { sendOwnerMessage } from '../src/main/discord/send';
-import { Uploads } from '../src/main/discord/uploads';
+import { UPLOAD_IDLE_MS, Uploads } from '../src/main/discord/uploads';
 
 const CHANNEL = '100000000000000001';
 const OTHER = '100000000000000002';
@@ -13,8 +13,9 @@ const NONCE = '100000000000000009';
 const HTTP_OK = 200;
 const HTTP_FORBIDDEN = 403;
 
-/** Electron's ClientRequest as Uploads drives it: writes acknowledged, the store's answer on end. */
+/** Electron's ClientRequest as Uploads drives it: writes acknowledged (unless `hold`), the store's answer on end. */
 class FakeRequest extends EventEmitter {
+  static hold = false;
   chunkedEncoding = false;
   written: number[] = [];
   aborted = false;
@@ -23,7 +24,7 @@ class FakeRequest extends EventEmitter {
   }
   write(chunk: Buffer, _enc: undefined, done: () => void): void {
     this.written.push(chunk.length);
-    done();
+    if (!FakeRequest.hold) done();
   }
   end(): void {
     const res = new EventEmitter() as EventEmitter & { statusCode: number };
@@ -33,6 +34,8 @@ class FakeRequest extends EventEmitter {
   }
   abort(): void {
     this.aborted = true;
+    this.emit('abort');
+    this.emit('close');
   }
 }
 
@@ -94,6 +97,52 @@ describe('Uploads', () => {
     await expect(uploads.finish(slot!.token)).rejects.toThrow(/refused the upload \(403\)/);
     await expect(uploads.finish(slot!.token)).rejects.toThrow(UPLOAD_GONE);
     storeStatus = HTTP_OK;
+  });
+});
+
+describe('Uploads, pieces and idle', () => {
+  afterEach(() => {
+    FakeRequest.hold = false;
+    vi.useRealTimers();
+  });
+
+  it('refuses a second piece while one is being sent', async () => {
+    const { api, uploads } = setup();
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }]);
+    FakeRequest.hold = true;
+    const first = uploads.chunk(slot!.token, 0, new Uint8Array(2));
+    await expect(uploads.chunk(slot!.token, 0, new Uint8Array(2))).rejects.toThrow(/out of order/);
+    await expect(uploads.finish(slot!.token)).rejects.toThrow(/missing pieces/);
+    expect(requests.at(-1)!.written).toEqual([2]);
+    first.catch(() => undefined);
+  });
+
+  it('a finished file stays held while the message’s later files upload', async () => {
+    vi.useFakeTimers();
+    const { api, uploads } = setup();
+    const [a, b] = await uploads.prepare(api, CHANNEL, [
+      { name: 'a.png', size: 1 },
+      { name: 'b.png', size: 2 },
+    ]);
+    await uploads.chunk(a!.token, 0, new Uint8Array(1));
+    await uploads.finish(a!.token);
+    for (const offset of [0, 1]) {
+      vi.advanceTimersByTime(UPLOAD_IDLE_MS / 2 + 1);
+      await uploads.chunk(b!.token, offset, new Uint8Array(1));
+    }
+    await uploads.finish(b!.token);
+    expect(uploads.take(CHANNEL, [a!.token, b!.token])).toHaveLength(2);
+  });
+
+  it('dropping an idle upload fails the piece waiting on it', async () => {
+    vi.useFakeTimers();
+    const { api, uploads } = setup();
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }]);
+    FakeRequest.hold = true;
+    const piece = uploads.chunk(slot!.token, 0, new Uint8Array(2));
+    vi.advanceTimersByTime(UPLOAD_IDLE_MS);
+    await expect(piece).rejects.toThrow(UPLOAD_GONE);
+    expect(requests.at(-1)!.aborted).toBe(true);
   });
 });
 

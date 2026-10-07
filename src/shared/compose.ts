@@ -143,6 +143,9 @@ const BOOST_UPLOAD_BYTES: Readonly<Record<number, number>> = { [BOOST_TIER_2]: 5
 export const uploadLimitBytes = (premiumType: number, premiumTier: number | null): number =>
   Math.max(PLAN_UPLOAD_BYTES[premiumType] ?? DISCORD_UPLOAD_BYTES_MAX, BOOST_UPLOAD_BYTES[premiumTier ?? 0] ?? 0);
 
+/** The largest limit any plan or server reaches: what a sender assumes before it knows the channel's. */
+export const UPLOAD_BYTES_CEILING = Math.max(...Object.values(PLAN_UPLOAD_BYTES), ...Object.values(BOOST_UPLOAD_BYTES));
+
 /** Classic and Basic unlock emoji everywhere and animated emoji; stickers everywhere is Nitro and Basic only. */
 export function planPerks(premiumType: number): PlanPerks {
   const emoji = premiumType === PREMIUM_CLASSIC || premiumType === PREMIUM_NITRO || premiumType === PREMIUM_BASIC;

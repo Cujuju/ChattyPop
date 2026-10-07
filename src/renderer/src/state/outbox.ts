@@ -42,7 +42,8 @@ function saveQueue(records: OutboxRecord<SavedDraft>[]): void {
     keptFiles.delete(nonce);
     idbSet(FILES_PREFIX + nonce, undefined);
   }
-  idbSet(ownKey, records.length ? records.map((r) => ({ ...r, files: [] })) : undefined);
+  // The draft holds the same files (for Edit): stripped too, and given back from the message's on load.
+  idbSet(ownKey, records.length ? records.map((r) => ({ ...r, files: [], draft: r.draft && { ...r.draft, files: [] } })) : undefined);
 }
 
 /** Saved records with their files read back; this page now keeps those files. */
@@ -51,7 +52,7 @@ async function withFiles(records: OutboxRecord<SavedDraft>[]): Promise<OutboxRec
     records.map(async (r) => {
       const files = (await idbGet<File[]>(FILES_PREFIX + r.message.nonce)) ?? [];
       if (files.length) keptFiles.add(r.message.nonce);
-      return { ...r, files };
+      return { ...r, files, draft: r.draft && { ...r.draft, files } };
     }),
   );
 }
@@ -70,7 +71,10 @@ function unstalled<T>(call: Promise<T>, ms: number): Promise<T> {
 
 /** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go; resolves the slots' tokens. */
 async function uploadFiles(channelId: string, files: File[], progress: (fraction: number) => void): Promise<string[]> {
-  const slots = await api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.name, size: f.size })));
+  const slots = await unstalled(
+    api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.name, size: f.size }))),
+    SEND_BASE_TIMEOUT_MS,
+  );
   const total = files.reduce((n, f) => n + f.size, 0);
   let sent = 0;
   for (const [i, slot] of slots.entries()) {
@@ -88,7 +92,7 @@ async function uploadFiles(channelId: string, files: File[], progress: (fraction
 
 const box = createOutbox<SavedDraft>({
   send: (m) => api.discord.send(m),
-  prepare: prepareFiles,
+  prepare: async (channelId, files, progress) => prepareFiles(files, await unstalled(api.discord.uploadLimit(channelId), SEND_BASE_TIMEOUT_MS), progress),
   upload: uploadFiles,
   uploadGone: (err) => err instanceof Error && err.message.includes(UPLOAD_GONE),
   errorText,

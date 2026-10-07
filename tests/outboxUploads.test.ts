@@ -86,6 +86,34 @@ describe('outbox uploads', () => {
     expect(posted).toEqual([expect.objectContaining({ nonce: 'n1', uploads: ['t2'] })]);
   });
 
+  it('a retry by itself whose re-upload outlives the nonce window stops before posting', async () => {
+    const { box, posted, uploads, head, failNextSend } = setup();
+    await settle();
+    failNextSend(new Unreachable('gone'));
+    uploads[0]!.resolve(['t1']);
+    await settle();
+    failNextSend(new Error(UPLOAD_GONE));
+    box.retryUnreachable();
+    await settle();
+    expect(uploads).toHaveLength(2);
+    vi.setSystemTime(Date.now() + NONCE_DEDUPE_MS);
+    uploads[1]!.resolve(['t2']);
+    await settle();
+    expect(posted).toEqual([]);
+    expect(head()).toMatchObject({ status: 'failed', error: expect.stringMatching(/Check the channel first/) });
+    box.retrySend(CHANNEL, head()!.id);
+    await settle();
+    expect(posted).toEqual([expect.objectContaining({ nonce: 'n1', uploads: ['t2'] })]);
+  });
+
+  it('progress updates the row in place', async () => {
+    const { box, uploads } = setup();
+    await settle();
+    const row = box.outgoing(CHANNEL)[0];
+    uploads[0]!.progress(0.25);
+    expect(box.outgoing(CHANNEL)[0]).toBe(row);
+  });
+
   it('a fresh upload the desktop says is gone fails instead of looping', async () => {
     const { uploads, head, failNextSend } = setup();
     await settle();
