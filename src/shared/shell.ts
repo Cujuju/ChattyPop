@@ -19,3 +19,10 @@ export const isApnsEnvironment = (v: unknown): v is ApnsEnvironment => (APNS_ENV
 export const SHELL_NATIVE_GLOBAL = 'chattyPopShell';
 /** Custom properties the app sets on `<html>` as the keyboard moves (ShellViewController.swift; the theme's sizes.css reads them). */
 export const SHELL_KEYBOARD_PROPERTIES = { inset: '--cp-keyboard-inset', duration: '--cp-keyboard-duration' } as const;
+/** Window CustomEvent the app dispatches after each page load and on each network change, detail a ShellNetworkDetail (state/network.ts). */
+export const SHELL_NETWORK_EVENT = 'cp-shell-network';
+export interface ShellNetworkDetail {
+  cellular: boolean;
+}
+export const isShellNetworkDetail = (v: unknown): v is ShellNetworkDetail =>
+  typeof v === 'object' && v !== null && typeof (v as { cellular?: unknown }).cellular === 'boolean';
