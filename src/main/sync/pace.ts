@@ -34,7 +34,12 @@ export class Pace {
 
   /** An automatic post's one wait: the owner's setting, randomized ± WAIT_JITTER. */
   async humanPause(): Promise<void> {
-    await sleep(jittered((await this.archive()).automaticPostPauseS * MS_PER_S, WAIT_JITTER));
+    await sleep(await this.automaticPauseMs());
+  }
+
+  /** The owner's automatic-post pause in ms, randomized ± WAIT_JITTER: also the least gap between automatic actions. */
+  async automaticPauseMs(): Promise<number> {
+    return jittered((await this.archive()).automaticPostPauseS * MS_PER_S, WAIT_JITTER);
   }
 }
 

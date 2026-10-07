@@ -60,6 +60,7 @@ import { PanelWindows } from './panelWindows';
 import { PhoneHub, type DiscordCalls } from './phone/hub';
 import bundledMain, { failed as failedMain } from 'virtual:bundled-plugins/main';
 import { startMainPlugins } from './plugins/bundled';
+import { ActionSpacer } from './plugins/discordContext';
 import { pluginDataDirs } from './plugins/dataDir';
 import { installedFiles } from './plugins/installedFiles';
 import { installedStart } from './plugins/installed/runtime';
@@ -266,7 +267,7 @@ void app.whenReady().then(() => {
     secrets: SECRET_FILES,
     diag,
     core,
-    discord: { paced: discordApi, prompt: discordApi.prompt, humanPause: () => pace.humanPause(), posting },
+    discord: { paced: discordApi, prompt: discordApi.prompt, humanPause: () => pace.humanPause(), posting, spacer: new ActionSpacer(() => pace.automaticPauseMs()) },
     emojiIndex,
     mediaDir: media.media,
     sync,

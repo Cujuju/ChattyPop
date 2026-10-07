@@ -13,6 +13,7 @@ import { PhoneHub } from '@main/phone/hub';
 import { notificationService } from '@main/notifications';
 import type { MainCore } from '@main/coreClient';
 import type { MainPluginDeps } from '@main/plugins/context';
+import { ActionSpacer } from '@main/plugins/discordContext';
 import { rendererPages } from '@main/plugins/pages';
 import { startMainSides } from '@main/plugins/sides';
 import { PluginStates } from '@main/plugins/states';
@@ -76,7 +77,7 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
     diag,
     core: coreClient,
     // Shares both Discord lanes without automatic-post waits. Posting starts unlocked; separate posting-lock tests cover the unlocking contract.
-    discord: { paced: o.discord ?? NO_DISCORD, prompt: o.discord ?? NO_DISCORD, humanPause: async () => undefined, posting: { unlocked: async () => true } },
+    discord: { paced: o.discord ?? NO_DISCORD, prompt: o.discord ?? NO_DISCORD, humanPause: async () => undefined, posting: { unlocked: async () => true }, spacer: new ActionSpacer(async () => 0) },
     emojiIndex: { all: () => Object.values(emojis).flat(), forGuild: async (_api, guildId) => [...(emojis[guildId] ?? [])] },
     mediaDir: side.mediaDir,
     sync: { enqueue: (channelId) => void synced.push(channelId) },

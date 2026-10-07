@@ -1,8 +1,11 @@
 // Exposes embedded-session reads to all plugins. Writes require declared permission in types/runtime and an unlocked posting state.
+// Every call must be a route the live client itself sends (discordRoutes.ts); automatic actions are spaced like a person's.
+import { sleep } from '@shared/async';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { GuildEmoji } from '@shared/emoji';
-import type { DiscordClient, DiscordQuery, DiscordReader, WriteOptions } from '../discord/client';
+import type { DiscordClient, DiscordQuery, DiscordReader, RequestOptions, WriteOptions } from '../discord/client';
 import type { GuildEmojiIndex } from '../discord/guildEmojis';
+import { assertPluginRoute } from './discordRoutes';
 import { postingClient, type PostingGate } from './posting';
 
 /** Posting on the owner's behalf: writes aren't paced, so a post's one wait is this pause. */
@@ -23,6 +26,56 @@ export interface PluginDiscordDeps {
   humanPause(): Promise<void>;
   /** Writes refuse with PostingLocked while posting is locked, reactions and acks excepted (./posting.ts). */
   posting: PostingGate;
+  /** Shared by every plugin: one automatic action at a time, each a pause after the last. */
+  spacer: ActionSpacer;
+}
+
+/** Spaces automatic actions (posts, edits, deletes, reactions) across all plugins: each waits `gap` after the previous one. */
+export class ActionSpacer {
+  private last = Number.NEGATIVE_INFINITY;
+  private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(
+    private readonly gap: () => Promise<number>,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  /** Resolves when the next action may go, and counts it as gone. */
+  turn(): Promise<void> {
+    const mine = this.queue.then(async () => {
+      const wait = this.last + (await this.gap()) - this.now();
+      if (wait > 0) await sleep(wait);
+      this.last = this.now();
+    });
+    this.queue = mine.catch(() => undefined);
+    return mine;
+  }
+}
+
+/** Parts of one action, sent straight after it as the client sends them: an attachment slot, a read ack. */
+const ACTION_PART = /^channels\/\d+\/(attachments|messages\/\d+\/ack)$/;
+
+/** `client` checking each route plugins may call, and waiting its turn before each action. Read per call: a plugin without Discord never touches them. */
+function pluginRoutes(lane: () => DiscordClient, spacer: () => ActionSpacer): DiscordClient {
+  const checked = <T>(method: Parameters<typeof assertPluginRoute>[0], path: string, send: () => Promise<T>, action = true): Promise<T> => {
+    try {
+      assertPluginRoute(method, path);
+    } catch (err) {
+      return Promise.reject(err);
+    }
+    return action ? spacer().turn().then(send) : send();
+  };
+  return {
+    get: <T>(path: string, query?: DiscordQuery, opts?: RequestOptions) => checked('GET', path, () => lane().get<T>(path, query, opts), false),
+    post: <T>(path: string, json: unknown, opts?: WriteOptions) => checked('POST', path, () => lane().post<T>(path, json, opts), !ACTION_PART.test(path)),
+    postOnce: <T>(path: string, json: unknown, opts?: WriteOptions) => checked('POST', path, () => lane().postOnce<T>(path, json, opts), !ACTION_PART.test(path)),
+    put: (path, opts) => checked('PUT', path, () => lane().put(path, opts)),
+    putJson: <T>(path: string, json: unknown, opts?: WriteOptions) => checked('PUT', path, () => lane().putJson<T>(path, json, opts)),
+    patch: <T>(path: string, json: unknown, opts?: WriteOptions) => checked('PATCH', path, () => lane().patch<T>(path, json, opts)),
+    delete: (path, opts) => checked('DELETE', path, () => lane().delete(path, opts)),
+    // Bytes to the slot Discord handed out for an attachment; no Discord credentials go there.
+    upload: (url, bytes) => lane().upload(url, bytes),
+  };
 }
 
 /** Custom emojis, per server. */
@@ -35,9 +88,10 @@ export interface GuildEmojis {
 
 /** Plugin `plugin`'s view of Discord: only `get` unless it declares Discord writes; no member reaches the API itself. */
 export function pluginDiscord<D extends PluginDescriptor>(plugin: D, d: PluginDiscordDeps): PluginDiscord<D> {
-  const reader: DiscordReader = { get: <T>(path: string, query?: DiscordQuery) => d.paced.get<T>(path, query) };
+  const routed = pluginRoutes(() => d.paced, () => d.spacer);
+  const reader: DiscordReader = { get: <T>(path: string, query?: DiscordQuery) => routed.get<T>(path, query) };
   if (plugin.discord?.write !== true) return reader as PluginDiscord<D>;
-  const writer = postingClient(d.prompt, d.posting);
+  const writer = postingClient(pluginRoutes(() => d.prompt, () => d.spacer), d.posting);
   const client: DiscordClient & AutomaticPosting = {
     ...reader,
     post: <T>(path: string, json: unknown, opts?: WriteOptions) => writer.post<T>(path, json, opts),

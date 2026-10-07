@@ -22,7 +22,7 @@ const { BUNDLED_PLUGINS } = await import('@shared/bundledPlugins');
 const { registerDiscordHandlers } = await import('../src/main/ipc/discord');
 const { PhoneHub } = await import('../src/main/phone/hub');
 const { exemptWrite, postingGate } = await import('../src/main/plugins/posting');
-const { pluginDiscord } = await import('../src/main/plugins/discordContext');
+const { ActionSpacer, pluginDiscord } = await import('../src/main/plugins/discordContext');
 const { sendMessage } = await import('../src/main/discord/send');
 const { ReadStates } = await import('../src/main/discord/readStates');
 
@@ -134,7 +134,7 @@ describe('plugins’ ctx.discord writes', () => {
   function writer() {
     const state = { list: LOCKED };
     const prompt = owner();
-    const ctx = pluginDiscord(writerPlugin as { manifest: typeof writerPlugin.manifest; discord: { write: true } }, { paced: owner(), prompt, humanPause: async () => undefined, posting: postingGate(async () => state.list) });
+    const ctx = pluginDiscord(writerPlugin as { manifest: typeof writerPlugin.manifest; discord: { write: true } }, { paced: owner(), prompt, humanPause: async () => undefined, posting: postingGate(async () => state.list), spacer: new ActionSpacer(async () => 0) });
     return { state, prompt, ctx };
   }
 
