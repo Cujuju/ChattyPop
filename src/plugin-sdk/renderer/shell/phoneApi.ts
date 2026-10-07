@@ -22,7 +22,7 @@ const ignored = (): void => {};
 export function createPhoneRendererApi(transport: PhoneTransport): PhoneRendererApi {
   const core = new Proxy({} as RendererApi['core'], {
     get: (_t, method: string) =>
-      // Its own settings (PHONE_DEVICE_SETTINGS) and PHONE_WRITABLE_SETTINGS reach its transport; other view choices (density, filters) last this visit.
+      // Its own settings (PHONE_DEVICE_SETTINGS) and the PC's it may write reach its transport; view choices (density, filters) last this visit.
       method === 'setSetting'
         ? (key: string, value: unknown) =>
             isPhoneDeviceSetting(key) || phoneMayWriteSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve()
