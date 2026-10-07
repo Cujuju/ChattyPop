@@ -4,7 +4,7 @@ import { diag } from '../diagnostics';
 import type { PageWorld } from './pageWorld';
 
 /** CDP's answer when the document an awaited script ran in is replaced: that document's watch is over. */
-const NAVIGATED = /navigated or closed|context was destroyed/i;
+const NAVIGATED = /navigated or closed|context was destroyed|target closed/i;
 
 /** Resolves once the page's aria-modal state differs from `open`, with the new state. Leaves nothing in the page. */
 const waitChange = (open: boolean): string => `new Promise((resolve) => {
