@@ -1,4 +1,4 @@
-// The notification-area icon and taskbar badge: the tray opens the main window, offers a downloaded update and quits;
+// The notification-area icon and taskbar badge: the tray opens the main window, restarts (installing a downloaded update) and quits;
 // both show which kinds are unread (badgeImage.ts draws their dots).
 import { Menu, Tray, nativeImage, type BrowserWindow, type NativeImage } from 'electron';
 import { NO_UNREAD, UNREAD_KINDS, unreadSummary, type UnreadKind, type UnreadTotals } from '@shared/unread';
@@ -27,7 +27,7 @@ function scaled(icon: NativeImage, px: number): Bitmap {
 
 export interface TrayActions {
   open(): void;
-  installUpdate(): void;
+  restart(): void;
   quit(): void;
 }
 
@@ -88,7 +88,7 @@ export class AppTray {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: `Open ${APP_NAME}`, click: () => this.actions.open() },
-        ...(this.update ? [{ label: `Restart to update to ${this.update}`, click: () => this.actions.installUpdate() }] : []),
+        { label: this.update ? `Restart to update to ${this.update}` : `Restart ${APP_NAME}`, click: () => this.actions.restart() },
         { type: 'separator' },
         { label: `Quit ${APP_NAME}`, click: () => this.actions.quit() },
       ]),
