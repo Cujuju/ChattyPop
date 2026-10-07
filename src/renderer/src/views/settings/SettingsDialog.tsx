@@ -11,6 +11,7 @@ import { SECTION_ICON_PATHS } from '@/ui/SectionIcon';
 import { AiSection } from './AiSection';
 import { AppearanceSection } from './AppearanceSection';
 import { ArchiveSection } from './ArchiveSection';
+import { ChatSection } from './ChatSection';
 import { DesktopSection } from './DesktopSection';
 import { JevSection } from './JevSection';
 import { NotificationsSection } from './NotificationsSection';
@@ -58,6 +59,13 @@ const TABS: readonly [HostTab, ...HostTab[]] = [
     label: 'Archive',
     icon: SECTION_ICON_PATHS.channels,
     body: ArchiveSection,
+  },
+  {
+    id: 'chat',
+    label: 'Chat',
+    // A speech bubble.
+    icon: () => <path d="M4 5h16v11H9l-5 4z" />,
+    body: ChatSection,
   },
   {
     id: 'notifications',

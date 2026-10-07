@@ -1,7 +1,7 @@
 // Host defines permitted phone calls/events; transport plugins supply delivery only.
 import type { AppEvent, RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
-import { phoneMayCallPlugin, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { isPhoneDeviceSetting, phoneMayCallPlugin, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
 
 /** How a phone page reaches the desktop. */
 export interface PhoneTransport {
@@ -22,8 +22,10 @@ const ignored = (): void => {};
 export function createPhoneRendererApi(transport: PhoneTransport): PhoneRendererApi {
   const core = new Proxy({} as RendererApi['core'], {
     get: (_t, method: string) =>
-      // The phone keeps its own view choices (density, filters) for this visit; the desktop's settings stay as they are.
-      method === 'setSetting' ? () => Promise.resolve() : (...params: unknown[]) => transport.call({ group: 'core', method, params }),
+      // A phone's own settings (PHONE_DEVICE_SETTINGS) go to its transport; other view choices (density, filters) last this visit.
+      method === 'setSetting'
+        ? (key: string, value: unknown) => (isPhoneDeviceSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve())
+        : (...params: unknown[]) => transport.call({ group: 'core', method, params }),
   });
 
   type DiscordApi = RendererApi['discord'];
@@ -71,6 +73,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       profile: relay('profile'),
       mutualFriends: relay('mutualFriends'),
       reactors: relay('reactors'),
+      setChatSettings: relay('setChatSettings'),
       // Managing DMs stays on the desktop (docs/dms.md §4.1).
       friends: unavailable('Starting a conversation'),
       startDm: unavailable('Starting a conversation'),

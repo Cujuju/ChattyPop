@@ -33,6 +33,7 @@ export const PHONE_CORE_METHODS = [
   'peopleByIds',
   'personNames',
   'mentionCandidates',
+  'ownerModerates',
   'conversation',
   'ownEmoji',
   'ownReactions',
@@ -45,8 +46,8 @@ export const PHONE_CORE_METHODS = [
   'selfId',
 ] as const satisfies readonly RendererCoreMethod[];
 
-/** Discord calls the phone may make: posting from the Archive composer and its pickers. */
-export const PHONE_DISCORD_METHODS = ['send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors'] as const satisfies readonly (keyof RendererApi['discord'])[];
+/** Discord calls the phone may make: posting from the Archive composer and its pickers, and its Chat settings while they sync. */
+export const PHONE_DISCORD_METHODS = ['send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors', 'setChatSettings'] as const satisfies readonly (keyof RendererApi['discord'])[];
 export type PhoneDiscordMethod = (typeof PHONE_DISCORD_METHODS)[number];
 
 /** Events the phone's stores use. Main's own work orders (plugins' posts and replies, audio fetches) never leave the PC. */
@@ -91,7 +92,11 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingView>> = {
   [SETTINGS_KEYS.layoutCustom]: true,
   [SETTINGS_KEYS.layoutCollapsedPanels]: true,
   [SETTINGS_KEYS.layoutSidebarCollapsed]: true,
+  // The account's chat settings, which a phone syncing shows.
+  [SETTINGS_KEYS.discordChat]: true,
 };
+
+export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from './phoneDevice';
 
 /** How much of setting `key` the phone reads; undefined when it reads none. */
 const phoneSettingView = (key: string): PhoneSettingView | undefined =>

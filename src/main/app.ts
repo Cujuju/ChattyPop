@@ -17,6 +17,7 @@ import {
   type PendingAttachment,
 } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { loadArchiveKey } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
@@ -29,6 +30,7 @@ import { GuildEmojiIndex } from './discord/guildEmojis';
 import { ReadStates } from './discord/readStates';
 import { watchPrivateChannels } from './discord/privateChannels';
 import { watchGuildOrder } from './discord/guildOrder';
+import { watchChatSettings } from './discord/chatSettings';
 import { LiveLabelProviders } from './discord/labelProviders';
 import { LiveLabels } from './discord/liveLabels';
 import { discordFontUrl } from './discord/pageFonts';
@@ -159,6 +161,8 @@ void app.whenReady().then(() => {
   watchPrivateChannels(discord.tap, core, diag);
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
+  // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
+  watchChatSettings(discord.tap, (settings) => void core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);

@@ -7,6 +7,7 @@ import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
 import type { CustomTheme, DiscordSidebar } from './settings';
+import type { SyncedChatSettings } from './chatSettings';
 import type { AppEvent, ComposeIntent, DiscordProbe, DiscordSlot } from './types/ipc';
 import type { ChannelSuggestion, StorageInfo } from './types/storage';
 import type { ArchiveEmoji } from './types/archive';
@@ -68,6 +69,8 @@ export interface RendererApi {
     gifs(query: string): Promise<Gif[]>;
     /** The owner's custom theme as set in Discord; rejects when Discord has none. */
     customTheme(): Promise<CustomTheme>;
+    /** Writes Chat settings to the owner's Discord account; resolves once the archive's copy of the account's settings shows them. */
+    setChatSettings(change: Partial<SyncedChatSettings>): Promise<void>;
     /** Loads guild emoji/stickers, standard packs and plan perks; fetches guildId when absent from gateway. */
     expressions(guildId: string): Promise<ExpressionCatalog>;
     /** The slash commands usable in a channel (guildId null for a DM). */
@@ -197,6 +200,7 @@ export const RENDERER_CORE_METHODS = [
   'peopleByIds',
   'personNames',
   'mentionCandidates',
+  'ownerModerates',
   'conversation',
   'ownEmoji',
   'ownReactions',

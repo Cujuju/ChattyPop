@@ -3,6 +3,8 @@ import { createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens, type Gif, type OwnerMessage } from '@shared/compose';
 import { newNonce } from '@shared/discord';
+import { convertEmoticons } from '@shared/emoticons';
+import { discordChatSettings } from './chatSettings';
 import { takeDraft } from './drafts';
 import { enqueue } from './outbox';
 import { cancelReply, replyPing, replyTarget } from './reply';
@@ -27,7 +29,9 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
   const target = replyTo ? unwrap(replyTarget()) : null;
   const draft = takeDraft(channelId, target);
   if (target) cancelReply();
-  const { text, files } = draft;
+  const { files } = draft;
+  // Discord's "Automatically convert emoticons": applied to what is sent, not to the draft kept for editing.
+  const text = discordChatSettings().convertEmoticons ? convertEmoticons(draft.text) : draft.text;
   enqueue({
     channelId,
     label: text.trim() || (stickerId ? 'Sticker' : `${files.length} ${files.length === 1 ? 'file' : 'files'}`),

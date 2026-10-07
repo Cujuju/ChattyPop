@@ -4,11 +4,14 @@ import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from 
 import { uploadLimitBytes, type ExpressionCatalog } from '@shared/compose';
 import type { DiscordProfile, MutualFriends, ReactionUsers } from '@shared/types/discordProfile';
 import { DM_GUILD_ID, isReactionEmoji, snowflakeArg } from '@shared/discord';
+import { normalizeSyncedChatChange } from '@shared/chatSettings';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
+import { writeChatSettings } from '../discord/chatSettings';
 import type { DiscordClient } from '../discord/client';
 import { CommandIndexes } from '../discord/commandIndex';
 import type { HeaderCapture } from '../discord/capture';
@@ -79,6 +82,12 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
   ipcMain.handle(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
+  // The archive's copy of the account's settings takes Discord's answer before this resolves; the gateway's echo agrees.
+  const setChatSettings = async (change: unknown): Promise<void> => {
+    const valid = normalizeSyncedChatChange(change);
+    if (Object.keys(valid).length === 0) throw new Error('Not a chat settings change.');
+    await d.core.call('setSetting', SETTINGS_KEYS.discordChat, await writeChatSettings(d.owner, valid));
+  };
 
   const stickerIndex = new GuildStickerIndex(d.discord.tap);
   const stickerPacks = new StickerPacks();
@@ -151,7 +160,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
   ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.owner, d.discord.tap, recent));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, sendDirect: direct, profile, mutualFriends, reactors });
+  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

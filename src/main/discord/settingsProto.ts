@@ -1,5 +1,5 @@
-// A minimal protobuf reader for Discord's user settings (settings-proto, base64): top-level fields, nested messages,
-// varints and 64-bit ids. Discord's schema has no groups.
+// A minimal protobuf reader and writer for Discord's user settings (settings-proto, base64): top-level fields, nested
+// messages, varints and 64-bit ids. Discord's schema has no groups.
 
 const WIRE = { varint: 0, fixed64: 1, bytes: 2, fixed32: 5 } as const;
 const FIXED64_BYTES = 8;
@@ -12,7 +12,8 @@ const TAG_WIRE_MASK = 0b111;
 /** A varint is at most 10 bytes (64 bits at 7 per byte); more is corruption. */
 const VARINT_MAX_BYTES = 10;
 
-export type ProtoField = { no: number; varint: number } | { no: number; bytes: Buffer } | { no: number; fixed64: bigint };
+/** One field as read; `raw` is its whole encoding (tag included), so a rewrite can keep fields it doesn't know. */
+export type ProtoField = { no: number; raw: Buffer } & ({ varint: number } | { bytes: Buffer } | { fixed64: bigint } | { fixed32: number });
 
 /** One message's top-level fields, in order. Throws on a wire type Discord's settings don't use (groups). */
 export function fields(buf: Buffer): ProtoField[] {
@@ -37,17 +38,25 @@ export function fields(buf: Buffer): ProtoField[] {
     return at;
   };
   while (p < buf.length) {
+    const start = p;
     const tag = varint();
     const no = Math.floor(tag / 2 ** TAG_WIRE_BITS);
     const wire = tag & TAG_WIRE_MASK;
-    if (wire === WIRE.varint) out.push({ no, varint: varint() });
-    else if (wire === WIRE.bytes) {
+    const raw = (): Buffer => buf.subarray(start, p);
+    if (wire === WIRE.varint) {
+      const v = varint();
+      out.push({ no, varint: v, raw: raw() });
+    } else if (wire === WIRE.bytes) {
       const len = varint();
       const at = take(len);
-      out.push({ no, bytes: buf.subarray(at, at + len) });
-    } else if (wire === WIRE.fixed64) out.push({ no, fixed64: buf.readBigUInt64LE(take(FIXED64_BYTES)) });
-    else if (wire === WIRE.fixed32) take(FIXED32_BYTES);
-    else throw new Error(`Unexpected protobuf wire type ${wire} in Discord settings.`);
+      out.push({ no, bytes: buf.subarray(at, at + len), raw: raw() });
+    } else if (wire === WIRE.fixed64) {
+      const v = buf.readBigUInt64LE(take(FIXED64_BYTES));
+      out.push({ no, fixed64: v, raw: raw() });
+    } else if (wire === WIRE.fixed32) {
+      const v = buf.readUInt32LE(take(FIXED32_BYTES));
+      out.push({ no, fixed32: v, raw: raw() });
+    } else throw new Error(`Unexpected protobuf wire type ${wire} in Discord settings.`);
   }
   return out;
 }
@@ -66,6 +75,12 @@ export const varintOf = (fs: ProtoField[], no: number): number | undefined => {
   return f && 'varint' in f ? f.varint : undefined;
 };
 
+/** Field `no`'s raw value bytes (a nested message or string); undefined when absent. */
+export const bytesOf = (fs: ProtoField[], no: number): Buffer | undefined => {
+  const f = fs.find((x) => x.no === no && 'bytes' in x);
+  return f && 'bytes' in f ? f.bytes : undefined;
+};
+
 /** Every 64-bit value of repeated fixed64 field `no` (Discord's ids), packed or not, in order, as decimal strings. */
 export function fixed64s(fs: ProtoField[], no: number): string[] {
   const out: string[] = [];
@@ -78,4 +93,30 @@ export function fixed64s(fs: ProtoField[], no: number): string[] {
     }
   }
   return out;
+}
+
+/** A non-negative integer as a varint. */
+function varintBytes(n: number): Buffer {
+  const out: number[] = [];
+  let v = n;
+  while (v >= VARINT_MORE) {
+    out.push((v % VARINT_MORE) | VARINT_MORE);
+    v = Math.floor(v / VARINT_MORE);
+  }
+  out.push(v);
+  return Buffer.from(out);
+}
+
+const tagBytes = (no: number, wire: number): Buffer => varintBytes(no * 2 ** TAG_WIRE_BITS + wire);
+
+/** Field `no` holding a varint. */
+export const varintField = (no: number, v: number): Buffer => Buffer.concat([tagBytes(no, WIRE.varint), varintBytes(v)]);
+
+/** Field `no` holding bytes: a nested message or a string. */
+export const bytesField = (no: number, value: Buffer): Buffer => Buffer.concat([tagBytes(no, WIRE.bytes), varintBytes(value.length), value]);
+
+/** `buf` with every occurrence of each field in `replace` dropped and its encoding (when not null) appended. Others keep their bytes. */
+export function withFields(buf: Buffer, replace: ReadonlyMap<number, Buffer | null>): Buffer {
+  const kept = fields(buf).filter((f) => !replace.has(f.no)).map((f) => f.raw);
+  return Buffer.concat([...kept, ...[...replace.values()].filter((b): b is Buffer => b !== null)]);
 }
