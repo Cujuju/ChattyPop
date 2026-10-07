@@ -76,9 +76,10 @@
   max-width: 100%;
 }
 
-/* Beside: as wide as its notes need (closed, the narrowest column; open, wider), up to an attachment's width. */
+/* Beside: the media's own width (max-content: the tile's inner minmax(0, 1fr) column would let an opened note squeeze
+   it), then the notes as wide as they need (closed, the narrowest column; open, wider), up to an attachment's width. */
 .image[data-beside='true'] {
-  grid-template-columns: auto fit-content(var(--cp-attachment-w));
+  grid-template-columns: max-content fit-content(var(--cp-attachment-w));
 }
 
 .image > .tile {
@@ -95,7 +96,6 @@
 /* Beside, the media keeps its own width (an absolute cap, not a percentage the caption could squeeze): with too
    little room the measure moves the caption under it. */
 .image[data-beside='true'] > .tile {
-  min-width: auto;
   max-width: none;
 }
 
