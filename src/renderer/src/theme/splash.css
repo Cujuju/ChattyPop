@@ -1,4 +1,4 @@
-/* Startup splash (splash.html): 360x240 frameless window, default night look. Loaded raw via file:// in dev, so imports stay relative and url-free. */
+/* Startup splash (splash.html): 360x240 frameless window. Night tokens are the first-run look; main may set the owner's colour tokens inline on <html>. Imports stay relative (raw file:// in dev). */
 @import './tokens.css';
 @import './sizes.css';
 
@@ -7,6 +7,7 @@
   --splash-icon-size: 64px; /* app mark: dominant in a 240px-tall window, leaves room for name, status, bar */
   --splash-progress-w: 50%; /* track spans half the window: reads as a bar, not a rule */
   --splash-pulse-min-opacity: 0.4; /* reduced-motion pulse floor: visibly alive, never vanishes */
+  --splash-sweep-mix: 40%; /* accent share of the track's idle sweep: alive, yet dimmer than the fill */
 
   color-scheme: var(--cp-color-scheme);
 }
@@ -63,17 +64,41 @@ body {
   color: var(--cp-text-muted);
 }
 
-/* Indeterminate: a highlight sweeps the track back and forth, as in Sync status. */
+/* Determinate track: main sets --splash-done (0..1) on it as startup steps finish. */
 .splash-progress {
+  position: relative;
   width: var(--splash-progress-w);
-  height: var(--cp-progress-h);
+  height: var(--cp-meter-h-sm);
   margin-top: var(--cp-space-2);
+  overflow: hidden;
   border-radius: var(--cp-radius-pill);
   background-color: var(--cp-surface-5);
-  background-image: linear-gradient(to right, transparent, var(--cp-accent), transparent);
+}
+
+/* Liveness while a step runs: a dim accent highlight sweeps the track; the fill paints over it. */
+.splash-progress::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--cp-accent) var(--splash-sweep-mix), transparent),
+    transparent
+  );
   background-size: var(--cp-progress-sweep-w) 100%;
   background-repeat: no-repeat;
   animation: splash-sweep var(--cp-duration-sweep) var(--cp-ease) infinite alternate;
+}
+
+/* Clamped so an out-of-range value never overflows or inverts the bar. */
+.splash-progress-fill {
+  position: relative;
+  width: clamp(0%, calc(var(--splash-done, 0) * 100%), 100%);
+  height: 100%;
+  border-radius: var(--cp-radius-pill);
+  background-color: var(--cp-accent);
+  transition: width var(--cp-duration-slow) var(--cp-ease-out);
 }
 
 @keyframes splash-sweep {
@@ -86,11 +111,15 @@ body {
   }
 }
 
-/* Reduced motion: highlight stays centred and fades in and out instead of moving. */
+/* Reduced motion: the highlight stays centred and fades; the fill steps without easing. */
 @media (prefers-reduced-motion: reduce) {
-  .splash-progress {
+  .splash-progress::before {
     background-position-x: 50%;
     animation-name: splash-pulse;
+  }
+
+  .splash-progress-fill {
+    transition: none;
   }
 }
 

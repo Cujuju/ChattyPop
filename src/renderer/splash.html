@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Shown while the app starts. Static: a dev launcher loads it from disk before any build or dev server exists. -->
+<!-- Shown while the app starts. Static, no script: main drives it (src/main/splashWindow.mjs). A dev launcher loads it from disk before anything builds. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -10,7 +10,9 @@
   <body class="splash">
     <img class="splash-icon" src="../../build/icon.svg" alt="" />
     <h1 class="splash-name">ChattyPop</h1>
-    <p class="splash-status">Starting…</p>
-    <div class="splash-progress" role="progressbar" aria-label="Starting"></div>
+    <p class="splash-status" id="splash-status">Starting…</p>
+    <div class="splash-progress" id="splash-progress" role="progressbar" aria-label="Startup progress" aria-valuemin="0">
+      <div class="splash-progress-fill"></div>
+    </div>
   </body>
 </html>

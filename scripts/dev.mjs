@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { Worker, isMainThread } from 'node:worker_threads';
-import splashContract from '../src/shared/splash.json' with { type: 'json' };
+import { SPLASH_SHOWN_MESSAGE } from '../src/shared/splash.mjs';
 
 // electron-vite's dev server sets it before resolving its config; the config's helpers read it.
 process.env.NODE_ENV_ELECTRON_VITE = 'development';
@@ -18,7 +18,7 @@ if (isMainThread) {
   const electron = createRequire(import.meta.url)('electron');
   // Set in shells hosted by Electron apps; it would make the binary run as plain Node.
   const { ELECTRON_RUN_AS_NODE: _asNode, ...env } = process.env;
-  const splash = spawn(electron, [join(import.meta.dirname, 'devSplash.mjs')], { stdio: 'ignore', env });
+  const splash = spawn(electron, [join(import.meta.dirname, 'devSplash.mjs')], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'], env });
   const fail = (err) => {
     console.error(err);
     splash.kill();
@@ -38,6 +38,8 @@ if (isMainThread) {
     // electron-vite's form: no trailing slash; main loads it and appends queries and page names.
     env.ELECTRON_RENDERER_URL = server.resolvedUrls.local[0].replace(/\/$/, '');
     await built;
+    // The splash marks the step done; it may already be gone (closed by hand).
+    if (splash.connected) splash.send('build');
   } catch (err) {
     fail(err);
   }
@@ -45,7 +47,7 @@ if (isMainThread) {
   const args = process.argv.slice(2).filter((a) => a !== '--');
   const app = spawn(electron, ['.', ...args], { stdio: ['inherit', 'inherit', 'inherit', 'ipc'], env });
   app.on('message', (m) => {
-    if (m === splashContract.shownMessage) splash.kill();
+    if (m === SPLASH_SHOWN_MESSAGE) splash.kill();
   });
   app.on('close', (code) => {
     splash.kill();

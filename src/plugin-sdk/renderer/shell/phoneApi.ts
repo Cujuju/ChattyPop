@@ -109,6 +109,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       set: viaMain(desktop.set),
       setOpenAtLogin: viaMain(desktop.setOpenAtLogin),
       setBadge: () => Promise.resolve(),
+      setSplashTheme: () => Promise.resolve(),
       checkForUpdate: viaMain(desktop.checkForUpdate),
       installUpdate: viaMain(desktop.installUpdate),
     },

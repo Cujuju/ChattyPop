@@ -148,6 +148,8 @@ export interface RendererApi {
     setOpenAtLogin(on: boolean): Promise<void>;
     /** The main window's unread totals per kind, for the taskbar and tray indicators. */
     setBadge(unread: UnreadTotals): Promise<void>;
+    /** The main window's resolved splash tokens (SPLASH_THEME_TOKENS), so the next start's splash wears the theme. */
+    setSplashTheme(theme: Record<string, string>): Promise<void>;
     checkForUpdate(): Promise<void>;
     /** Closes gracefully (keeping the Discord login), installs the downloaded update and starts again. */
     installUpdate(): Promise<void>;

@@ -49,7 +49,7 @@ import { registerMarketplaceHandlers } from './marketplace/ipc';
 import { buildFromSource } from './marketplace/sourceBuild';
 import { Desktop } from './desktop';
 import { createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
-import { showSplashUntilShown } from './splash';
+import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
@@ -146,7 +146,10 @@ void app.whenReady().then(() => {
 
   const desktop = new Desktop();
   const { win, discord } = createMainWindow(desktop);
-  showSplashUntilShown(win, desktop.startHidden);
+  const splash = startSplash(win, desktop.startHidden);
+  // Core answers only once its init is done, so its first answer marks the archive open.
+  void core.call('selfId').then(() => splash.finish('archive'), () => undefined);
+  win.webContents.once('did-finish-load', () => splash.finish('interface'));
   app.on('second-instance', () => raiseWindow(win));
   discordRef = discord;
   const emojiIndex = new GuildEmojiIndex(discord.tap);

@@ -205,6 +205,7 @@ export const MAIN_INVOKE = {
     set: 'desktop:set',
     setOpenAtLogin: 'desktop:open-at-login',
     setBadge: 'desktop:badge',
+    setSplashTheme: 'desktop:splash-theme',
     checkForUpdate: 'desktop:check-update',
     installUpdate: 'desktop:install-update',
   },

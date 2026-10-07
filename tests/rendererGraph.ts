@@ -43,7 +43,8 @@ export function resolveImport(spec: string, from: string): string[] {
   const path = spec.split('?')[0]!;
   const base = alias ? join(ROOT, ALIASES[alias]!, path.slice(alias.length)) : path.startsWith('.') ? resolve(dirname(from), path) : null;
   if (base === null || /\.(css|svg|png|json)$/.test(base)) return [];
-  const file = [base, ...SOURCE_EXTENSIONS.map((e) => base + e)].find((f) => existsSync(f) && /\.tsx?$/.test(f));
+  // .mjs: plain-JS modules shared with scripts that run before any build (src/shared/splash.mjs).
+  const file = [base, ...SOURCE_EXTENSIONS.map((e) => base + e)].find((f) => existsSync(f) && /\.(tsx?|mjs)$/.test(f));
   if (!file) throw new Error(`Cannot resolve ${spec} from ${from}`);
   return [resolve(file)];
 }
