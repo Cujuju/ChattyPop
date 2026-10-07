@@ -3,7 +3,7 @@ import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PluginDescriptor } from '@shared/bundledTypes';
-import { scanPlugin } from '../scripts/pluginScan';
+import { scanPlugin, scanWarnings } from '../scripts/pluginScan';
 import { REPO_ALL_READERS } from '../scripts/pluginScan/allReaders';
 import { tempDir } from './helpers';
 import { PLUGINS_DIR } from './rendererGraph';
@@ -47,15 +47,10 @@ describe("plugin:check's scan", () => {
     const other = "not the Plugin SDK, a Node built-in, a package.json dependency or the plugin's own file";
     const expected = [
       'core/computed.ts:2: a computed import: name the module',
-      `core/computed.ts:3: ${named('dgram', 'a Node network module: reach the network through ctx.net')}`,
       `core/fromTests.ts:1: ${named('../tests/fakes', "test code, which the scan skips: source can't import it")}`,
       `core/fromTests.ts:2: ${named('./probe.test', "test code, which the scan skips: source can't import it")}`,
       `core/host.ts:1: ${named('@core/db', other)}`,
       `core/host.ts:2: ${named('@shared/bundledTypes', other)}`,
-      `core/net.ts:2: ${named('node:https', 'a Node network module: reach the network through ctx.net')}`,
-      `core/net.ts:3: ${named('tls', 'a Node network module: reach the network through ctx.net')}`,
-      `core/net.ts:4: ${named('node:http', 'a Node network module: reach the network through ctx.net')}`,
-      `core/net.ts:5: ${named('net', 'a Node network module: reach the network through ctx.net')}`,
       `core/outside.ts:1: ${named('../../elsewhere', 'outside the plugin folder')}`,
       `core/packages.ts:1: ${named('left-pad', other)}`,
       `renderer/page.ts:1: ${named('../page/main', "only the plugin's page/ may import its page")}`,
@@ -67,6 +62,31 @@ describe("plugin:check's scan", () => {
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual(expected);
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ dependencies: { 'left-pad': '1.3.0' } }));
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual(expected.filter((v) => !v.includes('left-pad')));
+  });
+
+  it("warns of, without failing, Node network modules and Discord's API or gateway named in a string; not links or media", () => {
+    const dir = pluginFolder('probe', {
+      'core/net.ts': "\nimport { request } from 'node:https';\nconst tls = await import('tls');\nexport const b = require('dgram');\n",
+      'main/discord.ts': [
+        "export const api = 'https://discord.com/api/v9/users/@me';",
+        'export const old = (id: string) => `https://discordapp.com/api/channels/${id}`;',
+        "export const socket = 'wss://gateway-us-east1-b.discord.gg/?v=9';",
+        "export const jump = 'https://discord.com/channels/1/2/3';",
+        "export const avatar = 'https://cdn.discordapp.com/avatars/1/a.png';",
+        "export const elsewhere = 'https://example.com/api/v9';",
+      ].join('\n'),
+    });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([]);
+    const module = (spec: string): string => `${spec}: a Node network module skips ctx.net's declared hosts; never reach Discord with it`;
+    const discord = (url: string): string => `${url}: Discord's API or gateway; reach Discord through ctx.discord, never a request of the plugin's own`;
+    expect(scanWarnings(dir)).toEqual([
+      `core/net.ts:2: ${module('node:https')}`,
+      `core/net.ts:3: ${module('tls')}`,
+      `core/net.ts:4: ${module('dgram')}`,
+      `main/discord.ts:1: ${discord('https://discord.com/api/v9/users/@me')}`,
+      `main/discord.ts:2: ${discord('https://discordapp.com/api/channels/')}`,
+      `main/discord.ts:3: ${discord('wss://gateway-us-east1-b.discord.gg/?v=9')}`,
+    ]);
   });
 
   it('names literal table prefixes, global network and app access, and unprefixed user-select', async () => {

@@ -11,7 +11,7 @@ import { buildInstalledPlugin, checkStyles } from '../src/main/pluginBuild';
 import { SHARED_ENTRY, sourceDescriptor } from '../src/main/pluginBuild/descriptor';
 import { testConfig } from '../vitest.config';
 import { anchorFolders } from './anchorFolders';
-import { scanPlugin } from './pluginScan';
+import { scanPlugin, scanWarnings } from './pluginScan';
 
 const REPO_ROOT = resolve(import.meta.dirname, '..');
 const USAGE = 'Usage: pnpm plugin:check <pluginDir>';
@@ -101,10 +101,11 @@ async function runTests(pluginDir: string): Promise<void> {
   if (failed || reported) throw new Error(failed ? `${failed} failed (above).` : 'vitest reported a failure (above).');
 }
 
-/** Scans the plugin's source (scripts/pluginScan); throws every violation, one per line. */
-async function scan(pluginDir: string): Promise<void> {
+/** Scans the plugin's source (scripts/pluginScan): logs each warning, then throws every violation, one per line. */
+async function scan(pluginDir: string, log: (line: string) => void): Promise<void> {
   // Descriptor validation first rejects folder names that differ from plugin IDs.
   const descriptor = await sourceDescriptor(pluginDir, REPO_ROOT, anchorFolders(pluginDir));
+  for (const w of scanWarnings(pluginDir)) log(`plugin:check warning: ${w}`);
   const violations = scanPlugin({ pluginDir, isPhoneTransport: descriptor.phone?.transport === true });
   if (violations.length) throw new Error(violations.join('\n'));
 }
@@ -125,7 +126,7 @@ export async function checkPlugin({ pluginDir: dirIn, log = console.log }: Check
   const steps: Record<Step, () => unknown> = {
     typecheck: () => typecheck(pluginDir, work),
     styles: () => checkStyles(pluginDir, REPO_ROOT),
-    scan: () => scan(pluginDir),
+    scan: () => scan(pluginDir, log),
     build: () => buildInstalledPlugin({ pluginDir, outDir: join(work, 'build'), appVersion: appVersion(REPO_ROOT), repoRoot: REPO_ROOT, anchorFolders: anchorFolders(pluginDir) }),
     tests: () => runTests(pluginDir),
   };

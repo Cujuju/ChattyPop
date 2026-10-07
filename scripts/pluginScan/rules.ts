@@ -1,7 +1,7 @@
 // Per-file plugin source rules; violations use file:line: message.
 import { isBuiltin } from 'node:module';
 import { posix } from 'node:path';
-import { pluginTablePrefix } from '../../src/shared/bundledTypes';
+import { isDiscordHost, pluginTablePrefix } from '../../src/shared/bundledTypes';
 import { HOST_MODULES } from '../../src/shared/installedPlugins';
 import { lineAt, violation, type SourceFile } from './source';
 import { lineOf, literalString, propertyName, readsVariable, syntaxOf, walk, type Node } from './syntax';
@@ -15,7 +15,7 @@ const HOST_PROVIDED: ReadonlySet<string> = new Set([...HOST_MODULES.node, ...HOS
 /** Packages the host provides some modules of: any other module of theirs is no entry. */
 const HOST_PACKAGES = ['@plugin-sdk', 'solid-js'];
 const inHostPackage = (spec: string): boolean => HOST_PACKAGES.some((p) => spec === p || spec.startsWith(`${p}/`));
-/** Node's network modules: plugins reach the network through `ctx.net`. */
+/** Node's network modules: the developer's choice, but they skip ctx.net's declared hosts, so plugin:check warns. */
 const NETWORK_MODULE = /^(?:node:)?(?:https?|net|tls|dgram)$/;
 /** Test code uses host aliases and stays outside plugin builds. */
 export const TESTS_DIR = 'tests';
@@ -57,7 +57,7 @@ export function importsOf(file: SourceFile): Import[] {
   return found.sort((x, y) => x.line - y.line);
 }
 
-/** Allows SDK tiers, Solid, permitted Node built-ins, declared dependencies, and local files. Only page/ can import page/; network built-ins are excluded. */
+/** Allows SDK tiers, Solid, Node built-ins, declared dependencies, and local files. Only page/ can import page/. */
 export function importViolations(file: SourceFile, dependencies: ReadonlySet<string>): string[] {
   const inPage = (rel: string): boolean => rel.split('/')[0] === PAGE_DIR;
   return importsOf(file).flatMap(({ spec, line }) => {
@@ -69,11 +69,45 @@ export function importViolations(file: SourceFile, dependencies: ReadonlySet<str
       if (isTestPath(target)) return at("test code, which the scan skips: source can't import it");
       return inPage(target) && !inPage(file.rel) ? at(`only the plugin's ${PAGE_DIR}/ may import its page`) : [];
     }
-    if (NETWORK_MODULE.test(spec)) return at('a Node network module: reach the network through ctx.net');
     if (inHostPackage(spec)) return HOST_PROVIDED.has(spec) ? [] : at('not an entry the host provides');
     if (isBuiltin(spec) || dependencies.has(packageName(spec))) return [];
     return at("not the Plugin SDK, a Node built-in, a package.json dependency or the plugin's own file");
   });
+}
+
+/** A URL in a string: where a request could go. */
+const URL_IN_TEXT = /\b(?:https?|wss?):\/\/[^\s'"`]+/gi;
+/** Discord's API path, under any of its hosts. */
+const DISCORD_API_PATH = /^\/api(?:\/|$)/;
+/** Discord's gateway and voice hosts. */
+const DISCORD_SOCKET_HOST = /(?:^|\.)(?:gateway[\w-]*\.discord\.gg|discord\.media)$/i;
+
+/** Whether `url` is Discord's API, gateway or voice: what only the embedded client reaches (law 4). Links and media aren't. */
+function discordEndpoint(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  return isDiscordHost(u.hostname) && (DISCORD_API_PATH.test(u.pathname) || DISCORD_SOCKET_HOST.test(u.hostname) || u.protocol.startsWith('ws'));
+}
+
+/**
+ * What plugin:check warns of without failing: Node network modules (they skip ctx.net's declared hosts) and Discord's
+ * API or gateway named in a string (Discord tells a request not sent by its own client apart; ctx.discord is the way).
+ */
+export function networkWarnings(file: SourceFile): string[] {
+  const found = importsOf(file)
+    .filter(({ spec }) => spec !== null && NETWORK_MODULE.test(spec))
+    .map(({ spec, line }) => violation(file.rel, line, `${spec}: a Node network module skips ctx.net's declared hosts; never reach Discord with it`));
+  walk(syntaxOf(file), (node) => {
+    const texts =
+      node.type === 'StringLiteral' ? [node['value'] as string] : node.type === 'TemplateElement' ? [(node['value'] as { cooked: string | null }).cooked ?? ''] : [];
+    for (const url of texts.flatMap((t) => t.match(URL_IN_TEXT) ?? []))
+      if (discordEndpoint(url)) found.push(violation(file.rel, lineOf(node), `${url}: Discord's API or gateway; reach Discord through ctx.discord, never a request of the plugin's own`));
+  });
+  return found.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
 /** Tables are named through `pluginTable` / `ctx.storage`, never by their physical prefix. */

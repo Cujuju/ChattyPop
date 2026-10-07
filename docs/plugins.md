@@ -89,7 +89,7 @@ The app holds no plugins. Every feature plugin (Alerts, Summaries, Tags, Links, 
 
 **Calls between processes.** One contract per plugin (`channels`). The renderer uses `coreClient(plugin)` (or `desktopCoreClient`/`phoneCoreClient` for code one window runs), `mainClient(plugin)`, `pluginResource`, `onEvent` and `callable`; main uses `ctx.channels.core` and `on`. The transport stamps each call's origin (window, phone, main) and core answers only the audiences the contract declares; main hands each event to exactly its audiences.
 
-**Network.** A plugin reaches the network only through `ctx.net.fetch`: HTTPS to a host its descriptor lists or a subdomain of one, each redirect hop checked before it is sent. Discord's domains can't be listed (law 4). The boundary test refuses a plugin that uses the global `fetch`, `window.chattypop` or Node's network modules.
+**Network.** A plugin reaches the network only through `ctx.net.fetch`: HTTPS to a host its descriptor lists or a subdomain of one, each redirect hop checked before it is sent. Discord's domains can't be listed (law 4). The boundary test refuses a plugin that uses the global `fetch` or `window.chattypop`; Node's network modules are the developer's choice, and `plugin:check` warns of them and of any Discord API or gateway URL in the source.
 
 **Rule actions.** A rule stores a plugin's action as `{ kind: 'pluginAction', type, config }`; its runs are recorded under `type`. Without the plugin (left out or off) the rule stays saved and the action is skipped with a reason; an unknown type counts as acting as you, so it still needs the rule's Discord-post opt-in.
 
