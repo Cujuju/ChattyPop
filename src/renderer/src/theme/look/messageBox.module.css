@@ -127,16 +127,29 @@
   background: var(--cp-border);
 }
 
-/* A cell in the sheet's media grid (a photo, a video, the camera): the ground shows while its picture loads; picked
-   (aria-pressed) ringed in the accent; dimmed while it is being read (data-state='busy'). */
+/* The sheet's media grid: one rounded card, its square cells meeting at hairline seams, as Photos' grid. */
+.mediaGrid {
+  border-radius: var(--cp-radius-lg);
+}
+
+/* A cell in the sheet's media grid (a photo, a video, the camera): the ground shows while its picture loads; dimmed while
+   it is being read (data-state='busy'). */
 .mediaCell {
-  border-radius: var(--cp-radius-sm);
+  border-radius: 0;
   background: var(--cp-surface-3);
   color: var(--cp-text-2);
   transition: opacity var(--cp-duration-fast) var(--cp-ease);
 }
 
-.mediaCell[aria-pressed='true'] {
+/* Its ::after, over the picture (the component places the box): picked (aria-pressed), an accent ring and wash. */
+.mediaCell::after {
+  transition:
+    box-shadow var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.mediaCell[aria-pressed='true']::after {
+  background: var(--cp-accent-wash);
   box-shadow: inset 0 0 0 var(--cp-media-pick-ring) var(--cp-accent);
 }
 
@@ -159,20 +172,12 @@
   opacity: 1;
 }
 
-/* A cell's pick mark: a ring over any picture; picked (data-picked), the accent disc carrying its order. */
+/* A picked cell's mark (an unpicked cell has none): the accent disc holding a check, lifted to read over any picture. */
 .pickMark {
-  border: var(--cp-media-pick-ring) solid var(--cp-text-1);
   border-radius: var(--cp-radius-full);
-  background: var(--cp-spoiler-pill-bg);
-  color: var(--cp-text-on-accent);
-  font-size: var(--cp-text-xs);
-  font-weight: var(--cp-weight-semibold);
-  line-height: var(--cp-leading-none);
-}
-
-.pickMark[data-picked='true'] {
-  border-color: var(--cp-accent);
   background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+  box-shadow: var(--cp-shadow-popover);
 }
 
 /* A video's length over its picture, on a pill that reads over any picture. */
@@ -185,15 +190,24 @@
   line-height: var(--cp-leading-none);
 }
 
-/* An action in the sheet (Photos, Files, Thread): its icon on a raised disc, its label under it; pressed washed. */
+/* An action in the sheet (Photos, Files, Thread): its icon on a raised, edged disc, its label under it; a step up under the
+   pointer, washed while pressed. */
 .actionDisc {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
   border-radius: var(--cp-radius-full);
   background: var(--cp-surface-3);
   color: var(--cp-text-1);
   transition: background-color var(--cp-duration-fast) var(--cp-ease);
 }
 
-:active > .actionDisc,
+/* Only under a real pointer: a touch's hover would stick after the tap. */
+@media (hover: hover) {
+  :hover:not(:disabled) > .actionDisc {
+    background: var(--cp-surface-4);
+  }
+}
+
+:active:not(:disabled) > .actionDisc,
 .actionDisc:active {
   background: var(--cp-surface-5);
 }
