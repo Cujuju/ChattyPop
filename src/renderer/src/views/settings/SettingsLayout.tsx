@@ -13,6 +13,8 @@ export interface SettingsSectionDef {
   label: string;
   /** Rail group heading this entry sits under (entries of a group are adjacent). */
   group?: string;
+  /** Starts a new block in the rail: a rule above this entry, without a heading. */
+  divider?: true;
   /** One line under the label: the section's current state ("2.82 GB · no limit"). */
   meta?: () => string;
   /** Beside the entry in the rail, e.g. the feature's on/off switch. */
@@ -103,6 +105,9 @@ export function SectionsPage(props: { id: string; title: string; lede?: JSX.Elem
           <For each={props.sections}>
             {(s, i) => (
               <>
+                <Show when={s.divider && i() > 0}>
+                  <hr class={styles.railDivider} />
+                </Show>
                 <Show when={groupStart(i())}>
                   {(g) => (
                     <h3 class={styles.railGroup} data-group={g()}>

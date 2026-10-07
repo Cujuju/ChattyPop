@@ -77,7 +77,7 @@ export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPerson } from '@/state/person';
 export { personName } from '@/state/personNames';
 export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
-export { openRule, rules, startNewRule } from '@/state/rules';
+export { openRule, ruleInputOf, rules, saveRule, startNewRule } from '@/state/rules';
 export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
 // In-app camera captures, saved to the phone's Photos when its chat settings ask.
 export { saveCameraCaptures } from '@/phone/cameraCaptures';

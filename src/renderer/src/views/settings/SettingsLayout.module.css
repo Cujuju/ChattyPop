@@ -36,6 +36,13 @@
   text-transform: uppercase;
 }
 
+/* A rule between blocks of rail entries (SettingsSectionDef.divider). */
+.railDivider {
+  margin: var(--cp-space-4) var(--cp-space-7);
+  border: 0;
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
 /* Narrow windows: a picker replaces the rail. */
 .picker {
   display: none;

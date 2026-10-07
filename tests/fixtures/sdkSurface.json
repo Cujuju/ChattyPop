@@ -1,5 +1,5 @@
 {
-  "version": "2.17.0",
+  "version": "2.18.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -384,8 +384,10 @@
       "refetchProviderStatus",
       "requestPhotoAccess",
       "revealPanel",
+      "ruleInputOf",
       "rules",
       "saveCameraCaptures",
+      "saveRule",
       "scrolledFromTop",
       "setBotCounted",
       "setProviderDisplayName",
