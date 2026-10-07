@@ -17,6 +17,9 @@ const host = vi.hoisted(() => ({
   writes: [] as [string, unknown][],
   discordWrites: [] as unknown[],
   refuse: false,
+  /** While true, each Discord write waits in `held` for the test to answer it. */
+  hold: false,
+  held: [] as (() => void)[],
   moderates: [] as string[],
   emit: (_e: unknown): void => undefined,
 }));
@@ -33,6 +36,7 @@ vi.mock('@/api', () => ({
     discord: {
       setChatSettings: async (change: unknown) => {
         host.discordWrites.push(change);
+        if (host.hold) await new Promise<void>((answer) => host.held.push(answer));
         if (host.refuse) throw new Error('Discord said no.');
       },
     },
@@ -62,6 +66,8 @@ beforeEach(async () => {
   host.writes = [];
   host.discordWrites = [];
   host.refuse = false;
+  host.hold = false;
+  host.held = [];
   changed(SETTINGS_KEYS.discordChat, ACCOUNT);
   changed(SETTINGS_KEYS.chatDevice, DEFAULT_DEVICE_CHAT_RECORD);
 });
@@ -84,6 +90,31 @@ describe('the chat settings store', () => {
     expect(chat.discordChatSettings().renderEmbeds).toBe(false);
     await expect(write).rejects.toThrow('Discord said no.');
     expect(chat.discordChatSettings().renderEmbeds).toBe(true);
+  });
+
+  it('an earlier answer clears only its own request: a later one for the same setting keeps showing', async () => {
+    // Regression: cleanup compared values, so false → true → false lost the last false at the first answer.
+    host.hold = true;
+    const writes = [false, true, false].map((renderEmbeds) => chat.changeDiscordChatSettings({ renderEmbeds }));
+    host.held[0]!();
+    await writes[0];
+    changed(SETTINGS_KEYS.discordChat, { ...ACCOUNT, renderEmbeds: true });
+    host.held[1]!();
+    await writes[1];
+    expect(chat.discordChatSettings().renderEmbeds).toBe(false);
+    host.held[2]!();
+    await writes[2];
+  });
+
+  it('sync off while a change is on its way keeps the change on this device', async () => {
+    // Regression: turning sync off copied the account without the change it showed.
+    host.hold = true;
+    const write = chat.changeDiscordChatSettings({ renderEmbeds: false });
+    await chat.setSyncAcrossClients(false);
+    expect((host.writes.at(-1)![1] as DeviceChatRecord).unsynced.renderEmbeds).toBe(false);
+    expect(chat.discordChatSettings().renderEmbeds).toBe(false);
+    host.held[0]!();
+    await write;
   });
 
   it('sync off keeps the account’s settings on this device; its changes stay here', async () => {

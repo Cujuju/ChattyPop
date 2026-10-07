@@ -23,11 +23,17 @@ import { onAppEvent } from './events';
 
 const [account] = createSetting<SyncedChatSettings>(SETTINGS_KEYS.discordChat, DEFAULT_SYNCED_CHAT_SETTINGS, normalizeSyncedChatSettings);
 const [record, setRecord] = createSetting<DeviceChatRecord>(SETTINGS_KEYS.chatDevice, DEFAULT_DEVICE_CHAT_RECORD, normalizeDeviceChatRecord);
-/** Account changes on their way to Discord, shown at once; dropped when Discord answers (its settings then show) or refuses. */
-const [pending, setPending] = createSignal<Partial<SyncedChatSettings>>({});
+type SyncedKey = keyof SyncedChatSettings;
+/** Account changes on their way to Discord, shown at once, each field with the request that set it last. */
+const [pending, setPending] = createSignal<Partial<Record<SyncedKey, { value: unknown; request: number }>>>({});
+let lastRequest = 0;
+const pendingValues = (): Partial<SyncedChatSettings> =>
+  Object.fromEntries(Object.entries(pending()).map(([key, p]) => [key, p.value])) as Partial<SyncedChatSettings>;
+/** The account's settings with the changes on their way over them. */
+const accountShown = (): SyncedChatSettings => ({ ...account(), ...pendingValues() });
 
 /** The account's chat settings as this device shows them: the account's while it syncs, else its own. Reactive. */
-export const discordChatSettings = (): DiscordChatSettings => shownChatSettings({ ...account(), ...pending() }, record());
+export const discordChatSettings = (): DiscordChatSettings => shownChatSettings(accountShown(), record());
 /** This device's own chat settings. Reactive. */
 export const deviceChatSettings = (): DeviceChatSettings => record().device;
 
@@ -35,17 +41,18 @@ export const deviceChatSettings = (): DeviceChatSettings => record().device;
 export async function changeDiscordChatSettings(change: Partial<SyncedChatSettings>): Promise<void> {
   const target = routeChatChange(record(), change);
   if ('record' in target) return setRecord(target.record);
-  setPending((p) => ({ ...p, ...change }));
+  const request = ++lastRequest;
+  setPending((p) => ({ ...p, ...Object.fromEntries(Object.entries(change).map(([key, value]) => [key, { value, request }])) }));
   try {
     await api.discord.setChatSettings(change);
   } finally {
-    // A later change to the same setting keeps showing until its own answer.
-    setPending((p) => Object.fromEntries(Object.entries(p).filter(([key, v]) => change[key as keyof SyncedChatSettings] !== v)));
+    // A later request for the same setting keeps showing until its own answer.
+    setPending((p) => Object.fromEntries(Object.entries(p).filter(([, v]) => v.request !== request)));
   }
 }
 
-/** Turns syncing with the account on or off for this device. */
-export const setSyncAcrossClients = (on: boolean): Promise<void> => setRecord(withSyncAcrossClients(record(), on, account()));
+/** Turns syncing with the account on or off for this device; off keeps what it shows, changes on their way included. */
+export const setSyncAcrossClients = (on: boolean): Promise<void> => setRecord(withSyncAcrossClients(record(), on, accountShown()));
 
 export const changeDeviceChatSettings = (change: Partial<DeviceChatSettings>): Promise<void> => setRecord({ ...record(), device: { ...record().device, ...change } });
 
