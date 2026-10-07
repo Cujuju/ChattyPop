@@ -1,0 +1,111 @@
+/* A message on its way at the log's end (PendingRow.tsx). Hooks: .row[data-failed], .ring (--progress 0–1). */
+
+/* Dimmed while sending, as Discord shows a message it hasn't confirmed. */
+.row[data-failed='false'] .text,
+.row[data-failed='false'] .media {
+  opacity: var(--cp-attachment-removed-opacity);
+}
+
+.state {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-meta);
+}
+
+.text {
+  color: var(--cp-text-1);
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-2);
+  margin-top: var(--cp-space-2);
+}
+
+.file {
+  position: relative;
+  max-width: min(100%, var(--cp-attachment-w));
+}
+
+.media {
+  display: block;
+  max-width: 100%;
+  max-height: var(--cp-attachment-max-h);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-0);
+}
+
+.chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: var(--cp-space-4) var(--cp-space-5);
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The upload ring at the picture's top right, as Discord draws it. */
+.ring {
+  position: absolute;
+  top: var(--cp-space-3);
+  right: var(--cp-space-3);
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-0);
+  transform: rotate(-90deg);
+}
+
+.track,
+.arc {
+  fill: none;
+  stroke-width: var(--cp-ring-cutout-w);
+}
+
+.track {
+  stroke: var(--cp-border-subtle);
+}
+
+.arc {
+  stroke: var(--cp-accent);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--progress, 0));
+  transition: stroke-dashoffset var(--cp-duration-fast) var(--cp-ease);
+}
+
+.failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  margin-top: var(--cp-space-2);
+}
+
+.retry {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cp-danger);
+  font-size: var(--cp-text-meta);
+  cursor: pointer;
+}
+
+.retry:disabled {
+  cursor: default;
+}
+
+.reason {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-meta);
+}
+
+.actions {
+  display: inline-flex;
+  gap: var(--cp-space-2);
+}

@@ -8,6 +8,7 @@ import { conversation } from './queries/conversation';
 import { ownCommands } from './queries/ownCommands';
 import { ownEmoji, ownReactions } from './queries/ownEmoji';
 import { mentionCandidates } from './queries/mentions';
+import { ownerModerates } from './queries/moderation';
 import { findPeople, peopleByIds } from './queries/people';
 import { personNames } from './queries/personNames';
 import { personProfile } from './queries/person';
@@ -33,7 +34,7 @@ export const ruleHandlers = (
 export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
-): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'conversation' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
+): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownerModerates' | 'conversation' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
   searchMessages: (text, limit, sort) => searchMessages(db(), text, limit, normalizeSearchSort(sort)),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
@@ -46,6 +47,7 @@ export const queryHandlers = (
   peopleByIds: (ids) => peopleByIds(db(), ids),
   personNames: (ids, channelId) => personNames(db(), ids, channelId),
   mentionCandidates: (channelId, query, limit) => mentionCandidates(db(), selfId(), channelId, query, limit),
+  ownerModerates: (channelId) => ownerModerates(db(), selfId(), channelId),
   conversation: (messageId) => conversation(db(), messageId),
   ownEmoji: (limit) => {
     const id = selfId();

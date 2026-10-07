@@ -34,6 +34,13 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- The composer's camera; saving captures uses ShellMediaSaver.swift (add-only Photos access). -->
+	<key>NSCameraUsageDescription</key>
+	<string>ChattyPop uses the camera to take photos and videos you send in chats.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ChattyPop uses the microphone to record sound for videos you take.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ChattyPop saves the photos and videos you take in the app to your library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

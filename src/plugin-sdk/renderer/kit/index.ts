@@ -73,6 +73,8 @@ export { personName } from '@/state/personNames';
 export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
 export { openRule, rules, startNewRule } from '@/state/rules';
 export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
+// In-app camera captures, saved to the phone's Photos when its chat settings ask.
+export { saveCameraCaptures } from '@/phone/cameraCaptures';
 /** Opens Settings where the owner left it. */
 export const openSettings = (): void => void setSettingsOpen(true);
 export { usdPerQuestion, projectedJevUsd } from '@/state/jevSpend';
@@ -80,6 +82,9 @@ export { querySearch, setSearchOpen } from '@/state/search';
 export { openMessageMenuById } from '@/state/messageActions';
 export { showJevQuery } from '@/state/jevNavigation';
 export { jevSwitch, type JevSwitch } from './jevSwitch';
+// Discord's Chat settings as this device shows them (Settings → Chat), and the double-tap emoji's choice.
+export { changeDeviceChatSettings, changeDiscordChatSettings, deviceChatSettings, discordChatSettings, setSyncAcrossClients } from '@/state/chatSettings';
+export { ChatEmoji, DoubleTapEmojiPicker } from '@/views/settings/DoubleTapEmoji';
 export { lastPlanUsageOf, planUsageFailureOf, planUsageLoadingOf, planUsageOf, refetchPlanUsage, usageReporters } from '@/state/providerUsage';
 // AI providers (docs/plugin-architecture.md §3, AI providers).
 export { availableProviders as aiProviders, localProviderNames, providerRuns } from '@/state/aiProviders';

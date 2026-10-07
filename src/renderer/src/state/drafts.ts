@@ -1,10 +1,12 @@
 // Per-channel text/files/entity selections persist in IndexedDB on changes and survive reloads/quits. composer.ts sends drafts.
 import { createStore } from 'solid-js/store';
-import { emojiToken, mentionToken, type MentionPick } from '@shared/compose';
+import { UPLOAD_BYTES_CEILING, emojiToken, mentionToken, type MentionPick } from '@shared/compose';
 import type { ArchiveMessage, MentionCandidate } from '@shared/contract';
-import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_UPLOAD_BYTES_MAX } from '@shared/discord';
+import { DISCORD_FILES_PER_MESSAGE_MAX } from '@shared/discord';
 import type { CustomEmoji } from '@shared/emoji';
+import { mediaKind } from '@shared/media';
 import { BYTES_PER_MB } from '@shared/units';
+import { api } from '@/api';
 import { idbEntries, idbSet } from '@/ui/idbStore';
 import { restoreReply } from './reply';
 
@@ -94,18 +96,35 @@ export function mentionCandidateToken(channelId: string, c: MentionCandidate): s
   return mentionToken(c.kind === 'user' ? (c.username ?? c.name) : c.name, { id: c.id, kind: c.kind }, mentionedIn(channelId));
 }
 
-/** Attaches files (picked, pasted or dropped) to the draft, as many as Discord's limits allow; see draftError. */
+/** Files a draft may take: within the channel's upload limit, or a video, which sending shrinks to this device's quality. */
+const uploadable = (f: File, limit: number): boolean => f.size <= limit || mediaKind({ contentType: f.type, filename: f.name }) === 'video';
+
+/** Each channel's upload limit as last heard from the desktop, refreshed on every attach. */
+const limits = new Map<string, number>();
+const refreshLimit = (channelId: string): void =>
+  void api.discord.uploadLimit(channelId).then(
+    (limit) => limits.set(channelId, limit),
+    () => undefined,
+  );
+
+/**
+ * Attaches files (picked, pasted or dropped) to the draft at once, as many as Discord's limits allow; see draftError.
+ * Synchronous so a send right after keeps them with its text. Until the channel's limit is known it assumes the ceiling;
+ * the desktop still refuses an oversized file when the message is sent.
+ */
 export function attachFiles(channelId: string, files: File[]): void {
   ensure(channelId);
+  refreshLimit(channelId);
+  const limit = limits.get(channelId) ?? UPLOAD_BYTES_CEILING;
   const room = DISCORD_FILES_PER_MESSAGE_MAX - draftFiles(channelId).length;
-  const fitting = files.filter((f) => f.size <= DISCORD_UPLOAD_BYTES_MAX);
+  const fitting = files.filter((f) => uploadable(f, limit));
   const added = fitting.slice(0, Math.max(0, room)).map(toDraftFile);
   setDrafts(channelId, 'files', (fs) => [...fs, ...added]);
   setDrafts(
     channelId,
     'error',
     fitting.length < files.length
-      ? `Discord takes files up to ${DISCORD_UPLOAD_BYTES_MAX / BYTES_PER_MB} MB.`
+      ? `Discord takes files up to ${Math.round(limit / BYTES_PER_MB)} MB here.`
       : added.length < fitting.length
         ? `Discord takes up to ${DISCORD_FILES_PER_MESSAGE_MAX} files per message.`
         : null,

@@ -1,7 +1,7 @@
 // Host defines permitted phone calls/events; transport plugins supply delivery only.
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
-import { phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { isPhoneDeviceSetting, phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
 
 /** How a phone page reaches the desktop. */
 export interface PhoneTransport {
@@ -22,9 +22,10 @@ const ignored = (): void => {};
 export function createPhoneRendererApi(transport: PhoneTransport): PhoneRendererApi {
   const core = new Proxy({} as RendererApi['core'], {
     get: (_t, method: string) =>
-      // The phone keeps its own view choices (density, filters) for this visit; only PHONE_WRITABLE_SETTINGS reach the desktop.
+      // Its own settings (PHONE_DEVICE_SETTINGS) and the PC's it may write reach its transport; view choices (density, filters) last this visit.
       method === 'setSetting'
-        ? (key: string, value: unknown) => (phoneMayWriteSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve())
+        ? (key: string, value: unknown) =>
+            isPhoneDeviceSetting(key) || phoneMayWriteSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve()
         : (...params: unknown[]) => transport.call({ group: 'core', method, params }),
   });
 
@@ -57,6 +58,10 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       setOptIn: unavailable('Choosing archived channels'),
       suggestChannels: unavailable('Channel suggestions'),
       send: relay('send'),
+      uploadLimit: relay('uploadLimit'),
+      prepareUploads: relay('prepareUploads'),
+      uploadChunk: relay('uploadChunk'),
+      finishUpload: relay('finishUpload'),
       edit: relay('edit'),
       deleteMessage: relay('deleteMessage'),
       forward: relay('forward'),
@@ -76,6 +81,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       profile: relay('profile'),
       mutualFriends: relay('mutualFriends'),
       reactors: relay('reactors'),
+      setChatSettings: relay('setChatSettings'),
       // Managing DMs stays on the desktop (docs/dms.md §4.1).
       friends: unavailable('Starting a conversation'),
       startDm: unavailable('Starting a conversation'),

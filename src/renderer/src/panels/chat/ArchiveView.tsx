@@ -21,7 +21,8 @@ import { attachFiles } from '@/state/composer';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
 import { listen } from '@/ui/listen';
-import { editingId } from '@/state/ownMessages';
+import { editingId, isSelf } from '@/state/ownMessages';
+import { outgoing, type Outgoing } from '@/state/outbox';
 import { postingUnlocked } from '@/state/posting';
 import { archivedChannels, channelById } from '@/state/directory';
 import { isDmChannel, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
@@ -39,6 +40,7 @@ import { createTallestBox } from '@/ui/tallestBox';
 import { HOST_FOOTER } from './archiveFooter';
 import { NotArchived, NotArchivingBar } from './DmState';
 import { MessageRow } from './MessageRow';
+import { PendingRow } from './PendingRow';
 import { TypingLine } from './TypingLine';
 import { createFollowBottom } from '@/ui/followBottom';
 import { createVirtualLog } from '@/ui/virtualLog';
@@ -55,7 +57,10 @@ const LOAD_OLDER_THRESHOLD_ROWS = 10;
 const AT_NEWEST_SLOP_PX = 1;
 
 /** A day divider names the message it heads. */
-type Row = { kind: 'day'; key: string; label: string; messageId: string } | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean };
+type Row =
+  | { kind: 'day'; key: string; label: string; messageId: string }
+  | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean }
+  | { kind: 'pending'; key: string; outgoing: Outgoing; own: ArchiveMessage | null; grouped: boolean };
 
 /** The layout panel the Archive is the body of (the phone's Archive section shares its id). */
 const CHAT_PANEL: PanelId = 'chat';
@@ -77,6 +82,16 @@ export function ArchiveView() {
       const grouped = !newDay && prev !== undefined && prev.author.id === m.author.id && m.ts - prev.ts < GROUP_GAP_MS && m.replyToId === null;
       out.push({ kind: 'msg', key: m.id, message: m, grouped });
       prev = m;
+    }
+    // The owner's messages on their way follow the newest, under the owner's group when it's the last one.
+    const channelId = archiveChannelId();
+    if (channelId && atNewest()) {
+      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id)) ?? null;
+      let grouped = prev !== undefined && isSelf(prev.author.id) && Date.now() - prev.ts < GROUP_GAP_MS;
+      for (const o of outgoing(channelId)) {
+        out.push({ kind: 'pending', key: `pending-${o.id}`, outgoing: o, own, grouped });
+        grouped = true;
+      }
     }
     return out;
   });
@@ -155,8 +170,8 @@ export function ArchiveView() {
       if (atNewest() && !vlog.holding() && vlog.log.distanceFromBottom() <= AT_NEWEST_SLOP_PX) return null;
       const key = vlog.log.inViewKey();
       const row = key === null ? undefined : vlog.rowByKey(key);
-      // A day divider stands for the message it heads.
-      const messageId = row?.kind === 'day' ? row.messageId : row?.message.id;
+      // A day divider stands for the message it heads; a message not yet sent has no place to reopen at.
+      const messageId = row?.kind === 'day' ? row.messageId : row?.kind === 'msg' ? row.message.id : undefined;
       const bottom = messageId === undefined ? null : vlog.log.bottomOf(messageId);
       return messageId !== undefined && bottom !== null ? { channelId, messageId, bottom } : undefined;
     }),
@@ -272,6 +287,17 @@ export function ArchiveView() {
             <VirtualRows log={vlog} class={styles.canvas}>
               {(row) => (
                 <Show
+                  when={row().kind !== 'pending'}
+                  fallback={
+                    <PendingRow
+                      outgoing={(row() as Extract<Row, { kind: 'pending' }>).outgoing}
+                      own={(row() as Extract<Row, { kind: 'pending' }>).own}
+                      grouped={(row() as Extract<Row, { kind: 'pending' }>).grouped}
+                      channelId={archiveChannelId()!}
+                    />
+                  }
+                >
+                <Show
                   when={row().kind === 'day'}
                   fallback={
                     <MessageRow
@@ -284,6 +310,7 @@ export function ArchiveView() {
                   }
                 >
                   <DayDivider label={(row() as Extract<Row, { kind: 'day' }>).label} />
+                </Show>
                 </Show>
               )}
             </VirtualRows>

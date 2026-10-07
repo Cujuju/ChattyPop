@@ -6,6 +6,9 @@ import { pluginPresents } from '@/state/plugins';
 import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
 import { setLightbox } from '@/state/ui';
 import { Icon } from '@/ui/icons';
+import { look } from '@/theme/look';
+import { shownImageDescription, uploadShownInline } from '@shared/chatSettings';
+import { discordChatSettings } from '@/state/chatSettings';
 import { AttachmentTile } from './AttachmentTile';
 import { mediaSizeVars } from './MessageExtras';
 import { presentedParts } from './ownedParts';
@@ -25,7 +28,7 @@ const kilobytes = (a: ArchiveAttachment): string => (a.size ? `${Math.round(a.si
 export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const [unplayable, setUnplayable] = createSignal(false);
-  const view = () => (unplayable() ? 'file' : attachmentView(a()));
+  const view = () => (unplayable() || !uploadShownInline(attachmentView(a()), discordChatSettings()) ? 'file' : attachmentView(a()));
   const notes = () => presentedParts(a().notes, pluginPresents);
   return (
     <Show
@@ -43,7 +46,7 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
         <AttachmentTile message={props.message} attachment={a()}>
           <AttachmentMedia attachment={a()} onUnplayable={() => setUnplayable(true)} />
         </AttachmentTile>
-        <StoredStatus notes={notes()} />
+        <StoredStatus notes={notes()} descriptions={shownDescriptions([a()])} />
       </figure>
     </Show>
   );
@@ -117,13 +120,24 @@ export function FileChip(props: { attachment: ArchiveAttachment; messageLink: st
   );
 }
 
-/** Under stored media, its archived check, then plugins' notes. Discord names pasted media generically (image.png), so no filename. */
-export function StoredStatus(props: { notes: AttachmentNote[] }) {
+/** The images' descriptions (alt text) while Discord's "Show image descriptions" is on, in order. Reactive. */
+export const shownDescriptions = (list: ArchiveAttachment[]): string[] =>
+  list.flatMap((a) => shownImageDescription(attachmentView(a), a.description, discordChatSettings()) ?? []);
+
+/** Under stored media: its archived check, image descriptions while shown, then plugins' notes. Discord names pasted media generically (image.png), so no filename. */
+export function StoredStatus(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
   return (
     <figcaption class={styles.status}>
       <span class={styles.stored} role="img" aria-label={STATUS_LABEL.stored} title={STATUS_LABEL.stored}>
         <Icon name="check" />
       </span>
+      <For each={props.descriptions ?? []}>
+        {(d) => (
+          <span class={look.text} data-size="xs" data-tone="secondary">
+            {d}
+          </span>
+        )}
+      </For>
       <For each={props.notes}>{(n) => <Note note={n} />}</For>
     </figcaption>
   );

@@ -2,7 +2,7 @@
 import type { MentionCandidate } from '@shared/contract';
 import { DM_GUILD_ID, THREAD_CHANNEL_TYPES } from '@shared/discord';
 import { foldName as fold, subsequence } from '@shared/nameMatch';
-import { can, permissionBits, PERMISSIONS, type PermissionContext, type RawOverwrite } from '@shared/permissions';
+import { can, permissionBits, PERMISSIONS, type MemberFacts, type PermissionContext, type RawOverwrite } from '@shared/permissions';
 import type { Db } from '../db';
 import { nameWriteCount } from '../nameWrites';
 import { rawJsonSql } from './messageContent';
@@ -98,8 +98,16 @@ function people(db: Db, channelId: string, guildId: string): Person[] {
   return rows.map(({ rolesJson, ...r }) => ({ ...r, name: r.nick ?? r.globalName ?? r.username, roles: rolesJson ? (JSON.parse(rolesJson) as string[]) : null }));
 }
 
+/** A member's roles and timeout in a server, as permissions read them; none known reads as no roles. */
+export function memberFacts(db: Db, guildId: string, userId: string): MemberFacts {
+  const row = db.prepare('SELECT roles, timed_out_until AS timedOutUntil FROM members WHERE guild_id = ? AND user_id = ?').get(guildId, userId) as
+    | { roles: string | null; timedOutUntil: number | null }
+    | undefined;
+  return { roles: row?.roles ? (JSON.parse(row.roles) as string[]) : [], timedOutUntil: row?.timedOutUntil ?? null };
+}
+
 /** Who decides access to the channel: the server's owner and roles, and the channel's overwrites (a thread's parent's). */
-function accessOf(db: Db, guildId: string, channelId: string, thread: boolean): PermissionContext {
+export function accessOf(db: Db, guildId: string, channelId: string, thread: boolean): PermissionContext {
   const owner = db.prepare('SELECT owner_id AS ownerId FROM guilds WHERE id = ?').get(guildId) as { ownerId: string | null } | undefined;
   const roles = db.prepare("SELECT id, json_extract(raw_json, '$.permissions') AS permissions FROM roles WHERE guild_id = ?").all(guildId) as { id: string; permissions: unknown }[];
   const ch = db.prepare('SELECT overwrites FROM channels WHERE id = ?').get(channelId) as { overwrites: string | null } | undefined;
@@ -173,13 +181,7 @@ export function mentionCandidates(db: Db, selfId: string | null, channelId: stri
   const users = (!q && talked.length ? talked.slice(0, limit) : rankPeople(visible, q, limit)).map(toCandidate);
 
   // Mentioning everyone takes that right, the right to send here and no timeout (shared/permissions.ts).
-  const self = selfId
-    ? (db.prepare('SELECT roles, timed_out_until AS timedOutUntil FROM members WHERE guild_id = ? AND user_id = ?').get(ch.guildId, selfId) as
-        | { roles: string | null; timedOutUntil: number | null }
-        | undefined)
-    : undefined;
-  const selfFacts = { roles: self?.roles ? (JSON.parse(self.roles) as string[]) : [], timedOutUntil: self?.timedOutUntil ?? null };
-  const everyone = selfId !== null && can(access, selfId, selfFacts, PERMISSIONS.MENTION_EVERYONE);
+  const everyone = selfId !== null && can(access, selfId, memberFacts(db, ch.guildId, selfId), PERMISSIONS.MENTION_EVERYONE);
   const roleRows = db
     .prepare("SELECT id, name, NULLIF(color, 0) AS color, json_extract(raw_json, '$.mentionable') AS mentionable FROM roles WHERE guild_id = ? AND id != ? ORDER BY position DESC")
     .all(ch.guildId, ch.guildId) as { id: string; name: string; color: number | null; mentionable: number | null }[];

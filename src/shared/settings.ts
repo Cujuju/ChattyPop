@@ -56,6 +56,10 @@ export const SETTINGS_KEYS = {
   chatSource: 'chat.source',
   /** The channel the Archive view last opened (renderer state/archive.ts). */
   archiveChannel: 'archive.channel',
+  /** The account's chat settings as Discord last sent them (SyncedChatSettings). Main writes it; changes go through discord.setChatSettings. */
+  discordChat: 'chat.discord',
+  /** This device's chat choices (DeviceChatRecord); a phone's are its own, kept by the phone transport (PHONE_DEVICE_SETTINGS). */
+  chatDevice: 'chat.device',
   /** Plugin restore offers the owner dismissed or deferred (shared/pluginRestore.ts). */
   pluginsRestore: 'plugins.restore',
 } as const;

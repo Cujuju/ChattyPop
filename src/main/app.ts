@@ -18,6 +18,7 @@ import {
   type PendingAttachment,
 } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { loadArchiveKey } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
@@ -30,6 +31,7 @@ import { GuildEmojiIndex } from './discord/guildEmojis';
 import { ReadStates } from './discord/readStates';
 import { watchPrivateChannels } from './discord/privateChannels';
 import { watchGuildOrder } from './discord/guildOrder';
+import { AccountChatSettings } from './discord/chatSettings';
 import { LiveLabelProviders } from './discord/labelProviders';
 import { LiveLabels } from './discord/liveLabels';
 import { discordFontUrl } from './discord/pageFonts';
@@ -160,6 +162,8 @@ void app.whenReady().then(() => {
   watchPrivateChannels(discord.tap, core, diag);
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
+  // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
+  const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);
@@ -243,7 +247,7 @@ void app.whenReady().then(() => {
   handleMain(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
-  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting });
+  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting, discordSession, chatSettings });
   const pages = rendererPages(RENDERER_DIR, process.env['ELECTRON_RENDERER_URL'] ?? null, installed);
   for (const { id, error } of failedMain) diag('installed-plugin-load-failed', { pluginId: id, message: error });
   const mainPlugins = startMainPlugins(bundledMain, {

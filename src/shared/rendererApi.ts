@@ -2,11 +2,12 @@
 import type { PluginCallResult } from './pluginCall';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
-import type { ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, OwnerMessageRef, OwnerReaction } from './compose';
+import type { ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
 import type { CustomTheme, DiscordSidebar } from './settings';
+import type { SyncedChatSettings } from './chatSettings';
 import type { AppEvent, ComposeIntent, DiscordProbe, DiscordSlot } from './types/ipc';
 import type { ChannelSuggestion, StorageInfo } from './types/storage';
 import type { ArchiveEmoji } from './types/archive';
@@ -48,6 +49,14 @@ export interface RendererApi {
     suggestChannels(guildId: string): Promise<ChannelSuggestion[]>;
     /** Posts a message as the owner (text, reply, files, sticker or GIF); rejects with Discord's reason. */
     send(m: OwnerMessage): Promise<void>;
+    /** The largest file the owner may upload to the channel: their plan's limit or its server's Boost limit. */
+    uploadLimit(channelId: string): Promise<number>;
+    /** Discord upload slots for a message's files; rejects with the reason one can't go (over the limit). */
+    prepareUploads(channelId: string, files: { name: string; size: number }[]): Promise<UploadSlot[]>;
+    /** The next piece of an upload, in order from offset 0, at most UPLOAD_CHUNK_BYTES; resolves once sent on. */
+    uploadChunk(token: string, offset: number, bytes: Uint8Array): Promise<void>;
+    /** Completes an upload once all its bytes went; rejects with Discord's refusal. */
+    finishUpload(token: string): Promise<void>;
     /** Replaces the text of one of the owner's messages; rejects with Discord's reason. */
     edit(e: OwnerEdit): Promise<void>;
     /** Deletes one of the owner's messages from Discord (the archive keeps its copy); rejects with Discord's reason. */
@@ -60,6 +69,8 @@ export interface RendererApi {
     gifs(query: string): Promise<Gif[]>;
     /** The owner's custom theme as set in Discord; rejects when Discord has none. */
     customTheme(): Promise<CustomTheme>;
+    /** Writes Chat settings to the owner's Discord account; resolves once the archive's copy of the account's settings shows them. */
+    setChatSettings(change: Partial<SyncedChatSettings>): Promise<void>;
     /** Loads guild emoji/stickers, standard packs and plan perks; fetches guildId when absent from gateway. */
     expressions(guildId: string): Promise<ExpressionCatalog>;
     /** The slash commands usable in a channel (guildId null for a DM). */
@@ -189,6 +200,7 @@ export const RENDERER_CORE_METHODS = [
   'peopleByIds',
   'personNames',
   'mentionCandidates',
+  'ownerModerates',
   'conversation',
   'ownEmoji',
   'ownReactions',

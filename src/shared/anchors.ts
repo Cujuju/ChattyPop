@@ -5,7 +5,7 @@ export const HOST_PANELS = ['channels', 'sync-status', 'chat', 'status-bar'] as 
 export type HostPanelId = (typeof HOST_PANELS)[number];
 
 /** Settings tabs (renderer SettingsDialog). */
-export const HOST_SETTINGS_TABS = ['rules', 'plugins', 'ai', 'jev', 'archive', 'notifications', 'desktop', 'appearance'] as const;
+export const HOST_SETTINGS_TABS = ['rules', 'plugins', 'ai', 'jev', 'archive', 'chat', 'notifications', 'desktop', 'appearance'] as const;
 export type HostSettingsTabId = (typeof HOST_SETTINGS_TABS)[number];
 
 /** Settings tabs whose page takes plugin sections. */

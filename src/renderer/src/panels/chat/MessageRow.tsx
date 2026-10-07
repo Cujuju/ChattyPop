@@ -7,23 +7,24 @@ import type { ArchiveDensity } from '@/state/archive';
 import { messageLink, openMessageMenu } from '@/state/messageActions';
 import { mentionsMe } from '@/state/ownMessages';
 import { openPerson } from '@/state/person';
-import { postingUnlocked } from '@/state/posting';
 import { pluginPresents } from '@/state/plugins';
-import { canReply, startReply } from '@/state/reply';
 import { contextMenu, inCompanion } from '@/state/ui';
 import { SolidIcon } from '@/ui/solidIcons';
+import { SpoilersShown } from '@/ui/spoilers';
+import { embedMediaReplacesLink } from '@shared/chatSettings';
+import { discordChatSettings, spoilersShownIn } from '@/state/chatSettings';
 import styles from './MessageRow.module.css';
 import { today } from '@/state/clock';
 import { clockTime as time, messageTime } from '@/ui/format';
 import { Markdown } from '@/ui/Markdown';
 import { isEmojiOnly } from '@/ui/mdParse';
-import { swipeLeftToAct } from '@/ui/touch';
 import { rowMenuTarget } from '@/ui/VirtualRows';
 import { Note } from './Attachment';
 import { Attachments } from './Attachments';
 import { AuthorName } from './AuthorName';
 import { MessageActionBar } from './MessageActionBar';
 import { presentedParts } from './ownedParts';
+import { rowGestures } from './rowGestures';
 import { MessageEditor } from './MessageEditor';
 import { InteractionLine, MessageComponents } from './MessageComponents';
 import { Embeds, Reactions, ReplyLine, Stickers, textIsEmbedLink } from './MessageExtras';
@@ -60,7 +61,7 @@ export function MessageRow(props: MessageRowProps) {
 
 function CompactRow(props: MessageRowProps) {
   const m = () => props.message;
-  const swipe = swipeToReply(m);
+  const gestures = rowGestures(m);
   const bar = createActionBar(props);
   return (
     <article
@@ -73,10 +74,10 @@ function CompactRow(props: MessageRowProps) {
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
       onContextMenu={(e) => openMessageMenu(e, m())}
-      onTouchStart={swipe.onTouchStart}
-      onTouchMove={swipe.onTouchMove}
-      onTouchEnd={swipe.onTouchEnd}
-      onTouchCancel={swipe.onTouchCancel}
+      onTouchStart={gestures.onTouchStart}
+      onTouchMove={gestures.onTouchMove}
+      onTouchEnd={gestures.onTouchEnd}
+      onTouchCancel={gestures.onTouchCancel}
       onPointerEnter={bar.enter}
       onPointerLeave={bar.leave}
     >
@@ -100,7 +101,7 @@ function CompactRow(props: MessageRowProps) {
 
 function CozyRow(props: MessageRowProps) {
   const m = () => props.message;
-  const swipe = swipeToReply(m);
+  const gestures = rowGestures(m);
   const bar = createActionBar(props);
   // Resolve JSX props once to avoid rebuilding content.
   const gutter = children(() => props.gutter);
@@ -117,10 +118,10 @@ function CozyRow(props: MessageRowProps) {
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
       onContextMenu={(e) => openMessageMenu(e, m())}
-      onTouchStart={swipe.onTouchStart}
-      onTouchMove={swipe.onTouchMove}
-      onTouchEnd={swipe.onTouchEnd}
-      onTouchCancel={swipe.onTouchCancel}
+      onTouchStart={gestures.onTouchStart}
+      onTouchMove={gestures.onTouchMove}
+      onTouchEnd={gestures.onTouchEnd}
+      onTouchCancel={gestures.onTouchCancel}
       onPointerEnter={bar.enter}
       onPointerLeave={bar.leave}
     >
@@ -175,13 +176,6 @@ function createActionBar(props: MessageRowProps) {
   };
 }
 
-/** A swipe to the left on the row replies to its message, as in Discord's app; not while posting is locked. */
-const swipeToReply = (m: () => ArchiveMessage) =>
-  swipeLeftToAct(
-    () => startReply(m()),
-    () => postingUnlocked() && canReply(m()),
-  );
-
 /** The reply arrow a swipe reveals at the row's trailing edge; the stylesheet grows it with the swipe. */
 function SwipeReplyMark() {
   return (
@@ -197,7 +191,7 @@ function accountName(m: ArchiveMessage): string | null {
   return u && u.toLowerCase() !== m.author.name.toLowerCase() ? u : null;
 }
 
-function Avatar(props: { message: ArchiveMessage }) {
+export function Avatar(props: { message: ArchiveMessage }) {
   const a = () => props.message.author;
   const img = () => <img data-avatar class={`${cozy.avatar} ${look.avatar}`} src={avatarUrl(a().id, a().avatar)} alt="" loading="lazy" onClick={() => openPerson(a().id)} />;
   // The decoration frames the avatar, as in Discord: still, animated while the message is hovered.
@@ -219,57 +213,66 @@ function MessageBody(props: { message: ArchiveMessage; editing: boolean }) {
   const m = () => props.message;
   // A loaded message may outlive its parts' owners: their chips and notes leave with them.
   const labels = () => presentedParts(m().labels, pluginPresents);
+  const chat = discordChatSettings;
+  /** The text is just the link its media-only embed shows, and that embed's media shows: Discord hides the text. */
+  const textIsShownLink = (): boolean => embedMediaReplacesLink(chat()) && textIsEmbedLink(m().content, m().embeds);
   return (
-    <div class={styles.body}>
-      <Show when={m().deletedAt}>{(at) => <p class={styles.deletedNote}>Deleted by author {time(at())} · original kept in archive</p>}</Show>
-      <Show when={labels().length}>
-        <span class={styles.labels}>
-          <For each={labels()}>
-            {(l) => (
-              <span
-                class={`${styles.tag} ${look.tag}`}
-                data-tag={l.pluginId ? undefined : l.text.toLowerCase()}
-                data-own={l.variant}
-                title={l.title}
-              >
-                {l.text}
-              </span>
-            )}
-          </For>
-        </span>
-      </Show>
-      <Show when={m().prunedAt}>{(at) => <p class={styles.deletedNote}>Text removed {time(at())} by text retention · {coverageText().covered}</p>}</Show>
-      <Show when={!props.editing} fallback={<MessageEditor />}>
-        <Show when={m().content && !textIsEmbedLink(m().content, m().embeds)}>
-          <p class={styles.content}>
-            <Markdown text={m().content} mentions={m().mentions} jumbo={isEmojiOnly(m().content, MAX_JUMBO_EMOJI)} />
-            <Show when={m().editedTs}>{(at) => <span class={styles.editedMark}> (edited {time(at())})</span>}</Show>
-          </p>
+    <SpoilersShown.Provider value={() => spoilersShownIn(m().channelId)}>
+      <div class={styles.body}>
+        <Show when={m().deletedAt}>{(at) => <p class={styles.deletedNote}>Deleted by author {time(at())} · original kept in archive</p>}</Show>
+        <Show when={labels().length}>
+          <span class={styles.labels}>
+            <For each={labels()}>
+              {(l) => (
+                <span
+                  class={`${styles.tag} ${look.tag}`}
+                  data-tag={l.pluginId ? undefined : l.text.toLowerCase()}
+                  data-own={l.variant}
+                  title={l.title}
+                >
+                  {l.text}
+                </span>
+              )}
+            </For>
+          </span>
         </Show>
-      </Show>
-      <For each={m().revisions}>
-        {(r) => (
-          <div class={styles.revision}>
-            <span class={styles.revisionLabel}>was</span>
-            <p class={styles.revisionText}>{r.content}</p>
-          </div>
-        )}
-      </For>
-      <For each={presentedParts(m().annotations, pluginPresents)}>
-        {(a) => (
-          <div class={styles.revision} data-kind="annotation" title={`From plugin ${a.pluginId}`}>
-            <span class={styles.revisionLabel}>{a.label}</span>
-            <p class={styles.revisionText}>{a.text}</p>
-          </div>
-        )}
-      </For>
-      {/* Notes on links no card shows (a linked post's translation). */}
-      <For each={presentedParts(m().notes ?? [], pluginPresents)}>{(n) => <Note note={n} />}</For>
-      <Attachments message={m()} messageLink={messageLink(m())} />
-      <Stickers stickers={m().stickers} />
-      <Embeds embeds={m().embeds} mentions={m().mentions} />
-      <MessageComponents message={m()} />
-      <Reactions message={m()} />
-    </div>
+        <Show when={m().prunedAt}>{(at) => <p class={styles.deletedNote}>Text removed {time(at())} by text retention · {coverageText().covered}</p>}</Show>
+        <Show when={!props.editing} fallback={<MessageEditor />}>
+          <Show when={m().content && !textIsShownLink()}>
+            <p class={styles.content}>
+              <Markdown text={m().content} mentions={m().mentions} jumbo={isEmojiOnly(m().content, MAX_JUMBO_EMOJI)} />
+              <Show when={m().editedTs}>{(at) => <span class={styles.editedMark}> (edited {time(at())})</span>}</Show>
+            </p>
+          </Show>
+        </Show>
+        <For each={m().revisions}>
+          {(r) => (
+            <div class={styles.revision}>
+              <span class={styles.revisionLabel}>was</span>
+              <p class={styles.revisionText}>{r.content}</p>
+            </div>
+          )}
+        </For>
+        <For each={presentedParts(m().annotations, pluginPresents)}>
+          {(a) => (
+            <div class={styles.revision} data-kind="annotation" title={`From plugin ${a.pluginId}`}>
+              <span class={styles.revisionLabel}>{a.label}</span>
+              <p class={styles.revisionText}>{a.text}</p>
+            </div>
+          )}
+        </For>
+        {/* Notes on links no card shows (a linked post's translation). */}
+        <For each={presentedParts(m().notes ?? [], pluginPresents)}>{(n) => <Note note={n} />}</For>
+        <Attachments message={m()} messageLink={messageLink(m())} />
+        <Stickers stickers={m().stickers} />
+        <Show when={chat().renderEmbeds}>
+          <Embeds embeds={m().embeds} mentions={m().mentions} hideMedia={!chat().inlineLinkMedia} />
+        </Show>
+        <MessageComponents message={m()} />
+        <Show when={chat().renderReactions}>
+          <Reactions message={m()} />
+        </Show>
+      </div>
+    </SpoilersShown.Provider>
   );
 }

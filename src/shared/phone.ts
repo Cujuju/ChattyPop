@@ -33,6 +33,7 @@ export const PHONE_CORE_METHODS = [
   'peopleByIds',
   'personNames',
   'mentionCandidates',
+  'ownerModerates',
   'conversation',
   'ownEmoji',
   'ownReactions',
@@ -61,8 +62,8 @@ export const PHONE_CORE_METHODS = [
   'jevRerun',
 ] as const satisfies readonly RendererCoreMethod[];
 
-/** Discord calls the phone may make: posting from the Archive composer and its pickers. */
-export const PHONE_DISCORD_METHODS = ['send', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors'] as const satisfies readonly (keyof RendererApi['discord'])[];
+/** Discord calls the phone may make: posting from the Archive composer and its pickers, and its Chat settings while they sync. */
+export const PHONE_DISCORD_METHODS = ['send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors', 'setChatSettings'] as const satisfies readonly (keyof RendererApi['discord'])[];
 export type PhoneDiscordMethod = (typeof PHONE_DISCORD_METHODS)[number];
 
 /** Main's calls the phone may make (main/ipc/mainCalls.ts), all for Settings. Those needing the PC's screen (dialogs, sign-in in its browser) stay there. */
@@ -144,7 +145,11 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingShare>> = 
   [SETTINGS_KEYS.layoutCustom]: 'view',
   [SETTINGS_KEYS.layoutCollapsedPanels]: 'view',
   [SETTINGS_KEYS.layoutSidebarCollapsed]: 'view',
+  // The account's chat settings as Discord holds them: written only from Discord, so a phone's change goes there (setChatSettings).
+  [SETTINGS_KEYS.discordChat]: 'view',
 };
+
+export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from './phoneDevice';
 
 /** Host settings that are one window's own place (open tabs, filters, recent channels): the phone neither reads nor writes the PC's. */
 export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
@@ -162,6 +167,8 @@ export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
   SETTINGS_KEYS.recentChannels,
   SETTINGS_KEYS.chatSource,
   SETTINGS_KEYS.archiveChannel,
+  // The desktop's own chat choices; each phone keeps its own through its transport (PHONE_DEVICE_SETTINGS).
+  SETTINGS_KEYS.chatDevice,
 ];
 
 /** How the phone shares setting `key`: a host setting's PHONE_HOST_SETTINGS entry; every plugin preference is config. */

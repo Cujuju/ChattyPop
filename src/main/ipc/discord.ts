@@ -1,15 +1,17 @@
-import { ipcMain, type BrowserWindow } from 'electron';
+import { ipcMain, type BrowserWindow, type Session } from 'electron';
 import { handleMain } from './mainCalls';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from '@shared/commands';
-import type { ExpressionCatalog } from '@shared/compose';
+import { uploadLimitBytes, type ExpressionCatalog } from '@shared/compose';
 import type { DiscordProfile, MutualFriends, ReactionUsers } from '@shared/types/discordProfile';
 import { DM_GUILD_ID, isReactionEmoji, snowflakeArg } from '@shared/discord';
+import { normalizeSyncedChatChange } from '@shared/chatSettings';
 import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
+import type { AccountChatSettings } from '../discord/chatSettings';
 import type { DiscordClient } from '../discord/client';
 import { CommandIndexes } from '../discord/commandIndex';
 import type { HeaderCapture } from '../discord/capture';
@@ -23,6 +25,8 @@ import { MemberRequests } from '../discord/memberRequests';
 import { GuildRoleIndex } from '../discord/roles';
 import { createThread, deleteOwnerMessage, editOwnerMessage, forwardAsOwner, reactAsOwner, sendDirect, sendOwnerMessage } from '../discord/send';
 import { GuildStickerIndex, StickerPacks } from '../discord/stickers';
+import { GuildTiers } from '../discord/guildTiers';
+import { Uploads } from '../discord/uploads';
 import type { DiscordView } from '../discordView';
 import type { SyncService } from '../sync/syncService';
 import { PHONE_DISCORD_METHODS } from '@shared/phone';
@@ -46,6 +50,10 @@ export interface DiscordDeps {
   readStates: Pick<ReadStates, 'settingsChanged'>;
   /** Posting calls (@shared/posting) refuse while it is locked. */
   posting: PostingGate;
+  /** The embedded client's session: uploads to Discord's attachment store go through it. */
+  discordSession: Session;
+  /** The account's chat settings: writes go through it, one at a time. */
+  chatSettings: Pick<AccountChatSettings, 'write'>;
 }
 
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
@@ -56,7 +64,19 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   );
   // Posting calls' requests go through `poster`, which checks the lock before every attempt; reactions and reads don't.
   const poster = postingClient(d.owner, d.posting);
-  const send = (m: unknown): Promise<void> => sendOwnerMessage(poster, m);
+  const account = new OwnerAccount(d.discord.tap);
+  const tiers = new GuildTiers(d.discord.tap);
+  /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
+  const limitFor = async (channelId: string): Promise<number> => {
+    const guild = (await d.core.call('directory')).find((g) => g.id !== DM_GUILD_ID && g.channels.some((c) => c.id === channelId));
+    return uploadLimitBytes(account.premiumType, guild ? tiers.tier(guild.id) : null);
+  };
+  const uploads = new Uploads(d.discordSession, limitFor);
+  const send = (m: unknown): Promise<void> => sendOwnerMessage(poster, m, uploads);
+  const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
+  const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);
+  const uploadChunk = (token: unknown, offset: unknown, bytes: unknown): Promise<void> => uploads.chunk(token, offset, bytes);
+  const finishUpload = (token: unknown): Promise<void> => uploads.finish(token);
   const gifs = (query: unknown): ReturnType<typeof searchGifs> => searchGifs(d.owner, d.capture, query);
   const edit = (e: unknown): Promise<void> => editOwnerMessage(poster, e);
   const deleteMessage = (m: unknown): Promise<void> => deleteOwnerMessage(poster, m);
@@ -64,8 +84,13 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
   handleMain(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
+  // The archive's copy of the account's settings holds the change before this resolves.
+  const setChatSettings = async (change: unknown): Promise<void> => {
+    const valid = normalizeSyncedChatChange(change);
+    if (Object.keys(valid).length === 0) throw new Error('Not a chat settings change.');
+    await d.chatSettings.write(valid);
+  };
 
-  const account = new OwnerAccount(d.discord.tap);
   const stickerIndex = new GuildStickerIndex(d.discord.tap);
   const stickerPacks = new StickerPacks();
   const expressions = async (guildId: unknown): Promise<ExpressionCatalog> => {
@@ -137,7 +162,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
   ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.owner, d.discord.tap, recent));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { send, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, sendDirect: direct, profile, mutualFriends, reactors });
+  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

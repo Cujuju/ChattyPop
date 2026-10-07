@@ -3,6 +3,8 @@ import { createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens, type Gif, type OwnerMessage } from '@shared/compose';
 import { newNonce } from '@shared/discord';
+import { convertEmoticons } from '@shared/emoticons';
+import { discordChatSettings } from './chatSettings';
 import { takeDraft } from './drafts';
 import { enqueue } from './outbox';
 import { cancelReply, replyPing, replyTarget } from './reply';
@@ -27,20 +29,22 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
   const target = replyTo ? unwrap(replyTarget()) : null;
   const draft = takeDraft(channelId, target);
   if (target) cancelReply();
-  const { text, files } = draft;
+  const { files } = draft;
+  // Discord's "Automatically convert emoticons": applied to what is sent, not to the draft kept for editing.
+  const text = discordChatSettings().convertEmoticons ? convertEmoticons(draft.text) : draft.text;
   enqueue({
     channelId,
     label: text.trim() || (stickerId ? 'Sticker' : `${files.length} ${files.length === 1 ? 'file' : 'files'}`),
-    message: Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))).then((bytes) => ({
+    message: {
       channelId,
       text: expandMentionTokens(expandEmojiTokens(applyBuiltinCommand(text), new Map(draft.emoji)), new Map(draft.mentions)),
       replyTo,
-      files: bytes,
+      files: [],
       stickerId,
       gif: null,
       nonce: newNonce(),
-    })),
-    bytes: files.reduce((n, f) => n + f.size, 0),
+    },
+    files,
     // A sticker isn't part of the draft, so a message with one can't go back.
     draft: stickerId === null ? draft : null,
   });
@@ -53,8 +57,8 @@ export function sendGif(channelId: string, gif: Gif, query: string): void {
   enqueue({
     channelId,
     label: 'GIF',
-    message: Promise.resolve({ channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() }),
-    bytes: 0,
+    message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() },
+    files: [],
     draft: null,
   });
 }

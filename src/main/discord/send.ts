@@ -1,6 +1,6 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
 import type { DirectMessage, NewThread } from '@shared/commands';
-import { ALT_TEXT_MAX, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
+import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
   DISCORD_FILES_PER_MESSAGE_MAX,
   DISCORD_TEXT_MAX,
@@ -19,6 +19,7 @@ import { errorMessage } from '@shared/errors';
 import { BYTES_PER_MB } from '@shared/units';
 import { diag } from '../diagnostics';
 import type { DiscordWriter } from './client';
+import type { Uploads } from './uploads';
 
 /** A file uploaded to Discord's upload slot, as a message references it. */
 export interface UploadedFile {
@@ -39,6 +40,8 @@ export interface OutgoingMessage {
   stickerIds?: string[];
   /** The sender's, when it may retry; else a fresh one. */
   nonce?: string;
+  /** Run before each post attempt, after any queue wait; throwing stops it unsent. */
+  guard?: () => void;
 }
 
 export interface SentMessage {
@@ -59,7 +62,7 @@ export async function sendMessage(api: DiscordWriter, channelId: string, m: Outg
     ...(m.stickerIds?.length ? { sticker_ids: m.stickerIds } : {}),
     ...(m.replyTo ? { message_reference: { channel_id: m.replyTo.channelId, message_id: m.replyTo.messageId } } : {}),
     ...(m.forwardOf ? { message_reference: forwardReference(m.forwardOf) } : {}),
-  });
+  }, m.guard ? { guard: m.guard } : undefined);
   return { id: posted.id, attachmentIds: (posted.attachments ?? []).map((a) => a.id) };
 }
 
@@ -116,23 +119,38 @@ export function checkOwnerMessage(v: unknown): OwnerMessage {
   const r = m.replyTo;
   const replyTo = r ? { messageId: snowflakeArg(r.messageId, 'message'), ping: r.ping === true } : null;
   if (!m.files.every(isFile)) throw new Error('Not a file to attach.');
-  if (m.files.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error(`Discord takes up to ${DISCORD_FILES_PER_MESSAGE_MAX} files per message.`);
+  const uploads = m.uploads ?? [];
+  if (!Array.isArray(uploads) || !uploads.every((t) => typeof t === 'string')) throw new Error('Not the uploads of a message.');
+  if (m.files.length + uploads.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error(`Discord takes up to ${DISCORD_FILES_PER_MESSAGE_MAX} files per message.`);
   const tooBig = m.files.find((f) => f.bytes.length > DISCORD_UPLOAD_BYTES_MAX);
   if (tooBig) throw new Error(`${tooBig.name} is over Discord's ${DISCORD_UPLOAD_BYTES_MAX / BYTES_PER_MB} MB upload limit.`);
   const stickerId = m.stickerId ? snowflakeArg(m.stickerId, 'sticker') : null;
   const g = m.gif;
   if (g && (typeof g.id !== 'string' || typeof g.query !== 'string')) throw new Error('Not a GIF to send.');
-  if (!m.text.trim() && !m.files.length && !stickerId) throw new Error('Write a message first.');
+  if (!m.text.trim() && !m.files.length && !uploads.length && !stickerId) throw new Error('Write a message first.');
   const nonce = snowflakeArg(m.nonce, 'nonce');
-  return { channelId, text: m.text, replyTo, files: m.files, stickerId, gif: g ? { id: g.id, query: g.query } : null, nonce };
+  const w = m.postWithinMs;
+  if (w !== undefined && !Number.isFinite(w)) throw new Error('Not a time to post within.');
+  return { channelId, text: m.text, replyTo, files: m.files, uploads, stickerId, gif: g ? { id: g.id, query: g.query } : null, nonce, ...(w === undefined ? {} : { postWithinMs: w }) };
 }
 
-/** Posts what the owner wrote in the Archive composer: uploads its files, then the message. */
-export async function sendOwnerMessage(api: DiscordWriter, v: unknown): Promise<void> {
+/** Posts what the owner wrote in the Archive composer: uploads its small files, then the message with those and its finished uploads. */
+export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Uploads): Promise<void> {
   const m = checkOwnerMessage(v);
+  // On this clock from now: the sender's own clock may differ.
+  const deadline = m.postWithinMs === undefined ? null : Date.now() + m.postWithinMs;
+  const guard = (): void => {
+    if (deadline !== null && Date.now() >= deadline) throw new Error(POST_WINDOW_PASSED);
+  };
+  guard();
+  const tokens = m.uploads ?? [];
+  if (tokens.length && !held) throw new Error('Uploads are not taken here.');
+  const uploaded = held?.take(m.channelId, tokens) ?? [];
   // The live client reports a picked GIF before sending it; a failed report doesn't stop the message.
   if (m.gif) await api.post('gifs/select', { id: m.gif.id, q: m.gif.query }).catch((err: unknown) => diag('gif-select-failed', { message: errorMessage(err) }));
-  const attachments = await uploadFiles(api, m.channelId, m.files.map((f) => ({ name: f.name, bytes: Buffer.from(f.bytes) })));
+  const small = await uploadFiles(api, m.channelId, m.files.map((f) => ({ name: f.name, bytes: Buffer.from(f.bytes) })));
+  // Ids are each file's index in the message.
+  const attachments = [...uploaded, ...small.map((f, i) => ({ ...f, id: String(uploaded.length + i) }))];
   await sendMessage(api, m.channelId, {
     content: m.text,
     allowedMentions: typedMentions(m.replyTo?.ping ?? false),
@@ -140,7 +158,10 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown): Promise<
     attachments,
     stickerIds: m.stickerId ? [m.stickerId] : [],
     nonce: m.nonce,
+    guard,
   });
+  // Kept until Discord accepts the message: a retry (same nonce) reuses them.
+  held?.release(tokens);
 }
 
 /** `v` checked as an OwnerForward (it comes from the renderer); throws the reason it can't be sent. */

@@ -9,7 +9,7 @@ interface RawAccount {
 /** The signed-in account's plan and gateway session, read from the embedded client's gateway traffic (READY, USER_UPDATE). */
 export class OwnerAccount {
   private id: string | null = null;
-  private premiumType = 0;
+  private plan = 0;
   private session: string | null = null;
 
   /** Subscribe before the client opens its socket (as the tap requires), or READY is missed. */
@@ -30,8 +30,13 @@ export class OwnerAccount {
     return this.id;
   }
 
+  /** Discord's premium_type: the plan, which sets the upload limit (uploadLimitBytes). */
+  get premiumType(): number {
+    return this.plan;
+  }
+
   get perks(): PlanPerks {
-    return planPerks(this.premiumType);
+    return planPerks(this.plan);
   }
 
   /** The client's gateway session: interactions name it, and their results arrive on it. A resume keeps it. */
@@ -42,6 +47,6 @@ export class OwnerAccount {
 
   private set(u: RawAccount | null): void {
     this.id = u?.id ?? null;
-    this.premiumType = u?.premium_type ?? 0;
+    this.plan = u?.premium_type ?? 0;
   }
 }

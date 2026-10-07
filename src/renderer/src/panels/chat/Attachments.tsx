@@ -2,15 +2,19 @@
 import { For, Show, createSignal } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage } from '@shared/contract';
 import { pluginPresents } from '@/state/plugins';
-import { Attachment, AttachmentMedia, FileChip, StoredStatus } from './Attachment';
+import { uploadShownInline } from '@shared/chatSettings';
+import { attachmentView } from '@shared/media';
+import { discordChatSettings } from '@/state/chatSettings';
+import { Attachment, AttachmentMedia, FileChip, StoredStatus, shownDescriptions } from './Attachment';
 import { AttachmentTile } from './AttachmentTile';
 import { inMosaic, mosaicRows } from './mosaic';
 import { presentedParts } from './ownedParts';
 import styles from './Attachment.module.css';
 
 export function Attachments(props: { message: ArchiveMessage; messageLink: string }) {
-  const media = () => props.message.attachments.filter(inMosaic);
-  const others = () => props.message.attachments.filter((a) => !inMosaic(a));
+  // Inline uploads off (Discord's "When uploaded directly to Discord"): images and videos are their chips.
+  const media = () => props.message.attachments.filter((a) => inMosaic(a) && uploadShownInline(attachmentView(a), discordChatSettings()));
+  const others = () => props.message.attachments.filter((a) => !media().includes(a));
   const one = (a: ArchiveAttachment) => <Attachment message={props.message} attachment={a} messageLink={props.messageLink} />;
   return (
     <>
@@ -40,7 +44,7 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
           )}
         </For>
       </div>
-      <StoredStatus notes={notes()} />
+      <StoredStatus notes={notes()} descriptions={shownDescriptions(props.attachments)} />
     </figure>
   );
 }
