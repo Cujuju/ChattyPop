@@ -7,6 +7,7 @@ import { NO_UNREAD, normalizeUnreadTotals, type UnreadTotals } from '@shared/unr
 import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
 import { appIconPath } from './mainWindow';
+import { restartApp } from './restart';
 import { profilePath } from './storageLocation';
 import { AppTray } from './tray';
 import { Updates } from './updates';
@@ -57,7 +58,8 @@ export class Desktop {
     this.toMain = toMain;
     this.tray = new AppTray(win, appIconPath(), {
       open: () => raiseWindow(win),
-      installUpdate: () => this.updates?.install(win),
+      // Installs a downloaded update on the way (restart.ts).
+      restart: () => restartApp(win),
       // A close from code, not the window's own close command, so it quits rather than going to the tray.
       quit: () => win.close(),
     });
