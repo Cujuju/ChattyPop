@@ -62,6 +62,9 @@
   --cp-mosaic-lead-ratio: 16 / 9; /* a lone leading row's full-width cell (7 and 10 tiles): wide, short of a square's height */
   --cp-mosaic-feature-share: 2fr; /* three tiles: the large cell's width against the stacked pair's 1fr */
   --cp-mosaic-feature-ratio: 3 / 2; /* three tiles, the whole grid: at a 2:1 split every cell comes out about square */
+  --cp-text-attachment-columns: 80; /* a text attachment card's width in code columns (unitless): the line length most source keeps to */
+  --cp-text-attachment-collapsed-lines: 6; /* its collapsed height in lines, TEXT_COLLAPSED_LINES (shared/textFiles.ts): the loading block holds it */
+  --cp-code-tab-size: 4; /* a tab's width in spaces in shown code: editors' default, not the browser's 8 */
   --cp-attachment-preview-max-h: 240px; /* the attachment in the Modify and Delete Attachment dialogs, Discord's bound */
   --cp-alt-text-lines: 4; /* the alt text field's height in lines: room for a sentence or two before it scrolls */
   --cp-link-title-lines: 2; /* plain title clamp when a link has no preview title */

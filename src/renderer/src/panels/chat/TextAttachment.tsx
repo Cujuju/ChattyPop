@@ -109,7 +109,7 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
       </footer>
       {/* Mounted only while open: one dialog per shown file would sit in every log row. */}
       <Show when={windowOpen()}>
-        <ModalDialog id={`text-attachment-${a().id}`} open title={a().filename} onClose={() => setWindowOpen(false)}>
+        <ModalDialog id={`text-attachment-${a().id}`} open title={a().filename} size="wide" onClose={() => setWindowOpen(false)}>
           <div class={styles.window} onKeyDown={selectCode} tabIndex={-1}>
             <Code lines={lines() ?? []} />
             <Show when={preview()?.cut}>

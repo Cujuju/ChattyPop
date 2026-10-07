@@ -11,6 +11,11 @@
   box-shadow: var(--cp-shadow-dialog);
 }
 
+/* Wide: the settings dialog's width, for reading (a whole text file). */
+.dialog[data-size='wide'] {
+  width: min(var(--cp-dialog-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+}
+
 .dialog[open] {
   display: flex;
   flex-direction: column;

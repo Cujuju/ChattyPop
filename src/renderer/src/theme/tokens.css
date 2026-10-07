@@ -84,6 +84,40 @@
   --cp-success-bg: #173a2a;
   --cp-success-bg-hover: color-mix(in srgb, var(--cp-success) 30%, transparent);
 
+  /* Code colours (Shiki's css-variables theme, ui/highlight.ts): the theme's own text and section hues, so each theme
+     and custom theme colours code; the theme contrast test holds every one readable on the code ground. */
+  --cp-code-background: var(--cp-surface-0); /* the message code block's ground (Markdown.module.css) */
+  --cp-code-foreground: var(--cp-text-1);
+  --cp-code-token-keyword: var(--cp-section-summary);
+  --cp-code-token-string: var(--cp-section-rules);
+  --cp-code-token-string-expression: var(--cp-section-provider);
+  --cp-code-token-constant: var(--cp-section-plans);
+  --cp-code-token-function: var(--cp-section-links);
+  --cp-code-token-parameter: var(--cp-section-alerts);
+  --cp-code-token-punctuation: var(--cp-text-2);
+  --cp-code-token-comment: var(--cp-text-muted);
+  --cp-code-token-link: var(--cp-link);
+  --cp-code-token-inserted: var(--cp-success);
+  --cp-code-token-deleted: var(--cp-danger);
+  --cp-code-token-changed: var(--cp-section-plans);
+  /* Terminal colours (.ansi logs): black and white as readable text levels, bright variants the same hues. */
+  --cp-code-ansi-black: var(--cp-text-muted);
+  --cp-code-ansi-red: var(--cp-section-alerts);
+  --cp-code-ansi-green: var(--cp-section-rules);
+  --cp-code-ansi-yellow: var(--cp-section-plans);
+  --cp-code-ansi-blue: var(--cp-section-links);
+  --cp-code-ansi-magenta: var(--cp-section-tags);
+  --cp-code-ansi-cyan: var(--cp-section-provider);
+  --cp-code-ansi-white: var(--cp-text-2);
+  --cp-code-ansi-bright-black: var(--cp-text-muted);
+  --cp-code-ansi-bright-red: var(--cp-section-alerts);
+  --cp-code-ansi-bright-green: var(--cp-section-rules);
+  --cp-code-ansi-bright-yellow: var(--cp-section-plans);
+  --cp-code-ansi-bright-blue: var(--cp-section-links);
+  --cp-code-ansi-bright-magenta: var(--cp-section-tags);
+  --cp-code-ansi-bright-cyan: var(--cp-section-provider);
+  --cp-code-ansi-bright-white: var(--cp-text-1);
+
   /* Platform identity colours: link badges and feed filter chips. Muted to sit with the palette; each is distinct at chip size.
      identity.css resolves --cp-platform from [data-platform]; modules read only --cp-platform. */
   --cp-platform-youtube: #f07a7a;

@@ -10,6 +10,8 @@ export function ModalDialog(props: {
   id: string;
   open: boolean;
   title: string;
+  /** wide: content that reads better wide (a whole file); else a form's width. */
+  size?: 'wide';
   onClose: () => void;
   children: JSX.Element;
 }) {
@@ -24,6 +26,7 @@ export function ModalDialog(props: {
     <dialog
       ref={el}
       class={styles.dialog}
+      data-size={props.size}
       aria-label={props.title}
       // Esc: the UA's cancel closes it; onClose keeps the owner's state in step.
       onClose={() => props.onClose()}

@@ -43,6 +43,12 @@ const contrast = (a: string, b: string): number => {
 
 const SURFACES = [0, 1, 2, 3, 4, 5].map((n) => `--cp-surface-${n}`);
 const SECTIONS = ['summary', 'provider', 'alerts', 'links', 'chat', 'plans', 'tags', 'rules'].map((s) => `--cp-section-${s}`);
+/** Every colour Shiki's css-variables theme paints code in (ui/highlight.ts), read on the code ground. */
+const CODE_COLORS = [
+  'foreground',
+  ...['keyword', 'string', 'string-expression', 'constant', 'function', 'parameter', 'punctuation', 'comment', 'link', 'inserted', 'deleted', 'changed'].map((t) => `token-${t}`),
+  ...['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'].flatMap((c) => [`ansi-${c}`, `ansi-bright-${c}`]),
+].map((c) => `--cp-code-${c}`);
 /** [foreground, background] pairs every theme must keep readable. */
 const PAIRS: [string, string][] = [
   ...['--cp-text-1', '--cp-text-2', '--cp-text-muted'].flatMap((t) => SURFACES.map((s): [string, string] => [t, s])),
@@ -54,6 +60,7 @@ const PAIRS: [string, string][] = [
     [s, '--cp-surface-3'],
     ['--cp-text-on-accent', s],
   ]),
+  ...CODE_COLORS.map((c): [string, string] => [c, '--cp-code-background']),
 ];
 
 describe('theme contrast', () => {

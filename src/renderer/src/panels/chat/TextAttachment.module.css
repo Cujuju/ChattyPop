@@ -1,14 +1,143 @@
-/* Markup contract for TextAttachment.tsx; the design agent styles it. Code colors: --cp-code-* tokens (ui/highlight.ts). */
-.root {}
-.header {}
-.name {}
-.meta {}
-.language {}
-.loading {}
-.code {}
-.line {}
-.footer {}
-.toggle {}
-.viewAll {}
-.notice {}
-.window {}
+/* A text attachment as Discord previews one: a card of its name and size, the code (--cp-code-* colours, ui/highlight.ts) and
+   its Expand / View whole file controls. Its code reads as a message code block does (Markdown.module.css .codeblock).
+   Hooks: .root[data-expanded], .toggle[aria-expanded]. */
+
+/* Mono at the code size on the card itself, so 1ch is a code column and the width holds that many. */
+.root {
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--cp-text-attachment-columns) * 1ch + 2 * var(--cp-space-5) + 2 * var(--cp-border-w));
+  max-width: 100%;
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-code-background);
+  color: var(--cp-code-foreground);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-code);
+}
+
+/* Name over its size and grammar, all at the start: the tile's hover bar (Download) floats over the end. */
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-4);
+  padding: var(--cp-space-4) var(--cp-space-5);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-sans);
+}
+
+.name {
+  flex: 1 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-meta);
+}
+
+/* forms.css draws the select; as wide as the grammar it shows, at the meta line's size. */
+.language {
+  field-sizing: content;
+  max-width: 100%;
+  height: var(--cp-btn-h-sm);
+  font-size: var(--cp-text-meta);
+}
+
+/* Reading or highlighting: the collapsed preview's height, so the row keeps it when the code arrives. */
+.loading {
+  height: calc(var(--cp-text-attachment-collapsed-lines) * 1lh + 2 * var(--cp-space-4));
+  line-height: var(--cp-leading-normal);
+}
+
+/* Long lines wrap, as Discord's preview does: no sideways scroll in the log. */
+.code {
+  margin: 0;
+  padding: var(--cp-space-4) var(--cp-space-5);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: var(--cp-code-tab-size);
+}
+
+.code > code {
+  font: inherit;
+}
+
+/* Expand / View whole file, and the cut-off notice; gone when the file needs none. */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2) var(--cp-space-6);
+  padding: var(--cp-space-3) var(--cp-space-5);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-meta);
+}
+
+.footer:not(:has(*)) {
+  display: none;
+}
+
+.toggle,
+.viewAll {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cp-link);
+  font: inherit;
+  font-weight: var(--cp-weight-semibold);
+  cursor: pointer;
+}
+
+.toggle:hover,
+.viewAll:hover {
+  color: var(--cp-link-hover);
+  text-decoration: underline;
+}
+
+/* The way out of the inline preview sits at the far end. */
+.viewAll {
+  margin-left: auto;
+}
+
+/* Under the controls, on its own line. */
+.notice {
+  flex: 1 0 100%;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-meta);
+  line-height: var(--cp-leading-tight);
+}
+
+/* The whole preview in a dialog (ModalDialog's body scrolls it): the code in a well as in the card. */
+.window {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+.window:focus {
+  outline: none;
+}
+
+.window > .code {
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-code-background);
+  color: var(--cp-code-foreground);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-code);
+}
