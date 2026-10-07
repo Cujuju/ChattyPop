@@ -1,14 +1,17 @@
 // Each page persists its outbox in IndexedDB. On unlock, adopts queues from departed pages, including pre-reload owners.
 import { createEffect, createRoot } from 'solid-js';
 import { api } from '@/api';
+import { UPLOAD_CHUNK_BYTES, UPLOAD_GONE } from '@shared/compose';
 import { newNonce } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT, DesktopUnreachableError } from '@shared/phone';
 import { isPostingLocked } from '@shared/posting';
 import { errorText } from '@/ui/format';
 import { idbEntries, idbSet, whenWritten } from '@/ui/idbStore';
 import { restoreDraft, type SavedDraft } from './drafts';
-import { createOutbox, type OutboxRecord } from './outboxQueue';
+import { MS_PER_S } from '@shared/units';
+import { SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxRecord } from './outboxQueue';
 import { postingUnlocked } from './posting';
+import { prepareFiles } from './uploadPrep';
 
 export type { Outgoing } from './outboxQueue';
 
@@ -22,8 +25,41 @@ const CLAIM_LOCK = 'chattypop-outbox-claim';
 const pageId = newNonce();
 const ownKey = KEY_PREFIX + pageId;
 
+/** A slow phone uplink (~2 Mbit/s); a piece slower than this counts as stalled. */
+const MIN_UPLOAD_BYTES_PER_S = 256 * 1024;
+/** How long one upload piece may take before the desktop counts as unreachable. */
+const PIECE_TIMEOUT_MS = SEND_BASE_TIMEOUT_MS + (UPLOAD_CHUNK_BYTES / MIN_UPLOAD_BYTES_PER_S) * MS_PER_S;
+
+/** `call`, or DesktopUnreachableError once `ms` passes: a stalled piece can't be told from a lost one. */
+function unstalled<T>(call: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stalled = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new DesktopUnreachableError()), ms)));
+  return Promise.race([call, stalled]).finally(() => clearTimeout(timer));
+}
+
+/** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go; resolves the slots' tokens. */
+async function uploadFiles(channelId: string, files: File[], progress: (fraction: number) => void): Promise<string[]> {
+  const slots = await api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.name, size: f.size })));
+  const total = files.reduce((n, f) => n + f.size, 0);
+  let sent = 0;
+  for (const [i, slot] of slots.entries()) {
+    const file = files[i]!;
+    for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
+      const bytes = new Uint8Array(await file.slice(offset, offset + UPLOAD_CHUNK_BYTES).arrayBuffer());
+      await unstalled(api.discord.uploadChunk(slot.token, offset, bytes), PIECE_TIMEOUT_MS);
+      sent += bytes.length;
+      progress(total ? sent / total : 1);
+    }
+    await unstalled(api.discord.finishUpload(slot.token), SEND_BASE_TIMEOUT_MS);
+  }
+  return slots.map((s) => s.token);
+}
+
 const box = createOutbox<SavedDraft>({
   send: (m) => api.discord.send(m),
+  prepare: prepareFiles,
+  upload: uploadFiles,
+  uploadGone: (err) => err instanceof Error && err.message.includes(UPLOAD_GONE),
   errorText,
   unreachable: (err) => err instanceof DesktopUnreachableError,
   restore: restoreDraft,

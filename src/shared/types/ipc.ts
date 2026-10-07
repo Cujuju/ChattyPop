@@ -143,6 +143,10 @@ export const MAIN_INVOKE = {
     suggestChannels: 'discord:suggest-channels',
     /** Posts what the owner wrote in the Archive composer (OwnerMessage). */
     send: 'discord:send',
+    uploadLimit: 'discord:upload-limit',
+    prepareUploads: 'discord:prepare-uploads',
+    uploadChunk: 'discord:upload-chunk',
+    finishUpload: 'discord:finish-upload',
     /** Edits one of the owner's messages (OwnerEdit). */
     edit: 'discord:edit',
     /** Deletes one of the owner's messages (OwnerMessageRef). */

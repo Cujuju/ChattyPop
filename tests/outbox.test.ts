@@ -23,6 +23,9 @@ function setup(canRestore = false) {
     unlocked: () => lock.unlocked,
     locked: isPostingLocked,
     send: (m) => new Promise<void>((resolve, reject) => void pending.push({ m, resolve, reject })),
+    prepare: async (_channelId, files) => files,
+    upload: async (_channelId, files) => files.map((f) => `token-${f.name}`),
+    uploadGone: () => false,
     errorText: (err) => (err as Error).message,
     unreachable: (err) => err instanceof Unreachable,
     restore: (_channelId, draft) => canRestore && void restored.push(draft) === undefined,
@@ -32,8 +35,8 @@ function setup(canRestore = false) {
   const job = (text: string, editable = true): OutboxJob<string> => ({
     channelId: CHANNEL,
     label: text,
-    message: Promise.resolve({ channelId: CHANNEL, text, replyTo: null, files: [], stickerId: null, gif: null, nonce: `n-${text}` }),
-    bytes: 0,
+    message: { channelId: CHANNEL, text, replyTo: null, files: [], stickerId: null, gif: null, nonce: `n-${text}` },
+    files: [],
     draft: editable ? text : null,
   });
   const labels = () => box.outgoing(CHANNEL).map((o) => `${o.label}:${o.status}`);

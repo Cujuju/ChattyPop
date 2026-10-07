@@ -242,7 +242,7 @@ void app.whenReady().then(() => {
   ipcMain.handle(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
-  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting });
+  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting, discordSession });
   const pages = rendererPages(RENDERER_DIR, process.env['ELECTRON_RENDERER_URL'] ?? null, installed);
   for (const { id, error } of failedMain) diag('installed-plugin-load-failed', { pluginId: id, message: error });
   const mainPlugins = startMainPlugins(bundledMain, {

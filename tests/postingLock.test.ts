@@ -33,7 +33,7 @@ const REACTION = `channels/${CHANNEL}/messages/${MESSAGE}/reactions/%F0%9F%91%8D
 const ACK = `channels/${CHANNEL}/messages/${MESSAGE}/ack`;
 /** Calls that write but are exempt from the lock (owner's choice), and reads, which aren't writes. */
 const EXEMPT = ['react'];
-const READS = ['refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'shownChannel', 'probe', 'friends'];
+const READS = ['refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'uploadLimit', 'shownChannel', 'probe', 'friends'];
 
 const info = (id: string, status: PluginInfo['status']): PluginInfo =>
   ({ key: id, conflict: false, id, name: id, version: '1.0.0', description: null, dir: '', bundled: true, origin: 'bundled', status, error: null, commands: [], renderer: null }) as PluginInfo;
@@ -64,6 +64,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
     sync: {} as never,
     owner: api,
     capture: {} as never,
+    discordSession: {} as never,
     discord: { tap: new EventEmitter(), webContents: { debugger: {} }, shownChannel: null } as never,
     emojiIndex: {} as never,
     readStates: { settingsChanged: () => undefined },

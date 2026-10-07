@@ -2,6 +2,8 @@
 import type { CustomEmoji, GuildEmoji } from './emoji';
 import { escapeRegex } from './keywordPattern';
 import type { ArchiveEmoji } from './types/archive';
+import { DISCORD_UPLOAD_BYTES_MAX } from './discord';
+import { BYTES_PER_GB, BYTES_PER_MB } from './units';
 
 /** A file attached in the composer. */
 export interface OwnerFile {
@@ -15,7 +17,10 @@ export interface OwnerMessage {
   text: string;
   /** Makes it a Discord reply; `ping` is Discord's @ON (the replied-to author is notified). */
   replyTo: { messageId: string; ping: boolean } | null;
+  /** Small files sent with the call itself (a main-side sender's). */
   files: OwnerFile[];
+  /** Files already in Discord's store, by the tokens prepareUploads gave them; the composer sends these. */
+  uploads?: string[];
   /** A sticker sent with it; Discord's picker sends one at a time. */
   stickerId: string | null;
   /** A GIF picked in the GIF picker: `text` is its page URL, as the live client sends it; `query` found it. */
@@ -107,6 +112,36 @@ export interface PlanPerks {
 const PREMIUM_CLASSIC = 1;
 const PREMIUM_NITRO = 2;
 const PREMIUM_BASIC = 3;
+
+/** A file's slot in Discord's attachment store while the sender uploads it (api.discord.prepareUploads). */
+export interface UploadSlot {
+  token: string;
+  name: string;
+  size: number;
+}
+
+/** Bytes per uploadChunk call: few calls per file, and a phone's base64 call body stays a few megabytes. */
+export const UPLOAD_CHUNK_BYTES = 4 * BYTES_PER_MB;
+/** Main no longer holds the upload (expired, or already sent): the sender uploads the file again. */
+export const UPLOAD_GONE = 'That upload is no longer held; it must be uploaded again.';
+
+/**
+ * Per-file upload limits by plan (premium_type) and server Boost level (premium_tier), per support.discord.com checked
+ * 2026-10-06. Assumptions: binary megabytes; Nitro Classic keeps Basic's 50 MB.
+ */
+const PLAN_UPLOAD_BYTES: Readonly<Record<number, number>> = {
+  [PREMIUM_CLASSIC]: 50 * BYTES_PER_MB,
+  [PREMIUM_NITRO]: BYTES_PER_GB,
+  [PREMIUM_BASIC]: 50 * BYTES_PER_MB,
+};
+/** Discord's premium_tier values (Server Boost levels) that raise the upload limit. */
+const BOOST_TIER_2 = 2;
+const BOOST_TIER_3 = 3;
+const BOOST_UPLOAD_BYTES: Readonly<Record<number, number>> = { [BOOST_TIER_2]: 50 * BYTES_PER_MB, [BOOST_TIER_3]: 100 * BYTES_PER_MB };
+
+/** The largest file the owner may upload: their plan's limit or the server's Boost limit, whichever is larger (Discord's rule). */
+export const uploadLimitBytes = (premiumType: number, premiumTier: number | null): number =>
+  Math.max(PLAN_UPLOAD_BYTES[premiumType] ?? DISCORD_UPLOAD_BYTES_MAX, BOOST_UPLOAD_BYTES[premiumTier ?? 0] ?? 0);
 
 /** Classic and Basic unlock emoji everywhere and animated emoji; stickers everywhere is Nitro and Basic only. */
 export function planPerks(premiumType: number): PlanPerks {

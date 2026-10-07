@@ -31,16 +31,16 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
   enqueue({
     channelId,
     label: text.trim() || (stickerId ? 'Sticker' : `${files.length} ${files.length === 1 ? 'file' : 'files'}`),
-    message: Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) }))).then((bytes) => ({
+    message: {
       channelId,
       text: expandMentionTokens(expandEmojiTokens(applyBuiltinCommand(text), new Map(draft.emoji)), new Map(draft.mentions)),
       replyTo,
-      files: bytes,
+      files: [],
       stickerId,
       gif: null,
       nonce: newNonce(),
-    })),
-    bytes: files.reduce((n, f) => n + f.size, 0),
+    },
+    files,
     // A sticker isn't part of the draft, so a message with one can't go back.
     draft: stickerId === null ? draft : null,
   });
@@ -53,8 +53,8 @@ export function sendGif(channelId: string, gif: Gif, query: string): void {
   enqueue({
     channelId,
     label: 'GIF',
-    message: Promise.resolve({ channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() }),
-    bytes: 0,
+    message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() },
+    files: [],
     draft: null,
   });
 }

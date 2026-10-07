@@ -46,7 +46,7 @@ export const PHONE_CORE_METHODS = [
 ] as const satisfies readonly RendererCoreMethod[];
 
 /** Discord calls the phone may make: posting from the Archive composer and its pickers. */
-export const PHONE_DISCORD_METHODS = ['send', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors'] as const satisfies readonly (keyof RendererApi['discord'])[];
+export const PHONE_DISCORD_METHODS = ['send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'createThread', 'sendDirect', 'profile', 'mutualFriends', 'reactors'] as const satisfies readonly (keyof RendererApi['discord'])[];
 export type PhoneDiscordMethod = (typeof PHONE_DISCORD_METHODS)[number];
 
 /** Events the phone's stores use. Main's own work orders (plugins' posts and replies, audio fetches) never leave the PC. */
