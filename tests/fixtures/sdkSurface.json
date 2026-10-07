@@ -1,5 +1,5 @@
 {
-  "version": "2.7.0",
+  "version": "2.8.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -286,7 +286,10 @@
       "clockTime",
       "conditionWording",
       "countText",
+      "countedBots",
+      "countedBotsLoaded",
       "createAction",
+      "createArchivedBots",
       "createFollowBottom",
       "createPagedList",
       "createVirtualLog",
@@ -337,6 +340,7 @@
       "revealPanel",
       "rules",
       "scrolledFromTop",
+      "setBotCounted",
       "setProviderDisplayName",
       "setSearchOpen",
       "shortDate",

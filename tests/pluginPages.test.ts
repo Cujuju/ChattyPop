@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { INSTALLED_PAGE_BOOTSTRAP, PAGE_BOOTSTRAP, pageInputs, pagesPlugin } from '../bundledPlugins';
 import { INSTALLED_PAGE_SHELL } from '@shared/installedBrowser';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { rendererPages, staticFile } from '../src/main/plugins/pages';
 import { tempDir } from './helpers';
 
@@ -102,13 +103,18 @@ describe('a transport page', () => {
     installRendererApi(createPhoneRendererApi({ call, listen: () => undefined }), '/media/');
     const leaf = '@/api';
     const { api } = (await import(leaf)) as {
-      api: { core: { status(): Promise<string> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
+      api: { core: { status(): Promise<string>; setSetting(key: string, value: unknown): Promise<void> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
     };
     await expect(api.core.status()).resolves.toBe('up');
     expect(call).toHaveBeenCalledExactlyOnceWith({ group: 'core', method: 'status', params: [] });
+    // A setting the phone may write travels; any other stays this visit's own choice, never sent.
+    await api.core.setSetting(SETTINGS_KEYS.archiveDensity, 'cozy');
+    expect(call).toHaveBeenCalledOnce();
+    await api.core.setSetting(SETTINGS_KEYS.countedBots, ['b1']);
+    expect(call).toHaveBeenLastCalledWith({ group: 'core', method: 'setSetting', params: [SETTINGS_KEYS.countedBots, ['b1']] });
     // A plugin member for desktop windows only is refused on the phone, never sent.
     await expect(api.plugins.callCore('plans', 'list', [1])).rejects.toThrow(/only on the desktop/);
-    expect(call).toHaveBeenCalledOnce();
+    expect(call).toHaveBeenCalledTimes(2);
     expect(mediaUrl('avatar', '1')).toBe('/media/avatar/1');
   });
 });

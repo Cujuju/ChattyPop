@@ -1,7 +1,7 @@
 // Host defines permitted phone calls/events; transport plugins supply delivery only.
 import type { AppEvent, RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
-import { phoneMayCallPlugin, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
 
 /** How a phone page reaches the desktop. */
 export interface PhoneTransport {
@@ -22,8 +22,10 @@ const ignored = (): void => {};
 export function createPhoneRendererApi(transport: PhoneTransport): PhoneRendererApi {
   const core = new Proxy({} as RendererApi['core'], {
     get: (_t, method: string) =>
-      // The phone keeps its own view choices (density, filters) for this visit; the desktop's settings stay as they are.
-      method === 'setSetting' ? () => Promise.resolve() : (...params: unknown[]) => transport.call({ group: 'core', method, params }),
+      // The phone keeps its own view choices (density, filters) for this visit; only PHONE_WRITABLE_SETTINGS reach the desktop.
+      method === 'setSetting'
+        ? (key: string, value: unknown) => (phoneMayWriteSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve())
+        : (...params: unknown[]) => transport.call({ group: 'core', method, params }),
   });
 
   type DiscordApi = RendererApi['discord'];

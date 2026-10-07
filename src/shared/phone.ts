@@ -3,16 +3,18 @@ import { phoneGetsEvent, phoneMayCall, pluginPhoneSetting } from './bundledPlugi
 import type { PhoneSettingView } from './bundledTypes';
 import { isObj } from './normalize';
 import type { RendererApi, RendererCoreMethod } from './rendererApi';
-import { SETTINGS_KEYS } from './settings';
+import { SETTINGS_KEYS, normalizeCountedBots } from './settings';
 import type { AppEvent } from './types/ipc';
 
-/** Phone allows archive reads and requested search writes. Plugin audiences govern feature calls; keys/rules remain desktop-only; settings use phoneSetting. */
+/** Phone allows archive reads and requested search writes. Plugin audiences govern feature calls; keys/rules remain desktop-only; settings use phoneSetting and phoneSettingWrite. */
 export const PHONE_CORE_METHODS = [
   'status',
   'getSetting',
   'directory',
   'channelUnread',
   'channelUnreadSnapshot',
+  // Settings → New-message counts lists these bots on the phone too.
+  'archivedBots',
   'markChannelRead',
   'syncState',
   'aiStatus',
@@ -92,6 +94,19 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingView>> = {
   [SETTINGS_KEYS.layoutCollapsedPanels]: true,
   [SETTINGS_KEYS.layoutSidebarCollapsed]: true,
 };
+
+/** Settings the phone may write, each with the normalizer its value is stored through. Others stay desktop-only. */
+export const PHONE_WRITABLE_SETTINGS: Readonly<Record<string, (value: unknown) => unknown>> = {
+  [SETTINGS_KEYS.countedBots]: normalizeCountedBots,
+};
+
+/** Whether the phone may write setting `key` (PHONE_WRITABLE_SETTINGS). */
+export const phoneMayWriteSetting = (key: string): boolean => Object.hasOwn(PHONE_WRITABLE_SETTINGS, key);
+
+/** `value` as stored for the phone's write of setting `key`; undefined when the phone may not write it. */
+export function phoneSettingWrite(key: string, value: unknown): { value: unknown } | undefined {
+  return phoneMayWriteSetting(key) ? { value: PHONE_WRITABLE_SETTINGS[key]!(value) } : undefined;
+}
 
 /** How much of setting `key` the phone reads; undefined when it reads none. */
 const phoneSettingView = (key: string): PhoneSettingView | undefined =>
