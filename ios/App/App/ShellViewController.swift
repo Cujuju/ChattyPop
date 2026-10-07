@@ -21,6 +21,16 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let nativeGlobal = "chattyPopShell"
     private static let developmentEnvironment = "development"
     private static let productionEnvironment = "production"
+    // Mirrors SHELL_SAVE_MEDIA_HANDLER and SHELL_NETWORK_EVENT in src/shared/shell.ts.
+    private static let saveMediaHandler = "shellSaveMedia"
+    private static let networkEvent = "cp-shell-network"
+    /// Posted by this app's own load script, asking for the network state (publishNetwork).
+    private static let networkHandler = "shellNetwork"
+    /// WKSecurityOrigin reports a scheme's default port as 0; the saved origin is https.
+    private static let httpsDefaultPort = 443
+    /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
+    private static let mediaSaver = ShellMediaSaver()
+    private let network = ShellNetworkMonitor()
     /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
     static var launchNotification: UNNotificationResponse?
     /// Uses the default dark backdrop until the page publishes its own. The underlying window remains visible around the keyboard’s rounded corners.
@@ -144,6 +154,9 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         // Before any page script: the page sends it with this install's device token (companion page/shellPush.ts).
         let global = "window.\(Self.nativeGlobal) = Object.freeze({ apsEnvironment: '\(Self.apsEnvironment)' });"
         configuration.userContentController.addUserScript(WKUserScript(source: global, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // On load, after the page's scripts have added their listeners, asks for the network state.
+        let ready = "addEventListener('load', () => window.webkit?.messageHandlers?.\(Self.networkHandler)?.postMessage(null));"
+        configuration.userContentController.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let view = PairingWebView(frame: frame, configuration: configuration)
         view.initialURL = pairingURL
         pairingURL = nil
@@ -163,6 +176,12 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         let scripts = webView.configuration.userContentController
         scripts.add(WeakMessageHandler { [weak self] in self?.retry($0) }, name: Self.retryHandler)
         scripts.add(WeakMessageHandler { [weak self] in self?.setBackdrop($0) }, name: Self.backdropHandler)
+        scripts.add(WeakMessageHandler { [weak self] in self?.networkRequested($0) }, name: Self.networkHandler)
+        scripts.addScriptMessageHandler(WeakReplyMessageHandler { [weak self] message, reply in
+            guard let self else { return reply(nil, "The app is closing.") }
+            self.saveMedia(message, reply: reply)
+        }, contentWorld: .page, name: Self.saveMediaHandler)
+        network.start { [weak self] _ in self?.publishNetwork() }
         let store = webView.configuration.websiteDataStore.httpCookieStore
         cookieStore = store
         store.add(self)
@@ -269,7 +288,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
 
     /// Page RGB backdrop, with 0–255 components, updated on theme changes.
     fileprivate func setBackdrop(_ message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,
+        guard Self.isPairedPage(message.frameInfo),
               let rgb = message.body as? [String: Any],
               let r = (rgb["r"] as? NSNumber)?.doubleValue,
               let g = (rgb["g"] as? NSNumber)?.doubleValue,
@@ -280,9 +299,48 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         view.window?.backgroundColor = color
     }
 
+    /// Same scheme, host and effective port as the saved origin, which validatedOrigin limits to https. A nil or 0 port is https's default.
+    private static func isPairedOrigin(scheme: String?, host: String?, port: Int?) -> Bool {
+        guard let paired = savedOrigin, let pairedScheme = paired.scheme, let pairedHost = paired.host,
+              let scheme, let host else { return false }
+        let effectivePort = { (port: Int?) -> Int in
+            guard let port, port != 0 else { return httpsDefaultPort }
+            return port
+        }
+        return scheme.lowercased() == pairedScheme.lowercased() && host.lowercased() == pairedHost.lowercased()
+            && effectivePort(port) == effectivePort(paired.port)
+    }
+
+    /// The paired desktop's page, in the main frame: the only sender the page-facing handlers act for.
+    private static func isPairedPage(_ frame: WKFrameInfo) -> Bool {
+        let sender = frame.securityOrigin
+        return frame.isMainFrame && isPairedOrigin(scheme: sender.`protocol`, host: sender.host, port: sender.port)
+    }
+
+    /// A camera capture's pieces, saved to Photos (ShellMediaSaver). Only the paired page may add to the library.
+    fileprivate func saveMedia(_ message: WKScriptMessage, reply: @escaping (Any?, String?) -> Void) {
+        guard Self.isPairedPage(message.frameInfo) else { return reply(nil, "Only the paired page may save to Photos.") }
+        Self.mediaSaver.receive(message.body) { error in reply(nil, error) }
+    }
+
+    fileprivate func networkRequested(_ message: WKScriptMessage) {
+        guard Self.isPairedPage(message.frameInfo) else { return }
+        publishNetwork()
+    }
+
+    /// Dispatches the network event with the current route to the paired page; nothing until the first path is known.
+    private func publishNetwork() {
+        guard let cellular = network.cellular, let url = webView?.url,
+              Self.isPairedOrigin(scheme: url.scheme, host: url.host, port: url.port) else { return }
+        webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(Self.networkEvent)', { detail: { cellular: \(cellular) } }))")
+    }
+
     deinit {
-        webView?.configuration.userContentController.removeScriptMessageHandler(forName: Self.retryHandler)
-        webView?.configuration.userContentController.removeScriptMessageHandler(forName: Self.backdropHandler)
+        let scripts = webView?.configuration.userContentController
+        scripts?.removeScriptMessageHandler(forName: Self.retryHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.backdropHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.networkHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.saveMediaHandler, contentWorld: .page)
         cookieStore?.remove(self)
     }
 }
@@ -297,6 +355,19 @@ private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         receive(message)
+    }
+}
+/** WeakMessageHandler for handlers that answer: `reply(value, nil)` resolves the page's postMessage promise, `reply(nil, error)` rejects it. */
+private final class WeakReplyMessageHandler: NSObject, WKScriptMessageHandlerWithReply {
+    private let receive: (WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void
+
+    init(_ receive: @escaping (WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void) {
+        self.receive = receive
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage,
+                               replyHandler: @escaping (Any?, String?) -> Void) {
+        receive(message, replyHandler)
     }
 }
 /** Replaces Capacitor’s initial request with the confirmed pairing page. A separate load cancels the initial request and triggers Capacitor’s error page. */

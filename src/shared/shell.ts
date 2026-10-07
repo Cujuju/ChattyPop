@@ -19,3 +19,18 @@ export const isApnsEnvironment = (v: unknown): v is ApnsEnvironment => (APNS_ENV
 export const SHELL_NATIVE_GLOBAL = 'chattyPopShell';
 /** Custom properties the app sets on `<html>` as the keyboard moves (ShellViewController.swift; the theme's sizes.css reads them). */
 export const SHELL_KEYBOARD_PROPERTIES = { inset: '--cp-keyboard-inset', duration: '--cp-keyboard-duration' } as const;
+/** Window event the app dispatches after each page load and on each change (ShellViewController.swift): detail `{ cellular: boolean }`. */
+export const SHELL_NETWORK_EVENT = 'cp-shell-network';
+/** The app's handler that saves a camera capture to Photos (ShellMediaSaver.swift). Its postMessage resolves once a piece is written; the last piece's once saved. */
+export const SHELL_SAVE_MEDIA_HANDLER = 'shellSaveMedia';
+/** One piece of a capture sent to SHELL_SAVE_MEDIA_HANDLER. Pieces go in order from index 0; a new index 0 abandons any unfinished capture. */
+export interface ShellMediaPiece {
+  /** Names the capture; every piece of it carries the same one. */
+  id: string;
+  index: number;
+  last: boolean;
+  /** The capture's MIME type, e.g. `image/jpeg`, `video/quicktime`. */
+  type: string;
+  /** This piece's bytes, base64. */
+  data: string;
+}
