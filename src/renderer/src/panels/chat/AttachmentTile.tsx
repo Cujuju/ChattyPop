@@ -6,6 +6,7 @@ import type { AttachmentBarView, HostAttachmentAction } from '@/plugins/messageS
 import { attachmentActionItems } from '@/plugins/slots';
 import { canSave, saveAttachment } from '@/state/savedFiles';
 import { inCompanion } from '@/state/ui';
+import { Icon } from '@/ui/icons';
 import { SolidIcon } from '@/ui/solidIcons';
 import { SpoilersShown } from '@/ui/spoilers';
 import { HoverBarButton } from './HoverBarButton';
@@ -51,8 +52,14 @@ function AttachmentBar(props: { message: ArchiveMessage; attachment: ArchiveAtta
   );
 }
 
-/** An attachment's frame: covered while it is a spoiler not yet revealed, marked once removed from its message. */
-export function AttachmentTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; children: JSX.Element }) {
+/** The stored mark's label; a removed file's mark says it is kept instead. */
+export const STORED_LABEL = 'archived locally';
+
+/**
+ * An attachment's frame: covered while it is a spoiler not yet revealed, marked once removed from its message. `stored`:
+ * it shows the held file's media (not its chip), so its top-left corner carries the archived check.
+ */
+export function AttachmentTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; stored?: boolean; children: JSX.Element }) {
   const [revealed, setRevealed] = createSignal(false);
   const uncovered = useContext(SpoilersShown);
   const covered = () => props.attachment.spoiler && !revealed() && !uncovered();
@@ -64,7 +71,16 @@ export function AttachmentTile(props: { message: ArchiveMessage; attachment: Arc
           Spoiler
         </button>
       </Show>
-      <Show when={props.attachment.removed}>
+      <Show
+        when={props.attachment.removed}
+        fallback={
+          <Show when={props.stored}>
+            <span class={styles.storedMark} role="img" aria-label={STORED_LABEL} title={STORED_LABEL}>
+              <Icon name="check" />
+            </span>
+          </Show>
+        }
+      >
         <span class={styles.removed} title="Removed from its message on Discord; kept in the archive">
           Removed
         </span>

@@ -5,7 +5,7 @@ import { pluginPresents } from '@/state/plugins';
 import { uploadShownInline } from '@shared/chatSettings';
 import { attachmentView } from '@shared/media';
 import { discordChatSettings } from '@/state/chatSettings';
-import { Attachment, AttachmentMedia, FileChip, StoredStatus, shownDescriptions } from './Attachment';
+import { Attachment, AttachmentMedia, FileChip, MediaCaption, shownDescriptions } from './Attachment';
 import { AttachmentTile } from './AttachmentTile';
 import { inMosaic, mosaicRows } from './mosaic';
 import { presentedParts } from './ownedParts';
@@ -44,7 +44,7 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
           )}
         </For>
       </div>
-      <StoredStatus notes={notes()} descriptions={shownDescriptions(props.attachments)} />
+      <MediaCaption notes={notes()} descriptions={shownDescriptions(props.attachments)} />
     </figure>
   );
 }
@@ -53,7 +53,7 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
 function MosaicTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const [unplayable, setUnplayable] = createSignal(false);
   return (
-    <AttachmentTile message={props.message} attachment={props.attachment}>
+    <AttachmentTile message={props.message} attachment={props.attachment} stored={!unplayable()}>
       <Show when={!unplayable()} fallback={<FileChip attachment={props.attachment} messageLink={props.messageLink} />}>
         <AttachmentMedia attachment={props.attachment} cell onUnplayable={() => setUnplayable(true)} />
       </Show>

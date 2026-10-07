@@ -64,12 +64,25 @@
   color: var(--cp-danger);
 }
 
-/* Inline image or video: bounded box, aspect ratio kept from the intrinsic attributes. */
+/* Inline image or video: bounded box, aspect ratio kept from the intrinsic attributes. Its caption sits beside it
+   while a note column fits there (a portrait video's empty side), else wraps below. */
 .image {
   display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-2);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--cp-space-2) var(--cp-space-4);
+  max-width: 100%;
+}
+
+.image > .tile {
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: min(100%, var(--cp-attachment-w));
+}
+
+.image > .caption {
+  flex: 1 1 var(--cp-note-min-w);
+  max-width: var(--cp-attachment-w);
 }
 
 /* The image is a button that opens the viewer; it adds no chrome of its own. */
@@ -124,7 +137,7 @@
   border-radius: var(--cp-radius-md);
 }
 
-.tile[data-covered='true'] > :not(.spoiler, .removed, .bar) {
+.tile[data-covered='true'] > :not(.spoiler, .removed, .storedMark, .bar) {
   filter: blur(var(--cp-spoiler-blur));
 }
 
@@ -342,27 +355,30 @@
   aspect-ratio: auto;
 }
 
-/* Under stored media, one line: the archived check, then plugins' notes. Baselines keep the check on the label's line
-   when a note opens. */
-.status {
+/* Beside or under stored media: descriptions and plugins' notes, stacked. */
+.caption {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--cp-space-4);
+  flex-direction: column;
+  gap: var(--cp-space-2);
 }
 
-.stored {
-  display: inline-flex;
-  flex: none;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-text-meta);
-}
-
-/* Baseline-aligned with the check, not stretched as a lone note under a chip is. */
-.status .note {
-  flex: 1 1 0;
-  align-self: auto;
+.caption .note {
   min-width: 0;
+}
+
+/* The archived check over a stored media tile's top-left corner, on a pill that reads over any picture. */
+.storedMark {
+  position: absolute;
+  top: var(--cp-space-3);
+  left: var(--cp-space-3);
+  display: inline-grid;
+  place-items: center;
+  padding: var(--cp-space-1);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-spoiler-pill-bg);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-meta);
+  pointer-events: none;
 }
 
 /* A plugin's note under the file (a transcript): its label and a Show toggle, then the text once opened. */
@@ -393,6 +409,14 @@
   color: var(--cp-text-muted);
   letter-spacing: var(--cp-tracking-label-sm);
   text-transform: uppercase;
+}
+
+/* A known note kind's icon in place of its label, at the label's line height so the head keeps its height. */
+.noteIcon {
+  display: inline-flex;
+  align-self: center;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-md);
 }
 
 .noteToggle {

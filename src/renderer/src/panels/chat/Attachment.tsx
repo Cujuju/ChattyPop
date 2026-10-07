@@ -6,17 +6,17 @@ import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
 import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
 import { setLightbox } from '@/state/ui';
-import { Icon } from '@/ui/icons';
+import { Icon, type IconName } from '@/ui/icons';
 import { look } from '@/theme/look';
 import { shownImageDescription, uploadShownInline } from '@shared/chatSettings';
 import { discordChatSettings } from '@/state/chatSettings';
-import { AttachmentTile } from './AttachmentTile';
+import { AttachmentTile, STORED_LABEL } from './AttachmentTile';
 import { mediaSizeVars } from './MessageExtras';
 import { presentedParts } from './ownedParts';
 import styles from './Attachment.module.css';
 
 const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
-  stored: 'archived locally',
+  stored: STORED_LABEL,
   pending: 'downloading',
   failed: 'download failed',
   evicted: 'pruned by storage limit',
@@ -46,10 +46,10 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
       }
     >
       <figure class={styles.image}>
-        <AttachmentTile message={props.message} attachment={a()}>
+        <AttachmentTile message={props.message} attachment={a()} stored>
           <AttachmentMedia attachment={a()} onUnplayable={() => setUnplayable(true)} />
         </AttachmentTile>
-        <StoredStatus notes={notes()} descriptions={shownDescriptions([a()])} />
+        <MediaCaption notes={notes()} descriptions={shownDescriptions([a()])} />
       </figure>
     </Show>
   );
@@ -127,24 +127,30 @@ export function FileChip(props: { attachment: ArchiveAttachment; messageLink: st
 export const shownDescriptions = (list: ArchiveAttachment[]): string[] =>
   list.flatMap((a) => shownImageDescription(attachmentView(a), a.description, discordChatSettings()) ?? []);
 
-/** Under stored media: its archived check, image descriptions while shown, then plugins' notes. Discord names pasted media generically (image.png), so no filename. */
-export function StoredStatus(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
+/** Beside or under stored media: image descriptions while shown, then plugins' notes; nothing when neither. Discord names pasted media generically (image.png), so no filename. */
+export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
   return (
-    <figcaption class={styles.status}>
-      <span class={styles.stored} role="img" aria-label={STATUS_LABEL.stored} title={STATUS_LABEL.stored}>
-        <Icon name="check" />
-      </span>
-      <For each={props.descriptions ?? []}>
-        {(d) => (
-          <span class={look.text} data-size="xs" data-tone="secondary">
-            {d}
-          </span>
-        )}
-      </For>
-      <For each={props.notes}>{(n) => <Note note={n} />}</For>
-    </figcaption>
+    <Show when={props.notes.length || props.descriptions?.length}>
+      <figcaption class={styles.caption}>
+        <For each={props.descriptions ?? []}>
+          {(d) => (
+            <span class={look.text} data-size="xs" data-tone="secondary">
+              {d}
+            </span>
+          )}
+        </For>
+        <For each={props.notes}>{(n) => <Note note={n} />}</For>
+      </figcaption>
+    </Show>
   );
 }
+
+/** Note kinds the published plugins emit, drawn as an icon (the label becomes its tooltip); any other kind shows its label. */
+const NOTE_ICONS: Readonly<Record<string, IconName | undefined>> = {
+  transcript: 'waveform',
+  'image-text': 'text',
+  translation: 'translate',
+};
 
 /** Plugin note labels retain constant height. Clicking toggles text; data-note-part/plugin identify notes for message menus. */
 export function Note(props: { note: AttachmentNote }) {
@@ -169,7 +175,13 @@ export function Note(props: { note: AttachmentNote }) {
       onClick={toggle}
     >
       <div class={styles.noteHead}>
-        <span class={styles.noteLabel}>{n().label}</span>
+        <Show when={NOTE_ICONS[n().kind]} fallback={<span class={styles.noteLabel}>{n().label}</span>}>
+          {(icon) => (
+            <span class={styles.noteIcon} role="img" aria-label={n().label} title={n().label}>
+              <Icon name={icon()} />
+            </span>
+          )}
+        </Show>
         <button type="button" class={styles.noteToggle} aria-expanded={open()}>
           {open() ? 'Hide' : 'Show'}
         </button>

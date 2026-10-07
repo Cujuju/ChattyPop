@@ -154,6 +154,8 @@ export const ICON_SHAPES = {
     </>
   ),
   text: () => <path d="M4 6h16M4 12h16M4 18h10" />,
+  // A source glyph beside a Latin A: translate.
+  translate: () => <path d="M2 5h12M7 2h1M4 14l6-6 2-3M5 8l6 6M12 22l5-10 5 10M14 18h6" />,
   trash: () => <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />,
   undo: () => <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />,
   waveform: () => <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />,
