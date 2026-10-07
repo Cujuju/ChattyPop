@@ -82,8 +82,9 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
               </a>
             )}
           </Match>
+          {/* data-text-emoji: text to gestures (ui/touch.ts), so a double tap on it reacts as on the words around it. */}
           <Match when={n.k === 'emoji' && n}>
-            {(e) => <img class={styles.emoji} data-jumbo={props.jumbo} src={emojiUrl(e())} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
+            {(e) => <img class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} src={emojiUrl(e())} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
           </Match>
           <Match when={n.k === 'mention' && n}>
             {(m) => (

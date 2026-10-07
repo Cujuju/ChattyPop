@@ -1,10 +1,15 @@
 // A row's double-tap handlers (ui/touch.ts doubleTapToAct), driven by touch event sequences: media keeps its taps, and a
 // second finger anywhere in the document spoils the gesture (touch lists are document-wide).
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/renderer/src/state/ui', () => ({ contextMenu: () => null }));
 
-/** Matches the simple selectors touch.ts uses (tag, [attr], [attr=value], tag[attr]); anything else throws, so the fake can't silently pass. */
+/**
+ * Matches the simple selectors touch.ts uses (tag, [attr], [attr=value], tag[attr], tag:not([attr])); anything else
+ * throws, so the fake can't silently pass.
+ */
 class FakeElement {
   constructor(
     readonly tag: string,
@@ -12,11 +17,12 @@ class FakeElement {
     readonly attrs: Record<string, string> = {},
   ) {}
   matches(selector: string): boolean {
+    const hasAttr = (attr: string | undefined, value: string | undefined): boolean => attr !== undefined && attr in this.attrs && (value === undefined || this.attrs[attr] === value);
     return selector.split(',').some((s) => {
-      const m = /^([a-z]*)(?:\[([\w-]+)(?:=([\w-]+))?\])?$/.exec(s.trim());
+      const m = /^([a-z]*)(?:\[([\w-]+)(?:=([\w-]+))?\])?(?::not\(\[([\w-]+)\]\))?$/.exec(s.trim());
       if (!m) throw new Error(`unsupported selector: ${s}`);
-      const [, tag, attr, value] = m;
-      return (!tag || this.tag === tag) && (!attr || (attr in this.attrs && (value === undefined || this.attrs[attr] === value)));
+      const [, tag, attr, value, notAttr] = m;
+      return (!tag || this.tag === tag) && (!attr || hasAttr(attr, value)) && (!notAttr || !hasAttr(notAttr, undefined));
     });
   }
   closest(selector: string): FakeElement | null {
@@ -129,6 +135,33 @@ describe('a double tap on a row', () => {
     screen.tap(media, SECOND);
     expect(runs).toBe(0);
     expect(screen.prevented).toEqual([]);
+  });
+});
+
+describe('emoji in message text, which Discord treats as text', () => {
+  /** A message's text paragraph, as Markdown draws it. */
+  const paragraph = (): FakeElement => new FakeElement('span', new FakeElement('p', rowA));
+
+  it.each([
+    ['a jumbo emoji-only message', { 'data-jumbo': 'true' }],
+    ['an inline emoji', { 'data-jumbo': 'false' }],
+  ])('reacts on %s', (_what, attrs) => {
+    const emoji = new FakeElement('img', paragraph(), { 'data-text-emoji': '', ...attrs });
+    screen.tap(emoji, 0);
+    screen.tap(emoji, SECOND);
+    expect(runs).toBe(1);
+  });
+
+  it('is how Markdown draws an emoji', () => {
+    const markdown = readFileSync(join(import.meta.dirname, '../src/renderer/src/ui/Markdown.tsx'), 'utf8');
+    expect(markdown).toMatch(/<img class=\{styles\.emoji\} data-text-emoji /);
+  });
+
+  it('leaves an emoji inside a link to the link', () => {
+    const emoji = new FakeElement('img', new FakeElement('a', paragraph(), { href: 'https://example.com' }), { 'data-text-emoji': '' });
+    screen.tap(emoji, 0);
+    screen.tap(emoji, SECOND);
+    expect(runs).toBe(0);
   });
 });
 
