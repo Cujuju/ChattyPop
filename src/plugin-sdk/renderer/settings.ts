@@ -2,6 +2,7 @@
 import { api } from '@/api';
 import { createEffect, createSignal, on, type Accessor } from 'solid-js';
 import { onAppEvent } from './appEvents';
+import { holdFirstPaint } from './firstPaint';
 
 export interface SettingOptions<T> {
   /** Seeds settings when stored values normalize to fallback. Rejected seeds write nothing and retry when seedWhen next becomes true. */
@@ -48,12 +49,14 @@ export function createSetting<T>(
       seeding = false;
     }
   };
-  const loaded = api.core.getSetting(key).then(async (stored) => {
-    const adopted = stored === undefined ? fallback : normalize(stored);
-    if (stored !== undefined) setValue(() => adopted);
-    unseeded = adopted === fallback;
-    await trySeed();
+  const adopted = api.core.getSetting(key).then((stored) => {
+    const next = stored === undefined ? fallback : normalize(stored);
+    if (stored !== undefined) setValue(() => next);
+    unseeded = next === fallback;
   });
+  // The window's first paint shows the stored value, not the fallback (the default layout before the saved one).
+  holdFirstPaint(adopted);
+  const loaded = adopted.then(trySeed);
   if (seed && opts.seedWhen) createEffect(on(opts.seedWhen, (ready) => ready && void trySeed(), { defer: true }));
   // Another window (a panel window, or the main one) changed it.
   onAppEvent('setting-changed', (e) => {

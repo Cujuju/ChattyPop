@@ -4,6 +4,7 @@ import { createResource, createSignal } from 'solid-js';
 import { BUNDLED_PLUGINS, channelAudiences } from '@shared/bundledPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { onAppEvent } from './appEvents';
+import { holdFirstPaint } from './firstPaint';
 import type { WindowMember } from './clients';
 
 const [loaded, setLoaded] = createSignal(false);
@@ -12,11 +13,15 @@ export const pluginsLoaded = loaded;
 
 /** Bundled plugins and those found in the plugins folder, with status and commands. */
 const [list, { refetch }] = createResource(
-  () =>
-    api.core.plugins().then((all) => {
+  () => {
+    const fetched = api.core.plugins().then((all) => {
       setLoaded(true);
       return all;
-    }),
+    });
+    // The first paint hides an off plugin's panels, not shows them until the list arrives.
+    holdFirstPaint(fetched);
+    return fetched;
+  },
   { initialValue: [] },
 );
 export const plugins = list;
