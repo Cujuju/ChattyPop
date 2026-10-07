@@ -1,12 +1,15 @@
 // Settings → Chat: Discord's Chat settings (synced with the account while Sync across clients is on) and this PC's own.
-import { Show } from 'solid-js';
+import { Show, createSignal } from 'solid-js';
 import {
   SPOILER_MODES,
   SPOILER_MODE_LABELS,
+  SWIPE_ACTIONS,
+  SWIPE_ACTION_LABELS,
   VIDEO_QUALITIES,
   VIDEO_QUALITY_LABELS,
   type DeviceChatSettings,
   type SpoilerMode,
+  type SwipeAction,
   type SyncedChatSettings,
   type VideoQuality,
 } from '@shared/chatSettings';
@@ -15,7 +18,8 @@ import { inCompanion } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
-import { Card, ErrorNote, Page, Row, settingsControl as c } from './SettingsLayout';
+import { ChatEmoji, DoubleTapEmojiPicker } from './DoubleTapEmoji';
+import { Card, ErrorNote, Page, Row, SettingsButton, settingsControl as c } from './SettingsLayout';
 
 type DiscordSwitchKey = { [K in keyof SyncedChatSettings]: SyncedChatSettings[K] extends boolean ? K : never }[keyof SyncedChatSettings];
 type DeviceSwitchKey = { [K in keyof DeviceChatSettings]: DeviceChatSettings[K] extends boolean ? K : never }[keyof DeviceChatSettings];
@@ -26,6 +30,7 @@ const options = <T extends string>(all: readonly T[], labels: Readonly<Record<T,
 export function ChatSection() {
   const write = createAction();
   const discord = (change: Partial<SyncedChatSettings>): void => void write.run(() => changeDiscordChatSettings(change));
+  const [picking, setPicking] = createSignal(false);
 
   const DiscordSwitch = (props: { id: string; setting: DiscordSwitchKey; label: string; hint?: string }) => (
     <Row
@@ -107,6 +112,37 @@ export function ChatSection() {
       </Card>
       <Card title="Stickers">
         <DiscordSwitch id="chat-stickers" setting="stickersInAutocomplete" label="Show stickers in autocomplete results" />
+      </Card>
+      <Card title="Gestures">
+        <Row
+          label="Swipe right to left"
+          for="chat-swipe"
+          control={
+            <Select
+              id="chat-swipe"
+              class={c.select}
+              value={deviceChatSettings().swipeAction}
+              options={options(SWIPE_ACTIONS, SWIPE_ACTION_LABELS)}
+              onChange={(v) => void changeDeviceChatSettings({ swipeAction: v as SwipeAction })}
+            />
+          }
+        />
+        <DeviceSwitch id="chat-double-tap" setting="doubleTapReact" label="Double tap to react" />
+        <Row
+          label="Double tap emoji"
+          control={
+            <>
+              <ChatEmoji emoji={deviceChatSettings().doubleTapEmoji} />
+              <SettingsButton aria-expanded={picking()} onClick={() => setPicking(!picking())}>
+                {picking() ? 'Close' : 'Change'}
+              </SettingsButton>
+            </>
+          }
+        >
+          <Show when={picking()}>
+            <DoubleTapEmojiPicker onPicked={() => setPicking(false)} />
+          </Show>
+        </Row>
       </Card>
       <Card title="Sync">
         <Row
