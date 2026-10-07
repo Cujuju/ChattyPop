@@ -21,6 +21,14 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let nativeGlobal = "chattyPopShell"
     private static let developmentEnvironment = "development"
     private static let productionEnvironment = "production"
+    // Mirrors SHELL_SAVE_MEDIA_HANDLER and SHELL_NETWORK_EVENT in src/shared/shell.ts.
+    private static let saveMediaHandler = "shellSaveMedia"
+    private static let networkEvent = "cp-shell-network"
+    /// Posted by this app's own load script, asking for the network state (publishNetwork).
+    private static let networkHandler = "shellNetwork"
+    /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
+    private static let mediaSaver = ShellMediaSaver()
+    private let network = ShellNetworkMonitor()
     /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
     static var launchNotification: UNNotificationResponse?
     /// Uses the default dark backdrop until the page publishes its own. The underlying window remains visible around the keyboard’s rounded corners.
@@ -144,6 +152,9 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         // Before any page script: the page sends it with this install's device token (companion page/shellPush.ts).
         let global = "window.\(Self.nativeGlobal) = Object.freeze({ apsEnvironment: '\(Self.apsEnvironment)' });"
         configuration.userContentController.addUserScript(WKUserScript(source: global, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // On load, after the page's scripts have added their listeners, asks for the network state.
+        let ready = "addEventListener('load', () => window.webkit?.messageHandlers?.\(Self.networkHandler)?.postMessage(null));"
+        configuration.userContentController.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let view = PairingWebView(frame: frame, configuration: configuration)
         view.initialURL = pairingURL
         pairingURL = nil
@@ -163,6 +174,12 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         let scripts = webView.configuration.userContentController
         scripts.add(WeakMessageHandler { [weak self] in self?.retry($0) }, name: Self.retryHandler)
         scripts.add(WeakMessageHandler { [weak self] in self?.setBackdrop($0) }, name: Self.backdropHandler)
+        scripts.add(WeakMessageHandler { [weak self] in self?.networkRequested($0) }, name: Self.networkHandler)
+        scripts.addScriptMessageHandler(WeakReplyMessageHandler { [weak self] message, reply in
+            guard let self else { return reply(nil, "The app is closing.") }
+            self.saveMedia(message, reply: reply)
+        }, contentWorld: .page, name: Self.saveMediaHandler)
+        network.start { [weak self] _ in self?.publishNetwork() }
         let store = webView.configuration.websiteDataStore.httpCookieStore
         cookieStore = store
         store.add(self)
@@ -280,9 +297,33 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         view.window?.backgroundColor = color
     }
 
+    /// A camera capture's pieces, saved to Photos (ShellMediaSaver). Only the paired page may add to the library.
+    fileprivate func saveMedia(_ message: WKScriptMessage, reply: @escaping (Any?, String?) -> Void) {
+        let sender = message.frameInfo.securityOrigin
+        guard message.frameInfo.isMainFrame, sender.`protocol` == "https",
+              let host = Self.savedOrigin?.host, sender.host.lowercased() == host.lowercased() else {
+            return reply(nil, "Only the paired page may save to Photos.")
+        }
+        Self.mediaSaver.receive(message.body) { error in reply(nil, error) }
+    }
+
+    fileprivate func networkRequested(_ message: WKScriptMessage) {
+        guard message.frameInfo.isMainFrame else { return }
+        publishNetwork()
+    }
+
+    /// Dispatches the network event with the current route; nothing until the first path is known.
+    private func publishNetwork() {
+        guard let cellular = network.cellular else { return }
+        webView?.evaluateJavaScript("window.dispatchEvent(new CustomEvent('\(Self.networkEvent)', { detail: { cellular: \(cellular) } }))")
+    }
+
     deinit {
-        webView?.configuration.userContentController.removeScriptMessageHandler(forName: Self.retryHandler)
-        webView?.configuration.userContentController.removeScriptMessageHandler(forName: Self.backdropHandler)
+        let scripts = webView?.configuration.userContentController
+        scripts?.removeScriptMessageHandler(forName: Self.retryHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.backdropHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.networkHandler)
+        scripts?.removeScriptMessageHandler(forName: Self.saveMediaHandler, contentWorld: .page)
         cookieStore?.remove(self)
     }
 }
@@ -297,6 +338,19 @@ private final class WeakMessageHandler: NSObject, WKScriptMessageHandler {
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         receive(message)
+    }
+}
+/** WeakMessageHandler for handlers that answer: `reply(value, nil)` resolves the page's postMessage promise, `reply(nil, error)` rejects it. */
+private final class WeakReplyMessageHandler: NSObject, WKScriptMessageHandlerWithReply {
+    private let receive: (WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void
+
+    init(_ receive: @escaping (WKScriptMessage, @escaping (Any?, String?) -> Void) -> Void) {
+        self.receive = receive
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage,
+                               replyHandler: @escaping (Any?, String?) -> Void) {
+        receive(message, replyHandler)
     }
 }
 /** Replaces Capacitor’s initial request with the confirmed pairing page. A separate load cancels the initial request and triggers Capacitor’s error page. */

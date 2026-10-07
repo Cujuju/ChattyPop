@@ -147,6 +147,18 @@ Replaces phase A's build-time address.
    - A tap that launches the app arrives in the scene's `connectionOptions.notificationResponse`, before Capacitor's
      notification delegate exists. `ShellViewController.capacitorDidLoad` hands it to the bridge's router.
 
+## Phase E — camera and network
+1. **Camera:** a plugin's `<input type="file" accept="image/*,video/*" capture>` opens WKWebView's own camera. Info.plist
+   carries `NSCameraUsageDescription`, `NSMicrophoneUsageDescription` (video sound) and `NSPhotoLibraryAddUsageDescription`.
+2. **Save to Photos:** `saveCameraCaptures` (`@plugin-sdk/renderer/kit`) runs when the device's `saveCameraToDevice` is on
+   and the app has the handler; elsewhere it does nothing. It posts each capture to `SHELL_SAVE_MEDIA_HANDLER` as ordered
+   base64 `ShellMediaPiece`s of 4 MiB, awaiting each reply, so one piece is in flight. `ShellMediaSaver.swift` writes
+   them to a temporary file, then adds it with `PHAssetCreationRequest` after asking for add-only access. Only the
+   paired origin's main frame may post. A new capture's first piece abandons an unfinished one.
+3. **Network:** `ShellNetworkMonitor.swift` watches `NWPathMonitor`. `ShellViewController` dispatches
+   `SHELL_NETWORK_EVENT` with `{ cellular }` on each change, and after each page load: its document-start script posts
+   to `shellNetwork` on `load`, after the page's scripts have added their listeners.
+
 ## Mac runbook
 1. `pnpm install`
 2. `pnpm shell:sync` (no desktop address or environment variable).
@@ -170,6 +182,9 @@ Replaces phase A's build-time address.
     replacing the first. Bad links (http, not `ts.net`, a path) are ignored.
   - Push: with a key added on the PC, turn on a notice kind in the bell sheet and allow notifications. An alert arrives
     with the app closed and with it open, and a tap opens its message. Removing the key shows the PC-setup note.
+  - Camera: the camera button takes a photo and a video; each attaches, and with Save to device on lands in Photos after
+    one add-only prompt. Picked files are never saved.
+  - Network: Safari Web Inspector, `addEventListener('cp-shell-network', e => console.log(e.detail))`, then toggle Wi-Fi.
 
 ## One-time Xcode setup
 - Add an iOS Share Extension target named `ShareExtension`, bundle id `com.cujuju.chattypop.share`, deployment target iOS 17.0.
