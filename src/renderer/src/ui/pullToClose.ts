@@ -4,6 +4,11 @@ import { scrolledFromTop } from './scrollEdges';
 
 /** A sheet pulled past this share of the distance closes (or changes height) on release, as iOS sheets do; short of it, it springs back. */
 const SHEET_DISMISS_RATIO = 0.25;
+/**
+ * Travel before a touch counts as a pull, iOS's pan threshold (10 pt). Under it the touch stays a tap: a finger's wobble
+ * must not start a pull, whose prevented touchmove would cancel the tap's click.
+ */
+const PULL_SLOP_PX = 10;
 
 /** A sheet with two heights: its CSS sets each from `expanded` (a data attribute); a pull moves between them. */
 export interface SheetExpand {
@@ -56,7 +61,8 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
       const t = e.touches[0];
       if (startY === null || !t || mode === 'scroll') return;
       const dy = t.clientY - startY;
-      mode ??= dy > 0 && atTop ? 'down' : dy < 0 && canRise ? 'up' : dy ? 'scroll' : null;
+      if (mode === null && Math.abs(dy) < PULL_SLOP_PX) return;
+      mode ??= dy > 0 && atTop ? 'down' : dy < 0 && canRise ? 'up' : 'scroll';
       if (mode === 'down') {
         moved = Math.max(0, dy);
         sheet.style.translate = `0 ${moved}px`;

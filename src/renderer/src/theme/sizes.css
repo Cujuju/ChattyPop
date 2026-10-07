@@ -197,7 +197,7 @@
   --cp-header-primary-icon: var(--cp-btn-h-sm); /* a panel header's primary action as an icon (Summarize); the phone takes Send's size */
   --cp-composer-file: 112px; /* attached-file preview tile */
   --cp-attach-sheet-h: 50dvh; /* the phone's attach sheet with its media grid: half the screen, the newest rows in view */
-  --cp-media-grid-gap: 2px; /* seams between the attach sheet's media cells, as in Photos and Discord's grid */
+  --cp-media-grid-gap: var(--cp-space-2); /* between the attach sheet's rounded media cells: wide enough that each cell's corners read */
   --cp-media-pick-ring: 2px; /* a picked media cell's ring: thick enough to read over any picture */
   --cp-media-pick-mark: 22px; /* a picked media cell's check disc, iOS Photos' selection circle */
   --cp-attach-action-disc: var(--cp-quick-reaction-phone); /* an attach action's disc: the message sheet's quick-reaction size, so the phone's sheets share one disc */

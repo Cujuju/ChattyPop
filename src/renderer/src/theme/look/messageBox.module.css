@@ -127,15 +127,10 @@
   background: var(--cp-border);
 }
 
-/* The sheet's media grid: one rounded card, its square cells meeting at hairline seams, as Photos' grid. */
-.mediaGrid {
-  border-radius: var(--cp-radius-lg);
-}
-
-/* A cell in the sheet's media grid (a photo, a video, the camera): the ground shows while its picture loads; dimmed while
-   it is being read (data-state='busy'). */
+/* A cell in the sheet's media grid (a photo, a video, the camera): rounded as an attached image in the log is; the ground
+   shows while its picture loads; dimmed while it is being read (data-state='busy'). */
 .mediaCell {
-  border-radius: 0;
+  border-radius: var(--cp-radius-md);
   background: var(--cp-surface-3);
   color: var(--cp-text-2);
   transition: opacity var(--cp-duration-fast) var(--cp-ease);
@@ -143,6 +138,7 @@
 
 /* Its ::after, over the picture (the component places the box): picked (aria-pressed), an accent ring and wash. */
 .mediaCell::after {
+  border-radius: inherit;
   transition:
     box-shadow var(--cp-duration-fast) var(--cp-ease),
     background-color var(--cp-duration-fast) var(--cp-ease);
