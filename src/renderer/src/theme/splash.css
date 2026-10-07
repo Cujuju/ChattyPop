@@ -1,6 +1,7 @@
 /* Startup splash (splash.html): 360x240 frameless, transparent window. Night tokens are the first-run look; main may set the owner's colour tokens inline on <html>. Imports stay relative (raw file:// in dev). */
 @import './tokens.css';
 @import './sizes.css';
+@import './splashIcon.css';
 
 :root {
   /* Splash-only literals: no app token covers these. */
@@ -13,7 +14,7 @@
   --splash-icon-size: 72px; /* app mark: dominant in a 240px-tall window, leaves room for name, status, bar */
   --splash-icon-shadow: 0 6px 14px color-mix(in srgb, var(--splash-shade) 35%, transparent); /* lifts the mark's dark tile off a dark ground */
   --splash-glow-size: 220px; /* accent halo behind the mark: about three marks wide, fades before the edges */
-  --splash-glow-mix: 20%; /* accent share at the halo's centre: warmth, not a spotlight */
+  --splash-glow-mix: 26%; /* accent share at the halo's centre at full opacity: reached on the pop's flash; at rest it dims to warmth */
   --splash-progress-w: 50%; /* track spans half the window: reads as a bar, not a rule */
   --splash-well-shadow: inset 0 1px 1px color-mix(in srgb, var(--splash-shade) 25%, transparent); /* the track sits in the surface */
   --splash-fill-tail-mix: 30%; /* shade share at the fill's start: it deepens behind the leading edge */
@@ -22,11 +23,6 @@
   --splash-fill-duration: 450ms; /* --splash-done's ease: steps closer together than this chain into one glide; a lone step still settles quickly */
   --splash-pulse-min-opacity: 0.4; /* reduced-motion pulse floor: visibly alive, never vanishes */
   --splash-sweep-mix: 35%; /* accent share of the track's idle sweep: alive, yet dimmer than the fill */
-  --splash-breath-duration: 2400ms; /* one rise or fall of the mark: a slow breath; a 3–10 s launch shows one to two full cycles */
-  --splash-breath-ease: ease-in-out; /* symmetric: rise and fall mirror, so the turn never snaps */
-  --splash-float-lift: 3px; /* the mark's rise: seen, yet under 5% of its size, so it hovers rather than bounces */
-  --splash-halo-min-scale: 0.9; /* halo at the mark's lowest: swells to full size as the mark rises */
-  --splash-halo-min-opacity: 0.65; /* halo at the mark's lowest: dims, never vanishes; also the reduced-motion floor */
 
   color-scheme: var(--cp-color-scheme);
 }
@@ -121,54 +117,6 @@ body {
   width: var(--splash-icon-size);
   height: var(--splash-icon-size);
   filter: drop-shadow(var(--splash-icon-shadow));
-  -webkit-user-drag: none;
-}
-
-/* Idle breath: the mark floats while its halo swells. Only once main sets the clock: the delay phases both splash windows to the launch start, so the handoff doesn't jump. */
-[data-splash-clock] .splash-icon,
-[data-splash-clock] .splash-mark::before {
-  animation: var(--splash-breath-duration) var(--splash-breath-ease) var(--splash-clock) infinite alternate;
-}
-
-[data-splash-clock] .splash-icon {
-  animation-name: splash-float;
-}
-
-[data-splash-clock] .splash-mark::before {
-  animation-name: splash-halo;
-}
-
-@keyframes splash-float {
-  from {
-    translate: 0 0;
-  }
-
-  to {
-    translate: 0 calc(-1 * var(--splash-float-lift));
-  }
-}
-
-/* Scale, not size: the halo's centring uses translate, which this leaves alone. */
-@keyframes splash-halo {
-  from {
-    scale: var(--splash-halo-min-scale);
-    opacity: var(--splash-halo-min-opacity);
-  }
-
-  to {
-    scale: 1;
-    opacity: 1;
-  }
-}
-
-@keyframes splash-halo-glow {
-  from {
-    opacity: var(--splash-halo-min-opacity);
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 .splash-name {
@@ -226,7 +174,7 @@ body {
   background-repeat: no-repeat;
 }
 
-/* Phased to the launch start like the mark's breath, so the sweep doesn't jump at the handoff. */
+/* Phased to the launch start like the icon's beat, so the sweep doesn't jump at the handoff. */
 [data-splash-clock] .splash-progress::before {
   animation: splash-sweep var(--cp-duration-sweep) var(--cp-ease) var(--splash-clock) infinite alternate;
 }
@@ -258,16 +206,8 @@ body {
   }
 }
 
-/* Reduced motion: the mark holds still and only its halo breathes; the highlight stays centred and fades; the fill shows finished work only and steps without easing. */
+/* Reduced motion: the highlight stays centred and fades; the fill shows finished work only and steps without easing. */
 @media (prefers-reduced-motion: reduce) {
-  [data-splash-clock] .splash-icon {
-    animation: none;
-  }
-
-  [data-splash-clock] .splash-mark::before {
-    animation-name: splash-halo-glow;
-  }
-
   .splash-progress::before {
     background-position-x: 50%;
   }

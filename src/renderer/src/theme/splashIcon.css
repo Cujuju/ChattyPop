@@ -1,0 +1,230 @@
+/* Splash icon motion (splash.html inline svg): one "type, type, pop" beat. Imported by splash.css; a relative path, so it loads raw from file:// in dev. */
+
+:root {
+  --splash-beat-duration: 2800ms; /* one "type, type, pop" cycle: every icon loop shares it; a 3–10 s launch shows one to three beats */
+  --splash-beat-ease: ease-in-out; /* each keyframe segment starts and lands softly: lively, never snappy */
+  /* Icon parts move in icon units (viewBox 256 drawn at --splash-icon-size: 1 unit is about 0.28 screen px). */
+  --splash-dot-stagger: 120ms; /* delay between neighbouring dots: a left-to-right wave that ends well before the pop */
+  --splash-dot-hop: 14px; /* a dot's rise in icon units (about 4 screen px): clearly hops, stays inside the bubble */
+  --splash-dot-rest-opacity: 0.45; /* dots between hops: the amber shows through, so the hopping dot stands out */
+  --splash-tail-x: 70px; /* bubble tail tip, icon units: the pop squashes onto where the message lands */
+  --splash-tail-y: 214px;
+  --splash-pop-squash: 1.1 0.88; /* pop landing (x y): widens and flattens */
+  --splash-pop-stretch: 0.94 1.1; /* pop rebound: narrows and rises */
+  --splash-pop-settle: 1.02 0.98; /* small overshoot before rest: reads elastic, not rigid */
+  --splash-sparkle-twinkle-scale: 0.75; /* small twinkle while the dots type */
+  --splash-sparkle-gather-scale: 0.6; /* sparkle gathers as the bubble stretches... */
+  --splash-sparkle-flare-scale: 1.5; /* ...then flares: the pop's flourish */
+  --splash-sparkle-dim-opacity: 0.6; /* sparkle at a twinkle's low: dims, never vanishes */
+  --splash-sparkle-turn: 90deg; /* the 4-point star's symmetry: a quarter turn ends as it began, so the loop wraps seamlessly */
+  --splash-float-lift: 4px; /* the mark rises while the dots type */
+  --splash-float-dip: 1px; /* it dips as the message lands... */
+  --splash-float-rebound: 3px; /* ...and springs back up */
+  --splash-halo-min-scale: 0.92; /* halo at rest: swells past full size on the pop */
+  --splash-halo-flash-scale: 1.08; /* halo on the pop: a flash of light, still inside the window */
+  --splash-halo-min-opacity: 0.55; /* halo at rest: dims, never vanishes; also the reduced-motion floor */
+}
+
+/* The bubble and its dots scale about the tail tip together (view-box, so one origin serves both); the sparkle turns about its own centre. */
+.splash-icon-bubble,
+.splash-icon-dot {
+  transform-box: view-box;
+  transform-origin: var(--splash-tail-x) var(--splash-tail-y);
+}
+
+.splash-icon-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* One beat, every loop on its own clock phase so both splash windows match at the handoff:
+   0–49% the dots type twice; 54–82% the bubble pops (lands at 60%), the mark dips and the halo flashes; 62–88% the sparkle flares. */
+[data-splash-clock] :is(.splash-icon, .splash-icon-bubble, .splash-icon-dot, .splash-icon-sparkle),
+[data-splash-clock] .splash-mark::before {
+  animation-duration: var(--splash-beat-duration);
+  animation-timing-function: var(--splash-beat-ease);
+  animation-delay: var(--splash-clock);
+  animation-iteration-count: infinite;
+}
+
+[data-splash-clock] .splash-icon {
+  animation-name: splash-float;
+}
+
+[data-splash-clock] .splash-mark::before {
+  animation-name: splash-halo;
+}
+
+[data-splash-clock] .splash-icon-bubble {
+  animation-name: splash-pop;
+}
+
+[data-splash-clock] .splash-icon-sparkle {
+  animation-name: splash-twinkle;
+}
+
+/* Dots hop in turn and ride the bubble's pop. */
+[data-splash-clock] .splash-icon-dot {
+  --splash-dot-delay: var(--splash-clock);
+
+  animation-name: splash-type, splash-pop;
+  animation-delay: var(--splash-dot-delay), var(--splash-clock);
+}
+
+[data-splash-clock] .splash-icon-dot:nth-of-type(2) {
+  --splash-dot-delay: calc(var(--splash-clock) + var(--splash-dot-stagger));
+}
+
+[data-splash-clock] .splash-icon-dot:nth-of-type(3) {
+  --splash-dot-delay: calc(var(--splash-clock) + 2 * var(--splash-dot-stagger));
+}
+
+@keyframes splash-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  48% {
+    translate: 0 calc(-1 * var(--splash-float-lift));
+  }
+
+  60% {
+    translate: 0 var(--splash-float-dip);
+  }
+
+  72% {
+    translate: 0 calc(-1 * var(--splash-float-rebound));
+  }
+}
+
+/* Scale, not size: the halo's centring uses translate, which this leaves alone. */
+@keyframes splash-halo {
+  0%,
+  56%,
+  100% {
+    scale: var(--splash-halo-min-scale);
+    opacity: var(--splash-halo-min-opacity);
+  }
+
+  64% {
+    scale: var(--splash-halo-flash-scale);
+    opacity: 1;
+  }
+}
+
+@keyframes splash-halo-glow {
+  0%,
+  56%,
+  100% {
+    opacity: var(--splash-halo-min-opacity);
+  }
+
+  64% {
+    opacity: 1;
+  }
+}
+
+@keyframes splash-type {
+  0%,
+  16%,
+  24%,
+  40%,
+  100% {
+    translate: 0 0;
+    opacity: var(--splash-dot-rest-opacity);
+  }
+
+  8%,
+  32% {
+    translate: 0 calc(-1 * var(--splash-dot-hop));
+    opacity: 1;
+  }
+}
+
+@keyframes splash-type-fade {
+  0%,
+  16%,
+  24%,
+  40%,
+  100% {
+    opacity: var(--splash-dot-rest-opacity);
+  }
+
+  8%,
+  32% {
+    opacity: 1;
+  }
+}
+
+@keyframes splash-pop {
+  0%,
+  54%,
+  82%,
+  100% {
+    scale: 1;
+  }
+
+  60% {
+    scale: var(--splash-pop-squash);
+  }
+
+  67% {
+    scale: var(--splash-pop-stretch);
+  }
+
+  74% {
+    scale: var(--splash-pop-settle);
+  }
+}
+
+/* Ends a quarter turn on: the star looks the same, so 100% meets 0% without a jump. */
+@keyframes splash-twinkle {
+  0%,
+  30%,
+  62% {
+    scale: 1;
+    rotate: 0deg;
+    opacity: 1;
+  }
+
+  20% {
+    scale: var(--splash-sparkle-twinkle-scale);
+    opacity: var(--splash-sparkle-dim-opacity);
+  }
+
+  68% {
+    scale: var(--splash-sparkle-gather-scale);
+    rotate: 0deg;
+    opacity: var(--splash-sparkle-dim-opacity);
+  }
+
+  78% {
+    scale: var(--splash-sparkle-flare-scale);
+    rotate: calc(var(--splash-sparkle-turn) / 2);
+    opacity: 1;
+  }
+
+  88%,
+  100% {
+    scale: 1;
+    rotate: var(--splash-sparkle-turn);
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: nothing moves. The dots fade in turn and the halo glows on the beat. */
+@media (prefers-reduced-motion: reduce) {
+  [data-splash-clock] :is(.splash-icon, .splash-icon-bubble, .splash-icon-sparkle) {
+    animation: none;
+  }
+
+  [data-splash-clock] .splash-icon-dot {
+    animation-name: splash-type-fade;
+    animation-delay: var(--splash-dot-delay);
+  }
+
+  [data-splash-clock] .splash-mark::before {
+    animation-name: splash-halo-glow;
+  }
+}

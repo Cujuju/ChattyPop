@@ -11,7 +11,25 @@
     <div class="splash-window">
       <main class="splash-hero">
         <div class="splash-mark">
-          <img class="splash-icon" src="../../build/icon.svg" alt="" />
+          <!-- build/icon.svg inline, its parts classed so the theme can animate them; a test keeps the shapes the same. -->
+          <svg class="splash-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" aria-hidden="true">
+            <defs>
+              <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#1c2230"/>
+                <stop offset="1" stop-color="#0c0f15"/>
+              </linearGradient>
+              <linearGradient id="bubble" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffc766"/>
+                <stop offset="1" stop-color="#f0a53a"/>
+              </linearGradient>
+            </defs>
+            <rect class="splash-icon-tile" x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+            <path class="splash-icon-bubble" d="M60 70h118a26 26 0 0 1 26 26v62a26 26 0 0 1-26 26h-70l-38 30v-30h-10a26 26 0 0 1-26-26V96a26 26 0 0 1 26-26z" fill="url(#bubble)"/>
+            <circle class="splash-icon-dot" cx="92" cy="127" r="11" fill="#141822"/>
+            <circle class="splash-icon-dot" cx="124" cy="127" r="11" fill="#141822"/>
+            <circle class="splash-icon-dot" cx="156" cy="127" r="11" fill="#141822"/>
+            <path class="splash-icon-sparkle" d="M206 30l7 17 17 7-17 7-7 17-7-17-17-7 17-7z" fill="#b79cff"/>
+          </svg>
         </div>
         <h1 class="splash-name">ChattyPop</h1>
       </main>
