@@ -14,6 +14,7 @@ import {
   type VideoQuality,
 } from '@shared/chatSettings';
 import { changeDeviceChatSettings, changeDiscordChatSettings, deviceChatSettings, discordChatSettings, setSyncAcrossClients } from '@/state/chatSettings';
+import { inCompanion } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
@@ -49,13 +50,28 @@ export function ChatSection() {
   );
 
   return (
-    <Page id="chat" title="Chat" lede="How messages show and what the composer does. Discord’s own settings follow your account; the rest are this PC’s.">
+    <Page
+      id="chat"
+      title="Chat"
+      lede={`How messages show and what the composer does. Discord’s own settings follow your account; the rest are this ${inCompanion ? 'phone' : 'PC'}’s.`}
+    >
       <ErrorNote error={write.error()} />
       <Card title="Show images and videos">
         <DiscordSwitch id="chat-link-media" setting="inlineLinkMedia" label="When posted as links to chat" />
         <DiscordSwitch id="chat-attachment-media" setting="inlineAttachmentMedia" label="When uploaded directly to Discord" hint="Off: uploads show as files." />
         <DiscordSwitch id="chat-image-descriptions" setting="imageDescriptions" label="With image descriptions" />
       </Card>
+      {/* Only the phone takes photos and videos with its camera. */}
+      <Show when={inCompanion}>
+        <Card title="Camera uploads">
+          <DeviceSwitch
+            id="chat-camera-save"
+            setting="saveCameraToDevice"
+            label="Save to device"
+            hint="Photos and videos you take with the camera to send are saved to your library too."
+          />
+        </Card>
+      </Show>
       <Card title="Video uploads">
         <Row
           label="Quality"
