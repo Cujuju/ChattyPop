@@ -285,16 +285,19 @@
   align-items: flex-start;
   gap: var(--cp-space-7);
   padding: var(--cp-space-5) var(--cp-space-7);
-  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
 }
 
-.field:first-child {
-  border-top: 0;
+/* Inset divider between fields, like settings rows. */
+.field:not(:first-child) {
+  background-image: linear-gradient(var(--cp-border-subtle), var(--cp-border-subtle));
+  background-position: top;
+  background-size: calc(100% - 2 * var(--cp-space-7)) var(--cp-border-w);
+  background-repeat: no-repeat;
 }
 
 /* "And it has": a quieter band under the match fields it narrows. */
 .field[data-tone='narrow'] {
-  background: var(--cp-surface-1);
+  background-color: var(--cp-surface-1);
 }
 
 .fieldLabel {
