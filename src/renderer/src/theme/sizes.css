@@ -186,6 +186,9 @@
   --cp-composer-send-icon: 20px; /* 6px clear of its edge, as a thumb icon is */
   --cp-header-primary-icon: var(--cp-btn-h-sm); /* a panel header's primary action as an icon (Summarize); the phone takes Send's size */
   --cp-composer-file: 112px; /* attached-file preview tile */
+  --cp-media-grid-gap: 2px; /* seams between the attach sheet's media cells, as in Photos and Discord's grid */
+  --cp-media-pick-ring: 2px; /* a picked media cell's ring and its mark's edge: thick enough to read over any picture */
+  --cp-media-pick-mark: 22px; /* a media cell's pick mark, iOS Photos' selection circle */
   --cp-typing-h: 20px; /* the "is typing…" line above the message box: one line of xs text, 4px above and below */
   --cp-picker-w: 424px; /* GIF / sticker / emoji picker: nine emoji or four stickers a row */
   --cp-picker-h: 440px;

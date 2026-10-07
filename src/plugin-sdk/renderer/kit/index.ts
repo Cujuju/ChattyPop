@@ -53,6 +53,8 @@ export { RuleLookback } from '@/views/settings/rules/RuleLookback';
 export { JevQuestionField, conditionWording } from '@/ui/JevQuestionField';
 export { InlineMarkdown } from '@/ui/Markdown';
 export { listen, onPointerDownOutside } from '@/ui/listen';
+// A phone sheet's pull down to close, as the message menu's.
+export { pullToClose } from '@/ui/pullToClose';
 export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect } from '@/ui/SearchSelect';

@@ -2,6 +2,7 @@
 import { api } from '@/api';
 import { OPTION, type CommandEntry, type CommandOption, type OptionValue } from '@shared/commands';
 import { DISCORD_TEXT_MAX, GUILD_TEXT_CHANNEL_TYPE, THREAD_NAME_MAX } from '@shared/discord';
+import { channelById } from './directory';
 
 export type LocalCommand = 'thread' | 'msg';
 
@@ -55,6 +56,12 @@ export const LOCAL_COMMANDS: LocalCommandSpec[] = [
     availableIn: () => true,
   },
 ];
+
+/** The local command named `local`. */
+export const localCommand = (local: LocalCommand): LocalCommandSpec => LOCAL_COMMANDS.find((l) => l.local === local)!;
+
+/** Whether a thread can start from `channelId` (a plain text channel), as /thread's menu entry shows. */
+export const canStartThread = (channelId: string): boolean => localCommand('thread').availableIn(channelById(channelId)?.kind);
 
 /** Runs a filled-in /thread or /msg from `channelId`. */
 export function runLocalCommand(local: LocalCommand, channelId: string, values: Record<string, OptionValue | undefined>): Promise<void> {

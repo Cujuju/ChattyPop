@@ -33,9 +33,11 @@ export {
   setOptionFile,
   setOptionText,
   startCommand,
+  startThread,
   suggest,
   unfinishedOptions,
 } from '@/state/commandDraft';
+export { canStartThread } from '@/state/localCommands';
 export { entityKind, entityQuery, listedChoices, optionalLeft, picksFromList, type FilledOption } from '@/state/commandOptions';
 export { OPTION, type CommandOption } from '@shared/commands';
 

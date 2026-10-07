@@ -1,5 +1,5 @@
 {
-  "version": "2.14.0",
+  "version": "2.15.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -45,6 +45,7 @@
       "PROVIDER_DISPLAY_NAME_MAX",
       "PUBLIC_THREAD_TYPE",
       "RULE_SPEC_VERSION",
+      "SHELL_ASSET_SCHEME",
       "SHELL_BUNDLE_ID",
       "SHELL_CAPABILITIES",
       "SHELL_NATIVE_GLOBAL",
@@ -367,6 +368,7 @@
       "providerRuns",
       "providerSettingsOf",
       "providerStatus",
+      "pullToClose",
       "querySearch",
       "recentPhotos",
       "refetchPlanUsage",
@@ -413,6 +415,7 @@
       "canEdit",
       "canForward",
       "canReply",
+      "canStartThread",
       "canUseSticker",
       "cancelCommand",
       "cancelMemberRequest",
@@ -481,6 +484,7 @@
       "startEdit",
       "startForward",
       "startReply",
+      "startThread",
       "suggest",
       "typedBuiltin",
       "unfinishedOptions"

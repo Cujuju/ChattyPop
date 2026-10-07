@@ -17,6 +17,16 @@ const SOLID_ICONS = {
     <path d="M9 3h6l1.5 2H19a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h2.5ZM12 8.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 1 0 0-9ZM12 10.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5Z" />
   ),
   attach: () => <path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20ZM10.9 6.5h2.2v4.4h4.4v2.2h-4.4v4.4h-2.2v-4.4H6.5v-2.2h4.4Z" />,
+  // Four tiles: the attach sheet's Apps (an app's commands).
+  apps: () => <path d="M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM15 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1ZM15 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z" />,
+  // A page, its corner folded: the attach sheet's Files.
+  file: () => <path d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM13 3.5V9h5.5Z" />,
+  // A picture, its sun and hill cut out: the attach sheet's Photos.
+  image: () => <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8.5 6.5a2 2 0 1 0 0 4 2 2 0 1 0 0-4ZM5 18h14l-4.5-6-3.5 4.5-2-2.5Z" />,
+  // Three bars of votes: the attach sheet's Poll.
+  poll: () => <path d="M3 4h12a2 2 0 0 1 0 4H3ZM3 10h18a2 2 0 0 1 0 4H3ZM3 16h8a2 2 0 0 1 0 4H3Z" />,
+  // Two speech lines branching: the attach sheet's Thread.
+  thread: () => <path d="M4 2h2.2v6.5a3 3 0 0 0 3 3H20v2.2H9.2A5.2 5.2 0 0 1 4 8.5ZM12 15.5h8v2.2h-8ZM12 19.8h6V22h-6Z" />,
   // Discord's mark, where Discord's profile shows it (the date someone joined Discord).
   discord: () => (
     <path d="M19.73 4.87a18.2 18.2 0 0 0-4.6-1.44c-.21.4-.4.8-.58 1.21-1.69-.25-3.4-.25-5.1 0-.18-.41-.37-.82-.59-1.2-1.6.27-3.14.75-4.6 1.43A19.04 19.04 0 0 0 .96 17.7a18.43 18.43 0 0 0 5.63 2.87c.46-.62.86-1.28 1.2-1.98-.65-.25-1.29-.55-1.9-.92.17-.12.32-.24.47-.37 3.58 1.7 7.7 1.7 11.28 0l.46.37c-.6.36-1.25.67-1.9.92.35.7.75 1.35 1.2 1.98 2.03-.63 3.94-1.6 5.64-2.87.47-4.87-.78-9.09-3.3-12.83ZM8.3 15.12c-1.1 0-2-1.02-2-2.27 0-1.24.88-2.26 2-2.26s2.02 1.02 2 2.26c0 1.25-.89 2.27-2 2.27Zm7.4 0c-1.1 0-2-1.02-2-2.27 0-1.24.88-2.26 2-2.26s2.02 1.02 2 2.26c0 1.25-.88 2.27-2 2.27Z" />

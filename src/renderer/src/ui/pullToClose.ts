@@ -5,8 +5,9 @@ import { scrolledFromTop } from './scrollEdges';
 /** A sheet pulled down past this share of its height closes on release, as iOS sheets do; short of it, it springs back. */
 const SHEET_DISMISS_RATIO = 0.25;
 
-/** Top-scrolled sheets follow downward pulls and close past SHEET_DISMISS_RATIO on release. data-pull disables spring transitions while dragging. */
-export function pullToClose(sheet: HTMLDivElement, close: () => void): void {
+/** Top-scrolled sheets follow downward pulls and close past SHEET_DISMISS_RATIO on release. data-pull disables spring transitions while dragging.
+ *  `scroller` is what scrolls inside the sheet (the sheet itself by default): a pull starts only while it is at its top. */
+export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTMLElement = sheet): void {
   let startY: number | null = null;
   let pulled = 0;
   const settle = (): void => {
@@ -20,7 +21,7 @@ export function pullToClose(sheet: HTMLDivElement, close: () => void): void {
     'touchstart',
     (e) => {
       const t = e.touches[0];
-      startY = t && e.touches.length === 1 && scrolledFromTop(sheet) <= 0 ? t.clientY : null;
+      startY = t && e.touches.length === 1 && scrolledFromTop(scroller) <= 0 ? t.clientY : null;
     },
     { passive: true },
   );

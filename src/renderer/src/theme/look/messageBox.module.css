@@ -121,6 +121,77 @@
   background: var(--cp-danger-bg);
 }
 
+/* The phone's attach sheet. A sheet's grab handle: iOS's grabber. */
+.sheetGrabber {
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-border);
+}
+
+/* A cell in the sheet's media grid (a photo, a video, the camera): the ground shows while its picture loads; picked
+   (aria-pressed) ringed in the accent; dimmed while it is being read (data-state='busy'). */
+.mediaCell {
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-2);
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+}
+
+.mediaCell[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 var(--cp-media-pick-ring) var(--cp-accent);
+}
+
+.mediaCell[data-state='busy'] {
+  opacity: var(--cp-opacity-disabled);
+}
+
+.mediaCell:focus-visible {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* A cell's pick mark: a ring over any picture; picked (data-picked), the accent disc carrying its order. */
+.pickMark {
+  border: var(--cp-media-pick-ring) solid var(--cp-text-1);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-spoiler-pill-bg);
+  color: var(--cp-text-on-accent);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-none);
+}
+
+.pickMark[data-picked='true'] {
+  border-color: var(--cp-accent);
+  background: var(--cp-accent);
+}
+
+/* A video's length over its picture, on a pill that reads over any picture. */
+.durationBadge {
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-spoiler-pill-bg);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--cp-leading-none);
+}
+
+/* An action in the sheet (Photos, Files, Thread): its icon on a raised disc, its label under it; pressed washed. */
+.actionDisc {
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+:active > .actionDisc,
+.actionDisc:active {
+  background: var(--cp-surface-5);
+}
+
+:disabled > .actionDisc {
+  opacity: var(--cp-opacity-disabled);
+}
+
 /* A popover over the box: menus, suggestions, pickers. */
 .popover {
   border: var(--cp-border-w) solid var(--cp-border);

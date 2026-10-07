@@ -4,7 +4,7 @@ import { createStore, produce } from 'solid-js/store';
 import { OPTION, type CommandChoice, type CommandEntry, type CommandOption, type CommandRun } from '@shared/commands';
 import { followOutcome, interactionGuild } from './commands';
 import { typedValue, type FilledOption } from './commandOptions';
-import { runLocalCommand, type LocalCommand } from './localCommands';
+import { localCommand, runLocalCommand, type LocalCommand } from './localCommands';
 
 export type { FilledOption } from './commandOptions';
 
@@ -28,6 +28,12 @@ export const commandDraft = (channelId: string): CommandDraft | undefined => dra
 
 export function startCommand(channelId: string, entry: CommandEntry, local?: LocalCommand): void {
   setDrafts(channelId, { entry, local, shown: entry.options.filter((o) => o.required).map((o) => o.name), texts: {}, values: {}, files: {}, tail: '' });
+}
+
+/** Opens /thread's form in the channel's composer, as picking it from the `/` menu does (canStartThread says where). */
+export function startThread(channelId: string): void {
+  const thread = localCommand('thread');
+  startCommand(channelId, thread.entry, thread.local);
 }
 
 export function cancelCommand(channelId: string): void {
