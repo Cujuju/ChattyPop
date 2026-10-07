@@ -1,4 +1,5 @@
 import { STICKER_FORMAT } from './compose';
+import { isTextFile } from './textFiles';
 import type { MediaSize } from './types/archive';
 
 /** Scheme serving locally cached Discord media to the renderer. */
@@ -86,10 +87,16 @@ export const isSpoiler = (a: { filename: string; flags: number | null }): boolea
 /** A content type that says nothing about the media; the stored extension decides instead. */
 export const GENERIC_CONTENT_TYPE = 'application/octet-stream';
 
-/** How a stored attachment shows inline: an image, an audio player (length fetched up front) or a video (first frame fetched up front). Others are file chips. */
-export type AttachmentView = 'image' | 'audio' | 'video' | 'file';
+/**
+ * How a stored attachment shows inline: an image, an audio player (length fetched up front), a video (first frame
+ * fetched up front) or a text preview. Others are file chips. A text ending wins over any kind but image, as in Discord:
+ * `.ts` is TypeScript even when typed video/mp2t; `.svg` stays a picture.
+ */
+export type AttachmentView = 'image' | 'audio' | 'video' | 'text' | 'file';
 export function attachmentView(a: { status: string; contentType: string | null; filename: string }): AttachmentView {
-  return a.status === 'stored' ? mediaKind(a) : 'file';
+  if (a.status !== 'stored') return 'file';
+  const kind = mediaKind(a);
+  return kind !== 'image' && isTextFile(a.filename) ? 'text' : kind;
 }
 
 /** Embeds whose images are a video's still or an animation, not a picture shared to be read. */
@@ -111,7 +118,7 @@ export const isAnimatedImage = (a: { contentType: string | null; filename: strin
   ((a.flags ?? 0) & ATTACHMENT_FLAG.animated) !== 0 || mediaType(a) === 'image/gif';
 
 /** What an attachment holds, by its content type, else its extension; 'file' for anything but image, audio or video. */
-export function mediaKind(a: { contentType: string | null; filename: string }): AttachmentView {
+export function mediaKind(a: { contentType: string | null; filename: string }): Exclude<AttachmentView, 'text'> {
   const kind = (mediaType(a) ?? '').split('/')[0];
   return kind === 'image' || kind === 'audio' || kind === 'video' ? kind : 'file';
 }

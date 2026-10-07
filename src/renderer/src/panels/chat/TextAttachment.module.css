@@ -1,0 +1,14 @@
+/* Markup contract for TextAttachment.tsx; the design agent styles it. Code colors: --cp-code-* tokens (ui/highlight.ts). */
+.root {}
+.header {}
+.name {}
+.meta {}
+.language {}
+.loading {}
+.code {}
+.line {}
+.footer {}
+.toggle {}
+.viewAll {}
+.notice {}
+.window {}

@@ -1,5 +1,5 @@
 import type { PlanUsageWindow } from '@shared/contract';
-import { BYTES_PER_GB, BYTES_PER_MB, MS_PER_MIN } from '@shared/units';
+import { BYTES_PER_GB, BYTES_PER_KB, BYTES_PER_MB, MS_PER_MIN } from '@shared/units';
 
 const THOUSAND = 1000;
 const MILLION = 1_000_000;
@@ -7,6 +7,9 @@ const MILLION = 1_000_000;
 /** Disk size: whole MB below a GB, else GB to one decimal. */
 export const formatBytes = (bytes: number): string =>
   bytes >= BYTES_PER_GB ? `${(bytes / BYTES_PER_GB).toFixed(1)} GB` : `${(bytes / BYTES_PER_MB).toFixed(0)} MB`;
+
+/** A file's size in whole KB, as attachments show it; empty when unknown. */
+export const kilobytesText = (bytes: number | null | undefined): string => (bytes ? `${Math.round(bytes / BYTES_PER_KB)} KB` : '');
 
 /** Compact token count: 950, 12.3k, 1.4M. */
 export function formatTokens(n: number): string {

@@ -2,16 +2,17 @@ import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } 
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
 import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { AnimatedImage } from '@/ui/AnimatedImage';
-import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
 import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
 import { setLightbox } from '@/state/ui';
+import { kilobytesText } from '@/ui/format';
 import { Icon, type IconName } from '@/ui/icons';
 import { look } from '@/theme/look';
 import { shownImageDescription, uploadShownInline } from '@shared/chatSettings';
 import { discordChatSettings } from '@/state/chatSettings';
 import { AttachmentTile, STORED_LABEL } from './AttachmentTile';
 import { mediaSizeVars } from './MessageExtras';
+import { TextAttachment } from './TextAttachment';
 import { presentedParts } from './ownedParts';
 import styles from './Attachment.module.css';
 
@@ -25,33 +26,38 @@ const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
 const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl(a.sha256, a.filename) : undefined);
 /** An animated image's still while the owner can't look: Discord's proxy's first frame, kept once fetched. */
 const still = (a: ArchiveAttachment): string | undefined => (a.animated ? attachmentPosterUrl(a.id) : undefined);
-const kilobytes = (a: ArchiveAttachment): string => (a.size ? `${Math.round(a.size / BYTES_PER_KB)} KB` : '');
+const kilobytes = (a: ArchiveAttachment): string => kilobytesText(a.size);
 
-/** Shows stored media inline or file-status chips. Notes survive pruning; unsupported video decoders fall back to chips. */
+/** Shows stored media or text inline, else file-status chips. Notes survive pruning; unplayable video and unreadable text fall back to chips. */
 export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
-  const [unplayable, setUnplayable] = createSignal(false);
-  const view = () => (unplayable() || !uploadShownInline(attachmentView(a()), discordChatSettings()) ? 'file' : attachmentView(a()));
+  const [unshowable, setUnshowable] = createSignal(false);
+  const view = () => (unshowable() || !uploadShownInline(attachmentView(a()), discordChatSettings()) ? 'file' : attachmentView(a()));
   const notes = () => presentedParts(a().notes, pluginPresents);
   return (
-    <Show
-      when={view() !== 'file'}
+    <Switch
       fallback={
-        <>
-          <AttachmentTile message={props.message} attachment={a()}>
-            <FileChip attachment={a()} messageLink={props.messageLink} />
+        <MediaFigure>
+          <AttachmentTile message={props.message} attachment={a()} stored>
+            <AttachmentMedia attachment={a()} onUnplayable={() => setUnshowable(true)} />
           </AttachmentTile>
-          <For each={notes()}>{(n) => <Note note={n} />}</For>
-        </>
+          <MediaCaption notes={notes()} descriptions={shownDescriptions([a()])} />
+        </MediaFigure>
       }
     >
-      <MediaFigure>
-        <AttachmentTile message={props.message} attachment={a()} stored>
-          <AttachmentMedia attachment={a()} onUnplayable={() => setUnplayable(true)} />
+      <Match when={view() === 'file'}>
+        <AttachmentTile message={props.message} attachment={a()}>
+          <FileChip attachment={a()} messageLink={props.messageLink} />
         </AttachmentTile>
-        <MediaCaption notes={notes()} descriptions={shownDescriptions([a()])} />
-      </MediaFigure>
-    </Show>
+        <For each={notes()}>{(n) => <Note note={n} />}</For>
+      </Match>
+      <Match when={view() === 'text'}>
+        <AttachmentTile message={props.message} attachment={a()} stored>
+          <TextAttachment attachment={a()} onUnreadable={() => setUnshowable(true)} />
+        </AttachmentTile>
+        <For each={notes()}>{(n) => <Note note={n} />}</For>
+      </Match>
+    </Switch>
   );
 }
 
