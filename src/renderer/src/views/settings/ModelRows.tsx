@@ -45,7 +45,7 @@ export function ModelRow(props: RowProps) {
             class={c.select}
             value={current()}
             disabled={!status()?.models}
-            options={[{ value: '', label: 'Settings → AI model' }, ...options().map((m) => ({ value: m.id, label: m.label }))]}
+            options={[{ value: '', label: 'Model from Settings → AI providers' }, ...options().map((m) => ({ value: m.id, label: m.label }))]}
             onChange={(v) => {
               const model = v || null;
               props.onChange({ model, effort: keptEffort(props.value.effort, modelOption(props.provider, model)) });

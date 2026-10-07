@@ -71,7 +71,7 @@ export interface ProviderImpl {
 }
 
 /** A provider whose plugin runs but whose Use switch in Settings → AI is off. */
-export const TURNED_OFF = 'Turned off in Settings → AI.';
+export const TURNED_OFF = 'Turned off in Settings → AI providers.';
 
 /** A declared provider and why it can't run now (its plugin is off or absent); null while it can. */
 export interface ProviderInfo extends ProviderDecl {

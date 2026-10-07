@@ -48,7 +48,7 @@ export function ModelRows(props: ModelRowsProps) {
     ...(provider() ? [] : [{ value: NONE, label: 'Pick a provider…' }]),
     ...props.providers.map((p) => ({ value: p.id, label: p.unavailable ? `${p.label} (can’t be used)` : p.label })),
   ];
-  const settingsAi = () => <LinkButton onClick={() => openSettingsAt(AI_SETTINGS)}>Open Settings → AI</LinkButton>;
+  const settingsAi = () => <LinkButton onClick={() => openSettingsAt(AI_SETTINGS)}>Open Settings → AI providers</LinkButton>;
   return (
     <>
       <Show when={props.providers.length} fallback={<Note>{props.none}</Note>}>
@@ -74,7 +74,7 @@ export function ModelRows(props: ModelRowsProps) {
                 <Show when={!p().unavailable}>
                   <Note>
                     No model on {p().label}
-                    {props.kind ? ` ${props.kind}` : ''} is installed. <LinkButton onClick={() => openSettingsAt(AI_SETTINGS)}>Install one in Settings → AI</LinkButton>
+                    {props.kind ? ` ${props.kind}` : ''} is installed. <LinkButton onClick={() => openSettingsAt(AI_SETTINGS)}>Install one in Settings → AI providers</LinkButton>
                   </Note>
                 </Show>
               }

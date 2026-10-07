@@ -35,7 +35,7 @@ export const HOST_SETTINGS_TABS: readonly [HostTab, ...HostTab[]] = [
   {
     id: 'ai',
     groupStart: true,
-    label: 'AI',
+    label: 'AI providers',
     icon: () => <path d="M11 3.5 12.8 8.2 17.5 10 12.8 11.8 11 16.5 9.2 11.8 4.5 10 9.2 8.2z M18.5 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />,
     body: AiSection,
   },
@@ -55,6 +55,7 @@ export const HOST_SETTINGS_TABS: readonly [HostTab, ...HostTab[]] = [
   },
   {
     id: 'chat',
+    groupStart: true,
     label: 'Chat',
     // A speech bubble.
     icon: () => <path d="M4 5h16v11H9l-5 4z" />,
@@ -62,7 +63,6 @@ export const HOST_SETTINGS_TABS: readonly [HostTab, ...HostTab[]] = [
   },
   {
     id: 'notifications',
-    groupStart: true,
     label: 'Notifications',
     // A bell.
     icon: () => <path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4zM10 20.5a2 2 0 0 0 4 0" />,
