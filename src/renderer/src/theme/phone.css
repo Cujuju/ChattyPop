@@ -21,7 +21,6 @@ html[data-surface='companion'] {
   --cp-panel-subheader-h: 44px;
   --cp-chip-h: 28px;
   --cp-seg-h: 28px;
-  --cp-reaction-h: 28px;
   --cp-switch-h: 28px;
   --cp-switch-w: calc(var(--cp-switch-h) * 7 / 4); /* the desktop track's 7:4 */
   --cp-hit-min: 28px; /* a compact control inside text or a badge: Apple's minimum */

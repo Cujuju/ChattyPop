@@ -164,8 +164,9 @@
   --cp-app-tag-text: 12.8px; /* its label, Discord's size */
   --cp-app-tag-check: 16px; /* a verified app's check in it, Discord's size */
   --cp-app-tag-check-inset: -3px; /* the check eats into the chip's left padding, as Discord's does */
-  --cp-reaction-h: 24px; /* reaction pill */
-  --cp-reaction-emoji: 16px; /* emoji inside a reaction pill */
+  --cp-reaction-h: 30px; /* reaction pill, border included: Discord's (measured 2026-10-07) */
+  --cp-reaction-emoji: 20px; /* emoji inside a reaction pill: Discord's (measured 2026-10-07) */
+  --cp-component-emoji: 16px; /* emoji on a message-component button */
   --cp-reaction-tip-emoji: 40px; /* The emoji in a reaction's who-reacted tip (Discord's, estimated from its tooltip) */
   --cp-reaction-tip-max-w: 280px; /* the tip wraps its names past this */
   --cp-reaction-tip-gap: 8px; /* between the tip and its pill */

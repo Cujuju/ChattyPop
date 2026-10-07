@@ -288,7 +288,7 @@
 }
 
 .reactionUnicode {
-  font-size: var(--cp-text-base);
+  font-size: var(--cp-reaction-emoji);
   line-height: var(--cp-leading-none);
 }
 

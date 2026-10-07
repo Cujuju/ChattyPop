@@ -59,8 +59,8 @@
 }
 
 .emoji {
-  width: var(--cp-reaction-emoji);
-  height: var(--cp-reaction-emoji);
+  width: var(--cp-component-emoji);
+  height: var(--cp-component-emoji);
   line-height: 1;
 }
 
