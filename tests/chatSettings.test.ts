@@ -1,7 +1,7 @@
 // Discord's Chat settings: the contract's normalizers and routing, the settings proto's verified fields read and written
 // as the web client writes them, the gateway's updates, emoticon conversion and what the display settings decide.
 import { EventEmitter } from 'node:events';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DEVICE_CHAT_RECORD,
   DEFAULT_SYNCED_CHAT_SETTINGS,
@@ -19,7 +19,7 @@ import {
   type SyncedChatSettings,
 } from '@shared/chatSettings';
 import { convertEmoticons } from '@shared/emoticons';
-import { chatSettingsFromProto, chatSettingsPatch, watchChatSettings, writeChatSettings } from '../src/main/discord/chatSettings';
+import { AccountChatSettings, chatSettingsFromProto, chatSettingsPatch } from '../src/main/discord/chatSettings';
 import { fields } from '../src/main/discord/settingsProto';
 import type { DiscordClient } from '../src/main/discord/client';
 import type { GatewayTap } from '../src/main/discord/gatewayTap';
@@ -134,7 +134,7 @@ describe('the settings proto (fields verified against the web client’s PATCHes
     expect(chatSettingsFromProto(patch)).toEqual({ ...DEFAULT_SYNCED_CHAT_SETTINGS, inlineAttachmentMedia: true, renderReactions: false, spoilers: 'always', stickersInAutocomplete: true });
   });
 
-  it('writes over the settings read just before, as {settings: base64}, and answers with Discord’s', async () => {
+  it('writes over the settings read just before, as {settings: base64}, and holds Discord’s answer', async () => {
     const sent: { path: string; body: unknown }[] = [];
     const answer = settings([...off(12)]);
     const owner = {
@@ -144,7 +144,9 @@ describe('the settings proto (fields verified against the web client’s PATCHes
         return { settings: answer.toString('base64') };
       },
     } as unknown as DiscordClient;
-    expect(await writeChatSettings(owner, { renderEmbeds: false })).toEqual({ ...DEFAULT_SYNCED_CHAT_SETTINGS, renderEmbeds: false });
+    const put: SyncedChatSettings[] = [];
+    await new AccountChatSettings(new EventEmitter() as unknown as GatewayTap, owner, (s) => put.push(s), () => undefined).write({ renderEmbeds: false });
+    expect(put).toEqual([{ ...DEFAULT_SYNCED_CHAT_SETTINGS, renderEmbeds: false }]);
     expect(sent).toHaveLength(1);
     expect(sent[0]!.path).toBe('users/@me/settings-proto/1');
     expect(Object.keys(sent[0]!.body as object)).toEqual(['settings']);
@@ -155,7 +157,7 @@ describe('the settings proto (fields verified against the web client’s PATCHes
   it('follows READY and updates: a partial update without text_and_images changes nothing', () => {
     const tap = new EventEmitter();
     const put: SyncedChatSettings[] = [];
-    watchChatSettings(tap as unknown as GatewayTap, (s) => put.push(s), () => undefined);
+    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, (s) => put.push(s), () => undefined);
     const dispatch = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, d });
     dispatch('READY', { user_settings_proto: Buffer.from(VERSIONS).toString('base64') });
     expect(put).toEqual([DEFAULT_SYNCED_CHAT_SETTINGS]);
@@ -172,7 +174,7 @@ describe('the settings proto (fields verified against the web client’s PATCHes
     // Regression: a partial carrying one field reset every other chat setting to Discord's default.
     const tap = new EventEmitter();
     const put: SyncedChatSettings[] = [];
-    watchChatSettings(tap as unknown as GatewayTap, (s) => put.push(s), () => undefined);
+    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, (s) => put.push(s), () => undefined);
     const dispatch = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, d });
     dispatch('READY', { user_settings_proto: settings([...off(12), ...text(4, 'ALWAYS')]).toString('base64') });
     dispatch('USER_SETTINGS_PROTO_UPDATE', { settings: { type: 1, proto: settings([...off(13)]).toString('base64') }, partial: true });
@@ -180,6 +182,87 @@ describe('the settings proto (fields verified against the web client’s PATCHes
     // A whole proto starts again from the defaults.
     dispatch('USER_SETTINGS_PROTO_UPDATE', { settings: { type: 1, proto: settings([...off(13)]).toString('base64') }, partial: false });
     expect(put.at(-1)).toEqual({ ...DEFAULT_SYNCED_CHAT_SETTINGS, renderReactions: false });
+  });
+});
+
+/** Discord's side of the settings proto: GET answers the stored proto; PATCH replaces text_and_images with the body's, held until answered. */
+function account(start: Buffer) {
+  let stored = start;
+  const held: (() => void)[] = [];
+  const owner = {
+    get: async () => {
+      await Promise.resolve();
+      return { settings: stored.toString('base64') };
+    },
+    patch: async (_path: string, body: { settings: string }) => {
+      stored = Buffer.from([...VERSIONS, ...Buffer.from(body.settings, 'base64')]);
+      const answer = stored;
+      await new Promise<void>((release) => held.push(release));
+      return { settings: answer.toString('base64') };
+    },
+  } as unknown as DiscordClient;
+  return { owner, held, stored: () => chatSettingsFromProto(stored) };
+}
+const flush = (): Promise<void> => new Promise((r) => setTimeout(r));
+
+describe('the account’s chat settings, written and followed', () => {
+  it('runs overlapping writes one after another, so neither undoes the other', async () => {
+    // Regression: GET A, GET B, PATCH A, PATCH B — B's whole text_and_images put embeds back off.
+    const discord = account(settings([...off(12), ...off(13)]));
+    const sync = new AccountChatSettings(new EventEmitter() as unknown as GatewayTap, discord.owner, () => undefined, () => undefined);
+    const writes = [sync.write({ renderEmbeds: true }), sync.write({ renderReactions: true })];
+    for (let i = 0; i < 2; i++) {
+      await vi.waitFor(() => expect(discord.held).toHaveLength(i + 1));
+      discord.held[i]!();
+    }
+    await Promise.all(writes);
+    expect(discord.stored()).toMatchObject({ renderEmbeds: true, renderReactions: true });
+  });
+
+  it('keeps a newer gateway update over a write answer that arrives after it', async () => {
+    // Regression: a delayed PATCH answer put reactions back on after the gateway had turned them off.
+    const discord = account(settings([]));
+    const tap = new EventEmitter();
+    const put: SyncedChatSettings[] = [];
+    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
+    const update = (body: number[]): boolean => tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings(body).toString('base64') }, partial: true } });
+    const write = sync.write({ renderEmbeds: false });
+    await vi.waitFor(() => expect(discord.held).toHaveLength(1));
+    update([...off(12)]); // the write's echo
+    update([...off(12), ...off(13)]); // another client, later
+    discord.held[0]!();
+    await write;
+    expect(put.at(-1)).toMatchObject({ renderEmbeds: false, renderReactions: false });
+  });
+
+  it('keeps another client’s later change to the same setting once the write’s echo came', async () => {
+    const discord = account(settings([]));
+    const tap = new EventEmitter();
+    const put: SyncedChatSettings[] = [];
+    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
+    const update = (body: number[]): boolean => tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings(body).toString('base64') }, partial: true } });
+    const write = sync.write({ renderEmbeds: false });
+    await vi.waitFor(() => expect(discord.held).toHaveLength(1));
+    update([...off(12)]); // the write's echo
+    update([...on(12)]); // another client turns embeds back on
+    discord.held[0]!();
+    await write;
+    expect(put.at(-1)).toMatchObject({ renderEmbeds: true });
+  });
+
+  it('takes the write’s answer over a gateway update that predates it', async () => {
+    const discord = account(settings([]));
+    const tap = new EventEmitter();
+    const put: SyncedChatSettings[] = [];
+    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
+    const write = sync.write({ renderEmbeds: false });
+    await vi.waitFor(() => expect(discord.held).toHaveLength(1));
+    // An older change from another client, arriving before the write's echo.
+    tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings([...on(12)]).toString('base64') }, partial: true } });
+    discord.held[0]!();
+    await write;
+    await flush();
+    expect(put.at(-1)).toMatchObject({ renderEmbeds: false });
   });
 });
 

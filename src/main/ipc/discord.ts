@@ -5,13 +5,12 @@ import { uploadLimitBytes, type ExpressionCatalog } from '@shared/compose';
 import type { DiscordProfile, MutualFriends, ReactionUsers } from '@shared/types/discordProfile';
 import { DM_GUILD_ID, isReactionEmoji, snowflakeArg } from '@shared/discord';
 import { normalizeSyncedChatChange } from '@shared/chatSettings';
-import { SETTINGS_KEYS } from '@shared/settings';
 import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
-import { writeChatSettings } from '../discord/chatSettings';
+import type { AccountChatSettings } from '../discord/chatSettings';
 import type { DiscordClient } from '../discord/client';
 import { CommandIndexes } from '../discord/commandIndex';
 import type { HeaderCapture } from '../discord/capture';
@@ -52,6 +51,8 @@ export interface DiscordDeps {
   posting: PostingGate;
   /** The embedded client's session: uploads to Discord's attachment store go through it. */
   discordSession: Session;
+  /** The account's chat settings: writes go through it, one at a time. */
+  chatSettings: Pick<AccountChatSettings, 'write'>;
 }
 
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
@@ -82,11 +83,11 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
   ipcMain.handle(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
-  // The archive's copy of the account's settings takes Discord's answer before this resolves; the gateway's echo agrees.
+  // The archive's copy of the account's settings holds the change before this resolves.
   const setChatSettings = async (change: unknown): Promise<void> => {
     const valid = normalizeSyncedChatChange(change);
     if (Object.keys(valid).length === 0) throw new Error('Not a chat settings change.');
-    await d.core.call('setSetting', SETTINGS_KEYS.discordChat, await writeChatSettings(d.owner, valid));
+    await d.chatSettings.write(valid);
   };
 
   const stickerIndex = new GuildStickerIndex(d.discord.tap);

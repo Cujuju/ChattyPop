@@ -69,42 +69,76 @@ export function chatSettingsPatch(current: Buffer, change: Partial<SyncedChatSet
   return bytesField(TEXT_AND_IMAGES, withFields(sub, replace));
 }
 
-/**
- * Writes `change` to the account as the web client does (PATCH {settings: base64}), over the settings read just before so
- * another client's newer choices in text_and_images are kept. Resolves with the account's settings after it.
- */
-export async function writeChatSettings(owner: DiscordClient, change: Partial<SyncedChatSettings>): Promise<SyncedChatSettings> {
-  const { settings } = await owner.get<{ settings: string }>(PRELOADED_SETTINGS_PATH);
-  const patch = chatSettingsPatch(Buffer.from(settings, 'base64'), change);
-  const answer = await owner.patch<{ settings: string }>(PRELOADED_SETTINGS_PATH, { settings: patch.toString('base64') });
-  return chatSettingsFromProto(Buffer.from(answer.settings, 'base64')) ?? DEFAULT_SYNCED_CHAT_SETTINGS;
+/** One write on its way: its change, and the fields whose gateway echo already arrived. */
+interface InFlight {
+  change: Partial<SyncedChatSettings>;
+  echoed: Set<keyof SyncedChatSettings>;
 }
 
 /**
- * Calls `put` with the account's chat settings each time the gateway carries them: READY's whole proto, and updates. A
- * partial update without text_and_images changes nothing; a whole one without it means Discord's defaults.
+ * The account's chat settings, from the gateway and this app's writes, handed to `put` as each lands.
+ * Writes run one at a time: each rewrites text_and_images whole over a fresh read, so overlapping ones would undo each other.
+ * The gateway sends events in Discord's order, the echo of a write included: once a changed field's echo has come, the
+ * gateway is at least as new as the write's answer, so the answer's value for it is dropped.
  */
-export function watchChatSettings(tap: GatewayTap, put: (settings: SyncedChatSettings) => void, diag: (event: string, data: Record<string, unknown>) => void): void {
-  let known = DEFAULT_SYNCED_CHAT_SETTINGS;
-  const take = (settings: SyncedChatSettings): void => {
-    known = settings;
-    put(settings);
-  };
-  const read = (base64: unknown, partial: boolean): void => {
+export class AccountChatSettings {
+  private known = DEFAULT_SYNCED_CHAT_SETTINGS;
+  private inFlight: InFlight | null = null;
+  private queue: Promise<unknown> = Promise.resolve();
+
+  constructor(
+    tap: GatewayTap,
+    private readonly owner: DiscordClient,
+    private readonly put: (settings: SyncedChatSettings) => void,
+    private readonly diag: (event: string, data: Record<string, unknown>) => void,
+  ) {
+    tap.on('dispatch', ({ t, d }) => {
+      if (t === 'READY') this.read((d as { user_settings_proto?: unknown }).user_settings_proto, false);
+      else if (t === 'USER_SETTINGS_PROTO_UPDATE') {
+        const u = d as { settings?: { type?: number; proto?: unknown }; partial?: boolean };
+        if (u.settings?.type === PRELOADED_SETTINGS_TYPE) this.read(u.settings.proto, u.partial === true);
+      }
+    });
+  }
+
+  /** Writes `change` as the web client does (PATCH {settings: base64}) over a read just before; resolves once it's held. */
+  write(change: Partial<SyncedChatSettings>): Promise<void> {
+    const run = this.queue.then(() => this.writeNow(change));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async writeNow(change: Partial<SyncedChatSettings>): Promise<void> {
+    const flight: InFlight = { change, echoed: new Set() };
+    this.inFlight = flight;
+    try {
+      const { settings } = await this.owner.get<{ settings: string }>(PRELOADED_SETTINGS_PATH);
+      const patch = chatSettingsPatch(Buffer.from(settings, 'base64'), change);
+      const answer = await this.owner.patch<{ settings: string }>(PRELOADED_SETTINGS_PATH, { settings: patch.toString('base64') });
+      const after = chatSettingsFromProto(Buffer.from(answer.settings, 'base64')) ?? DEFAULT_SYNCED_CHAT_SETTINGS;
+      const unechoed = (Object.keys(change) as (keyof SyncedChatSettings)[]).filter((key) => !flight.echoed.has(key));
+      this.take({ ...this.known, ...Object.fromEntries(unechoed.map((key) => [key, after[key]])) });
+    } finally {
+      this.inFlight = null;
+    }
+  }
+
+  private take(settings: SyncedChatSettings): void {
+    this.known = settings;
+    const flight = this.inFlight;
+    if (flight) for (const key of Object.keys(flight.change) as (keyof SyncedChatSettings)[]) if (settings[key] === flight.change[key]) flight.echoed.add(key);
+    this.put(settings);
+  }
+
+  /** READY's whole proto, or an update; a partial without text_and_images changes nothing, a whole one means Discord's defaults. */
+  private read(base64: unknown, partial: boolean): void {
     if (typeof base64 !== 'string') return;
     try {
-      const settings = chatSettingsFromProto(Buffer.from(base64, 'base64'), partial ? known : DEFAULT_SYNCED_CHAT_SETTINGS);
-      if (settings) take(settings);
-      else if (!partial) take(DEFAULT_SYNCED_CHAT_SETTINGS);
+      const settings = chatSettingsFromProto(Buffer.from(base64, 'base64'), partial ? this.known : DEFAULT_SYNCED_CHAT_SETTINGS);
+      if (settings) this.take(settings);
+      else if (!partial) this.take(DEFAULT_SYNCED_CHAT_SETTINGS);
     } catch (err) {
-      diag('chat-settings-unreadable', { message: err instanceof Error ? err.message : String(err) });
+      this.diag('chat-settings-unreadable', { message: err instanceof Error ? err.message : String(err) });
     }
-  };
-  tap.on('dispatch', ({ t, d }) => {
-    if (t === 'READY') read((d as { user_settings_proto?: unknown }).user_settings_proto, false);
-    else if (t === 'USER_SETTINGS_PROTO_UPDATE') {
-      const u = d as { settings?: { type?: number; proto?: unknown }; partial?: boolean };
-      if (u.settings?.type === PRELOADED_SETTINGS_TYPE) read(u.settings.proto, u.partial === true);
-    }
-  });
+  }
 }

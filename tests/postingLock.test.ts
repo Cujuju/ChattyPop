@@ -69,6 +69,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
     emojiIndex: {} as never,
     readStates: { settingsChanged: () => undefined },
     posting: postingGate(async () => state.list),
+    chatSettings: { write: async () => undefined },
   });
   const hub = new PhoneHub({ core: core as never, discord: () => calls, media: async () => new Response(), active: () => true });
   const invoke = (name: keyof typeof MAIN_INVOKE.discord, ...args: unknown[]) => env.handlers.get(MAIN_INVOKE.discord[name])!({}, ...args);
