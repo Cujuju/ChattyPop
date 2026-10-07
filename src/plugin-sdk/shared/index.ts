@@ -140,7 +140,20 @@ export { visibleTableName as visibleTable, type ArchiveRef } from '@shared/archi
 
 // Notices, the pages served outside the app, and the phone's composer and directory shapes.
 export type { Notice, NoticeKind } from '@shared/notices';
-export { APNS_ENVIRONMENTS, SHELL_BUNDLE_ID, isApnsEnvironment, SHELL_NATIVE_GLOBAL, SHELL_USER_AGENT_TOKEN, shellPairLink, type ApnsEnvironment } from '@shared/shell';
+export {
+  APNS_ENVIRONMENTS,
+  SHELL_BUNDLE_ID,
+  SHELL_CAPABILITIES,
+  isApnsEnvironment,
+  SHELL_NATIVE_GLOBAL,
+  SHELL_PHOTOS_PAGE_MAX,
+  SHELL_USER_AGENT_TOKEN,
+  shellCapabilities,
+  shellHas,
+  shellPairLink,
+  type ApnsEnvironment,
+  type ShellCapability,
+} from '@shared/shell';
 export { ARCHIVE_DENSITIES, THEME_IDS, THEME_LABELS, type ArchiveDensity, type ThemeId } from '@shared/settings';
 export { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 export {

@@ -1,6 +1,6 @@
 // Camera captures reach the iPhone app's Photos handler in ordered base64 pieces, one in flight, only when the device asks.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SHELL_SAVE_MEDIA_HANDLER, type ShellMediaPiece } from '@shared/shell';
+import { SHELL_CAPABILITIES, SHELL_NATIVE_GLOBAL, SHELL_SAVE_MEDIA_HANDLER, type ShellMediaPiece } from '@shared/shell';
 import { DEFAULT_DEVICE_CHAT_SETTINGS, type DeviceChatSettings } from '@shared/chatSettings';
 
 const device = vi.hoisted(() => ({ settings: null as DeviceChatSettings | null }));
@@ -58,6 +58,7 @@ beforeEach(() => {
   device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, saveCameraToDevice: true };
   vi.stubGlobal('FileReader', DataUrlReader);
   vi.stubGlobal('webkit', { messageHandlers: { [SHELL_SAVE_MEDIA_HANDLER]: { postMessage } } });
+  vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: [SHELL_CAPABILITIES.saveMedia] });
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -101,6 +102,15 @@ describe('saveCameraCaptures', () => {
     device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, saveCameraToDevice: true };
     vi.stubGlobal('webkit', undefined);
     expect(() => saveCameraCaptures([capture(5, 'image/jpeg')])).not.toThrow();
+    await new Promise((r) => setTimeout(r, SETTLE_MS));
+    expect(pieces).toEqual([]);
+  });
+
+  it('does nothing in an app build that does not list saveMedia, though it has the handler', async () => {
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: [SHELL_CAPABILITIES.camera] });
+    saveCameraCaptures([capture(5, 'image/jpeg')]);
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { apsEnvironment: 'development' });
+    saveCameraCaptures([capture(5, 'image/jpeg')]);
     await new Promise((r) => setTimeout(r, SETTLE_MS));
     expect(pieces).toEqual([]);
   });

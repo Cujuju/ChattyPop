@@ -77,6 +77,20 @@ export { openRule, rules, startNewRule } from '@/state/rules';
 export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
 // In-app camera captures, saved to the phone's Photos when its chat settings ask.
 export { saveCameraCaptures } from '@/phone/cameraCaptures';
+// The phone's Photos library through the iPhone app, for the composer's attach sheet.
+export {
+  manageLimitedPhotos,
+  onPhotoLibraryChange,
+  photoAccess,
+  photoFile,
+  photoLibraryOffered,
+  photoThumbUrl,
+  recentPhotos,
+  requestPhotoAccess,
+  type PhotoAccess,
+  type PhotoAsset,
+  type PhotoPage,
+} from '@/phone/photoLibrary';
 /** Opens Settings where the owner left it. */
 export const openSettings = (): void => void setSettingsOpen(true);
 export { usdPerQuestion, projectedJevUsd } from '@/state/jevSpend';

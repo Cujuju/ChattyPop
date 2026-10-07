@@ -1,6 +1,6 @@
 // Camera captures saved to the phone's Photos through the iPhone app (ShellMediaSaver.swift), when this device's chat
-// settings ask. Elsewhere (a browser, the desktop, an app built without the handler) nothing happens.
-import { SHELL_SAVE_MEDIA_HANDLER, type ShellMediaPiece } from '@shared/shell';
+// settings ask. Elsewhere (a browser, the desktop, an app build without the `saveMedia` capability) nothing happens.
+import { SHELL_CAPABILITIES, SHELL_SAVE_MEDIA_HANDLER, shellHas, type ShellMediaPiece } from '@shared/shell';
 import { deviceChatSettings } from '@/state/chatSettings';
 
 /** Raw bytes per message: each piece is copied as base64 text in the page and the app, so this bounds both (about 5.6 MB of text). */
@@ -11,7 +11,7 @@ interface MediaHandler {
 }
 
 const mediaHandler = (): MediaHandler | undefined =>
-  (globalThis as { webkit?: { messageHandlers?: Record<string, MediaHandler | undefined> } }).webkit?.messageHandlers?.[SHELL_SAVE_MEDIA_HANDLER];
+  shellHas(SHELL_CAPABILITIES.saveMedia) ? (globalThis as { webkit?: { messageHandlers?: Record<string, MediaHandler | undefined> } }).webkit?.messageHandlers?.[SHELL_SAVE_MEDIA_HANDLER] : undefined;
 
 /** A blob's bytes as base64, through the browser's own encoder. */
 function base64(blob: Blob): Promise<string> {

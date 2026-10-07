@@ -26,10 +26,17 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let networkEvent = "cp-shell-network"
     /// Posted by this app's own load script, asking for the network state (publishNetwork).
     private static let networkHandler = "shellNetwork"
+    // Mirrors SHELL_PHOTOS_HANDLER and SHELL_PHOTOS_EVENT in src/shared/shell.ts.
+    private static let photosHandler = "shellPhotos"
+    private static let photosEvent = "cp-shell-photos"
+    /// Mirrors SHELL_CAPABILITIES in src/shared/shell.ts: the native features this build has, which the page offers and no others.
+    private static let capabilities = ["camera", "saveMedia", "network", "photoLibrary"]
     /// WKSecurityOrigin reports a scheme's default port as 0; the saved origin is https.
     private static let httpsDefaultPort = 443
     /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
     private static let mediaSaver = ShellMediaSaver()
+    /// One per process, like mediaSaver: its exports outlive a re-pairing's new controller.
+    private static let photoLibrary = ShellPhotoLibrary()
     private let network = ShellNetworkMonitor()
     /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
     static var launchNotification: UNNotificationResponse?
@@ -151,12 +158,15 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     }()
 
     override func webView(with frame: CGRect, configuration: WKWebViewConfiguration) -> WKWebView {
-        // Before any page script: the page sends it with this install's device token (companion page/shellPush.ts).
-        let global = "window.\(Self.nativeGlobal) = Object.freeze({ apsEnvironment: '\(Self.apsEnvironment)' });"
+        // Before any page script: the page sends apsEnvironment with this install's device token (companion page/shellPush.ts),
+        // and offers only the native features capabilities lists (src/shared/shell.ts shellHas).
+        let capabilities = Self.capabilities.map { "'\($0)'" }.joined(separator: ", ")
+        let global = "window.\(Self.nativeGlobal) = Object.freeze({ apsEnvironment: '\(Self.apsEnvironment)', capabilities: Object.freeze([\(capabilities)]) });"
         configuration.userContentController.addUserScript(WKUserScript(source: global, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // On load, after the page's scripts have added their listeners, asks for the network state.
         let ready = "addEventListener('load', () => window.webkit?.messageHandlers?.\(Self.networkHandler)?.postMessage(null));"
         configuration.userContentController.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        configuration.setURLSchemeHandler(ShellAssetSchemeHandler { Self.savedOrigin }, forURLScheme: ShellAssetSchemeHandler.scheme)
         let view = PairingWebView(frame: frame, configuration: configuration)
         view.initialURL = pairingURL
         pairingURL = nil
@@ -181,6 +191,11 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             guard let self else { return reply(nil, "The app is closing.") }
             self.saveMedia(message, reply: reply)
         }, contentWorld: .page, name: Self.saveMediaHandler)
+        scripts.addScriptMessageHandler(WeakReplyMessageHandler { [weak self] message, reply in
+            guard let self else { return reply(nil, "The app is closing.") }
+            self.photos(message, reply: reply)
+        }, contentWorld: .page, name: Self.photosHandler)
+        Self.photoLibrary.changed = { [weak self] in self?.publishPhotosChanged() }
         network.start { [weak self] _ in self?.publishNetwork() }
         let store = webView.configuration.websiteDataStore.httpCookieStore
         cookieStore = store
@@ -323,6 +338,18 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         Self.mediaSaver.receive(message.body) { error in reply(nil, error) }
     }
 
+    /// A photo library request (ShellPhotoLibrary). Only the paired page may read the library.
+    fileprivate func photos(_ message: WKScriptMessage, reply: @escaping (Any?, String?) -> Void) {
+        guard Self.isPairedPage(message.frameInfo) else { return reply(nil, "Only the paired page may read Photos.") }
+        Self.photoLibrary.receive(message.body, presenter: self, reply: reply)
+    }
+
+    /// Tells the paired page the readable library changed, so it lists it again.
+    private func publishPhotosChanged() {
+        guard let url = webView?.url, Self.isPairedOrigin(scheme: url.scheme, host: url.host, port: url.port) else { return }
+        webView?.evaluateJavaScript("window.dispatchEvent(new Event('\(Self.photosEvent)'))")
+    }
+
     fileprivate func networkRequested(_ message: WKScriptMessage) {
         guard Self.isPairedPage(message.frameInfo) else { return }
         publishNetwork()
@@ -341,6 +368,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         scripts?.removeScriptMessageHandler(forName: Self.backdropHandler)
         scripts?.removeScriptMessageHandler(forName: Self.networkHandler)
         scripts?.removeScriptMessageHandler(forName: Self.saveMediaHandler, contentWorld: .page)
+        scripts?.removeScriptMessageHandler(forName: Self.photosHandler, contentWorld: .page)
         cookieStore?.remove(self)
     }
 }

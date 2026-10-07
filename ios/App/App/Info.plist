@@ -41,6 +41,9 @@
 	<string>ChattyPop uses the microphone to record sound for videos you take.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>ChattyPop saves the photos and videos you take in the app to your library.</string>
+	<!-- The composer's recent photos and videos (ShellPhotoLibrary.swift). -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ChattyPop shows your recent photos and videos so you can send them in chats.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
