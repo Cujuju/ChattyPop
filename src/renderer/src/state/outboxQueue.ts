@@ -17,6 +17,8 @@ export interface Outgoing {
   label: string;
   /** Its text as the log shows it pending. */
   text: string;
+  /** Names for the text's `<@id>` mentions, by id, as picked. */
+  mentions: Record<string, string>;
   /** What it carries, as picked. */
   files: File[];
   status: OutgoingStatus;
@@ -37,6 +39,8 @@ export interface OutboxJob<D> {
   /** The message without its files; built once, so every attempt sends the same nonce. */
   message: OwnerMessage;
   files: File[];
+  /** Names for its `<@id>` mentions, by id, as picked: the pending row shows them before the archive knows them. */
+  mentions: Record<string, string>;
   /** What Edit puts back in the composer; null when it can't go back (a GIF, a sticker). Structured-cloneable. */
   draft: D | null;
 }
@@ -47,6 +51,8 @@ export interface OutboxRecord<D> {
   label: string;
   message: OwnerMessage;
   files: File[];
+  /** Absent in records saved before mention names. */
+  mentions?: Record<string, string>;
   draft: D | null;
   status: OutgoingStatus;
   error: string | null;
@@ -140,8 +146,8 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       for (const { id, status, error } of list) {
         const e = entries.get(id);
         if (!e) continue;
-        const { channelId, label, message, files, draft } = e.job;
-        records.push({ channelId, label, message, files, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads, fileCount: e.fileCount });
+        const { channelId, label, message, files, mentions, draft } = e.job;
+        records.push({ channelId, label, message, files, mentions, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads, fileCount: e.fileCount });
       }
     }
     deps.save(records);
@@ -167,7 +173,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     const fileCount = saved?.fileCount ?? job.files.length;
     entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, confirmed: false, fileCount });
     const retryable = job.files.length >= fileCount;
-    const row: Outgoing = { id, label: job.label, text: job.message.text, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
+    const row: Outgoing = { id, label: job.label, text: job.message.text, mentions: job.mentions, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
     setOutbox(produce((all) => void (all[job.channelId] ??= []).push(row)));
     undismiss(job.channelId);
   }
@@ -187,7 +193,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       const files = r.files ?? [];
       const lost = files.length < (r.fileCount ?? files.length);
       const interrupted = r.status === 'sending';
-      const job: OutboxJob<D> = { channelId: r.channelId, label: r.label, message: r.message, files, draft: r.draft };
+      const job: OutboxJob<D> = { channelId: r.channelId, label: r.label, message: r.message, files, mentions: r.mentions ?? {}, draft: r.draft };
       const state = lost ? { status: 'failed' as const, error: FILES_LOST } : interrupted ? { status: 'failed' as const, error: INTERRUPTED } : { status: r.status, error: r.error };
       add(job, state, { ...r, unreachable: !lost && (interrupted || r.unreachable) });
     }

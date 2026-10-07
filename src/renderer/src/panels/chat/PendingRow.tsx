@@ -44,7 +44,7 @@ export function PendingRow(props: PendingRowProps) {
         </Show>
         <Show when={o().text}>
           <div class={styles.text}>
-            <Markdown text={o().text} />
+            <Markdown text={o().text} mentions={o().mentions} />
           </div>
         </Show>
         <Show when={o().files.length}>

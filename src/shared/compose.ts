@@ -202,14 +202,20 @@ export const emojiToken = (e: CustomEmoji, picked: Map<string, CustomEmoji>): st
 export interface MentionPick {
   id: string;
   kind?: 'user' | 'role';
+  /** The name the log shows for a person while the message sends; absent for roles and in drafts saved before. */
+  name?: string;
 }
 
 /** Ambiguous role-name tokens receive ~N suffixes to prevent unintended role pings. */
 const GROUP_MENTION_WORDS: ReadonlySet<string> = new Set(['everyone', 'here']);
 
 /** The `@token` a picked person (their username, as Discord's composer shows it) or role (its name) shows as in the text. */
-export const mentionToken = (name: string, p: Required<MentionPick>, picked: Map<string, MentionPick>): string =>
-  `@${claimToken(name, { id: p.id, kind: p.kind }, picked, GROUP_MENTION_WORDS)}`;
+export const mentionToken = (token: string, p: MentionPick & Required<Pick<MentionPick, 'kind'>>, picked: Map<string, MentionPick>): string =>
+  `@${claimToken(token, { id: p.id, kind: p.kind, ...(p.name !== undefined && { name: p.name }) }, picked, GROUP_MENTION_WORDS)}`;
+
+/** Names for the picked people's `<@id>` mentions, by id: what a message shows before the archive knows them. */
+export const pickedMentionNames = (picked: Iterable<[string, MentionPick]>): Record<string, string> =>
+  Object.fromEntries([...picked].flatMap(([, p]) => (p.kind !== 'role' && p.name !== undefined ? [[p.id, p.name]] : [])));
 
 /** Discord's markup for a picked mention. */
 const mentionMarkup = (p: MentionPick): string => (p.kind === 'role' ? `<@&${p.id}>` : `<@${p.id}>`);

@@ -1,7 +1,7 @@
 // The Archive composer: sends a channel's draft (drafts.ts) as the owner, through the outbox.
 import { createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
-import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens, type Gif, type OwnerMessage } from '@shared/compose';
+import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens, pickedMentionNames, type Gif, type OwnerMessage } from '@shared/compose';
 import { newNonce } from '@shared/discord';
 import { convertEmoticons } from '@shared/emoticons';
 import { discordChatSettings } from './chatSettings';
@@ -45,6 +45,7 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
       nonce: newNonce(),
     },
     files,
+    mentions: pickedMentionNames(draft.mentions ?? []),
     // A sticker isn't part of the draft, so a message with one can't go back.
     draft: stickerId === null ? draft : null,
   });
@@ -59,6 +60,7 @@ export function sendGif(channelId: string, gif: Gif, query: string): void {
     label: 'GIF',
     message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() },
     files: [],
+    mentions: {},
     draft: null,
   });
 }

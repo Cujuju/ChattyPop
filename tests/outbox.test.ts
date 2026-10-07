@@ -38,6 +38,7 @@ function setup(canRestore = false) {
     label: text,
     message: { channelId: CHANNEL, text, replyTo: null, files: [], stickerId: null, gif: null, nonce: `n-${text}` },
     files: [],
+    mentions: {},
     draft: editable ? text : null,
   });
   const labels = () => box.outgoing(CHANNEL).map((o) => `${o.label}:${o.status}`);

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import { ALT_TEXT_MAX, canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
+import { ALT_TEXT_MAX, canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, pickedMentionNames, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX, DISCORD_UPLOAD_BYTES_MAX } from '@shared/discord';
 import type { CustomEmoji, GuildEmoji } from '@shared/emoji';
 import { OwnerAccount } from '../src/main/discord/account';
@@ -262,6 +262,12 @@ describe('people mentioned in the composer text', () => {
   it('sends a person picked into a draft saved before roles (no kind) as a user mention', () => {
     const saved: [string, MentionPick][] = JSON.parse('[["bob", {"id": "1"}]]');
     expect(expandMentionTokens('hi @bob', new Map(saved))).toBe('hi <@1>');
+  });
+
+  it("names picked people by id for a message still sending; roles and picks saved without a name aren't named", () => {
+    const picked = new Map<string, MentionPick>([['bob~1', { id: '9', kind: 'role' }], ['ann', { id: '2' }]]);
+    mentionToken('bob', { id: '1', kind: 'user', name: 'Bobby' }, picked);
+    expect(pickedMentionNames(picked)).toEqual({ '1': 'Bobby' });
   });
 });
 

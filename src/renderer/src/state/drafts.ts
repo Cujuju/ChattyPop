@@ -93,7 +93,8 @@ export const customEmojiToken = (channelId: string, e: CustomEmoji): string => e
  */
 export function mentionCandidateToken(channelId: string, c: MentionCandidate): string {
   if (c.kind === 'everyone' || c.kind === 'here') return `@${c.kind}`;
-  return mentionToken(c.kind === 'user' ? (c.username ?? c.name) : c.name, { id: c.id, kind: c.kind }, mentionedIn(channelId));
+  if (c.kind === 'role') return mentionToken(c.name, { id: c.id, kind: c.kind }, mentionedIn(channelId));
+  return mentionToken(c.username ?? c.name, { id: c.id, kind: c.kind, name: c.name }, mentionedIn(channelId));
 }
 
 /** Files a draft may take: within the channel's upload limit, or a video, which sending shrinks to this device's quality. */

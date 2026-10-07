@@ -35,7 +35,7 @@ function setup() {
     now: () => Date.now(),
   });
   const file = new File(['clip'], 'clip.mp4', { type: 'video/mp4' });
-  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1' }, files: [file], draft: null });
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1' }, files: [file], mentions: {}, draft: null });
   const head = () => box.outgoing(CHANNEL)[0];
   return { box, posted, uploads, head, saved: () => saved, failNextSend: (e: Error) => void (sendError = e) };
 }
