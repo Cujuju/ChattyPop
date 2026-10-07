@@ -197,3 +197,21 @@
     background: var(--cp-surface-2);
   }
 }
+
+/* ---- The phone (PhoneSettings): search on a line of its own, the picker at full width ---- */
+
+:global(html[data-surface='companion']) .tools {
+  flex-wrap: wrap;
+}
+
+:global(html[data-surface='companion']) .search {
+  flex-basis: 100%;
+}
+
+:global(html[data-surface='companion']) .picker {
+  padding: 0;
+}
+
+:global(html[data-surface='companion']) .picker > select {
+  width: 100%;
+}

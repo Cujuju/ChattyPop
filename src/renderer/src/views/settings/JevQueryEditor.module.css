@@ -117,3 +117,26 @@
 .status[data-kind='saved'] {
   color: var(--cp-success);
 }
+
+/* ---- The phone (PhoneSettings): the editor grows in the pane body's one scroll; Save stays at its bottom ---- */
+
+:global(html[data-surface='companion']) .detail,
+:global(html[data-surface='companion']) .detailScroll {
+  flex: none;
+  min-height: auto;
+}
+
+:global(html[data-surface='companion']) .detailScroll {
+  padding: 0;
+  overflow: visible;
+}
+
+/* Edge to edge over the body's inset. */
+:global(html[data-surface='companion']) .foot {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--cp-z-sticky);
+  flex-wrap: wrap;
+  margin: 0 calc(-1 * var(--cp-panel-pad-x));
+  padding: var(--cp-space-4) var(--cp-panel-pad-x);
+}

@@ -797,3 +797,52 @@
     gap: var(--cp-space-3);
   }
 }
+
+/* ---- The phone (PhoneSettings): the picker over the open rule, in the pane body's one scroll ---- */
+
+/* No frame or inner scroll: the rule grows with its steps and the pane body scrolls. */
+:global(html[data-surface='companion']) .body,
+:global(html[data-surface='companion']) .layout {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+:global(html[data-surface='companion']) .layout {
+  gap: var(--cp-space-6);
+}
+
+:global(html[data-surface='companion']) .picker > select {
+  width: 100%;
+}
+
+:global(html[data-surface='companion']) .editor,
+:global(html[data-surface='companion']) .newRule {
+  flex: none;
+  min-height: auto;
+  background: none;
+}
+
+:global(html[data-surface='companion']) .editorScroll,
+:global(html[data-surface='companion']) .newRule {
+  padding: 0;
+  overflow: visible;
+}
+
+:global(html[data-surface='companion']) .editorScroll {
+  padding-top: var(--cp-space-6);
+}
+
+/* Name, switch and Save stay at the top of the pane while the steps scroll, edge to edge over the body's inset. */
+:global(html[data-surface='companion']) .editorHead {
+  position: sticky;
+  top: 0;
+  z-index: var(--cp-z-sticky);
+  margin: 0 calc(-1 * var(--cp-panel-pad-x));
+  padding: var(--cp-space-4) var(--cp-panel-pad-x);
+  background: var(--cp-surface-1);
+}
+
+:global(html[data-surface='companion']) .editorError {
+  padding: var(--cp-space-4) 0 0;
+}

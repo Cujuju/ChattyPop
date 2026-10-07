@@ -87,3 +87,34 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+/* ---- The phone (PhoneSettings): one column in the pane body, which scrolls; the rail is hidden at its width ---- */
+
+/* The header names the section and the page title is hidden, so the head's controls start the line. */
+:global(html[data-surface='companion']) .head {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+:global(html[data-surface='companion']) .headRight {
+  flex-wrap: wrap;
+}
+
+/* The section picker: a full-width field, no band around it. */
+:global(html[data-surface='companion']) .picker {
+  padding: 0;
+  border-bottom: 0;
+  background: none;
+}
+
+:global(html[data-surface='companion']) .picker > select {
+  width: 100%;
+}
+
+/* The open section and a one-body page grow with their content; the pane body is the scroller. */
+:global(html[data-surface='companion']) .detail,
+:global(html[data-surface='companion']) .single {
+  flex: none;
+  min-height: auto;
+  padding: 0;
+  overflow: visible;
+}
