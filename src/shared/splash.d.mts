@@ -11,7 +11,7 @@ export declare const SPLASH_WINDOW: {
   title: string;
 };
 export declare const SPLASH_SHOWN_MESSAGE: string;
-export type SplashPhaseId = 'compile' | 'build' | 'archive' | 'interface' | 'window';
+export type SplashPhaseId = 'compile' | 'build' | 'app' | 'core' | 'database' | 'archive' | 'interface' | 'window';
 export declare const SPLASH_PHASES: readonly { id: SplashPhaseId; label: string; devOnly?: boolean }[];
 export declare const SPLASH_THEME_TOKENS: readonly string[];
 export declare const SPLASH_THEME_FILE: string;

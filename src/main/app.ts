@@ -14,11 +14,13 @@ import {
   isArchivedGatewayEvent,
   isComposeIntent,
   type AppEvent,
+  type CoreInitStep,
   type CoreMethod,
   type PendingAttachment,
 } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { SETTINGS_KEYS } from '@shared/settings';
+import type { SplashPhaseId } from '@shared/splash.mjs';
 import { loadArchiveKey } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
@@ -86,6 +88,8 @@ const here = import.meta.dirname;
 /** out/renderer, next to out/main where this module is bundled: the built windows and plugin pages. */
 const RENDERER_DIR = join(here, '../renderer');
 const rendererCoreMethods = new Set<string>(RENDERER_CORE_METHODS);
+/** The splash step each core init milestone ends. */
+const SPLASH_STEP_OF_CORE: Record<CoreInitStep, SplashPhaseId> = { loaded: 'core', database: 'database' };
 
 // Stays synchronous (no await): gateway tap listeners must attach in the window's creation tick, or READY is missed.
 void app.whenReady().then(() => {
@@ -147,6 +151,7 @@ void app.whenReady().then(() => {
   const desktop = new Desktop();
   const { win, discord } = createMainWindow(desktop);
   const splash = startSplash(win, desktop.startHidden);
+  core.on('init-step', (step) => splash.finish(SPLASH_STEP_OF_CORE[step]));
   // Core answers only once its init is done, so its first answer marks the archive open.
   void core.call('selfId').then(() => splash.finish('archive'), () => undefined);
   win.webContents.once('did-finish-load', () => splash.finish('interface'));

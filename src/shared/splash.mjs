@@ -21,7 +21,12 @@ export const SPLASH_SHOWN_MESSAGE = 'splash-shown';
 export const SPLASH_PHASES = [
   { id: 'compile', label: 'Compiling the app', devOnly: true },
   { id: 'build', label: 'Bundling the app', devOnly: true },
-  { id: 'archive', label: 'Opening the archive' },
+  // Main's process starts; done before the app's splash opens.
+  { id: 'app', label: 'Starting the app' },
+  // Core's process loads, opens the database (migrations included), then sets up rules and plugins.
+  { id: 'core', label: 'Starting the archive' },
+  { id: 'database', label: 'Opening the database' },
+  { id: 'archive', label: 'Preparing rules and plugins' },
   { id: 'interface', label: 'Loading the interface' },
   { id: 'window', label: 'Opening the window' },
 ];

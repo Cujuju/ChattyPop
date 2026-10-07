@@ -8,6 +8,8 @@ import {
   type AppEvent,
   type CoreEventMessage,
   type CoreInit,
+  type CoreInitStep,
+  type CoreInitStepMessage,
   type CoreMethods,
   type CoreRequest,
   type CoreResponse,
@@ -277,13 +279,18 @@ function reply(msg: CoreResponse): void {
   process.parentPort.postMessage(msg);
 }
 
+const initStep = (step: CoreInitStep): void => process.parentPort.postMessage({ kind: 'init-step', step } satisfies CoreInitStepMessage);
+
 process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest }) => {
   if ('kind' in data) {
+    // Main posts init at fork: it arrives once this module has loaded.
+    initStep('loaded');
     dbPath = join(data.archiveDir, ARCHIVE_DB_FILE);
     mediaSize = new DirSize(join(data.archiveDir, ARCHIVE_MEDIA_DIR));
     attachmentsDir = join(data.archiveDir, ARCHIVE_MEDIA_DIR, ARCHIVE_ATTACHMENTS_DIR);
     try {
       db = openDb(dbPath, data.key);
+      initStep('database');
       namesWritten = watchNameWrites(db);
       encrypted = data.key !== null;
       loadJevQueryOverrides(db);

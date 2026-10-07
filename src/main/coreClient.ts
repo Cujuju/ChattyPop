@@ -1,6 +1,17 @@
 import { EventEmitter } from 'node:events';
 import { utilityProcess, type UtilityProcess } from 'electron';
-import type { AppEvent, CoreEventMessage, CoreInit, CoreMethod, CoreMethods, CoreRequest, CoreResponse, CoreResult } from '@shared/contract';
+import type {
+  AppEvent,
+  CoreEventMessage,
+  CoreInit,
+  CoreInitStep,
+  CoreInitStepMessage,
+  CoreMethod,
+  CoreMethods,
+  CoreRequest,
+  CoreResponse,
+  CoreResult,
+} from '@shared/contract';
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
@@ -10,8 +21,8 @@ export interface MainCore {
   on(event: 'event', fn: (e: AppEvent) => void): unknown;
 }
 
-/** Owns the core utilityProcess: request/response calls plus the events core pushes. */
-export class CoreClient extends EventEmitter<{ event: [AppEvent] }> {
+/** Owns the core utilityProcess: request/response calls plus the events and init milestones core pushes. */
+export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [CoreInitStep] }> {
   private readonly proc: UtilityProcess;
   private readonly pending = new Map<number, Pending>();
   private nextId = 1;
@@ -20,9 +31,10 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent] }> {
     super();
     // Main's environment, INSTALLED_ENV included: core loads the installed plugins main's start accepted.
     this.proc = utilityProcess.fork(entry, [], { serviceName: 'ChattyPop Core', stdio: 'inherit', env: process.env });
-    this.proc.on('message', (msg: CoreResponse | CoreEventMessage) => {
-      if ('kind' in msg) this.emit('event', msg.event);
-      else this.settle(msg);
+    this.proc.on('message', (msg: CoreResponse | CoreEventMessage | CoreInitStepMessage) => {
+      if (!('kind' in msg)) this.settle(msg);
+      else if (msg.kind === 'event') this.emit('event', msg.event);
+      else this.emit('init-step', msg.step);
     });
     this.proc.on('exit', (code) => this.failAll(new Error(`core exited with code ${code}`)));
     this.proc.postMessage({ kind: 'init', ...init } satisfies CoreInit);

@@ -66,6 +66,15 @@ export interface CoreEventMessage {
   event: AppEvent;
 }
 
+/** Core's init milestones, in order: its code loaded, then its database open. Its first answer marks init done. */
+export type CoreInitStep = 'loaded' | 'database';
+
+/** Core → main: an init milestone passed (the startup splash marks it). */
+export interface CoreInitStepMessage {
+  kind: 'init-step';
+  step: CoreInitStep;
+}
+
 export interface CoreRequest<M extends CoreMethod = CoreMethod> {
   id: number;
   method: M;

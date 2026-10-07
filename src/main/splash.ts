@@ -64,7 +64,8 @@ export function startSplash(main: BrowserWindow, startHidden: boolean): StartupS
     dev: dev(),
     last: readSplashTimeline(timelineFile, dev())?.steps,
     start,
-    done: launch?.done ?? (dev() ? { compile: start, build: start } : {}),
+    // This process is up: the app step ends as its splash opens.
+    done: { ...(launch?.done ?? (dev() ? { compile: start, build: start } : {})), app: Date.now() },
   });
   // The next launch places its steps by this one. A dev start without the launcher has no build time to save.
   if (!dev() || launch) {
