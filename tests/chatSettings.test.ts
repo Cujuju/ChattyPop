@@ -271,6 +271,40 @@ describe('the account’s chat settings, written and followed', () => {
     await sync.write({ renderReactions: false });
     expect(discord.stored()).toMatchObject({ renderReactions: false });
   });
+
+  it('saves again after a failed save, and fails the write when the archive keeps refusing', async () => {
+    // Regression: a refused save resolved the write, so the renderer dropped its change and showed the old value.
+    const discord = account(settings([]));
+    const saved: SyncedChatSettings[] = [];
+    let refusals = 1;
+    const put = async (s: SyncedChatSettings): Promise<void> => {
+      if (refusals-- > 0) throw new Error('SQLITE_FULL');
+      saved.push(s);
+    };
+    const sync = new AccountChatSettings(discord.tap, discord.owner, put, () => undefined);
+    await sync.write({ renderEmbeds: false });
+    expect(saved.at(-1)).toMatchObject({ renderEmbeds: false });
+    refusals = Infinity;
+    await expect(sync.write({ renderReactions: false })).rejects.toThrow('SQLITE_FULL');
+  });
+
+  it('fails a write whose save never finishes, so the next write still runs', async () => {
+    // Regression: a hung save held the write, and the queue behind it, forever.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const discord = account(settings([]));
+      const sync = new AccountChatSettings(discord.tap, discord.owner, () => new Promise<void>(() => undefined), () => undefined);
+      const first = expect(sync.write({ renderEmbeds: false })).rejects.toThrow('did not store');
+      const second = expect(sync.write({ renderReactions: false })).rejects.toThrow('did not store');
+      await vi.runAllTimersAsync();
+      await first;
+      await vi.runAllTimersAsync();
+      await second;
+      expect(discord.sent).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('emoticon conversion', () => {

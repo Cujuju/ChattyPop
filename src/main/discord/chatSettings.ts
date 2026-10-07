@@ -77,6 +77,15 @@ export function chatSettingsPatch(current: Buffer, change: Partial<SyncedChatSet
  * longer means the gateway is down, and READY on reconnect brings the whole state.
  */
 const ECHO_WAIT_MS = 10 * MS_PER_S;
+/** How long a write waits for the archive to store what the gateway showed; past it the write fails and the queue moves on. */
+const STORE_WAIT_MS = 10 * MS_PER_S;
+
+/** `promise`, or a rejection with `message` once `ms` pass first. */
+function within<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error(message)), ms)));
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+}
 
 /**
  * The account's chat settings as the gateway delivers them, handed to `put`. Only the gateway sets them: its events come in
@@ -107,7 +116,7 @@ export class AccountChatSettings {
 
   /**
    * Writes `change` as the web client does (PATCH {settings: base64}) over a read just before. Resolves once the gateway
-   * shows it and the archive holds that, or after ECHO_WAIT_MS; rejects with Discord's refusal.
+   * shows it (or after ECHO_WAIT_MS) and the archive holds that; rejects with Discord's refusal or the archive's failure.
    */
   write(change: Partial<SyncedChatSettings>): Promise<void> {
     const run = this.queue.then(() => this.writeNow(change));
@@ -120,7 +129,19 @@ export class AccountChatSettings {
     const patch = chatSettingsPatch(Buffer.from(settings, 'base64'), change);
     await this.owner.patch(PRELOADED_SETTINGS_PATH, { settings: patch.toString('base64') });
     await this.shows(change);
-    await this.stored;
+    await within(this.held(), STORE_WAIT_MS, 'The archive did not store the chat settings.');
+  }
+
+  /** The last save; one that failed is tried again with the latest settings, so a write never reports an unsaved result. */
+  private held(): Promise<void> {
+    return this.stored.catch(() => this.save(this.known));
+  }
+
+  private save(settings: SyncedChatSettings): Promise<void> {
+    const saving = this.put(settings);
+    saving.catch((err: unknown) => this.diag('chat-settings-unstored', { message: errorMessage(err) }));
+    this.stored = saving;
+    return saving;
   }
 
   /** Resolves once the gateway's settings hold `change`, or after ECHO_WAIT_MS. */
@@ -143,7 +164,7 @@ export class AccountChatSettings {
 
   private take(settings: SyncedChatSettings): void {
     this.known = settings;
-    this.stored = this.put(settings).catch((err: unknown) => this.diag('chat-settings-unstored', { message: errorMessage(err) }));
+    void this.save(settings).catch(() => undefined);
     this.shown.emit('settings');
   }
 
