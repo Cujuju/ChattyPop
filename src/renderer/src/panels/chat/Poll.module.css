@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-3);
+  /* The message body lays its parts out at their content width: the card takes Discord's width, narrower panels allowing. */
+  width: 100%;
   max-width: var(--cp-poll-w);
   margin-top: var(--cp-space-2);
   padding: var(--cp-space-6);
