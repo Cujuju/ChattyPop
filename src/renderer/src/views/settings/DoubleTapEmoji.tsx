@@ -1,4 +1,4 @@
-// The double-tap reaction's emoji (Settings → Chat, on the PC and the phone): the choice drawn, and the picker that changes it.
+// The double-tap reaction's emoji (Settings → Phone, through the plugin kit): the choice drawn, and the picker that changes it.
 import { Show, onMount } from 'solid-js';
 import type { ArchiveEmoji } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
