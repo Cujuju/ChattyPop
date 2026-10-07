@@ -44,6 +44,9 @@
 	<!-- The composer's recent photos and videos (ShellPhotoLibrary.swift). -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ChattyPop shows your recent photos and videos so you can send them in chats.</string>
+	<!-- Limited access: the composer's own Manage action (ShellPhotoLibrary "manage") changes the selection, not iOS's launch prompt. -->
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
