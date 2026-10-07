@@ -2,11 +2,9 @@ import { For, Show, createEffect, createSignal, on, type JSX } from 'solid-js';
 import { contextMenu, inCompanion, setContextMenu, type ContextMenuState, type MenuGroup, type MenuItem } from '@/state/ui';
 import { Icon } from './icons';
 import { listen } from './listen';
+import { keepOnScreen } from './keepOnScreen';
 import { pullToClose } from './pullToClose';
 import styles from './ContextMenu.module.css';
-
-/** Context-menu viewport clearance. */
-const EDGE_MARGIN_PX = 8;
 
 type SubmenuItem = Extract<MenuItem, { submenu: MenuGroup[] }>;
 /** An open submenu: its item, and the row it opened from (the desktop places it beside that row). */
@@ -24,17 +22,6 @@ const anyMarked = (groups: readonly MenuGroup[]): boolean => groups.some((g) => 
 
 /** The panel's rows, for arrow-key moves: its own only (a desktop submenu is a sibling panel). */
 const rowsOf = (panel: HTMLElement | undefined): HTMLButtonElement[] => [...(panel?.querySelectorAll<HTMLButtonElement>(`.${styles.item}`) ?? [])];
-
-/** Pulls a fixed panel inside the window: capped to it both ways (a taller one scrolls, a wider one ellipsizes). */
-function keepOnScreen(panel: HTMLElement, x: number, y: number, flipX?: number): void {
-  panel.style.maxHeight = `${innerHeight - 2 * EDGE_MARGIN_PX}px`;
-  panel.style.maxWidth = `${innerWidth - 2 * EDGE_MARGIN_PX}px`;
-  const r = panel.getBoundingClientRect();
-  const overflowsRight = x + r.width > innerWidth - EDGE_MARGIN_PX;
-  const left = overflowsRight && flipX !== undefined ? flipX - r.width : x;
-  panel.style.left = `${Math.max(EDGE_MARGIN_PX, Math.min(left, innerWidth - r.width - EDGE_MARGIN_PX))}px`;
-  panel.style.top = `${Math.max(EDGE_MARGIN_PX, Math.min(y, innerHeight - r.height - EDGE_MARGIN_PX))}px`;
-}
 
 /** Grouped menus support icons, setting marks and lead content. Desktop submenus open beside rows; phone submenus replace sheets. Choice/Escape/outside/scroll close. */
 export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element }) {
@@ -105,7 +92,7 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
     queueMicrotask(() => {
       if (!subPanel || !menu) return;
       const row = s.row.getBoundingClientRect();
-      keepOnScreen(subPanel, menu.getBoundingClientRect().right, row.top, menu.getBoundingClientRect().left);
+      keepOnScreen(subPanel, menu.getBoundingClientRect().right, row.top, { x: menu.getBoundingClientRect().left });
     });
   });
 

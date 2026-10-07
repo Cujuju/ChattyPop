@@ -1,5 +1,5 @@
 {
-  "version": "2.19.0",
+  "version": "2.20.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -267,6 +267,7 @@
       "EmojiImage",
       "ErrorNote",
       "Field",
+      "GuildIcon",
       "HeaderActions",
       "HeaderBadge",
       "HeaderButton",

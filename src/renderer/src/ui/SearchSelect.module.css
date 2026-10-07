@@ -1,8 +1,14 @@
-/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats below with a filter field.
-   Hooks: .option[aria-selected='true'] (keyboard/hover), .option[data-current='true'] (the chosen value). */
+/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats in the top layer with a filter field.
+   Hooks: .option[aria-selected='true'] (keyboard/hover), .option[data-current='true'] (the chosen value),
+   .list[data-tree='true'] (top-level options head nested ones). */
 .root {
   position: relative;
   min-width: 0;
+}
+
+/* Zero specificity: a caller's class sizes the root, and the trigger fills it (a header passes --cp-btn-h-sm). */
+:where(.root) {
+  height: var(--cp-btn-h);
 }
 
 .trigger {
@@ -10,7 +16,7 @@
   align-items: center;
   gap: var(--cp-space-3);
   width: 100%;
-  height: var(--cp-btn-h);
+  height: 100%;
   padding: 0 var(--cp-space-4);
   border: var(--cp-border-w) solid var(--cp-border);
   border-radius: var(--cp-radius-sm);
@@ -45,13 +51,17 @@
   white-space: nowrap;
 }
 
-/* With cp-popover. */
+/* With cp-popover, in the top layer: SearchSelect.tsx sets left/top, min-width (the trigger's) and the window caps. */
 .popover {
-  position: absolute;
-  top: calc(100% + var(--cp-space-2));
-  left: 0;
-  right: 0;
-  z-index: var(--cp-z-popover);
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  margin: 0;
+  overflow: hidden;
+  color: var(--cp-text-1);
+}
+
+.popover:popover-open {
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-2);
@@ -62,6 +72,10 @@
 }
 
 .list {
+  flex: 1 1 auto;
+  min-width: 100%;
+  max-width: var(--cp-search-popover-max-w);
+  min-height: 0;
   max-height: var(--cp-search-list-max-h);
   margin: 0;
   padding: 0;
@@ -70,15 +84,60 @@
 }
 
 .option {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
   padding: var(--cp-space-3) var(--cp-space-4);
   border-radius: var(--cp-radius-sm);
   color: var(--cp-text-2);
   font-size: var(--cp-text-md);
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.option[data-current='true'] {
-  color: var(--cp-accent);
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* An option's picture or glyph, centred in a fixed column so labels line up. */
+.lead {
+  --guild-icon-size: var(--cp-search-lead);
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-search-lead);
+  height: var(--cp-search-lead);
+  color: var(--cp-text-muted);
+  font-weight: var(--cp-weight-medium);
+}
+
+.lead > svg {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+.trigger .lead {
+  --guild-icon-size: var(--cp-search-trigger-lead);
+  width: var(--cp-search-trigger-lead);
+  height: var(--cp-search-trigger-lead);
+}
+
+.trigger .lead > svg {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
+
+/* A tree: top-level options read as their group's heading, nested ones sit quieter and tighter under them. */
+.list[data-tree='true'] .option:where(:not([data-nested='true'])) {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.list[data-tree='true'] .option[data-nested='true'] {
+  padding-block: var(--cp-space-2);
 }
 
 .option[aria-selected='true'] {
@@ -86,8 +145,32 @@
   color: var(--cp-text-1);
 }
 
-.option[data-current='true'][aria-selected='true'] {
+.list .option[data-current='true'] {
   color: var(--cp-accent);
+}
+
+.check {
+  flex: 0 0 auto;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  color: var(--cp-accent);
+}
+
+/* The phone: every row a full tap target. */
+:global(html[data-surface='companion']) .option {
+  min-height: var(--cp-touch-h);
+}
+
+/* A group's hidden tail, opened by picking it. */
+.more {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+}
+
+.rule {
+  height: var(--cp-border-w);
+  margin: var(--cp-space-2) var(--cp-space-4);
+  background: var(--cp-border-subtle);
 }
 
 .empty {

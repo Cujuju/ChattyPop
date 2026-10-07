@@ -125,6 +125,10 @@
   --cp-rail-w: 56px; /* collapsed sidebar */
   --cp-menu-min-w: 200px; /* right-click menu */
   --cp-search-list-max-h: 320px; /* searchable select's option list */
+  --cp-search-popover-max-w: 320px; /* searchable select's list: a server or channel name reads whole; longer ones ellipsize */
+  --cp-search-lead: var(--cp-avatar-sm); /* a searchable select option's icon column: a server's avatar as in the sidebar */
+  --cp-search-trigger-lead: var(--cp-icon-lg); /* the chosen option's icon on its trigger: fits the 24px header select */
+  --cp-popover-gap: var(--cp-space-2); /* between a select's trigger and its floating list */
   --cp-log-end-pad: 24px; /* space after the last row of the Links panel, so it never meets the edge (the Archive's composer clears its own) */
   --cp-rail-tile: 36px; /* channel tile and server icon cell in the rail */
   --cp-chat-avatar: 36px; /* author avatar heading a cozy Archive group */

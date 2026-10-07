@@ -6,7 +6,7 @@ import { PLUGIN_ID_PATTERN } from './plugins';
  * Descriptor SDK version. Major: a change breaking built plugins (removed or changed export or context member); minor:
  * additions. tests/sdkSurface.test.ts holds exports to it; context members are on review.
  */
-export const PLUGIN_SDK_VERSION = '2.19.0';
+export const PLUGIN_SDK_VERSION = '2.20.0';
 /** The built-output format this host reads (plugin.json `format`). */
 export const INSTALLED_FORMAT = 1;
 

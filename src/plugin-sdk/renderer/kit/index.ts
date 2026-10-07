@@ -57,7 +57,9 @@ export { listen, onPointerDownOutside } from '@/ui/listen';
 export { pullToClose } from '@/ui/pullToClose';
 export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 export { loopWhileLooking } from '@/ui/looking';
-export { SearchSelect } from '@/ui/SearchSelect';
+export { SearchSelect, type SearchOption } from '@/ui/SearchSelect';
+// A server's icon (initials when it has none), as the sidebar draws it.
+export { GuildIcon } from '@/ui/GuildIcon';
 export { EffortSelect, effortLabel, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
