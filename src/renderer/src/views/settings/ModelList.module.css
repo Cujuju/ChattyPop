@@ -11,3 +11,8 @@
 .filter {
   width: var(--cp-settings-control-w);
 }
+
+/* The phone: under its label at full width (SettingsCard drops it there). */
+:global(html[data-surface='companion']) .filter {
+  width: 100%;
+}

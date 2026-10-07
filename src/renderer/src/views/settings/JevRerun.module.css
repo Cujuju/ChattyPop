@@ -12,3 +12,9 @@
   align-items: center;
   gap: var(--cp-space-4);
 }
+
+/* The phone: the two date-times, each a full line (an iOS date-time field outgrows half the width). */
+:global(html[data-surface='companion']) .inline {
+  flex-direction: column;
+  align-items: stretch;
+}
