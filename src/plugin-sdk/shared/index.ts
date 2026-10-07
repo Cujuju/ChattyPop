@@ -142,6 +142,7 @@ export { visibleTableName as visibleTable, type ArchiveRef } from '@shared/archi
 export type { Notice, NoticeKind } from '@shared/notices';
 export { APNS_ENVIRONMENTS, SHELL_BUNDLE_ID, isApnsEnvironment, SHELL_NATIVE_GLOBAL, SHELL_USER_AGENT_TOKEN, shellPairLink, type ApnsEnvironment } from '@shared/shell';
 export { ARCHIVE_DENSITIES, THEME_IDS, THEME_LABELS, type ArchiveDensity, type ThemeId } from '@shared/settings';
+export { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 export {
   DEFAULT_PHONE_LOOK,
   PHONE_LOOK_KEYS,

@@ -1,6 +1,7 @@
 // Loaded archive windows and in-place refreshes after content or label changes.
 import { api } from '@/api';
-import { createSignal } from 'solid-js';
+import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 import type { ArchiveMessage } from '@shared/contract';
 import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type ArchiveDensity } from '@shared/settings';
 import { chatSource, setChatSource } from './chat';
@@ -28,15 +29,22 @@ const [lastArchiveChannel, setLastArchiveChannel, { loaded: lastArchiveChannelLo
   null,
   (v) => textOrNull(v),
 );
+/** Where the owner last looked in it (keepArchivePlace); the phone keeps its own, in its storage. */
+const [lastArchivePlace, setLastArchivePlace, { loaded: lastArchivePlaceLoaded }] = createSetting<ArchivePlace | null>(
+  SETTINGS_KEYS.archivePlace,
+  null,
+  normalizeArchivePlace,
+);
 const [lastArchiveChannelReady, setLastArchiveChannelReady] = createSignal(false);
-void lastArchiveChannelLoaded.then(() => setLastArchiveChannelReady(true));
+void Promise.all([lastArchiveChannelLoaded, lastArchivePlaceLoaded]).then(() => setLastArchiveChannelReady(true));
 
-/** Nothing open yet: opens the last channel the Archive showed if `listed` holds it, else the first listed. Waits for the stored one to load. */
+/** Nothing open yet: opens the last channel the Archive showed if `listed` holds it (where the owner last looked), else the first listed. Waits for the stored ones to load. */
 export function openRestoredArchive(listed: readonly { id: string }[]): void {
   if (archiveChannelId() || !lastArchiveChannelReady()) return;
   const last = lastArchiveChannel();
   const pick = listed.find((c) => c.id === last) ?? listed[0];
-  if (pick) void openArchive(pick.id);
+  const place = lastArchivePlace();
+  if (pick) void (place?.channelId === pick.id ? openArchiveAt(place) : openArchive(pick.id));
 }
 /** Bumped when an open completes, so the view re-scrolls even when the channel is unchanged. */
 export const [archiveLoads, setArchiveLoads] = createSignal(0);
@@ -75,15 +83,8 @@ async function loadWindow(channelId: string, around: string | null): Promise<boo
   return loaded;
 }
 
-/**
- * Where the owner was in a channel's log: a message and its bottom edge above the view's bottom, in pixels (the virtual
- * log's `bottomOf`). The phone keeps it across page reloads.
- */
-export interface ArchivePlace {
-  channelId: string;
-  messageId: string;
-  bottom: number;
-}
+export type { ArchivePlace };
+
 /** The place the last open asked for (openArchiveAt): the view puts its message back there, unhighlighted, as it lands. */
 export const [openingPlace, setOpeningPlace] = createSignal<ArchivePlace | null>(null);
 
@@ -117,15 +118,31 @@ async function open(channelId: string, around: string | null): Promise<void> {
   }
 }
 
-/** The view's reader of where the owner is (ArchiveView): undefined while unknown (no view, an open landing), null at the newest. */
-let placeReader: () => ArchivePlace | null | undefined = () => undefined;
-export const archivePlace = (): ArchivePlace | null | undefined => placeReader();
+/** The view's reader of where the owner is (ArchiveView): undefined while unknown (no view, an open landing). */
+let placeReader: () => ArchivePlace | undefined = () => undefined;
+export const archivePlace = (): ArchivePlace | undefined => placeReader();
 /** Sets the view's place reader; returns its removal. */
-export function readArchivePlaceWith(read: () => ArchivePlace | null | undefined): () => void {
+export function readArchivePlaceWith(read: () => ArchivePlace | undefined): () => void {
   placeReader = read;
   return () => {
     if (placeReader === read) placeReader = () => undefined;
   };
+}
+
+/** A place is stored once the view rests there this long: one settings write per stop, not one per scrolled frame. */
+const PLACE_REST_MS = 500;
+const samePlace = (a: ArchivePlace | null, b: ArchivePlace): boolean =>
+  a !== null && a.channelId === b.channelId && a.messageId === b.messageId && a.bottom === b.bottom;
+
+/** Desktop: stores where the owner is while they can look (`lookable`), so a restart reopens where they last looked. Owner-scoped. */
+export function keepArchivePlace(lookable: Accessor<boolean>): void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(timer));
+  createEffect(() => {
+    const place = lookable() ? archivePlace() : undefined;
+    clearTimeout(timer);
+    if (place && !samePlace(lastArchivePlace(), place)) timer = setTimeout(() => void setLastArchivePlace(place), PLACE_REST_MS);
+  });
 }
 
 /** Privacy mode changed: close the open channel if it is now hidden, else reload what is loaded (messages may be hidden or back). */

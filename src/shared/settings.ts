@@ -56,6 +56,8 @@ export const SETTINGS_KEYS = {
   chatSource: 'chat.source',
   /** The channel the Archive view last opened (renderer state/archive.ts). */
   archiveChannel: 'archive.channel',
+  /** Where the owner last looked in the Archive (ArchivePlace), reopened on start (renderer state/archive.ts). */
+  archivePlace: 'archive.place',
   /** The account's chat settings as Discord last sent them (SyncedChatSettings). Main writes it; changes go through discord.setChatSettings. */
   discordChat: 'chat.discord',
   /** This device's chat choices (DeviceChatRecord); a phone's are its own, kept by the phone transport (PHONE_DEVICE_SETTINGS). */

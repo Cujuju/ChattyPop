@@ -10,6 +10,7 @@ import {
   archiveState,
   atNewest,
   focusMessageId,
+  keepArchivePlace,
   loadNewer,
   loadOlder,
   openArchive,
@@ -152,8 +153,10 @@ export function ArchiveView() {
       queueMicrotask(() => {
         const focus = focusMessageId();
         const place = openingPlace();
+        // Nothing newer than the place's message: the owner was at the newest, so follow it again.
+        const caughtUp = place !== null && atNewest() && archiveState.items.at(-1)?.id === place.messageId;
         if (vlog.holdRow(focus)) log.detach();
-        else if (place && vlog.holdRow(place.messageId, { bottom: place.bottom })) log.detach();
+        else if (place && !caughtUp && vlog.holdRow(place.messageId, { bottom: place.bottom })) log.detach();
         else if (!focus) log.scrollToNewest();
         setPlaced(n);
       });
@@ -161,17 +164,17 @@ export function ArchiveView() {
   );
   /** The last open is loaded and placed: the rows and following are its own. */
   const settled = (): boolean => !archiveOpening() && placed() === archiveLoads();
-  // Where the owner is, for the phone to reopen after a reload: the newest message in view and its bottom edge; null at
-  // the newest; unknown while an open lands.
+  // Where the owner is, to reopen there (a restart, a phone reload): the newest message in view and its bottom edge, the
+  // newest message at the newest; unknown while an open lands.
   onCleanup(
     readArchivePlaceWith(() => {
       const channelId = archiveChannelId();
       if (!channelId || !settled()) return undefined;
-      if (atNewest() && !vlog.holding() && vlog.log.distanceFromBottom() <= AT_NEWEST_SLOP_PX) return null;
+      const atBottom = atNewest() && !vlog.holding() && vlog.log.distanceFromBottom() <= AT_NEWEST_SLOP_PX;
       const key = vlog.log.inViewKey();
-      const row = key === null ? undefined : vlog.rowByKey(key);
+      const row = atBottom || key === null ? undefined : vlog.rowByKey(key);
       // A day divider stands for the message it heads; a message not yet sent has no place to reopen at.
-      const messageId = row?.kind === 'day' ? row.messageId : row?.kind === 'msg' ? row.message.id : undefined;
+      const messageId = atBottom ? archiveState.items.at(-1)?.id : row?.kind === 'day' ? row.messageId : row?.kind === 'msg' ? row.message.id : undefined;
       const bottom = messageId === undefined ? null : vlog.log.bottomOf(messageId);
       return messageId !== undefined && bottom !== null ? { channelId, messageId, bottom } : undefined;
     }),
@@ -220,6 +223,7 @@ export function ArchiveView() {
       );
     }
     watchArchive(lookable, seenNewest);
+    if (!inCompanion) keepArchivePlace(lookable);
     // After the rows are drawn, measured or moved (startOf tracks every re-layout; shift translates them): positions
     // are read from the page.
     createEffect(() => {
