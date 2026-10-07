@@ -33,8 +33,7 @@
   position: absolute;
   inset-block: var(--cp-space-1);
   right: var(--cp-space-1);
-  display: grid;
-  place-items: center;
+  align-content: center;
   min-width: calc(100cqh - 2 * var(--cp-space-1)); /* square at one digit */
   padding-inline: var(--cp-space-1);
   border-radius: calc(var(--seg-radius) - var(--cp-space-1));
@@ -43,6 +42,8 @@
   font-size: var(--cp-text-2xs);
   font-weight: var(--cp-weight-semibold);
   line-height: var(--cp-leading-none);
+  text-align: center;
+  text-box: trim-both cap alphabetic; /* centres the digits' ink, not the font's ascent and descent */
 }
 
 /* Empty and loading states */
