@@ -27,6 +27,10 @@ pushes below are the transport's: this doc states what the shell expects of it, 
   its `'native'` resize waited for the keyboard's animation plus 0.2 s. The accessory bar (⌃⌄✓) is hidden, and the
   keyboard follows the theme's colour scheme. The page posts its `--cp-surface-1` as `{ r, g, b }` to the native
   `shellBackdrop` handler, which paints the window with it (`#090b10` until the first post).
+- **Network:** WebKit has no `navigator.connection`, so the app dispatches `SHELL_NETWORK_EVENT` (`cp-shell-network`,
+  detail `{ cellular: boolean }`) on `window` on each network change, and in reply to the page posting `{}` to the
+  `shellNetwork` handler (`SHELL_NETWORK_HANDLER`), which `state/network.ts` does once when it loads. Data Saving reads
+  it to send videos at Data Saver quality on cellular.
 - **Push:** Web Push doesn't exist in WKWebView, so the shell uses APNs (phase D). The home-screen web app keeps Web Push.
 - **Share auth reuses the phone's pairing.** The app copies the transport's pairing cookie (`cp_companion`) into a shared
   Keychain item, and the extension sends it. No new credential kind, and unpairing the phone on the desktop cuts the
