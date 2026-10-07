@@ -22,26 +22,27 @@
 }
 
 .modeSegment {
+  position: relative;
+  container-type: size; /* the count sizes from its height */
   flex: 1 1 0;
 }
 
-.modeLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--cp-space-2);
-}
-
-/* Unread conversations: an accent pill after the label (accent marks unread). */
+/* Unread conversations (accent marks unread): a chip pinned inside the segment's right end, inset evenly from its edges
+   with a concentric radius, so the label stays centred as Servers' is. */
 .modeCount {
-  min-width: var(--cp-badge-line-h);
-  padding: 0 var(--cp-space-2);
-  border-radius: var(--cp-radius-pill);
+  position: absolute;
+  inset-block: var(--cp-space-1);
+  right: var(--cp-space-1);
+  display: grid;
+  place-items: center;
+  min-width: calc(100cqh - 2 * var(--cp-space-1)); /* square at one digit */
+  padding-inline: var(--cp-space-1);
+  border-radius: calc(var(--seg-radius) - var(--cp-space-1));
   background: var(--cp-accent);
   color: var(--cp-text-on-accent);
   font-size: var(--cp-text-2xs);
   font-weight: var(--cp-weight-semibold);
-  line-height: var(--cp-badge-line-h);
-  text-align: center;
+  line-height: var(--cp-leading-none);
 }
 
 /* Empty and loading states */

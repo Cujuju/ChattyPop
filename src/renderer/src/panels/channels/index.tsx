@@ -90,12 +90,10 @@ function ModeSwitch() {
       <SegGroup role="radiogroup" ariaLabel="Sidebar lists" class={styles.modeGroup} value={sidebarMode()} onChange={(v: SidebarMode) => setSidebarMode(v)}>
         <SegButton value="servers" label="Servers" size="sm" class={styles.modeSegment} />
         <SegButton value="dms" label="DMs" size="sm" class={styles.modeSegment} ariaLabel={unreadDms() ? `DMs, ${unreadDms()} unread` : 'DMs'}>
-          <span class={styles.modeLabel}>
-            DMs
-            <Show when={unreadDms() > 0}>
-              <span class={styles.modeCount}>{unreadDms()}</span>
-            </Show>
-          </span>
+          DMs
+          <Show when={unreadDms() > 0}>
+            <span class={styles.modeCount}>{unreadDms()}</span>
+          </Show>
         </SegButton>
       </SegGroup>
     </div>
