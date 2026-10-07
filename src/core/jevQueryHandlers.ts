@@ -1,5 +1,5 @@
 // Settings → Jev → Queries: read and save the owner's edits to built-in queries, and re-run a per-message one on past messages.
-import type { CoreMethods } from '@shared/contract';
+import type { AppEvent, CoreMethods } from '@shared/contract';
 import { jevQueryDef, validateJevQuery, type JevQueryOverrides } from '@shared/jevQueries';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { getSetting, setSetting, type Db } from './db';
@@ -29,7 +29,7 @@ export const loadJevQueryOverrides = (db: Db): void => {
   setJevQueryOverrides(overrides);
 };
 
-export function jevQueryHandlers(db: () => Db, matcher: () => RuleMatcher): Handlers {
+export function jevQueryHandlers(db: () => Db, matcher: () => RuleMatcher, emit: (e: AppEvent) => void): Handlers {
   return {
     jevQueryOverrides: () => stored(db()),
     setJevQuery: (id, q) => {
@@ -41,6 +41,8 @@ export function jevQueryHandlers(db: () => Db, matcher: () => RuleMatcher): Hand
       else delete next[id];
       setSetting(db(), SETTINGS_KEYS.jevQueries, next);
       setJevQueryOverrides(next);
+      // Every window and phone re-reads the queries on this.
+      emit({ type: 'setting-changed', key: SETTINGS_KEYS.jevQueries, value: next });
     },
     jevRerunCount: (req) => {
       rerunSubjects(db(), req.queryId); // throws for a query that can't re-run

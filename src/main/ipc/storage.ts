@@ -21,8 +21,10 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   handleMain(storage.info, () => storageInfo());
   // The key is saved before encrypting (a crash between the two leaves a readable key, never a locked archive),
   // and deleted only after decrypting succeeded.
-  handleMain(storage.setEncrypted, async (on) => {
-    if (on === true) {
+  // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
+  let encrypting: Promise<void> = Promise.resolve();
+  const setEncrypted = async (on: boolean): Promise<void> => {
+    if (on) {
       const key = createArchiveKey();
       try {
         await core.call('setEncryption', key);
@@ -34,6 +36,12 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
       await core.call('setEncryption', null);
       deleteArchiveKey();
     }
+  };
+  handleMain(storage.setEncrypted, (on) => {
+    if (typeof on !== 'boolean') throw new TypeError('on must be a boolean');
+    const run = encrypting.then(() => setEncrypted(on));
+    encrypting = run.catch(() => undefined);
+    return run;
   });
   ipcMain.handle(storage.move, () => moveArchive(win, { stop: stopArchive, emit, restart }));
   ipcMain.handle(storage.deletePrevious, () => deletePreviousArchive(win));

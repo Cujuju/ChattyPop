@@ -190,6 +190,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   ...jevQueryHandlers(
     () => ready().db,
     () => matcher(),
+    emit,
   ),
   setSelf: (user) => {
     self = user;

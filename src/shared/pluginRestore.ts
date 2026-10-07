@@ -13,6 +13,7 @@ import {
 } from './marketplace';
 import { stringsOr } from './normalize';
 import { PLUGIN_ID_PATTERN } from './plugins';
+import { SETTINGS_KEYS } from './settings';
 
 /** Where a plugin's data was found: its tables, preferences, data folder, rule parts, or its on/off state. */
 export type FootprintKind = 'table' | 'preference' | 'dataDir' | 'rule' | 'state';
@@ -76,7 +77,7 @@ export interface RestoreItem {
 }
 
 /** The setting holding which plugins the owner dismissed and which the start prompt already showed. */
-export const PLUGIN_RESTORE_KEY = 'plugins.restore';
+export const PLUGIN_RESTORE_KEY = SETTINGS_KEYS.pluginsRestore;
 
 export interface PluginRestoreSettings {
   /** Never offered again. */

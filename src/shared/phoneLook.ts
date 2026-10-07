@@ -36,9 +36,13 @@ export function phoneLookSetting(key: string, value: unknown, look: PhoneLook): 
   return value;
 }
 
-/** A phone's write of setting `key` holding `value`, its look taken back out: the PC keeps its own theme (`stored`). */
+/**
+ * A phone's write of setting `key` holding `value`, its look taken back out: the PC keeps its own theme (`stored`).
+ * A value that isn't an appearance object leaves the stored one as it is.
+ */
 export function phoneLookWrite(key: string, value: unknown, look: PhoneLook, stored: unknown): unknown {
-  if (key !== SETTINGS_KEYS.appearance || !look.theme || !isObj(value)) return value;
+  if (key !== SETTINGS_KEYS.appearance || !look.theme) return value;
+  if (!isObj(value) || Array.isArray(value)) return stored;
   return { ...value, theme: isObj(stored) ? stored['theme'] : undefined };
 }
 

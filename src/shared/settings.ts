@@ -60,6 +60,8 @@ export const SETTINGS_KEYS = {
   discordChat: 'chat.discord',
   /** This device's chat choices (DeviceChatRecord); a phone's are its own, kept by the phone transport (PHONE_DEVICE_SETTINGS). */
   chatDevice: 'chat.device',
+  /** Plugin restore offers the owner dismissed or deferred (shared/pluginRestore.ts). */
+  pluginsRestore: 'plugins.restore',
 } as const;
 
 /** Bot ids only: defaults to none, drops malformed entries and duplicates. */

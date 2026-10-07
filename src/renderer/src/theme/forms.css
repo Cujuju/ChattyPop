@@ -11,7 +11,9 @@ input:where(
   [type='password']
 ),
 textarea,
-select {
+select,
+/* The phone: time fields too, which else keep the UA's light well. */
+html[data-surface='companion'] input:where([type='time'], [type='datetime-local']) {
   height: var(--cp-btn-h);
   padding: 0 var(--cp-space-4);
   border: var(--cp-border-w) solid var(--cp-border);

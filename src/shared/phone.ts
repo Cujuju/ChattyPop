@@ -132,6 +132,7 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingShare>> = 
   [SETTINGS_KEYS.savedSearches]: 'config',
   [SETTINGS_KEYS.leaderKey]: 'config',
   [SETTINGS_KEYS.shortcutBindings]: 'config',
+  [SETTINGS_KEYS.pluginsRestore]: 'config',
   // Showing what is hidden on the phone must not unhide it on the PC.
   [SETTINGS_KEYS.privacyMode]: 'view',
   [SETTINGS_KEYS.searchSort]: 'view',

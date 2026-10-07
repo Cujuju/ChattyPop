@@ -2,7 +2,7 @@
 import { For, Show, createEffect, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { SectionId } from '@/panels/titles';
-import { setSettingsSection, settingsSection } from '@/state/ui';
+import { setSettingsOpen, setSettingsSection, settingsOpen, settingsSection } from '@/state/ui';
 import { look } from '@/theme/look';
 import { Icon } from '@/ui/icons';
 import { PanelHeader } from '@/ui/PanelHeader';
@@ -48,6 +48,10 @@ export function PhoneSettings(props: {
   /** The open section's id; null, or a section no longer offered, shows the top level. */
   open: string | null;
   onOpen: (id: string | null) => void;
+  /** Whether the shell shows this pane: Settings is open (settingsOpen) exactly while it does. */
+  shown: boolean;
+  /** Settings was asked for elsewhere (openSettingsAt): the shell shows this pane. */
+  onShow: () => void;
   children: JSX.Element;
 }) {
   const tab = () => settingsTabs().find((t) => t.id === props.open);
@@ -56,6 +60,11 @@ export function PhoneSettings(props: {
   const back = (): void => {
     if (mayLeave()) props.onOpen(null);
   };
+  // Stores that load only while Settings is open (provider status) follow the pane, as they follow the dialog.
+  createEffect(() => setSettingsOpen(props.shown));
+  createEffect(() => {
+    if (settingsOpen() && !props.shown) props.onShow();
+  });
   // A section asked for elsewhere (openSettingsAt, as the dialog takes it) opens here.
   createEffect(() => {
     const id = settingsSection();

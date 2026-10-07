@@ -846,3 +846,9 @@
 :global(html[data-surface='companion']) .editorError {
   padding: var(--cp-space-4) 0 0;
 }
+
+/* A plugin action's rows (Summarize's Covering) sit in .actionCards' inset and carry their own: the phone takes one
+   back so they line up with host actions' rows. Cards (section) keep the inset. */
+:global(html[data-surface='companion']) .actionCards > div {
+  margin-inline: calc(-1 * var(--cp-space-7));
+}
