@@ -21,12 +21,14 @@ export function createListNav(count: () => number, opts: ListNavOptions): ListNa
   const [active, setActive] = createSignal(0);
   const onKey = (e: KeyboardEvent): void => {
     const n = count();
-    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && n) setActive((active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
-    else if (e.key === 'Enter') opts.onEnter(active());
-    else if (e.key === 'Escape') opts.onEscape();
-    else return;
+    const arrow = (e.key === 'ArrowDown' || e.key === 'ArrowUp') && n > 0;
+    if (!arrow && e.key !== 'Enter' && e.key !== 'Escape') return;
+    // Before the handlers: a throwing pick must not let the key's default (a field's newline, which may send) through.
     e.preventDefault();
     if (opts.stopPropagation) e.stopPropagation();
+    if (arrow) setActive((active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+    else if (e.key === 'Enter') opts.onEnter(active());
+    else opts.onEscape();
     // After the update renders, so a newly drawn row can be scrolled to.
     queueMicrotask(() => opts.activeEl()?.scrollIntoView({ block: 'nearest' }));
   };
