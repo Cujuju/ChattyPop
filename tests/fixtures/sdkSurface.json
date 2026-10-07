@@ -1,5 +1,5 @@
 {
-  "version": "2.12.0",
+  "version": "2.13.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -241,6 +241,7 @@
     ],
     "@plugin-sdk/renderer/kit": [
       "AddPicker",
+      "AnimatedImage",
       "Card",
       "ChatEmoji",
       "Checks",
@@ -251,6 +252,7 @@
       "EffortRow",
       "EffortSelect",
       "Embeds",
+      "EmojiImage",
       "ErrorNote",
       "Field",
       "HeaderActions",
@@ -332,6 +334,7 @@
       "localProviderNames",
       "localRange",
       "look",
+      "loopWhileLooking",
       "modelTraits",
       "now",
       "onPointerDownOutside",

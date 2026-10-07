@@ -1,28 +1,16 @@
-import { createEffect, createMemo, createSignal, on, onCleanup, type Accessor } from 'solid-js';
+import { createEffect, createMemo, on, type Accessor } from 'solid-js';
 import { isPanelCollapsed } from '@/state/layout';
 import { markPanelSeen, panelShown } from '@/state/unread';
-import { inCompanion } from '@/state/ui';
-import { listen } from './listen';
+import { createOnScreen, pageVisible, windowFocused } from './looking';
 
 /** Component-owned visibility requires viewport presence, non-minimized window and unfolded panel. */
 export function createShown(el: Element, id: () => string): Accessor<boolean> {
-  const [inView, setInView] = createSignal(false);
-  const [pageVisible, setPageVisible] = createSignal(document.visibilityState === 'visible');
-  const io = new IntersectionObserver((entries) => setInView(entries.at(-1)?.isIntersecting ?? false));
-  io.observe(el);
-  listen(document, 'visibilitychange', () => void setPageVisible(document.visibilityState === 'visible'));
-  onCleanup(() => io.disconnect());
+  const inView = createOnScreen(el);
   return createMemo(() => inView() && pageVisible() && !isPanelCollapsed(id()));
 }
 
 /** Desktop read eligibility requires window focus, excluding tray/background windows. Phone always returns true. */
-export function createWindowFocused(): Accessor<boolean> {
-  if (inCompanion) return () => true;
-  const [focused, setFocused] = createSignal(document.hasFocus());
-  listen(window, 'focus', () => void setFocused(true));
-  listen(window, 'blur', () => void setFocused(false));
-  return focused;
-}
+export const createWindowFocused = (): Accessor<boolean> => windowFocused;
 
 /** Marks panel `id` seen while `el` is on screen (createShown). Call from a component body; stops with its owner. */
 export function markSeenWhileShown(el: Element, id: () => string): void {

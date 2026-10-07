@@ -1,7 +1,7 @@
 import { For, Show, onMount } from 'solid-js';
 import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { channelById } from '@/state/directory';
 import { loadExpressions } from '@/state/expressions';
 import { prepareQuickReactions, quickReactions } from '@/state/quickReactions';
@@ -36,7 +36,7 @@ export function QuickReactions(props: { message: ArchiveMessage; x: number; y: n
         {(e) => (
           <button type="button" class={styles.emoji} aria-pressed={reactedWith(props.message, e)} aria-label={`React with ${e.id ? `:${e.name}:` : e.name}`} title={e.id ? `:${e.name}:` : e.name} onClick={() => pick(e)}>
             <Show when={e.id} fallback={<span class={styles.glyph}>{e.name}</span>}>
-              {(id) => <img class={styles.image} src={emojiUrl({ id: id(), animated: e.animated })} alt="" />}
+              {(id) => <EmojiImage class={styles.image} emoji={{ id: id(), animated: e.animated }} alt="" />}
             </Show>
           </button>
         )}

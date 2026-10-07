@@ -1,6 +1,7 @@
 import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import { canUseEmoji } from '@shared/compose';
-import { emojiUrl, type GuildEmoji } from '@shared/emoji';
+import type { GuildEmoji } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { directory } from '@/state/directory';
 import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, unicodeEmoji, type UnicodeGroup } from '@/state/expressions';
 import { errorText } from '@/ui/format';
@@ -122,7 +123,7 @@ export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick
       title={props.usable ? `:${props.emoji.name}:` : `:${props.emoji.name}: · needs Nitro here`}
       onClick={(ev) => props.onPick({ custom: props.emoji }, ev.shiftKey)}
     >
-      <img class={styles.emojiImg} src={emojiUrl(props.emoji)} alt={`:${props.emoji.name}:`} loading="lazy" />
+      <EmojiImage class={styles.emojiImg} emoji={props.emoji} alt={`:${props.emoji.name}:`} loading="lazy" />
     </button>
   );
 }

@@ -145,8 +145,9 @@ describe('emoji in message text, which Discord treats as text', () => {
   it.each([
     ['a jumbo emoji-only message', { 'data-jumbo': 'true' }],
     ['an inline emoji', { 'data-jumbo': 'false' }],
-  ])('reacts on %s', (_what, attrs) => {
-    const emoji = new FakeElement('img', paragraph(), { 'data-text-emoji': '', ...attrs });
+    ['an animated emoji, drawn on a canvas', { 'data-jumbo': 'false', role: 'img', tag: 'canvas' }],
+  ])('reacts on %s', (_what, { tag = 'img', ...attrs }: Record<string, string>) => {
+    const emoji = new FakeElement(tag, paragraph(), { 'data-text-emoji': '', ...attrs });
     screen.tap(emoji, 0);
     screen.tap(emoji, SECOND);
     expect(runs).toBe(1);
@@ -154,7 +155,7 @@ describe('emoji in message text, which Discord treats as text', () => {
 
   it('is how Markdown draws an emoji', () => {
     const markdown = readFileSync(join(import.meta.dirname, '../src/renderer/src/ui/Markdown.tsx'), 'utf8');
-    expect(markdown).toMatch(/<img class=\{styles\.emoji\} data-text-emoji /);
+    expect(markdown).toMatch(/<EmojiImage class=\{styles\.emoji\} data-text-emoji /);
   });
 
   it('leaves an emoji inside a link to the link', () => {

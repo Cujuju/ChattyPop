@@ -2,7 +2,7 @@
 // divider before the actions.
 import { Index, Show, createEffect, onCleanup, onMount } from 'solid-js';
 import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { prepareQuickReactions, quickReactions } from '@/state/quickReactions';
 import { canReact, openReactionPicker, react, reactedWith } from '@/state/reactions';
 import { SolidIcon } from '@/ui/solidIcons';
@@ -60,7 +60,7 @@ export function HoverReactions(props: { message: ArchiveMessage }) {
               onClick={() => react(m(), e(), !reactedWith(m(), e()))}
             >
               <Show when={e().id} fallback={<span class={styles.glyph}>{e().name}</span>}>
-                {(id) => <img class={styles.image} src={emojiUrl({ id: id(), animated: e().animated })} alt="" />}
+                {(id) => <EmojiImage class={styles.image} emoji={{ id: id(), animated: e().animated }} alt="" />}
               </Show>
             </button>
           )}

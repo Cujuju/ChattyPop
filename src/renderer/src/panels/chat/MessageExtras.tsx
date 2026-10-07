@@ -1,6 +1,7 @@
 import { For, Show, type JSX } from 'solid-js';
 import type { ArchiveEmbed, ArchiveMessage, ArchiveReply, ArchiveSticker, MediaSize } from '@shared/contract';
-import { emojiUrl } from '@shared/emoji';
+import { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
+import { loopWhileLooking } from '@/ui/looking';
 import { animatedMediaUrl, avatarUrl, proxiedUrl, thumbUrl } from '@shared/media';
 import { openArchive } from '@/state/archive';
 import { canReact, openReactionPicker, react } from '@/state/reactions';
@@ -67,7 +68,7 @@ export function Reactions(props: { message: ArchiveMessage }) {
                   onClick={() => consumeHold() || react(m(), r.emoji, !r.me)}
                 >
                   <Show when={r.emoji.id} fallback={<span class={styles.reactionUnicode}>{r.emoji.name}</span>}>
-                    {(id) => <img class={styles.reactionEmoji} src={emojiUrl({ id: id(), animated: r.emoji.animated })} alt={`:${r.emoji.name}:`} loading="lazy" />}
+                    {(id) => <EmojiImage class={styles.reactionEmoji} emoji={{ id: id(), animated: r.emoji.animated }} alt={`:${r.emoji.name}:`} loading="lazy" />}
                   </Show>
                   <span class={styles.reactionCount}>{r.count}</span>
                 </button>
@@ -203,7 +204,7 @@ function EmbedMedia(props: { embed: ArchiveEmbed }) {
         </Show>
       }
     >
-      {(src) => <video class={styles.embedImage} data-sized={videoSize() !== null} style={mediaSizeVars(videoSize())} src={proxiedUrl(src())} poster={poster()} autoplay loop muted playsinline />}
+      {(src) => <video class={styles.embedImage} data-sized={videoSize() !== null} style={mediaSizeVars(videoSize())} src={proxiedUrl(src())} poster={poster()} ref={loopWhileLooking} loop muted playsinline preload="auto" />}
     </Show>
   );
 }
@@ -225,7 +226,7 @@ function EmbedGallery(props: { embed: ArchiveEmbed }) {
             aria-label="Open image"
             onClick={() => setLightbox({ src: proxiedUrl(animatedMediaUrl(url)), alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
           >
-            <img class={styles.embedGalleryImage} src={thumbUrl(animatedMediaUrl(url))} alt="" loading="lazy" />
+            <AnimatedImage class={styles.embedGalleryImage} src={thumbUrl(animatedMediaUrl(url))} alt="" loading="lazy" />
           </button>
         )}
       </For>
@@ -245,7 +246,7 @@ function EmbedImage(props: { embed: ArchiveEmbed; still: string | null; size: Me
           aria-label="Open image"
           onClick={() => setLightbox({ src: proxiedUrl(src()), alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
         >
-          <img class={styles.embedImage} data-sized={props.size !== null} style={mediaSizeVars(props.size)} src={thumbUrl(src())} alt="" loading="lazy" />
+          <AnimatedImage class={styles.embedImage} data-sized={props.size !== null} style={mediaSizeVars(props.size)} src={thumbUrl(src())} alt="" loading="lazy" />
         </button>
       )}
     </Show>

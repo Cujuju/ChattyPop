@@ -1,6 +1,7 @@
 import { Show, createEffect, on, onCleanup } from 'solid-js';
 import { lightbox, setLightbox } from '@/state/ui';
 import { setOverlayCover } from '@/state/windows';
+import { AnimatedImage } from './AnimatedImage';
 import { createZoom } from './createZoom';
 import { Icon } from './icons';
 import styles from './Lightbox.module.css';
@@ -36,7 +37,7 @@ export function Lightbox() {
       <Show when={lightbox()}>
         {(img) => (
           <figure class={styles.figure} onClick={(e) => e.target === e.currentTarget && setLightbox(null)}>
-            <img
+            <AnimatedImage
               ref={(el) => zoom.bind(el)}
               class={styles.image}
               src={img().src}

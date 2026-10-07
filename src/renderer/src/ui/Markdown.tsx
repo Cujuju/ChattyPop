@@ -1,5 +1,5 @@
 import { For, Match, Switch, createSignal, useContext, type JSX } from 'solid-js';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { clockTime } from './format';
@@ -87,7 +87,7 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
           </Match>
           {/* data-text-emoji: text to gestures (ui/touch.ts), so a double tap on it reacts as on the words around it. */}
           <Match when={n.k === 'emoji' && n}>
-            {(e) => <img class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} src={emojiUrl(e())} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
+            {(e) => <EmojiImage class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} emoji={e()} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
           </Match>
           <Match when={n.k === 'mention' && n}>
             {(m) => (

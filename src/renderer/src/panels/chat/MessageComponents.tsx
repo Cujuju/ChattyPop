@@ -1,7 +1,7 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
 import { BUTTON_STYLE, COMPONENT, MESSAGE_FLAG, type ComponentEmoji, type MediaItem, type MessageComponent } from '@shared/components';
 import type { ArchiveInteraction, ArchiveMessage } from '@shared/contract';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { proxiedUrl, thumbUrl } from '@shared/media';
 import { channelById } from '@/state/directory';
 import { componentPending, useMessageComponent, type EntityChoice } from '@/state/commands';
@@ -148,7 +148,7 @@ function MediaImage(props: { media: MediaItem; class: string | undefined }) {
 function Emoji(props: { emoji: ComponentEmoji }) {
   return (
     <Show when={props.emoji.id} fallback={<span class={styles.emoji}>{props.emoji.name}</span>}>
-      {(id) => <img class={styles.emoji} src={emojiUrl({ id: id(), animated: props.emoji.animated })} alt={`:${props.emoji.name}:`} />}
+      {(id) => <EmojiImage class={styles.emoji} emoji={{ id: id(), animated: props.emoji.animated }} alt={`:${props.emoji.name}:`} />}
     </Show>
   );
 }

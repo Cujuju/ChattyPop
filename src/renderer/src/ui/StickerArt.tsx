@@ -1,16 +1,18 @@
-import { Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import type { AnimationItem } from 'lottie-web';
 import { STICKER_FORMAT, type Sticker } from '@shared/compose';
 import { lottieStickerUrl, stickerArtUrl } from '@shared/media';
+import { AnimatedImage } from './AnimatedImage';
+import { createLooking } from './looking';
 
 type StickerLike = Pick<Sticker, 'id' | 'name' | 'formatType'>;
 
-/** Renders sticker images or visible Lottie animations. playOnHover pauses at first frame until hovered; otherwise loops. Caller class supplies size/style. */
+/** Renders sticker images or Lottie animations, playing only while the owner can look. playOnHover rests on the first frame until hovered; otherwise loops. Caller class supplies size/style. */
 export function StickerArt(props: { sticker: StickerLike; class?: string; playOnHover?: boolean }) {
   return (
     <Show
       when={props.sticker.formatType === STICKER_FORMAT.lottie}
-      fallback={<img class={props.class} src={stickerArtUrl(props.sticker)} alt={`Sticker: ${props.sticker.name}`} title={props.sticker.name} loading="lazy" />}
+      fallback={<AnimatedImage class={props.class} src={stickerArtUrl(props.sticker)} still={props.sticker.formatType === STICKER_FORMAT.png} alt={`Sticker: ${props.sticker.name}`} title={props.sticker.name} loading="lazy" />}
     >
       <LottieSticker sticker={props.sticker} class={props.class} playOnHover={props.playOnHover ?? false} />
     </Show>
@@ -33,17 +35,18 @@ function LottieSticker(props: { sticker: StickerLike; class?: string; playOnHove
     if (disposed) return;
     anim = lottie.loadAnimation({ container: box, renderer: 'svg', loop: true, autoplay: !props.playOnHover, animationData });
   };
-  const show = (): void => {
-    loading ??= load().catch(() => void setFailed(true));
-    if (!props.playOnHover) void loading.then(() => anim?.play());
-  };
-
+  const [hovered, setHovered] = createSignal(false);
   onMount(() => {
-    const seen = new IntersectionObserver(([entry]) => (entry?.isIntersecting ? show() : anim?.pause()));
-    seen.observe(box);
+    const looking = createLooking(box);
+    // Loaded once first looked at; plays while looked at (and hovered, with playOnHover), stopping on the frame shown.
+    createEffect(() => {
+      if (!looking()) return void anim?.pause();
+      loading ??= load().catch(() => void setFailed(true));
+      const play = !props.playOnHover || hovered();
+      void loading.then(() => (play ? anim?.play() : anim?.pause()));
+    });
     onCleanup(() => {
       disposed = true;
-      seen.disconnect();
       anim?.destroy();
     });
   });
@@ -55,8 +58,11 @@ function LottieSticker(props: { sticker: StickerLike; class?: string; playOnHove
       role="img"
       aria-label={`Sticker: ${props.sticker.name}`}
       title={props.sticker.name}
-      onMouseEnter={() => props.playOnHover && anim?.play()}
-      onMouseLeave={() => props.playOnHover && anim?.goToAndStop(0, true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false);
+        if (props.playOnHover) anim?.goToAndStop(0, true);
+      }}
     >
       <Show when={failed()}>{props.sticker.name}</Show>
     </div>

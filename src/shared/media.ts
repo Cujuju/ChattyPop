@@ -101,10 +101,17 @@ const SILENT_EMBED_TYPES: ReadonlySet<string> = new Set(['gifv']);
 /** Whether an embed's video may have sound to transcribe. */
 export const embedVideoHasSound = (type: string): boolean => !SILENT_EMBED_TYPES.has(type);
 
+/** An attachment's content type, else its extension's; undefined when neither is known. */
+export const mediaType = (a: { contentType: string | null; filename: string }): string | undefined =>
+  a.contentType && a.contentType !== GENERIC_CONTENT_TYPE ? a.contentType : STORED_MEDIA_MIME[fileExt(a.filename)];
+
+/** Content types that may hold an animation (GIF, APNG, animated WebP or AVIF). */
+const ANIMATABLE_TYPES: ReadonlySet<string> = new Set(['image/gif', 'image/webp', 'image/png', 'image/apng', 'image/avif']);
+export const mayAnimate = (type: string | undefined): boolean => type !== undefined && ANIMATABLE_TYPES.has(type);
+
 /** What an attachment holds, by its content type, else its extension; 'file' for anything but image, audio or video. */
 export function mediaKind(a: { contentType: string | null; filename: string }): AttachmentView {
-  const known = a.contentType && a.contentType !== GENERIC_CONTENT_TYPE ? a.contentType : STORED_MEDIA_MIME[fileExt(a.filename)];
-  const kind = (known ?? '').split('/')[0];
+  const kind = (mediaType(a) ?? '').split('/')[0];
   return kind === 'image' || kind === 'audio' || kind === 'video' ? kind : 'file';
 }
 

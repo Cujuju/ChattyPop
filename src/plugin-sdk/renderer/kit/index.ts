@@ -53,6 +53,8 @@ export { RuleLookback } from '@/views/settings/rules/RuleLookback';
 export { JevQuestionField, conditionWording } from '@/ui/JevQuestionField';
 export { InlineMarkdown } from '@/ui/Markdown';
 export { listen, onPointerDownOutside } from '@/ui/listen';
+export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
+export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect } from '@/ui/SearchSelect';
 export { EffortSelect, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';

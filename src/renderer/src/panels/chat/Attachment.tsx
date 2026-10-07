@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
-import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
+import { attachmentPosterUrl, attachmentUrl, attachmentView, mayAnimate, mediaType } from '@shared/media';
+import { AnimatedImage } from '@/ui/AnimatedImage';
 import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
 import { canSave, saveAttachment, savesThroughMain } from '@/state/savedFiles';
@@ -67,7 +68,7 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
           aria-label={`Open ${a().filename}`}
           onClick={() => setLightbox({ src: src(a())!, alt: a().description ?? a().filename, caption: sizeCaption(), originalUrl: null })}
         >
-          <img src={src(a())} alt={a().description ?? a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
+          <AnimatedImage src={src(a()) ?? ''} still={!src(a()) || !mayAnimate(mediaType(a()))} alt={a().description ?? a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
         </button>
       </Match>
       <Match when={attachmentView(a()) === 'video'}>

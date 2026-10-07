@@ -65,6 +65,9 @@ const overlaps = (w: WindowRect, r: DOMRect): boolean => w.x < r.right && w.x + 
 export const windowsCover = (r: DOMRect): boolean =>
   openWindows().some(({ rect }) => overlaps(rect, r)) || [...overlays().values()].some((a) => a === 'window' || overlaps(a, r));
 
+/** An overlay covers the whole window (the image viewer, a modal dialog). */
+export const windowCovered = (): boolean => [...overlays().values()].includes('window');
+
 /** An element's area as an overlay cover. */
 export const coverOf = (el: Element): WindowRect => {
   const r = el.getBoundingClientRect();

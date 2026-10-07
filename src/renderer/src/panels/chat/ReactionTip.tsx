@@ -2,7 +2,7 @@
 import { Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import type { ArchiveMessage, ArchiveReaction, PersonMatch } from '@shared/contract';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { api } from '@/api';
 import { cachedThenLive } from '@/state/cachedLive';
 import { onPointerDownOutside } from '@/ui/listen';
@@ -51,7 +51,7 @@ function Tip(props: { message: ArchiveMessage; reaction: ArchiveReaction; anchor
     <Portal>
       <div ref={tip} class={styles.tip} role="tooltip" style={{ left: `${left()}px`, top: `${rect.top}px` }}>
         <Show when={r().emoji.id} fallback={<span class={styles.unicode}>{r().emoji.name}</span>}>
-          {(id) => <img class={styles.emoji} src={emojiUrl({ id: id(), animated: r().emoji.animated })} alt="" />}
+          {(id) => <EmojiImage class={styles.emoji} emoji={{ id: id(), animated: r().emoji.animated }} alt="" />}
         </Show>
         <p class={styles.text}>
           <span class={styles.name}>:{r().emoji.name}:</span> {text()}

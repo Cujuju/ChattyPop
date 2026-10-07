@@ -119,6 +119,17 @@ export function globalViolations(file: SourceFile): string[] {
 const declared = (body: string): Map<string, { value: string; index: number }> =>
   new Map([...body.matchAll(/([\w-]+)\s*:\s*([^;{}]+);/g)].map((m) => [m[1]!, { value: m[2]!.trim(), index: m.index }]));
 
+/** Looping media plays only while the owner can look (ui/looking.ts): no autoplaying looped video, no emoji as a bare <img>. */
+export function loopingMediaViolations(file: SourceFile): string[] {
+  return [...file.text.matchAll(/<(video|img)\b(?:=>|[^>])*>/g)].flatMap((tag) => {
+    const t = tag[0];
+    const line = lineAt(file.text, tag.index);
+    if (tag[1] === 'video' && /\bloop\b/.test(t) && /\bautoplay\b/.test(t)) return [violation(file.rel, line, 'a looping video plays while looked at: ref={loopWhileLooking}, not autoplay')];
+    if (tag[1] === 'img' && /\bemojiUrl\(/.test(t)) return [violation(file.rel, line, 'an emoji may be animated: <EmojiImage>, not <img>')];
+    return [];
+  });
+}
+
 /** Requires matching -webkit-user-select beside user-select for Safari. */
 export function userSelectViolations(file: SourceFile): string[] {
   return [...file.text.matchAll(/\{([^{}]*)\}/g)].flatMap((rule) => {

@@ -2,7 +2,7 @@
 import { Show, onMount } from 'solid-js';
 import type { ArchiveEmoji } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
-import { emojiUrl } from '@shared/emoji';
+import { EmojiImage } from '@/ui/AnimatedImage';
 import { changeDeviceChatSettings } from '@/state/chatSettings';
 import { ensureExpressions } from '@/state/expressions';
 import { asReaction } from '@/state/reactions';
@@ -13,7 +13,7 @@ import { EmojiList } from '@/panels/chat/compose/EmojiList';
 export function ChatEmoji(props: { emoji: ArchiveEmoji }) {
   return (
     <Show when={props.emoji.id} fallback={<span class={look.emojiGlyph}>{props.emoji.name}</span>}>
-      {(id) => <img class={look.emojiGlyph} src={emojiUrl({ id: id(), animated: props.emoji.animated })} alt={`:${props.emoji.name}:`} />}
+      {(id) => <EmojiImage class={look.emojiGlyph} emoji={{ id: id(), animated: props.emoji.animated }} alt={`:${props.emoji.name}:`} />}
     </Show>
   );
 }
