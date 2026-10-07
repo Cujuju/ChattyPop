@@ -1,7 +1,7 @@
 // Each page persists its outbox in IndexedDB. On unlock, adopts queues from departed pages, including pre-reload owners.
 import { createEffect, createRoot } from 'solid-js';
 import { api } from '@/api';
-import { UPLOAD_CHUNK_BYTES, UPLOAD_GONE } from '@shared/compose';
+import { POST_WINDOW_PASSED, UPLOAD_CHUNK_BYTES, UPLOAD_GONE } from '@shared/compose';
 import { newNonce } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT, DesktopUnreachableError } from '@shared/phone';
 import { isPostingLocked } from '@shared/posting';
@@ -95,6 +95,7 @@ const box = createOutbox<SavedDraft>({
   prepare: async (channelId, files, progress) => prepareFiles(files, await unstalled(api.discord.uploadLimit(channelId), SEND_BASE_TIMEOUT_MS), progress),
   upload: uploadFiles,
   uploadGone: (err) => err instanceof Error && err.message.includes(UPLOAD_GONE),
+  windowPassed: (err) => err instanceof Error && err.message.includes(POST_WINDOW_PASSED),
   errorText,
   unreachable: (err) => err instanceof DesktopUnreachableError,
   restore: restoreDraft,

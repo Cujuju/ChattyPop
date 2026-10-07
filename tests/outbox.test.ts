@@ -1,6 +1,6 @@
 // Outbox sends serialize per channel. Failures block successors; retries reuse nonces. Queues survive reloads; automatic retries stay within Discord’s nonce-deduplication window.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OwnerMessage } from '@shared/compose';
+import { POST_WINDOW_PASSED, type OwnerMessage } from '@shared/compose';
 import { PostingLocked, isPostingLocked } from '@shared/posting';
 import { AUTO_RETRY_MS, NONCE_DEDUPE_MS, SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxJob, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
@@ -26,6 +26,7 @@ function setup(canRestore = false) {
     prepare: async (_channelId, files) => files,
     upload: async (_channelId, files) => files.map((f) => `token-${f.name}`),
     uploadGone: () => false,
+    windowPassed: (err) => (err as Error).message === POST_WINDOW_PASSED,
     errorText: (err) => (err as Error).message,
     unreachable: (err) => err instanceof Unreachable,
     restore: (_channelId, draft) => canRestore && void restored.push(draft) === undefined,
@@ -243,5 +244,52 @@ describe('outbox', () => {
     expect(after.pending).toHaveLength(0);
     expect(after.labels()).toEqual(['a:failed']);
     expect(after.box.outgoing(CHANNEL)[0]!.error).toMatch(/Check the channel/);
+  });
+
+  it('a retry by itself refused by the lock and reloaded past the window waits for a check', async () => {
+    const before = setup();
+    before.box.enqueue(before.job('a'));
+    await settle();
+    before.pending[0]!.reject(new Unreachable('gone'));
+    await settle();
+    before.box.retryUnreachable();
+    await settle();
+    before.pending[1]!.reject(new PostingLocked());
+    await settle();
+    expect(before.labels()).toEqual(['a:queued']);
+    const records = before.saved();
+    vi.setSystemTime(Date.now() + NONCE_DEDUPE_MS);
+
+    const after = setup();
+    after.box.load(records);
+    await settle();
+    expect(after.pending).toHaveLength(0);
+    expect(after.box.outgoing(CHANNEL)[0]!.error).toMatch(/Check the channel/);
+  });
+
+  it('an unconfirmed post carries the window left; main refusing past it waits for a check; the owner’s Retry has no deadline', async () => {
+    const { box, pending, job, headId } = setup();
+    box.enqueue(job('a'));
+    await settle();
+    expect(pending[0]!.m.postWithinMs).toBe(NONCE_DEDUPE_MS);
+    pending[0]!.reject(new Error(POST_WINDOW_PASSED));
+    await settle();
+    expect(box.outgoing(CHANNEL)[0]).toMatchObject({ status: 'failed', error: expect.stringMatching(/Check the channel/) });
+    await vi.advanceTimersByTimeAsync(AUTO_RETRY_MS);
+    expect(pending).toHaveLength(1);
+    box.retrySend(CHANNEL, headId());
+    await settle();
+    expect(pending[1]!.m).not.toHaveProperty('postWithinMs');
+  });
+
+  it('one whose files weren’t kept fails for good after a reload: Retry would send it without them', async () => {
+    const { box, pending, job, headId } = setup();
+    const record: OutboxRecord<string> = { ...job('a'), status: 'queued', error: null, firstSentAt: null, unreachable: false, uploads: null, files: [], fileCount: 1 };
+    box.load([record]);
+    await settle();
+    expect(box.outgoing(CHANNEL)[0]).toMatchObject({ status: 'failed', retryable: false, error: expect.stringMatching(/files couldn’t be kept/) });
+    box.retrySend(CHANNEL, headId());
+    await settle();
+    expect(pending).toHaveLength(0);
   });
 });

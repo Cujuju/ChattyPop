@@ -1,7 +1,7 @@
 // A message with files goes in phases: prepared, uploaded in pieces (progress shown), then posted with the uploads'
 // tokens and its nonce. A failure before the post retries any time; uploads the desktop let go are uploaded again.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { UPLOAD_GONE, type OwnerMessage } from '@shared/compose';
+import { POST_WINDOW_PASSED, UPLOAD_GONE, type OwnerMessage } from '@shared/compose';
 import { isPostingLocked } from '@shared/posting';
 import { NONCE_DEDUPE_MS, createOutbox, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
@@ -27,6 +27,7 @@ function setup() {
     prepare: async (_c, files) => files,
     upload: (_c, files, progress) => new Promise((resolve, reject) => void uploads.push({ files: files.map((f) => f.name), progress, resolve, reject })),
     uploadGone: (err) => (err as Error).message === UPLOAD_GONE,
+    windowPassed: (err) => (err as Error).message === POST_WINDOW_PASSED,
     errorText: (err) => (err as Error).message,
     unreachable: (err) => err instanceof Unreachable,
     restore: () => false,

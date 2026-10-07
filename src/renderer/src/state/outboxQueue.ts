@@ -23,6 +23,8 @@ export interface Outgoing {
   error: string | null;
   /** Edit can put it back in the composer (a GIF or sticker isn't part of a draft). */
   editable: boolean;
+  /** Retry can send it: false once its files are lost (it would go without them). */
+  retryable: boolean;
   phase: OutgoingPhase | null;
   /** Fraction done of the phase; null when it can't tell. */
   progress: number | null;
@@ -54,6 +56,8 @@ export interface OutboxRecord<D> {
   unreachable: boolean;
   /** Its finished uploads, while the desktop holds them; null until uploaded. */
   uploads: string[] | null;
+  /** How many files it carries; more than `files` holds when their save failed. Absent in records saved with their files. */
+  fileCount?: number;
 }
 
 export interface OutboxDeps<D> {
@@ -64,6 +68,8 @@ export interface OutboxDeps<D> {
   upload(channelId: string, files: File[], progress: (fraction: number) => void): Promise<string[]>;
   /** The desktop no longer holds the message's uploads (UPLOAD_GONE): they go again. */
   uploadGone(err: unknown): boolean;
+  /** The desktop refused to post past the message's postWithinMs (POST_WINDOW_PASSED). */
+  windowPassed(err: unknown): boolean;
   errorText(err: unknown): string;
   /** The desktop couldn't be reached: the message may not have been posted, and may go again with its nonce. */
   unreachable(err: unknown): boolean;
@@ -88,7 +94,8 @@ const TIMED_OUT = 'Sending is taking too long. It may still arrive; retrying wit
 const INTERRUPTED = 'The app closed while this was sending.';
 const UNREACHABLE = 'Can’t reach the desktop. Retrying when it’s back.';
 const CHECK_FIRST = 'Couldn’t confirm it was sent. Check the channel first: Retry now could post it twice.';
-/** An automatic retry stopped before posting: past the nonce window, only the owner's Retry may send it. */
+const FILES_LOST = 'Its files couldn’t be kept when the app closed. Edit to attach them again, or Discard.';
+/** A post not confirmed by the owner stopped: past the nonce window, only the owner's Retry may send it. */
 class CheckFirst extends Error {}
 
 interface Entry<D> {
@@ -98,8 +105,13 @@ interface Entry<D> {
   uploads: string[] | null;
   /** The files as prepared for upload; kept across retries while the page lives. */
   prepared: File[] | null;
-  /** This attempt is a retry by itself (not the owner's): it may post only while Discord still dedupes its nonce. */
-  automatic: boolean;
+  /**
+   * The owner's Retry asked for it: it posts without a deadline. Otherwise (a first send, a retry by itself, one loaded
+   * after a reload) it posts only while Discord still dedupes its nonce. Lasts until a post attempt fails.
+   */
+  confirmed: boolean;
+  /** Files it carries, saved or not: more than job.files when their save failed. */
+  fileCount: number;
 }
 
 export function createOutbox<D>(deps: OutboxDeps<D>) {
@@ -129,7 +141,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
         const e = entries.get(id);
         if (!e) continue;
         const { channelId, label, message, files, draft } = e.job;
-        records.push({ channelId, label, message, files, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads });
+        records.push({ channelId, label, message, files, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads, fileCount: e.fileCount });
       }
     }
     deps.save(records);
@@ -152,8 +164,10 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
 
   function add(job: OutboxJob<D>, state: Pick<Outgoing, 'status' | 'error'>, saved?: OutboxRecord<D>): void {
     const id = nextId++;
-    entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, automatic: false });
-    const row: Outgoing = { id, label: job.label, text: job.message.text, files: job.files, ...state, editable: job.draft !== null, phase: null, progress: null };
+    const fileCount = saved?.fileCount ?? job.files.length;
+    entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, confirmed: false, fileCount });
+    const retryable = job.files.length >= fileCount;
+    const row: Outgoing = { id, label: job.label, text: job.message.text, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
     setOutbox(produce((all) => void (all[job.channelId] ??= []).push(row)));
     undismiss(job.channelId);
   }
@@ -164,12 +178,18 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     void pump(job.channelId);
   }
 
-  /** Takes saved messages into the queue (after a reload). One cut off while posting may have posted: failed, and retried only while its nonce holds. */
+  /**
+   * Takes saved messages into the queue (after a reload). One cut off while posting may have posted: failed, and retried
+   * only while its nonce holds. One whose files weren't kept fails for good: sent, it would go without them.
+   */
   function load(records: OutboxRecord<D>[]): void {
     for (const r of records) {
+      const files = r.files ?? [];
+      const lost = files.length < (r.fileCount ?? files.length);
       const interrupted = r.status === 'sending';
-      const job: OutboxJob<D> = { channelId: r.channelId, label: r.label, message: r.message, files: r.files ?? [], draft: r.draft };
-      add(job, interrupted ? { status: 'failed', error: INTERRUPTED } : { status: r.status, error: r.error }, { ...r, unreachable: interrupted || r.unreachable });
+      const job: OutboxJob<D> = { channelId: r.channelId, label: r.label, message: r.message, files, draft: r.draft };
+      const state = lost ? { status: 'failed' as const, error: FILES_LOST } : interrupted ? { status: 'failed' as const, error: INTERRUPTED } : { status: r.status, error: r.error };
+      add(job, state, { ...r, unreachable: !lost && (interrupted || r.unreachable) });
     }
     save();
     for (const channelId of new Set(records.map((r) => r.channelId))) void pump(channelId);
@@ -213,15 +233,13 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
         let failure: string | null = null;
         try {
           await uploadFiles(channelId, id, e);
-          // A retry by itself that outlived the nonce window (a long re-upload) must not post: it could post twice.
-          if (e.automatic && e.firstSentAt !== null && deps.now() - e.firstSentAt >= NONCE_DEDUPE_MS) {
-            e.unreachable = false;
-            throw new CheckFirst();
-          }
           // Saved before the post goes: after a reload, firstSentAt says it may have posted.
           e.firstSentAt ??= deps.now();
+          // Unconfirmed, it posts only inside the nonce window (main enforces it after any queue wait): else it could post twice.
+          const postWithinMs = e.confirmed ? undefined : e.firstSentAt + NONCE_DEDUPE_MS - deps.now();
+          if (postWithinMs !== undefined && postWithinMs <= 0) throw new CheckFirst();
           patch(channelId, id, { phase: 'posting', progress: null });
-          const sent = deps.send({ ...e.job.message, uploads: e.uploads ?? [] });
+          const sent = deps.send({ ...e.job.message, uploads: e.uploads ?? [], ...(postWithinMs === undefined ? {} : { postWithinMs }) });
           if ((await within(sent, SEND_BASE_TIMEOUT_MS)) === 'timeout') {
             failure = TIMED_OUT;
             e.unreachable = true;
@@ -250,14 +268,17 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
             continue;
           }
           // Never put back in the composer on its own: a lost answer can hide a post that went through, and only a resend reuses its nonce.
-          if (err instanceof CheckFirst) failure = CHECK_FIRST;
-          else {
+          if (err instanceof CheckFirst || deps.windowPassed(err)) {
+            e.unreachable = false;
+            failure = CHECK_FIRST;
+          } else {
             e.unreachable = deps.unreachable(err);
             failure = e.unreachable ? UNREACHABLE : deps.errorText(err);
           }
         }
         if (failure === null) finish(channelId, id);
         else {
+          e.confirmed = false;
           patch(channelId, id, { status: 'failed', error: failure, phase: null, progress: null });
           undismiss(channelId);
           if (e.unreachable) scheduleRetry();
@@ -287,7 +308,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       if (!head || !e?.unreachable) continue;
       if (e.firstSentAt === null || deps.now() - e.firstSentAt < NONCE_DEDUPE_MS) {
         waiting = true;
-        retrySend(channelId, head.id, true);
+        resend(channelId, head.id, false);
       } else {
         e.unreachable = false;
         patch(channelId, head.id, { error: CHECK_FIRST });
@@ -296,13 +317,17 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     if (waiting) scheduleRetry();
   }
 
-  /** Sends the channel's failed head again, then the rest behind it. `automatic`: a retry by itself, not the owner's Retry. */
-  function retrySend(channelId: string, id: number, automatic = false): void {
+  /** Sends the channel's failed head again, then the rest behind it; `confirmed`: the owner asked (no nonce deadline). */
+  function resend(channelId: string, id: number, confirmed: boolean): void {
     const e = entries.get(id);
-    if (e) e.automatic = automatic;
+    if (!e || e.job.files.length < e.fileCount) return;
+    e.confirmed = confirmed;
     patch(channelId, id, { status: 'queued', error: null });
     void pump(channelId);
   }
+
+  /** The owner's Retry: sends the failed head again even past the nonce window (after CHECK_FIRST warned them). */
+  const retrySend = (channelId: string, id: number): void => resend(channelId, id, true);
 
   /** Puts a failed message back in the empty composer to change it; the ones behind it go on. False when the draft isn't empty. */
   function editSend(channelId: string, id: number): boolean {

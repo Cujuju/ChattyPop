@@ -27,7 +27,15 @@ export interface OwnerMessage {
   gif: { id: string; query: string } | null;
   /** Made once by the sender and kept across retries: Discord enforces it, so a retried send can't post twice. */
   nonce: string;
+  /**
+   * Main starts no post attempt (queued or retried) later than this many ms after receiving it, since Discord stops
+   * deduping the nonce; it throws POST_WINDOW_PASSED instead. Absent: no deadline (the owner chose to send anyway).
+   */
+  postWithinMs?: number;
 }
+
+/** Main refused to post: past the sender's postWithinMs, a copy that already went could be posted twice. */
+export const POST_WINDOW_PASSED = 'Not sent: Discord may no longer catch a duplicate of this message.';
 
 /** One of the owner's messages, to edit or delete. */
 export interface OwnerMessageRef {

@@ -1,6 +1,6 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
 import type { DirectMessage, NewThread } from '@shared/commands';
-import { ALT_TEXT_MAX, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
+import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
   DISCORD_FILES_PER_MESSAGE_MAX,
   DISCORD_TEXT_MAX,
@@ -40,6 +40,8 @@ export interface OutgoingMessage {
   stickerIds?: string[];
   /** The sender's, when it may retry; else a fresh one. */
   nonce?: string;
+  /** Run before each post attempt, after any queue wait; throwing stops it unsent. */
+  guard?: () => void;
 }
 
 export interface SentMessage {
@@ -60,7 +62,7 @@ export async function sendMessage(api: DiscordWriter, channelId: string, m: Outg
     ...(m.stickerIds?.length ? { sticker_ids: m.stickerIds } : {}),
     ...(m.replyTo ? { message_reference: { channel_id: m.replyTo.channelId, message_id: m.replyTo.messageId } } : {}),
     ...(m.forwardOf ? { message_reference: forwardReference(m.forwardOf) } : {}),
-  });
+  }, m.guard ? { guard: m.guard } : undefined);
   return { id: posted.id, attachmentIds: (posted.attachments ?? []).map((a) => a.id) };
 }
 
@@ -127,12 +129,20 @@ export function checkOwnerMessage(v: unknown): OwnerMessage {
   if (g && (typeof g.id !== 'string' || typeof g.query !== 'string')) throw new Error('Not a GIF to send.');
   if (!m.text.trim() && !m.files.length && !uploads.length && !stickerId) throw new Error('Write a message first.');
   const nonce = snowflakeArg(m.nonce, 'nonce');
-  return { channelId, text: m.text, replyTo, files: m.files, uploads, stickerId, gif: g ? { id: g.id, query: g.query } : null, nonce };
+  const w = m.postWithinMs;
+  if (w !== undefined && !Number.isFinite(w)) throw new Error('Not a time to post within.');
+  return { channelId, text: m.text, replyTo, files: m.files, uploads, stickerId, gif: g ? { id: g.id, query: g.query } : null, nonce, ...(w === undefined ? {} : { postWithinMs: w }) };
 }
 
 /** Posts what the owner wrote in the Archive composer: uploads its small files, then the message with those and its finished uploads. */
 export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Uploads): Promise<void> {
   const m = checkOwnerMessage(v);
+  // On this clock from now: the sender's own clock may differ.
+  const deadline = m.postWithinMs === undefined ? null : Date.now() + m.postWithinMs;
+  const guard = (): void => {
+    if (deadline !== null && Date.now() >= deadline) throw new Error(POST_WINDOW_PASSED);
+  };
+  guard();
   const tokens = m.uploads ?? [];
   if (tokens.length && !held) throw new Error('Uploads are not taken here.');
   const uploaded = held?.take(m.channelId, tokens) ?? [];
@@ -148,6 +158,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
     attachments,
     stickerIds: m.stickerId ? [m.stickerId] : [],
     nonce: m.nonce,
+    guard,
   });
   // Kept until Discord accepts the message: a retry (same nonce) reuses them.
   held?.release(tokens);

@@ -96,6 +96,10 @@
   cursor: pointer;
 }
 
+.retry:disabled {
+  cursor: default;
+}
+
 .reason {
   color: var(--cp-text-muted);
   font-size: var(--cp-text-meta);

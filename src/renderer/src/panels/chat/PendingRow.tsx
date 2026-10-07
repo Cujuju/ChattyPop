@@ -54,8 +54,8 @@ export function PendingRow(props: PendingRowProps) {
         </Show>
         <Show when={failed()}>
           <div class={styles.failure}>
-            <button type="button" class={styles.retry} onClick={() => retrySend(props.channelId, o().id)}>
-              Failed to send. Tap to retry.
+            <button type="button" class={styles.retry} disabled={!o().retryable} onClick={() => retrySend(props.channelId, o().id)}>
+              {o().retryable ? 'Failed to send. Tap to retry.' : 'Failed to send.'}
             </button>
             <Show when={o().error}>{(e) => <span class={styles.reason}>{e()}</span>}</Show>
             <span class={styles.actions}>

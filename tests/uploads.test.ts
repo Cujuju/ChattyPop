@@ -2,7 +2,7 @@
 // a message names only finished uploads in its channel, and they are released once Discord accepts it.
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
+import { POST_WINDOW_PASSED, UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
 import { BYTES_PER_GB, BYTES_PER_MB } from '@shared/units';
 import { sendOwnerMessage } from '../src/main/discord/send';
 import { UPLOAD_IDLE_MS, Uploads } from '../src/main/discord/uploads';
@@ -143,6 +143,27 @@ describe('Uploads, pieces and idle', () => {
     vi.advanceTimersByTime(UPLOAD_IDLE_MS);
     await expect(piece).rejects.toThrow(UPLOAD_GONE);
     expect(requests.at(-1)!.aborted).toBe(true);
+  });
+});
+
+describe('the sender’s post window', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('main starts no post attempt past it, even after waiting in the queue', async () => {
+    vi.useFakeTimers();
+    const posts: string[] = [];
+    const queueWaitMs = 2000;
+    const api = {
+      post: async (path: string, _json: unknown, opts?: { guard?: () => void }) => {
+        vi.setSystemTime(Date.now() + queueWaitMs);
+        opts?.guard?.();
+        posts.push(path);
+        return { id: '1' };
+      },
+    } as never;
+    await expect(sendOwnerMessage(api, { ...message([]), text: 'hi', postWithinMs: queueWaitMs / 2 })).rejects.toThrow(POST_WINDOW_PASSED);
+    await sendOwnerMessage(api, { ...message([]), text: 'hi', postWithinMs: queueWaitMs * 2 });
+    expect(posts).toEqual([`channels/${CHANNEL}/messages`]);
   });
 });
 
