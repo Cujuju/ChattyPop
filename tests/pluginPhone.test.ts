@@ -152,9 +152,9 @@ describe('phone settings', () => {
     expect(phoneLookSetting('archive.density', 'compact', own)).toBe('cozy');
     expect(phoneLookSetting('privacyMode', true, own)).toBe(true);
     // Its writes take the look back out: the PC keeps its own theme, whatever the phone wears.
-    expect(phoneLookWrite('appearance', { theme: 'paper', custom: { a: 1 } }, own, { theme: 'tide' })).toEqual({ theme: 'tide', custom: { a: 1 } });
-    expect(phoneLookWrite('appearance', { theme: 'paper' }, follows, { theme: 'tide' })).toEqual({ theme: 'paper' });
-    for (const bad of [null, 'paper', ['paper']]) expect(phoneLookWrite('appearance', bad, own, { theme: 'tide' })).toEqual({ theme: 'tide' });
+    expect(phoneLookWrite('appearance', { theme: 'paper', custom: { a: 1 } }, own, { theme: 'tide' })).toEqual({ value: { theme: 'tide', custom: { a: 1 } } });
+    expect(phoneLookWrite('appearance', { theme: 'paper' }, follows, { theme: 'tide' })).toEqual({ value: { theme: 'paper' } });
+    for (const bad of [null, 'paper', ['paper']]) expect(phoneLookWrite('appearance', bad, own, { theme: 'tide' })).toBeNull();
     expect(phoneLookEvent({ type: 'setting-changed', key: 'archive.density', value: 'compact' }, own)).toEqual({ type: 'setting-changed', key: 'archive.density', value: 'cozy' });
     const other: AppEvent = { type: 'rules-changed' };
     expect(phoneLookEvent(other, own)).toBe(other);

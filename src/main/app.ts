@@ -182,7 +182,7 @@ void app.whenReady().then(() => {
   let discordCalls: DiscordCalls | undefined;
   const phone = new PhoneHub({ core, discord: () => discordCalls!, main: callMain, media: serveMedia, active: (id) => states.active(id) });
   const { toRenderer, toMain, publish, notifications } = routeCoreEvents({ win, panelWindows, core, downloader, phone });
-  desktop.attach(win, toMain);
+  desktop.attach(win, toRenderer);
   ipcMain.on(SHOW_IN_MAIN_CHANNEL, (_e, channelId: unknown, messageId: unknown, compose: unknown) => {
     if (typeof channelId !== 'string' || !raiseWindow(win)) return;
     toMain({ type: 'open-message', channelId, ...(typeof messageId === 'string' ? { messageId, ...(isComposeIntent(compose) ? { compose } : {}) } : {}) });

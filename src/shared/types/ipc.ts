@@ -23,6 +23,8 @@ export type AppEvent =
   | { type: 'read-states-changed'; states: ReadStateCount[] }
   /** Privacy mode or a private mark changed: every view re-reads what it shows. */
   | { type: 'privacy-changed' }
+  /** Core's status (encryption) changed outside archive traffic: windows and the phone re-read it. */
+  | { type: 'status-changed' }
   /** The live Discord client now shows this channel; the Archive follows it when opened. */
   | { type: 'live-channel'; guildId: string; channelId: string }
   /** Main asks its window to reveal a panel named by a notification. */

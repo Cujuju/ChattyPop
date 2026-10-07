@@ -38,12 +38,12 @@ export function phoneLookSetting(key: string, value: unknown, look: PhoneLook): 
 
 /**
  * A phone's write of setting `key` holding `value`, its look taken back out: the PC keeps its own theme (`stored`).
- * A value that isn't an appearance object leaves the stored one as it is.
+ * Null: write nothing (a value that isn't an appearance object).
  */
-export function phoneLookWrite(key: string, value: unknown, look: PhoneLook, stored: unknown): unknown {
-  if (key !== SETTINGS_KEYS.appearance || !look.theme) return value;
-  if (!isObj(value) || Array.isArray(value)) return stored;
-  return { ...value, theme: isObj(stored) ? stored['theme'] : undefined };
+export function phoneLookWrite(key: string, value: unknown, look: PhoneLook, stored: unknown): { value: unknown } | null {
+  if (key !== SETTINGS_KEYS.appearance || !look.theme) return { value };
+  if (!isObj(value) || Array.isArray(value)) return null;
+  return { value: { ...value, theme: isObj(stored) ? stored['theme'] : undefined } };
 }
 
 /** An event, as the phone gets it (phoneAppEvent), for a phone with `look`: a look key's change carries its own choice. `e` itself when unchanged. */

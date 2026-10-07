@@ -106,9 +106,10 @@ export const PHONE_EVENT_TYPES = [
   'plugins-changed',
   'attachment-notes-changed',
   'typing',
-  // Settings → Desktop and Archive → Location show these.
+  // Settings → Desktop and Archive show these.
   'desktop-changed',
   'storage-move',
+  'status-changed',
 ] as const satisfies readonly AppEvent['type'][];
 const coreMethods = new Set<string>(PHONE_CORE_METHODS);
 const eventTypes = new Set<string>(PHONE_EVENT_TYPES);

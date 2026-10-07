@@ -46,17 +46,17 @@ export class Desktop {
   private tray: AppTray | undefined;
   private updates: Updates | undefined;
   private win: BrowserWindow | undefined;
-  private toMain: (e: AppEvent) => void = () => {};
+  private emit: (e: AppEvent) => void = () => {};
 
   /** Whether this start stays in the tray: Windows started it at sign-in and the owner chose that. */
   readonly startHidden = process.argv.includes(AT_LOGIN_ARG) && this.settings.startHidden;
   readonly minimizeToTray = (): boolean => this.settings.minimizeToTray;
   readonly closeToTray = (): boolean => this.settings.closeToTray;
 
-  /** Adds the tray, hotkey and updates for the main window; `toMain` carries state changes to it. */
-  attach(win: BrowserWindow, toMain: (e: AppEvent) => void): void {
+  /** Adds the tray, hotkey and updates for the main window; `emit` carries state changes to every window and the phone. */
+  attach(win: BrowserWindow, emit: (e: AppEvent) => void): void {
     this.win = win;
-    this.toMain = toMain;
+    this.emit = emit;
     this.tray = new AppTray(win, appIconPath(), {
       open: () => raiseWindow(win),
       // Installs a downloaded update on the way (restart.ts).
@@ -84,7 +84,7 @@ export class Desktop {
   }
 
   private changed(): void {
-    this.toMain({ type: 'desktop-changed', state: this.state() });
+    this.emit({ type: 'desktop-changed', state: this.state() });
   }
 
   private set(patch: Partial<DesktopSettings>): void {

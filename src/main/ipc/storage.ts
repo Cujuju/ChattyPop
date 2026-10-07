@@ -24,6 +24,8 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
   let encrypting: Promise<void> = Promise.resolve();
   const setEncrypted = async (on: boolean): Promise<void> => {
+    // Already so: a second client's same request must not replace (and on failure delete) the key in use.
+    if ((await core.call('status')).encrypted === on) return;
     if (on) {
       const key = createArchiveKey();
       try {
@@ -39,7 +41,7 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   };
   handleMain(storage.setEncrypted, (on) => {
     if (typeof on !== 'boolean') throw new TypeError('on must be a boolean');
-    const run = encrypting.then(() => setEncrypted(on));
+    const run = encrypting.then(() => setEncrypted(on)).finally(() => emit({ type: 'status-changed' }));
     encrypting = run.catch(() => undefined);
     return run;
   });

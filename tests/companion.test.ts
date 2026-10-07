@@ -25,6 +25,9 @@ describe('companion contract', () => {
     expect(phoneMayWriteSetting(SETTINGS_KEYS.countedBots)).toBe(true);
     expect(phoneMayWriteSetting(SETTINGS_KEYS.privacyMode)).toBe(false);
     expect(phoneMayCallCore('setSetting')).toBe(false);
+    // Settings on the phone follow state changed elsewhere.
+    expect(phoneGetsAppEvent({ type: 'status-changed' })).toBe(true);
+    expect(phoneGetsAppEvent({ type: 'desktop-changed', state: {} as never })).toBe(true);
   });
   it('lets the phone call only renderer methods, never the desktop-only ones', () => {
     for (const m of COMPANION_CORE_METHODS) expect(RENDERER_CORE_METHODS).toContain(m);

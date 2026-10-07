@@ -6,3 +6,4 @@ import { onAppEvent } from './events';
 export const [coreStatus, { refetch: refetchCoreStatus }] = createResource(() => api.core.status());
 
 onAppEvent('archive-changed', () => void refetchCoreStatus());
+onAppEvent('status-changed', () => void refetchCoreStatus());
