@@ -57,12 +57,14 @@
   white-space: nowrap;
 }
 
-/* Embed card: coloured side bar, text column, optional thumbnail on the right. */
+/* Embed card: coloured side bar, text column, optional thumbnail on the right. Sized to its content, as Discord's,
+   in any container (a stretching list too). */
 .embed {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--cp-space-5);
-  max-width: var(--cp-embed-max-w);
+  width: fit-content;
+  max-width: min(100%, var(--cp-embed-max-w));
   padding: var(--cp-space-5) var(--cp-space-6);
   border: var(--cp-border-w) solid var(--cp-border-subtle);
   border-left: var(--cp-space-2) solid
