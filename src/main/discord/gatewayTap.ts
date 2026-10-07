@@ -25,16 +25,27 @@ const DISPATCH_OP = 0;
 const INVALID_SESSION_OP = 9;
 /** WebSocket close frame opcode. */
 const WS_CLOSE_OPCODE = 8;
+/** WebSocket text frame opcode. */
+const WS_TEXT_OPCODE = 1;
 
 type Decoder = { write(chunk: Buffer): Promise<string> };
 
+/** A frame sent on the gateway socket: its opcode and payload. */
+export interface GatewaySend {
+  op: number;
+  d: unknown;
+}
+
 /**
- * Reads the embedded client's own gateway traffic through CDP; sends nothing to Discord.
+ * Reads the embedded client's own gateway traffic through CDP; sends nothing to Discord. `sent` is a frame the client
+ * sent, `ownSent` one ChattyPop sent on its socket (marked with own()).
  * Must attach before the page opens its socket: compressed streams can't be decoded mid-stream.
  */
-export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch] }> {
+export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend]; ownSent: [GatewaySend] }> {
   readonly stats: GatewayTapStats = { url: null, compress: null, frames: 0, decodeErrors: 0, events: {} };
   private readonly decoders = new Map<string, Decoder>();
+  /** Frames ChattyPop is sending, as text: told apart from the client's when CDP reports them. */
+  private readonly ownFrames = new Map<string, number>();
 
   constructor(wc: WebContents) {
     super();
@@ -53,6 +64,10 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch] }> {
       this.decoders.set(String(params['requestId']), makeDecoder(compress));
       return;
     }
+    if (method === 'Network.webSocketFrameSent') {
+      if (this.decoders.has(String(params['requestId']))) this.onSent(params['response'] as { opcode: number; payloadData: string });
+      return;
+    }
     if (method === 'Network.webSocketClosed') {
       if (this.decoders.delete(String(params['requestId']))) diag('gateway-socket-closed');
       return;
@@ -69,6 +84,28 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch] }> {
       .write(chunk)
       .then((json) => this.onPayload(json))
       .catch(() => this.stats.decodeErrors++);
+  }
+
+  /** Marks `frame` as ChattyPop's, before it is sent on the client's socket. */
+  own(frame: string): void {
+    this.ownFrames.set(frame, (this.ownFrames.get(frame) ?? 0) + 1);
+  }
+
+  /** A text frame sent (the client sends JSON uncompressed); binary ones carry no shape to read. */
+  private onSent({ opcode, payloadData }: { opcode: number; payloadData: string }): void {
+    if (opcode !== WS_TEXT_OPCODE) return;
+    const mine = this.ownFrames.get(payloadData);
+    if (mine) {
+      if (mine > 1) this.ownFrames.set(payloadData, mine - 1);
+      else this.ownFrames.delete(payloadData);
+    }
+    let msg: { op?: unknown; d?: unknown };
+    try {
+      msg = JSON.parse(payloadData) as { op?: unknown; d?: unknown };
+    } catch {
+      return;
+    }
+    if (typeof msg.op === 'number') this.emit(mine ? 'ownSent' : 'sent', { op: msg.op, d: msg.d });
   }
 
   private onPayload(json: string): void {

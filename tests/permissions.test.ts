@@ -115,7 +115,7 @@ describe("member searches on the client's gateway socket", () => {
         return Promise.resolve({});
       },
     };
-    return { requests: new MemberRequests(cdp as never, tap as unknown as GatewayTap, gapMs), tap, frames, lookups: () => lookups };
+    return { requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, gapMs), tap, frames, lookups: () => lookups };
   }
 
   const nonceOf = (frame: unknown): string => (frame as { d: { nonce: string } }).d.nonce;

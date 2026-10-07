@@ -62,7 +62,7 @@ export class MemberRequests {
 
   constructor(
     private readonly cdp: Cdp,
-    tap: GatewayTap,
+    private readonly tap: Pick<GatewayTap, 'on' | 'own'>,
     private readonly gapMs = MEMBER_REQUEST_GAP_MS,
   ) {
     tap.on('dispatch', ({ t, d }) => {
@@ -127,6 +127,8 @@ export class MemberRequests {
     // Discord echoes the nonce in its answer (at most 32 bytes: a UUID's hex digits).
     const nonce = randomUUID().replaceAll('-', '');
     const frame = JSON.stringify({ op: REQUEST_GUILD_MEMBERS_OP, d: { guild_id: [guildId], query: q, limit: MEMBER_REQUEST_LIMIT, presences: true, nonce } });
+    // Ours, not the client's: its shape is checked against the client's, not learned (clientShapes.ts).
+    this.tap.own(frame);
     let sent = await this.send(frame);
     if (sent === 'closed') {
       // The cached socket closed (a reconnect): the frame wasn't sent, so look the socket up once more.

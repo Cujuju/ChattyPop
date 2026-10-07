@@ -29,6 +29,7 @@ import { pickFiles, pickFolder } from './dialogs';
 import { SECRET_FILES } from './secretFile';
 import { DiscordApi } from './discord/api';
 import { HeaderCapture } from './discord/capture';
+import { ClientShapes, carried, gatewayRoute, routeTemplate } from './discord/clientShapes';
 import { GatewayDirectory } from './discord/directory';
 import { GuildEmojiIndex } from './discord/guildEmojis';
 import { ReadStates } from './discord/readStates';
@@ -83,6 +84,8 @@ const APP_USER_MODEL_ID = 'com.cujuju.chattypop';
 const PLUGINS_DIR = 'plugins';
 /** Profile file recording the Tailscale Serve config plugins set, so the host can remove it without them. */
 const TAILNET_RECORDS_FILE = 'tailnet-serve.json';
+/** Field names of the live client's own requests and gateway sends, kept across runs (clientShapes.ts). */
+const CLIENT_SHAPES_FILE = 'discord-client-shapes.json';
 /** Serve config the Companion set before the record file existed (frozen values), so a profile without one can remove it. */
 const UNRECORDED_TAILNET: readonly Publication[] = [{ pluginId: 'companion', httpsPort: 8443, target: 'http://127.0.0.1:47831' }];
 /** out/main: this module is its own build entry (electron.vite.config.ts), so it sits beside core.js. */
@@ -113,11 +116,21 @@ void app.whenReady().then(() => {
   // Capture must be installed before the Discord view loads, or its first API requests are missed.
   const discordSession = session.fromPartition(DISCORD_PARTITION);
   const capture = new HeaderCapture(discordSession);
+  // What the client itself sends, per route; ours are checked against it and differences noted in diagnostics.
+  const shapes = new ClientShapes(
+    profilePath(CLIENT_SHAPES_FILE),
+    (route, difference) => diag('discord-shape-mismatch', { route, ...difference }),
+    (message) => diag('client-shapes-save-failed', { message }),
+  );
+  capture.onClientRequest = (method, url, body) => {
+    const u = new URL(url);
+    shapes.observe(routeTemplate(method, u), carried(u, body));
+  };
   const pace = new Pace(core);
   const currentPace = (): ReturnType<Pace['current']> => pace.current();
   // The API runs inside the Discord page, which exists once the window is created below.
   let discordRef: DiscordView | undefined;
-  const discordApi = new DiscordApi(() => discordRef, capture, currentPace);
+  const discordApi = new DiscordApi(() => discordRef, capture, currentPace, shapes);
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
@@ -174,6 +187,8 @@ void app.whenReady().then(() => {
   watchPrivateChannels(discord.tap, core, diag);
   // Servers and their channels, from READY and its updates: no request.
   const directory = new GatewayDirectory(discord.tap);
+  discord.tap.on('sent', ({ op, d }) => shapes.observe(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
+  discord.tap.on('ownSent', ({ op, d }) => shapes.check(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
@@ -288,6 +303,7 @@ void app.whenReady().then(() => {
 
   app.on('window-all-closed', () => {
     discordSession.flushStorageData();
+    shapes.flush();
     // Main sides' switch-governed resources (a phone transport's server) stop; external config they made stays.
     void mainPlugins.stop();
     core.dispose();

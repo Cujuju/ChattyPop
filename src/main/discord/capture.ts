@@ -38,8 +38,17 @@ export class HeaderCapture {
 
   /** Called whenever headers are (re)captured after being absent: login, restart, or token refresh. */
   onAvailable: (() => void) | undefined;
+  /** Called for each API request the client itself makes, with its body as text (null without one). */
+  onClientRequest: ((method: string, url: string, body: string | null) => void) | undefined;
 
   constructor(ses: Session) {
+    ses.webRequest.onBeforeRequest({ urls: [API_URL_PATTERN] }, (details, callback) => {
+      if (!this.ours.has(requestKey(details.method, details.url))) {
+        const bytes = (details.uploadData ?? []).flatMap((u) => (u.bytes ? [u.bytes] : []));
+        this.onClientRequest?.(details.method, details.url, bytes.length ? Buffer.concat(bytes).toString('utf8') : null);
+      }
+      callback({});
+    });
     ses.webRequest.onBeforeSendHeaders({ urls: [API_URL_PATTERN] }, (details, callback) => {
       const h = details.requestHeaders;
       if (this.ours.has(requestKey(details.method, details.url))) return callback({ requestHeaders: h });

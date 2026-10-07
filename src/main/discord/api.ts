@@ -8,6 +8,7 @@ import { jittered } from '../sync/pace';
 import type { HeaderCapture } from './capture';
 import type { PageWorld } from './pageWorld';
 import { RateLimits, routeKey } from './rateLimits';
+import { carried, routeTemplate, type ClientShapes } from './clientShapes';
 import { contextProperties, type DiscordClient, type DiscordQuery, type RequestContext, type RequestOptions, type WriteOptions } from './client';
 
 const API_BASE = 'https://discord.com/api/v9/';
@@ -113,6 +114,8 @@ export class DiscordApi implements DiscordClient {
     private readonly page: () => DiscordPage | undefined,
     private readonly capture: HeaderCapture,
     private readonly pace: () => Promise<PaceTiming>,
+    /** Checks each request's shape against the client's own on its route. */
+    private readonly shapes: Pick<ClientShapes, 'check'> = { check: () => undefined },
   ) {}
 
   /** GET `path` (relative to /api/v9/), paced. */
@@ -277,6 +280,7 @@ export class DiscordApi implements DiscordClient {
         ...(context ? { 'X-Context-Properties': contextProperties(context) } : {}),
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       };
+      if (attempt === 1) this.shapes.check(routeTemplate(method, url), carried(url, body && 'text' in body ? body.text : null));
       // Ours, not the client's: header capture must not take it for the client's latest.
       const release = this.capture.own(method, url.href);
       const res = await pageFetch(page, url.href, { method, headers: sent, body, credentials: 'include' }).finally(release);

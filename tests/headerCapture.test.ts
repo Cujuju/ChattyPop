@@ -11,7 +11,7 @@ type Listener = (details: { method: string; url: string; webContentsId?: number;
 /** A Discord session whose request hook the test drives. */
 function fakeSession(): { session: never; send: (headers: Record<string, string>, url?: string) => Record<string, string> } {
   let listener: Listener | undefined;
-  const session = { webRequest: { onBeforeSendHeaders: (_f: unknown, l: Listener) => (listener = l), onCompleted: () => undefined } };
+  const session = { webRequest: { onBeforeRequest: () => undefined, onBeforeSendHeaders: (_f: unknown, l: Listener) => (listener = l), onCompleted: () => undefined } };
   const send = (headers: Record<string, string>, url = 'https://discord.com/api/v9/users/@me'): Record<string, string> => {
     let passed: Record<string, string> = {};
     listener!({ method: 'GET', url, webContentsId: 1, requestHeaders: headers }, (r) => (passed = r.requestHeaders));
