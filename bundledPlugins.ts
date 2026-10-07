@@ -267,10 +267,13 @@ function filesUnder(dir: string): string[] {
 /** The installed-page shell's build input name: its file name without `.html`. */
 const SHELL_INPUT = basename(INSTALLED_PAGE_SHELL, extname(INSTALLED_PAGE_SHELL));
 
+/** The host's own renderer pages (index.html, the startup splash), which a plugin page of the same name would replace. */
+const HOST_PAGES = ['index', 'splash'];
+
 /** Selected plugin pages build as <id>.html. Excluded plugins have no page; the installed-page shell always builds. */
 export function pageInputs(rendererRoot: string, source: PluginSource): Record<string, string> {
   const ids = [...selectedPages(source).keys()];
-  if (ids.includes(SHELL_INPUT)) throw new Error(`Plugin ${SHELL_INPUT}'s page would replace the host's ${INSTALLED_PAGE_SHELL}.`);
+  for (const host of [...HOST_PAGES, SHELL_INPUT]) if (ids.includes(host)) throw new Error(`Plugin ${host}'s page would replace the host's ${host}.html.`);
   return Object.fromEntries([...ids, SHELL_INPUT].map((id) => [id, join(rendererRoot, `${id}.html`)]));
 }
 

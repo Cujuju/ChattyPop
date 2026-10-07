@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- Shown while the app starts. Static: a dev launcher loads it from disk before any build or dev server exists. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'" />
+    <title>ChattyPop</title>
+    <link rel="stylesheet" href="./src/theme/splash.css" />
+  </head>
+  <body class="splash">
+    <img class="splash-icon" src="../../build/icon.svg" alt="" />
+    <h1 class="splash-name">ChattyPop</h1>
+    <p class="splash-status">Starting…</p>
+    <div class="splash-progress" role="progressbar" aria-label="Starting"></div>
+  </body>
+</html>

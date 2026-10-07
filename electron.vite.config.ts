@@ -43,8 +43,12 @@ export default defineConfig(({ command }) => {
       },
     },
     renderer: {
-      // The dev server serves the plugin folders outside the repo (local plugin-repo clones).
-      server: { fs: { allow: [import.meta.dirname, ...pluginDirs(plugins.dirs)] } },
+      server: {
+        // The dev server serves the plugin folders outside the repo (local plugin-repo clones).
+        fs: { allow: [import.meta.dirname, ...pluginDirs(plugins.dirs)] },
+        // Transforms the app page's import graph as the server starts, while main builds (scripts/dev.mjs), not on request.
+        warmup: { clientFiles: ['./src/main.tsx'] },
+      },
       resolve: {
         alias: { '@shared': shared, '@': resolve(import.meta.dirname, 'src/renderer/src'), '@plugin-sdk': pluginSdk },
         // Linked @cujuju packages carry their own solid-js; a second runtime can't track this app's signals.
@@ -57,6 +61,7 @@ export default defineConfig(({ command }) => {
           // The app's page, and each included plugin's own page (<id>.html, e.g. the phone companion's).
           input: {
             index: resolve(rendererRoot, 'index.html'),
+            splash: resolve(rendererRoot, 'splash.html'),
             ...pageInputs(rendererRoot, plugins),
           },
         },

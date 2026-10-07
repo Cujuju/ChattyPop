@@ -11,6 +11,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
     "paths": {
       "@shared/*": ["./src/shared/*"],
       "@core/*": ["./src/core/*"],

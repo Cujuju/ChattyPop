@@ -45,11 +45,11 @@ describe('plugin pages', () => {
     expect(existsSync(join(resolve(import.meta.dirname, '../src/renderer'), INSTALLED_PAGE_BOOTSTRAP))).toBe(true);
   });
 
-  it('refuses a plugin page that would replace the shell', () => {
+  it.each(['installed-page', 'index', 'splash'])('refuses a plugin page that would replace the host page %s.html', (id) => {
     const { plugins, rendererRoot } = project();
-    mkdirSync(join(plugins, 'installed-page/page'), { recursive: true });
-    writeFileSync(join(plugins, 'installed-page/page/index.html'), HTML);
-    expect(() => pageInputs(rendererRoot, { dirs: plugins })).toThrow(/would replace the host's installed-page.html/);
+    mkdirSync(join(plugins, `${id}/page`), { recursive: true });
+    writeFileSync(join(plugins, `${id}/page/index.html`), HTML);
+    expect(() => pageInputs(rendererRoot, { dirs: plugins })).toThrow(new RegExp(`would replace the host's ${id}\.html`));
   });
 
   it('loads the page from its plugin folder, after the host bootstrap, and resolves its relative scripts there', () => {

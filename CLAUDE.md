@@ -11,7 +11,7 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 5. **AI providers** sit behind one `LlmProvider` interface. Claude = Agent SDK → user's Claude Code; ChatGPT = `codex app-server`; Ollama/OpenRouter = OpenAI-compatible HTTP. Never read or store Claude/ChatGPT credentials.
 
 # Commands
-- `pnpm dev`: electron-vite dev
+- `pnpm dev`: electron-vite dev in parallel (`scripts/dev.mjs`): main builds in a worker while the renderer server pre-transforms; a splash shows from the start
 - `pnpm build`: build main/preload/renderer
 - `pnpm typecheck`: TS type-check all targets
 - `pnpm test`: vitest contract tests (`tests/`)
