@@ -1,4 +1,5 @@
 import { ipcMain, type BrowserWindow, type Session } from 'electron';
+import { handleMain } from './mainCalls';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from '@shared/commands';
 import { uploadLimitBytes, type ExpressionCatalog } from '@shared/compose';
@@ -82,7 +83,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const forward = (f: unknown): Promise<void> => forwardAsOwner(poster, f);
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
-  ipcMain.handle(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
+  handleMain(channels.customTheme, () => fetchDiscordCustomTheme(d.owner));
   // The archive's copy of the account's settings holds the change before this resolves.
   const setChatSettings = async (change: unknown): Promise<void> => {
     const valid = normalizeSyncedChatChange(change);

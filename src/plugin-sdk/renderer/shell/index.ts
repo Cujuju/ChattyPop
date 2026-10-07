@@ -7,6 +7,8 @@ export { DESKTOP_CONNECTED_EVENT, DesktopUnreachableError } from '@shared/phone'
 
 // The phone's host slots and shell parts.
 export { phoneDrawerPanes, phoneNoticeKinds, phoneOverviewText, phoneSectionFor, phoneTabs } from '@/phone/slots';
+// Settings on the phone: the desktop dialog's sections, listed and opened one at a time.
+export { PhoneSettings, PhoneSettingsList } from '@/phone/PhoneSettings';
 export { Overlays } from '@/frame/Overlays';
 export { Search } from '@/frame/Search';
 // Whether Search is in use: a shell that keeps its field put away shows it while this is true.

@@ -120,3 +120,13 @@
   line-height: calc(var(--cp-btn-h) - 2 * var(--cp-border-w));
   text-align: center;
 }
+
+/* ---- The phone: key fields take the row's width; one column of shortcuts ---- */
+
+:global(html[data-surface='companion']) .keyControl {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+:global(html[data-surface='companion']) .keyList {
+  grid-template-columns: minmax(0, 1fr);
+}

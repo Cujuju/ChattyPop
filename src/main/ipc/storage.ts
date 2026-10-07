@@ -4,6 +4,7 @@ import { MAIN_INVOKE, type AppEvent } from '@shared/contract';
 import { createArchiveKey, deleteArchiveKey } from '../archiveKey';
 import type { CoreClient } from '../coreClient';
 import { deletePreviousArchive, moveArchive, storageInfo, verifyMovedArchive } from '../storageMove';
+import { handleMain } from './mainCalls';
 
 export interface StorageDeps {
   win: BrowserWindow;
@@ -17,11 +18,11 @@ export interface StorageDeps {
 export function registerStorageHandlers({ win, core, emit, stopArchive }: StorageDeps): void {
   const { storage } = MAIN_INVOKE;
   const restart = (): void => restartApp(win);
-  ipcMain.handle(storage.info, () => storageInfo());
+  handleMain(storage.info, () => storageInfo());
   // The key is saved before encrypting (a crash between the two leaves a readable key, never a locked archive),
   // and deleted only after decrypting succeeded.
-  ipcMain.handle(storage.setEncrypted, async (_e, on: boolean) => {
-    if (on) {
+  handleMain(storage.setEncrypted, async (on) => {
+    if (on === true) {
       const key = createArchiveKey();
       try {
         await core.call('setEncryption', key);

@@ -1,5 +1,5 @@
 {
-  "version": "2.9.0",
+  "version": "2.11.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -116,6 +116,7 @@
       "orList",
       "phoneLookEvent",
       "phoneLookSetting",
+      "phoneLookWrite",
       "plainDiscordText",
       "pluginSetting",
       "pluginTable",
@@ -472,6 +473,8 @@
       "DESKTOP_CONNECTED_EVENT",
       "DesktopUnreachableError",
       "Overlays",
+      "PhoneSettings",
+      "PhoneSettingsList",
       "Search",
       "archiveChannelId",
       "archiveLoads",

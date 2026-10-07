@@ -2,7 +2,7 @@
 import type { AppEvent, CoreMethod } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';
-import { PHONE_DISCORD_METHODS, phoneAppEvent, phoneMayCallCore, phoneSetting, phoneSettingWrite, type PhoneCallGroup, type PhoneDiscordMethod } from '@shared/phone';
+import { PHONE_DISCORD_METHODS, phoneAppEvent, phoneMayCallCore, phoneMayCallMain, phoneMayWriteSetting, phoneSetting, type PhoneCallGroup, type PhoneDiscordMethod } from '@shared/phone';
 import type { CoreClient } from '../coreClient';
 import type { MediaHandler } from '../media/mediaProtocol';
 
@@ -45,6 +45,8 @@ export interface PhoneHubDeps {
   core: Pick<CoreClient, 'call'>;
   /** Available once the Discord handlers exist; a transport connects only after that. */
   discord: () => DiscordCalls;
+  /** Main's window calls by channel (ipc/mainCalls.ts). */
+  main: (channel: string, args: readonly unknown[]) => Promise<unknown>;
   media: MediaHandler;
   /** Whether a bundled plugin is on: a route answers only while its owner is. */
   active: (pluginId: string) => boolean;
@@ -110,15 +112,13 @@ export class PhoneHub {
   private async call(group: PhoneCallGroup, method: string, params: unknown[]): Promise<unknown> {
     // A setting as the phone may read it (phoneSetting), the same cut as its change events.
     if (group === 'core' && method === 'getSetting') return phoneSetting(String(params[0]), await this.d.core.call('getSetting', String(params[0])));
-    // Only PHONE_WRITABLE_SETTINGS, stored through their normalizers; any other write is refused below.
-    if (group === 'core' && method === 'setSetting') {
-      const write = phoneSettingWrite(String(params[0]), params[1]);
-      if (write) return await this.d.core.call('setSetting', String(params[0]), write.value);
-    }
+    // Settings the phone shares as config (phoneMayWriteSetting); any other write is refused below.
+    if (group === 'core' && method === 'setSetting' && phoneMayWriteSetting(String(params[0]))) return await this.d.core.call('setSetting', String(params[0]), params[1]);
     if (group === 'core' && phoneMayCallCore(method)) return await this.d.core.call(method as CoreMethod, ...(params as []));
     // Stamped 'phone' here: core answers only members whose audiences include the phone.
     if (group === 'plugins' && method === 'callCore' && typeof params[0] === 'string' && typeof params[1] === 'string' && Array.isArray(params[2]))
       return await this.d.core.call('pluginCall', 'phone', params[0], params[1], params[2] as unknown[]);
+    if (group === 'main' && phoneMayCallMain(method)) return await this.d.main(method, params);
     if (group === 'discord' && discordMethods.has(method)) return await this.d.discord()[method as PhoneDiscordMethod](...params);
     throw new PhoneCallRefused(`Not available on the phone: ${String(group)}.${method}`);
   }

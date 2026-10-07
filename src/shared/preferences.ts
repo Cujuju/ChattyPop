@@ -17,7 +17,7 @@ export interface Preference<T> {
   default: T;
   /** Any stored value (an older shape, another window's write) as a valid T. */
   normalize(v: unknown): T;
-  /** Omitted: the phone reads it as unset, so desktop-only parts (prompts, models) stay on the PC. */
+  /** @deprecated Ignored: the phone reads and writes every preference whole (shared/phone.ts). Kept so built plugins still load. */
   phone?: PhoneView<T>;
 }
 

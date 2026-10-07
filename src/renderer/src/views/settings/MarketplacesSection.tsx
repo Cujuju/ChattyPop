@@ -1,6 +1,7 @@
 import { For, Show, createSignal } from 'solid-js';
 import { REPO_PATTERN } from '@shared/installedPlugins';
 import { countText } from '@/ui/format';
+import { inCompanion } from '@/state/ui';
 import {
   actionBusy, actionError, actionKey, addMarketplace, anyBusy, changeStatus, installLocalPlugin, installedEntry, marketplaceLoadError,
   marketplaceState, pendingChanges, pendingText, restartApp, unlistedInstalled, versionsText,
@@ -103,6 +104,9 @@ export function DevelopmentBody() {
           }
         >
           <Note>For testing a plugin you build. It installs at the next start.</Note>
+          <Show when={inCompanion}>
+            <Note>Use a plugin folder or .tar.gz on your PC.</Note>
+          </Show>
           <ErrorNote error={actionError(actionKey.local)} />
         </InlineForm>
       </Card>

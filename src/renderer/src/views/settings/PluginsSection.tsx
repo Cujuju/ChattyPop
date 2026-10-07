@@ -2,6 +2,7 @@ import { For, Show, createSignal, onMount } from 'solid-js';
 import type { PluginInfo } from '@shared/plugins';
 import { countText, errorText } from '@/ui/format';
 import { openPluginsFolder, plugins, reloadPlugins, runPluginCommand, setPluginEnabled } from '@/state/plugins';
+import { inCompanion } from '@/state/ui';
 import { loadMarketplaces, marketplaceState, pendingChanges, unlistedInstalled } from '@/state/marketplace';
 import { Switch } from '@/ui/Switch';
 import { Card, ErrorNote, Note, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
@@ -47,9 +48,11 @@ export function PluginsSection() {
       lede="Plugins install from a marketplace or load from the plugins folder; a development run also compiles in local clones. Every plugin runs with full access to the archive and your AI providers, so only add ones you trust."
       right={
         <>
-          <button type="button" class={`cp-button ${styles.button}`} onClick={() => void openPluginsFolder()}>
-            Open plugins folder
-          </button>
+          <Show when={!inCompanion}>
+            <button type="button" class={`cp-button ${styles.button}`} onClick={() => void openPluginsFolder()}>
+              Open plugins folder
+            </button>
+          </Show>
           <button type="button" class={`cp-button ${styles.button}`} onClick={() => void reloadPlugins()}>
             Reload plugins
           </button>
@@ -57,6 +60,9 @@ export function PluginsSection() {
       }
       notice={
         <>
+          <Show when={inCompanion}>
+            <Note>Open the plugins folder on your PC.</Note>
+          </Show>
           <RestoreNotice />
           <RestartNotice />
         </>

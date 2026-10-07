@@ -45,7 +45,7 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
   const coreClient: MainCore = { call: side.call as MainCore['call'], on: (_event, fn) => side.on(fn) };
   const states = new PluginStates(() => coreClient.call('plugins'), (err) => diag('plugin-states-failed', { message: errorMessage(err) }));
   const delivered = { desktop: [] as DeliveredNotification[], phone: [] as DeliveredNotification[] };
-  const hub = new PhoneHub({ core: coreClient, discord: NO_PHONE_DISCORD, media: refuse('media store'), active: (p) => states.active(p) });
+  const hub = new PhoneHub({ core: coreClient, discord: NO_PHONE_DISCORD, main: refuse('main calls'), media: refuse('media store'), active: (p) => states.active(p) });
   const notifications = notificationService({
     settings: async () => ({ notifications: normalizeNotificationSettings(await coreClient.call('getSetting', SETTINGS_KEYS.notifications)) }),
     desktop: (n) => void delivered.desktop.push(n),

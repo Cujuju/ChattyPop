@@ -1,0 +1,130 @@
+/* The phone's Settings pane (PhoneSettings.tsx): the section list as inset cards, the back button, and the desktop
+   pages' frames flattened so the pane body is their one scroller. Narrow layout of page parts: each module's
+   html[data-surface='companion'] rules. */
+
+/* With cp-panel-body: the pane's one scroller. */
+.body[hidden] {
+  display: none;
+}
+
+/* The top level: the shell's groups, spaced as its own were. */
+.top {
+  gap: var(--cp-space-8);
+}
+
+/* The back button before the open section's title: the size of the bar's menu button beside it. */
+.back {
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: var(--cp-thumb-btn);
+  height: var(--cp-thumb-btn);
+  padding: 0;
+}
+
+.backIcon {
+  width: var(--cp-thumb-icon);
+  height: var(--cp-thumb-icon);
+}
+
+/* Groups of sections, a card each. */
+.list {
+  display: grid;
+  gap: var(--cp-space-6);
+}
+
+/* With look.card: a pressed row's wash stops at its corners. */
+.card {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+}
+
+/* A row: icon tile, name, chevron; as tall as an iOS list row. */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-6);
+  width: 100%;
+  min-height: var(--cp-phone-row-h);
+  padding: var(--cp-space-2) var(--cp-space-6);
+  text-align: left;
+}
+
+/* iOS's inset separator: from the name, not the card's edge. */
+.item + .item > .row::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto calc(2 * var(--cp-space-6) + var(--cp-header-tile) + var(--cp-header-grow));
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* The drawer's section-tile size (Companion settingsMark), so icons line up with it; accent, as the dialog's open tab. */
+.tile {
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: calc(var(--cp-header-tile) + var(--cp-header-grow));
+  height: calc(var(--cp-header-tile) + var(--cp-header-grow));
+  border-radius: var(--cp-radius-md);
+  background: color-mix(in srgb, var(--cp-accent) var(--cp-section-tile-mix), transparent);
+  color: var(--cp-accent);
+}
+
+.tileIcon {
+  width: calc(var(--cp-header-icon) + var(--cp-header-icon-grow));
+  height: calc(var(--cp-header-icon) + var(--cp-header-icon-grow));
+}
+
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+}
+
+/* ---- An open section: its page in the pane body ---- */
+
+/* Pages grow to their content: the pane body scrolls, never a frame inside it, and sticky bars (a rule's Save) hold. */
+.section :global(.cp-settings-page) {
+  flex: none;
+  min-height: auto;
+}
+
+/* The rail is hidden at this width (shared-layout.css); the picker and the open section stack without a frame. */
+.section :global(.cp-settings-split) {
+  flex: none;
+  gap: var(--cp-space-6);
+  min-height: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+/* The header names the section, so its page title is for screen readers only (cp-visually-hidden). */
+.section :global(.cp-settings-title) {
+  position: absolute;
+  width: var(--cp-space-px);
+  height: var(--cp-space-px);
+  margin: calc(-1 * var(--cp-space-px));
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Button labels at the phone's control text (Subhead), as tall as its other controls. */
+.section :global(:is(.cp-button, .cp-danger, .cp-primary)) {
+  font-size: var(--cp-control-text);
+}

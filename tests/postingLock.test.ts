@@ -71,7 +71,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
     posting: postingGate(async () => state.list),
     chatSettings: { write: async () => undefined },
   });
-  const hub = new PhoneHub({ core: core as never, discord: () => calls, media: async () => new Response(), active: () => true });
+  const hub = new PhoneHub({ core: core as never, discord: () => calls, main: async () => undefined, media: async () => new Response(), active: () => true });
   const invoke = (name: keyof typeof MAIN_INVOKE.discord, ...args: unknown[]) => env.handlers.get(MAIN_INVOKE.discord[name])!({}, ...args);
   return { state, api, core, invoke, phone: hub.gateway };
 }

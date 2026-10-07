@@ -3,6 +3,7 @@ import { For, Show, createResource, createSignal } from 'solid-js';
 import type { ModelOption } from '@shared/contract';
 import { JEV_OPENROUTER_MODEL, type OpenRouterKeyBalance, type OpenRouterKeyInfo, type OpenRouterKeyRouting } from '@shared/openrouter';
 import { providerStatus, refetchProviderStatus } from '@/state/preferences';
+import { inCompanion } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { usdText as usd } from '@/ui/format';
 import { SearchSelect } from '@/ui/SearchSelect';
@@ -148,18 +149,23 @@ export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
             }
           />
           <Row
-            label="Save it, or sign in instead"
+            label={inCompanion ? 'Save key' : 'Save it, or sign in instead'}
             control={
               <div class={c.buttons}>
                 <button type="submit" class={`cp-button ${styles.button}`} disabled={busy() || !pasted().trim()}>
                   Save key
                 </button>
-                <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void run(api.openRouter.signIn)}>
-                  {busy() ? 'Working…' : 'Sign in with OpenRouter'}
-                </button>
+                <Show when={!inCompanion}>
+                  <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void run(api.openRouter.signIn)}>
+                    {busy() ? 'Working…' : 'Sign in with OpenRouter'}
+                  </button>
+                </Show>
               </div>
             }
           />
+          <Show when={inCompanion}>
+            <Note>Sign in with OpenRouter on your PC, or paste a key here.</Note>
+          </Show>
         </form>
       </Card>
       <ErrorNote error={error()} />

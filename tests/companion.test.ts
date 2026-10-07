@@ -13,7 +13,8 @@ import { tempDir } from './helpers';
 vi.mock('virtual:bundled-plugins/shared', async () => ({ default: (await import('./aPhoneEvents')).PHONE_EVENTS, catalog: null }));
 
 /** Writes that must stay desktop-only: settings, keys, rules, plugins, storage, AI calls the owner didn't ask for. */
-const DESKTOP_ONLY = ['setSetting', 'openRouterKeys', 'openRouterBalances', 'createRule', 'deleteRule', 'setChannelPolicy', 'setPluginEnabled', 'pluginCall', 'jevAskRange', 'jevRerun', 'tagRange'];
+// setSetting reaches main only for shared config keys (phoneMayWriteSetting), never as a plain core call.
+const DESKTOP_ONLY = ['setSetting', 'setChannelPolicy', 'pluginCall', 'jevAskRange', 'tagRange'];
 
 describe('companion contract', () => {
   it('receives bot-count policy changes, can refresh the banner and pick bots, but writes no other setting', () => {

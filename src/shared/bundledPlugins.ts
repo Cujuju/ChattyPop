@@ -3,7 +3,7 @@
 // through virtual registries.
 import build, { catalog } from 'virtual:bundled-plugins/shared';
 import installed from 'virtual:installed-plugins/shared';
-import { pluginJevFeature, pluginSettingKey, stampedName, type PanelDecl, type PhoneSettingView, type PluginDescriptor, type RuleActionType, type SettingsDecl, type ShortcutDecl } from './bundledTypes';
+import { pluginJevFeature, pluginSettingKey, stampedName, type PanelDecl, type PluginDescriptor, type RuleActionType, type SettingsDecl, type ShortcutDecl } from './bundledTypes';
 import { adoptedPhoneSections, catalogJevQueryAnchor, catalogNoticeAnchor, catalogSlotAnchor, checkBundled } from './bundledCheck';
 import { mergedCatalog } from './installedCheck';
 import { placementAnchor, type PlacementAnchor } from './anchors';
@@ -92,11 +92,9 @@ export const phoneMayCall = (pluginId: string, name: string): boolean => channel
 /** Whether this plugin event reaches the phone. */
 export const phoneGetsEvent = (pluginId: string, name: string): boolean => channelAudiences(pluginId, 'events', name).includes('phone');
 
-const PHONE_SETTINGS = new Map<string, PhoneSettingView>(
-  bundled.flatMap((p) => Object.entries(p.preferences ?? {}).flatMap(([name, pref]) => (pref.phone ? [[pluginSettingKey(p.manifest.id, name), pref.phone] as const] : []))),
-);
-/** How much of plugin preference `key` (plugin.<id>.<name>) the phone reads, as its declaration says; undefined for none. */
-export const pluginPhoneSetting = (key: string): PhoneSettingView | undefined => PHONE_SETTINGS.get(key);
+const PREFERENCE_KEYS = new Set(bundled.flatMap((p) => Object.keys(p.preferences ?? {}).map((name) => pluginSettingKey(p.manifest.id, name))));
+/** Whether `key` (plugin.<id>.<name>) is a preference a plugin in this build declares. */
+export const isPluginPreference = (key: string): boolean => PREFERENCE_KEYS.has(key);
 
 /** The Jev queries this build's plugins add, their switches stamped (the host's catalog merges them in). */
 export const bundledJevQueries = (): JevQueryDef[] =>

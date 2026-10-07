@@ -17,6 +17,8 @@ export function PanelHeader(props: {
   /** The panel's layout id when it differs from its section (plugin panels); collapse state and the menu key on it. */
   panelId?: LayoutPanelId;
   title: JSX.Element;
+  /** A control before the title (the phone's back button). */
+  lead?: JSX.Element;
   meta?: JSX.Element;
   /** Wrap the meta below the title when it doesn't fit beside it, rather than hiding it. */
   metaWraps?: boolean;
@@ -41,6 +43,7 @@ export function PanelHeader(props: {
     <div class={styles.frame}>
       <header class={styles.header} data-section={props.section} data-panel-color={props.panelId ?? props.section} data-collapsed={collapsed()} {...panelDragProps(dragId)} onContextMenu={openMenu}>
         <SectionIcon section={props.section} />
+        {props.lead}
         <div class={styles.titleGroup} data-meta-wraps={Boolean(props.metaWraps)}>
           <h2 class={styles.title}>
             <Show when={collapsible()} fallback={props.title}>
