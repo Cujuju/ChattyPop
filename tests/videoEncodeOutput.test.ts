@@ -1,5 +1,5 @@
 // The re-encode's MP4 output streams into Blob parts while muxing and comes out byte-identical to an in-memory mux.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ALL_FORMATS, BlobSource, BufferTarget, EncodedAudioPacketSource, EncodedPacket, Input, Mp4OutputFormat, Output } from 'mediabunny';
 import * as mb from 'mediabunny';
 import { blobSink, uploadOutput } from '../src/renderer/src/state/videoEncodeOutput';
@@ -36,10 +36,16 @@ describe('upload output', () => {
   });
 
   it('produces the same bytes as an in-memory mux, so the finalize patch lands', async () => {
+    // The muxer stamps the creation second into the header: a clock held still keeps the two muxes comparable.
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
     const { output, toFile } = uploadOutput(mb);
-    await mux(output);
     const reference = new BufferTarget();
-    await mux(new Output({ format: new Mp4OutputFormat({ fastStart: false }), target: reference }));
+    try {
+      await mux(output);
+      await mux(new Output({ format: new Mp4OutputFormat({ fastStart: false }), target: reference }));
+    } finally {
+      vi.useRealTimers();
+    }
     const file = toFile('clip.mp4');
     expect(file.type).toBe('video/mp4');
     // Buffer.equals: a deep toEqual on megabytes exhausts the heap.
