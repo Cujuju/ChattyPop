@@ -1,4 +1,4 @@
-import { For, Match, Show, Switch, createSignal } from 'solid-js';
+import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
 import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { AnimatedImage } from '@/ui/AnimatedImage';
@@ -45,13 +45,44 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
         </>
       }
     >
-      <figure class={styles.image}>
+      <MediaFigure>
         <AttachmentTile message={props.message} attachment={a()} stored>
           <AttachmentMedia attachment={a()} onUnplayable={() => setUnplayable(true)} />
         </AttachmentTile>
         <MediaCaption notes={notes()} descriptions={shownDescriptions([a()])} />
-      </figure>
+      </MediaFigure>
     </Show>
+  );
+}
+
+const px = (v: string): number => parseFloat(v) || 0;
+
+/**
+ * One media tile and its caption. data-beside: a note column (--cp-note-min-w) fits beside the tile in the row, so the
+ * caption sits there; else it goes under the tile, at the tile's width.
+ */
+function MediaFigure(props: { children: JSX.Element }) {
+  let figure!: HTMLElement;
+  const [beside, setBeside] = createSignal(false);
+  onMount(() => {
+    const row = figure.parentElement!;
+    const tile = figure.firstElementChild as HTMLElement;
+    const fit = (): void => {
+      const f = getComputedStyle(figure);
+      const r = getComputedStyle(row);
+      const room = row.clientWidth - px(r.paddingLeft) - px(r.paddingRight);
+      setBeside(tile.offsetWidth + px(f.columnGap) + px(f.getPropertyValue('--cp-note-min-w')) <= room);
+    };
+    // The row resizes with the log; the tile once its media's size is known.
+    const watch = new ResizeObserver(fit);
+    watch.observe(row);
+    watch.observe(tile);
+    onCleanup(() => watch.disconnect());
+  });
+  return (
+    <figure ref={figure} class={styles.image} data-beside={beside()}>
+      {props.children}
+    </figure>
   );
 }
 
@@ -127,6 +158,12 @@ export function FileChip(props: { attachment: ArchiveAttachment; messageLink: st
 export const shownDescriptions = (list: ArchiveAttachment[]): string[] =>
   list.flatMap((a) => shownImageDescription(attachmentView(a), a.description, discordChatSettings()) ?? []);
 
+const TRANSLATION_KIND = 'translation';
+
+/** A translation reads after the notes it may translate (a transcript); the rest keep plugin order. */
+const translationsLast = (notes: AttachmentNote[]): AttachmentNote[] =>
+  [...notes].sort((x, y) => Number(x.kind === TRANSLATION_KIND) - Number(y.kind === TRANSLATION_KIND));
+
 /** Beside or under stored media: image descriptions while shown, then plugins' notes; nothing when neither. Discord names pasted media generically (image.png), so no filename. */
 export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
   return (
@@ -139,7 +176,7 @@ export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: st
             </span>
           )}
         </For>
-        <For each={props.notes}>{(n) => <Note note={n} />}</For>
+        <For each={translationsLast(props.notes)}>{(n) => <Note note={n} />}</For>
       </figcaption>
     </Show>
   );
@@ -149,7 +186,7 @@ export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: st
 const NOTE_ICONS: Readonly<Record<string, IconName | undefined>> = {
   transcript: 'waveform',
   'image-text': 'text',
-  translation: 'translate',
+  [TRANSLATION_KIND]: 'translate',
 };
 
 /** Plugin note labels retain constant height. Clicking toggles text; data-note-part/plugin identify notes for message menus. */

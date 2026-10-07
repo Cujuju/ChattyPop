@@ -64,25 +64,48 @@
   color: var(--cp-danger);
 }
 
-/* Inline image or video: bounded box, aspect ratio kept from the intrinsic attributes. Its caption sits beside it
-   while a note column fits there (a portrait video's empty side), else wraps below. */
+/* Inline image or video: bounded box, aspect ratio kept from the intrinsic attributes. Its caption goes under it at its
+   width, or beside it where a note column fits (data-beside, measured: a portrait video's empty side). */
 .image {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, auto);
+  justify-items: start;
+  align-items: start;
   gap: var(--cp-space-2) var(--cp-space-4);
+  width: fit-content;
   max-width: 100%;
 }
 
+/* Beside: as wide as its notes need (closed, the narrowest column; open, wider), up to an attachment's width. */
+.image[data-beside='true'] {
+  grid-template-columns: auto fit-content(var(--cp-attachment-w));
+}
+
 .image > .tile {
-  flex: 0 1 auto;
   min-width: 0;
   max-width: min(100%, var(--cp-attachment-w));
 }
 
-.image > .caption {
-  flex: 1 1 var(--cp-note-min-w);
+/* Under the tile: its width, adding none of its own to the figure's. */
+.image:not([data-beside='true']) > .caption {
+  width: 0;
+  min-width: 100%;
+}
+
+/* Beside, the media keeps its own width (an absolute cap, not a percentage the caption could squeeze): with too
+   little room the measure moves the caption under it. */
+.image[data-beside='true'] > .tile {
+  min-width: auto;
+  max-width: none;
+}
+
+.image[data-beside='true'] :is(img, video) {
   max-width: var(--cp-attachment-w);
+}
+
+.image[data-beside='true'] > .caption {
+  justify-self: stretch;
+  min-width: var(--cp-note-min-w);
 }
 
 /* The image is a button that opens the viewer; it adds no chrome of its own. */
@@ -366,19 +389,22 @@
   min-width: 0;
 }
 
-/* The archived check over a stored media tile's top-left corner, on a pill that reads over any picture. */
+/* The archived check in a folded-page corner: a translucent right triangle flush with the tile's top-left, rounded as
+   the media is; clip-path also limits its hover area to the triangle. */
 .storedMark {
   position: absolute;
-  top: var(--cp-space-3);
-  left: var(--cp-space-3);
-  display: inline-grid;
-  place-items: center;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: start;
+  width: var(--cp-stored-fold);
+  height: var(--cp-stored-fold);
   padding: var(--cp-space-1);
-  border-radius: var(--cp-radius-full);
+  border-top-left-radius: var(--cp-radius-md);
   background: var(--cp-spoiler-pill-bg);
-  color: var(--cp-text-1);
-  font-size: var(--cp-text-meta);
-  pointer-events: none;
+  color: var(--cp-success);
+  font-size: var(--cp-text-xs);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
 /* A plugin's note under the file (a transcript): its label and a Show toggle, then the text once opened. */

@@ -56,6 +56,7 @@
   --cp-chat-author-col-w: 120px;
   --cp-attachment-w: 420px;
   --cp-attachment-max-h: 320px; /* inline image preview in a message row */
+  --cp-stored-fold: 24px; /* the archived check's folded corner on a stored media tile: holds an xs check in its corner */
   --cp-note-min-w: 200px; /* the notes column's narrowest beside media; with less room it wraps under the media */
   --cp-mosaic-cell-ratio: 1; /* a cell in a mosaic row of two or three: square, as Discord crops them */
   --cp-mosaic-lead-ratio: 16 / 9; /* a lone leading row's full-width cell (7 and 10 tiles): wide, short of a square's height */
