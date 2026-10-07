@@ -1,9 +1,8 @@
-// Plugin labels as local pills in Discord; an attribute and ::after leave Discord's own markup intact.
+// Plugin labels as local pills in Discord: one injected stylesheet draws them with ::after; Discord's DOM is untouched.
 import type { WebContents } from 'electron';
+import { SNOWFLAKE_ID } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
 
-/** The attribute carrying a message's labels; its ::after draws the pill. */
-const ATTR = 'data-chattypop-labels';
 /** Joins several labels in one pill. */
 const SEPARATOR = ' · ';
 /** Accent for live message labels; the embedded page cannot read renderer theme tokens. */
@@ -13,9 +12,7 @@ const LABEL_ACCENT = '#e58fd0';
  * Pill styling in Discord's own variables and em units, so it follows the client's theme and font size. The ~20%
  * accent tint matches the renderer's --cp-section-tile-mix on chips.
  */
-export const LIVE_LABELS_CSS = `
-[id^="message-content-"][${ATTR}]::after {
-  content: attr(${ATTR});
+const PILL_STYLE = `
   display: inline-block;
   margin-left: 0.5em;
   padding: 0 0.45em;
@@ -27,47 +24,24 @@ export const LIVE_LABELS_CSS = `
   letter-spacing: 0.02em;
   line-height: 1.6;
   text-transform: uppercase;
-  vertical-align: middle;
-}`;
+  vertical-align: middle;`;
 
-/**
- * Runs in the page: keeps the current channel's label map and marks each message's text element, now and whenever
- * Discord adds or re-renders message rows. Idempotent; `set` replaces the map.
- */
-const INSTALL = `(() => {
-  if (window.__chattypopLabels) return;
-  let labels = {};
-  const mark = (el) => {
-    const id = el.id.slice('message-content-'.length);
-    const text = labels[id];
-    if (text) {
-      if (el.getAttribute('${ATTR}') !== text) el.setAttribute('${ATTR}', text);
-    } else if (el.hasAttribute('${ATTR}')) {
-      el.removeAttribute('${ATTR}');
-    }
-  };
-  const markAll = (root) => root.querySelectorAll('[id^="message-content-"]').forEach(mark);
-  new MutationObserver((changes) => {
-    for (const c of changes) for (const n of c.addedNodes) {
-      if (n.nodeType !== 1) continue;
-      if (n.id && n.id.startsWith('message-content-')) mark(n);
-      else markAll(n);
-    }
-  }).observe(document.body, {
-    childList: true,
-    subtree: true,
-  });
-  window.__chattypopLabels = {
-    set(next) {
-      labels = next;
-      markAll(document);
-    },
-  };
-})();`;
+/** `text` as a CSS string literal: quotes, backslashes and line breaks escaped. */
+const cssString = (text: string): string => `"${text.replace(/["\\]/g, '\\$&').replace(/[\r\n\f]/g, '\\a ')}"`;
+
+/** The stylesheet drawing `labels` (message id → pill text) after each message's text; empty when there are none. */
+export function liveLabelsCss(labels: Readonly<Record<string, string>>): string {
+  const entries = Object.entries(labels).filter(([id, text]) => SNOWFLAKE_ID.test(id) && text);
+  if (!entries.length) return '';
+  const pill = (id: string): string => `#message-content-${id}::after`;
+  return [`${entries.map(([id]) => pill(id)).join(',\n')} {${PILL_STYLE}\n}`, ...entries.map(([id, text]) => `${pill(id)} { content: ${cssString(text)}; }`)].join('\n');
+}
 
 /** Keeps the live client's pills in step with the channel it shows and with label changes. */
 export class LiveLabels {
   private channelId: string | null = null;
+  /** The current document's label stylesheet; insertCSS is per document, so a new one starts without it. */
+  private cssKey: string | undefined;
   /** Serializes pushes so a slow one can't overwrite a newer map. */
   private pushing: Promise<void> = Promise.resolve();
 
@@ -77,11 +51,9 @@ export class LiveLabels {
     private readonly onError: (message: string) => void,
   ) {}
 
-  /** A new document (load or reload): style it, then mark what it shows. */
+  /** A new document (load or reload): draw what it shows. */
   documentReady(): void {
-    const wc = this.page();
-    if (!wc || wc.isDestroyed()) return;
-    wc.insertCSS(LIVE_LABELS_CSS).catch((err: unknown) => this.onError(errorMessage(err)));
+    this.cssKey = undefined;
     this.refresh();
   }
 
@@ -104,8 +76,12 @@ export class LiveLabels {
         if (!wc || wc.isDestroyed() || channelId !== this.channelId) return;
         const chips = await this.chipsFor(channelId);
         if (channelId !== this.channelId || wc !== this.page() || wc.isDestroyed()) return;
-        const labels = Object.fromEntries(Object.entries(chips).map(([id, cs]) => [id, cs.join(SEPARATOR)]));
-        await wc.executeJavaScript(`${INSTALL}\nwindow.__chattypopLabels.set(${JSON.stringify(labels)});`);
+        const css = liveLabelsCss(Object.fromEntries(Object.entries(chips).map(([id, cs]) => [id, cs.join(SEPARATOR)])));
+        const previous = this.cssKey;
+        this.cssKey = undefined;
+        // A key from a document since replaced no longer exists; nothing to remove then.
+        if (previous) await wc.removeInsertedCSS(previous).catch(() => undefined);
+        if (css) this.cssKey = await wc.insertCSS(css);
       })
       .catch((err: unknown) => this.onError(errorMessage(err)));
   }

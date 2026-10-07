@@ -1,44 +1,37 @@
 import type { WebContents } from 'electron';
 import { errorMessage } from '@shared/errors';
 import { diag } from '../diagnostics';
+import type { PageWorld } from './pageWorld';
 
-/** Page global the watcher reports through: a CDP binding, so the page needs no preload. */
-const MODAL_BINDING = '__chattyPopModal';
-const OPEN = '1';
-const CLOSED = '0';
+/** CDP's answer when the document an awaited script ran in is replaced: that document's watch is over. */
+const NAVIGATED = /navigated or closed|context was destroyed/i;
 
-/** In-page aria-modal watcher reports open Discord modals. Coalesces mutation checks per task. */
-const WATCH_SCRIPT = `(() => {
-  if (window.${MODAL_BINDING}Watching) return;
-  window.${MODAL_BINDING}Watching = true;
-  let open = false;
-  let queued = false;
-  const check = () => {
-    queued = false;
-    const now = document.querySelector('[aria-modal="true"]') !== null;
-    if (now !== open) ${MODAL_BINDING}((open = now) ? '${OPEN}' : '${CLOSED}');
-  };
-  new MutationObserver(() => {
-    if (!queued) queueMicrotask(check);
-    queued = true;
-  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-modal'] });
-  check();
-})()`;
-
-type WatchedPage = Pick<WebContents, 'debugger' | 'executeJavaScript' | 'on'>;
-
-/**
- * Calls `onChange` when a Discord modal opens or closes in the page, and with false for each new document. Uses the
- * debugger the gateway tap attached.
- */
-export function watchModals(wc: WatchedPage, onChange: (open: boolean) => void): void {
-  wc.debugger.sendCommand('Runtime.addBinding', { name: MODAL_BINDING }).catch((err: unknown) => diag('discord-modal-watch-failed', { message: errorMessage(err) }));
-  wc.debugger.on('message', (_e, method, params: { name?: string; payload?: string }) => {
-    if (method !== 'Runtime.bindingCalled' || params.name !== MODAL_BINDING) return;
-    if (params.payload === OPEN || params.payload === CLOSED) onChange(params.payload === OPEN);
+/** Resolves once the page's aria-modal state differs from `open`, with the new state. Leaves nothing in the page. */
+const waitChange = (open: boolean): string => `new Promise((resolve) => {
+  const now = () => document.querySelector('[aria-modal="true"]') !== null;
+  if (now() !== ${open}) return resolve(${!open});
+  const o = new MutationObserver(() => {
+    if (now() === ${open}) return;
+    o.disconnect();
+    resolve(${!open});
   });
-  wc.on('dom-ready', () => {
+  o.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-modal'] });
+})`;
+
+/** Calls `onChange` when a Discord modal opens or closes in the page, and with false for each new document. */
+export function watchModals(page: Pick<WebContents, 'on'>, world: Pick<PageWorld, 'evaluate'>, onChange: (open: boolean) => void): void {
+  let generation = 0;
+  page.on('dom-ready', () => {
+    const mine = ++generation;
     onChange(false);
-    wc.executeJavaScript(WATCH_SCRIPT).catch((err: unknown) => diag('discord-modal-watch-failed', { message: errorMessage(err) }));
+    void (async () => {
+      for (let open = false; ; ) {
+        open = await world.evaluate<boolean>(waitChange(open));
+        if (mine !== generation) return;
+        onChange(open);
+      }
+    })().catch((err: unknown) => {
+      if (mine === generation && !NAVIGATED.test(errorMessage(err))) diag('discord-modal-watch-failed', { message: errorMessage(err) });
+    });
   });
 }

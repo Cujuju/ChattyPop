@@ -2,6 +2,7 @@
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { discordPage } from './helpers';
 import { DM_CHANNEL_TYPE, DiscordHttpError, GROUP_DM_CHANNEL_TYPE, type RawPrivateChannel } from '@shared/discord';
 import { GROUP_DM_MAX_MEMBERS } from '@shared/dms';
 import { PostingLocked } from '@shared/posting';
@@ -40,9 +41,9 @@ describe('X-Context-Properties', () => {
 
   it('rides only on the call that passes it, never on the next', async () => {
     const scripts: string[] = [];
-    const page = { isDestroyed: () => false, executeJavaScript: async (s: string) => (scripts.push(s), { status: 200, headers: {}, body: '{}' }) };
+    const page = { isDestroyed: () => false, evaluate: async (s: string) => (scripts.push(s), { status: 200, headers: {}, body: '{}' }) };
     const capture = { current: { authorization: 'token', extra: { 'X-Super-Properties': 'props' } }, invalidate: () => undefined };
-    const api = new DiscordApi(() => page as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
+    const api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     await api.prompt.postOnce('users/@me/channels', { recipients: [BOB.id] }, { context: DM_CONTEXT.start });
     await api.prompt.post('channels/1/messages', { content: 'hi' });
     expect(scripts[0]).toContain(`"X-Context-Properties":"${contextProperties(DM_CONTEXT.start)}"`);
@@ -58,11 +59,11 @@ describe("a request's guard", () => {
     const answered = { status: 200, headers: {}, body: '' };
     const page = {
       isDestroyed: () => false,
-      executeJavaScript: (s: string) =>
+      evaluate: (s: string) =>
         scripts.push(s) === 1 ? new Promise((resolve) => (release = () => resolve(answered))) : Promise.resolve(answered),
     };
     const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
-    const api = new DiscordApi(() => page as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
+    const api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     let switched = false;
     const first = api.prompt.post('channels/1/messages', { content: 'hi' });
     const guard = (): void => {

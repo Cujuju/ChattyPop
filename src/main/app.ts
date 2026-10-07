@@ -115,7 +115,7 @@ void app.whenReady().then(() => {
   const currentPace = (): ReturnType<Pace['current']> => pace.current();
   // The API runs inside the Discord page, which exists once the window is created below.
   let discordRef: DiscordView | undefined;
-  const discordApi = new DiscordApi(() => discordRef?.webContents, capture, currentPace);
+  const discordApi = new DiscordApi(() => discordRef, capture, currentPace);
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
@@ -124,7 +124,7 @@ void app.whenReady().then(() => {
     const a = await core.call('attachmentSource', id);
     return a ? posterOf(a) : null;
   };
-  const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef?.webContents, family), posterSource);
+  const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef, family), posterSource);
   handleMediaScheme(serveMedia);
   handlePluginScheme(core);
   // The installed plugins main accepted at start, for windows and the phone page.

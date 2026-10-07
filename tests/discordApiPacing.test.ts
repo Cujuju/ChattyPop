@@ -1,6 +1,7 @@
 // Discord requests serialize. Prompt requests precede waiting paced requests; paced requests preserve order. Automatic posts wait once using the configured pause and jitter.
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { discordPage } from './helpers';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
 
@@ -18,14 +19,14 @@ beforeEach(() => {
   sent = [];
   const page = {
     isDestroyed: () => false,
-    // The page's fetch: records the URL the script asks for and answers 200 with an empty JSON object.
-    executeJavaScript: async (script: string) => {
+    // The page world's fetch: records the URL the script asks for and answers 200 with an empty JSON object.
+    evaluate: async (script: string) => {
       sent.push(/fetch\("https:\/\/discord\.com\/api\/v9\/([^"?]+)/.exec(script)![1]!);
       return { status: 200, headers: {}, body: '{}' };
     },
   };
   const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
-  api = new DiscordApi(() => page as never, capture as never, async () => ({ apiMs: PACE_MS, mediaMs: 0, jitter: 0 }));
+  api = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: PACE_MS, mediaMs: 0, jitter: 0 }));
 });
 afterEach(() => vi.useRealTimers());
 
@@ -80,7 +81,7 @@ describe('Discord request pacing', () => {
     let most = 0;
     const page = {
       isDestroyed: () => false,
-      executeJavaScript: async () => {
+      evaluate: async () => {
         most = Math.max(most, ++inFlight);
         await new Promise((r) => setTimeout(r, 10));
         inFlight--;
@@ -88,7 +89,7 @@ describe('Discord request pacing', () => {
       },
     };
     const capture = { current: { authorization: 'token', extra: {} }, invalidate: () => undefined };
-    const slow = new DiscordApi(() => page as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
+    const slow = new DiscordApi(() => discordPage(page.evaluate) as never, capture as never, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 }));
     const all = Promise.all([slow.get('a'), slow.prompt.get('b'), slow.prompt.get('c'), slow.get('d')]);
     await vi.advanceTimersByTimeAsync(10_000);
     await all;

@@ -1,8 +1,8 @@
-// Live decoration probes: merged providers, failure isolation, disabled providers and channel races.
+// Live decoration probes: merged providers, failure isolation, disabled providers, channel races, and pills drawn by CSS alone.
 import { describe, expect, it, vi } from 'vitest';
 import type { WebContents } from 'electron';
 import { LiveLabelProviders } from '../src/main/discord/labelProviders';
-import { LiveLabels, LIVE_LABELS_CSS } from '../src/main/discord/liveLabels';
+import { LiveLabels, liveLabelsCss } from '../src/main/discord/liveLabels';
 
 const MICROTASK_TURNS = 10;
 const tick = async (): Promise<void> => {
@@ -46,55 +46,51 @@ describe(
         expect(await providers.read('c')).toEqual({});
       },
     );
-    it(
-      'keeps the existing pill styling, joins labels, and clears the DOM map when providers turn off',
-      async () => {
-        const executeJavaScript = vi.fn(async (_script: string) => undefined);
-        const insertCSS = vi.fn(async () => 'style');
-        const page = {
-          isDestroyed: () => false,
-          executeJavaScript,
-          insertCSS,
-        } as unknown as WebContents;
-        let labels: Record<string, string[]> = { m: ['A', 'B'] };
-        const live = new LiveLabels(
-          () => page,
-          async () => labels,
-          (error) => {
-            throw new Error(error);
-          },
-        );
-        live.showChannel('c');
-        live.documentReady();
-        await tick();
-        expect(insertCSS).toHaveBeenCalledWith(LIVE_LABELS_CSS);
-        expect(executeJavaScript.mock.calls.at(-1)?.[0]).toContain('"m":"A · B"');
-        labels = {};
-        live.changed();
-        await tick();
-        expect(executeJavaScript.mock.calls.at(-1)?.[0]).toContain('.set({})');
-      },
-    );
+    it('draws pills from one stylesheet, replaces it on change, and removes it when providers turn off', async () => {
+      const insertCSS = vi.fn(async (_css: string) => `key${insertCSS.mock.calls.length}`);
+      const removeInsertedCSS = vi.fn(async (_key: string) => undefined);
+      const page = { isDestroyed: () => false, insertCSS, removeInsertedCSS } as unknown as WebContents;
+      let labels: Record<string, string[]> = { '1000000000000000111': ['A', 'B'] };
+      const live = new LiveLabels(() => page, async () => labels, (error) => {
+        throw new Error(error);
+      });
+      live.documentReady();
+      live.showChannel('c');
+      await tick();
+      expect(insertCSS.mock.calls.at(-1)?.[0]).toContain('#message-content-1000000000000000111::after { content: "A · B"; }');
+      labels = {};
+      live.changed();
+      await tick();
+      expect(removeInsertedCSS).toHaveBeenLastCalledWith('key1');
+      expect(insertCSS).toHaveBeenCalledTimes(1);
+    });
+    it('escapes label text and skips ids that are not snowflakes', () => {
+      const css = liveLabelsCss({ '1000000000000000222': String.raw`say "hi" \ there` + '\nnow', 'x"]{}': 'bad' });
+      expect(css).toContain(String.raw`#message-content-1000000000000000222::after { content: "say \"hi\" \\ there\a now"; }`);
+      expect(css).not.toContain('bad');
+      expect(liveLabelsCss({})).toBe('');
+    });
     it(
       'does not push a stale channel after its asynchronous provider returns',
       async () => {
-        const executeJavaScript = vi.fn(async (_script: string) => undefined);
+        const insertCSS = vi.fn(async (_css: string) => 'key');
         const page = {
           isDestroyed: () => false,
-          executeJavaScript,
+          insertCSS,
+          removeInsertedCSS: async () => undefined,
         } as unknown as WebContents;
         let finish!: (value: Record<string, string[]>) => void;
         const slow = new Promise<Record<string, string[]>>((resolve) => {
           finish = resolve;
         });
-        const live = new LiveLabels(() => page, (id) => id === 'old' ? slow : Promise.resolve({ fresh: ['new'] }), () => undefined);
+        const live = new LiveLabels(() => page, (id) => id === 'old' ? slow : Promise.resolve({ '1000000000000000333': ['new'] }), () => undefined);
         live.showChannel('old');
         await tick();
         live.showChannel('new');
-        finish({ stale: ['old'] });
+        finish({ '1000000000000000444': ['old'] });
         await tick();
-        expect(executeJavaScript).toHaveBeenCalledTimes(1);
-        expect(executeJavaScript.mock.calls[0]?.[0]).toContain('"fresh":"new"');
+        expect(insertCSS).toHaveBeenCalledTimes(1);
+        expect(insertCSS.mock.calls[0]?.[0]).toContain('content: "new"');
       },
     );
   },

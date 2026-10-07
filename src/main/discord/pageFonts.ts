@@ -1,10 +1,12 @@
 import type { WebContents } from 'electron';
+import type { PageWorld } from './pageWorld';
 
 const DISCORD_ORIGIN = 'https://discord.com';
 
 /** Resolves declared Nitro font-family files to absolute Discord URLs. Returns null before declaration/loading; deployment filenames vary. */
-export async function discordFontUrl(wc: WebContents | undefined, family: string): Promise<string | null> {
-  if (!wc || wc.isDestroyed()) return null;
+export async function discordFontUrl(page: { webContents: WebContents; world: Pick<PageWorld, 'evaluate'> } | undefined, family: string): Promise<string | null> {
+  if (!page || page.webContents.isDestroyed()) return null;
+  const wc = page.webContents;
   // At startup the Archive asks before the page has its stylesheets: wait for the load rather than answer "none".
   if (wc.isLoading()) await new Promise<void>((resolve) => wc.once('did-stop-loading', () => resolve()));
   // String.raw: the regex's escapes must reach the page intact.
@@ -30,6 +32,6 @@ export async function discordFontUrl(wc: WebContents | undefined, family: string
     }
     return null;
   })()`;
-  const url = (await wc.executeJavaScript(script).catch(() => null)) as string | null;
+  const url = await page.world.evaluate<string | null>(script).catch(() => null);
   return url && new URL(url).origin === DISCORD_ORIGIN ? url : null;
 }

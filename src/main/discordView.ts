@@ -6,6 +6,7 @@ import { errorMessage } from '@shared/errors';
 import { DEFAULT_DISCORD_SIDEBAR, type DiscordSidebar } from '@shared/settings';
 import { GatewayTap } from './discord/gatewayTap';
 import { watchModals } from './discord/modalWatch';
+import { PageWorld } from './discord/pageWorld';
 import { privacyCss } from './discord/privacyCss';
 import { sidebarCss } from './discord/sidebarCss';
 import { diag } from './diagnostics';
@@ -60,6 +61,8 @@ function saveRoute(route: string): void {
 export class DiscordView {
   private readonly view: WebContentsView;
   readonly tap: GatewayTap;
+  /** Where ChattyPop's scripts run in the page: its DOM, not its globals. */
+  readonly world: PageWorld;
   /** Called when the live client shows a channel (guild id, or "@me" for DMs). */
   onChannel: ((guildId: string, channelId: string) => void) | undefined;
   /** Called for each new document (load or reload): page injections are per document. */
@@ -92,7 +95,8 @@ export class DiscordView {
 
     const wc = this.view.webContents;
     this.tap = new GatewayTap(wc);
-    watchModals(wc, (open) => {
+    this.world = new PageWorld(wc);
+    watchModals(wc, this.world, (open) => {
       this.modalOpen = open;
       this.applyBounds();
     });
@@ -150,11 +154,10 @@ export class DiscordView {
   }
 
   private showPath(path: string): void {
-    const wc = this.view.webContents;
     const script = `history.pushState(null, '', ${JSON.stringify(path)}); dispatchEvent(new PopStateEvent('popstate', { state: null }));`;
-    wc.executeJavaScript(script).catch((err: unknown) => {
+    this.world.evaluate(script).catch((err: unknown) => {
       diag('discord-open-channel-fallback', { message: errorMessage(err) });
-      void wc.loadURL(DISCORD_ORIGIN + path);
+      void this.view.webContents.loadURL(DISCORD_ORIGIN + path);
     });
   }
 

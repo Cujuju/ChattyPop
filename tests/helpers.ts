@@ -103,3 +103,6 @@ export function fakeModel(dir: string, id: string): void {
   mkdirSync(join(dir, MODELS_DIR), { recursive: true });
   writeFileSync(join(dir, MODELS_DIR, id), '');
 }
+
+/** An open Discord page whose isolated world answers each script with `evaluate` (DiscordApi's page). */
+export const discordPage = (evaluate: (script: string) => Promise<unknown>) => ({ webContents: { isDestroyed: () => false }, world: { evaluate } });
