@@ -22,6 +22,11 @@
   --splash-fill-duration: 450ms; /* --splash-done's ease: steps closer together than this chain into one glide; a lone step still settles quickly */
   --splash-pulse-min-opacity: 0.4; /* reduced-motion pulse floor: visibly alive, never vanishes */
   --splash-sweep-mix: 35%; /* accent share of the track's idle sweep: alive, yet dimmer than the fill */
+  --splash-breath-duration: 2400ms; /* one rise or fall of the mark: a slow breath; a 3–10 s launch shows one to two full cycles */
+  --splash-breath-ease: ease-in-out; /* symmetric: rise and fall mirror, so the turn never snaps */
+  --splash-float-lift: 3px; /* the mark's rise: seen, yet under 5% of its size, so it hovers rather than bounces */
+  --splash-halo-min-scale: 0.9; /* halo at the mark's lowest: swells to full size as the mark rises */
+  --splash-halo-min-opacity: 0.65; /* halo at the mark's lowest: dims, never vanishes; also the reduced-motion floor */
 
   color-scheme: var(--cp-color-scheme);
 }
@@ -119,6 +124,53 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Idle breath: the mark floats while its halo swells. Only once main sets the clock: the delay phases both splash windows to the launch start, so the handoff doesn't jump. */
+[data-splash-clock] .splash-icon,
+[data-splash-clock] .splash-mark::before {
+  animation: var(--splash-breath-duration) var(--splash-breath-ease) var(--splash-clock) infinite alternate;
+}
+
+[data-splash-clock] .splash-icon {
+  animation-name: splash-float;
+}
+
+[data-splash-clock] .splash-mark::before {
+  animation-name: splash-halo;
+}
+
+@keyframes splash-float {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: 0 calc(-1 * var(--splash-float-lift));
+  }
+}
+
+/* Scale, not size: the halo's centring uses translate, which this leaves alone. */
+@keyframes splash-halo {
+  from {
+    scale: var(--splash-halo-min-scale);
+    opacity: var(--splash-halo-min-opacity);
+  }
+
+  to {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes splash-halo-glow {
+  from {
+    opacity: var(--splash-halo-min-opacity);
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .splash-name {
   margin: 0;
   font-size: var(--cp-text-xl);
@@ -172,7 +224,11 @@ body {
   );
   background-size: var(--cp-progress-sweep-w) 100%;
   background-repeat: no-repeat;
-  animation: splash-sweep var(--cp-duration-sweep) var(--cp-ease) infinite alternate;
+}
+
+/* Phased to the launch start like the mark's breath, so the sweep doesn't jump at the handoff. */
+[data-splash-clock] .splash-progress::before {
+  animation: splash-sweep var(--cp-duration-sweep) var(--cp-ease) var(--splash-clock) infinite alternate;
 }
 
 /* The further of done and glide. Clamped so an out-of-range value never overflows or inverts the bar. No width transition: its inputs animate.
@@ -202,10 +258,21 @@ body {
   }
 }
 
-/* Reduced motion: the highlight stays centred and fades; the fill shows finished work only and steps without easing. */
+/* Reduced motion: the mark holds still and only its halo breathes; the highlight stays centred and fades; the fill shows finished work only and steps without easing. */
 @media (prefers-reduced-motion: reduce) {
+  [data-splash-clock] .splash-icon {
+    animation: none;
+  }
+
+  [data-splash-clock] .splash-mark::before {
+    animation-name: splash-halo-glow;
+  }
+
   .splash-progress::before {
     background-position-x: 50%;
+  }
+
+  [data-splash-clock] .splash-progress::before {
     animation-name: splash-pulse;
   }
 

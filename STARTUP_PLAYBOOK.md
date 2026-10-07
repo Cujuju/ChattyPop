@@ -125,6 +125,7 @@ Vite bundles them into the app; the launcher's splash imports them directly. Any
 - It's loaded with `loadFile`, from the source folder in dev and from `out/renderer` when packaged. Loading from disk keeps it off a dev server that is busy warming up. Add it as a Vite build input, and reserve the page name, so a plugin page can't replace it.
 - Main drives it with `webContents.executeJavaScript(`(${wear})(${JSON.stringify(state)})`)`. `wear` is a self-contained function serialized with `toString()`. It sets the theme properties on `<html>`, the status text and the bar's progress variable, then waits two `requestAnimationFrame`s. `executeJavaScript` is not subject to the page's CSP.
 - **Show after the first themed paint, not on `ready-to-show`.** On `did-finish-load`, run `wear`, await it, then `show()`. `ready-to-show` would show the default look first.
+- **Loops phased to the launch start.** Two splash windows show in turn (the launcher's, then the app's on top), so a loop that restarts at the handoff jumps. The first `wear` sets `--splash-clock` (minus the ms since the launch start) and `data-splash-clock` on `<html>`, once; every loop (the icon's breath, the bar's sweep) runs only under that attribute, with the clock as its `animation-delay`. Setting the delay after a loop started would shift it, hence the gate. No entrance animation: it would replay at the handoff.
 - Styles live with the theme (ChattyPop: `theme/splash.css`, written by the design agent). It must load raw from disk, so use relative `@import`s only, and only of token files that have no package imports.
 
 ### Progress from real milestones
@@ -134,7 +135,10 @@ A list of steps. Each completes on an event that really happens:
 |---|---|
 | Compiling the app (dev only) | main's build reaches Rollup's `buildEnd` (posted by the build worker, sent over the splash's IPC channel) |
 | Bundling the app (dev only) | the launcher's builds settle |
-| Opening the archive | the backend answers its first request: its init is synchronous, so requests queue behind it |
+| Starting the app | main's process is up: done as the app's splash opens |
+| Starting the archive | the backend process has loaded its code: its message handler gets the init main posted at fork, and posts `init-step` back |
+| Opening the database | the backend opened the database (key and migrations included) and posted `init-step` |
+| Preparing rules and plugins | the backend answers its first request: its init is synchronous, so requests queue behind it |
 | Loading the interface | the main window's `did-finish-load` (module scripts have run) |
 | Opening the window | the main window shows; the splash closes |
 
@@ -144,9 +148,9 @@ A list of steps. Each completes on an event that really happens:
 ### A bar weighted by the last launch
 Equal steps stall: in ChattyPop the build is over half the launch, and the last two steps take under a second. So the bar is placed by time:
 - **Timeline:** when every step is done, the app saves each step's finish time, in ms from the launch start, to `splash-timeline.json` in the profile. It's kept per mode (dev, release), since their timelines differ. In dev the launch starts when the launcher starts (`performance.timeOrigin`); the launcher passes its start and the steps it finished to its splash and the app in an environment variable (`DEV_LAUNCH_ENV`). Only the app writes the file.
-- **Position** (`splashProgress`): each step ends on the bar where it finished last time (its time ÷ the last step's). The bar sits at the furthest finished step's end. With no full timeline (a first run), steps are spaced evenly.
+- **Position** (`splashProgress`): each step ends on the bar where it finished last time (its time ÷ the last step's). The bar sits at the furthest finished step's end. With no full timeline (a first run, or the first launch after a step is added), steps are spaced evenly.
 - **Glide:** while a step runs, the bar glides linearly toward it, over the time it's expected to take (its last-launch time minus the time elapsed), stopping at `SPLASH_GLIDE_SHARE` (90%) of the way: only the step finishing fills the rest. An overdue step gets no glide. Main sets `--splash-done`, `--splash-glide` and `--splash-glide-ms`; the CSS registers them with `@property` and transitions the properties themselves (not `width`), only once `data-splash-live` is set after the first paint, so a splash that takes over mid-launch doesn't re-fill from 0. Reduced motion shows finished work only.
-- **Split long steps at real events.** The dev build's `compile` step ends at main's Rollup `buildEnd` (a plugin hook in the worker that posts to the launcher), and `build` when both builds finish.
+- **Split long steps at real events.** The dev build's `compile` step ends at main's Rollup `buildEnd` (a plugin hook in the worker that posts to the launcher), and `build` when both builds finish. The backend's init posts its milestones (`CoreInitStepMessage`) beside its events; main maps each to a step.
 - **Why not count work?** We tried a per-module count (`moduleParsed`) as the build's progress. It misled: one 1.1 MB dependency parses last and is then tree-shaken, about 2 s with no hook firing, so the count reached 99% with half the build to go. Measure where the time goes before trusting a counter.
 
 ### Themed from the last session

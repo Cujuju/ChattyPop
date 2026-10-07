@@ -70,6 +70,11 @@ export function writeSplashTimeline(file, dev, timeline) {
 function wear(state) {
   const root = document.documentElement;
   for (const [token, value] of Object.entries(state.theme ?? {})) root.style.setProperty(token, value);
+  // Loops start here, phased to the launch start: the launcher's splash and the app's, which replaces it, stay in step.
+  if (!root.hasAttribute('data-splash-clock')) {
+    root.style.setProperty('--splash-clock', `${state.start - Date.now()}ms`);
+    root.setAttribute('data-splash-clock', '');
+  }
   // Transitions run from here on: never from the page's initial empty bar.
   root.toggleAttribute('data-splash-live', state.live);
   document.getElementById('splash-status').textContent = state.status;
@@ -103,7 +108,7 @@ export function openSplash({ page, theme, dev, last, start = Date.now(), done = 
     const status = (phases.find((p) => !(p.id in steps)) ?? phases[phases.length - 1]).label;
     // Shown without a glide: it starts once the bar can transition.
     if (live) glided = Math.max(glided, bar.toward);
-    const state = { theme, status, live, ...bar, toward: live ? glided : bar.at, over: live ? bar.over : 0 };
+    const state = { theme, status, live, start, ...bar, toward: live ? glided : bar.at, over: live ? bar.over : 0 };
     return win.webContents.executeJavaScript(`(${wear})(${JSON.stringify(state)})`).catch(() => undefined);
   };
   const shown = new Promise((resolve) => {
