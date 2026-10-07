@@ -58,7 +58,7 @@ export { pullToClose } from '@/ui/pullToClose';
 export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect } from '@/ui/SearchSelect';
-export { EffortSelect, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
+export { EffortSelect, effortLabel, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
 export { QrCode } from '@/ui/QrCode';

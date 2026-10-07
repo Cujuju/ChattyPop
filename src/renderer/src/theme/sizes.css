@@ -222,6 +222,7 @@
   --cp-settings-control-w: 240px; /* a select or field on the right of a settings row */
   --cp-settings-number-w: 72px; /* a number field (days, GB, hours) on a settings row */
   --cp-settings-stat-min-w: 140px; /* narrowest figure tile (sizes, costs) before tiles wrap */
+  --cp-compare-col-min-w: 240px; /* a model's column in a summary comparison: two fit the settings column at its default width */
   --cp-settings-hint-max-w: 72ch; /* a settings row's explanation: readable line length in wide windows */
   --cp-settings-key-action-w: 72px; /* the button after a key field (Clear, Default): fits "Default" in a cp-button, so both match */
   --cp-settings-key-w: 96px; /* a shortcut's key field: fits "Press a key" at text-sm */
