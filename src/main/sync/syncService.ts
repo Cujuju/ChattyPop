@@ -19,6 +19,7 @@ import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import type { DiscordApi } from '../discord/api';
 import type { DiscordQuery } from '../discord/client';
+import type { GatewayDirectory } from '../discord/directory';
 import { readArchiveSettings } from './pace';
 
 /** History page size observed from the Discord web client. */
@@ -63,6 +64,7 @@ export class SyncService {
     private readonly api: DiscordApi,
     private readonly core: CoreClient,
     private readonly emit: (e: AppEvent) => void,
+    private readonly directory: Pick<GatewayDirectory, 'guildList' | 'channelsOf'>,
   ) {}
 
   /**
@@ -83,14 +85,15 @@ export class SyncService {
     return out;
   }
 
-  /** The server list, or one server's channels. The DM list costs no request: the client's gateway keeps it (privateChannels.ts). */
+  /** The server list, or one server's channels, as the client's gateway sent them (directory.ts), as is the DM list (privateChannels.ts): no request. */
   async refreshDirectory(guildId?: string): Promise<void> {
     if (!guildId) {
-      await this.core.call('upsertGuilds', await this.api.get<RawGuild[]>('users/@me/guilds'));
+      await this.core.call('upsertGuilds', this.directory.guildList());
       return;
     }
     if (guildId === DM_GUILD_ID) return;
-    const channels = await this.api.get<RawChannel[]>(`guilds/${guildId}/channels`);
+    const channels = this.directory.channelsOf(guildId);
+    if (!channels) throw new Error("The live Discord client hasn't loaded this server yet.");
     await this.core.call(
       'upsertChannels',
       guildId,

@@ -11,6 +11,7 @@ import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
+import type { GatewayDirectory } from '../discord/directory';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
 import type { AccountChatSettings } from '../discord/chatSettings';
 import type { DiscordClient } from '../discord/client';
@@ -55,6 +56,8 @@ export interface DiscordDeps {
   discordSession: Session;
   /** The account's chat settings: writes go through it, one at a time. */
   chatSettings: Pick<AccountChatSettings, 'write'>;
+  /** Servers and channels from the client's gateway. */
+  directory: Pick<GatewayDirectory, 'guildList'>;
 }
 
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
@@ -163,7 +166,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
 
   const recent = trackRecentMessageEvents(d.discord.tap);
   ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
-  ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.owner, d.discord.tap, recent));
+  ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
   const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));

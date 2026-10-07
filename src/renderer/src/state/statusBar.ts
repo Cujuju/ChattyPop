@@ -3,7 +3,7 @@ import { createSignal } from 'solid-js';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { archivedChannels } from './directory';
 
-/** The probe makes two Discord API calls, so capture state is re-checked rarely once it is on. */
+/** Capture state is re-checked rarely once it is on: the probe reads main's state and asks Discord nothing. */
 const CAPTURE_CHECK_MS = 5 * MS_PER_MIN;
 /** Short capture-probe interval during startup disconnection. */
 const CAPTURE_RETRY_MS = 15 * MS_PER_S;

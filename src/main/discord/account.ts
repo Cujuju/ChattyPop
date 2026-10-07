@@ -3,12 +3,14 @@ import type { GatewayTap } from './gatewayTap';
 
 interface RawAccount {
   id: string;
+  username?: string;
   premium_type?: number;
 }
 
 /** The signed-in account's plan and gateway session, read from the embedded client's gateway traffic (READY, USER_UPDATE). */
 export class OwnerAccount {
   private id: string | null = null;
+  private name: string | null = null;
   private plan = 0;
   private session: string | null = null;
 
@@ -30,6 +32,11 @@ export class OwnerAccount {
     return this.id;
   }
 
+  /** The account's username; null before the first READY. */
+  get username(): string | null {
+    return this.name;
+  }
+
   /** Discord's premium_type: the plan, which sets the upload limit (uploadLimitBytes). */
   get premiumType(): number {
     return this.plan;
@@ -46,7 +53,9 @@ export class OwnerAccount {
   }
 
   private set(u: RawAccount | null): void {
+    const same = u !== null && u.id === this.id;
     this.id = u?.id ?? null;
+    this.name = u?.username ?? (same ? this.name : null);
     this.plan = u?.premium_type ?? 0;
   }
 }

@@ -29,6 +29,7 @@ import { pickFiles, pickFolder } from './dialogs';
 import { SECRET_FILES } from './secretFile';
 import { DiscordApi } from './discord/api';
 import { HeaderCapture } from './discord/capture';
+import { GatewayDirectory } from './discord/directory';
 import { GuildEmojiIndex } from './discord/guildEmojis';
 import { ReadStates } from './discord/readStates';
 import { watchPrivateChannels } from './discord/privateChannels';
@@ -171,6 +172,8 @@ void app.whenReady().then(() => {
   });
   // The signed-in account and its DM list, from READY: no request.
   watchPrivateChannels(discord.tap, core, diag);
+  // Servers and their channels, from READY and its updates: no request.
+  const directory = new GatewayDirectory(discord.tap);
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
@@ -224,7 +227,7 @@ void app.whenReady().then(() => {
     toRenderer({ type: 'live-channel', guildId, channelId });
     liveLabels.showChannel(channelId);
   };
-  const sync = new SyncService(discordApi, core, toRenderer);
+  const sync = new SyncService(discordApi, core, toRenderer, directory);
   // A channel archived (by the owner, or a DM by auto-archive) syncs its history.
   core.on('event', (e) => {
     if (e.type === 'opt-in-changed' && e.optedIn) sync.enqueue(e.optedIn);
@@ -258,7 +261,7 @@ void app.whenReady().then(() => {
   handleMain(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
-  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting, discordSession, chatSettings });
+  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting, discordSession, chatSettings, directory });
   const pages = rendererPages(RENDERER_DIR, process.env['ELECTRON_RENDERER_URL'] ?? null, installed);
   for (const { id, error } of failedMain) diag('installed-plugin-load-failed', { pluginId: id, message: error });
   const mainPlugins = startMainPlugins(bundledMain, {

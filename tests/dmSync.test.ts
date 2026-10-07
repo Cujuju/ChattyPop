@@ -67,7 +67,7 @@ function syncOver(pages: (path: string) => RawMessage[] = () => []) {
   // Settings left unset read as their defaults.
   const core = { call: (m: string, ...p: unknown[]) => (m === 'getSetting' ? Promise.resolve(undefined) : h.call(m as never, ...p)) };
   const events: AppEvent[] = [];
-  const sync = new SyncService(api as never, core as never, (e) => void events.push(e));
+  const sync = new SyncService(api as never, core as never, (e) => void events.push(e), { guildList: () => [], channelsOf: () => null });
   const settled = (): Promise<void> => new Promise((resolve) => (sync.onSettled = resolve));
   return { sync, sent, events, settled };
 }
