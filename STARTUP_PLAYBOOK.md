@@ -115,8 +115,8 @@ Everything created at import time is covered automatically. Settings created lat
 
 ### Share the code with plain JS
 The launcher runs before any build, so it can't import TypeScript. Put the contract and the window driver in plain ES modules, each with a `.d.mts` beside it so TypeScript gets the types:
-- `src/shared/splash.mjs`: the window options, the step list, the theme tokens, the profile file name and the handoff message.
-- `src/main/splashWindow.mjs`: `openSplash`, `readSplashTheme`, `writeSplashTheme` and `normalizeSplashTheme`.
+- `src/shared/splash.mjs`: the window options, the step list, the theme tokens, the profile file names, the handoff message and `splashProgress` (the bar's position).
+- `src/main/splashWindow.mjs`: `openSplash`, and reading and writing the saved theme and timeline.
 
 Vite bundles them into the app; the launcher's splash imports them directly. Any custom import-graph tooling you have, test helpers included, must follow `.mjs`.
 
@@ -128,18 +128,26 @@ Vite bundles them into the app; the launcher's splash imports them directly. Any
 - Styles live with the theme (ChattyPop: `theme/splash.css`, written by the design agent). It must load raw from disk, so use relative `@import`s only, and only of token files that have no package imports.
 
 ### Progress from real milestones
-A list of steps. Each completes on an event that really happens; nothing is timed:
+A list of steps. Each completes on an event that really happens:
 
 | Step | Completes when |
 |---|---|
-| Building the app (dev only) | the launcher's build settles (sent over the splash's IPC channel) |
+| Compiling the app (dev only) | main's build reaches Rollup's `buildEnd` (posted by the build worker, sent over the splash's IPC channel) |
+| Bundling the app (dev only) | the launcher's builds settle |
 | Opening the archive | the backend answers its first request: its init is synchronous, so requests queue behind it |
 | Loading the interface | the main window's `did-finish-load` (module scripts have run) |
 | Opening the window | the main window shows; the splash closes |
 
-- **Bar:** steps done ÷ total. **Status:** the first step not done, so steps that finish in parallel and out of order are fine.
+- **Status:** the first step not done, so steps that finish in parallel and out of order are fine.
 - The dev launcher's splash buffers steps that arrive before its window exists. The app's splash starts with the dev-only step already done.
-- **Known limit:** the steps are equal quarters but not equal durations. Weighting each step by its duration on the last launch would make the bar move more evenly.
+
+### A bar weighted by the last launch
+Equal steps stall: in ChattyPop the build is over half the launch, and the last two steps take under a second. So the bar is placed by time:
+- **Timeline:** when every step is done, the app saves each step's finish time, in ms from the launch start, to `splash-timeline.json` in the profile. It's kept per mode (dev, release), since their timelines differ. In dev the launch starts when the launcher starts (`performance.timeOrigin`); the launcher passes its start and the steps it finished to its splash and the app in an environment variable (`DEV_LAUNCH_ENV`). Only the app writes the file.
+- **Position** (`splashProgress`): each step ends on the bar where it finished last time (its time ÷ the last step's). The bar sits at the furthest finished step's end. With no full timeline (a first run), steps are spaced evenly.
+- **Glide:** while a step runs, the bar glides linearly toward it, over the time it's expected to take (its last-launch time minus the time elapsed), stopping at `SPLASH_GLIDE_SHARE` (90%) of the way: only the step finishing fills the rest. An overdue step gets no glide. Main sets `--splash-done`, `--splash-glide` and `--splash-glide-ms`; the CSS registers them with `@property` and transitions the properties themselves (not `width`), only once `data-splash-live` is set after the first paint, so a splash that takes over mid-launch doesn't re-fill from 0. Reduced motion shows finished work only.
+- **Split long steps at real events.** The dev build's `compile` step ends at main's Rollup `buildEnd` (a plugin hook in the worker that posts to the launcher), and `build` when both builds finish.
+- **Why not count work?** We tried a per-module count (`moduleParsed`) as the build's progress. It misled: one 1.1 MB dependency parses last and is then tree-shaken, about 2 s with no hook firing, so the count reached 99% with half the build to go. Measure where the time goes before trusting a counter.
 
 ### Themed from the last session
 - **Save:** whenever the main window applies a theme, it reads the resolved values of the tokens the splash uses (`getComputedStyle(documentElement).getPropertyValue(token)`). It sends them over IPC; only the main window's sender is accepted. Main validates them and writes `splash-theme.json` to the profile only when they changed. Validation keeps known token names only, values within a length cap, and colour characters only: no `url(`, quotes, `;` or braces.
@@ -166,11 +174,11 @@ A list of steps. Each completes on an event that really happens; nothing is time
    - an app splash opened right after the hidden main window;
    - a launcher splash spawned first;
    - the handoff over IPC.
-5. Pick 3–5 real milestones, and mark each where it happens.
+5. Pick 3–5 real milestones, and mark each where it happens. Save their times, place them on the bar by the last launch, and glide toward the next. Split the longest step at real events.
 6. Persist the resolved theme tokens on each theme change; read them synchronously at the next launch, and validate both ways.
 7. Verify:
    - typecheck and tests;
    - a production build (the splash page emitted, its assets allowed by the CSP);
    - a live launch, sampling the splash's status and theme over CDP and checking that no splash process is left behind.
 
-Code: `scripts/dev.mjs`, `scripts/devSplash.mjs`, `src/main/splash.ts`, `src/main/splashWindow.mjs`, `src/shared/splash.mjs`, `src/renderer/splash.html`, `src/renderer/src/theme/splash.css`, `src/plugin-sdk/renderer/firstPaint.ts`, `src/renderer/src/state/desktop.ts` (`syncSplashTheme`). Tests: `tests/firstPaint.test.ts`, `tests/splashTheme.test.ts`.
+Code: `scripts/dev.mjs`, `scripts/devSplash.mjs`, `src/main/splash.ts`, `src/main/splashWindow.mjs`, `src/shared/splash.mjs`, `src/renderer/splash.html`, `src/renderer/src/theme/splash.css`, `src/plugin-sdk/renderer/firstPaint.ts`, `src/renderer/src/state/desktop.ts` (`syncSplashTheme`). Tests: `tests/firstPaint.test.ts`, `tests/splashTheme.test.ts`, `tests/splashProgress.test.ts`.
