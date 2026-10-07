@@ -83,7 +83,6 @@
 }
 
 .image img,
-.image canvas,
 .image video {
   width: auto;
   height: auto;
@@ -96,7 +95,7 @@
 
 /* Pixel size known (--media-w/--media-h): the box comes from it, not the file, so the row keeps its height while the
    picture or a video's first frame loads. */
-.image :is(img, canvas, video)[data-sized='true'] {
+.image :is(img, video)[data-sized='true'] {
   width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)));
   aspect-ratio: var(--media-w) / var(--media-h);
 }
@@ -295,12 +294,12 @@
   aspect-ratio: var(--cp-mosaic-lead-ratio);
 }
 
-.row :is(.imageButton, img, canvas, video) {
+.row :is(.imageButton, img, video) {
   width: 100%;
   height: 100%;
 }
 
-.row :is(img, canvas, video) {
+.row :is(img, video) {
   max-width: none;
   max-height: none;
   aspect-ratio: auto;

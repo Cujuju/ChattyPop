@@ -26,7 +26,13 @@ interface RawEmbedMedia {
   proxy_url?: string;
   width?: number;
   height?: number;
+  /** EMBED_MEDIA_FLAG bits. */
+  flags?: number;
 }
+
+/** Discord's embed media flags this app reads. */
+const EMBED_MEDIA_FLAG = { animated: 1 << 5 } as const;
+const isAnimated = (m: RawEmbedMedia | undefined): boolean => ((m?.flags ?? 0) & EMBED_MEDIA_FLAG.animated) !== 0;
 
 const parse = <T>(json: string | null): T[] => {
   if (!json) return [];
@@ -108,6 +114,7 @@ export function embedsFrom(json: string | null): ArchiveEmbed[] {
       thumbnailSize: mediaSize(e.thumbnail),
       imageUrl: e.image?.proxy_url ?? null,
       imageSize: mediaSize(e.image),
+      imageAnimated: isAnimated(e.image),
       // Only a proxied file plays here; a player page (YouTube's video.url) has no proxy_url. Embed fixers (fxTwitter,
       // fxTikTok) send their video on a rich embed.
       videoUrl: e.video?.proxy_url ?? null,
@@ -127,8 +134,9 @@ function addGalleryImage(card: ArchiveEmbed, image: RawEmbedMedia | undefined): 
   if (!card.imageUrl) {
     card.imageUrl = image.proxy_url;
     card.imageSize = mediaSize(image);
+    card.imageAnimated = isAnimated(image);
   } else if (1 + (card.moreImages?.length ?? 0) < EMBED_GALLERY_MAX) {
-    (card.moreImages ??= []).push({ url: image.proxy_url, size: mediaSize(image) });
+    (card.moreImages ??= []).push({ url: image.proxy_url, size: mediaSize(image), animated: isAnimated(image) });
   }
 }
 

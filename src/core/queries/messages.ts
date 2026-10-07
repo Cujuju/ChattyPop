@@ -11,7 +11,7 @@ import { authorStyleSql, displayNameSql } from './names';
 import { roleColors } from './nameStyle';
 import { visibleMessageSql } from './privacy';
 import { componentsFrom } from '@shared/components';
-import { isSpoiler } from '@shared/media';
+import { isAnimatedImage, isSpoiler } from '@shared/media';
 import { VERIFIED_BOT_FLAG } from '@shared/discord';
 import { REPLY_MESSAGE_TYPE, embedsFrom, nameFontFrom, serverTagFrom, interactionFrom, parseJson, mentionIdsFrom, mentionNames, mentionsFrom, reactionsFrom, repliesFor, stickersFrom } from './messageExtras';
 
@@ -214,6 +214,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
         .map(({ messageId: _m, flags, ...a }) => ({
           ...a,
           spoiler: isSpoiler({ filename: a.filename, flags }),
+          animated: isAnimatedImage({ ...a, flags }),
           removed: a.removed === 1,
           notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [],
         })),

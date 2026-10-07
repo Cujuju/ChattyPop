@@ -41,6 +41,7 @@ export function Lightbox() {
               ref={(el) => zoom.bind(el)}
               class={styles.image}
               src={img().src}
+              still={img().still}
               alt={img().alt}
               draggable={false}
               data-zoomed={zoom.zoom().scale > 1}

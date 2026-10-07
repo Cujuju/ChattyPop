@@ -124,6 +124,8 @@ export interface ArchiveAttachment {
   description: string | null;
   /** Covered until clicked, as Discord's clients show it (shared/media.ts isSpoiler). */
   spoiler: boolean;
+  /** An animated image (shared/media.ts isAnimatedImage): it moves only while the owner can look. */
+  animated: boolean;
   /** It left its message on Discord (an edit removed it); the archive keeps it. */
   removed: boolean;
   /** Notes plugins attached (a transcript), in plugin build order. */
@@ -172,6 +174,8 @@ export interface ArchiveEmbed {
   thumbnailSize: MediaSize | null;
   imageUrl: string | null;
   imageSize: MediaSize | null;
+  /** Discord flags the image animated (a GIF): it moves only while the owner can look. Absent: still. */
+  imageAnimated?: boolean;
   /**
    * A gallery's images after `imageUrl`: Discord sends a multi-photo post as embeds sharing one URL and draws them as one
    * card. Absent for a single image.
@@ -189,6 +193,8 @@ export interface ArchiveEmbed {
 export interface EmbedImage {
   url: string;
   size: MediaSize | null;
+  /** As ArchiveEmbed.imageAnimated. */
+  animated?: boolean;
 }
 
 /** A media file's pixel size as its source reports it: the view reserves the box before the file loads. */

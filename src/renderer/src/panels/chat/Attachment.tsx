@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
-import { attachmentPosterUrl, attachmentUrl, attachmentView, mayAnimate, mediaType } from '@shared/media';
+import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { AnimatedImage } from '@/ui/AnimatedImage';
 import { BYTES_PER_KB } from '@shared/units';
 import { pluginPresents } from '@/state/plugins';
@@ -23,6 +23,8 @@ const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
 };
 
 const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl(a.sha256, a.filename) : undefined);
+/** An animated image's still while the owner can't look: Discord's proxy's first frame, kept once fetched. */
+const still = (a: ArchiveAttachment): string | undefined => (a.animated ? attachmentPosterUrl(a.id) : undefined);
 const kilobytes = (a: ArchiveAttachment): string => (a.size ? `${Math.round(a.size / BYTES_PER_KB)} KB` : '');
 
 /** Shows stored media inline or file-status chips. Notes survive pruning; unsupported video decoders fall back to chips. */
@@ -66,9 +68,9 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
           type="button"
           class={styles.imageButton}
           aria-label={`Open ${a().filename}`}
-          onClick={() => setLightbox({ src: src(a())!, alt: a().description ?? a().filename, caption: sizeCaption(), originalUrl: null })}
+          onClick={() => setLightbox({ src: src(a())!, still: still(a()), alt: a().description ?? a().filename, caption: sizeCaption(), originalUrl: null })}
         >
-          <AnimatedImage src={src(a()) ?? ''} still={!src(a()) || !mayAnimate(mediaType(a()))} alt={a().description ?? a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
+          <AnimatedImage src={src(a())} still={still(a())} alt={a().description ?? a().filename} data-sized={size() !== null} style={mediaSizeVars(size())} loading="lazy" />
         </button>
       </Match>
       <Match when={attachmentView(a()) === 'video'}>

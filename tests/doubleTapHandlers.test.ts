@@ -145,9 +145,8 @@ describe('emoji in message text, which Discord treats as text', () => {
   it.each([
     ['a jumbo emoji-only message', { 'data-jumbo': 'true' }],
     ['an inline emoji', { 'data-jumbo': 'false' }],
-    ['an animated emoji, drawn on a canvas', { 'data-jumbo': 'false', role: 'img', tag: 'canvas' }],
-  ])('reacts on %s', (_what, { tag = 'img', ...attrs }: Record<string, string>) => {
-    const emoji = new FakeElement(tag, paragraph(), { 'data-text-emoji': '', ...attrs });
+  ])('reacts on %s', (_what, attrs) => {
+    const emoji = new FakeElement('img', paragraph(), { 'data-text-emoji': '', ...attrs });
     screen.tap(emoji, 0);
     screen.tap(emoji, SECOND);
     expect(runs).toBe(1);

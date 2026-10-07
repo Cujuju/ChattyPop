@@ -215,18 +215,18 @@ function EmbedMedia(props: { embed: ArchiveEmbed }) {
  */
 function EmbedGallery(props: { embed: ArchiveEmbed }) {
   const e = () => props.embed;
-  const images = (): string[] => [e().imageUrl!, ...(e().moreImages ?? []).map((i) => i.url)];
+  const images = (): { url: string; animated?: boolean }[] => [{ url: e().imageUrl!, animated: e().imageAnimated }, ...(e().moreImages ?? [])];
   return (
     <div class={styles.embedGallery} data-count={images().length}>
       <For each={images()}>
-        {(url) => (
+        {({ url, animated }) => (
           <button
             type="button"
             class={styles.embedGalleryItem}
             aria-label="Open image"
-            onClick={() => setLightbox({ src: proxiedUrl(animatedMediaUrl(url)), alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
+            onClick={() => setLightbox({ src: proxiedUrl(animatedMediaUrl(url)), still: animated ? thumbUrl(url) : undefined, alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
           >
-            <AnimatedImage class={styles.embedGalleryImage} src={thumbUrl(animatedMediaUrl(url))} alt="" loading="lazy" />
+            <AnimatedImage class={styles.embedGalleryImage} src={thumbUrl(animatedMediaUrl(url))} still={animated ? thumbUrl(url) : undefined} alt="" loading="lazy" />
           </button>
         )}
       </For>
@@ -237,6 +237,8 @@ function EmbedGallery(props: { embed: ArchiveEmbed }) {
 /** The embed's image, animated if it is (an embed fixer's GIF); opens in the lightbox at full size. */
 function EmbedImage(props: { embed: ArchiveEmbed; still: string | null; size: MediaSize | null }) {
   const e = () => props.embed;
+  /** Shown while the owner can't look, for an animated image: the proxy's first frame. */
+  const stillSrc = (): string | undefined => (e().imageAnimated && props.still ? thumbUrl(props.still) : undefined);
   return (
     <Show when={props.still && animatedMediaUrl(props.still)}>
       {(src) => (
@@ -244,9 +246,9 @@ function EmbedImage(props: { embed: ArchiveEmbed; still: string | null; size: Me
           type="button"
           class={styles.embedImageButton}
           aria-label="Open image"
-          onClick={() => setLightbox({ src: proxiedUrl(src()), alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
+          onClick={() => setLightbox({ src: proxiedUrl(src()), still: stillSrc(), alt: e().title ?? '', caption: e().title ?? e().provider ?? 'Image', originalUrl: e().url })}
         >
-          <AnimatedImage class={styles.embedImage} data-sized={props.size !== null} style={mediaSizeVars(props.size)} src={thumbUrl(src())} alt="" loading="lazy" />
+          <AnimatedImage class={styles.embedImage} data-sized={props.size !== null} style={mediaSizeVars(props.size)} src={thumbUrl(src())} still={stillSrc()} alt="" loading="lazy" />
         </button>
       )}
     </Show>

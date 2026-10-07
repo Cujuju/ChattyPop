@@ -1,7 +1,7 @@
 import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
 import type { AnimationItem } from 'lottie-web';
 import { STICKER_FORMAT, type Sticker } from '@shared/compose';
-import { lottieStickerUrl, stickerArtUrl } from '@shared/media';
+import { lottieStickerUrl, stickerArtUrl, stickerStillUrl } from '@shared/media';
 import { AnimatedImage } from './AnimatedImage';
 import { createLooking } from './looking';
 
@@ -12,7 +12,7 @@ export function StickerArt(props: { sticker: StickerLike; class?: string; playOn
   return (
     <Show
       when={props.sticker.formatType === STICKER_FORMAT.lottie}
-      fallback={<AnimatedImage class={props.class} src={stickerArtUrl(props.sticker)} still={props.sticker.formatType === STICKER_FORMAT.png} alt={`Sticker: ${props.sticker.name}`} title={props.sticker.name} loading="lazy" />}
+      fallback={<AnimatedImage class={props.class} src={stickerArtUrl(props.sticker)} still={props.sticker.formatType === STICKER_FORMAT.png ? undefined : stickerStillUrl(props.sticker)} alt={`Sticker: ${props.sticker.name}`} title={props.sticker.name} loading="lazy" />}
     >
       <LottieSticker sticker={props.sticker} class={props.class} playOnHover={props.playOnHover ?? false} />
     </Show>

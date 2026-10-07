@@ -66,6 +66,8 @@ export const [draggedPanel, setDraggedPanel] = createSignal<LayoutPanelId | null
 /** An image opened in the viewer: the full-size source, a label, and the original to open in the browser. */
 export interface LightboxImage {
   src: string;
+  /** An animated image's still, shown while the owner can't look. */
+  still?: string;
   alt: string;
   caption: string;
   /** Discord's original URL, for "Open original". */

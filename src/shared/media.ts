@@ -76,7 +76,7 @@ export const attachmentUrl = (sha256: string, filename: string): string => media
 export const attachmentPosterUrl = (attachmentId: string): string => mediaUrl('poster', attachmentId);
 
 /** Discord's attachment flags this app reads. */
-export const ATTACHMENT_FLAG = { spoiler: 1 << 3 } as const;
+export const ATTACHMENT_FLAG = { spoiler: 1 << 3, animated: 1 << 5 } as const;
 /** An upload named with this prefix is a spoiler too (how clients mark one at upload). */
 const SPOILER_PREFIX = 'SPOILER_';
 /** Whether Discord's clients cover the attachment until clicked: its spoiler flag (set by Modify), else its name. */
@@ -105,9 +105,10 @@ export const embedVideoHasSound = (type: string): boolean => !SILENT_EMBED_TYPES
 export const mediaType = (a: { contentType: string | null; filename: string }): string | undefined =>
   a.contentType && a.contentType !== GENERIC_CONTENT_TYPE ? a.contentType : STORED_MEDIA_MIME[fileExt(a.filename)];
 
-/** Content types that may hold an animation (GIF, APNG, animated WebP or AVIF). */
-const ANIMATABLE_TYPES: ReadonlySet<string> = new Set(['image/gif', 'image/webp', 'image/png', 'image/apng', 'image/avif']);
-export const mayAnimate = (type: string | undefined): boolean => type !== undefined && ANIMATABLE_TYPES.has(type);
+
+/** An animated image: Discord flags it, or it is a GIF (archived before the flag existed). */
+export const isAnimatedImage = (a: { contentType: string | null; filename: string; flags: number | null }): boolean =>
+  ((a.flags ?? 0) & ATTACHMENT_FLAG.animated) !== 0 || mediaType(a) === 'image/gif';
 
 /** What an attachment holds, by its content type, else its extension; 'file' for anything but image, audio or video. */
 export function mediaKind(a: { contentType: string | null; filename: string }): AttachmentView {
@@ -130,6 +131,9 @@ export const lottieStickerUrl = (stickerId: string): string => mediaUrl('sticker
 /** A PNG, APNG or GIF sticker's art through Discord's media proxy (cached by the thumb route). */
 export const stickerArtUrl = (s: { id: string; formatType: number }): string =>
   thumbUrl(`https://media.discordapp.net/stickers/${s.id}.${s.formatType === STICKER_FORMAT.gif ? 'gif' : 'png'}`);
+
+/** An animated (APNG or GIF) sticker's still: Discord's PNG of it, unanimated. */
+export const stickerStillUrl = (s: { id: string }): string => thumbUrl(`https://media.discordapp.net/stickers/${s.id}.png?passthrough=false`);
 
 /** An app's icon (slash command menu) through Discord's media proxy (cached by the thumb route). */
 export const appIconUrl = (appId: string, icon: string): string => thumbUrl(`https://media.discordapp.net/app-icons/${appId}/${icon}.png`);

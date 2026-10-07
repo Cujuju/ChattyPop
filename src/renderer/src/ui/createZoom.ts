@@ -24,7 +24,7 @@ export interface ZoomControls {
   gesturing: Accessor<boolean>;
   reset(): void;
   /** Attaches the gestures to the image element (call from its ref). */
-  bind(img: HTMLImageElement | HTMLCanvasElement): void;
+  bind(img: HTMLImageElement): void;
 }
 
 /** `onDismiss`: the fitted image was dragged down far enough and let go. */
@@ -32,7 +32,7 @@ export function createZoom(onDismiss: () => void): ZoomControls {
   const [zoom, setZoom] = createSignal<Zoom>(FIT);
   const [pull, setPull] = createSignal(0);
   const [gesturing, setGesturing] = createSignal(false);
-  let img: HTMLImageElement | HTMLCanvasElement | undefined;
+  let img: HTMLImageElement | undefined;
   const pointers = new Map<number, Point>();
   let start: { zoom: Zoom; points: Point[]; moved: boolean } | null = null;
   let lastTap: { at: number; p: Point } | null = null;
@@ -53,8 +53,7 @@ export function createZoom(onDismiss: () => void): ZoomControls {
 
   const toggle = (p: Point): void => {
     if (zoom().scale > 1) return void setZoom(FIT);
-    // A canvas (an animated image, AnimatedImage) is drawn at the picture's own size.
-    const own = ('naturalWidth' in img! ? img.naturalWidth : img!.width) / img!.offsetWidth;
+    const own = img!.naturalWidth / img!.offsetWidth;
     setZoom(zoomAt(FIT, Math.max(DOUBLE_TAP_MIN_SCALE, own), local(p), box(), MAX_SCALE));
   };
 
@@ -109,9 +108,8 @@ export function createZoom(onDismiss: () => void): ZoomControls {
     setZoom(zoomAt(zoom(), Math.exp(-e.deltaY * WHEEL_ZOOM_PER_PX), local({ x: e.clientX, y: e.clientY }), box(), MAX_SCALE));
   };
 
-  const bind = (picture: HTMLImageElement | HTMLCanvasElement): void => {
-    img = picture;
-    const el: HTMLElement = picture;
+  const bind = (el: HTMLImageElement): void => {
+    img = el;
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);

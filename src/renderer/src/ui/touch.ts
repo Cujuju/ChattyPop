@@ -39,9 +39,9 @@ export const allTouch = (...gestures: TouchHandlers[]): TouchHandlers => ({
   onTouchCancel: (e) => gestures.forEach((g) => g.onTouchCancel(e)),
 });
 
-/** Links, controls, media (images, stickers, video, audio) and the avatar act on or show their own tap: never part of a double tap. Emoji in message text (an animated one a canvas) are text. */
+/** Links, controls, media (images, stickers, video, audio) and the avatar act on or show their own tap: never part of a double tap. Emoji in message text are text. */
 const TAP_OWNER_SELECTOR =
-  'a[href], button, input, textarea, select, label, summary, img:not([data-text-emoji]), canvas:not([data-text-emoji]), [role=img]:not([data-text-emoji]), svg, video, audio, [role=button], [role=link], [contenteditable], [data-avatar]';
+  'a[href], button, input, textarea, select, label, summary, img:not([data-text-emoji]), svg, canvas, video, audio, [role=button], [role=link], [role=img], [contenteditable], [data-avatar]';
 const ownsTap = (t: EventTarget | null): boolean => t instanceof Element && t.closest(TAP_OWNER_SELECTOR) !== null;
 const contact = (e: TouchEvent, t: Touch): Contact => ({ at: e.timeStamp, x: t.clientX, y: t.clientY });
 

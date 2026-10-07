@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { COMPONENT, componentsFrom } from '@shared/components';
-import { mediaSize } from '@shared/media';
+import { ATTACHMENT_FLAG, isAnimatedImage, mediaSize } from '@shared/media';
 import { EMBED_GALLERY_MAX, embedsFrom } from '../src/core/queries/messageExtras';
 
 // The view reserves each media box from these sizes before the file loads; without them the log row grows on load.
@@ -42,7 +42,7 @@ describe('media sizes', () => {
       );
       expect(embeds).toHaveLength(2);
       expect(embeds[0]).toMatchObject({ description: 'Two photos', footer: 'FxTwitter', imageUrl: photo(1).proxy_url });
-      expect(embeds[0]!.moreImages).toEqual([{ url: photo(2).proxy_url, size: { width: 900, height: 1200 } }]);
+      expect(embeds[0]!.moreImages).toEqual([{ url: photo(2).proxy_url, size: { width: 900, height: 1200 }, animated: false }]);
       expect(embeds[1]).toMatchObject({ title: 'Another link' });
       expect(embeds[1]!.moreImages).toBeUndefined();
     });
@@ -51,6 +51,13 @@ describe('media sizes', () => {
       const [card] = embedsFrom(JSON.stringify([{ type: 'rich', url: POST, description: 'Text first' }, ...[1, 2, 3, 4, 5, 6].map((n) => ({ type: 'rich', url: POST, image: photo(n) }))]));
       expect(card!.imageUrl).toBe(photo(1).proxy_url);
       expect(1 + card!.moreImages!.length).toBe(EMBED_GALLERY_MAX);
+    });
+
+    it('marks an image Discord flags animated (IS_ANIMATED), so it moves only while looked at', () => {
+      const gif = { proxy_url: 'https://images-ext-1.discordapp.net/a.webp', flags: 1 << 5 };
+      const [card] = embedsFrom(JSON.stringify([{ type: 'rich', url: POST, image: gif }, { type: 'rich', url: POST, image: photo(2) }]));
+      expect(card).toMatchObject({ imageUrl: gif.proxy_url, imageAnimated: true });
+      expect(card!.moreImages?.[0]?.animated).toBe(false);
     });
 
     it('leaves embeds without a URL apart', () => {
@@ -63,5 +70,13 @@ describe('media sizes', () => {
       { type: COMPONENT.gallery, items: [{ media: { proxy_url: 'https://media.discordapp.net/g.png', width: 800, height: 600 } }] },
     ]);
     expect(gallery).toEqual({ type: 'gallery', items: [{ url: 'https://media.discordapp.net/g.png', description: null, size: { width: 800, height: 600 } }] });
+  });
+});
+
+describe('an animated attachment', () => {
+  it('is one Discord flags animated, or a GIF archived before the flag', () => {
+    expect(isAnimatedImage({ contentType: 'image/webp', filename: 'a.webp', flags: ATTACHMENT_FLAG.animated })).toBe(true);
+    expect(isAnimatedImage({ contentType: null, filename: 'old.gif', flags: null })).toBe(true);
+    expect(isAnimatedImage({ contentType: 'image/png', filename: 'a.png', flags: ATTACHMENT_FLAG.spoiler })).toBe(false);
   });
 });
