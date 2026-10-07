@@ -2,7 +2,7 @@ import type { JSX } from 'solid-js';
 import { contextMenu } from '@/state/ui';
 import { isTypingTarget } from './keys';
 import { listen } from './listen';
-import { LONG_PRESS_MS, TOUCH_SLOP_PX } from './taps';
+import { LONG_PRESS_MS, TOUCH_SLOP_PX, createDoubleTap, type Contact } from './taps';
 
 /** Sideways travel that commits a swipe: past an accidental nudge, well short of the screen's width. */
 export const SWIPE_COMMIT_PX = 56;
@@ -24,9 +24,54 @@ export function swipeOutcome(start: TouchPoint, t: Touch): 'left' | 'right' | 's
 }
 
 type TouchHandler = JSX.EventHandler<HTMLElement, TouchEvent>;
+export interface TouchHandlers {
+  onTouchStart: TouchHandler;
+  onTouchMove: TouchHandler;
+  onTouchEnd: TouchHandler;
+  onTouchCancel: TouchHandler;
+}
+
+/** One element's handlers for several gestures: each sees every touch event, in order. */
+export const allTouch = (...gestures: TouchHandlers[]): TouchHandlers => ({
+  onTouchStart: (e) => gestures.forEach((g) => g.onTouchStart(e)),
+  onTouchMove: (e) => gestures.forEach((g) => g.onTouchMove(e)),
+  onTouchEnd: (e) => gestures.forEach((g) => g.onTouchEnd(e)),
+  onTouchCancel: (e) => gestures.forEach((g) => g.onTouchCancel(e)),
+});
+
+/** Links, controls, media and the avatar act on their own tap: a tap there never counts toward a double tap. */
+const TAP_OWNER_SELECTOR = 'a[href], button, input, textarea, select, label, summary, video, audio, [role=button], [role=link], [contenteditable], [data-avatar]';
+const ownsTap = (t: EventTarget | null): boolean => t instanceof Element && t.closest(TAP_OWNER_SELECTOR) !== null;
+const contact = (e: TouchEvent, t: Touch): Contact => ({ at: e.timeStamp, x: t.clientX, y: t.clientY });
+
+/** Enabled one-finger double taps run `run`; the second tap's click is cancelled, so it neither clicks nor selects a word. */
+export function doubleTapToAct(run: () => void, enabled: () => boolean): TouchHandlers {
+  const taps = createDoubleTap();
+  return {
+    onTouchStart: (e) => {
+      const t = e.touches[0];
+      // A tap that dismisses a text selection or a menu, or belongs to a control, is not the gesture's.
+      const selecting = window.getSelection()?.isCollapsed === false;
+      if (!t || e.touches.length > 1 || selecting || contextMenu() || ownsTap(e.target) || !enabled()) return taps.cancel();
+      taps.down(contact(e, t));
+    },
+    onTouchMove: (e) => {
+      const t = e.touches[0];
+      if (t) taps.move(contact(e, t));
+    },
+    onTouchEnd: (e) => {
+      const t = e.changedTouches[0];
+      if (!t || e.touches.length > 0) return taps.cancel();
+      if (!taps.up(contact(e, t))) return;
+      if (e.cancelable) e.preventDefault();
+      run();
+    },
+    onTouchCancel: () => taps.cancel(),
+  };
+}
 
 /** Enabled left swipes trigger run beyond SWIPE_COMMIT_PX. Writes drag/armed attributes and --swipe-x/p gesture tokens. */
-export function swipeLeftToAct(run: () => void, enabled: () => boolean = () => true): { onTouchStart: TouchHandler; onTouchMove: TouchHandler; onTouchEnd: TouchHandler; onTouchCancel: TouchHandler } {
+export function swipeLeftToAct(run: () => void, enabled: () => boolean = () => true): TouchHandlers {
   let start: TouchPoint | null = null;
   let el: HTMLElement | null = null;
   let tracking = false;

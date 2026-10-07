@@ -162,7 +162,7 @@ const VIEW_GATES: [what: string, file: string, gate: RegExp][] = [
   ['the posting windows and dialogs', 'frame/Overlays.tsx', /<Show when=\{postingUnlocked\(\)\}>\s*<NewMessageWindow \/>\s*<DmDialog \/>\s*<DeleteMessageDialog \/>\s*<ModifyAttachmentDialog \/>\s*<DeleteAttachmentDialog \/>\s*<BotModalWindow \/>\s*<\/Show>/],
   ["a bot message's buttons", 'panels/chat/MessageComponents.tsx', /disabled=\{b\.disabled \|\|[^}]*!postingUnlocked\(\)\}/],
   ["a bot message's menus", 'panels/chat/MessageComponents.tsx', /const disabled = \(\): boolean => s\.disabled \|\|[^;]*!postingUnlocked\(\);/],
-  ['swipe to reply', 'panels/chat/MessageRow.tsx', /swipeLeftToAct\(\s*\(\) => startReply\(m\(\)\),\s*\(\) => postingUnlocked\(\) && canReply\(m\(\)\),/],
+  ['swipe to reply', 'panels/chat/rowGestures.ts', /reply: \{ run: startReply, allowed: \(m\) => postingUnlocked\(\) && canReply\(m\) \}/],
   ["the Archive's file drop target", 'panels/chat/ArchiveView.tsx', /const dropTarget = \(\) => \(postingUnlocked\(\) \? postable\(\) : undefined\);/],
   ["the profile's Message", 'views/person/ProfileCard.tsx', /<Show when=\{[^}]*&& postingUnlocked\(\)\}>\s*<div class=\{styles\.actions\}>/],
 ];
