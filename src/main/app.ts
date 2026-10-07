@@ -162,7 +162,7 @@ void app.whenReady().then(() => {
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
-  const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => void core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
+  const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);

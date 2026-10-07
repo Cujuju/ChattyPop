@@ -134,30 +134,19 @@ describe('the settings proto (fields verified against the web client’s PATCHes
     expect(chatSettingsFromProto(patch)).toEqual({ ...DEFAULT_SYNCED_CHAT_SETTINGS, inlineAttachmentMedia: true, renderReactions: false, spoilers: 'always', stickersInAutocomplete: true });
   });
 
-  it('writes over the settings read just before, as {settings: base64}, and holds Discord’s answer', async () => {
-    const sent: { path: string; body: unknown }[] = [];
-    const answer = settings([...off(12)]);
-    const owner = {
-      get: async () => ({ settings: settings([...SURROGATE]).toString('base64') }),
-      patch: async (path: string, body: unknown) => {
-        sent.push({ path, body });
-        return { settings: answer.toString('base64') };
-      },
-    } as unknown as DiscordClient;
-    const put: SyncedChatSettings[] = [];
-    await new AccountChatSettings(new EventEmitter() as unknown as GatewayTap, owner, (s) => put.push(s), () => undefined).write({ renderEmbeds: false });
-    expect(put).toEqual([{ ...DEFAULT_SYNCED_CHAT_SETTINGS, renderEmbeds: false }]);
-    expect(sent).toHaveLength(1);
-    expect(sent[0]!.path).toBe('users/@me/settings-proto/1');
-    expect(Object.keys(sent[0]!.body as object)).toEqual(['settings']);
-    const body = Buffer.from((sent[0]!.body as { settings: string }).settings, 'base64');
-    expect([...body]).toEqual(msg(6, [...SURROGATE, ...off(12)]));
+  it('writes over the settings read just before, as {settings: base64}, the web client’s shape', async () => {
+    const discord = account(settings([...SURROGATE]));
+    await new AccountChatSettings(discord.tap, discord.owner, async () => undefined, () => undefined).write({ renderEmbeds: false });
+    expect(discord.sent).toHaveLength(1);
+    expect(discord.sent[0]!.path).toBe('users/@me/settings-proto/1');
+    expect(Object.keys(discord.sent[0]!.body)).toEqual(['settings']);
+    expect([...Buffer.from(discord.sent[0]!.body.settings, 'base64')]).toEqual(msg(6, [...SURROGATE, ...off(12)]));
   });
 
   it('follows READY and updates: a partial update without text_and_images changes nothing', () => {
     const tap = new EventEmitter();
     const put: SyncedChatSettings[] = [];
-    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, (s) => put.push(s), () => undefined);
+    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, async (s) => void put.push(s), () => undefined);
     const dispatch = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, d });
     dispatch('READY', { user_settings_proto: Buffer.from(VERSIONS).toString('base64') });
     expect(put).toEqual([DEFAULT_SYNCED_CHAT_SETTINGS]);
@@ -174,7 +163,7 @@ describe('the settings proto (fields verified against the web client’s PATCHes
     // Regression: a partial carrying one field reset every other chat setting to Discord's default.
     const tap = new EventEmitter();
     const put: SyncedChatSettings[] = [];
-    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, (s) => put.push(s), () => undefined);
+    new AccountChatSettings(tap as unknown as GatewayTap, {} as DiscordClient, async (s) => void put.push(s), () => undefined);
     const dispatch = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, d });
     dispatch('READY', { user_settings_proto: settings([...off(12), ...text(4, 'ALWAYS')]).toString('base64') });
     dispatch('USER_SETTINGS_PROTO_UPDATE', { settings: { type: 1, proto: settings([...off(13)]).toString('base64') }, partial: true });
@@ -185,84 +174,102 @@ describe('the settings proto (fields verified against the web client’s PATCHes
   });
 });
 
-/** Discord's side of the settings proto: GET answers the stored proto; PATCH replaces text_and_images with the body's, held until answered. */
-function account(start: Buffer) {
+/**
+ * Discord's side: GET answers the stored proto; PATCH replaces text_and_images with the body's and, like Discord, echoes it
+ * over the gateway just after answering. `hold` keeps each PATCH (before it lands) until the test releases it.
+ */
+function account(start: Buffer, hold = false) {
   let stored = start;
+  const tap = new EventEmitter();
   const held: (() => void)[] = [];
+  const sent: { path: string; body: { settings: string } }[] = [];
   const owner = {
     get: async () => {
       await Promise.resolve();
       return { settings: stored.toString('base64') };
     },
-    patch: async (_path: string, body: { settings: string }) => {
+    patch: async (path: string, body: { settings: string }) => {
+      sent.push({ path, body });
+      if (hold) await new Promise<void>((release) => held.push(release));
       stored = Buffer.from([...VERSIONS, ...Buffer.from(body.settings, 'base64')]);
-      const answer = stored;
-      await new Promise<void>((release) => held.push(release));
-      return { settings: answer.toString('base64') };
+      // The echo follows the answer, the order that leaves a client unsure which is newer.
+      setTimeout(() => update(tap, [...Buffer.from(body.settings, 'base64')]));
+      return { settings: stored.toString('base64') };
     },
   } as unknown as DiscordClient;
-  return { owner, held, stored: () => chatSettingsFromProto(stored) };
+  return { owner, tap: tap as unknown as GatewayTap, emitter: tap, held, sent, stored: () => chatSettingsFromProto(stored) };
 }
-const flush = (): Promise<void> => new Promise((r) => setTimeout(r));
+/** A partial USER_SETTINGS_PROTO_UPDATE carrying `proto` (top-level fields, without versions). */
+const update = (tap: EventEmitter, proto: number[]): boolean =>
+  tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: Buffer.from([...VERSIONS, ...proto]).toString('base64') }, partial: true } });
 
 describe('the account’s chat settings, written and followed', () => {
   it('runs overlapping writes one after another, so neither undoes the other', async () => {
     // Regression: GET A, GET B, PATCH A, PATCH B — B's whole text_and_images put embeds back off.
     const discord = account(settings([...off(12), ...off(13)]));
-    const sync = new AccountChatSettings(new EventEmitter() as unknown as GatewayTap, discord.owner, () => undefined, () => undefined);
-    const writes = [sync.write({ renderEmbeds: true }), sync.write({ renderReactions: true })];
-    for (let i = 0; i < 2; i++) {
-      await vi.waitFor(() => expect(discord.held).toHaveLength(i + 1));
-      discord.held[i]!();
-    }
-    await Promise.all(writes);
+    const sync = new AccountChatSettings(discord.tap, discord.owner, async () => undefined, () => undefined);
+    await Promise.all([sync.write({ renderEmbeds: true }), sync.write({ renderReactions: true })]);
     expect(discord.stored()).toMatchObject({ renderEmbeds: true, renderReactions: true });
   });
 
-  it('keeps a newer gateway update over a write answer that arrives after it', async () => {
+  it('stores only what the gateway sends, so a later gateway event stands', async () => {
     // Regression: a delayed PATCH answer put reactions back on after the gateway had turned them off.
-    const discord = account(settings([]));
-    const tap = new EventEmitter();
+    const discord = account(settings([]), true);
     const put: SyncedChatSettings[] = [];
-    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
-    const update = (body: number[]): boolean => tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings(body).toString('base64') }, partial: true } });
+    const sync = new AccountChatSettings(discord.tap, discord.owner, async (s) => void put.push(s), () => undefined);
     const write = sync.write({ renderEmbeds: false });
     await vi.waitFor(() => expect(discord.held).toHaveLength(1));
-    update([...off(12)]); // the write's echo
-    update([...off(12), ...off(13)]); // another client, later
-    discord.held[0]!();
+    discord.held[0]!(); // lands and echoes
+    update(discord.emitter, msg(6, [...off(12), ...off(13)])); // another client, later
     await write;
     expect(put.at(-1)).toMatchObject({ renderEmbeds: false, renderReactions: false });
   });
 
-  it('keeps another client’s later change to the same setting once the write’s echo came', async () => {
-    const discord = account(settings([]));
-    const tap = new EventEmitter();
+  it('ends on the write’s value when another client’s matching change came before it landed', async () => {
+    // Regression: a matching update from another client counted as the echo, so the answer was dropped and true stayed.
+    const discord = account(settings([]), true);
     const put: SyncedChatSettings[] = [];
-    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
-    const update = (body: number[]): boolean => tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings(body).toString('base64') }, partial: true } });
+    const sync = new AccountChatSettings(discord.tap, discord.owner, async (s) => void put.push(s), () => undefined);
     const write = sync.write({ renderEmbeds: false });
     await vi.waitFor(() => expect(discord.held).toHaveLength(1));
-    update([...off(12)]); // the write's echo
-    update([...on(12)]); // another client turns embeds back on
+    update(discord.emitter, msg(6, off(12)));
+    update(discord.emitter, msg(6, on(12)));
     discord.held[0]!();
     await write;
-    expect(put.at(-1)).toMatchObject({ renderEmbeds: true });
+    expect(put.at(-1)).toMatchObject({ renderEmbeds: false });
   });
 
-  it('takes the write’s answer over a gateway update that predates it', async () => {
+  it('resolves only once the archive holds what the gateway showed', async () => {
+    // Regression: the write resolved while the archive still held the old value.
     const discord = account(settings([]));
-    const tap = new EventEmitter();
-    const put: SyncedChatSettings[] = [];
-    const sync = new AccountChatSettings(tap as unknown as GatewayTap, discord.owner, (s) => put.push(s), () => undefined);
-    const write = sync.write({ renderEmbeds: false });
-    await vi.waitFor(() => expect(discord.held).toHaveLength(1));
-    // An older change from another client, arriving before the write's echo.
-    tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', d: { settings: { type: 1, proto: settings([...on(12)]).toString('base64') }, partial: true } });
-    discord.held[0]!();
+    let store!: () => void;
+    const stored = new Promise<void>((r) => (store = r));
+    let resolved = false;
+    const sync = new AccountChatSettings(discord.tap, discord.owner, () => stored, () => undefined);
+    const write = sync.write({ renderEmbeds: false }).then(() => (resolved = true));
+    await vi.waitFor(() => expect(discord.sent).toHaveLength(1));
+    await new Promise((r) => setTimeout(r));
+    expect(resolved).toBe(false);
+    store();
     await write;
-    await flush();
-    expect(put.at(-1)).toMatchObject({ renderEmbeds: false });
+    expect(resolved).toBe(true);
+  });
+
+  it('rejects with Discord’s refusal and keeps writing after it', async () => {
+    const discord = account(settings([]));
+    const refuse = discord.owner.patch;
+    let first = true;
+    (discord.owner as { patch: unknown }).patch = async (path: string, body: { settings: string }) => {
+      if (first) {
+        first = false;
+        throw new Error('Discord said no.');
+      }
+      return refuse.call(discord.owner, path, body as never);
+    };
+    const sync = new AccountChatSettings(discord.tap, discord.owner, async () => undefined, () => undefined);
+    await expect(sync.write({ renderEmbeds: false })).rejects.toThrow('Discord said no.');
+    await sync.write({ renderReactions: false });
+    expect(discord.stored()).toMatchObject({ renderReactions: false });
   });
 });
 

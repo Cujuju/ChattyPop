@@ -2,6 +2,9 @@
 // Verified 2026-10-06 from the web client's PATCH per toggle: text_and_images 6 → BoolValue 7, 9, 10, 12, 13, 21, 28 (off: empty
 // wrapper); render_spoilers 4 (StringValue).
 import { DEFAULT_SYNCED_CHAT_SETTINGS, type SpoilerMode, type SyncedChatSettings } from '@shared/chatSettings';
+import { EventEmitter } from 'node:events';
+import { errorMessage } from '@shared/errors';
+import { MS_PER_S } from '@shared/units';
 import type { DiscordClient } from './client';
 import type { GatewayTap } from './gatewayTap';
 import { bytesField, bytesOf, fields, has, message, varintField, varintOf, withFields, type ProtoField } from './settingsProto';
@@ -69,27 +72,28 @@ export function chatSettingsPatch(current: Buffer, change: Partial<SyncedChatSet
   return bytesField(TEXT_AND_IMAGES, withFields(sub, replace));
 }
 
-/** One write on its way: its change, and the fields whose gateway echo already arrived. */
-interface InFlight {
-  change: Partial<SyncedChatSettings>;
-  echoed: Set<keyof SyncedChatSettings>;
-}
+/**
+ * How long a write waits for the gateway to show it before resolving anyway. Assumption: the echo lands within a second;
+ * longer means the gateway is down, and READY on reconnect brings the whole state.
+ */
+const ECHO_WAIT_MS = 10 * MS_PER_S;
 
 /**
- * The account's chat settings, from the gateway and this app's writes, handed to `put` as each lands.
+ * The account's chat settings as the gateway delivers them, handed to `put`. Only the gateway sets them: its events come in
+ * Discord's order, a write's echo included, so a write's own answer is never stored over a newer event.
  * Writes run one at a time: each rewrites text_and_images whole over a fresh read, so overlapping ones would undo each other.
- * The gateway sends events in Discord's order, the echo of a write included: once a changed field's echo has come, the
- * gateway is at least as new as the write's answer, so the answer's value for it is dropped.
  */
 export class AccountChatSettings {
   private known = DEFAULT_SYNCED_CHAT_SETTINGS;
-  private inFlight: InFlight | null = null;
+  /** The last `put`, which a write waits on so the archive holds its result before it resolves. */
+  private stored: Promise<void> = Promise.resolve();
+  private readonly shown = new EventEmitter();
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     tap: GatewayTap,
     private readonly owner: DiscordClient,
-    private readonly put: (settings: SyncedChatSettings) => void,
+    private readonly put: (settings: SyncedChatSettings) => Promise<void>,
     private readonly diag: (event: string, data: Record<string, unknown>) => void,
   ) {
     tap.on('dispatch', ({ t, d }) => {
@@ -101,7 +105,10 @@ export class AccountChatSettings {
     });
   }
 
-  /** Writes `change` as the web client does (PATCH {settings: base64}) over a read just before; resolves once it's held. */
+  /**
+   * Writes `change` as the web client does (PATCH {settings: base64}) over a read just before. Resolves once the gateway
+   * shows it and the archive holds that, or after ECHO_WAIT_MS; rejects with Discord's refusal.
+   */
   write(change: Partial<SyncedChatSettings>): Promise<void> {
     const run = this.queue.then(() => this.writeNow(change));
     this.queue = run.catch(() => undefined);
@@ -109,25 +116,35 @@ export class AccountChatSettings {
   }
 
   private async writeNow(change: Partial<SyncedChatSettings>): Promise<void> {
-    const flight: InFlight = { change, echoed: new Set() };
-    this.inFlight = flight;
-    try {
-      const { settings } = await this.owner.get<{ settings: string }>(PRELOADED_SETTINGS_PATH);
-      const patch = chatSettingsPatch(Buffer.from(settings, 'base64'), change);
-      const answer = await this.owner.patch<{ settings: string }>(PRELOADED_SETTINGS_PATH, { settings: patch.toString('base64') });
-      const after = chatSettingsFromProto(Buffer.from(answer.settings, 'base64')) ?? DEFAULT_SYNCED_CHAT_SETTINGS;
-      const unechoed = (Object.keys(change) as (keyof SyncedChatSettings)[]).filter((key) => !flight.echoed.has(key));
-      this.take({ ...this.known, ...Object.fromEntries(unechoed.map((key) => [key, after[key]])) });
-    } finally {
-      this.inFlight = null;
-    }
+    const { settings } = await this.owner.get<{ settings: string }>(PRELOADED_SETTINGS_PATH);
+    const patch = chatSettingsPatch(Buffer.from(settings, 'base64'), change);
+    await this.owner.patch(PRELOADED_SETTINGS_PATH, { settings: patch.toString('base64') });
+    await this.shows(change);
+    await this.stored;
+  }
+
+  /** Resolves once the gateway's settings hold `change`, or after ECHO_WAIT_MS. */
+  private shows(change: Partial<SyncedChatSettings>): Promise<void> {
+    const held = (): boolean => (Object.keys(change) as (keyof SyncedChatSettings)[]).every((key) => this.known[key] === change[key]);
+    if (held()) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = (): void => {
+        clearTimeout(timer);
+        this.shown.off('settings', check);
+        resolve();
+      };
+      const check = (): void => {
+        if (held()) done();
+      };
+      const timer = setTimeout(done, ECHO_WAIT_MS);
+      this.shown.on('settings', check);
+    });
   }
 
   private take(settings: SyncedChatSettings): void {
     this.known = settings;
-    const flight = this.inFlight;
-    if (flight) for (const key of Object.keys(flight.change) as (keyof SyncedChatSettings)[]) if (settings[key] === flight.change[key]) flight.echoed.add(key);
-    this.put(settings);
+    this.stored = this.put(settings).catch((err: unknown) => this.diag('chat-settings-unstored', { message: errorMessage(err) }));
+    this.shown.emit('settings');
   }
 
   /** READY's whole proto, or an update; a partial without text_and_images changes nothing, a whole one means Discord's defaults. */
@@ -138,7 +155,7 @@ export class AccountChatSettings {
       if (settings) this.take(settings);
       else if (!partial) this.take(DEFAULT_SYNCED_CHAT_SETTINGS);
     } catch (err) {
-      this.diag('chat-settings-unreadable', { message: err instanceof Error ? err.message : String(err) });
+      this.diag('chat-settings-unreadable', { message: errorMessage(err) });
     }
   }
 }
