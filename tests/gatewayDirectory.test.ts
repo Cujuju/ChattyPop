@@ -17,7 +17,7 @@ const VOICE = { id: '1000000000000000012', name: 'talk', type: 2 };
 function gateway() {
   const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
   const send = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, s: 1, d });
-  return { tap, send, directory: new GatewayDirectory(tap) };
+  return { tap, send, directory: new GatewayDirectory(tap as never) };
 }
 
 describe('gateway directory', () => {

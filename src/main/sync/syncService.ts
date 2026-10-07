@@ -9,8 +9,6 @@ import {
   THREAD_PARENT_TYPES,
   compareSnowflakes,
   snowflakeToMs,
-  type RawChannel,
-  type RawGuild,
   type RawMessage,
   type RawThread,
 } from '@shared/discord';
