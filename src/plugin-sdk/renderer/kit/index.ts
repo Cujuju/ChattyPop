@@ -71,6 +71,8 @@ export { personName } from '@/state/personNames';
 export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
 export { openRule, rules, startNewRule } from '@/state/rules';
 export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
+// In-app camera captures, saved to the phone's Photos when its chat settings ask.
+export { saveCameraCaptures } from '@/phone/cameraCaptures';
 /** Opens Settings where the owner left it. */
 export const openSettings = (): void => void setSettingsOpen(true);
 export { usdPerQuestion, projectedJevUsd } from '@/state/jevSpend';
