@@ -12,6 +12,7 @@ const rule = (id: number, name: string, extra: Partial<Rule> = {}): Rule => ({
   armedAt: 0,
   createdAt: 0,
   builtin: null,
+  group: null,
   error: null,
   fired: 0,
   lastFiredAt: null,

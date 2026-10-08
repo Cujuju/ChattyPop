@@ -60,6 +60,18 @@ describe('rule store', () => {
     expect(rules.list()[0]!.error).toMatch(/newer ChattyPop/);
   });
 
+  it('lists rules under a named group, blank meaning none, and editing a rule keeps its group', () => {
+    const a = rules.create(rule({ name: 'a' }));
+    const b = rules.create(rule({ name: 'b' }));
+    rules.setGroup([a, b], '  Trading ');
+    expect(rules.list().map((r) => r.group)).toEqual(['Trading', 'Trading']);
+    rules.update(a, rule({ name: 'renamed' }));
+    expect(rules.list()[0]!.group).toBe('Trading');
+    rules.setGroup([b], '   ');
+    expect(rules.list().map((r) => r.group)).toEqual(['Trading', null]);
+    expect(events.at(-1)).toEqual({ type: 'rules-changed' });
+  });
+
   it('hides runs about channels privacy mode hides', () => {
     const id = rules.create(rule());
     claimRun(db, id, 'msg:a', { id: 'a', channelId: 'c1' }, true, clock);

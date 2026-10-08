@@ -22,11 +22,12 @@ import { previewPattern } from './patternPreview';
 export const ruleHandlers = (
   rules: () => RuleService,
   db: () => Db,
-): Pick<CoreMethods, 'rules' | 'createRule' | 'updateRule' | 'deleteRule' | 'ruleRuns' | 'patternPreview'> => ({
+): Pick<CoreMethods, 'rules' | 'createRule' | 'updateRule' | 'deleteRule' | 'setRuleGroup' | 'ruleRuns' | 'patternPreview'> => ({
   rules: () => rules().list(),
   createRule: (input) => rules().create(input),
   updateRule: (id, input) => rules().update(id, input),
   deleteRule: (id) => rules().remove(id),
+  setRuleGroup: (ids, group) => rules().setGroup(ids, group),
   ruleRuns: (ruleId, limit) => rules().runs(ruleId, limit),
   patternPreview: (pattern, channelIds, contains) => previewPattern(db(), pattern, channelIds, contains),
 });

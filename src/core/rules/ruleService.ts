@@ -6,7 +6,7 @@ import type { Db } from '../db';
 import { syncManagedRules } from './managed';
 import type { RuleEngine } from './engine';
 import type { RuleMatcher } from './matcher';
-import { deleteRule, insertRule, listRules, managedRuleId, ruleRuns, storedSpec, updateRule } from './ruleStore';
+import { deleteRule, insertRule, listRules, managedRuleId, ruleRuns, setRuleGroup, storedSpec, updateRule } from './ruleStore';
 
 /** Stores rule edits, recompiles rules and synchronizes dependent state. */
 export class RuleService {
@@ -67,6 +67,12 @@ export class RuleService {
     this.changed();
     this.edited(id, matchChanged);
     this.rematch(id, jevChanged);
+  }
+
+  /** Display only: the engine's rules don't change, so only the list refreshes. */
+  setGroup(ids: readonly number[], group: string | null): void {
+    setRuleGroup(this.db, ids, group);
+    this.emit({ type: 'rules-changed' });
   }
 
   remove(id: number): void {

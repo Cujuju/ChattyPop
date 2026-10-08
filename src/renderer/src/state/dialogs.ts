@@ -11,6 +11,15 @@ export interface ConfirmOptions {
   danger?: boolean;
 }
 
+export interface TextOptions {
+  title: string;
+  /** The field's label. */
+  message: string;
+  confirmLabel: string;
+  /** What the field starts with. */
+  value?: string;
+}
+
 export interface NoticeOptions {
   title: string;
   message: string;
@@ -23,7 +32,10 @@ export interface Prompt {
   confirmLabel: string;
   cancelLabel: string | null;
   danger: boolean;
-  answer: (ok: boolean) => void;
+  /** A text field's starting value; absent = no field. */
+  input?: string;
+  /** `text` is the field's value when it has one. */
+  answer: (ok: boolean, text?: string) => void;
 }
 
 const NOTICE_LABEL = 'OK';
@@ -35,13 +47,13 @@ const [queue, setQueue] = createSignal<readonly Prompt[]>([]);
 /** The prompt shown now, or null. */
 export const shownPrompt = (): Prompt | null => queue()[0] ?? null;
 
-function ask(p: Omit<Prompt, 'answer'>): Promise<boolean> {
+function ask(p: Omit<Prompt, 'answer'>): Promise<{ ok: boolean; text: string }> {
   return new Promise((resolve) => {
     const prompt: Prompt = {
       ...p,
-      answer: (ok) => {
+      answer: (ok, text = '') => {
         setQueue((q) => q.filter((x) => x !== prompt));
-        resolve(ok);
+        resolve({ ok, text });
       },
     };
     setQueue((q) => [...q, prompt]);
@@ -50,7 +62,12 @@ function ask(p: Omit<Prompt, 'answer'>): Promise<boolean> {
 
 /** Asks the owner to go ahead; true when they do, false on Cancel, Esc or the close button. */
 export const confirmDialog = (o: ConfirmOptions): Promise<boolean> =>
-  ask({ title: o.title, message: o.message, confirmLabel: o.confirmLabel, cancelLabel: CANCEL_LABEL, danger: o.danger ?? false });
+  ask({ title: o.title, message: o.message, confirmLabel: o.confirmLabel, cancelLabel: CANCEL_LABEL, danger: o.danger ?? false }).then((a) => a.ok);
+
+/** Asks for a line of text; resolves with it trimmed, or null on Cancel, Esc, the close button or a blank entry. */
+export const textDialog = (o: TextOptions): Promise<string | null> =>
+  ask({ title: o.title, message: o.message, confirmLabel: o.confirmLabel, cancelLabel: CANCEL_LABEL, danger: false, input: o.value ?? '' })
+    .then((a) => (a.ok ? a.text.trim() || null : null));
 
 /** Tells the owner something; resolves once they dismiss it. */
 export const noticeDialog = (o: NoticeOptions): Promise<void> =>

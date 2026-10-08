@@ -192,6 +192,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   // The owner's Discord sidebar order (main/discord/guildOrder.ts), 0 = top; apart from guilds, as READY names it before sync stores them.
   'CREATE TABLE guild_order (guild_id TEXT PRIMARY KEY, position INTEGER NOT NULL);',
   storedBotAuthors,
+  // The named group Settings → Rules lists a rule under; NULL = ungrouped.
+  'ALTER TABLE rules ADD COLUMN list_group TEXT;',
 ];
 
 /** Keep bot identity after retention drops payloads; decode old payloads once during upgrade, never while counting. */

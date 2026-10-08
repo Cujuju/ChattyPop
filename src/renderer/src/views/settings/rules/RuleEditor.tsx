@@ -4,8 +4,8 @@ import { contentLabels } from '@shared/messageContent';
 import type { Rule, RuleInput, RuleSpec } from '@shared/rules';
 import { timedTriggerText, type TimedTrigger } from '@shared/ruleTime';
 import {
+  confirmDeleteRule,
   createRule,
-  deleteRule,
   guardRulePage,
   newRuleDraft,
   ruleInputOf,
@@ -13,7 +13,6 @@ import {
   saveRule,
   setRuleEnabled,
 } from '@/state/rules';
-import { confirmDialog } from '@/state/dialogs';
 import { createAction } from '@/ui/action';
 import { Icon } from '@/ui/icons';
 import { ActionsStep } from './ActionsStep';
@@ -93,14 +92,10 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
       setSaved(structuredClone(next));
     });
   };
-  const remove = async (r: Rule): Promise<void> => {
-    const ok = await confirmDialog({ title: 'Delete rule', message: `Delete the rule “${r.name}”? Its runs and alerts go with it.`, confirmLabel: 'Delete', danger: true });
-    if (!ok) return;
+  const remove = (r: Rule): void =>
     void action.run(async () => {
-      await deleteRule(r.id);
-      props.onClose();
+      if (await confirmDeleteRule(r)) props.onClose();
     });
-  };
 
   return (
     <form class={styles.editor} aria-label={stored() ? `Edit rule ${stored()!.name}` : 'New rule'} onSubmit={save}>
@@ -142,7 +137,7 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
                   </button>
                 </Show>
                 <Show when={!r().builtin}>
-                  <button type="button" class={styles.iconButton} data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => void remove(r())}>
+                  <button type="button" class={styles.iconButton} data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => remove(r())}>
                     <Icon name="trash" />
                   </button>
                 </Show>

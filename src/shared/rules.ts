@@ -63,6 +63,8 @@ export interface Rule extends RuleInput {
   createdAt: number;
   /** Set for rules ChattyPop manages (their match is fixed); null = made by the owner. */
   builtin: string | null;
+  /** The named group the rules list shows it under; null = ungrouped. Display only: run order is `position`. */
+  group: string | null;
   /** Why the rule can't run (e.g. saved by a newer ChattyPop); null when fine. */
   error: string | null;
   fired: number;

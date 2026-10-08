@@ -27,6 +27,7 @@ const rule: Rule = {
   armedAt: 0,
   createdAt: 0,
   builtin: 'probe.inbox',
+  group: null,
   error: null,
   fired: 0,
   lastFiredAt: null,

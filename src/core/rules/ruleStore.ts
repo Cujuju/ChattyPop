@@ -5,6 +5,7 @@ import { ruleUnavailable, switchState } from '@shared/ruleAvailability';
 import { getSetting } from '../db';
 import { ruleKind } from '@shared/ruleKinds';
 import { TIMED_CATCH_UP_PREFIX, TIMED_RUN_ACTION_MARK, TIMED_RUN_PREFIX } from '@shared/ruleTime';
+import { textOrNull } from '@shared/normalize';
 import { snippet } from '../queries/snippet';
 import type { Db } from '../db';
 import { rawJsonSql } from '../queries/messageContent';
@@ -24,6 +25,7 @@ export interface RuleRow {
   discord_send: number;
   created_at: number;
   builtin: string | null;
+  list_group: string | null;
 }
 
 /** A stored rule ready to run: its spec read, or why it can't be. */
@@ -95,6 +97,7 @@ export function listRules(db: Db): Rule[] {
       armedAt: row.armed_at,
       createdAt: row.created_at,
       builtin: row.builtin,
+      group: row.list_group,
       // The switch alone: the engine's kinds add a plugin that failed to start (RuleService).
       error: error ?? (spec ? ruleUnavailable(spec, (id) =>
         switchState(!((getSetting(db, 'plugins.disabled') as string[] | undefined) ?? []).includes(id))) : null),
@@ -159,6 +162,15 @@ export function updateRule(db: Db, id: number, input: RuleInput, now: number): R
       JSON.stringify([was?.match, was?.narrow, was?.gates]) !==
       JSON.stringify([input.spec.match, input.spec.narrow, input.spec.gates]),
   };
+}
+
+/** Lists the rules under `group` (trimmed; blank = ungrouped). */
+export function setRuleGroup(db: Db, ids: readonly number[], group: string | null): void {
+  const update = db.prepare('UPDATE rules SET list_group = ? WHERE id = ?');
+  const name = textOrNull(group);
+  db.transaction(() => {
+    for (const id of ids) update.run(name, id);
+  })();
 }
 
 /** Deletes a rule and its cascading run records. */

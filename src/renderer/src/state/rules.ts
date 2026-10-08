@@ -103,6 +103,30 @@ export async function deleteRule(id: number): Promise<void> {
   await refetchRules();
 }
 
+/** Asks, then deletes; false when the owner cancels. */
+export async function confirmDeleteRule(r: Rule): Promise<boolean> {
+  const ok = await confirmDialog({ title: 'Delete rule', message: `Delete the rule “${r.name}”? Its runs and alerts go with it.`, confirmLabel: 'Delete', danger: true });
+  if (ok) await deleteRule(r.id);
+  return ok;
+}
+
+/** Adds an off copy in the same group and opens it, once the open editor may be left. Off: a copy acting twice could double-post. */
+export async function duplicateRule(r: Rule): Promise<void> {
+  if (!(await mayLeaveRulePage())) return;
+  const input = { ...ruleInputOf(r), name: `${r.name} (copy)`, enabled: false };
+  input.spec.actions = input.spec.actions.map((a) => ({ ...a, id: crypto.randomUUID() }));
+  const id = await core.createRule(input);
+  if (r.group) await core.setRuleGroup([id], r.group);
+  await refetchRules();
+  setOpenPage(id);
+}
+
+/** Lists `ids` under the named group; null = ungrouped. */
+export async function setRuleGroup(ids: number[], group: string | null): Promise<void> {
+  await core.setRuleGroup(ids, group);
+  await refetchRules();
+}
+
 /** A rule's editable fields as a plain copy, detached from the rules store. */
 export function ruleInputOf(r: Rule): RuleInput {
   const { name, enabled, discordSend, spec } = unwrap(r);

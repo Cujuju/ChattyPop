@@ -215,6 +215,8 @@ export interface CoreMethods {
   createRule(input: RuleInput): number;
   updateRule(id: number, input: RuleInput): void;
   deleteRule(id: number): void;
+  /** Lists the rules under a named group in Settings → Rules; null or blank = ungrouped. */
+  setRuleGroup(ids: number[], group: string | null): void;
   /** A rule's latest runs, newest first. */
   ruleRuns(ruleId: number, limit: number): RuleRun[];
   /** Previews keyword matches among scoped recent archived messages. */

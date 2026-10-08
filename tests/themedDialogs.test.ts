@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
-const { confirmDialog, failureNotice, noticeDialog, shownPrompt } = await import('../src/renderer/src/state/dialogs');
+const { confirmDialog, failureNotice, noticeDialog, shownPrompt, textDialog } = await import('../src/renderer/src/state/dialogs');
 
 const SRC = resolve(__dirname, '../src');
 const sources = (dir: string): string[] =>
@@ -50,6 +50,19 @@ describe('prompts', () => {
     const asked = confirmDialog({ title: 'Remove key', message: 'Remove it?', confirmLabel: 'Remove' });
     shownPrompt()!.answer(false);
     expect(await asked).toBe(false);
+  });
+
+  it('a text question answers its trimmed entry, or null when cancelled or blank', async () => {
+    const named = textDialog({ title: 'Add separator', message: 'Separator name', confirmLabel: 'Add', value: 'x' });
+    expect(shownPrompt()).toMatchObject({ input: 'x', confirmLabel: 'Add' });
+    shownPrompt()!.answer(true, '  Trading ');
+    expect(await named).toBe('Trading');
+    const blank = textDialog({ title: 'Add separator', message: 'Separator name', confirmLabel: 'Add' });
+    shownPrompt()!.answer(true, '  ');
+    expect(await blank).toBeNull();
+    const cancelled = textDialog({ title: 'Add separator', message: 'Separator name', confirmLabel: 'Add' });
+    shownPrompt()!.answer(false, 'Trading');
+    expect(await cancelled).toBeNull();
   });
 
   it('a failed action is told with its error text as the message', () => {

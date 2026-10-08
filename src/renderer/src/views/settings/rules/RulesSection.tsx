@@ -1,8 +1,9 @@
-// Rule list, plugin badges and the selected rule editor.
+// Rule list in named groups, its context menus, plugin badges and the selected rule editor.
 import { ruleBadges } from '@/plugins/slots';
 import { For, Match, Show, Switch as Branch } from 'solid-js';
 import type { Rule } from '@shared/rules';
 import { openRuleId, rules, rulesFilter as filter, setOpenRuleId, setRuleEnabled, setRulesFilter as setFilter, startNewRule } from '@/state/rules';
+import { openContextMenu } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { countText } from '@/ui/format';
 import { Select } from '@/ui/Select';
@@ -10,18 +11,20 @@ import { Page } from '../SettingsLayout';
 import { RuleSwitch } from './fields';
 import { NewRule } from './NewRule';
 import { RuleEditor } from './RuleEditor';
+import { ruleMenu, separatorMenu } from './ruleMenus';
 import { ruleLine } from './summaries';
 import styles from './Rules.module.css';
 
 /** Picker values for the new-rule pages (narrow windows). */
 const NEW = 'new';
 const DRAFT = 'draft';
+const byName = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' });
 
 /** One rule in the list: name, what it matches → does, unread alerts, and its switch. */
-function RuleItem(props: { rule: Rule; current: boolean; onToggle: (on: boolean) => void }) {
+function RuleItem(props: { rule: Rule; current: boolean; onToggle: (on: boolean) => void; onMenu?: (e: MouseEvent) => void }) {
   const r = () => props.rule;
   return (
-    <li class={styles.item} data-current={props.current} data-off={!r().enabled} data-error={!!r().error}>
+    <li class={styles.item} data-current={props.current} data-off={!r().enabled} data-error={!!r().error} onContextMenu={(e) => props.onMenu?.(e)}>
       <button type="button" class={styles.itemButton} aria-current={props.current || undefined} title={r().error ?? undefined} onClick={() => setOpenRuleId(r().id)}>
         <span class={styles.itemName}>{r().name}</span>
         <span class={styles.itemLine}>{r().error ? "Can't run" : ruleLine(r())}</span>
@@ -32,7 +35,7 @@ function RuleItem(props: { rule: Rule; current: boolean; onToggle: (on: boolean)
   );
 }
 
-/** Lists filtered owner rules then built-ins with switches beside one editor. Narrow windows replace lists with pickers. */
+/** Lists filtered ungrouped owner rules, each named group, then built-ins, with switches beside one editor. Narrow windows replace lists with pickers. */
 export function RulesSection() {
   const toggling = createAction();
   const current = (): number | typeof NEW | typeof DRAFT | null => {
@@ -41,19 +44,32 @@ export function RulesSection() {
   };
   /** Yours or built in, by name. */
   const sorted = (builtin: boolean): Rule[] =>
-    rules().filter((r) => !!r.builtin === builtin).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    rules().filter((r) => !!r.builtin === builtin).sort((a, b) => byName(a.name, b.name));
+  /** The owner's named groups, by name. */
+  const groupNames = (): string[] => [...new Set(sorted(false).flatMap((r) => (r.group ? [r.group] : [])))].sort(byName);
   const shown = (builtin: boolean): Rule[] => {
     const words = filter().toLowerCase().split(/\s+/).filter(Boolean);
     return sorted(builtin).filter((r) => words.every((w) => `${r.name} ${ruleLine(r)}`.toLowerCase().includes(w)));
   };
   const builtins = (): number => rules().filter((r) => r.builtin).length;
   const toggle = (r: Rule, on: boolean): void => void toggling.run(() => setRuleEnabled(r, on));
-  const group = (label: string, items: () => Rule[]) => (
+  /** Owner rules open their menu; built-ins have none. */
+  const group = (label: string, items: () => Rule[], onMenu?: (e: MouseEvent) => void) => (
     <Show when={items().length}>
-      <li class={styles.group}>{label}</li>
-      <For each={items()}>{(r) => <RuleItem rule={r} current={current() === r.id} onToggle={(on) => toggle(r, on)} />}</For>
+      <li class={styles.group} onContextMenu={(e) => onMenu?.(e)}>{label}</li>
+      <For each={items()}>
+        {(r) => (
+          <RuleItem
+            rule={r}
+            current={current() === r.id}
+            onToggle={(on) => toggle(r, on)}
+            onMenu={r.builtin ? undefined : (e) => openContextMenu(e, ruleMenu(r, groupNames()))}
+          />
+        )}
+      </For>
     </Show>
   );
+  const members = (name: string): Rule[] => sorted(false).filter((r) => r.group === name);
 
   return (
     <Page
@@ -80,7 +96,14 @@ export function RulesSection() {
                   </span>
                 </li>
               </Show>
-              {group('Your rules', () => shown(false))}
+              {group('Your rules', () => shown(false).filter((r) => !r.group))}
+              <For each={groupNames()}>
+                {(name) =>
+                  group(name, () => shown(false).filter((r) => r.group === name), (e) =>
+                    openContextMenu(e, separatorMenu(name, members(name).map((r) => r.id))),
+                  )
+                }
+              </For>
               {group('Built in', () => shown(true))}
             </ul>
             <Show when={toggling.error()}>

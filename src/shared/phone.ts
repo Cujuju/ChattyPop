@@ -50,6 +50,7 @@ export const PHONE_CORE_METHODS = [
   'createRule',
   'updateRule',
   'deleteRule',
+  'setRuleGroup',
   'patternPreview',
   // Settings → Plugins.
   'setPluginEnabled',

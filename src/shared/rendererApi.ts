@@ -235,6 +235,7 @@ export const RENDERER_CORE_METHODS = [
   'createRule',
   'updateRule',
   'deleteRule',
+  'setRuleGroup',
   'ruleRuns',
   'patternPreview',
   'lastSeenAt',
