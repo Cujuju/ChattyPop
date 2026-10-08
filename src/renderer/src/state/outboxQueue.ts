@@ -263,7 +263,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
           if ((await within(sent, SEND_BASE_TIMEOUT_MS)) === 'timeout') {
             failure = TIMED_OUT;
             e.unreachable = true;
-            // Landing later means it went: drop it (unless a retry is already on it) and send the rest.
+            // Landing later means it went: the send's own handler drops it; send the rest.
             sent.then(
               () => {
                 void pump(channelId);
