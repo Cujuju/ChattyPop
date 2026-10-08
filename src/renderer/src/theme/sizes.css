@@ -265,7 +265,7 @@
   --cp-sheet-w: min(100vw, var(--cp-sheet-max-w)); /* a bottom sheet's width: the screen's, capped on a wide one */
   --cp-sheet-max-w: 540px; /* a sheet on a wide screen (iPad, landscape, a browser): iPadOS's form-sheet width, centred on the bottom edge */
   --cp-sheet-grabber-w: 36px; /* the sheet's drag handle: iOS's grabber */
-  --cp-sheet-grabber-h: 5px;
+  --cp-sheet-grabber-h: 6px; /* a point over iOS's 5 pt: at 5 the handle read thin over the deep sheet on the device */
   --cp-quick-reaction: 32px; /* a quick reaction atop the desktop's message menu */
   --cp-quick-reaction-glyph: 20px;
   --cp-action-bar-clearance: 2px; /* the hover bar's gap above the hovered message's first line (its name, reply or text) */
