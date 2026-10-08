@@ -141,9 +141,13 @@ export function swipeLeftToAct(run: () => void, enabled: () => boolean = () => t
   };
 }
 
-/** Owner-scoped stationary touch holds emit contextmenu on iOS; Android’s native event replaces synthetic emission. */
+/**
+ * Owner-scoped stationary touch holds emit contextmenu on iOS; Android’s native event replaces synthetic emission. A hold whose
+ * contextmenu was handled (prevented) or opened the app's menu neither taps nor selects on release.
+ */
 export function longPressOpensMenus(): void {
-  let press: { x: number; y: number; timer: number; fired: boolean } | null = null;
+  let press: { x: number; y: number; timer: number; fired: boolean; handled: boolean } | null = null;
+  const consumed = (): boolean => !!press?.fired && (press.handled || contextMenu() !== null);
   const cancel = (): void => {
     if (press) clearTimeout(press.timer);
     press = null;
@@ -159,10 +163,10 @@ export function longPressOpensMenus(): void {
     const timer = window.setTimeout(() => {
       if (!press) return;
       press.fired = true;
-      target?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY }));
+      press.handled = target?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX, clientY })) === false;
       if (contextMenu()) window.getSelection()?.removeAllRanges();
     }, LONG_PRESS_MS);
-    press = { x: clientX, y: clientY, timer, fired: false };
+    press = { x: clientX, y: clientY, timer, fired: false, handled: false };
   }, { passive: true });
 
   listen(document, 'touchmove', (e) => {
@@ -170,16 +174,16 @@ export function longPressOpensMenus(): void {
     if (press && !press.fired && t && Math.hypot(t.clientX - press.x, t.clientY - press.y) > TOUCH_SLOP_PX) cancel();
   }, { passive: true });
 
-  // Suppresses tap events following menu-opening long presses.
+  // Suppresses the tap that would follow a consumed long press.
   listen(document, 'touchend', (e) => {
-    if (press?.fired && contextMenu()) e.preventDefault();
+    if (consumed()) e.preventDefault();
     cancel();
   }, { passive: false });
   listen(document, 'touchcancel', cancel);
 
   // iOS's own long press starts selecting text under the finger as the menu opens: a press that opened a menu selects nothing.
   listen(document, 'selectstart', (e) => {
-    if (press?.fired && contextMenu()) e.preventDefault();
+    if (consumed()) e.preventDefault();
   });
 
   // Handles Android’s first long-press contextmenu only, preventing duplicate menus.
