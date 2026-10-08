@@ -5,6 +5,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import { INSTALLED_PAGE_ENTRY_META, INSTALLED_PAGE_SHELL, INSTALLED_PHONE_PATH } from '@shared/installedBrowser';
 import type { InstalledFiles, InstalledPageReply } from './installedFiles';
+import { assetReply, HASHED_BUILD_ASSET, IMMUTABLE_ASSET, REVALIDATE_ASSET } from './assetCache';
 
 const HTTP_NOT_FOUND = 404;
 const HTTP_INTERNAL_ERROR = 500;
@@ -79,10 +80,7 @@ function installedPage({ id, html, page }: InstalledPageReply, head: string): st
   return html.replace(HEAD_END, (end) => `${tags.join('\n')}\n${end}`);
 }
 
-const htmlReply = (html: string): Response => {
-  const body = new TextEncoder().encode(html);
-  return new Response(body, { headers: { 'content-type': MIME['.html']!, 'content-length': String(body.byteLength) } });
-};
+const htmlReply = (html: string): Response => assetReply(html, MIME['.html']!);
 
 /**
  * Pages for the renderer build at `dir`, or its dev server at `devUrl`, bound to this PC. `installed` serves
@@ -105,7 +103,7 @@ export function rendererPages(dir: string, devUrl: string | null, installed: Ins
         const html = installedPage(page, head);
         return html === null ? new Response(null, { status: HTTP_INTERNAL_ERROR }) : htmlReply(html);
       }
-      const publicFile = await installed?.publicFile(path);
+      const publicFile = await installed?.publicFile(path, search);
       if (publicFile) return publicFile;
       if (devUrl) {
         const target = devTarget(devUrl, path, search);
@@ -117,7 +115,11 @@ export function rendererPages(dir: string, devUrl: string | null, installed: Ins
       const info = file ? await stat(file).catch(() => null) : null;
       if (!file || !info?.isFile()) return new Response(null, { status: HTTP_NOT_FOUND });
       const body = Readable.toWeb(createReadStream(file)) as ReadableStream<Uint8Array>;
-      return new Response(body, { headers: { 'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'content-length': String(info.size) } });
+      return new Response(body, { headers: {
+        'content-type': MIME[extname(file)] ?? 'application/octet-stream', 'content-length': String(info.size),
+        'cache-control': extname(file) !== '.html' && HASHED_BUILD_ASSET.test(path) ? IMMUTABLE_ASSET : REVALIDATE_ASSET,
+        etag: `W/"${info.size}-${info.mtimeMs}"`, 'last-modified': info.mtime.toUTCString(),
+      } });
     },
   };
 }

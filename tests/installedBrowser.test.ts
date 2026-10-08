@@ -6,6 +6,7 @@ import { INSTALLED_INDEX, INSTALLED_PAGE_ENTRY_META, INSTALLED_PAGE_SHELL, INSTA
 import { HOST_MODULES_KEY, INSTALLED_FORMAT, PLUGIN_SDK_VERSION, type InstalledManifest, type InstalledPlugin } from '@shared/installedPlugins';
 import { installedFiles } from '../src/main/plugins/installedFiles';
 import { rendererPages } from '../src/main/plugins/pages';
+import { browserVersion, versionedManifest } from '../src/main/plugins/browserVersion';
 import { tempDir } from './helpers';
 
 const manifest = (id: string, browser: Partial<InstalledManifest['browser']> = {}, hostImports: InstalledManifest['hostImports'] = {}): InstalledManifest => ({
@@ -42,16 +43,16 @@ describe('installed plugins’ browser files (main)', () => {
     const r = await files.response(INSTALLED_INDEX, '/');
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('application/json');
-    expect(await r.json()).toEqual([probe.manifest]);
+    expect(await r.json()).toEqual([versionedManifest(probe.manifest, (await browserVersion(join(probe.dir, 'browser'))).hash)]);
     expect((await files.response(INSTALLED_INDEX, '/x')).status).toBe(404);
   });
 
-  it('serves files under browser/ with their type, CORS and no caching', async () => {
+  it('serves unversioned files under browser/ with their type, CORS and revalidation', async () => {
     const r = await files.response('probe', '/browser/chunks/a.js');
     expect(r.status).toBe(200);
     expect(r.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
     expect(r.headers.get('access-control-allow-origin')).toBe('*');
-    expect(r.headers.get('cache-control')).toBe('no-store');
+    expect(r.headers.get('cache-control')).toBe('private, no-cache');
     expect(await r.text()).toBe('a');
     expect((await files.response('probe', '/browser/look.css')).headers.get('content-type')).toBe('text/css; charset=utf-8');
   });
@@ -76,7 +77,7 @@ describe('installed plugins’ browser files (main)', () => {
 
   it('reaches the phone through the Companion’s pages, in development too', async () => {
     for (const pages of [rendererPages(tempDir(), null, files), rendererPages('', 'http://localhost:5173', files)]) {
-      expect(await (await pages.response(`${INSTALLED_PHONE_PATH}${INSTALLED_INDEX}`)).json()).toEqual([probe.manifest]);
+      expect(await (await pages.response(`${INSTALLED_PHONE_PATH}${INSTALLED_INDEX}`)).json()).toEqual([versionedManifest(probe.manifest, (await browserVersion(join(probe.dir, 'browser'))).hash)]);
       expect(await (await pages.response(`${INSTALLED_PHONE_PATH}probe/browser/chunks/a.js`)).text()).toBe('a');
       expect((await pages.response(`${INSTALLED_PHONE_PATH}probe/node/core.js`)).status).toBe(403);
     }
@@ -104,7 +105,7 @@ describe('installed plugins’ pages (main ctx.pages)', () => {
     expect(r.headers.get('content-type')).toBe('text/html; charset=utf-8');
     const html = await r.text();
     expect(r.headers.get('content-length')).toBe(String(new TextEncoder().encode(html).byteLength));
-    expect(html).toBe(TEMPLATE.replace('</head>', [
+    expect(html.replace(/browser\/cp-[a-f0-9]{64}\//g, 'browser/')).toBe(TEMPLATE.replace('</head>', [
       SHELL_HEAD,
       `<link rel="stylesheet" href="${INSTALLED_PHONE_PATH}phone/browser/assets/page.css">`,
       `<meta name="${INSTALLED_PAGE_ENTRY_META}" content="${INSTALLED_PHONE_PATH}phone/browser/page.js">`,
@@ -131,7 +132,13 @@ describe('installed plugins’ pages (main ctx.pages)', () => {
     const sw = await pages.response('/sw.js');
     expect(sw.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
     expect(await sw.text()).toBe('worker');
-    expect((await pages.response('/install/icon.png')).headers.get('content-type')).toBe('image/png');
+    const icon = await pages.response('/install/icon.png');
+    expect(icon.status).toBe(307);
+    const location = new URL(icon.headers.get('location')!, 'http://phone');
+    expect(location.pathname).toBe('/install/icon.png');
+    const cached = await pages.response(location.pathname, location.search);
+    expect(cached.headers.get('content-type')).toBe('image/png');
+    expect(cached.headers.get('cache-control')).toBe('private, max-age=31536000, immutable');
     expect(await (await pages.response('/index.html')).text()).toBe('app');
   });
 
