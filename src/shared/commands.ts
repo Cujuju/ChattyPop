@@ -197,6 +197,8 @@ export interface NewThread {
   name: string;
   /** Empty: the thread starts with no message. */
   message: string;
+  /** Only people added to it and moderators can see it (Discord's Private Thread); absent or false: public. */
+  private?: boolean;
 }
 
 /** Discord's /msg: a direct message to one person, sent from any channel. */

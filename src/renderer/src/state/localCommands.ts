@@ -1,6 +1,6 @@
 // Executes Discord action commands such as thread/msg through the embedded session, using app-style option entry.
 import { api } from '@/api';
-import { OPTION, type CommandEntry, type CommandOption, type OptionValue } from '@shared/commands';
+import { OPTION, type CommandEntry, type CommandOption, type NewThread, type OptionValue } from '@shared/commands';
 import { DISCORD_TEXT_MAX, GUILD_TEXT_CHANNEL_TYPE, THREAD_NAME_MAX } from '@shared/discord';
 import { channelById } from './directory';
 
@@ -62,6 +62,9 @@ export const localCommand = (local: LocalCommand): LocalCommandSpec => LOCAL_COM
 
 /** Whether a thread can start from `channelId` (a plain text channel), as /thread's menu entry shows. */
 export const canStartThread = (channelId: string): boolean => localCommand('thread').availableIn(channelById(channelId)?.kind);
+
+/** Starts a thread, private when asked, with its first message when there is one: the phone's New Thread page. */
+export const createThread = (t: NewThread): Promise<void> => api.discord.createThread(t);
 
 /** Runs a filled-in /thread or /msg from `channelId`. */
 export function runLocalCommand(local: LocalCommand, channelId: string, values: Record<string, OptionValue | undefined>): Promise<void> {

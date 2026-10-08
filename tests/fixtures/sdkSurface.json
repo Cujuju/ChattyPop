@@ -1,5 +1,5 @@
 {
-  "version": "2.21.0",
+  "version": "2.22.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -440,6 +440,7 @@
       "commandsLoading",
       "composerFocus",
       "createListNav",
+      "createThread",
       "customEmojiToken",
       "deleteAttachment",
       "deleteMessage",

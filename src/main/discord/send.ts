@@ -17,6 +17,7 @@ import {
   type AllowedMentions,
 } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
+import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
 import { BYTES_PER_MB } from '@shared/units';
 import { diag } from '../diagnostics';
 import type { DiscordWriter } from './client';
@@ -254,7 +255,7 @@ export async function reactAsOwner(api: DiscordWriter, v: unknown): Promise<Owne
   return r;
 }
 
-/** Starts a public thread in a text channel (Discord's /thread), then posts its first message when there is one. */
+/** Starts a thread in a text channel (Discord's /thread; private when asked), then posts its first message when there is one. */
 export async function createThread(api: DiscordWriter, v: unknown): Promise<void> {
   const t = v as Partial<NewThread> | null;
   if (!t || typeof t.name !== 'string' || typeof t.message !== 'string') throw new Error('Not a thread to start.');
@@ -263,7 +264,8 @@ export async function createThread(api: DiscordWriter, v: unknown): Promise<void
   if (!name) throw new Error('Name the thread.');
   if (name.length > THREAD_NAME_MAX) throw new Error(`A thread name is at most ${THREAD_NAME_MAX} characters.`);
   if (t.message.length > DISCORD_TEXT_MAX) throw new Error(`Discord allows ${DISCORD_TEXT_MAX} characters.`);
-  const thread = await api.postOnce<{ id: string }>(`channels/${channelId}/threads`, { name, type: PUBLIC_THREAD_TYPE });
+  const type = t.private === true ? PRIVATE_THREAD_TYPE : PUBLIC_THREAD_TYPE;
+  const thread = await api.postOnce<{ id: string }>(`channels/${channelId}/threads`, { name, type });
   if (t.message.trim()) await sendMessage(api, thread.id, { content: t.message, allowedMentions: typedMentions(false) });
 }
 

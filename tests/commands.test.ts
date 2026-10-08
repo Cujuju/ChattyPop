@@ -262,6 +262,12 @@ describe("Discord's /thread and /msg", () => {
     await expect(createThread(api, { channelId: CHANNEL, name: '  ', message: '' })).rejects.toThrow('Name the thread.');
   });
 
+  it('starts a private thread when asked', async () => {
+    const { api, posts } = fakeApi();
+    await createThread(api, { channelId: CHANNEL, name: 'secret', message: '', private: true });
+    expect(posts[0]![1]).toEqual({ name: 'secret', type: 12 });
+  });
+
   it('takes the DM with the person from the DM service, then sends the message there', async () => {
     const { api, posts } = fakeApi();
     const asked: string[] = [];
