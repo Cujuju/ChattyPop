@@ -92,6 +92,13 @@
   color: var(--cp-text-1);
 }
 
+/* On the desktop the page is a centred dialog: a dialog's edge and shadow over the dimmed window. */
+:global(html:not([data-surface='companion'])) .page {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-lg);
+  box-shadow: var(--cp-shadow-dialog);
+}
+
 /* A deep sheet (data-tone='deep'): near-black glass, the page blurred under it, so pictures on it stand apart; no tinted
    top edge, which would read as a coloured line over the black. */
 .sheet[data-tone='deep'] {
@@ -120,7 +127,8 @@
 }
 
 .sheet::backdrop,
-.drawer::backdrop {
+.drawer::backdrop,
+.page::backdrop {
   background: var(--cp-backdrop);
 }
 

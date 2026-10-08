@@ -25,6 +25,15 @@ export const ICON_SHAPES = {
       <circle cx="13.5" cy="10.5" r="1.25" fill="currentColor" />
     </>
   ),
+  // Four tiles: an app's commands.
+  apps: () => (
+    <>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </>
+  ),
   archive: () => <path d="M4 4h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />,
   arrowDown: () => <path d="M12 5v14M6 13l6 6 6-6" />,
   // Back, as a phone page's header has it.
@@ -132,6 +141,8 @@ export const ICON_SHAPES = {
     </>
   ),
   plus: () => <path d="M12 5v14M5 12h14" />,
+  // Answers' bars of differing length: a poll.
+  poll: () => <path d="M4 6h10M4 12h16M4 18h7" />,
   reply: () => <path d="M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 5 5v1" />,
   search: () => (
     <>
@@ -157,9 +168,13 @@ export const ICON_SHAPES = {
   ),
   text: () => <path d="M4 6h16M4 12h16M4 18h10" />,
   // A source glyph beside a Latin A: translate.
+  // A message's line branching to replies below: a thread.
+  thread: () => <path d="M5 3v6a3 3 0 0 0 3 3h12M12 16h8M12 20h6" />,
   translate: () => <path d="M2 5h12M7 2h1M4 14l6-6 2-3M5 8l6 6M12 22l5-10 5 10M14 18h6" />,
   trash: () => <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4h6v3" />,
   undo: () => <path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />,
+  // A page with an arrow rising from it: upload a file.
+  upload: () => <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M12 18v-6M9 15l3-3 3 3" />,
   waveform: () => <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />,
   window: () => (
     <>

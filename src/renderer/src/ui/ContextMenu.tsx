@@ -81,7 +81,7 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
     // Measure after render, then pull back inside the window.
     queueMicrotask(() => {
       if (!menu) return;
-      keepOnScreen(menu, m.x, m.y);
+      keepOnScreen(menu, m.x, m.y, { y: m.flipY });
       menu.querySelector<HTMLButtonElement>(`.${styles.item}`)?.focus();
     });
   });

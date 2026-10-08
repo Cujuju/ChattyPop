@@ -89,6 +89,8 @@ export interface ContextMenuState {
   reactTo?: ArchiveMessage;
   /** A message's menu: the id of the message, whose row stays highlighted while it is open. */
   messageId?: string;
+  /** A menu below its anchor: the anchor's top, which the menu ends at instead when no room is below. */
+  flipY?: number;
 }
 /** The open right-click menu, at viewport coordinates. */
 export const [contextMenu, setContextMenu] = createSignal<ContextMenuState | null>(null);
@@ -101,10 +103,10 @@ export function openContextMenu(e: MouseEvent, groups: MenuGroup[], opts: Pick<C
   setContextMenu({ x: e.clientX, y: e.clientY, groups: shown, ...opts });
 }
 
-/** Opens `groups` as a menu at `anchor`: under it (a bar's button), or beside it (a flyout from a row's menu). */
+/** Opens `groups` as a menu at `anchor`: under it (a bar's button; above when no room is below), or beside it (a flyout from a row's menu). */
 export function openMenuAt(anchor: Element, groups: MenuGroup[], side: 'below' | 'beside' = 'below'): void {
   const shown = groups.filter((g) => g.items.length > 0);
   if (!shown.length) return;
   const r = anchor.getBoundingClientRect();
-  setContextMenu(side === 'below' ? { x: r.left, y: r.bottom, groups: shown } : { x: r.right, y: r.top, groups: shown });
+  setContextMenu(side === 'below' ? { x: r.left, y: r.bottom, flipY: r.top, groups: shown } : { x: r.right, y: r.top, groups: shown });
 }

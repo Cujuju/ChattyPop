@@ -84,7 +84,7 @@ export { openPerson } from '@/state/person';
 export { personName } from '@/state/personNames';
 export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
 export { openRule, ruleInputOf, rules, saveRule, startNewRule } from '@/state/rules';
-export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
+export { inCompanion, openMenuAt, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
 // In-app camera captures, saved to the phone's Photos when its chat settings ask.
 export { saveCameraCaptures } from '@/phone/cameraCaptures';
 // The phone's Photos library, photo picker and Files browser through the iPhone app, for the composer's attach sheet.
