@@ -76,11 +76,14 @@ final class ShellAttachmentViewer: NSObject, URLSessionTaskDelegate, QLPreviewCo
                     let directory = FileManager.default.temporaryDirectory.appendingPathComponent("attachment-\(id.uuidString)", isDirectory: true)
                     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                     self.directory = directory
-                    // Keep the stored extension for Quick Look, and discard any path components in the display name.
+                    // Discard any path components in the display name. Keep its extension: the PC stores types it doesn't know
+                    // as `.bin`, which would reach Files or another app under the wrong type; else the stored one.
                     let base = (self.name as NSString).lastPathComponent
                     let stem = (base as NSString).deletingPathExtension
                     let safeStem = stem.isEmpty || stem == "." || stem == ".." ? "Attachment" : stem
-                    let file = directory.appendingPathComponent(safeStem).appendingPathExtension(url.pathExtension)
+                    let named = (base as NSString).pathExtension
+                    let ext = named.isEmpty || stem.isEmpty ? url.pathExtension : named
+                    let file = directory.appendingPathComponent(safeStem).appendingPathExtension(ext)
                     try FileManager.default.moveItem(at: temporary, to: file)
                     self.file = file
                     self.showFile()
