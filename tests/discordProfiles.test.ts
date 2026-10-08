@@ -44,6 +44,14 @@ const fetched = (over: Partial<FetchedProfile['raw']> = {}): FetchedProfile => (
 });
 
 describe("Discord's profile cache", () => {
+  it('preserves omitted member fields and clears an explicitly null nickname', () => {
+    storeProfile(db, fetched());
+    storeProfile(db, { ...fetched({ guild_member: { roles: [] } }), fetchedAt: T0 + 1 });
+    expect(db.prepare('SELECT nick, roles FROM members WHERE guild_id = ? AND user_id = ?').get(GUILD, alice.id)).toEqual({ nick: 'Ally', roles: '[]' });
+    storeProfile(db, { ...fetched({ guild_member: { nick: null } }), fetchedAt: T0 + 2 });
+    expect(db.prepare('SELECT nick, roles FROM members WHERE guild_id = ? AND user_id = ?').get(GUILD, alice.id)).toEqual({ nick: null, roles: '[]' });
+  });
+
   it('reads back as the profile window shows it: roles highest first, known mutual servers, member fields', () => {
     expect(cachedProfile(db, alice.id, GUILD)).toBeNull();
     storeProfile(db, fetched());

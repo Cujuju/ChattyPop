@@ -1,6 +1,6 @@
 // Live Discord gateway events main forwards (ARCHIVED_GATEWAY_EVENTS), applied to the archive as they arrive.
 import type { ArchivedGatewayEvent } from '@shared/contract';
-import { DM_CHANNEL_TYPES, snowflakeToMs, type RawMember, type RawMessage, type RawMessageUpdate, type RawPrivateChannel, type RawRole, type RawThread, type RawUser } from '@shared/discord';
+import { DM_CHANNEL_TYPES, snowflakeToMs, type GatewayGuildPeople, type GatewayReadyPeople, type RawMemberPatch, type RawMessage, type RawMessageUpdate, type RawPrivateChannel, type RawRole, type RawThread, type RawUser, type RawUserPatch } from '@shared/discord';
 import type { Archive } from './archive';
 import type { PollVoteEvent } from './pollVotes';
 import { ARRIVAL } from './arrival';
@@ -20,8 +20,37 @@ export interface GatewayDeps {
   optedIn(channelId: string): void;
 }
 
+function applyGuildPeople(a: Archive, g: GatewayGuildPeople): void {
+  if (!g.id) return;
+  a.upsertMembers(g.id, g.members ?? []);
+  // Presence describes identity, not membership or permission to see a channel.
+  a.upsertUsers((g.presences ?? []).flatMap((p) => p.user ? [p.user] : []));
+}
+
 export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknown, deps: GatewayDeps): void {
   switch (t) {
+    case 'READY':
+    case 'READY_SUPPLEMENTAL': {
+      const r = d as GatewayReadyPeople;
+      a.upsertUsers([...(r.users ?? []), ...(r.user ? [r.user] : [])]);
+      (r.guilds ?? []).forEach((g, i) => {
+        applyGuildPeople(a, g);
+        // The same guild ordering is used by the existing channel-access reader.
+        if (g.id) a.upsertMembers(g.id, r.merged_members?.[i] ?? []);
+      });
+      return;
+    }
+    case 'GUILD_CREATE':
+      applyGuildPeople(a, d as GatewayGuildPeople);
+      return;
+    case 'USER_UPDATE':
+      a.upsertUsers([d as RawUserPatch]);
+      return;
+    case 'PRESENCE_UPDATE': {
+      const p = d as { user?: RawUserPatch };
+      if (p.user) a.upsertUsers([p.user]);
+      return;
+    }
     case 'MESSAGE_CREATE': {
       const m = d as RawMessage;
       // Every DM's activity is kept, archived or not; ingest stores content only for archived channels. A server's
@@ -79,14 +108,14 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
     // Server nicknames: the name Discord shows for a person. Chunks answer the client's requests for the authors it renders.
     // Name writes report themselves (nameWrites.ts).
     case 'GUILD_MEMBERS_CHUNK': {
-      const c = d as { guild_id: string; members?: RawMember[] };
+      const c = d as { guild_id: string; members?: RawMemberPatch[] };
       a.upsertMembers(c.guild_id, c.members ?? []);
       return;
     }
     case 'GUILD_MEMBER_ADD':
     case 'GUILD_MEMBER_UPDATE': {
-      const m = d as RawMember & { guild_id: string };
-      a.upsertMembers(m.guild_id, [m]);
+      const m = d as RawMemberPatch & { guild_id: string };
+      a.upsertMembers(m.guild_id, [m], t === 'GUILD_MEMBER_UPDATE' ? 'patch' : 'snapshot');
       return;
     }
     case 'GUILD_MEMBER_REMOVE': {
@@ -97,9 +126,9 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
     }
     case 'GUILD_MEMBER_LIST_UPDATE': {
       // The member sidebar: SYNC ops carry `items`, INSERT/UPDATE one `item`; group headers carry no member.
-      const l = d as { guild_id: string; ops?: { items?: { member?: RawMember }[]; item?: { member?: RawMember } }[] };
+      const l = d as { guild_id: string; ops?: { items?: { member?: RawMemberPatch }[]; item?: { member?: RawMemberPatch } }[] };
       const members = (l.ops ?? []).flatMap((op) => [...(op.items ?? []), ...(op.item ? [op.item] : [])]).flatMap((i) => (i.member ? [i.member] : []));
-      a.upsertMembers(l.guild_id, members);
+      a.upsertMembers(l.guild_id, members, 'patch');
       return;
     }
     // Roles colour and mark members' names; READY and GUILD_CREATE lists arrive through replaceGuildRoles.

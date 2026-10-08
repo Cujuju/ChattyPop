@@ -60,6 +60,29 @@ export interface RawMember {
   communication_disabled_until?: string | null;
 }
 
+/** A gateway user update may carry only its id and the fields that changed. */
+export type RawUserPatch = Pick<RawUser, 'id'> & Partial<Omit<RawUser, 'id'>>;
+
+/** Partial member updates preserve omitted fields. READY's merged members refer to its user table by user_id. */
+export type RawMemberPatch = Omit<RawMember, 'user'> & { user?: RawUserPatch; user_id?: string };
+
+/** Full snapshots clear an omitted nickname; partial updates preserve it. */
+export type MemberPayloadMode = 'snapshot' | 'patch';
+
+/** Only identity facts cross to core from large guild and startup dispatches. */
+export interface GatewayGuildPeople {
+  id: string;
+  members?: RawMemberPatch[];
+  presences?: { user?: RawUserPatch }[];
+}
+
+export interface GatewayReadyPeople {
+  user?: RawUserPatch;
+  users?: RawUserPatch[];
+  guilds?: GatewayGuildPeople[];
+  merged_members?: RawMemberPatch[][];
+}
+
 /** A server role. `color`: 0xRRGGBB, 0 for none; `icon`: image hash (cdn role-icons/<id>/<hash>). */
 export interface RawRole {
   id: string;
@@ -78,6 +101,7 @@ export interface RawMessage {
   content: string;
   timestamp: string;
   edited_timestamp: string | null;
+  mentions?: (RawUserPatch & { member?: RawMember })[];
   [key: string]: unknown;
 }
 

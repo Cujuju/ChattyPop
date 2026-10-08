@@ -79,6 +79,53 @@ describe('person names as Discord draws them in a place', () => {
 });
 
 describe('writes that change a shown name report themselves', () => {
+  it('does not write known users for ID-only presence patches', () => {
+    const totalChanges = () => db.prepare('SELECT total_changes()').pluck().get();
+    const before = totalChanges();
+    archive.upsertUsers([{ id: alice.id }, { id: alice.id, global_name: undefined }]);
+    expect(totalChanges()).toBe(before);
+    expect(nameIn(null)).toMatchObject({ name: 'Alice' });
+  });
+
+  it('does not rewrite unchanged full identities or known partial values, but applies explicit clears', () => {
+    const totalChanges = () => db.prepare('SELECT total_changes()').pluck().get();
+    const before = totalChanges();
+    archive.upsertUsers([alice, { id: alice.id, global_name: 'Alice' }]);
+    expect(totalChanges()).toBe(before);
+    archive.upsertUsers([{ id: alice.id, global_name: null, display_name_styles: null }]);
+    expect(totalChanges()).toBeGreaterThan(before as number);
+    expect(nameIn(null)).toMatchObject({ name: 'alice', font: null });
+    const cleared = totalChanges();
+    archive.upsertUsers([{ id: alice.id, global_name: null, display_name_styles: null }]);
+    expect(totalChanges()).toBe(cleared);
+  });
+
+  it('reports partial identity and avatar changes globally, preserving omitted nickname fields', () => {
+    const namesWritten = watchNameWrites(db);
+    archive.upsertMembers(GUILD, [{ user: { id: alice.id }, roles: [] }], 'patch');
+    expect(nameIn(GENERAL)).toMatchObject({ name: 'Al' });
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
+    archive.upsertUsers([{ id: alice.id, avatar: 'new' }]);
+    expect(namesWritten()).toEqual({ guildIds: null });
+    archive.upsertUsers([{ id: alice.id, avatar: 'new' }]);
+    expect(namesWritten()).toBeNull();
+    archive.upsertUsers([{ id: alice.id, global_name: 'Alicia' }]);
+    expect(nameIn(null)).toMatchObject({ name: 'Alicia' });
+    expect(nameIn(LOUNGE)).toMatchObject({ name: 'Alicia' });
+    expect(namesWritten()).toEqual({ guildIds: null });
+    archive.upsertMembers(GUILD, [{ user: { id: alice.id }, nick: null }], 'patch');
+    expect(nameIn(GENERAL)).toMatchObject({ name: 'Alicia' });
+    expect(namesWritten()).toEqual({ guildIds: [GUILD] });
+  });
+
+  it('keeps snapshot semantics and prevents an old message from replacing newer member facts', () => {
+    archive.upsertMembers(GUILD, [{ user: { id: alice.id }, nick: 'New', roles: [MOD.id] }], 'patch');
+    archive.ingestMessages([rawMessage(GENERAL, T0 + 1, 'old', { author: alice, member: { nick: 'Old', roles: [] } })], ARRIVAL.sync);
+    expect(nameIn(GENERAL)).toMatchObject({ name: 'New', color: MOD.color });
+    archive.upsertMembers(GUILD, [{ user: { id: alice.id } }]);
+    expect(nameIn(GENERAL)).toMatchObject({ name: 'Alice', color: MOD.color });
+  });
+
   it('counts nickname, role, style and server feature changes by server, not unchanged rewrites', () => {
     const namesWritten = watchNameWrites(db);
     expect(namesWritten()).toBeNull();

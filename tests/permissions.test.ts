@@ -1,8 +1,6 @@
-import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { PERMISSIONS, can, channelPermissions, type PermissionContext, type RawOverwrite } from '@shared/permissions';
 import { GatewayAccess } from '../src/main/discord/access';
-import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { MemberRequests } from '../src/main/discord/memberRequests';
 import { applyAccessFacts } from '../src/core/access';
 import { seedArchive, tempDb } from './helpers';
@@ -97,148 +95,19 @@ describe('who can see a channel, from the gateway', () => {
   });
 });
 
-describe("member searches on the client's gateway socket", () => {
-  /** `lostReply`: CDP fails after the page sent the frame, so whether it went is unknown. */
-  function fake(open = true, lostReply = false, perWindow?: number) {
-    const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-    const frames: unknown[] = [];
-    let lookups = 0;
-    let sendSucceeds = true;
-    const cdp = {
-      sendCommand: (method: string, params?: Record<string, unknown>): Promise<unknown> => {
-        if (method === 'Runtime.evaluate') return Promise.resolve({ result: { objectId: 'proto' } });
-        if (method === 'Runtime.queryObjects') return Promise.resolve({ objects: { objectId: 'all' } });
-        if (method === 'Runtime.callFunctionOn' && params?.['objectId'] === 'all') return Promise.resolve({ result: { objectId: open ? `socket${++lookups}` : undefined } });
-        if (method === 'Runtime.callFunctionOn') {
-          frames.push(JSON.parse((params!['arguments'] as { value: string }[])[0]!.value));
-          return lostReply ? Promise.reject(new Error('Target closed')) : Promise.resolve({ result: { value: sendSucceeds } });
-        }
-        return Promise.resolve({});
-      },
-    };
-    return {
-      requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, perWindow),
-      tap,
-      frames,
-      lookups: () => lookups,
-      setOpen: (value: boolean) => { open = value; },
-      setLostReply: (value: boolean) => { lostReply = value; },
-      setSendSucceeds: (value: boolean) => { sendSucceeds = value; },
-    };
-  }
-
-  it('sends op 8 as the client does without a nonce, once per server and text until READY, finding the socket once', async () => {
-    const f = fake();
-    expect(await f.requests.request('g1', ' Ton ')).toBe(true);
-    await f.requests.request('g1', 'ton');
-    await f.requests.request('g1', 'tony');
-    const search = (query: string) => ({ op: 8, d: { guild_id: ['g1'], query, limit: 10, presences: true } });
-    expect(f.frames).toEqual([search('ton'), search('tony')]);
-    expect(f.lookups()).toBe(1);
-    f.tap.emit('dispatch', { t: 'READY', s: 1, d: {} });
-    await f.requests.request('g1', 'ton');
-    expect(f.frames).toEqual([search('ton'), search('tony'), search('ton')]);
-    expect(f.lookups()).toBe(2);
+describe('optional member enrichment', () => {
+  it('is unavailable immediately and for repeated requests without a transport', async () => {
+    const requests = new MemberRequests();
+    expect(await requests.request('g1', 'ton')).toBe(false);
+    expect(await requests.request('g1', 'ton')).toBe(false);
+    expect(await requests.request('g2', 'tony')).toBe(false);
   });
 
-  it('finds a new socket as soon as the gateway connects or resumes, so the first search waits on no heap walk', async () => {
-    const f = fake();
-    f.tap.emit('dispatch', { t: 'READY', s: 1, d: {} });
-    await vi.waitFor(() => expect(f.lookups()).toBe(1));
-    await f.requests.request('g1', 'ton');
-    expect(f.lookups()).toBe(1);
-    // A resumed session keeps its sent queries; its socket is new.
-    f.tap.emit('dispatch', { t: 'RESUMED', s: 2, d: {} });
-    await vi.waitFor(() => expect(f.lookups()).toBe(2));
-    await f.requests.request('g1', 'ton');
-    await f.requests.request('g1', 'tony');
-    expect(f.frames).toHaveLength(2);
-    expect(f.lookups()).toBe(2);
-  });
-
-  it('runs concurrent searches one at a time, so a lookup never frees a handle another is using; a newer one for its server replaces a queued one', async () => {
-    const f = fake();
-    const sent = await Promise.all([f.requests.request('g1', 'a'), f.requests.request('g2', 'b'), f.requests.request('g1', 'c')]);
-    expect(sent).toEqual([true, true, true]);
-    expect(f.frames.map((fr) => (fr as { d: { query: string } }).d.query)).toEqual(['b', 'c']);
-    expect(f.lookups()).toBe(1);
-  });
-
-  it("sends at once until the window's share is used, then when the oldest leaves it; and waits out Discord's RATE_LIMITED for op 8", async () => {
-    vi.useFakeTimers();
-    try {
-      const PER_WINDOW = 2;
-      const WINDOW_MS = 60_000;
-      const RETRY_S = 5;
-      const f = fake(true, false, PER_WINDOW);
-      await f.requests.request('g1', 'ann');
-      await vi.advanceTimersByTimeAsync(1);
-      await f.requests.request('g1', 'bob');
-      expect(f.frames).toHaveLength(2);
-      const next = f.requests.request('g2', 'cy');
-      await vi.advanceTimersByTimeAsync(WINDOW_MS - 2);
-      expect(f.frames).toHaveLength(2);
-      await vi.advanceTimersByTimeAsync(1);
-      await next;
-      expect(f.frames).toHaveLength(3);
-      // The window has room again: the RATE_LIMITED wait alone holds the next.
-      await vi.advanceTimersByTimeAsync(WINDOW_MS);
-      f.tap.emit('dispatch', { t: 'RATE_LIMITED', s: null, d: { opcode: 8, retry_after: RETRY_S, meta: {} } });
-      const limited = f.requests.request('g3', 'dee');
-      await vi.advanceTimersByTimeAsync(RETRY_S * 1000 - 1);
-      expect(f.frames).toHaveLength(3);
-      await vi.advanceTimersByTimeAsync(1);
-      await limited;
-      expect(f.frames).toHaveLength(4);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('keeps sent queries cached without an answer for the whole session, separately per server', async () => {
-    vi.useFakeTimers();
-    try {
-      const f = fake();
-      await f.requests.request('g1', 'ann');
-      await f.requests.request('g1', 'bob');
-      await vi.advanceTimersByTimeAsync(60_000);
-      await f.requests.request('g1', 'ann');
-      await f.requests.request('g1', 'bob');
-      expect(f.frames).toHaveLength(2);
-      await f.requests.request('g2', 'ann');
-      expect(f.frames[2]).toEqual({ op: 8, d: { guild_id: ['g2'], query: 'ann', limit: 10, presences: true } });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('leaves a failed send uncached and asks the same text again later', async () => {
-    const f = fake(true, true);
-    expect(await f.requests.request('g1', 'ton')).toBe(false);
-    expect(f.frames).toHaveLength(1);
-    f.setLostReply(false);
-    expect(await f.requests.request('g1', 'ton')).toBe(true);
-    expect(f.frames).toHaveLength(2);
-    await f.requests.request('g1', 'ton');
-    expect(f.frames).toHaveLength(2);
-  });
-
-  it('leaves a closed socket send uncached and asks the same text again later', async () => {
-    const f = fake();
-    f.setSendSucceeds(false);
-    expect(await f.requests.request('g1', 'ton')).toBe(false);
-    expect(f.frames).toHaveLength(2);
-    f.setSendSucceeds(true);
-    expect(await f.requests.request('g1', 'ton')).toBe(true);
-    expect(f.frames).toHaveLength(3);
-  });
-
-  it('reports no socket, and asks again later', async () => {
-    const f = fake(false);
-    expect(await f.requests.request('g1', 'ton')).toBe(false);
-    expect(f.frames).toEqual([]);
-    f.setOpen(true);
-    expect(await f.requests.request('g1', 'ton')).toBe(true);
-    expect(f.frames).toHaveLength(1);
+  it('uses only an explicitly supplied transport and reports its availability', async () => {
+    const transport = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    const requests = new MemberRequests(transport);
+    expect(await requests.request('g1', 'ton')).toBe(true);
+    expect(await requests.request('g2', 'tony')).toBe(false);
+    expect(transport.mock.calls).toEqual([['g1', 'ton'], ['g2', 'tony']]);
   });
 });

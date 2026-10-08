@@ -7,7 +7,7 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 1. **Redesign touches only the view layer.** Stores own data; panels (`src/renderer/src/panels/<id>/`) read stores only, never IPC; layout is data (`src/renderer/src/layout/`).
 2. **No style literals outside `src/renderer/src/theme/`.** Colors, sizes, fonts, radii, shadows and durations are `--cp-*` tokens. Panels use CSS Modules. The theme owns how things look; a plugin's CSS modules hold structure only (layout and box geometry), and its look comes from the theme's look vocabulary (`look` in `@plugin-sdk/renderer`). `docs/plugin-architecture.md` §14 lists both property sets; a test enforces them.
 3. **Styling ownership**: `src/renderer/src/theme/**` (the look vocabulary included) and `*.module.css` are authored by the design agent. Don't restyle in `.tsx`: a plugin applies vocabulary roles as classes and data attributes.
-4. **Discord access** goes only through the embedded client: its session (`ses.fetch`, captured headers) and, for what the client itself sends there, its own gateway socket over CDP (`memberRequests.ts`: op 8 member search). Never Node `fetch` to discord.com or a second gateway connection.
+4. **Discord access** goes only through the embedded client's session (`ses.fetch`, captured headers). Gateway traffic is observed passively through CDP; member enrichment uses received identity facts. Never Node `fetch` to discord.com, gateway socket discovery/injection, or a second gateway connection.
 5. **AI providers** sit behind one `LlmProvider` interface. Claude = Agent SDK → user's Claude Code; ChatGPT = `codex app-server`; Ollama/OpenRouter = OpenAI-compatible HTTP. Never read or store Claude/ChatGPT credentials.
 
 # Commands

@@ -41,6 +41,7 @@ import { LiveLabels } from './discord/liveLabels';
 import { pageAsset } from './discord/pageAssets';
 import { discordFontUrl } from './discord/pageFonts';
 import { GatewayAccess } from './discord/access';
+import { gatewayArchivePayload } from './discord/gatewayPeople';
 import { gatewayGuildRoles } from './discord/roles';
 import { TypingEvents } from './discord/typing';
 import { DISCORD_PARTITION, type DiscordView } from './discordView';
@@ -191,7 +192,6 @@ void app.whenReady().then(() => {
   // Servers and their channels, from READY and its updates: no request.
   const directory = new GatewayDirectory(discord.tap);
   discord.tap.on('sent', ({ op, d }) => shapes.observe(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
-  discord.tap.on('ownSent', ({ op, d }) => shapes.check(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
   watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
@@ -256,7 +256,7 @@ void app.whenReady().then(() => {
   sync.onSettled = () => void core.call('syncSettled');
   const gatewayAccess = new GatewayAccess();
   discord.tap.on('dispatch', ({ t, d }) => {
-    if (isArchivedGatewayEvent(t)) void core.call('applyGatewayEvent', t, d);
+    if (isArchivedGatewayEvent(t)) void core.call('applyGatewayEvent', t, gatewayArchivePayload(t, d));
     const typing = typingEvents.read(t, d);
     if (typing) toRenderer(typing);
     for (const g of gatewayGuildRoles(t, d)) void core.call('replaceGuildRoles', g.guildId, g.roles);

@@ -23,7 +23,7 @@ export function storeProfile(db: Db, f: FetchedProfile): DiscordProfile {
   db.transaction(() => {
     upsertUser(db, f.raw.user);
     const mem = f.raw.guild_member;
-    if (mem) putMember(db, f.guildId, f.userId, { nick: mem.nick ?? null, roles: mem.roles }, f.fetchedAt);
+    if (mem) putMember(db, f.guildId, f.userId, mem, f.fetchedAt, 'patch');
     db.prepare(
       `INSERT INTO discord_profiles (user_id, guild_id, profile_json, note, friends_since, fetched_at) VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, guild_id) DO UPDATE SET profile_json = excluded.profile_json, note = excluded.note,

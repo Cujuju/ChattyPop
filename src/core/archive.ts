@@ -7,15 +7,18 @@ import {
   type RawChannel,
   type RawGuild,
   type RawMember,
+  type RawMemberPatch,
+  type MemberPayloadMode,
   type RawMessage,
   type RawMessageUpdate,
   type RawPrivateChannel,
   type RawThread,
   type RawUser,
+  type RawUserPatch,
 } from '@shared/discord';
 import { parseRawJson, type Db } from './db';
 import { deriveMessage, refreshStoredAttachments } from './derive/deriveMessage';
-import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser } from './people';
+import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser, type UserMergeMode } from './people';
 import {
   PRIVATE_KINDS_SQL,
   autoArchivable,
@@ -206,7 +209,10 @@ export class Archive {
           continue;
         }
         upsertUser(this.db, m.author);
-        if (m.member && typeof m.member === 'object') putMember(this.db, guildOf(this.db, m.channel_id), m.author.id, m.member as RawMember, snowflakeToMs(m.id));
+        const guildId = guildOf(this.db, m.channel_id);
+        const seenAt = snowflakeToMs(m.id);
+        if (m.member && typeof m.member === 'object') putMember(this.db, guildId, m.author.id, m.member as RawMember, seenAt);
+        this.ingestMentions(m.mentions, guildId, seenAt, via === ARRIVAL.gateway ? 'merge' : 'keep');
         const existing = getMsg.get(m.id) as { content: string; edited_ts: number | null; pruned_at: number | null } | undefined;
         // Retention removed this text on purpose; a re-fetch or edit must not bring it back.
         if (existing?.pruned_at) continue;
@@ -240,13 +246,14 @@ export class Archive {
       if (u.author && typeof u.content === 'string' && u.timestamp) this.ingestMessages([u as RawMessage], ARRIVAL.gateway);
       return;
     }
-    // Author facts survive payload pruning and partial author replacement below.
-    if (u.author) upsertUser(this.db, u.author);
-    if (row.pruned_at) return;
-    const mergedObj = { ...(parseRawJson<object>(row.raw_json) ?? {}), ...u };
-    const merged = JSON.stringify(mergedObj);
-    const editedTs = u.edited_timestamp ? Date.parse(u.edited_timestamp) : row.edited_ts;
     this.db.transaction(() => {
+      // Identity facts survive pruning; one update commits its author and every mention together.
+      if (u.author) upsertUser(this.db, u.author);
+      this.ingestMentions(u.mentions, guildOf(this.db, u.channel_id), snowflakeToMs(u.id));
+      if (row.pruned_at) return;
+      const mergedObj = { ...(parseRawJson<object>(row.raw_json) ?? {}), ...u };
+      const merged = JSON.stringify(mergedObj);
+      const editedTs = u.edited_timestamp ? Date.parse(u.edited_timestamp) : row.edited_ts;
       const edited = typeof u.content === 'string' && u.content !== row.content ? u.content : null;
       const texted = edited === null ? textedLinkCount(this.db, u.id) : 0;
       if (edited !== null) this.reviseContent(u.id, row, edited, editedTs, merged, Date.now());
@@ -331,9 +338,24 @@ export class Archive {
     return result;
   }
 
-  /** Server nicknames from member events (GUILD_MEMBERS_CHUNK, GUILD_MEMBER_UPDATE, the member list). */
-  upsertMembers(guildId: string, members: RawMember[]): void {
-    upsertMembers(this.db, guildId, members);
+  /** Global identities; knowing a person alone supplies no server membership or channel access. */
+  upsertUsers(users: RawUserPatch[]): void {
+    this.db.transaction(() => {
+      for (const user of users) upsertUser(this.db, user);
+    })();
+  }
+
+  /** Server membership facts, including partial updates and READY's user_id references. */
+  upsertMembers(guildId: string, members: RawMemberPatch[], mode: MemberPayloadMode = 'snapshot'): void {
+    upsertMembers(this.db, guildId, members, mode);
+  }
+
+  /** Only called for opted-in messages. A mention alone never proves server membership. */
+  private ingestMentions(mentions: RawMessage['mentions'], guildId: string | null, seenAt: number, mode: UserMergeMode = 'merge'): void {
+    for (const user of mentions ?? []) {
+      upsertUser(this.db, user, mode);
+      if (user.member) putMember(this.db, guildId, user.id, user.member, seenAt);
+    }
   }
 
   /** A member left their server. */

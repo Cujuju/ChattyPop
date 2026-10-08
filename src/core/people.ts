@@ -1,27 +1,41 @@
 // Users and their server nicknames and roles (members), as message authors and member events report them.
-import type { RawMember, RawUser } from '@shared/discord';
+import type { MemberPayloadMode, RawMemberPatch, RawUserPatch } from '@shared/discord';
 import type { Db } from './db';
 
 /** The server tag Discord draws beside the name: null when the user has none or turned it off. */
-function serverTag(u: RawUser): { guildId: string; tag: string; badge: string | null } | null {
+function serverTag(u: RawUserPatch): { guildId: string; tag: string; badge: string | null } | null {
   const g = u.primary_guild;
   return g?.identity_enabled !== false && g?.tag && g.identity_guild_id ? { guildId: g.identity_guild_id, tag: g.tag, badge: g.badge ?? null } : null;
 }
 
-/** Kept unless the payload says: a field absent from it (a partial user) leaves the stored value. */
-const kept = (column: string, known: string): string => `${column} = CASE WHEN @${known} THEN excluded.${column} ELSE users.${column} END`;
+/** Optional columns and the payload flags that say whether they are known. Shared by merging and change detection. */
+const USER_PATCH_COLUMNS = {
+  global_name: 'globalNameKnown', avatar: 'avatarKnown', tag_guild_id: 'tagKnown', tag: 'tagKnown',
+  tag_badge: 'tagKnown', name_style: 'styleKnown', decoration: 'decorationKnown', bot: 'botKnown',
+};
+const userUpdates = Object.entries(USER_PATCH_COLUMNS)
+  .map(([column, known]) => `${column} = CASE WHEN @${known} THEN excluded.${column} ELSE users.${column} END`).join(', ');
+const userChanges = Object.entries(USER_PATCH_COLUMNS)
+  .map(([column, known]) => `(@${known} AND users.${column} IS NOT excluded.${column})`).join(' OR ');
 
-export function upsertUser(db: Db, u: RawUser): void {
+/** Historical mentions seed unknown identities; current observed facts may merge into existing users. */
+export type UserMergeMode = 'merge' | 'keep';
+
+export function upsertUser(db: Db, u: RawUserPatch, mode: UserMergeMode = 'merge'): void {
+  if (!u.id || !Object.entries(u).some(([key, value]) => key !== 'id' && value !== undefined)) return;
+  // Unknown id-only users stay unknown until Discord supplies a username. Existing users accept partial updates.
+  const username = u.username ?? (db.prepare('SELECT username FROM users WHERE id = ?').pluck().get(u.id) as string | undefined);
+  if (!username) return;
   const tag = serverTag(u);
   db.prepare(
     `INSERT INTO users (id, username, global_name, avatar, tag_guild_id, tag, tag_badge, name_style, decoration, bot)
      VALUES (@id, @username, @globalName, @avatar, @tagGuildId, @tag, @tagBadge, @nameStyle, @decoration, @bot)
-     ON CONFLICT(id) DO UPDATE SET username = excluded.username, ${kept('global_name', 'globalNameKnown')}, ${kept('avatar', 'avatarKnown')},
-       ${kept('tag_guild_id', 'tagKnown')}, ${kept('tag', 'tagKnown')}, ${kept('tag_badge', 'tagKnown')},
-       ${kept('name_style', 'styleKnown')}, ${kept('decoration', 'decorationKnown')}, ${kept('bot', 'botKnown')}`,
+     ON CONFLICT(id) DO UPDATE SET username = excluded.username, ${userUpdates}
+     WHERE @mergeExisting AND (users.username IS NOT excluded.username OR ${userChanges})`,
   ).run({
     id: u.id,
-    username: u.username,
+    username,
+    mergeExisting: mode === 'merge' ? 1 : 0,
     globalName: u.global_name ?? null,
     avatar: u.avatar ?? null,
     globalNameKnown: u.global_name !== undefined ? 1 : 0,
@@ -46,13 +60,14 @@ function timeoutEnd(iso: string | null | undefined): number | null {
 }
 
 /** `seenAt`: when the payload was true; an older payload (a message ingested late) never overwrites a newer one. */
-export function putMember(db: Db, guildId: string | null, userId: string, mem: RawMember, seenAt: number): void {
+export function putMember(db: Db, guildId: string | null, userId: string, mem: RawMemberPatch, seenAt: number, mode: MemberPayloadMode = 'snapshot'): void {
   if (!guildId) return;
   // A payload without roles or a timeout (some member-list items) keeps the stored ones. A newer one than their leaving
   // means they rejoined.
   db.prepare(
     `INSERT INTO members (guild_id, user_id, nick, roles, timed_out_until, updated_at) VALUES (@guildId, @userId, @nick, @roles, @timedOutUntil, @seenAt)
-     ON CONFLICT(guild_id, user_id) DO UPDATE SET nick = excluded.nick, roles = COALESCE(excluded.roles, members.roles),
+     ON CONFLICT(guild_id, user_id) DO UPDATE SET nick = CASE WHEN @nickKnown THEN excluded.nick ELSE members.nick END,
+       roles = COALESCE(excluded.roles, members.roles),
        timed_out_until = CASE WHEN @timeoutKnown THEN excluded.timed_out_until ELSE members.timed_out_until END,
        updated_at = excluded.updated_at, left_at = NULL
      WHERE excluded.updated_at >= members.updated_at`,
@@ -60,6 +75,7 @@ export function putMember(db: Db, guildId: string | null, userId: string, mem: R
     guildId,
     userId,
     nick: mem.nick ?? null,
+    nickKnown: mode === 'snapshot' || mem.nick !== undefined ? 1 : 0,
     roles: mem.roles ? JSON.stringify(mem.roles) : null,
     timedOutUntil: timeoutEnd(mem.communication_disabled_until),
     timeoutKnown: mem.communication_disabled_until !== undefined ? 1 : 0,
@@ -77,13 +93,15 @@ export function markMemberLeft(db: Db, guildId: string, userId: string, seenAt: 
 }
 
 /** Server nicknames and roles from member events (GUILD_MEMBERS_CHUNK, GUILD_MEMBER_UPDATE, the member list). */
-export function upsertMembers(db: Db, guildId: string, members: RawMember[]): void {
+export function upsertMembers(db: Db, guildId: string, members: RawMemberPatch[], mode: MemberPayloadMode = 'snapshot'): void {
   const now = Date.now();
   db.transaction(() => {
     for (const mem of members) {
-      if (!mem.user?.id || !mem.user.username) continue;
-      upsertUser(db, mem.user);
-      putMember(db, guildId, mem.user.id, mem, now);
+      const userId = mem.user?.id ?? mem.user_id;
+      if (!userId) continue;
+      if (mem.user) upsertUser(db, mem.user);
+      // Membership is an observed fact even when its user's name has not arrived yet.
+      putMember(db, guildId, userId, mem, now, mode);
     }
   })();
 }

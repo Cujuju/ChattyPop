@@ -260,6 +260,12 @@ export const DISCORD_OPEN_CHANNEL = 'discord:open-channel';
 
 /** Gateway dispatches the archive consumes; main forwards only these to core. */
 export const ARCHIVED_GATEWAY_EVENTS = [
+  // Identity facts already received by the embedded client; forwarding does not opt channels into archiving.
+  'READY',
+  'READY_SUPPLEMENTAL',
+  'GUILD_CREATE',
+  'USER_UPDATE',
+  'PRESENCE_UPDATE',
   'MESSAGE_CREATE',
   'MESSAGE_UPDATE',
   'MESSAGE_DELETE',

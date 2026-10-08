@@ -70,15 +70,13 @@ describe('client shapes', () => {
     const tap = new GatewayTap(wc as never);
     const sent: unknown[] = [];
     tap.on('sent', (s) => sent.push(['client', s]));
-    tap.on('ownSent', (s) => sent.push(['ours', s]));
     cdp!({}, 'Network.webSocketCreated', { requestId: 'r', url: 'wss://gateway.discord.gg/?encoding=json&v=9' });
-    const ours = JSON.stringify({ op: 8, d: { query: 'a' } });
-    tap.own(ours);
-    cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: ours } });
+    const search = JSON.stringify({ op: 8, d: { query: 'a' } });
+    cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: search } });
     cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: JSON.stringify({ op: 1, d: 5 }) } });
-    cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: ours } });
+    cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: search } });
     expect(sent).toEqual([
-      ['ours', { op: 8, d: { query: 'a' } }],
+      ['client', { op: 8, d: { query: 'a' } }],
       ['client', { op: 1, d: 5 }],
       ['client', { op: 8, d: { query: 'a' } }],
     ]);

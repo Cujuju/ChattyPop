@@ -1,4 +1,4 @@
-// What the composer's `@` lists: the archive's answer, kept fresh as Discord sends the members it is asked for.
+// What the composer's `@` lists: the archive's answer, kept fresh by identity facts Discord already sends.
 import { createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import type { MentionCandidate } from '@shared/contract';
@@ -37,10 +37,10 @@ let requestTimer: ReturnType<typeof setTimeout> | undefined;
 /** Drops a member search not yet sent: the `@` text it was for is gone. */
 export const cancelMemberRequest = (): void => clearTimeout(requestTimer);
 
-/** Asks Discord for the server's members starting with `query` once typing pauses; a DM's people are all known. */
+/** Requests optional enrichment once typing pauses; unavailable transports leave the locally known suggestions. */
 export function requestMembers(guildId: string, query: string): void {
   cancelMemberRequest();
   if (!guildId || guildId === DM_GUILD_ID || !query.trim()) return;
-  // Unanswered, the list keeps the members the archive knows; main logs why.
+  // The list remains useful when optional enrichment is unavailable.
   requestTimer = setTimeout(() => void api.discord.requestMembers(guildId, query).catch(() => undefined), MEMBER_REQUEST_DEBOUNCE_MS);
 }

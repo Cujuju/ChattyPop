@@ -3,7 +3,7 @@ import type { Db } from './db';
 
 /** Columns affecting names, access, or author count policy; every writer shares the archive refresh notification. */
 const NAME_COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  users: ['username', 'global_name', 'name_style', 'bot'],
+  users: ['username', 'global_name', 'avatar', 'name_style', 'bot'],
   members: ['nick', 'roles', 'left_at'],
   roles: ['position', 'color', 'raw_json'],
   guilds: ['features', 'owner_id'],

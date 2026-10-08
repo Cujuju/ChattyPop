@@ -8,6 +8,8 @@ import { forgetMentionPools, mentionCandidates } from '../src/core/queries/menti
 import { watchNameWrites } from '../src/core/nameWrites';
 import { MS_PER_HOUR } from '@shared/units';
 import { ARRIVAL } from '../src/core/arrival';
+import { applyGatewayEvent } from '../src/core/gatewayEvents';
+import { MemberRequests } from '../src/main/discord/memberRequests';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
 const SELF = 'me';
@@ -89,6 +91,29 @@ const label = (c: MentionCandidate): string | null => (c.kind === 'user' ? c.use
 const labels = (db: Db, channelId: string, query: string, limit = 10): (string | null)[] => mentionCandidates(db, SELF, channelId, query, limit).map(label);
 
 describe('what @ offers in a channel, as Discord does', () => {
+  it('refreshes passive members and avatars with enrichment unavailable, respecting channel access', async () => {
+    const db = seed();
+    watchNameWrites(db);
+    const archive = seedArchive(db, []);
+    const deps = { changed: () => undefined, backfillFromMs: () => 0, selfId: () => SELF, dmActivity: () => undefined, autoArchiveSinceMs: () => null, optedIn: () => undefined };
+    expect(labels(db, 'c1', 'fresh')).toEqual([]);
+    expect(await new MemberRequests().request('g1', 'fresh')).toBe(false);
+    applyGatewayEvent(archive, 'READY', {
+      users: [{ id: 'fresh', username: 'freshperson', avatar: 'old' }, { id: 'global', username: 'freshglobal' }],
+      guilds: [{ id: 'g1' }], merged_members: [[{ user_id: 'fresh', roles: [] }]],
+    }, deps);
+    expect(labels(db, 'c1', 'fresh')).toEqual(['freshperson']);
+    expect(labels(db, 'c2', 'fresh')).toEqual([]);
+    applyGatewayEvent(archive, 'PRESENCE_UPDATE', { user: { id: 'fresh', avatar: 'new' } }, deps);
+    expect(mentionCandidates(db, SELF, 'c1', 'fresh', 10)).toMatchObject([{ kind: 'user', avatar: 'new' }]);
+    applyGatewayEvent(archive, 'USER_UPDATE', { id: 'fresh', username: 'renamed' }, deps);
+    expect(labels(db, 'c1', 'fresh')).toEqual([]);
+    expect(labels(db, 'c1', 'renamed')).toEqual(['renamed']);
+    applyGatewayEvent(archive, 'GUILD_MEMBER_REMOVE', { guild_id: 'g1', user: { id: 'fresh' } }, deps);
+    applyGatewayEvent(archive, 'PRESENCE_UPDATE', { guild_id: 'g1', user: { id: 'fresh', global_name: 'Fresh' } }, deps);
+    expect(labels(db, 'c1', 'fresh')).toEqual([]);
+  });
+
   it('lists who can see it: names starting with the text, posters here last first, then loose matches, then roles', () => {
     const db = seed();
     // The webhook posted here but can't be mentioned; Tonnage isn't mentionable.
