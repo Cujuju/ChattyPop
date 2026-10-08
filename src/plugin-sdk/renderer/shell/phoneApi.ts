@@ -116,7 +116,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       muteDm: unavailable('Muting a conversation'),
     },
     // Moving the archive picks a folder on the PC.
-    storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), setEncrypted: viaMain(storage.setEncrypted) },
+    storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), dismissNotice: unavailable('Archive notices'), setEncrypted: viaMain(storage.setEncrypted) },
     plugins: {
       // A member whose audiences leave out the phone fails here, not at the desktop.
       callCore: (pluginId, name, args) =>
@@ -153,6 +153,9 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     restartApp: viaMain(APP_RESTART_CHANNEL),
     openPanelWindow: () => Promise.resolve(),
     showInMainWindow: ignored,
+    // The phone's page closes with the browser tab; main has no window of it to hold.
+    setUnsaved: ignored,
+    discardUnsaved: ignored,
     onEvent: (listener) => {
       listeners.add(listener);
       if (!listening) {

@@ -10,7 +10,7 @@ import { openPerson } from './person';
 import { aiSettings } from './preferences';
 import { messageMenuGroups, type MessageMenuScope } from '@/plugins/slots';
 import { openContextMenu, setJevCheckFor, type MenuItem } from './ui';
-import { errorText } from '@/ui/format';
+import { failureNotice } from './dialogs';
 
 const DISCORD_APP = 'https://discord.com/channels';
 
@@ -36,7 +36,7 @@ async function pngOf(src: string): Promise<Blob> {
 function copyImage(src: string): Promise<void> {
   return navigator.clipboard
     .write([new ClipboardItem({ 'image/png': pngOf(src) })])
-    .catch((err: unknown) => window.alert(`Couldn't copy the image: ${errorText(err)}`));
+    .catch(failureNotice("Couldn't copy the image"));
 }
 
 /** The note of `m` that `target` is in, if any: its element carries data-note-part and data-note-plugin (panels/chat/Attachment.tsx). */

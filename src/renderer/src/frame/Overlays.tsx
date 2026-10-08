@@ -5,6 +5,7 @@ import { QuickReactions } from '@/panels/chat/compose/QuickReactions';
 import { ReactionPicker } from '@/panels/chat/compose/ReactionPicker';
 import { BotModalWindow } from '@/views/botModal/BotModalWindow';
 import { Lightbox } from '@/ui/Lightbox';
+import { PromptDialog } from '@/ui/PromptDialog';
 import { JevAsk } from '@/views/jev/JevAsk';
 import { JevCheck } from '@/views/jev/JevCheck';
 import { PersonView } from '@/views/person/PersonView';
@@ -15,7 +16,7 @@ import { DmDialog } from '@/views/dmDialog/DmDialog';
 import { DeleteMessageDialog } from '@/views/deleteMessage/DeleteMessageDialog';
 import { DeleteAttachmentDialog, ModifyAttachmentDialog } from '@/views/attachment/AttachmentDialogs';
 
-/** Mounts shared panel overlays: viewers, message/DM dialogs, bot forms, reaction picker and context menu in every panel window. */
+/** Mounts shared panel overlays: viewers, message/DM dialogs, bot forms, reaction picker, context menu and confirmations in every panel window. */
 export function Overlays() {
   return (
     <>
@@ -36,6 +37,7 @@ export function Overlays() {
       </Show>
       <ReactionPicker />
       <ContextMenu lead={(m) => m.reactTo && <QuickReactions message={m.reactTo} x={m.x} y={m.y} />} />
+      <PromptDialog />
     </>
   );
 }

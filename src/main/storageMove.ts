@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import { copyFile, mkdir, readdir, rm, stat, statfs } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { dialog, type BrowserWindow } from 'electron';
+import type { BrowserWindow } from 'electron';
 import { ARCHIVE_DB_FILE, ARCHIVE_MEDIA_DIR, type AppEvent, type StorageInfo } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { BYTES_PER_GB } from '@shared/units';
@@ -69,9 +69,21 @@ async function sha256(path: string): Promise<string> {
   return hash.digest('hex');
 }
 
-export function storageInfo(): StorageInfo {
+export async function storageInfo(): Promise<StorageInfo> {
   const cfg = storageConfig();
-  return { dir: cfg.archiveDir, previousDir: cfg.verifyOnOpen ? null : (cfg.previousDir ?? null) };
+  const previousDir = cfg.verifyOnOpen ? null : (cfg.previousDir ?? null);
+  return {
+    dir: cfg.archiveDir,
+    previousDir,
+    previousBytes: previousDir ? sum(await listArchive(previousDir)) : null,
+    notice: cfg.notice ?? null,
+  };
+}
+
+/** The owner has read the notice: it isn't shown again. */
+export function dismissStorageNotice(): void {
+  const { notice: _read, ...cfg } = storageConfig();
+  saveStorageConfig(cfg);
 }
 
 /** Copies archive to an owner-selected folder, verifies sizes/database bytes, updates location and restarts. Keeps original; failures remove partial copies and restart original. */
@@ -81,7 +93,8 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
   if (!to) return;
   const problem = await problemWith(from, to, sum(await listArchive(from)));
   if (problem) {
-    await dialog.showMessageBox(win, { type: 'warning', message: 'Can’t move the archive there', detail: problem });
+    // Nothing stopped yet: Settings → Archive shows why, and the archive carries on.
+    hooks.emit({ type: 'storage-move', phase: 'error', doneBytes: 0, totalBytes: 0, message: problem });
     return;
   }
 
@@ -112,7 +125,7 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
     diag('storage-move-failed', { message });
     hooks.emit({ type: 'storage-move', phase: 'error', doneBytes: 0, totalBytes, message });
     await removeArchive(to);
-    await dialog.showMessageBox(win, { type: 'error', message: 'Moving the archive failed', detail: `${message}\nThe archive stays in ${from}. ChattyPop will restart.` });
+    saveStorageConfig({ ...storageConfig(), notice: { title: 'Moving the archive failed', message: `${message} The archive stays in ${from}.` } });
     hooks.restart();
     return;
   }
@@ -123,42 +136,33 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
 }
 
 /** First start after a move: the copied database must pass SQLite's quick_check, else the app returns to the original. */
-export async function verifyMovedArchive(win: BrowserWindow, core: CoreClient, restart: () => void): Promise<void> {
+export async function verifyMovedArchive(core: CoreClient, restart: () => void): Promise<void> {
   const cfg = storageConfig();
   if (!cfg.verifyOnOpen) return;
   const result = await core.call('integrityCheck').catch(errorMessage);
   if (result === 'ok') {
-    saveStorageConfig({ archiveDir: cfg.archiveDir, ...(cfg.previousDir ? { previousDir: cfg.previousDir } : {}) });
+    const { verifyOnOpen: _checked, ...rest } = cfg;
+    saveStorageConfig(rest);
     return;
   }
   diag('storage-verify-failed', { result });
   if (!cfg.previousDir) return;
-  saveStorageConfig({ archiveDir: cfg.previousDir });
-  await dialog.showMessageBox(win, {
-    type: 'error',
-    message: 'The moved archive failed its integrity check',
-    detail: `${result}\nChattyPop will restart on the original in ${cfg.previousDir}. The copy in ${cfg.archiveDir} is left for inspection.`,
+  saveStorageConfig({
+    archiveDir: cfg.previousDir,
+    notice: {
+      title: 'The moved archive failed its integrity check',
+      message: `${result} ChattyPop restarted on the original in ${cfg.previousDir}. The copy in ${cfg.archiveDir} is left for inspection.`,
+    },
   });
   restart();
 }
 
-/** Deletes the pre-move copy after the user confirms in a system dialog. */
-export async function deletePreviousArchive(win: BrowserWindow): Promise<void> {
-  const { previousDir } = storageInfo();
-  const cfg = storageConfig();
-  if (!previousDir) return;
-  const bytes = sum(await listArchive(previousDir));
-  const { response } = await dialog.showMessageBox(win, {
-    type: 'warning',
-    buttons: ['Delete', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1,
-    message: 'Delete the old copy of the archive?',
-    detail: `${gb(bytes)} in ${previousDir} (the database and media folder only). The archive in ${cfg.archiveDir} is not affected. This can’t be undone.`,
-  });
-  if (response !== 0) return;
+/** Deletes the pre-move copy; the renderer has asked the owner. */
+export async function deletePreviousArchive(): Promise<void> {
+  const { previousDir, ...rest } = storageConfig();
+  if (!previousDir || rest.verifyOnOpen) return;
   await removeArchive(previousDir);
-  saveStorageConfig({ archiveDir: cfg.archiveDir });
+  saveStorageConfig(rest);
 }
 
 /** Removes only the archive's own files from a folder. */

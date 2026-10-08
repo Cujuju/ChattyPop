@@ -3,7 +3,7 @@ import { api } from '@/api';
 import { createResource, createSignal, untrack } from 'solid-js';
 import type { UsedEmoji } from '@shared/compose';
 import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
-import { errorText } from '@/ui/format';
+import { failureNotice } from './dialogs';
 import { refreshLoaded } from './archive';
 import { onAppEvent } from './events';
 
@@ -43,7 +43,7 @@ export function react(m: ArchiveMessage, emoji: ArchiveEmoji, add: boolean): voi
       if (add) refreshOwnReactions();
       return refreshLoaded([m.id]);
     })
-    .catch((err: unknown) => window.alert(`Couldn't ${add ? 'add' : 'remove'} the reaction: ${errorText(err)}`));
+    .catch(failureNotice(`Couldn't ${add ? 'add' : 'remove'} the reaction`));
 }
 
 /** The reaction picker: which message, opened at this point (the pointer, or the long press). */

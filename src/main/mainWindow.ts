@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, session, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, session, type BrowserWindowConstructorOptions } from 'electron';
 import { DISCORD_OPEN_CHANNEL, DISCORD_SIDEBAR_CHANNEL, DISCORD_SLOT_CHANNEL, type DiscordSlot } from '@shared/contract';
 import { normalizeDiscordSidebar } from '@shared/settings';
 import { diag } from './diagnostics';
 import { DISCORD_PARTITION, DiscordView } from './discordView';
 import { guardNavigation } from './externalLinks';
+import { guardUnsavedChanges, holdCloseIfUnsaved } from './unsavedChanges';
 import { WindowStateFile } from './windowState';
 
 /** out/main: only index.ts imports this module, so it is bundled into out/main/index.js. */
@@ -23,34 +24,10 @@ function guardRenderer(win: BrowserWindow): void {
   guardNavigation(win.webContents, (url) => new URL(url).origin === new URL(win.webContents.getURL()).origin);
 }
 
-/** The unsaved-changes dialog's buttons, by index. */
-const DISCARD_BUTTON = 0;
-const KEEP_EDITING_BUTTON = 1;
-
-/**
- * An editor with unsaved changes cancels the page's unload (beforeunload); the owner then picks whether the close
- * or reload goes ahead, rather than it being dropped silently.
- */
-function askBeforeDiscarding(win: BrowserWindow): void {
-  win.webContents.on('will-prevent-unload', (e) => {
-    const choice = dialog.showMessageBoxSync(win, {
-      type: 'question',
-      buttons: ['Discard changes', 'Keep editing'],
-      defaultId: KEEP_EDITING_BUTTON,
-      cancelId: KEEP_EDITING_BUTTON,
-      noLink: true,
-      title: 'Unsaved changes',
-      message: 'Discard your unsaved changes?',
-      detail: 'A rule you are editing in this window has changes you have not saved.',
-    });
-    if (choice === DISCARD_BUTTON) e.preventDefault(); // lets the unload go ahead
-  });
-}
-
 /** Loads the app, or with `panel` just that panel (a panel window). */
 export function loadRenderer(win: BrowserWindow, panel?: string): void {
   guardRenderer(win);
-  askBeforeDiscarding(win);
+  guardUnsavedChanges(win);
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
   const query = panel ? { panel } : undefined;
   if (devUrl) void win.loadURL(query ? `${devUrl}?${new URLSearchParams(query)}` : devUrl);
@@ -149,6 +126,8 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
       win.hide();
       return;
     }
+    // Before the Discord view unloads: keeping the edits must leave the window whole.
+    if (holdCloseIfUnsaved(win, e)) return;
     if (discordClosed) return;
     e.preventDefault();
     closing ??= discord.closeGracefully().then(() => {

@@ -7,6 +7,7 @@ import type { JevStatus } from '@shared/contract';
 import { managedRuleFeatures, pluginJevFeatures } from '@/plugins/slots';
 import { bundledJevFeatures } from '@shared/bundledPlugins';
 import { HOST_JEV_FEATURES, jevFeatureOn, type JevConnection, type JevFeature } from '@shared/settings';
+import { confirmDialog } from '@/state/dialogs';
 import { jevQueryOverrides } from '@/state/jevQueries';
 import { jevUseRecent, jevUseToday, usdPerQuestion } from '@/state/jevSpend';
 import { jevFeatureLocked, jevStatus, refetchJevStatus, toggleJevFeature } from '@/state/jevStatus';
@@ -234,7 +235,7 @@ function JevConnectionCard(props: { status: JevStatus | undefined; changed: () =
                   type="button"
                   class={`cp-button ${styles.button}`}
                   disabled={busy()}
-                  onClick={() => confirm('Remove the TypeSafe key from ChattyPop? It stays valid on TypeSafe.') && void run(api.typeSafe.removeKey)}
+                  onClick={() => void confirmDialog({ title: 'Remove key', message: 'Remove the TypeSafe key from ChattyPop? It stays valid on TypeSafe.', confirmLabel: 'Remove', danger: true }).then((ok) => ok && run(api.typeSafe.removeKey))}
                 >
                   Remove key
                 </button>

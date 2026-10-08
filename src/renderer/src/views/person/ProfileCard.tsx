@@ -7,10 +7,11 @@ import { windowAudience } from '@/api';
 import { messagePerson } from '@/state/newMessage';
 import { isSelf } from '@/state/ownMessages';
 import { postingUnlocked } from '@/state/posting';
+import { failureNotice } from '@/state/dialogs';
 import { closePerson, discordProfile } from '@/state/person';
 import { ServerTag } from '@/panels/chat/AuthorName';
 import { hexColor } from '@/panels/chat/MessageExtras';
-import { errorText, shortDateTime, yearDate } from '@/ui/format';
+import { shortDateTime, yearDate } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
 import { Markdown } from '@/ui/Markdown';
 import { SolidIcon } from '@/ui/solidIcons';
@@ -22,7 +23,7 @@ import styles from './ProfileCard.module.css';
 function message(userId: string): void {
   messagePerson(userId)
     .then(closePerson)
-    .catch((err: unknown) => window.alert(`Couldn't open the DM: ${errorText(err)}`));
+    .catch(failureNotice("Couldn't open the DM"));
 }
 
 export function ProfileCard(props: { p: PersonProfile }) {

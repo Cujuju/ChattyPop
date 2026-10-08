@@ -13,9 +13,9 @@ import {
   saveRule,
   setRuleEnabled,
 } from '@/state/rules';
+import { confirmDialog } from '@/state/dialogs';
 import { createAction } from '@/ui/action';
 import { Icon } from '@/ui/icons';
-import { listen } from '@/ui/listen';
 import { ActionsStep } from './ActionsStep';
 import { GatesStep } from './GatesStep';
 import { RuleSwitch } from './fields';
@@ -67,11 +67,7 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
   };
   const action = createAction();
   const { busy, error } = action;
-  guardRulePage(() => !dirty() || window.confirm('Discard your unsaved changes to this rule?'));
-  // Cancelling unload makes the main process ask.
-  listen(window, 'beforeunload', (e) => {
-    if (dirty()) e.preventDefault();
-  });
+  guardRulePage(dirty);
   // Revert remounts the steps to reset their view state.
   const [generation, setGeneration] = createSignal(1);
   const revert = (): void => {
@@ -97,8 +93,9 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
       setSaved(structuredClone(next));
     });
   };
-  const remove = (r: Rule): void => {
-    if (!window.confirm(`Delete the rule “${r.name}”? Its runs and alerts go with it.`)) return;
+  const remove = async (r: Rule): Promise<void> => {
+    const ok = await confirmDialog({ title: 'Delete rule', message: `Delete the rule “${r.name}”? Its runs and alerts go with it.`, confirmLabel: 'Delete', danger: true });
+    if (!ok) return;
     void action.run(async () => {
       await deleteRule(r.id);
       props.onClose();
@@ -145,7 +142,7 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
                   </button>
                 </Show>
                 <Show when={!r().builtin}>
-                  <button type="button" class={styles.iconButton} data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => remove(r())}>
+                  <button type="button" class={styles.iconButton} data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => void remove(r())}>
                     <Icon name="trash" />
                   </button>
                 </Show>

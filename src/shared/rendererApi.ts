@@ -129,10 +129,12 @@ export interface RendererApi {
   };
   storage: {
     info(): Promise<StorageInfo>;
-    /** Asks for a folder, then copies, verifies and switches to it, restarting the app. Resolves early if cancelled. */
+    /** Asks for a folder, then copies, verifies and switches to it, restarting the app. Resolves early if cancelled or unsuitable (a storage-move error says why). */
     move(): Promise<void>;
-    /** Deletes the previous copy after the user confirms in a system dialog. */
+    /** Deletes the previous copy (the caller has asked the owner). */
     deletePrevious(): Promise<void>;
+    /** The owner has read StorageInfo.notice: main drops it. */
+    dismissNotice(): Promise<void>;
     /** Encrypts or decrypts the archive database (the key is kept by Windows for this account). */
     setEncrypted(on: boolean): Promise<void>;
   };
@@ -177,6 +179,10 @@ export interface RendererApi {
   openPanelWindow(panelId: string): Promise<void>;
   /** From a panel window: brings the main window up showing this message (or channel) in the Archive; `compose` replies to or edits it there. */
   showInMainWindow(channelId: string, messageId?: string, opts?: { compose: ComposeIntent }): void;
+  /** Whether this window holds unsaved edits: main then holds its close or reload and asks (the unsaved-changes event). */
+  setUnsaved(on: boolean): void;
+  /** The owner discarded this window's unsaved edits: main goes on with the close or reload it held. */
+  discardUnsaved(): void;
   /** Subscribes to pushed app events; returns an unsubscribe function. */
   onEvent(listener: (e: AppEvent) => void): () => void;
 }

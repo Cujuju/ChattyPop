@@ -1,7 +1,7 @@
 // Saving an archived attachment to a place the owner picks.
 import { api } from '@/api';
 import type { ArchiveAttachment } from '@shared/contract';
-import { errorText } from '@/ui/format';
+import { failureNotice } from './dialogs';
 import { inCompanion } from './ui';
 
 /** Whether `a` can be saved: its file is held here. */
@@ -12,4 +12,4 @@ export const savesThroughMain = !inCompanion;
 
 /** Saves `a`; a failed copy (a full disk, a folder it may not write to) says why. */
 export const saveAttachment = (a: ArchiveAttachment): Promise<void> =>
-  api.media.saveAttachment(a.sha256!, a.filename).catch((err: unknown) => window.alert(`Couldn't save ${a.filename}: ${errorText(err)}`));
+  api.media.saveAttachment(a.sha256!, a.filename).catch(failureNotice(`Couldn't save ${a.filename}`));

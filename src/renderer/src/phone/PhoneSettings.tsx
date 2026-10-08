@@ -56,10 +56,8 @@ export function PhoneSettings(props: {
 }) {
   const tab = () => settingsTabs().find((t) => t.id === props.open);
   /** Leaves the open section unless it keeps unsaved edits (Rules asks). */
-  const mayLeave = (): boolean => !props.open || mayLeaveSettingsTab(props.open);
-  const back = (): void => {
-    if (mayLeave()) props.onOpen(null);
-  };
+  const mayLeave = (): Promise<boolean> => (props.open ? mayLeaveSettingsTab(props.open) : Promise.resolve(true));
+  const back = (): void => void mayLeave().then((ok) => ok && props.onOpen(null));
   // Stores that load only while Settings is open (provider status) follow the pane, as they follow the dialog.
   createEffect(() => setSettingsOpen(props.shown));
   createEffect(() => {
@@ -70,7 +68,7 @@ export function PhoneSettings(props: {
     const id = settingsSection();
     if (!id || !settingsTabs().some((t) => t.id === id)) return;
     setSettingsSection(null);
-    if (id !== props.open && mayLeave()) props.onOpen(id);
+    if (id !== props.open) void mayLeave().then((ok) => ok && props.onOpen(id));
   });
 
   return (

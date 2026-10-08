@@ -3,7 +3,7 @@ import { restartApp } from '../restart';
 import { MAIN_INVOKE, type AppEvent } from '@shared/contract';
 import { createArchiveKey, deleteArchiveKey } from '../archiveKey';
 import type { CoreClient } from '../coreClient';
-import { deletePreviousArchive, moveArchive, storageInfo, verifyMovedArchive } from '../storageMove';
+import { deletePreviousArchive, dismissStorageNotice, moveArchive, storageInfo, verifyMovedArchive } from '../storageMove';
 import { handleMain } from './mainCalls';
 
 export interface StorageDeps {
@@ -46,6 +46,7 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
     return run;
   });
   ipcMain.handle(storage.move, () => moveArchive(win, { stop: stopArchive, emit, restart }));
-  ipcMain.handle(storage.deletePrevious, () => deletePreviousArchive(win));
-  void verifyMovedArchive(win, core, restart);
+  ipcMain.handle(storage.deletePrevious, () => deletePreviousArchive());
+  ipcMain.handle(storage.dismissNotice, () => dismissStorageNotice());
+  void verifyMovedArchive(core, restart);
 }

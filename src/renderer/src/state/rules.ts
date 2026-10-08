@@ -8,10 +8,12 @@ import type { PersonMatch } from '@shared/contract';
 import { type Rule, type RuleInput, type RuleRun } from '@shared/rules';
 import type { RuleFileFormat } from '@shared/ruleKinds/host';
 import { newRuleInput } from '@shared/ruleSpec';
+import { confirmDialog } from './dialogs';
 import { onAppEvent } from './events';
 import { managedControl } from './managedControls';
 import { keyedById } from './paged';
 import { openSettingsAt } from './ui';
+import { guardUnsaved } from './unsavedChanges';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { textOrNull } from '@shared/normalize';
@@ -35,23 +37,31 @@ export type RulePage = number | 'new' | 'draft' | null;
 const [openRuleId, setOpenPage] = createSignal<RulePage>(null);
 export { openRuleId };
 
+const leaveFreely = (): Promise<boolean> => Promise.resolve(true);
 /** Whether the open page may be left; the open editor asks about unsaved edits. */
-let mayLeave = (): boolean => true;
-/** Registers the open editor's leave check for as long as the calling component lives. */
-export function guardRulePage(check: () => boolean): void {
+let mayLeave = leaveFreely;
+/** The question on screen: leaving again while it is open waits on the same answer. */
+let asking: Promise<boolean> | null = null;
+
+/** Guards the open editor's unsaved edits while the calling component lives: leaving the page, closing or reloading the window asks. */
+export function guardRulePage(dirty: () => boolean): void {
+  const check = async (): Promise<boolean> =>
+    !dirty() ||
+    confirmDialog({ title: 'Unsaved changes', message: 'Discard your unsaved changes to this rule?', confirmLabel: 'Discard', danger: true });
   mayLeave = check;
   onCleanup(() => {
-    if (mayLeave === check) mayLeave = () => true;
+    if (mayLeave === check) mayLeave = leaveFreely;
   });
+  guardUnsaved(dirty, mayLeaveRulePage);
 }
 
 /** Whether the open rule page may be left (Settings switching tab or closing); asks about unsaved edits. */
-export const mayLeaveRulePage = (): boolean => mayLeave();
+export const mayLeaveRulePage = (): Promise<boolean> => (asking ??= mayLeave().finally(() => (asking = null)));
 
 /** Opens a page of Settings → Rules unless the open editor keeps it; false when it stays. */
-export function setOpenRuleId(page: RulePage): boolean {
+export async function setOpenRuleId(page: RulePage): Promise<boolean> {
   if (page === openRuleId()) return true;
-  if (!mayLeave()) return false;
+  if (!(await mayLeaveRulePage())) return false;
   setOpenPage(page);
   return true;
 }
@@ -120,18 +130,18 @@ export const pickRuleFile = (format: RuleFileFormat): Promise<string | null> => 
 
 /** Shows a rule's editor in Settings → Rules. */
 export function openRule(id: number): void {
-  if (setOpenRuleId(id)) openSettingsAt(RULES_SECTION);
+  void setOpenRuleId(id).then((opened) => opened && openSettingsAt(RULES_SECTION));
 }
 
 /** Shows the new-rule starting points in Settings → Rules. */
 export function startNewRule(): void {
-  if (setOpenRuleId('new')) openSettingsAt(RULES_SECTION);
+  void setOpenRuleId('new').then((opened) => opened && openSettingsAt(RULES_SECTION));
 }
 
 /** Opens a new rule's editor, starting from `draft` (a starting point's). */
 export function editNewRule(draft: RuleInput = newRuleInput()): void {
   setNewRuleDraft(draft); // before the page opens: the editor starts from it
-  setOpenRuleId('draft');
+  void setOpenRuleId('draft');
 }
 
 /** Previews recent keyword matches in selected channels; null means all. */

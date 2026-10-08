@@ -31,6 +31,8 @@ export type AppEvent =
   | { type: 'open-panel'; panelId: string }
   /** Main asks the renderer to show a message (e.g. a clicked notification). Sent to the main window only (panel windows hand their message clicks to it). */
   | { type: 'open-message'; channelId: string; messageId?: string; compose?: ComposeIntent }
+  /** Main holds this window's close or reload for its unsaved edits: the window asks the owner (state/unsavedChanges). Sent to that window only. */
+  | { type: 'unsaved-changes' }
   /** Moving the archive to another folder (Settings → Archive); the app restarts when it's done. */
   | { type: 'storage-move'; phase: StorageMovePhase; doneBytes: number; totalBytes: number; message?: string }
   | { type: 'plugins-changed' }
@@ -204,6 +206,7 @@ export const MAIN_INVOKE = {
     info: 'storage:info',
     move: 'storage:move',
     deletePrevious: 'storage:delete-previous',
+    dismissNotice: 'storage:dismiss-notice',
     setEncrypted: 'storage:encrypt',
   },
   /** A window's calls into plugins (RendererApi.plugins); main stamps their origin. */
@@ -248,6 +251,10 @@ export const APP_RESTART_CHANNEL = 'app:restart';
 export const PANEL_WINDOW_CHANNEL = 'window:open-panel';
 /** Panel window → main: show a message (or channel) in the main window's Archive. */
 export const SHOW_IN_MAIN_CHANNEL = 'window:show-in-main';
+/** Window → main: whether it holds unsaved edits, so main asks before closing or reloading it. */
+export const UNSAVED_CHANNEL = 'window:unsaved';
+/** Window → main: the owner discarded its unsaved edits; main goes on with the close or reload it held. */
+export const DISCARD_UNSAVED_CHANNEL = 'window:discard-unsaved';
 
 /** ipcMain channel carrying renderer → core calls. */
 export const CORE_INVOKE_CHANNEL = 'core:invoke';

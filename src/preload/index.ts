@@ -11,6 +11,8 @@ import {
   APP_RESTART_CHANNEL,
   RENDERER_CORE_METHODS,
   SHOW_IN_MAIN_CHANNEL,
+  DISCARD_UNSAVED_CHANNEL,
+  UNSAVED_CHANNEL,
   type AppEvent,
   type DiscordSlot,
   type MainInvokeGroup,
@@ -51,6 +53,8 @@ const api: RendererApi = {
   restartApp: () => ipcRenderer.invoke(APP_RESTART_CHANNEL),
   openPanelWindow: (panelId: string) => ipcRenderer.invoke(PANEL_WINDOW_CHANNEL, panelId),
   showInMainWindow: (channelId, messageId, opts) => ipcRenderer.send(SHOW_IN_MAIN_CHANNEL, channelId, messageId, opts?.compose),
+  setUnsaved: (on: boolean) => ipcRenderer.send(UNSAVED_CHANNEL, on),
+  discardUnsaved: () => ipcRenderer.send(DISCARD_UNSAVED_CHANNEL),
   onEvent: (listener: (e: AppEvent) => void) => {
     const handler = (_e: IpcRendererEvent, event: AppEvent): void => listener(event);
     ipcRenderer.on(APP_EVENT_CHANNEL, handler);

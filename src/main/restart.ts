@@ -1,6 +1,7 @@
 // Restarting the app through its graceful close, packaged or under `pnpm dev`.
 import { spawn } from 'node:child_process';
 import { app, type BrowserWindow } from 'electron';
+import { askIfUnsaved } from './unsavedChanges';
 
 /** How often the relauncher checks whether the dev session has exited. */
 const POLL_MS = 250;
@@ -66,13 +67,14 @@ let armed: (() => void) | null = null;
 
 /** Arms atQuit only for completed graceful window closure. Canceled closes run nothing; repeated requests close again. Preserves Discord login without direct app.quit/exit. */
 export function closeThen(win: BrowserWindow, atQuit: () => void): void {
+  // Asked before arming: a kept edit leaves nothing armed, and Discard comes back here.
+  if (askIfUnsaved(win, () => closeThen(win, atQuit))) return;
   if (!armed) {
     const step = atQuit;
     armed = step;
     app.once('will-quit', step);
-    // Runs after mainWindow's unsaved-changes dialog, which prevents the default only when the owner discards.
-    win.webContents.once('will-prevent-unload', (e) => {
-      if (e.defaultPrevented) return;
+    // The page refused to unload (edits main hadn't heard of yet): the close is cancelled (main/unsavedChanges).
+    win.webContents.once('will-prevent-unload', () => {
       app.off('will-quit', step);
       armed = null;
     });

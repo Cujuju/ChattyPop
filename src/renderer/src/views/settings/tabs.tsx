@@ -105,7 +105,7 @@ export function settingsTabGroups(): SettingsTab[][] {
 }
 
 /** Whether section `id` may be left: leaving Rules first asks about a rule's unsaved edits. */
-export const mayLeaveSettingsTab = (id: string): boolean => id !== RULES_SECTION || mayLeaveRulePage();
+export const mayLeaveSettingsTab = (id: string): Promise<boolean> => (id === RULES_SECTION ? mayLeaveRulePage() : Promise.resolve(true));
 
 /** A section's 24-unit line icon; its size and colour come from `class`. */
 export const SettingsTabIcon = (props: { tab: SettingsTab; class?: string }) => (

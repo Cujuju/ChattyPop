@@ -2,6 +2,7 @@ import { api } from '@/api';
 import { For, Show, createResource, createSignal } from 'solid-js';
 import type { ModelOption } from '@shared/contract';
 import { JEV_OPENROUTER_MODEL, type OpenRouterKeyBalance, type OpenRouterKeyInfo, type OpenRouterKeyRouting } from '@shared/openrouter';
+import { confirmDialog } from '@/state/dialogs';
 import { providerStatus, refetchProviderStatus } from '@/state/preferences';
 import { inCompanion } from '@/state/ui';
 import { createAction } from '@/ui/action';
@@ -106,7 +107,7 @@ export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
                   type="button"
                   class={`cp-button ${styles.button}`}
                   disabled={busy()}
-                  onClick={() => confirm(`Remove key ${k.label} (${k.hint}) from ChattyPop? It stays valid on OpenRouter.`) && void run(() => api.openRouter.removeKey(k.id))}
+                  onClick={() => void confirmDialog({ title: 'Remove key', message: `Remove key ${k.label} (${k.hint}) from ChattyPop? It stays valid on OpenRouter.`, confirmLabel: 'Remove', danger: true }).then((ok) => ok && run(() => api.openRouter.removeKey(k.id)))}
                 >
                   Remove key
                 </button>

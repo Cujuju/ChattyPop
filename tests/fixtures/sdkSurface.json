@@ -1,5 +1,5 @@
 {
-  "version": "2.30.0",
+  "version": "2.31.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -320,6 +320,7 @@
       "choiceOptions",
       "clockTime",
       "conditionWording",
+      "confirmDialog",
       "countText",
       "countedBots",
       "countedBotsLoaded",
@@ -337,6 +338,7 @@
       "errorText",
       "exportHtmlPage",
       "exportPdfPage",
+      "failureNotice",
       "filePickerOffered",
       "formatBytes",
       "formatTokens",
@@ -357,6 +359,7 @@
       "loopWhileLooking",
       "manageLimitedPhotos",
       "modelTraits",
+      "noticeDialog",
       "now",
       "onPhotoLibraryChange",
       "onPointerDownOutside",

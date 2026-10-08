@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { app } from 'electron';
+import type { StorageNotice } from '@shared/contract';
 
 /** Selects a profile directory outside system-drive AppData. External directories avoid packaged-app MSIX AppData redirection. */
 export const PROFILE_DIR_ENV = 'CHATTYPOP_PROFILE_DIR';
@@ -26,7 +27,12 @@ export interface StorageConfig {
   previousDir?: string;
   /** Set by a move: the next start checks the copied database before trusting it. */
   verifyOnOpen?: boolean;
+  /** Left for the owner across a restart main caused (a failed move or check); the main window shows it. */
+  notice?: StorageNotice;
 }
+
+const isNotice = (v: unknown): v is StorageNotice =>
+  typeof v === 'object' && v !== null && typeof (v as StorageNotice).title === 'string' && typeof (v as StorageNotice).message === 'string';
 
 const configPath = (): string => profilePath(STORAGE_CONFIG_FILE);
 
@@ -39,6 +45,7 @@ export function storageConfig(): StorageConfig {
           archiveDir: cfg.archiveDir,
           ...(typeof cfg.previousDir === 'string' && cfg.previousDir ? { previousDir: cfg.previousDir } : {}),
           ...(cfg.verifyOnOpen === true ? { verifyOnOpen: true } : {}),
+          ...(isNotice(cfg.notice) ? { notice: { title: cfg.notice.title, message: cfg.notice.message } } : {}),
         };
       }
     }

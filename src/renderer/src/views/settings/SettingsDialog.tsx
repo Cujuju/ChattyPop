@@ -18,22 +18,20 @@ export function SettingsDialog() {
   const active = createMemo<Tab>(() => tabs().find((tab) => tab.id === settingsTab()) ?? HOST_SETTINGS_TABS[0]);
   const buttons = new Map<string, HTMLButtonElement>();
   /** Leaving the Rules page (another tab, or closing) first asks about a rule's unsaved edits. */
-  const mayLeave = (): boolean => mayLeaveSettingsTab(active().id);
-  const setActive = (tab: Tab): boolean => {
+  const mayLeave = (): Promise<boolean> => mayLeaveSettingsTab(active().id);
+  const setActive = async (tab: Tab): Promise<boolean> => {
     if (tab.id === active().id) return true;
-    if (!mayLeave()) return false;
+    if (!(await mayLeave())) return false;
     void setSettingsTab(tab.id);
     return true;
   };
-  const close = (): void => {
-    if (mayLeave()) setSettingsOpen(false);
-  };
+  const close = (): void => void mayLeave().then((ok) => ok && setSettingsOpen(false));
   // Each section starts at its top, not at the previous section's scroll offset.
   createEffect(on(active, () => panel.scrollTo({ top: 0 }), { defer: true }));
   createEffect(() => {
     const tab = tabs().find((t) => t.id === settingsSection());
     if (!tab) return;
-    setActive(tab);
+    void setActive(tab);
     setSettingsSection(null);
   });
 
@@ -46,7 +44,7 @@ export function SettingsDialog() {
     const next = index === undefined ? undefined : list[index];
     if (!next) return;
     e.preventDefault();
-    if (setActive(next)) buttons.get(next.id)?.focus();
+    void setActive(next).then((ok) => ok && buttons.get(next.id)?.focus());
   };
 
   return (
@@ -69,7 +67,7 @@ export function SettingsDialog() {
                   aria-selected={active().id === tab.id}
                   aria-controls="settings-panel"
                   tabIndex={active().id === tab.id ? 0 : -1}
-                  onClick={() => setActive(tab)}
+                  onClick={() => void setActive(tab)}
                 >
                   <SettingsTabIcon tab={tab} class={styles.tabIcon} />
                   {tab.label}

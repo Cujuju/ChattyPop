@@ -4,7 +4,7 @@ import { openLive } from '@/state/archive';
 import { setChannelOptIn } from '@/state/directory';
 import { isClosedGroup, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
 import { inCompanion } from '@/state/ui';
-import { errorText } from '@/ui/format';
+import { failureNotice } from '@/state/dialogs';
 import styles from './Archive.module.css';
 
 /** Turns archiving on for `c`; returns a click handler and whether it is in flight. Failures are shown, not swallowed. */
@@ -13,7 +13,7 @@ function createArchiveAction(c: () => DmChannel): { busy: () => boolean; run: ()
   const run = (): void => {
     setBusy(true);
     setChannelOptIn(c().id, true)
-      .catch((err: unknown) => window.alert(`Couldn't archive this conversation: ${errorText(err)}`))
+      .catch(failureNotice("Couldn't archive this conversation"))
       .finally(() => setBusy(false));
   };
   return { busy, run };

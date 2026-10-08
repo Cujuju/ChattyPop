@@ -101,5 +101,7 @@ export const api: RendererApi = {
   restartApp: method(null, 'restartApp') as RendererApi['restartApp'],
   openPanelWindow: method(null, 'openPanelWindow') as RendererApi['openPanelWindow'],
   showInMainWindow: method(null, 'showInMainWindow') as RendererApi['showInMainWindow'],
+  setUnsaved: method(null, 'setUnsaved') as RendererApi['setUnsaved'],
+  discardUnsaved: method(null, 'discardUnsaved') as RendererApi['discardUnsaved'],
   onEvent,
 };

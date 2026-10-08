@@ -3,6 +3,7 @@ import { BrowserWindow, app, type BrowserWindowConstructorOptions } from 'electr
 import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
 import { profilePath } from './storageLocation';
+import { holdCloseIfUnsaved } from './unsavedChanges';
 import { WindowStateFile, raiseWindow } from './windowState';
 
 /** Where each panel window was last placed, so it reopens there. */
@@ -61,6 +62,7 @@ export class PanelWindows {
       show: false,
     });
     this.states.manage(win, panelId, saved);
+    win.on('close', (e) => holdCloseIfUnsaved(win, e));
     win.on('closed', () => {
       this.open.delete(panelId);
       if (!this.ending) this.writeOpen();

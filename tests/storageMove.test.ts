@@ -4,37 +4,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';
 import { tempDir } from './helpers';
 
-/** What the mocked system dialogs answer, and what they were shown. */
-const ui = vi.hoisted(() => ({ userData: '', pick: '', confirm: 0, shown: [] as string[] }));
+/** What the mocked folder picker answers. Main shows no message boxes: the renderer's themed dialogs ask and tell. */
+const ui = vi.hoisted(() => ({ userData: '', pick: '' }));
 vi.mock('electron', () => ({
   app: { getPath: () => ui.userData },
-  dialog: {
-    showOpenDialog: async () => ({ canceled: false, filePaths: [ui.pick] }),
-    showMessageBox: async (_w: unknown, o: { message: string; detail?: string }) => {
-      ui.shown.push(`${o.message}: ${o.detail ?? ''}`);
-      return { response: ui.confirm };
-    },
-  },
+  dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [ui.pick] }) },
 }));
 
-const { deletePreviousArchive, moveArchive, storageInfo, verifyMovedArchive } = await import('../src/main/storageMove');
+const { deletePreviousArchive, dismissStorageNotice, moveArchive, storageInfo, verifyMovedArchive } = await import('../src/main/storageMove');
 const { saveStorageConfig, storageConfig } = await import('../src/main/storageLocation');
 
 const win = {} as Electron.BrowserWindow;
 let from: string;
 let events: string[];
+let errors: string[];
 let restarts: number;
 const hooks = {
   stop: async () => {},
-  emit: (e: AppEvent) => void events.push(e.type === 'storage-move' ? e.phase : e.type),
+  emit: (e: AppEvent) => {
+    events.push(e.type === 'storage-move' ? e.phase : e.type);
+    if (e.type === 'storage-move' && e.message) errors.push(e.message);
+  },
   restart: () => void restarts++,
 };
 
 beforeEach(() => {
   ui.userData = tempDir();
-  ui.shown = [];
-  ui.confirm = 0;
   events = [];
+  errors = [];
   restarts = 0;
   from = tempDir();
   mkdirSync(join(from, 'media', 'attachments', 'ab'), { recursive: true });
@@ -55,8 +52,10 @@ describe('moving the archive', () => {
     writeFileSync(join(taken, 'archive.db'), '');
     ui.pick = taken;
     await moveArchive(win, hooks);
-    expect(ui.shown).toEqual([expect.stringMatching(/outside the current archive/), expect.stringMatching(/already holds/)]);
-    expect(events).toEqual([]);
+    // Said in Settings → Archive; nothing was stopped.
+    expect(errors).toEqual([expect.stringMatching(/outside the current archive/), expect.stringMatching(/already holds/)]);
+    expect(events).toEqual(['error', 'error']);
+    expect(restarts).toBe(0);
   });
 
   it('copies only archive files, verifies, switches and restarts', async () => {
@@ -75,29 +74,30 @@ describe('moving the archive', () => {
         join('media', 'attachments', 'ab', 'abc.png'),
       ].sort(),
     );
-    expect(storageInfo().previousDir).toBeNull(); // not offered for deletion until verified
+    expect((await storageInfo()).previousDir).toBeNull(); // not offered for deletion until verified
   });
 
-  it('keeps the copy after a passing check, and reverts after a failing one', async () => {
+  it('keeps the copy after a passing check, and reverts after a failing one with a notice for the next start', async () => {
     const to = tempDir();
     saveStorageConfig({ archiveDir: to, previousDir: from, verifyOnOpen: true });
-    const core = (answer: string) => ({ call: async () => answer }) as unknown as Parameters<typeof verifyMovedArchive>[1];
-    await verifyMovedArchive(win, core('ok'), hooks.restart);
+    const core = (answer: string) => ({ call: async () => answer }) as unknown as Parameters<typeof verifyMovedArchive>[0];
+    await verifyMovedArchive(core('ok'), hooks.restart);
     expect(storageConfig()).toEqual({ archiveDir: to, previousDir: from });
 
     saveStorageConfig({ archiveDir: to, previousDir: from, verifyOnOpen: true });
-    await verifyMovedArchive(win, core('row 5 missing from index'), hooks.restart);
-    expect(storageConfig()).toEqual({ archiveDir: from });
+    await verifyMovedArchive(core('row 5 missing from index'), hooks.restart);
+    expect(storageConfig()).toEqual({ archiveDir: from, notice: { title: expect.stringMatching(/integrity check/), message: expect.stringMatching(/row 5 missing/) } });
     expect(restarts).toBe(1);
+    expect((await storageInfo()).notice?.message).toMatch(/row 5 missing/);
+    dismissStorageNotice();
+    expect(storageConfig()).toEqual({ archiveDir: from });
   });
 
-  it('deletes the previous copy only after confirmation, and only its archive files', async () => {
+  it('reports the previous copy and its size, then deletes only its archive files', async () => {
     saveStorageConfig({ archiveDir: tempDir(), previousDir: from });
-    ui.confirm = 1; // Cancel
-    await deletePreviousArchive(win);
-    expect(existsSync(join(from, 'archive.db'))).toBe(true);
-    ui.confirm = 0; // Delete
-    await deletePreviousArchive(win);
+    // The database (5000), its WAL (0) and the stored attachment (3); a partial download isn't the archive's.
+    expect(await storageInfo()).toMatchObject({ previousDir: from, previousBytes: 5003 });
+    await deletePreviousArchive();
     expect(existsSync(join(from, 'archive.db'))).toBe(false);
     expect(existsSync(join(from, 'media'))).toBe(false);
     expect(existsSync(join(from, 'Profile', 'Cookies'))).toBe(true);

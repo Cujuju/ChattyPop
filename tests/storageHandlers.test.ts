@@ -5,7 +5,7 @@ import type { AppEvent } from '@shared/contract';
 const log = vi.hoisted(() => [] as string[]);
 vi.mock('electron', () => ({ ipcMain: { handle: () => undefined } }));
 vi.mock('../src/main/restart', () => ({ restartApp: () => undefined }));
-vi.mock('../src/main/storageMove', () => ({ storageInfo: () => null, moveArchive: () => undefined, deletePreviousArchive: () => undefined, verifyMovedArchive: async () => undefined }));
+vi.mock('../src/main/storageMove', () => ({ storageInfo: () => null, moveArchive: () => undefined, deletePreviousArchive: () => undefined, dismissStorageNotice: () => undefined, verifyMovedArchive: async () => undefined }));
 vi.mock('../src/main/archiveKey', () => ({
   createArchiveKey: () => (log.push('create'), 'k'),
   deleteArchiveKey: () => void log.push('delete'),
