@@ -134,6 +134,21 @@ describe("member searches on the client's gateway socket", () => {
     expect(f.lookups()).toBe(2);
   });
 
+  it('finds a new socket as soon as the gateway connects or resumes, so the first search waits on no heap walk', async () => {
+    const f = fake();
+    f.tap.emit('dispatch', { t: 'READY', s: 1, d: {} });
+    await vi.waitFor(() => expect(f.lookups()).toBe(1));
+    await f.requests.request('g1', 'ton');
+    expect(f.lookups()).toBe(1);
+    // A resumed session keeps its answers; its socket is new.
+    f.tap.emit('dispatch', { t: 'RESUMED', s: 2, d: {} });
+    await vi.waitFor(() => expect(f.lookups()).toBe(2));
+    await f.requests.request('g1', 'ton');
+    await f.requests.request('g1', 'tony');
+    expect(f.frames).toHaveLength(2);
+    expect(f.lookups()).toBe(2);
+  });
+
   it('runs concurrent searches one at a time, so a lookup never frees a handle another is using; a newer one for its server replaces a queued one', async () => {
     const f = fake();
     const sent = await Promise.all([f.requests.request('g1', 'a'), f.requests.request('g2', 'b'), f.requests.request('g1', 'c')]);

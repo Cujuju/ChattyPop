@@ -89,12 +89,16 @@ export class MemberRequests {
     tap.on('dispatch', ({ t, d }) => {
       if (t === 'GUILD_MEMBERS_CHUNK') return this.answer(d as Chunk);
       if (t === 'RATE_LIMITED') return this.limited(d as { opcode?: number; retry_after?: number });
-      if (t !== 'READY') return;
-      // A new session: Discord's answers so far stay archived, the old socket's handle goes.
+      if (t !== 'READY' && t !== 'RESUMED') return;
+      // A new socket (a resumed session's too); a new session's answers so far stay archived. Its handle is found now,
+      // not at the first search: the lookup walks the page's heap, seconds on a large page.
       void this.serial(async () => {
-        this.forget();
+        if (t === 'READY') this.forget();
         this.socket = null;
-        await this.cdp.sendCommand('Runtime.releaseObjectGroup', { objectGroup: OBJECT_GROUP }).catch(() => undefined);
+        this.socket = await this.findSocket().catch((err: unknown) => {
+          diag('member-request-failed', { message: err instanceof Error ? err.message : String(err) });
+          return null;
+        });
       });
     });
   }
