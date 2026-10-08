@@ -89,7 +89,7 @@ describe("plugin:check's scan", () => {
     ]);
   });
 
-  it('names literal table prefixes, global network and app access, and unprefixed user-select', async () => {
+  it('names literal table prefixes, global app access and unprefixed user-select; warns of global web requests', async () => {
     const dir = pluginFolder('my-probe', {
       'core/table.ts': "export const ROWS = 'p_my_probe_rows';\n",
       'core/globals.ts': [
@@ -111,20 +111,23 @@ describe("plugin:check's scan", () => {
       ].join('\n'),
       'renderer/Select.module.css': '.line {\n  user-select: none;\n}\n',
     });
-    const reach = "reach the network and the app through the plugin's contexts";
+    const reach = "reach the app through the plugin's contexts";
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
-      `core/globals.ts:4: fetch: ${reach}`,
       `core/globals.ts:5: globalThis: ${reach}`,
       `core/globals.ts:6: .chattypop: ${reach}`,
       `core/globals.ts:7: ['chattypop']: ${reach}`,
-      `core/globals.ts:8: window.fetch: ${reach}`,
-      `core/globals.ts:9: new WebSocket: ${reach}`,
-      `core/globals.ts:10: .sendBeacon: ${reach}`,
       `core/globals.ts:11: createRequire: ${reach}`,
-      `core/globals.ts:13: fetch: ${reach}`,
-      `core/globals.ts:14: fetch: ${reach}`,
       'core/table.ts:1: literal table prefix p_my_probe_: name tables with pluginTable or ctx.storage',
       'renderer/Select.module.css:2: user-select: none needs -webkit-user-select: none beside it',
+    ]);
+    const web = (what: string): string => `${what}: skips ctx.net's declared hosts (the renderer's CSP refuses other origins); never reach Discord with it`;
+    expect(scanWarnings(dir)).toEqual([
+      `core/globals.ts:4: ${web('fetch')}`,
+      `core/globals.ts:8: ${web('window.fetch')}`,
+      `core/globals.ts:9: ${web('new WebSocket')}`,
+      `core/globals.ts:10: ${web('.sendBeacon')}`,
+      `core/globals.ts:13: ${web('fetch')}`,
+      `core/globals.ts:14: ${web('fetch')}`,
     ]);
   });
 
@@ -171,6 +174,7 @@ describe("plugin:check's scan", () => {
       'page/public/sw.js': fault,
     });
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([]);
+    expect(scanWarnings(dir)).toEqual([]);
   });
 
   it('names a manifest whose version release stamping can’t rewrite (tests/pluginStamp.test.ts)', () => {

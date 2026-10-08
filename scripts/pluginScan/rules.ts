@@ -94,7 +94,7 @@ function discordEndpoint(url: string): boolean {
 }
 
 /**
- * What plugin:check warns of without failing: Node network modules (they skip ctx.net's declared hosts) and Discord's
+ * What plugin:check warns of without failing: Node network modules and web requests (they skip ctx.net's declared hosts) and Discord's
  * API or gateway named in a string (Discord tells a request not sent by its own client apart; ctx.discord is the way).
  */
 export function networkWarnings(file: SourceFile): string[] {
@@ -107,7 +107,7 @@ export function networkWarnings(file: SourceFile): string[] {
     for (const url of texts.flatMap((t) => t.match(URL_IN_TEXT) ?? []))
       if (discordEndpoint(url)) found.push(violation(file.rel, lineOf(node), `${url}: Discord's API or gateway; reach Discord through ctx.discord, never a request of the plugin's own`));
   });
-  return found.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return [...found, ...globalNetworkWarnings(file)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
 
 /** Tables are named through `pluginTable` / `ctx.storage`, never by their physical prefix. */
@@ -116,35 +116,53 @@ export function tablePrefixViolations(file: SourceFile, pluginId: string): strin
   return [...file.text.matchAll(new RegExp(prefix, 'g'))].map((m) => violation(file.rel, lineAt(file.text, m.index), `literal table prefix ${prefix}: name tables with pluginTable or ctx.storage`));
 }
 
-/** Global identifiers bypassing plugin network or application contexts. */
-const GLOBAL_NAMES: ReadonlySet<string> = new Set(['fetch', 'globalThis', 'createRequire']);
-/** Web connections a plugin opens only through its contexts. */
+/** Global identifiers bypassing the app's contexts: `globalThis` reaches the bridge, `createRequire` loads unscanned modules. */
+const APP_NAMES: ReadonlySet<string> = new Set(['globalThis', 'createRequire']);
+/** Web connections outside `ctx.net`: the developer's choice, warned of like Node's network modules. */
 const CONNECTIONS: ReadonlySet<string> = new Set(['XMLHttpRequest', 'WebSocket', 'EventSource']);
 /** Objects the global `fetch` is also a property of. */
 const GLOBAL_OBJECTS: ReadonlySet<string> = new Set(['window', 'self']);
 
-/** What `node` reaches around the plugin's contexts, as the violation names it; null when nothing. */
-function reachedGlobal(node: Node, parent: Node | null, key: string | null): string | null {
-  if (node.type === 'Identifier') return GLOBAL_NAMES.has(node['name'] as string) && readsVariable(parent, key) ? (node['name'] as string) : null;
+const isIdentifier = (node: Node, names: ReadonlySet<string>): boolean => node.type === 'Identifier' && names.has(node['name'] as string);
+const isMember = (node: Node): boolean => node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression';
+
+/** The web request or connection `node` makes outside `ctx.net`, as the warning names it; null when none. */
+function reachedNetwork(node: Node, parent: Node | null, key: string | null): string | null {
+  if (node.type === 'Identifier') return node['name'] === 'fetch' && readsVariable(parent, key) ? 'fetch' : null;
   if (node.type === 'NewExpression') {
     const callee = node['callee'] as Node;
-    return callee.type === 'Identifier' && CONNECTIONS.has(callee['name'] as string) ? `new ${callee['name'] as string}` : null;
+    return isIdentifier(callee, CONNECTIONS) ? `new ${callee['name'] as string}` : null;
   }
-  if (node.type !== 'MemberExpression' && node.type !== 'OptionalMemberExpression') return null;
+  if (!isMember(node)) return null;
   const name = propertyName(node);
   const object = node['object'] as Node;
-  if (name === 'fetch' && object.type === 'Identifier' && GLOBAL_OBJECTS.has(object['name'] as string)) return `${object['name'] as string}.fetch`;
-  if (name === 'sendBeacon') return '.sendBeacon';
-  if (name === 'chattypop') return node['computed'] ? "['chattypop']" : '.chattypop';
-  return null;
+  if (name === 'fetch' && isIdentifier(object, GLOBAL_OBJECTS)) return `${object['name'] as string}.fetch`;
+  return name === 'sendBeacon' ? '.sendBeacon' : null;
 }
 
-/** Detects network and app access outside plugin contexts through syntax. Context methods, strings, and comments remain allowed. */
+/** What `node` reaches around the app's contexts, as the violation names it; null when nothing. */
+function reachedApp(node: Node, parent: Node | null, key: string | null): string | null {
+  if (node.type === 'Identifier') return isIdentifier(node, APP_NAMES) && readsVariable(parent, key) ? (node['name'] as string) : null;
+  if (!isMember(node) || propertyName(node) !== 'chattypop') return null;
+  return node['computed'] ? "['chattypop']" : '.chattypop';
+}
+
+/** Web requests outside `ctx.net`, found in the syntax (context methods, strings and comments aren't): warned of, not refused. */
+export function globalNetworkWarnings(file: SourceFile): string[] {
+  const found: string[] = [];
+  walk(syntaxOf(file), (node, parent, key) => {
+    const reached = reachedNetwork(node, parent, key);
+    if (reached) found.push(violation(file.rel, lineOf(node), `${reached}: skips ctx.net's declared hosts (the renderer's CSP refuses other origins); never reach Discord with it`));
+  });
+  return found;
+}
+
+/** App access outside the plugin's contexts, found in the syntax. Context methods, strings, and comments remain allowed. */
 export function globalViolations(file: SourceFile): string[] {
   const found: string[] = [];
   walk(syntaxOf(file), (node, parent, key) => {
-    const reached = reachedGlobal(node, parent, key);
-    if (reached) found.push(violation(file.rel, lineOf(node), `${reached}: reach the network and the app through the plugin's contexts`));
+    const reached = reachedApp(node, parent, key);
+    if (reached) found.push(violation(file.rel, lineOf(node), `${reached}: reach the app through the plugin's contexts`));
   });
   return found;
 }
