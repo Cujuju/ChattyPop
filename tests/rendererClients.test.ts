@@ -117,6 +117,22 @@ describe('pluginResource', () => {
     expect(r.failure).toBeNull();
   });
 
+  it('reads as its fallback once its arguments give none, rather than the last answer', async () => {
+    const { createRoot, createSignal } = await import('solid-js');
+    const { pluginResource } = (await import(resourcePath)) as {
+      pluginResource(p: typeof reader, member: 'read', args: () => [RangeQuery] | null, fallback: null): () => unknown;
+    };
+    const [asked, setAsked] = createSignal(true);
+    const r = createRoot(() => pluginResource(reader, 'read', () => (asked() ? [{ scope: 'all' }] : null), null));
+    await settle();
+    await answer({ status: 'ok', value: 'open' });
+    expect(r()).toBe('open');
+    // A selection cleared (a comparison closed): nothing is asked, so nothing shows.
+    setAsked(false);
+    await settle();
+    expect(r()).toBeNull();
+  });
+
   it('reads its arguments again on refetch, so a rolling window a refresh asks for ends now', async () => {
     const { createRoot } = await import('solid-js');
     const { pluginResource } = (await import(resourcePath)) as {

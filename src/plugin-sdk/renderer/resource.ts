@@ -14,7 +14,7 @@ type ResultOf<D, K extends WindowMember<D>> = Shapes<D>[K] extends (...args: nev
 
 /** A core call's latest result, read like a signal. */
 export interface PluginResource<T> {
-  /** The result; the fallback before the first, while this window may not call the member, and after a failed read. Never throws. Reactive. */
+  /** The result; the fallback before the first, while this window may not call the member or `args` gives none, and after a failed read. Never throws. Reactive. */
   (): T;
   /** A read is in flight. Reactive. */
   readonly loading: boolean;
@@ -50,7 +50,8 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
     { initialValue: fallback, ...options },
   );
   const value = (): T => {
-    if (!on()) return fallback;
+    // Solid keeps a resource's last value while its source is null; no arguments asks for nothing, so nothing shows.
+    if (!current()) return fallback;
     const v = settled(resource);
     return v === undefined ? fallback : v;
   };
