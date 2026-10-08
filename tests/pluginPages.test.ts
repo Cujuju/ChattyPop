@@ -94,14 +94,15 @@ describe('a transport page', () => {
       pageFetch: (path: string) => Promise<unknown>;
     };
     const { createPhoneRendererApi } = (await import(phoneApiPath)) as {
-      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void }) => unknown;
+      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void; openPage?(page: unknown): void }) => unknown;
     };
     const { mediaUrl } = await import('@shared/media');
     await pageFetch('/rpc');
     expect(fetched).toEqual(['/rpc']);
     for (const url of ['https://elsewhere.example/', '//elsewhere.example/x', 'rpc']) expect(() => pageFetch(url)).toThrow(/Not a path/);
     const call = vi.fn(async () => 'up');
-    installRendererApi(createPhoneRendererApi({ call, listen: () => undefined }), '/media/');
+    const openPage = vi.fn();
+    installRendererApi(createPhoneRendererApi({ call, listen: () => undefined, openPage }), '/media/');
     const leaf = '@/api';
     const { api } = (await import(leaf)) as {
       api: { core: { status(): Promise<string>; setSetting(key: string, value: unknown): Promise<void> }; desktop: { state(): Promise<unknown> }; storage: { move(): Promise<void> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
@@ -121,6 +122,12 @@ describe('a transport page', () => {
     await expect(api.plugins.callCore('plans', 'list', [1])).rejects.toThrow(/only on the desktop/);
     expect(call).toHaveBeenCalledTimes(3);
     expect(mediaUrl('avatar', '1')).toBe('/media/avatar/1');
+    // An HTML export opens through the transport, in the phone's browser, not as a download.
+    const exportPath = '@/ui/exportPage';
+    const { exportHtmlPage } = (await import(exportPath)) as { exportHtmlPage: (page: unknown) => void };
+    const page = { html: '<p>x</p>', fileName: 'x.html' };
+    exportHtmlPage(page);
+    expect(openPage).toHaveBeenCalledExactlyOnceWith(page);
   });
 });
 

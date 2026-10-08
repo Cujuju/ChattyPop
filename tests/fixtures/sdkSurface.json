@@ -1,5 +1,5 @@
 {
-  "version": "2.20.0",
+  "version": "2.21.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -333,6 +333,7 @@
       "discordChatSettings",
       "effortLabel",
       "errorText",
+      "exportHtmlPage",
       "formatBytes",
       "formatTokens",
       "hasEffortChoice",

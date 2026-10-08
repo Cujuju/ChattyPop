@@ -1,6 +1,7 @@
 // Host defines permitted phone calls/events; transport plugins supply delivery only.
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
+import type { HtmlPage } from '@shared/htmlPage';
 import { isPhoneDeviceSetting, phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
 
 /** How a phone page reaches the desktop. */
@@ -9,11 +10,13 @@ export interface PhoneTransport {
   call(call: PhoneCall): Promise<unknown>;
   /** Starts delivering the desktop's app events to `deliver`; called once, when the page first subscribes. */
   listen(deliver: (e: AppEvent) => void): void;
+  /** Opens an HTML export in the device's browser. Runs within the tap that asked, where a browser may open a window. Absent: exports download. */
+  openPage?(page: HtmlPage): void;
 }
 
 declare const phoneApi: unique symbol;
 /** The renderer API a phone page installs; only createPhoneRendererApi makes one, so an installed API is always the phone's. */
-export type PhoneRendererApi = RendererApi & { readonly [phoneApi]: true };
+export type PhoneRendererApi = RendererApi & { readonly [phoneApi]: true; readonly openPage?: (page: HtmlPage) => void };
 
 const unavailable = (what: string) => (): Promise<never> => Promise.reject(new Error(`${what} is only on the desktop.`));
 const ignored = (): void => {};
@@ -139,5 +142,5 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       return () => listeners.delete(listener);
     },
   };
-  return api as PhoneRendererApi;
+  return { ...api, ...(transport.openPage ? { openPage: (page: HtmlPage) => transport.openPage!(page) } : {}) } as PhoneRendererApi;
 }

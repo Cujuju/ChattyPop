@@ -1,12 +1,14 @@
 // External pages install transport plumbing instead of Electron preload. API calls queue until installation, regardless of host load order.
 import { setMediaRoot } from '@shared/media';
 import { installApi } from '@/api';
+import { setPageOpener } from '@/ui/exportPage';
 import { whenWritten } from '@/ui/idbStore';
 import type { PhoneRendererApi } from './phoneApi';
 
 /** Installs the phone's API (createPhoneRendererApi) for host code, and where media URLs point. Once per page, before it renders. */
 export function installRendererApi(api: PhoneRendererApi, mediaRoot: string): void {
   setMediaRoot(mediaRoot);
+  setPageOpener(api.openPage ?? null);
   installApi(api);
 }
 
