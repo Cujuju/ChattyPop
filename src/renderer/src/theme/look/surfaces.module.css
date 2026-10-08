@@ -85,8 +85,10 @@
     translate var(--cp-duration-base) var(--cp-ease-out);
 }
 
-/* A deep sheet (data-tone='deep'): near-black glass, the page blurred under it, so pictures on it stand apart. */
+/* A deep sheet (data-tone='deep'): near-black glass, the page blurred under it, so pictures on it stand apart; no tinted
+   top edge, which would read as a coloured line over the black. */
 .sheet[data-tone='deep'] {
+  border-top-color: transparent;
   background: var(--cp-sheet-deep);
   -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
   backdrop-filter: blur(var(--cp-frost-blur));

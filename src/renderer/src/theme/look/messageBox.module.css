@@ -127,6 +127,11 @@
   background: var(--cp-border);
 }
 
+/* On a deep sheet the tinted border colour reads as an accent; the grabber goes neutral, as iOS's. */
+[data-tone='deep'] .sheetGrabber {
+  background: var(--cp-sheet-deep-grabber);
+}
+
 /* The attach sheet's floating bar (its actions, or Add / Send) over the grid's bottom rows: see-through glass; its buttons
    keep their own solid discs. */
 .sheetBar {

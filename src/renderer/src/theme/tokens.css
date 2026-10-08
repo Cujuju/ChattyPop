@@ -273,6 +273,7 @@
   --cp-backdrop: color-mix(in srgb, var(--cp-ground) 70%, transparent); /* behind modal dialogs */
   --cp-frost: color-mix(in srgb, var(--cp-surface-0) 20%, transparent); /* light frosted glass over scrolling content (the composer): mostly the blur, a faint tint */
   --cp-sheet-deep: color-mix(in srgb, black 85%, transparent); /* a deep sheet (data-tone='deep', the attach sheet): near-black, a little see-through, so the pictures on it stand apart */
+  --cp-sheet-deep-grabber: color-mix(in srgb, white 30%, transparent); /* a deep sheet's grab handle: neutral grey over the black, as iOS's */
   --cp-sheet-bar: color-mix(in srgb, black 55%, transparent); /* a deep sheet's floating bar (the attach sheet's actions): lighter glass than the sheet, so the photos under it read through */
   --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
   --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
