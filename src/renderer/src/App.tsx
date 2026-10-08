@@ -6,6 +6,7 @@ import { currentLayout } from '@/state/layout';
 import { listenForShortcuts } from '@/state/shortcuts';
 import { showStorageNotice } from '@/state/storage';
 import { PanelDialogs } from '@/views/panelDialog/PanelDialogs';
+import { PluginWindows } from '@/views/pluginWindows/PluginWindows';
 import { SettingsDialog } from '@/views/settings/SettingsDialog';
 import { ChannelSwitcher } from '@/views/switcher/ChannelSwitcher';
 
@@ -23,6 +24,7 @@ export function App() {
       </div>
       <SettingsDialog />
       <PanelDialogs />
+      <PluginWindows />
       <ChannelSwitcher />
       <Overlays />
     </div>

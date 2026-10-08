@@ -15,7 +15,7 @@ import { ruleSlots } from './ruleSlots';
 import { declaredItems, placeSlot, type SlotItem } from './slotItems';
 import { pluginActive, pluginMayCall } from '@/state/plugins';
 import type { ComposerCommand, MessageMenuScope, RuleTemplate, SettingsPageId, SettingsTab, UnreadSource } from './bundledTypes';
-import type { LooseContributions, ProviderView, RendererPlugin, SettingsView } from './define';
+import type { LooseContributions, PluginWindowView, ProviderView, RendererPlugin, SettingsView } from './define';
 import type { SettingsSectionDef } from '@/views/settings/SettingsLayout';
 
 export type { ComposerCommand, MessageMenuScope, RuleTemplate, SettingsPageId, SettingsTab, UnreadSource } from './bundledTypes';
@@ -105,6 +105,10 @@ export const activeBundledPanels = () => bundledPanels().filter((p) => pluginAct
 
 /** A bundled panel's component while its plugin is on; null otherwise (the layout shows its missing-panel note). */
 export const panelComponent = (id: string): Component | null => active().flatMap((p) => contributions(p).panels?.[id]?.view ?? [])[0] ?? null;
+
+/** Plugin `pluginId`'s window kind `window` while the plugin is on, or undefined. Reactive. */
+export const pluginWindowView = (pluginId: string, window: string): PluginWindowView | undefined =>
+  active().flatMap((p) => (p.plugin.manifest.id === pluginId ? (contributions(p).windows?.[window] ?? []) : []))[0];
 
 /** Panel `id`'s unseen-items source from a plugin that is on, or undefined. Reactive. */
 export const bundledUnread = (id: string): UnreadSource | undefined => active().flatMap((p) => contributions(p).panels?.[id]?.unread ?? [])[0];

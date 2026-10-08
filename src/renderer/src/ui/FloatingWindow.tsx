@@ -1,13 +1,15 @@
 import { For, createEffect, on, onCleanup, type JSX } from 'solid-js';
-import { saveWindow, savedWindows, trackWindow, untrackWindow, windowRank, type WindowRect } from '@/state/windows';
+import { saveWindow, savedWindows, trackWindow, untrackWindow, windowAt, windowRank, type WindowRect } from '@/state/windows';
 import { listen } from './listen';
 import { WINDOW_EDGES, resizeRect, type WindowEdge } from './windowResize';
 import { Icon } from './icons';
 import styles from './FloatingWindow.module.css';
 
 interface Props {
-  /** Key its geometry is remembered under. */
+  /** Its identity among open windows; the key its geometry is remembered under unless `geometryKey` is given. */
   id: string;
+  /** Shared by windows of one kind (a plugin window per key), so the geometry saved stays one entry. */
+  geometryKey?: string;
   open: boolean;
   onClose: () => void;
   /** Surface class: background, border, header and body styles. */
@@ -43,7 +45,16 @@ export function FloatingWindow(props: Props) {
     const b = el.getBoundingClientRect();
     return { x: (innerWidth - b.width) / 2, y: (innerHeight - b.height) / 2, width: b.width, height: b.height };
   };
-  const remember = (): void => saveWindow(props.id, rect());
+  const geometryKey = (): string => props.geometryKey ?? props.id;
+  const remember = (): void => saveWindow(geometryKey(), rect());
+  /** Steps down and right past open windows at the same corner, so a window opening over another of its kind leaves it showing. */
+  const cascade = (r: WindowRect): WindowRect => {
+    const step = parseFloat(getComputedStyle(el).getPropertyValue('--cp-window-cascade'));
+    if (!(step > 0)) return r;
+    let next = r;
+    while (windowAt(props.id, next.x, next.y)) next = { ...next, x: next.x + step, y: next.y + step };
+    return next;
+  };
 
   createEffect(
     on(
@@ -52,7 +63,7 @@ export function FloatingWindow(props: Props) {
         if (open && !el.open) {
           el.show();
           trackWindow(props.id, rect(), true);
-          apply(clampToViewport(savedWindows()[props.id] ?? centred()));
+          apply(clampToViewport(cascade(clampToViewport(savedWindows()[geometryKey()] ?? centred()))));
         } else if (!open && el.open) {
           remember();
           el.close();

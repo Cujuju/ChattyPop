@@ -1,5 +1,5 @@
 {
-  "version": "2.32.0",
+  "version": "2.33.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -319,6 +319,7 @@
       "channelSigil",
       "choiceOptions",
       "clockTime",
+      "closePluginWindow",
       "conditionWording",
       "confirmDialog",
       "countText",
@@ -368,6 +369,7 @@
       "openMenuAt",
       "openMessageMenuById",
       "openPerson",
+      "openPluginWindow",
       "openRule",
       "openSettings",
       "openSettingsAt",
@@ -384,6 +386,7 @@
       "planUsageFailureOf",
       "planUsageLoadingOf",
       "planUsageOf",
+      "pluginWindowOpen",
       "projectedJevUsd",
       "providerLabel",
       "providerName",

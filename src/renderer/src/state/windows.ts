@@ -31,6 +31,9 @@ export function trackWindow(id: string, rect: WindowRect, raise = false): void {
   else setOpenWindows(openWindows().map((w) => (w.id === id ? { id, rect } : w)));
 }
 
+/** Whether an open window other than `id` has its top-left corner at (x, y). */
+export const windowAt = (id: string, x: number, y: number): boolean => openWindows().some((w) => w.id !== id && w.rect.x === x && w.rect.y === y);
+
 /** Moves an open window to the front; nothing when closed. */
 export function raiseWindow(id: string): void {
   const w = openWindows().find((o) => o.id === id);

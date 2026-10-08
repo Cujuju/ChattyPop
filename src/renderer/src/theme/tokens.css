@@ -338,6 +338,7 @@
   --cp-z-resize: 20; /* split resize handles, above anything sticky inside a panel */
   --cp-z-drop: 30; /* panel drop zones while a panel header is dragged, above resize handles */
   --cp-z-window: 500; /* floating windows (Settings, Jev); each raise adds its stack rank, far below popovers */
+  --cp-window-cascade: var(--cp-space-8); /* a window opening exactly over an open one steps down and right by this, so the one under it still shows */
   --cp-window-min-w: 360px; /* narrowest a floating window resizes to: a form column stays usable */
   --cp-window-min-h: 240px; /* shortest: header plus a few rows */
   --cp-window-grip: 6px; /* invisible resize band along each floating-window edge: easy to hit, thin enough not to cover controls */

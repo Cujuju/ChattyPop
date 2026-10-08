@@ -83,6 +83,8 @@ export { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } fro
 export { archivedChannels, channelById, channelLabel, channelSigil, directory, isThread, loadDirectory } from '@/state/directory';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPerson } from '@/state/person';
+// In-app windows a plugin opens per key, several of a kind at once (its renderer side's `windows`).
+export { closePluginWindow, openPluginWindow, pluginWindowOpen } from '@/state/pluginWindows';
 export { personName } from '@/state/personNames';
 export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
 export { openRule, ruleInputOf, rules, saveRule, startNewRule } from '@/state/rules';

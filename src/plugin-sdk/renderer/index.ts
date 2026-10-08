@@ -11,7 +11,7 @@ import { onPluginEvent } from './appEvents';
 import { pluginActive } from './pluginList';
 import { createSetting, type SettingExtras, type SettingOptions } from './settings';
 
-export type { PanelView, ProviderView, RendererContributions, RendererPlugin, SettingsView } from '@/plugins/define';
+export type { PanelView, PluginWindowView, ProviderView, RendererContributions, RendererPlugin, SettingsView } from '@/plugins/define';
 export type { ComposerCommand, MessageMenuScope, RuleTemplate, UnreadSource } from '@/plugins/bundledTypes';
 export type { KindProps, KindView, FilterView } from '@/views/settings/rules/kinds/types';
 export type { TopBarView, PhoneSectionView, PhoneSectionPlace, PhoneDrawerView, ProviderRowView, StatusBarView, TopBarItem, PhoneSection, PhoneDrawerItem, NotificationKind, NotificationKindView, FrameContributions, ProviderRow, StatusBarContribution } from '@/plugins/frameSlots';
