@@ -12,3 +12,28 @@
   box-shadow: var(--cp-shadow-flyout);
   cursor: grabbing;
 }
+
+/* A row's drag handle: a finger drags from it, where elsewhere on the row it scrolls the page (touch cancels a drag that pans). */
+[data-reorder-handle] {
+  display: flex;
+  flex: none;
+  align-items: center;
+  align-self: stretch;
+  justify-content: center;
+  width: var(--cp-reorder-handle-w);
+  color: var(--cp-text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+[data-reorder-handle]:hover {
+  color: var(--cp-text-2);
+}
+
+[data-reorder-handle]::before {
+  content: '';
+  width: calc(2 * var(--cp-reorder-dot-step));
+  height: calc(3 * var(--cp-reorder-dot-step));
+  background: radial-gradient(circle, currentColor var(--cp-reorder-dot-r), transparent calc(var(--cp-reorder-dot-r) + var(--cp-reorder-dot-edge))) 0 0 /
+    var(--cp-reorder-dot-step) var(--cp-reorder-dot-step);
+}

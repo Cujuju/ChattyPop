@@ -234,6 +234,10 @@
   --cp-settings-number-w: 72px; /* a number field (days, GB, hours) on a settings row */
   --cp-settings-stat-min-w: 140px; /* narrowest figure tile (sizes, costs) before tiles wrap */
   --cp-compare-col-min-w: 240px; /* a model's column in a summary comparison: two fit the settings column at its default width */
+  --cp-reorder-handle-w: var(--cp-btn-h-sm); /* a reorder handle's grab area: a header button's width, so the phone's is a full tap target */
+  --cp-reorder-dot-step: 6px; /* the handle's dots: two columns of three, this far apart */
+  --cp-reorder-dot-r: 1.5px;
+  --cp-reorder-dot-edge: 0.5px; /* each dot's anti-aliased rim */
   --cp-settings-hint-max-w: 72ch; /* a settings row's explanation: readable line length in wide windows */
   --cp-settings-key-action-w: 72px; /* the button after a key field (Clear, Default): fits "Default" in a cp-button, so both match */
   --cp-settings-key-w: 96px; /* a shortcut's key field: fits "Press a key" at text-sm */
