@@ -6,6 +6,7 @@ import { protocol, type CustomScheme, type Session } from 'electron';
 import { SNOWFLAKE_DIGITS, SNOWFLAKE_ID, SNOWFLAKE_TIMESTAMP_SHIFT } from '@shared/discord';
 import { DEFAULT_AVATAR, GENERIC_CONTENT_TYPE, MEDIA_SCHEME, STORED_MEDIA_MIME, attachmentShard } from '@shared/media';
 import { isNameFontFamily } from '@shared/nameFonts';
+import { MS_PER_DAY, MS_PER_S } from '@shared/units';
 import { DISCORD_CDN, ensureEmoji, fetchOnceToFile } from './cdnCache';
 import type { MediaDirs } from './mediaDirs';
 import { rangedResponse } from './ranges';
@@ -23,6 +24,13 @@ const ICON_HASH = /^(a_)?[0-9a-f]{32}$/;
 const ATTACHMENT_FILE = /^([0-9a-f]{64})\.([a-z0-9]{1,8})$/;
 const EMOJI_FILE = new RegExp(String.raw`^(${SNOWFLAKE_DIGITS})\.(gif|webp)$`);
 const LOTTIE_FILE = new RegExp(String.raw`^(${SNOWFLAKE_DIGITS})\.json$`);
+/**
+ * An image named by its owner and hash (avatars, icons, badges, decorations) or an emoji's id: a new picture gets a new
+ * address, so the phone's browser keeps it rather than asking again for each row it shows. Private: only that browser.
+ */
+/** A year: the longest max-age HTTP caches are expected to honour. */
+const KEPT_FOR_S = (365 * MS_PER_DAY) / MS_PER_S;
+const KEPT = { 'cache-control': `private, max-age=${KEPT_FOR_S}, immutable` } as const;
 /** Status served when the upstream fetch itself failed (offline, DNS). */
 const BAD_GATEWAY = 502;
 
@@ -97,7 +105,7 @@ async function serveEmoji(dir: string, ses: Session, name?: string): Promise<Res
   if (!m) return notFound();
   try {
     const file = await ensureEmoji(ses, dir, m[1]!, m[2] === 'gif');
-    return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[m[2]!]! } });
+    return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[m[2]!]!, ...KEPT } });
   } catch {
     return notFound();
   }
@@ -123,7 +131,7 @@ async function serveIcon(iconDir: string, ses: Session, kind: CdnIcon, ownerId?:
   const file = join(iconDir, `${kind.prefix}${ownerId}-${hash}.webp`);
   const status = await fetchOnceToFile(ses, `${DISCORD_CDN}/${kind.path}/${ownerId}/${hash}.webp?size=${kind.size}`, file);
   if (status !== null) return upstreamError(status);
-  return new Response(await readFile(file), { headers: { 'content-type': 'image/webp' } });
+  return new Response(await readFile(file), { headers: { 'content-type': 'image/webp', ...KEPT } });
 }
 
 /** cp-media://badge/<hash>: a profile badge's icon (Discord keeps them by hash alone). */
@@ -132,7 +140,7 @@ async function serveBadge(iconDir: string, ses: Session, hash?: string): Promise
   const file = join(iconDir, `badge-${hash}.png`);
   const status = await fetchOnceToFile(ses, `${DISCORD_CDN}/badge-icons/${hash}.png`, file);
   if (status !== null) return upstreamError(status);
-  return new Response(await readFile(file), { headers: { 'content-type': 'image/png' } });
+  return new Response(await readFile(file), { headers: { 'content-type': 'image/png', ...KEPT } });
 }
 
 /** Discord's decoration is 1.2x the avatar; 96 covers a 36px avatar's frame on 2x displays. */
@@ -145,7 +153,7 @@ async function serveDecoration(dir: string, ses: Session, asset: string | undefi
   const src = `${DISCORD_CDN}/avatar-decoration-presets/${asset}.png?size=${large ? PROFILE_IMAGE_SIZE_PX : DECORATION_SIZE_PX}&passthrough=${animated}`;
   const status = await fetchOnceToFile(ses, src, file);
   if (status !== null) return upstreamError(status);
-  return new Response(await readFile(file), { headers: { 'content-type': 'image/png' } });
+  return new Response(await readFile(file), { headers: { 'content-type': 'image/png', ...KEPT } });
 }
 
 /** A display-name font: from the store, else loaded by the Discord page from where it loads it (file names change per deploy). */
@@ -175,7 +183,7 @@ async function serveAvatar(dir: string, ses: Session, userId: string | undefined
   const src = isDefault ? `${DISCORD_CDN}/embed/avatars/${index}.png` : `${DISCORD_CDN}/avatars/${userId}/${hash}.webp?size=${sized ? PROFILE_IMAGE_SIZE_PX : ICON_SIZE_PX}`;
   const status = await fetchOnceToFile(ses, src, file);
   if (status !== null) return upstreamError(status);
-  return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[ext]! } });
+  return new Response(await readFile(file), { headers: { 'content-type': STORED_MEDIA_MIME[ext]!, ...KEPT } });
 }
 
 /** cp-media://poster/<attachment id>: a video attachment's still, fetched once and kept. */
