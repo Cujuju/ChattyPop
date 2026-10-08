@@ -6,7 +6,7 @@ import { newNonce } from '@shared/discord';
 import type { PollDraft } from '@shared/polls';
 import { convertEmoticons } from '@shared/emoticons';
 import { discordChatSettings } from './chatSettings';
-import { takeDraft } from './drafts';
+import { takeDraft, type SavedDraft } from './drafts';
 import { enqueue } from './outbox';
 import { cancelReply, replyPing, replyTarget } from './reply';
 
@@ -23,6 +23,13 @@ const replyIn = (channelId: string): OwnerMessage['replyTo'] => {
   return t && t.channelId === channelId ? { messageId: t.id, ping: replyPing() } : null;
 };
 
+/** Discord's "Automatically convert emoticons": applied to what is sent, not to the draft kept for editing. */
+const convertedText = (draft: SavedDraft): string => (discordChatSettings().convertEmoticons ? convertEmoticons(draft.text) : draft.text);
+
+/** What a draft sends: emoticons converted, built-in commands applied, emoji and mention tokens expanded. */
+export const outgoingText = (draft: SavedDraft): string =>
+  expandMentionTokens(expandEmojiTokens(applyBuiltinCommand(convertedText(draft)), new Map(draft.emoji)), new Map(draft.mentions));
+
 /** Clears drafts/replies immediately while queuing text/stickers with built-in rewrites. Editing unsent entries restores them into empty drafts. */
 export function sendDraft(channelId: string, stickerId: string | null = null): void {
   const replyTo = replyIn(channelId);
@@ -31,14 +38,12 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
   const draft = takeDraft(channelId, target);
   if (target) cancelReply();
   const { files } = draft;
-  // Discord's "Automatically convert emoticons": applied to what is sent, not to the draft kept for editing.
-  const text = discordChatSettings().convertEmoticons ? convertEmoticons(draft.text) : draft.text;
   enqueue({
     channelId,
-    label: text.trim() || (stickerId ? 'Sticker' : `${files.length} ${files.length === 1 ? 'file' : 'files'}`),
+    label: convertedText(draft).trim() || (stickerId ? 'Sticker' : `${files.length} ${files.length === 1 ? 'file' : 'files'}`),
     message: {
       channelId,
-      text: expandMentionTokens(expandEmojiTokens(applyBuiltinCommand(text), new Map(draft.emoji)), new Map(draft.mentions)),
+      text: outgoingText(draft),
       replyTo,
       files: [],
       stickerId,

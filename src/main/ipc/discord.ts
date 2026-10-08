@@ -36,7 +36,7 @@ import { PHONE_DISCORD_METHODS } from '@shared/phone';
 import type { DiscordCalls } from '../phone/hub';
 import { gatePosting, postingClient, type PostingGate } from '../plugins/posting';
 import { registerDmHandlers } from './dms';
-import { readScheduledAccount } from '../discord/scheduledAvailability';
+import { ScheduledGate } from '../discord/scheduledAvailability';
 import { ScheduledMessages } from '../discord/scheduledMessages';
 
 /** Channel kinds a suggestion samples: text and announcement channels (not DMs, threads or forums). */
@@ -79,7 +79,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     return uploadLimitBytes(account.premiumType, guild ? tiers.tier(guild.id) : null);
   };
   const uploads = new Uploads(d.discordSession, limitFor);
-  const scheduled = new ScheduledMessages(poster, (channelId) => readScheduledAccount(d.discord.webContents.debugger, channelId), uploads);
+  const scheduledGate = new ScheduledGate(d.discord.tap, account);
+  const scheduled = new ScheduledMessages(poster, () => scheduledGate.account, uploads);
   const scheduledCalls = gatePosting(d.posting, {
     createScheduled: (m: unknown) => scheduled.create(m), updateScheduled: (u: unknown) => scheduled.update(u),
     cancelScheduled: (id: unknown) => scheduled.remove(id), sendScheduledNow: (id: unknown) => scheduled.remove(id, true),
@@ -136,7 +137,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const autocomplete = (req: unknown): Promise<CommandChoice[]> => interactions.autocomplete(req);
   const useComponent = (use: unknown): Promise<InteractionOutcome> => interactions.useComponent(use);
   const submitModal = (submit: unknown): Promise<InteractionOutcome> => interactions.submitModal(submit);
-  const memberRequests = new MemberRequests(d.discord.webContents.debugger, d.discord.tap);
+  // Passive member enrichment: no socket discovery or additional Discord requests.
+  const memberRequests = new MemberRequests();
   const requestMembers = async (guildId: unknown, query: unknown): Promise<void> => {
     if (typeof query !== 'string') throw new Error('Not a member search.');
     await memberRequests.request(snowflakeArg(guildId, 'server'), query);

@@ -503,6 +503,7 @@
       "scheduleDraft",
       "schedulePoll",
       "schedulePresets",
+      "scheduleTimeLabel",
       "scheduleWindowError",
       "scheduledForChannel",
       "scheduledLimit",

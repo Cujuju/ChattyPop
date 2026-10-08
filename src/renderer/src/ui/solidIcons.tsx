@@ -16,6 +16,8 @@ const SOLID_ICONS = {
   camera: () => (
     <path d="M9 3h6l1.5 2H19a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h2.5ZM12 8.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 1 0 0-9ZM12 10.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 1 0 0-5Z" />
   ),
+  // A clock face, its hands cut out: a scheduled message.
+  clock: () => <path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20ZM10.9 6h2.2v5.5l3.6 3.6-1.6 1.6-4.2-4.2Z" />,
   attach: () => <path d="M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20ZM10.9 6.5h2.2v4.4h4.4v2.2h-4.4v4.4h-2.2v-4.4H6.5v-2.2h4.4Z" />,
   // Four tiles: the attach sheet's Apps (an app's commands).
   apps: () => <path d="M4 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM15 3h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM4 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1ZM15 14h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1Z" />,

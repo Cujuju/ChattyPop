@@ -8,6 +8,7 @@ export const SCHEDULE_MAX_MS = 8 * MS_PER_DAY;
 export const SCHEDULE_REPLY_MAX_MS = 30 * MS_PER_DAY;
 export const SUPPRESS_NOTIFICATIONS = 1 << 12;
 export const SCHEDULE_LIMIT_CODE = 640003;
+export const SCHEDULE_UNAVAILABLE = 'Scheduled messages are not available on this account.';
 export const SCHEDULE_UNCONFIRMED = 'Scheduling was not confirmed. Check scheduled messages before trying again.';
 
 export interface ScheduledAvailability {
@@ -73,6 +74,19 @@ export function defaultScheduleTime(now = Date.now()): string {
   date.setHours(date.getHours() + 1, 0, 0, 0);
   if (date.getTime() < now + SCHEDULE_MIN_MS) date.setHours(date.getHours() + 1);
   return date.toISOString();
+}
+
+/** When a scheduled send goes, as Discord words it: "Today at 9:00 AM", "Tomorrow at 1:00 PM", "Mon, Oct 12 at 9:00 AM". */
+export function scheduleTimeLabel(timestamp: string, now = Date.now()): string {
+  const at = new Date(timestamp);
+  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const startOfDay = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(at) - startOfDay(new Date(now))) / MS_PER_DAY);
+  if (days === 0) return `Today at ${time}`;
+  if (days === 1) return `Tomorrow at ${time}`;
+  const sameYear = at.getFullYear() === new Date(now).getFullYear();
+  const day = at.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+  return `${day} at ${time}`;
 }
 
 export const scheduledStateLabel = (state: number): string => [

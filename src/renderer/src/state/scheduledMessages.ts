@@ -4,12 +4,10 @@ import { unwrap } from 'solid-js/store';
 import { api } from '@/api';
 import { errorText } from '@/ui/format';
 import { idbEntries, idbSet, whenWritten } from '@/ui/idbStore';
-import { applyBuiltinCommand, expandEmojiTokens, expandMentionTokens } from '@shared/compose';
 import { newNonce } from '@shared/discord';
-import { convertEmoticons } from '@shared/emoticons';
 import type { PollDraft } from '@shared/polls';
-import { SCHEDULE_UNCONFIRMED, scheduleWindowError, type ScheduledAvailability, type ScheduledMessage, type ScheduledUpdate } from '@shared/scheduledMessages';
-import { discordChatSettings } from './chatSettings';
+import { SCHEDULE_UNCONFIRMED, scheduleTimeLabel, scheduleWindowError, type ScheduledAvailability, type ScheduledMessage, type ScheduledUpdate } from '@shared/scheduledMessages';
+import { outgoingText } from './composer';
 import { snapshotDraft, takeDraft } from './drafts';
 import { onAppEvent } from './events';
 import { uploadFiles } from './outbox';
@@ -29,6 +27,8 @@ const KEY = 'scheduled-draft:';
 const UNCERTAIN_KEY = 'scheduled-unconfirmed:';
 let generation = 0;
 let listRead = 0;
+/** The account generation whose list was read. */
+let listedGeneration = -1;
 const monitored = new Set<string>();
 
 export const scheduledTime = (channelId: string): string | undefined => times()[channelId];
@@ -39,6 +39,12 @@ export function clearScheduleUnconfirmed(channelId: string): void {
 }
 function markUnconfirmed(channelId: string): void {
   setUnconfirmed((u) => ({ ...u, [channelId]: true })); idbSet(UNCERTAIN_KEY + channelId, true);
+}
+/** How long a confirmation stays beside the composer: long enough to read, as a toast stays. */
+const NOTICE_MS = 6_000;
+function notify(channelId: string, text: string): void {
+  setNotices((n) => ({ ...n, [channelId]: text }));
+  if (text) setTimeout(() => setNotices((n) => (n[channelId] === text ? { ...n, [channelId]: '' } : n)), NOTICE_MS);
 }
 export const scheduledNotice = (channelId: string): string => notices()[channelId] ?? '';
 export const scheduledForChannel = (channelId: string): ScheduledMessage[] => items().filter((m) => m.create_args.channel_id === channelId).sort((a, b) => Date.parse(a.send_at_timestamp) - Date.parse(b.send_at_timestamp));
@@ -51,7 +57,13 @@ export async function loadScheduledAvailability(channelId: string): Promise<void
   const epoch = generation;
   let value: ScheduledAvailability = { enabled: false, limit: 0 };
   try { value = await api.discord.scheduledAvailability(channelId); } catch { /* An older running preload needs a restart. */ }
-  if (epoch === generation) setAvailability((a) => ({ ...a, [channelId]: value }));
+  if (epoch !== generation) return;
+  setAvailability((a) => ({ ...a, [channelId]: value }));
+  // Discord sends no events for scheduled messages: the list is read once per account, then follows this app's changes.
+  if (value.enabled && listedGeneration !== generation) {
+    listedGeneration = generation;
+    void refreshScheduledMessages();
+  }
 }
 
 export function setScheduledTime(channelId: string, timestamp: string | undefined): void {
@@ -82,10 +94,8 @@ function accept(item: ScheduledMessage): void {
 }
 
 function scheduleFailed(channelId: string, error: unknown): never {
-  const text = errorText(error);
-  // Explicit unsent refusals allow correction; a lost IPC response can also hide an accepted create.
-  if (/Discord 4\d\d on |limit reached|Too soon:|Too far:|unavailable in this channel|Posting is off:|account changed|Choose a valid|Write a message first|Not a /.test(text)) clearScheduleUnconfirmed(channelId);
-  if (schedulingUnconfirmed(channelId)) throw new Error(SCHEDULE_UNCONFIRMED);
+  // Main reports an attempt it couldn't confirm as SCHEDULE_UNCONFIRMED; any other refusal means nothing was created.
+  if (!errorText(error).includes(SCHEDULE_UNCONFIRMED)) clearScheduleUnconfirmed(channelId);
   throw error;
 }
 
@@ -100,12 +110,11 @@ export async function scheduleDraft(channelId: string, stickerId: string | null 
   const error = scheduleWindowError(Date.parse(timestamp), Date.now(), target?.id);
   if (error) throw new Error(error);
   const draft = snapshotDraft(channelId, target);
-  const text = discordChatSettings().convertEmoticons ? convertEmoticons(draft.text) : draft.text;
-  const content = expandMentionTokens(expandEmojiTokens(applyBuiltinCommand(text), new Map(draft.emoji)), new Map(draft.mentions));
+  const content = outgoingText(draft);
   const epoch = generation;
   const ping = replyPing();
   setBusy((b) => ({ ...b, [channelId]: true }));
-  setNotices((n) => ({ ...n, [channelId]: '' }));
+  notify(channelId, '');
   try {
     const prepared = await prepareFiles(draft.files.map((f) => f.file), await api.discord.uploadLimit(channelId), () => {});
     const files = draft.files.map((f, i) => ({ ...f, file: prepared[i]! }));
@@ -125,7 +134,7 @@ export async function scheduleDraft(channelId: string, stickerId: string | null 
     if (current.text === draft.text && current.files.length === draft.files.length && current.files.every((f, i) => f.file === draft.files[i]?.file && f.description === draft.files[i]?.description && f.spoiler === draft.files[i]?.spoiler)) takeDraft(channelId, target);
     if (target && replyTarget()?.id === target.id) cancelReply();
     if (scheduledTime(channelId) === timestamp) setScheduledTime(channelId, undefined);
-    setNotices((n) => ({ ...n, [channelId]: `Message scheduled for ${new Date(item.send_at_timestamp).toLocaleString()}.` }));
+    notify(channelId, `Message scheduled for ${scheduleTimeLabel(item.send_at_timestamp)}.`);
   } catch (error) {
     if (epoch === generation) scheduleFailed(channelId, error);
     throw error;
@@ -155,7 +164,7 @@ export async function schedulePoll(channelId: string, poll: PollDraft): Promise<
     accept(item);
     if (target && replyTarget()?.id === target.id) cancelReply();
     if (scheduledTime(channelId) === timestamp) setScheduledTime(channelId, undefined);
-    setNotices((n) => ({ ...n, [channelId]: `Poll scheduled for ${new Date(item.send_at_timestamp).toLocaleString()}.` }));
+    notify(channelId, `Poll scheduled for ${scheduleTimeLabel(item.send_at_timestamp)}.`);
   } catch (error) {
     if (epoch === generation) scheduleFailed(channelId, error);
     throw error;
@@ -185,7 +194,6 @@ onAppEvent('self-changed', () => {
   setItems([]); setAvailability({}); setBusy({}); setNotices({}); setLoading(false); setListError(null);
   // Draft intent and uncertain creates survive an account event; clearing either could turn a retry into a fresh send.
   for (const channelId of monitored) void loadScheduledAvailability(channelId);
-  if (monitored.size) void refreshScheduledMessages();
 });
 const restoredDrafts = Promise.all([
   idbEntries<boolean>(UNCERTAIN_KEY).then((saved) => {

@@ -1,6 +1,6 @@
 import { DISCORD_TEXT_MAX, DiscordHttpError, snowflakeArg, typedMentions } from '@shared/discord';
 import { pollPayload } from '@shared/polls';
-import { SCHEDULE_LIMIT_CODE, SCHEDULE_UNCONFIRMED, SUPPRESS_NOTIFICATIONS, scheduleWindowError, scheduledContent, type ScheduledDraft, type ScheduledMessage, type ScheduledUpdate } from '@shared/scheduledMessages';
+import { SCHEDULE_LIMIT_CODE, SCHEDULE_UNAVAILABLE, SCHEDULE_UNCONFIRMED, SUPPRESS_NOTIFICATIONS, scheduleWindowError, scheduledContent, type ScheduledDraft, type ScheduledMessage, type ScheduledUpdate } from '@shared/scheduledMessages';
 import { isPostingLocked } from '@shared/posting';
 import type { DiscordClient } from './client';
 import type { ScheduledAccount } from './scheduledAvailability';
@@ -38,32 +38,34 @@ export function checkScheduledUpdate(value: unknown, replyId?: string): Schedule
 
 /** All requests use the existing session client and posting gate. Creation has no deduplicating nonce. */
 export class ScheduledMessages {
-  constructor(private readonly api: DiscordClient, private readonly account: (channelId?: string) => Promise<ScheduledAccount>, private readonly uploads?: Uploads) {}
+  constructor(private readonly api: DiscordClient, private readonly account: () => ScheduledAccount, private readonly uploads?: Uploads) {}
 
-  async availability(channelId: unknown) {
-    const { enabled, limit } = await this.account(snowflakeArg(channelId, 'channel'));
+  /** The account's, not the channel's: Discord refuses a channel the owner can't post in, as it refuses a send. */
+  availability(channelId: unknown) {
+    snowflakeArg(channelId, 'channel');
+    const { enabled, limit } = this.account();
     return { enabled, limit };
   }
 
-  private async guard(userId: string | null, channelId?: string): Promise<void> {
-    const current = await this.account(channelId);
+  private guard(userId: string | null, creating = false): void {
+    const current = this.account();
     if (!userId || current.userId !== userId) throw new Error('The Discord account changed. Refresh scheduled messages.');
-    if (channelId && !current.enabled) throw new Error('Scheduled messages are unavailable in this channel.');
+    if (creating && !current.enabled) throw new Error(SCHEDULE_UNAVAILABLE);
   }
 
   async list(): Promise<ScheduledMessage[]> {
-    const account = await this.account();
+    const account = this.account();
     if (!account.userId) throw new Error('The live Discord account is not ready.');
-    const items = await this.api.get<ScheduledMessage[]>(PATH, {}, { guard: () => this.guard(account.userId) });
-    await this.guard(account.userId);
+    const items = await this.api.get<ScheduledMessage[]>(PATH, {}, { guard: async () => this.guard(account.userId) });
+    this.guard(account.userId);
     if (!Array.isArray(items)) throw new Error('Discord returned an unexpected scheduled-message list.');
     return items.filter((item) => item.user_id === account.userId);
   }
 
   async create(value: unknown): Promise<ScheduledMessage> {
     const m = checkScheduledDraft(value);
-    const account = await this.account(m.channelId);
-    if (!account.enabled) throw new Error('Scheduled messages are unavailable in this channel.');
+    const account = this.account();
+    if (!account.enabled) throw new Error(SCHEDULE_UNAVAILABLE);
     const tokens = m.uploads ?? [];
     if (tokens.length && !this.uploads) throw new Error('Uploads are not taken here.');
     const held = this.uploads?.take(m.channelId, tokens) ?? [];
@@ -76,7 +78,7 @@ export class ScheduledMessages {
         allowed_mentions: typedMentions(m.replyTo?.ping ?? false), attachments,
         ...(m.replyTo ? { message_reference: { channel_id: m.channelId, message_id: m.replyTo.messageId } } : {}),
         ...(m.stickerId ? { sticker_ids: [m.stickerId] } : {}), ...(m.poll ? { poll: pollPayload(m.poll) } : {}),
-      }, { guard: async () => { checkTime(m.scheduledTimestamp, m.replyTo?.messageId); await this.guard(account.userId, m.channelId); attempted = true; } });
+      }, { guard: async () => { checkTime(m.scheduledTimestamp, m.replyTo?.messageId); this.guard(account.userId, true); attempted = true; } });
       this.uploads?.release(tokens);
       return item;
     } catch (error) {
@@ -98,14 +100,14 @@ export class ScheduledMessages {
     if (u.content !== undefined && !content.content?.trim() && !item.attachment_uploads?.length && !item.message_preview?.sticker_items?.length && !item.message_preview?.poll) throw new Error('Write a message first.');
     return this.api.patch<ScheduledMessage>(itemPath(u.id), {
       ...(u.scheduledTimestamp === undefined ? {} : { scheduled_timestamp: u.scheduledTimestamp }), ...content,
-    }, { guard: async () => { if (u.scheduledTimestamp) checkTime(u.scheduledTimestamp, replyId); await this.guard(item.user_id); } });
+    }, { guard: async () => { if (u.scheduledTimestamp) checkTime(u.scheduledTimestamp, replyId); this.guard(item.user_id); } });
   }
 
   async remove(id: unknown, sendNow = false): Promise<void> {
     const path = itemPath(id);
     const item = (await this.list()).find((m) => m.scheduled_message_id === id);
     if (!item) throw new Error('This scheduled message is no longer pending. Refresh the list.');
-    const opts = { guard: () => this.guard(item.user_id) };
+    const opts = { guard: async () => this.guard(item.user_id) };
     if (sendNow) await this.api.postOnce(`${path}/send`, undefined, opts);
     else await this.api.delete(path, opts);
   }

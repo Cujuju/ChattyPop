@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiscordHttpError, snowflakeFromMs } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
-import { SCHEDULE_LIMIT_CODE, SUPPRESS_NOTIFICATIONS, defaultScheduleTime, schedulePresets, scheduleWindowError, scheduledContent, scheduledStateLabel, type ScheduledMessage } from '@shared/scheduledMessages';
+import { SCHEDULE_LIMIT_CODE, SCHEDULE_UNAVAILABLE, SUPPRESS_NOTIFICATIONS, defaultScheduleTime, schedulePresets, scheduleWindowError, scheduledContent, scheduledStateLabel, type ScheduledMessage } from '@shared/scheduledMessages';
 import { ScheduledMessages, checkScheduledDraft, checkScheduledUpdate } from '../src/main/discord/scheduledMessages';
-import { readScheduledAccount, scheduledProbe } from '../src/main/discord/scheduledAvailability';
+import { EventEmitter } from 'node:events';
+import { ScheduledGate, assignedLimit, murmur3 } from '../src/main/discord/scheduledAvailability';
+import type { GatewayTap } from '../src/main/discord/gatewayTap';
 import { postingClient } from '../src/main/plugins/posting';
 import type { DiscordClient, RequestOptions, WriteOptions } from '../src/main/discord/client';
 import type { Uploads } from '../src/main/discord/uploads';
@@ -20,7 +22,7 @@ function setup() {
     postOnce: vi.fn(async (_path: string, _body: unknown, _opts?: WriteOptions) => item()), post: vi.fn(),
     patch: vi.fn(async (_path: string, _body: unknown, _opts?: WriteOptions) => item()),
     delete: vi.fn(async (_path: string, _opts?: WriteOptions) => {}), upload: vi.fn(async (_url: string, _bytes: Buffer) => {}) };
-  const account = vi.fn(async () => ({ enabled: true, limit: 25, userId: USER }));
+  const account = vi.fn(() => ({ enabled: true, limit: 25, userId: USER as string | null }));
   const service = new ScheduledMessages(api as unknown as DiscordClient, account);
   return { api, account, service };
 }
@@ -95,10 +97,10 @@ describe('scheduled REST contracts', () => {
     vi.setSystemTime(NOW + MS_PER_HOUR);
     await expect(guard()).rejects.toThrow(/Too soon/);
     vi.setSystemTime(NOW);
-    account.mockResolvedValue({ enabled: true, limit: 25, userId: ID });
+    account.mockReturnValue({ enabled: true, limit: 25, userId: ID });
     await expect(guard()).rejects.toThrow(/account changed/);
-    account.mockResolvedValue({ enabled: false, limit: 0, userId: USER });
-    await expect(service.create(draft())).rejects.toThrow(/unavailable/);
+    account.mockReturnValue({ enabled: false, limit: 0, userId: USER });
+    await expect(service.create(draft())).rejects.toThrow(SCHEDULE_UNAVAILABLE);
   });
   it('does not retry uncertain creation and turns the verified limit code into a useful message', async () => {
     const { api, service } = setup();
@@ -133,7 +135,7 @@ describe('scheduled REST contracts', () => {
     const { api, account, service } = setup();
     api.get.mockResolvedValue([{ ...item(), user_id: ID }, item()]);
     expect(await service.list()).toEqual([item()]);
-    account.mockResolvedValueOnce({ enabled: true, limit: 25, userId: USER }).mockResolvedValue({ enabled: true, limit: 25, userId: ID });
+    account.mockReturnValueOnce({ enabled: true, limit: 25, userId: USER }).mockReturnValue({ enabled: true, limit: 25, userId: ID });
     await expect(service.list()).rejects.toThrow(/account changed/);
   });
   it('reschedules using the original reply age and normalizes silent edits', async () => {
@@ -165,10 +167,40 @@ describe('scheduled REST contracts', () => {
   });
 });
 
-describe('embedded experiment probe', () => {
-  it('fails closed when the bundle is absent, changed or raises', async () => {
-    expect(await readScheduledAccount({ sendCommand: async () => ({ result: { value: null } }) })).toEqual({ enabled: false, limit: 0, userId: null });
-    expect(await readScheduledAccount({ sendCommand: async () => { throw new Error('loading'); } })).toEqual({ enabled: false, limit: 0, userId: null });
-    expect(() => scheduledProbe('../x')).toThrow(/id/);
+describe('scheduled-message availability from the gateway', () => {
+  /** The experiment's hash as the live client's stored assignments name it (verified 2026-10-07). */
+  const HASH = 1950700659;
+  type Apex = Parameters<typeof assignedLimit>[0];
+  const apex = (variant: number, flags: number, config?: string): Apex => ({ assignments: { 1: { [USER]: { assignments: [[HASH, variant, flags, 1, variant, config]] } } } });
+
+  it('hashes experiment names as the client does', () => {
+    expect(murmur3('2026-08-scheduled-messages')).toBe(HASH);
+    expect(murmur3('')).toBe(0);
+  });
+  it('reads the limit from an enabled assignment and fails closed otherwise', () => {
+    expect(assignedLimit(apex(1, 2, '{"limit":1}'), USER)).toBe(1);
+    expect(assignedLimit(apex(2, 0, '{"limit":3}'), USER)).toBe(3);
+    expect(assignedLimit(apex(0, 0, '{"limit":1}'), USER)).toBe(0);
+    expect(assignedLimit(apex(1, 8, '{"limit":1}'), USER)).toBe(0);
+    expect(assignedLimit(apex(1, 0, 'not json'), USER)).toBe(0);
+    expect(assignedLimit(apex(1, 0), USER)).toBe(0);
+    expect(assignedLimit({ assignments: { 1: { [USER]: { assignments: [] } } } }, USER)).toBe(0);
+    expect(assignedLimit(apex(1, 0, '{"limit":1}'), ID)).toBeNull();
+    expect(assignedLimit(undefined, USER)).toBeNull();
+  });
+  it('follows READY and STATE_UPDATE for the signed-in account; Nitro gets 25', () => {
+    const tap = new EventEmitter();
+    const owner = { userId: null as string | null, premiumType: 0 };
+    const gate = new ScheduledGate(tap as unknown as GatewayTap, owner);
+    expect(gate.account).toEqual({ enabled: false, limit: 0, userId: null });
+    owner.userId = USER;
+    tap.emit('dispatch', { t: 'READY', d: { user: { id: USER }, apex_experiments: apex(1, 0, '{"limit":1}') } });
+    expect(gate.account).toEqual({ enabled: true, limit: 1, userId: USER });
+    owner.premiumType = 2;
+    expect(gate.account.limit).toBe(25);
+    tap.emit('dispatch', { t: 'STATE_UPDATE', d: { apex_experiments: { assignments: {} } } });
+    expect(gate.account.enabled).toBe(true);
+    tap.emit('dispatch', { t: 'STATE_UPDATE', d: { apex_experiments: apex(0, 0) } });
+    expect(gate.account).toEqual({ enabled: false, limit: 0, userId: USER });
   });
 });
