@@ -27,6 +27,8 @@ export const ICON_SHAPES = {
   ),
   archive: () => <path d="M4 4h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4" />,
   arrowDown: () => <path d="M12 5v14M6 13l6 6 6-6" />,
+  // Back, as a phone page's header has it.
+  arrowLeft: () => <path d="M19 12H5M11 6l-6 6 6 6" />,
   arrowUp: () => <path d="M12 19V5M6 11l6-6 6 6" />,
   bell: () => <path d="M6 9a6 6 0 0 1 12 0v4l2 4H4l2-4zM10 20a2 2 0 0 0 4 0" />,
   // A bell struck through: muted.

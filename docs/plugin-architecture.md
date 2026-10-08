@@ -543,6 +543,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `ruleBelow`, `ruleAbove` | A rule under or over a region | `data-rule="subtle"` (between list rows, within a popover) |
 | `fadeBelow`, `fadeAbove` | A chrome bar's edge without a rule: its `::after` / `::before` fades the chrome ground out over the content past the edge (the component places the box, `--cp-edge-fade-h` tall) | — |
 | `sheet`, `drawer` | Bottom sheet and side drawer dialogs, with their backdrop; a deep sheet is near-black glass that sets pictures apart | `data-tone="deep"` (`sheet`) |
+| `page` | A full-screen phone page (a modal dialog filling the screen) on the app base | — |
 | `silentFocus` | A container focused on opening draws no ring | — |
 | `row` | List row: a hover wash that fades in | `data-hover="raise"` (a rounded tile lifting to surface-4), `data-press` (pressed wash), `data-state="dimmed"` |
 | `valueRow`, `coverControl` | A settings row showing its value, and the native control laid unseen over it | — |

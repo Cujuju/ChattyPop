@@ -36,6 +36,7 @@
   /* iPhone shell supplies keyboard inset/duration tokens on html. Base/pair rules animate inset so padded content follows keyboard movement. */
   --cp-keyboard-duration: 0ms;
   /* The home-bar inset the page still keeps clear: none once the keyboard covers it. */
+  --cp-safe-top: env(safe-area-inset-top); /* the status bar and camera cutout over a full-screen page's top */
   --cp-safe-bottom: max(0px, env(safe-area-inset-bottom) - var(--cp-keyboard-inset));
 
   /* Glyphs drawn in CSS */
