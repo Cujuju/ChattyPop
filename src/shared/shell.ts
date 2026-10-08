@@ -30,6 +30,10 @@ export const SHELL_CAPABILITIES = {
   network: 'network',
   /** SHELL_PHOTOS_HANDLER, SHELL_PHOTOS_EVENT and SHELL_ASSET_SCHEME. */
   photoLibrary: 'photoLibrary',
+  /** SHELL_PHOTOS_HANDLER's `pick`: the system photo picker. */
+  photoPicker: 'photoPicker',
+  /** SHELL_PHOTOS_HANDLER's `browse`: the system Files browser. */
+  documentPicker: 'documentPicker',
 } as const;
 export type ShellCapability = (typeof SHELL_CAPABILITIES)[keyof typeof SHELL_CAPABILITIES];
 const CAPABILITY_NAMES: readonly string[] = Object.values(SHELL_CAPABILITIES);
@@ -111,6 +115,11 @@ export interface ShellAssetExport {
  * - `read`: base64 of up to `length` (SHELL_ASSET_READ_BYTES at most) bytes of export `token` from `offset`. The read that reaches
  *   its end deletes the file. The bytes come this way because WebKit blocks an https page's fetch from an app scheme as mixed content.
  * - `release`: deletes export `token` unread. A relaunch deletes every export.
+ * - `pick` (`photoPicker` capability): the system photo picker, up to `limit` items; resolves to a ShellAssetExport of each
+ *   picked item in the order picked, converted and shrunk as `export` does, or `[]` when the owner cancels. The items are
+ *   exported from what the picker hands over, not by library id, so this needs no library access.
+ * - `browse` (`documentPicker` capability): the system Files browser, any number of files; resolves to a ShellAssetExport of
+ *   a copy of each, as it is, or `[]` when the owner cancels.
  */
 export type ShellPhotosRequest =
   | { op: 'access' }
@@ -119,7 +128,9 @@ export type ShellPhotosRequest =
   | { op: 'recent'; offset: number; limit: number }
   | { op: 'export'; id: string; shrink?: ShellVideoShrink }
   | { op: 'read'; token: string; offset: number; length: number }
-  | { op: 'release'; token: string };
+  | { op: 'release'; token: string }
+  | { op: 'pick'; limit: number; shrink?: ShellVideoShrink }
+  | { op: 'browse' };
 /** A video export's target (ShellVideoShrinker.swift): the shorter side and video rate of a page encode preset (EncodePreset). */
 export interface ShellVideoShrink {
   /** The output's shorter side, px; a smaller video keeps its size. */

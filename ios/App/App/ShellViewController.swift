@@ -30,7 +30,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let photosHandler = "shellPhotos"
     private static let photosEvent = "cp-shell-photos"
     /// Mirrors SHELL_CAPABILITIES in src/shared/shell.ts: the native features this build has, which the page offers and no others.
-    private static let capabilities = ["camera", "saveMedia", "network", "photoLibrary"]
+    private static let capabilities = ["camera", "saveMedia", "network", "photoLibrary", "photoPicker", "documentPicker"]
     /// WKSecurityOrigin reports a scheme's default port as 0; the saved origin is https.
     private static let httpsDefaultPort = 443
     /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
@@ -166,7 +166,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         // On load, after the page's scripts have added their listeners, asks for the network state.
         let ready = "addEventListener('load', () => window.webkit?.messageHandlers?.\(Self.networkHandler)?.postMessage(null));"
         configuration.userContentController.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        configuration.setURLSchemeHandler(ShellAssetSchemeHandler { Self.savedOrigin }, forURLScheme: ShellAssetSchemeHandler.scheme)
+        configuration.setURLSchemeHandler(ShellAssetSchemeHandler(thumbnails: Self.photoLibrary.thumbnails) { Self.savedOrigin },
+                                        forURLScheme: ShellAssetSchemeHandler.scheme)
         let view = PairingWebView(frame: frame, configuration: configuration)
         view.initialURL = pairingURL
         pairingURL = nil
@@ -338,7 +339,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         Self.mediaSaver.receive(message.body) { error in reply(nil, error) }
     }
 
-    /// A photo library request (ShellPhotoLibrary). Only the paired page may read the library.
+    /// A photo library or system picker request (ShellPhotoLibrary). Only the paired page may read the library or open a picker.
     fileprivate func photos(_ message: WKScriptMessage, reply: @escaping (Any?, String?) -> Void) {
         guard Self.isPairedPage(message.frameInfo) else { return reply(nil, "Only the paired page may read Photos.") }
         Self.photoLibrary.receive(message.body, presenter: self, reply: reply)

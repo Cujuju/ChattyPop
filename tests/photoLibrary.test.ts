@@ -19,6 +19,10 @@ const library = (await import(libraryPath)) as {
   manageLimitedPhotos(): Promise<PhotoAccess>;
   recentPhotos(offset: number, limit?: number): Promise<ShellAssetPage>;
   photoFile(id: string): Promise<File>;
+  photoPickerOffered(): boolean;
+  filePickerOffered(): boolean;
+  pickPhotos(limit: number): Promise<File[]>;
+  pickFiles(): Promise<File[]>;
 };
 
 /** Byte pattern period: prime, so piece boundaries never line up with it. */
@@ -120,5 +124,57 @@ describe('with it', () => {
     device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'best', dataSaving: true };
     device.cellular = true;
     expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf(ENCODE_PRESETS.dataSaver) });
+  });
+});
+
+describe('the system pickers', () => {
+  const pickers = [SHELL_CAPABILITIES.photoLibrary, SHELL_CAPABILITIES.photoPicker, SHELL_CAPABILITIES.documentPicker];
+
+  it('are offered only when the app lists each, and never asked for otherwise', async () => {
+    expect([library.photoPickerOffered(), library.filePickerOffered()]).toEqual([false, false]);
+    await expect(library.pickPhotos(3)).rejects.toThrow();
+    await expect(library.pickFiles()).rejects.toThrow();
+    expect(requests).toEqual([]);
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: pickers });
+    expect([library.photoPickerOffered(), library.filePickerOffered()]).toEqual([true, true]);
+  });
+
+  it('read each picked item in the order picked, and nothing on cancel', async () => {
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: pickers });
+    const exported = [
+      { token: 'A', name: 'a.jpg', type: 'image/jpeg', size: 2 },
+      { token: 'B', name: 'b.pdf', type: 'application/pdf', size: 1 },
+    ];
+    answer = (r) => (r.op === 'pick' || r.op === 'browse' ? exported : r.op === 'read' ? Buffer.from('xy'.slice(0, r.token === 'A' ? 2 : 1)).toString('base64') : undefined);
+    expect((await library.pickPhotos(4)).map((f) => [f.name, f.type, f.size])).toEqual([['a.jpg', 'image/jpeg', 2], ['b.pdf', 'application/pdf', 1]]);
+    expect(requests.map((r) => r.op)).toEqual(['pick', 'read', 'read']);
+    expect(requests[0]).toEqual({ op: 'pick', limit: 4 });
+    requests = [];
+    expect(await library.pickFiles()).toHaveLength(2);
+    expect(requests[0]).toEqual({ op: 'browse' });
+    answer = () => [];
+    expect(await library.pickPhotos(4)).toEqual([]);
+    expect(await library.pickFiles()).toEqual([]);
+  });
+
+  it('asks for no picker without room, and shrinks videos as photoFile does', async () => {
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: pickers });
+    answer = () => [];
+    expect(await library.pickPhotos(0)).toEqual([]);
+    expect(requests).toEqual([]);
+    device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'standard' };
+    await library.pickPhotos(1);
+    expect(requests).toEqual([{ op: 'pick', limit: 1, shrink: { ...ENCODE_PRESETS.standard, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE } }]);
+  });
+
+  it('release the unread exports when one fails', async () => {
+    vi.stubGlobal(SHELL_NATIVE_GLOBAL, { capabilities: pickers });
+    const exported = ['A', 'B', 'C'].map((token) => ({ token, name: `${token}.jpg`, type: 'image/jpeg', size: 1 }));
+    answer = (r) => (r.op === 'pick' ? exported : r.op === 'read' ? (r.token === 'A' ? Buffer.from('x').toString('base64') : '') : undefined);
+    await expect(library.pickPhotos(3)).rejects.toThrow();
+    expect(requests.filter((r) => r.op === 'release')).toEqual([
+      { op: 'release', token: 'B' },
+      { op: 'release', token: 'C' },
+    ]);
   });
 });

@@ -1,5 +1,5 @@
 {
-  "version": "2.22.0",
+  "version": "2.23.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -334,6 +334,7 @@
       "effortLabel",
       "errorText",
       "exportHtmlPage",
+      "filePickerOffered",
       "formatBytes",
       "formatTokens",
       "hasEffortChoice",
@@ -368,7 +369,10 @@
       "photoAccess",
       "photoFile",
       "photoLibraryOffered",
+      "photoPickerOffered",
       "photoThumbUrl",
+      "pickFiles",
+      "pickPhotos",
       "planPercentText",
       "planUsageFailureOf",
       "planUsageLoadingOf",

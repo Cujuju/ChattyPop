@@ -5,7 +5,8 @@ import PhotosUI
 import UniformTypeIdentifiers
 
 /// Reads the Photos library for the paired page: access, recent items, and items exported to files the page reads in base64
-/// pieces. Thumbnails are ShellAssetSchemeHandler's. Mirrors SHELL_PHOTOS_HANDLER and ShellPhotosRequest in src/shared/shell.ts.
+/// pieces; and exports what the owner picks in the system photo picker or Files browser (ShellSystemPickers) the same way.
+/// Thumbnails are ShellAssetSchemeHandler's, drawn by `thumbnails`. Mirrors SHELL_PHOTOS_HANDLER and ShellPhotosRequest in src/shared/shell.ts.
 final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     // Mirrors ShellPhotosRequest, PHOTO_ACCESS, ShellAsset and ShellAssetExport in src/shared/shell.ts.
     private static let opKey = "op"
@@ -31,9 +32,11 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     private static let movieExtension = "mp4"
     /// Name for an item whose original name PhotoKit doesn't give.
     private static let fallbackName = "media"
+    /// MIME type of a file whose type the system doesn't know.
+    private static let unknownMime = "application/octet-stream"
 
     enum LibraryError: LocalizedError {
-        case malformed, notAllowed, notFound, notExported, noPresenter, unknownExport
+        case malformed, notAllowed, notFound, notExported, noPresenter, unknownExport, pickerOpen
 
         var errorDescription: String? {
             switch self {
@@ -43,12 +46,16 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
             case .notExported: return "Could not prepare the photo or video for sending."
             case .noPresenter: return "Nothing is on screen to show the photo choice from."
             case .unknownExport: return "The prepared photo or video is gone; pick it again."
+            case .pickerOpen: return "Something else is open over ChattyPop; close it and try again."
             }
         }
     }
 
     /// Files exported for the page, deleted once read to the end.
     private let exports: ShellAssetExports
+    private let pickers = ShellSystemPickers()
+    /// The grid's thumbnails, which know the items `recent` listed.
+    let thumbnails = ShellThumbnails()
     /// Called on the main queue when the readable library changes.
     var changed: (() -> Void)?
     private var observing = false
@@ -112,6 +119,37 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
             guard let token = fields[Self.tokenKey] as? String else { return finish(nil, LibraryError.malformed) }
             exports.release(token)
             finish(nil, nil)
+        case "pick":
+            guard let limit = (fields[Self.limitKey] as? NSNumber)?.intValue, limit > 0 else { return finish(nil, LibraryError.malformed) }
+            guard let presenter else { return finish(nil, LibraryError.noPresenter) }
+            guard pickers.canPresent(from: presenter) else { return finish(nil, LibraryError.pickerOpen) }
+            let shrink = Self.shrinkTarget(fields[Self.shrinkKey])
+            pickers.pickPhotos(from: presenter, limit: limit) { [self] items in
+                exportPicked(items[...], shrink: shrink, made: []) { result in
+                    switch result {
+                    case .success(let files): finish(files, nil)
+                    case .failure(let error): finish(nil, error)
+                    }
+                }
+            }
+        case "browse":
+            guard let presenter else { return finish(nil, LibraryError.noPresenter) }
+            guard pickers.canPresent(from: presenter) else { return finish(nil, LibraryError.pickerOpen) }
+            pickers.browseFiles(from: presenter) { [self] urls in
+                // Taken before returning: the system may clear its copies once this does.
+                var files: [[String: Any]] = []
+                for url in urls {
+                    let kind = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+                    switch exports.add(taking: url, name: url.lastPathComponent, type: kind?.preferredMIMEType ?? Self.unknownMime) {
+                    case .success(let file): files.append(file)
+                    case .failure(let error):
+                        files.forEach { exports.release($0[Self.tokenKey] as? String ?? "") }
+                        urls.forEach { try? FileManager.default.removeItem(at: $0) }
+                        return finish(nil, error)
+                    }
+                }
+                finish(files, nil)
+            }
         default:
             finish(nil, LibraryError.malformed)
         }
@@ -138,10 +176,13 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     func photoLibraryDidChange(_ changeInstance: PHChange) {
         fetchLock.withLock { fetched = nil }
+        thumbnails.reset()
         DispatchQueue.main.async { [weak self] in self?.changed?() }
     }
 
     private func recent(offset: Int, limit: Int) -> [String: Any] {
+        let signpost = ShellThumbnails.signposter.beginInterval("recent", id: ShellThumbnails.signposter.makeSignpostID(), "offset \(offset)")
+        defer { ShellThumbnails.signposter.endInterval("recent", signpost) }
         let all: PHFetchResult<PHAsset>
         if let cached = fetchLock.withLock({ fetched }) {
             all = cached
@@ -156,7 +197,9 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         }
         guard offset < all.count else { return ["assets": [], "total": all.count] }
         let range = IndexSet(integersIn: offset..<min(offset + limit, all.count))
-        let assets = all.objects(at: range).map { asset -> [String: Any] in
+        let listed = all.objects(at: range)
+        thumbnails.listed(listed, first: offset == 0)
+        let assets = listed.map { asset -> [String: Any] in
             let video = asset.mediaType == .video
             return ["id": asset.localIdentifier, "kind": video ? "video" : "photo", "duration": video ? asset.duration : 0]
         }
@@ -186,76 +229,131 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
         }
     }
 
-    /// The photo as edited. JPEG, PNG and GIF go as they are; anything else (HEIC) is re-saved as JPEG, its metadata and orientation kept.
+    /// Picked items exported in turn into `made`; when one fails, those already made are released.
+    private func exportPicked(_ items: ArraySlice<NSItemProvider>, shrink: ShellVideoShrinker.Target?, made: [[String: Any]],
+                              done: @escaping (Result<[[String: Any]], Error>) -> Void) {
+        guard let item = items.first else { return done(.success(made)) }
+        exportProvided(item, shrink: shrink) { [self] result in
+            switch result {
+            case .success(let file): exportPicked(items.dropFirst(), shrink: shrink, made: made + [file], done: done)
+            case .failure(let error):
+                made.forEach { exports.release($0[Self.tokenKey] as? String ?? "") }
+                done(.failure(error))
+            }
+        }
+    }
+
+    /// One picked item as the picker hands it over, written as `export` writes a library item. A photo (a Live Photo's still
+    /// included) is checked first: a video registers no image type.
+    private func exportProvided(_ item: NSItemProvider, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {
+        let stem = item.suggestedName.map { ($0 as NSString).deletingPathExtension } ?? Self.fallbackName
+        let types = item.registeredTypeIdentifiers.compactMap(UTType.init)
+        if let kind = types.first(where: { $0.conforms(to: .image) }) {
+            item.loadDataRepresentation(forTypeIdentifier: kind.identifier) { [self] data, error in
+                guard let data else { return done(.failure(error ?? LibraryError.notExported)) }
+                done(writePhoto(data, kind: kind, stem: stem))
+            }
+        } else if let kind = types.first(where: { $0.conforms(to: .movie) }) {
+            item.loadFileRepresentation(forTypeIdentifier: kind.identifier) { [self] url, error in
+                guard let url else { return done(.failure(error ?? LibraryError.notExported)) }
+                // The picker deletes its file when this returns, so the video is read from a copy, deleted once written.
+                let copy = exports.newFile(extension: url.pathExtension)
+                do {
+                    try FileManager.default.copyItem(at: url, to: copy)
+                } catch {
+                    return done(.failure(error))
+                }
+                writeVideo(AVURLAsset(url: copy), stem: stem, shrink: shrink) { result in
+                    try? FileManager.default.removeItem(at: copy)
+                    done(result)
+                }
+            }
+        } else {
+            done(.failure(LibraryError.notExported))
+        }
+    }
+
+    /// The photo as edited (writePhoto).
     private func exportPhoto(_ asset: PHAsset, stem: String, done: @escaping (Result<[String: Any], Error>) -> Void) {
         let options = PHImageRequestOptions()
         options.isNetworkAccessAllowed = true
         options.version = .current
         options.deliveryMode = .highQualityFormat
-        PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { [exports] data, uti, _, _ in
-            DispatchQueue.global(qos: .userInitiated).async {
+        PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { [self] data, uti, _, _ in
+            DispatchQueue.global(qos: .userInitiated).async { [self] in
                 guard let data, let kind = uti.flatMap(UTType.init) else { return done(.failure(LibraryError.notExported)) }
-                let kept: [UTType] = [.jpeg, .png, .gif]
-                if kept.contains(where: { kind.conforms(to: $0) }), let ext = kind.preferredFilenameExtension, let mime = kind.preferredMIMEType {
-                    return done(exports.add(data: data, name: "\(stem).\(ext)", type: mime))
-                }
-                guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return done(.failure(LibraryError.notExported)) }
-                let jpeg = NSMutableData()
-                guard let destination = CGImageDestinationCreateWithData(jpeg, UTType.jpeg.identifier as CFString, 1, nil) else { return done(.failure(LibraryError.notExported)) }
-                CGImageDestinationAddImageFromSource(destination, source, 0, [kCGImageDestinationLossyCompressionQuality: Self.jpegQuality] as CFDictionary)
-                guard CGImageDestinationFinalize(destination), let mime = UTType.jpeg.preferredMIMEType else { return done(.failure(LibraryError.notExported)) }
-                done(exports.add(data: jpeg as Data, name: "\(stem).\(Self.jpegExtension)", type: mime))
+                done(writePhoto(data, kind: kind, stem: stem))
             }
         }
     }
 
-    /// The video as edited. An unedited H.264 original that needs no shrinking is copied as it is. With `shrink`, anything else is
-    /// re-encoded to it (ShellVideoShrinker); without, exported as H.264 MP4 at full size.
+    /// JPEG, PNG and GIF go as they are; anything else (HEIC) is re-saved as JPEG, its metadata and orientation kept.
+    private func writePhoto(_ data: Data, kind: UTType, stem: String) -> Result<[String: Any], Error> {
+        let kept: [UTType] = [.jpeg, .png, .gif]
+        if kept.contains(where: { kind.conforms(to: $0) }), let ext = kind.preferredFilenameExtension, let mime = kind.preferredMIMEType {
+            return exports.add(data: data, name: "\(stem).\(ext)", type: mime)
+        }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return .failure(LibraryError.notExported) }
+        let jpeg = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(jpeg, UTType.jpeg.identifier as CFString, 1, nil) else { return .failure(LibraryError.notExported) }
+        CGImageDestinationAddImageFromSource(destination, source, 0, [kCGImageDestinationLossyCompressionQuality: Self.jpegQuality] as CFDictionary)
+        guard CGImageDestinationFinalize(destination), let mime = UTType.jpeg.preferredMIMEType else { return .failure(LibraryError.notExported) }
+        return exports.add(data: jpeg as Data, name: "\(stem).\(Self.jpegExtension)", type: mime)
+    }
+
+    /// The video as edited (writeVideo).
     private func exportVideo(_ asset: PHAsset, stem: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {
         let options = PHVideoRequestOptions()
         options.isNetworkAccessAllowed = true
         options.version = .current
         options.deliveryMode = .highQualityFormat
-        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { [exports] video, _, _ in
+        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { [self] video, _, _ in
             guard let video else { return done(.failure(LibraryError.notExported)) }
-            nonisolated(unsafe) let source = video
-            Task {
-                guard let mime = UTType.mpeg4Movie.preferredMIMEType else { return done(.failure(LibraryError.notExported)) }
-                let name = "\(stem).\(Self.movieExtension)"
-                let fits = await { () async -> Bool in
-                    guard let shrink, let side = try? await ShellVideoShrinker.shortSide(of: source) else { return true }
-                    return side <= shrink.shortSide
-                }()
-                if fits, let file = source as? AVURLAsset, await Self.isH264(file),
-                   let kind = UTType(filenameExtension: file.url.pathExtension), kind.conforms(to: .movie),
-                   let originalMime = kind.preferredMIMEType {
-                    return done(exports.add(copying: file.url, name: "\(stem).\(file.url.pathExtension)", type: originalMime))
+            writeVideo(video, stem: stem, shrink: shrink, done: done)
+        }
+    }
+
+    /// An unedited H.264 original that needs no shrinking is copied as it is. With `shrink`, anything else is re-encoded to it
+    /// (ShellVideoShrinker); without, exported as H.264 MP4 at full size.
+    private func writeVideo(_ video: AVAsset, stem: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {
+        nonisolated(unsafe) let source = video
+        let exports = exports
+        Task {
+            guard let mime = UTType.mpeg4Movie.preferredMIMEType else { return done(.failure(LibraryError.notExported)) }
+            let name = "\(stem).\(Self.movieExtension)"
+            let fits = await { () async -> Bool in
+                guard let shrink, let side = try? await ShellVideoShrinker.shortSide(of: source) else { return true }
+                return side <= shrink.shortSide
+            }()
+            if fits, let file = source as? AVURLAsset, await Self.isH264(file),
+               let kind = UTType(filenameExtension: file.url.pathExtension), kind.conforms(to: .movie),
+               let originalMime = kind.preferredMIMEType {
+                return done(exports.add(copying: file.url, name: "\(stem).\(file.url.pathExtension)", type: originalMime))
+            }
+            let url = exports.newFile(extension: Self.movieExtension)
+            if let shrink {
+                do {
+                    try await ShellVideoShrinker.shrink(source, to: url, target: shrink)
+                    return done(exports.add(moved: url, name: name, type: mime))
+                } catch {
+                    try? FileManager.default.removeItem(at: url)
+                    return done(.failure(error))
                 }
-                let url = exports.newFile(extension: Self.movieExtension)
-                if let shrink {
-                    do {
-                        try await ShellVideoShrinker.shrink(source, to: url, target: shrink)
-                        return done(exports.add(moved: url, name: name, type: mime))
-                    } catch {
-                        try? FileManager.default.removeItem(at: url)
-                        return done(.failure(error))
-                    }
+            }
+            guard let session = AVAssetExportSession(asset: source, presetName: AVAssetExportPresetHighestQuality) else {
+                return done(.failure(LibraryError.notExported))
+            }
+            session.outputURL = url
+            session.outputFileType = .mp4
+            session.shouldOptimizeForNetworkUse = true
+            // Read only after it finishes, on its own callback.
+            nonisolated(unsafe) let finished = session
+            session.exportAsynchronously {
+                guard finished.status == .completed else {
+                    try? FileManager.default.removeItem(at: url)
+                    return done(.failure(finished.error ?? LibraryError.notExported))
                 }
-                guard let session = AVAssetExportSession(asset: source, presetName: AVAssetExportPresetHighestQuality) else {
-                    return done(.failure(LibraryError.notExported))
-                }
-                session.outputURL = url
-                session.outputFileType = .mp4
-                session.shouldOptimizeForNetworkUse = true
-                // Read only after it finishes, on its own callback.
-                nonisolated(unsafe) let finished = session
-                session.exportAsynchronously {
-                    guard finished.status == .completed else {
-                        try? FileManager.default.removeItem(at: url)
-                        return done(.failure(finished.error ?? LibraryError.notExported))
-                    }
-                    done(exports.add(moved: url, name: name, type: mime))
-                }
+                done(exports.add(moved: url, name: name, type: mime))
             }
         }
     }
@@ -307,6 +405,17 @@ final class ShellAssetExports: @unchecked Sendable {
         let url = newFile(extension: source.pathExtension)
         do {
             try FileManager.default.copyItem(at: source, to: url)
+        } catch {
+            return .failure(error)
+        }
+        return add(moved: url, name: name, type: type)
+    }
+
+    /// Moves `source` (a copy the system made for the app) into the exports folder.
+    func add(taking source: URL, name: String, type: String) -> Result<[String: Any], Error> {
+        let url = newFile(extension: source.pathExtension)
+        do {
+            try FileManager.default.moveItem(at: source, to: url)
         } catch {
             return .failure(error)
         }

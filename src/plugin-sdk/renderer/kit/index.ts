@@ -85,14 +85,18 @@ export { openRule, ruleInputOf, rules, saveRule, startNewRule } from '@/state/ru
 export { inCompanion, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
 // In-app camera captures, saved to the phone's Photos when its chat settings ask.
 export { saveCameraCaptures } from '@/phone/cameraCaptures';
-// The phone's Photos library through the iPhone app, for the composer's attach sheet.
+// The phone's Photos library, photo picker and Files browser through the iPhone app, for the composer's attach sheet.
 export {
+  filePickerOffered,
   manageLimitedPhotos,
   onPhotoLibraryChange,
   photoAccess,
   photoFile,
   photoLibraryOffered,
+  photoPickerOffered,
   photoThumbUrl,
+  pickFiles,
+  pickPhotos,
   recentPhotos,
   requestPhotoAccess,
   type PhotoAccess,
