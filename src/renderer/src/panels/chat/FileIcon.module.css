@@ -1,0 +1,63 @@
+/* A file's type icon (FileIcon.tsx): the page washed in its kind's colour, the fold and mark in the colour itself.
+   Hook: .icon[data-kind]. */
+.icon {
+  --kind: var(--cp-file-kind-unknown);
+  flex: none;
+  width: var(--cp-file-icon-w);
+  height: var(--cp-file-icon-h);
+  fill: none;
+  stroke: var(--kind);
+  stroke-width: var(--cp-file-icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon[data-kind='image'] {
+  --kind: var(--cp-file-kind-image);
+}
+
+.icon[data-kind='video'] {
+  --kind: var(--cp-file-kind-video);
+}
+
+.icon[data-kind='audio'] {
+  --kind: var(--cp-file-kind-audio);
+}
+
+.icon[data-kind='archive'] {
+  --kind: var(--cp-file-kind-archive);
+}
+
+.icon[data-kind='pdf'] {
+  --kind: var(--cp-file-kind-pdf);
+}
+
+.icon[data-kind='document'] {
+  --kind: var(--cp-file-kind-document);
+}
+
+.icon[data-kind='spreadsheet'] {
+  --kind: var(--cp-file-kind-spreadsheet);
+}
+
+.icon[data-kind='slides'] {
+  --kind: var(--cp-file-kind-slides);
+}
+
+.icon[data-kind='code'] {
+  --kind: var(--cp-file-kind-code);
+}
+
+.page {
+  fill: color-mix(in srgb, var(--kind) var(--cp-file-icon-wash), transparent);
+}
+
+.fold {
+  fill: color-mix(in srgb, var(--kind) var(--cp-file-icon-fold-wash), transparent);
+}
+
+/* Dots and the play triangle: filled, so they read at the icon's size. */
+.solid {
+  fill: var(--kind);
+  stroke: none;
+}

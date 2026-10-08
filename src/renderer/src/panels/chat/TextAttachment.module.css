@@ -17,16 +17,25 @@
   font-size: var(--cp-text-code);
 }
 
-/* Name over its size and grammar, all at the start: the tile's hover bar (Download) floats over the end. */
+/* The file's type icon, then its name over its size and grammar, all at the start: the tile's hover bar (Download)
+   floats over the end. */
 .header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--cp-space-1) var(--cp-space-4);
+  gap: var(--cp-space-5);
   padding: var(--cp-space-4) var(--cp-space-5);
   border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
   background: var(--cp-surface-2);
   font-family: var(--cp-font-sans);
+}
+
+.heading {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-1) var(--cp-space-4);
+  min-width: 0;
 }
 
 .name {

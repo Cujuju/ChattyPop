@@ -151,6 +151,20 @@
   --cp-section-tile-mix: 20%; /* section colour share in the icon tile */
   --cp-section-stripe-h: 2px; /* coloured rule along a header's top edge */
 
+  /* File-type icons on attachment cards (FileIcon.module.css): one section hue per kind, so every theme tints them. */
+  --cp-file-kind-image: var(--cp-section-links);
+  --cp-file-kind-video: var(--cp-section-summary);
+  --cp-file-kind-audio: var(--cp-section-tags);
+  --cp-file-kind-archive: var(--cp-section-plans);
+  --cp-file-kind-pdf: var(--cp-section-alerts); /* Acrobat's red, as Discord's */
+  --cp-file-kind-document: var(--cp-section-chat);
+  --cp-file-kind-spreadsheet: var(--cp-section-rules); /* spreadsheet green */
+  --cp-file-kind-slides: var(--cp-section-stats);
+  --cp-file-kind-code: var(--cp-section-provider);
+  --cp-file-kind-unknown: var(--cp-text-muted);
+  --cp-file-icon-wash: 16%; /* the kind's share in the page's fill: tinted, its mark still reads on it */
+  --cp-file-icon-fold-wash: 45%; /* the folded corner, darker than the page as paper's underside */
+
   /* Themes scope panel/header surfaces by importance. Section-dependent tokens store proportions; modules mix panel-resolved --cp-section. */
   --cp-layout-pad: 0px; /* inset round the whole layout */
   --cp-panel-gap: 0px; /* space between neighbouring panels; 0: they meet at a divider */

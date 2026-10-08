@@ -57,7 +57,7 @@ export const STORED_LABEL = 'archived locally';
 
 /**
  * An attachment's frame: covered while it is a spoiler not yet revealed, marked once removed from its message. `stored`:
- * it shows the held file's media (not its chip), so its top-left corner carries the archived check.
+ * the file is held here, so its top-left corner carries the archived check (media, text or file card alike).
  */
 export function AttachmentTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; stored?: boolean; children: JSX.Element }) {
   const [revealed, setRevealed] = createSignal(false);

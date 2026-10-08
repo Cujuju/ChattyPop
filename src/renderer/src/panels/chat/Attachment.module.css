@@ -1,11 +1,14 @@
-/* Message attachments in the Archive log: file chips and inline images (split from Archive.module.css).
+/* Message attachments in the Archive log: file cards and inline images (split from Archive.module.css).
    Hook: .file[data-status='stored'|'pending'|'failed']. */
+
+/* A file card as Discord draws one: the type icon, then the name over its size and status, at an attachment's width. */
 .file {
   display: flex;
   align-items: center;
-  gap: var(--cp-space-4);
-  max-width: min(100%, var(--cp-attachment-w));
-  padding: var(--cp-space-4) var(--cp-space-5);
+  gap: var(--cp-space-5);
+  width: var(--cp-attachment-w);
+  max-width: 100%;
+  padding: var(--cp-space-5);
   border: var(--cp-border-w) solid var(--cp-border-subtle);
   border-radius: var(--cp-radius-md);
   background: var(--cp-surface-2);
@@ -18,39 +21,34 @@
   color: var(--cp-text-1);
 }
 
-.file::before {
-  content: '';
-  flex: 0 0 auto;
-  width: var(--cp-dot);
-  height: var(--cp-dot);
-  border-radius: var(--cp-radius-full);
-  background: var(--cp-success);
-}
-
-.file[data-status='pending']::before {
-  background: var(--cp-accent);
-}
-
 .file[data-status='failed'] {
   border-color: var(--cp-danger-border);
 }
 
-.file[data-status='failed']::before {
-  background: var(--cp-danger);
+.fileText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
 }
 
+/* The name reads as the link the card is. Ellipsized, as the meta is, so a long one never widens the log. */
 .fileName {
   min-width: 0;
+  color: var(--cp-link);
   font-family: var(--cp-font-sans);
-  font-size: var(--cp-text-md);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Ellipsizes attachment names to prevent horizontal log overflow. */
+.file:hover .fileName {
+  text-decoration: underline;
+}
+
 .fileMeta {
-  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--cp-text-muted);
@@ -347,15 +345,19 @@
   outline-offset: var(--cp-focus-ring-offset-inset);
 }
 
-/* A video this browser can't decode: its chip fills the cell, name and status stacked and centred. */
+/* A video this browser can't decode: its card fills the cell, icon, name and status stacked and centred. */
 .row .file {
   flex-direction: column;
   justify-content: center;
   width: 100%;
   height: 100%;
-  max-width: none;
   border: 0;
   border-radius: 0;
+}
+
+.row .fileText {
+  align-items: center;
+  max-width: 100%;
 }
 
 .row :is(.fileName, .fileMeta) {

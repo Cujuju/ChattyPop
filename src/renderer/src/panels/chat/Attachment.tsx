@@ -10,14 +10,16 @@ import { Icon, type IconName } from '@/ui/icons';
 import { look } from '@/theme/look';
 import { shownImageDescription, uploadShownInline } from '@shared/chatSettings';
 import { discordChatSettings } from '@/state/chatSettings';
-import { AttachmentTile, STORED_LABEL } from './AttachmentTile';
+import { fileKind, fileTypeLabel } from '@shared/fileKinds';
+import { AttachmentTile } from './AttachmentTile';
+import { FileIcon } from './FileIcon';
 import { mediaSizeVars } from './MessageExtras';
 import { TextAttachment } from './TextAttachment';
 import { presentedParts } from './ownedParts';
 import styles from './Attachment.module.css';
 
-const STATUS_LABEL: Readonly<Record<ArchiveAttachment['status'], string>> = {
-  stored: STORED_LABEL,
+/** A file card's status while not held here; a held one carries the stored media's check instead. */
+const STATUS_LABEL: Readonly<Record<Exclude<ArchiveAttachment['status'], 'stored'>, string>> = {
   pending: 'downloading',
   failed: 'download failed',
   evicted: 'pruned by storage limit',
@@ -27,6 +29,9 @@ const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachment
 /** An animated image's still while the owner can't look: Discord's proxy's first frame, kept once fetched. */
 const still = (a: ArchiveAttachment): string | undefined => (a.animated ? attachmentPosterUrl(a.id) : undefined);
 const kilobytes = (a: ArchiveAttachment): string => kilobytesText(a.size);
+/** Under a file card's name: its type (the part an ellipsized name loses), size, and status unless held here. */
+const fileMeta = (a: ArchiveAttachment): string =>
+  [fileTypeLabel(a), kilobytes(a), a.status === 'stored' ? '' : STATUS_LABEL[a.status]].filter(Boolean).join(' · ');
 
 /** Shows stored media or text inline, else file-status chips. Notes survive pruning; unplayable video and unreadable text fall back to chips. */
 export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
@@ -46,7 +51,7 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
       }
     >
       <Match when={view() === 'file'}>
-        <AttachmentTile message={props.message} attachment={a()}>
+        <AttachmentTile message={props.message} attachment={a()} stored={a().status === 'stored'}>
           <FileChip attachment={a()} messageLink={props.messageLink} />
         </AttachmentTile>
         <For each={notes()}>{(n) => <Note note={n} />}</For>
@@ -133,7 +138,7 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
   );
 }
 
-/** File chips show name/size/status. Stored files save through desktop dialogs or phone downloads; missing files link to Discord messages. */
+/** File cards show the type icon, name, size and status. Stored files save through desktop dialogs or phone downloads; missing files link to Discord messages. */
 export function FileChip(props: { attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const stored = () => canSave(a());
@@ -151,10 +156,10 @@ export function FileChip(props: { attachment: ArchiveAttachment; messageLink: st
       target={stored() ? undefined : '_blank'}
       onClick={save}
     >
-      <span class={styles.fileName}>{a().filename}</span>
-      <span class={styles.fileMeta}>
-        {kilobytes(a()) ? `${kilobytes(a())} · ` : ''}
-        {STATUS_LABEL[a().status]}
+      <FileIcon kind={fileKind(a())} />
+      <span class={styles.fileText}>
+        <span class={styles.fileName}>{a().filename}</span>
+        <span class={styles.fileMeta}>{fileMeta(a())}</span>
       </span>
     </a>
   );

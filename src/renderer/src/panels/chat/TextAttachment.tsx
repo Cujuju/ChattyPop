@@ -2,12 +2,14 @@
 // ending (or a picked language), and a window for the whole preview.
 import { For, Show, createResource, createSignal } from 'solid-js';
 import type { ArchiveAttachment } from '@shared/contract';
+import { fileKind, fileTypeLabel } from '@shared/fileKinds';
 import { attachmentUrl } from '@shared/media';
 import { TEXT_COLLAPSED_LINES, TEXT_EXPANDED_LINES, TEXT_PREVIEW_BYTES, textExtension } from '@shared/textFiles';
 import { kilobytesText } from '@/ui/format';
 import { ModalDialog } from '@/ui/ModalDialog';
 import { Select } from '@/ui/Select';
 import { LANGUAGES, highlightLines, languageFor, type CodeLine } from '@/ui/highlight';
+import { FileIcon } from './FileIcon';
 import styles from './TextAttachment.module.css';
 
 /** Decoding stops mid-character where the preview cuts a file; the replacement character it leaves is dropped. */
@@ -85,9 +87,12 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
   return (
     <section class={styles.root} data-expanded={expanded()} aria-label={a().filename}>
       <header class={styles.header}>
-        <span class={styles.name}>{a().filename}</span>
-        <span class={styles.meta}>{kilobytesText(a().size)}</span>
-        <Select class={styles.language} label="Language" value={language()} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+        <FileIcon kind={fileKind(a())} />
+        <div class={styles.heading}>
+          <span class={styles.name}>{a().filename}</span>
+          <span class={styles.meta}>{[fileTypeLabel(a()), kilobytesText(a().size)].filter(Boolean).join(' · ')}</span>
+          <Select class={styles.language} label="Language" value={language()} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+        </div>
       </header>
       <Show when={lines()} fallback={<div class={styles.loading} aria-busy="true" />}>
         <Code lines={shown()} />

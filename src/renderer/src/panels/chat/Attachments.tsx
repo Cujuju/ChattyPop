@@ -49,11 +49,11 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
   );
 }
 
-/** One cell: the picture or video, cropped to it; a video this browser can't decode shows as its file chip. */
+/** One cell: the picture or video, cropped to it; a video this browser can't decode shows as its file card, checked as the media was. */
 function MosaicTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const [unplayable, setUnplayable] = createSignal(false);
   return (
-    <AttachmentTile message={props.message} attachment={props.attachment} stored={!unplayable()}>
+    <AttachmentTile message={props.message} attachment={props.attachment} stored={props.attachment.status === 'stored'}>
       <Show when={!unplayable()} fallback={<FileChip attachment={props.attachment} messageLink={props.messageLink} />}>
         <AttachmentMedia attachment={props.attachment} cell onUnplayable={() => setUnplayable(true)} />
       </Show>
