@@ -2,12 +2,13 @@
 import { For, Show, createEffect, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { SectionId } from '@/panels/titles';
-import { setSettingsOpen, setSettingsSection, settingsOpen, settingsSection } from '@/state/ui';
+import { setSettingsSection, settingsSection } from '@/state/ui';
 import { look } from '@/theme/look';
 import { Icon } from '@/ui/icons';
 import { PanelHeader } from '@/ui/PanelHeader';
 import { SettingsTabIcon, mayLeaveSettingsTab, settingsTabGroups, settingsTabs } from '@/views/settings/tabs';
 import styles from './PhoneSettings.module.css';
+import { trackPhoneSettingsVisibility } from './settingsVisibility';
 
 /** The desktop's Settings sections, a card per group (the dialog's dividers): icon, name and a chevron per row. */
 export function PhoneSettingsList(props: { onOpen: (id: string) => void }) {
@@ -59,10 +60,7 @@ export function PhoneSettings(props: {
   const mayLeave = (): Promise<boolean> => (props.open ? mayLeaveSettingsTab(props.open) : Promise.resolve(true));
   const back = (): void => void mayLeave().then((ok) => ok && props.onOpen(null));
   // Stores that load only while Settings is open (provider status) follow the pane, as they follow the dialog.
-  createEffect(() => setSettingsOpen(props.shown));
-  createEffect(() => {
-    if (settingsOpen() && !props.shown) props.onShow();
-  });
+  trackPhoneSettingsVisibility(() => props.shown, () => props.onShow());
   // A section asked for elsewhere (openSettingsAt, as the dialog takes it) opens here.
   createEffect(() => {
     const id = settingsSection();
