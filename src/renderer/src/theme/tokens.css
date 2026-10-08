@@ -291,7 +291,16 @@
   --cp-sheet-bar: color-mix(in srgb, black 55%, transparent); /* a deep sheet's floating bar (the attach sheet's actions): lighter glass than the sheet, so the photos under it read through */
   --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
   --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
-  --cp-frost-edge: var(--cp-space-3); /* the glass's soft top edge while it reaches over the typing line: it bleeds this far above the line, fading in */
+  --cp-frost-edge: var(--cp-space-8); /* the glass's soft top edge while it reaches over the typing line: it bleeds this far above the line, fading in */
+  /* That edge's fade, eased (smoothstep sampled at quarters: 0.16, 0.5, 0.84) so it neither starts nor stops on a visible line */
+  --cp-frost-mask-reach: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 0.16) calc(var(--cp-frost-edge) * 0.25),
+    rgb(0 0 0 / 0.5) calc(var(--cp-frost-edge) * 0.5),
+    rgb(0 0 0 / 0.84) calc(var(--cp-frost-edge) * 0.75),
+    black var(--cp-frost-edge)
+  );
   --cp-lightbox-backdrop: color-mix(in srgb, var(--cp-ground) 92%, transparent); /* behind the image viewer: the image is the only thing to see */
   --cp-shadow-none: none;
   --cp-shadow-popover: 0 6px 18px rgb(0 0 0 / 45%);

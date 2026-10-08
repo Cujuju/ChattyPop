@@ -24,18 +24,21 @@
   flex-direction: column;
   --cp-composer-inset-left: var(--cp-panel-pad-x);
   --cp-composer-inset-right: var(--cp-panel-pad-x);
+  --cp-typing-gap-below: 0px; /* room between the typing line and the box */
   padding-top: var(--cp-space-4);
+}
+
+/* While someone types (data-typing), the composer's glass reaches up over the typing line, softening in over
+   --cp-frost-edge above it: one blur, not two meeting at a seam. It snaps back when typing ends. */
+.footer[data-typing='true'] {
+  --cp-frost-reach: calc(var(--cp-typing-h) + var(--cp-typing-gap-below) + var(--cp-frost-edge));
+  --cp-frost-mask: var(--cp-frost-mask-reach);
 }
 
 /* Phone: Apple's padding around a bezeled control on the sides, as the top bar has. The typing line holds its own
    slot above the box (TypingLine.module.css). */
-/* While someone types (data-typing), the typing line's glass carries the composer's up over the line: the composer's
-   lies full from its top edge to meet it. */
-.footer[data-typing='true'] {
-  --cp-frost-mask: none;
-}
-
 :global(html[data-surface='companion']) .footer {
+  --cp-typing-gap-below: calc((var(--cp-composer-typing-slot) - var(--cp-typing-h)) / 2 + var(--cp-space-px));
   --cp-composer-inset-left: calc(var(--cp-bezel-gap) + env(safe-area-inset-left));
   --cp-composer-inset-right: calc(var(--cp-bezel-gap) + env(safe-area-inset-right));
   padding-top: 0;
