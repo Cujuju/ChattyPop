@@ -103,6 +103,7 @@ describe("member searches on the client's gateway socket", () => {
     const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
     const frames: unknown[] = [];
     let lookups = 0;
+    let sendSucceeds = true;
     const cdp = {
       sendCommand: (method: string, params?: Record<string, unknown>): Promise<unknown> => {
         if (method === 'Runtime.evaluate') return Promise.resolve({ result: { objectId: 'proto' } });
@@ -110,27 +111,33 @@ describe("member searches on the client's gateway socket", () => {
         if (method === 'Runtime.callFunctionOn' && params?.['objectId'] === 'all') return Promise.resolve({ result: { objectId: open ? `socket${++lookups}` : undefined } });
         if (method === 'Runtime.callFunctionOn') {
           frames.push(JSON.parse((params!['arguments'] as { value: string }[])[0]!.value));
-          return lostReply ? Promise.reject(new Error('Target closed')) : Promise.resolve({ result: { value: true } });
+          return lostReply ? Promise.reject(new Error('Target closed')) : Promise.resolve({ result: { value: sendSucceeds } });
         }
         return Promise.resolve({});
       },
     };
-    return { requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, perWindow), tap, frames, lookups: () => lookups };
+    return {
+      requests: new MemberRequests(cdp as never, Object.assign(tap, { own: () => undefined }) as unknown as GatewayTap, perWindow),
+      tap,
+      frames,
+      lookups: () => lookups,
+      setOpen: (value: boolean) => { open = value; },
+      setLostReply: (value: boolean) => { lostReply = value; },
+      setSendSucceeds: (value: boolean) => { sendSucceeds = value; },
+    };
   }
 
-  const nonceOf = (frame: unknown): string => (frame as { d: { nonce: string } }).d.nonce;
-
-  it('sends op 8 as the client does, once per server and text in a session, finding the socket once', async () => {
+  it('sends op 8 as the client does without a nonce, once per server and text until READY, finding the socket once', async () => {
     const f = fake();
     expect(await f.requests.request('g1', ' Ton ')).toBe(true);
     await f.requests.request('g1', 'ton');
     await f.requests.request('g1', 'tony');
-    const search = (query: string) => ({ op: 8, d: { guild_id: ['g1'], query, limit: 10, presences: true, nonce: expect.stringMatching(/^[0-9a-f]{32}$/) } });
+    const search = (query: string) => ({ op: 8, d: { guild_id: ['g1'], query, limit: 10, presences: true } });
     expect(f.frames).toEqual([search('ton'), search('tony')]);
     expect(f.lookups()).toBe(1);
     f.tap.emit('dispatch', { t: 'READY', s: 1, d: {} });
     await f.requests.request('g1', 'ton');
-    expect(f.frames).toHaveLength(3);
+    expect(f.frames).toEqual([search('ton'), search('tony'), search('ton')]);
     expect(f.lookups()).toBe(2);
   });
 
@@ -140,7 +147,7 @@ describe("member searches on the client's gateway socket", () => {
     await vi.waitFor(() => expect(f.lookups()).toBe(1));
     await f.requests.request('g1', 'ton');
     expect(f.lookups()).toBe(1);
-    // A resumed session keeps its answers; its socket is new.
+    // A resumed session keeps its sent queries; its socket is new.
     f.tap.emit('dispatch', { t: 'RESUMED', s: 2, d: {} });
     await vi.waitFor(() => expect(f.lookups()).toBe(2));
     await f.requests.request('g1', 'ton');
@@ -188,48 +195,50 @@ describe("member searches on the client's gateway socket", () => {
     }
   });
 
-  it('asks again for text whose answer never came, once the wait runs out; not for answered text', async () => {
+  it('keeps sent queries cached without an answer for the whole session, separately per server', async () => {
     vi.useFakeTimers();
     try {
       const f = fake();
       await f.requests.request('g1', 'ann');
       await f.requests.request('g1', 'bob');
-      f.tap.emit('dispatch', { t: 'GUILD_MEMBERS_CHUNK', s: 2, d: { guild_id: 'g1', members: [], chunk_index: 0, chunk_count: 1, nonce: nonceOf(f.frames[0]) } });
-      vi.advanceTimersByTime(60_000);
+      await vi.advanceTimersByTimeAsync(60_000);
       await f.requests.request('g1', 'ann');
       await f.requests.request('g1', 'bob');
-      expect(f.frames.map((fr) => (fr as { d: { query: string } }).d.query)).toEqual(['ann', 'bob', 'bob']);
+      expect(f.frames).toHaveLength(2);
+      await f.requests.request('g2', 'ann');
+      expect(f.frames[2]).toEqual({ op: 8, d: { guild_id: ['g2'], query: 'ann', limit: 10, presences: true } });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('skips text a shorter answer found every match for, in that server, until a new session', async () => {
-    const f = fake();
-    const answer = (frame: unknown, count: number): void =>
-      void f.tap.emit('dispatch', { t: 'GUILD_MEMBERS_CHUNK', s: 2, d: { guild_id: 'g1', members: Array(count).fill({}), chunk_index: 0, chunk_count: 1, nonce: nonceOf(frame) } });
-    await f.requests.request('g1', 'an');
-    answer(f.frames[0], 3);
-    await f.requests.request('g1', 'ann');
-    await f.requests.request('g2', 'ann');
-    await f.requests.request('g1', 'bo');
-    answer(f.frames[2], 10);
-    await f.requests.request('g1', 'bob');
-    f.tap.emit('dispatch', { t: 'READY', s: 3, d: {} });
-    await f.requests.request('g1', 'ann');
-    const queries = f.frames.map((fr) => `${(fr as { d: { guild_id: string[] } }).d.guild_id[0]}:${(fr as { d: { query: string } }).d.query}`);
-    expect(queries).toEqual(['g1:an', 'g2:ann', 'g1:bo', 'g1:bob', 'g1:ann']);
-  });
-
-  it("doesn't resend a search whose send may have gone through", async () => {
+  it('leaves a failed send uncached and asks the same text again later', async () => {
     const f = fake(true, true);
     expect(await f.requests.request('g1', 'ton')).toBe(false);
     expect(f.frames).toHaveLength(1);
+    f.setLostReply(false);
+    expect(await f.requests.request('g1', 'ton')).toBe(true);
+    expect(f.frames).toHaveLength(2);
+    await f.requests.request('g1', 'ton');
+    expect(f.frames).toHaveLength(2);
+  });
+
+  it('leaves a closed socket send uncached and asks the same text again later', async () => {
+    const f = fake();
+    f.setSendSucceeds(false);
+    expect(await f.requests.request('g1', 'ton')).toBe(false);
+    expect(f.frames).toHaveLength(2);
+    f.setSendSucceeds(true);
+    expect(await f.requests.request('g1', 'ton')).toBe(true);
+    expect(f.frames).toHaveLength(3);
   });
 
   it('reports no socket, and asks again later', async () => {
     const f = fake(false);
     expect(await f.requests.request('g1', 'ton')).toBe(false);
     expect(f.frames).toEqual([]);
+    f.setOpen(true);
+    expect(await f.requests.request('g1', 'ton')).toBe(true);
+    expect(f.frames).toHaveLength(1);
   });
 });
