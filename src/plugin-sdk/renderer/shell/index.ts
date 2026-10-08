@@ -1,7 +1,7 @@
 // First-party phone/page SDK exposes transport plumbing, root and host shell slots. Only declared phone transport plugins may import it.
 export { createPhoneRendererApi, type PhoneRendererApi, type PhoneTransport } from './phoneApi';
 export { installRendererApi, pageEvents, pageFetch, reloadPage } from './transport';
-export type { HtmlPage } from '@shared/htmlPage';
+export type { ExportFormat, HtmlPage, PdfPage } from '@shared/htmlPage';
 export { showPhoneTextSize, startPage } from './page';
 export type { AppEvent } from '@shared/contract';
 export { DESKTOP_CONNECTED_EVENT, DesktopUnreachableError } from '@shared/phone';

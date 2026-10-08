@@ -22,6 +22,7 @@ import type { TailnetServe } from '../tailnet';
 import { listenLoopback, type LoopbackHandler, type LoopbackServer } from './loopback';
 import { mainPreferences } from './preferences';
 import type { MainPreferences } from '@shared/preferences';
+import { decodePdfSource, type PdfSource } from '@shared/htmlPage';
 import type { Pages } from './pages';
 import { type Dispose, type PluginStates, type RunStart } from './states';
 import type { HostNotifications } from '../notifications';
@@ -100,6 +101,8 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
   appearance: { theme(): Promise<ThemeId> };
   /** The renderer's built pages (a plugin's own page and its public files) as replies; the dev server in `pnpm dev`. */
   pages: Pages;
+  /** Draws an HTML export as a one-page PDF the size of its content, in a window that runs no script and loads nothing. */
+  pdf(source: PdfSource): Promise<Uint8Array>;
   phone: {
     /** Carries the phone (descriptor `phone.transport`): receives its events and pushes, and gets the gateway. */
     connect(transport: PhoneTransport): { gateway: PhoneGateway; disconnect(): void };
@@ -149,6 +152,7 @@ export interface MainPluginDeps {
   states: PluginStates;
   phone: Pick<PhoneHub, 'connect' | 'route'>;
   pages: Pages;
+  pdf: MainContext['pdf'];
   /** Plugins' Tailscale Serve config, recorded by the host. */
   tailnet: Pick<TailnetServe, 'publish' | 'withdraw' | 'reconcile'>;
   /** Sends a plugin event to the windows and the phone its audiences name. */
@@ -235,6 +239,7 @@ export function createMainContext<D extends PluginDescriptor>(plugin: D, d: Main
     preferences: mainPreferences(plugin, d.core, reg.stage),
     appearance: { theme: async () => builtInTheme(normalizeAppearanceSettings(await d.core.call('getSetting', SETTINGS_KEYS.appearance).catch(() => null))) },
     pages: d.pages,
+    pdf: (source) => d.pdf(decodePdfSource(source)),
     phone: {
       connect: (transport) => {
         if (!plugin.phone?.transport) throw new Error(`${id} does not declare phone.transport`);

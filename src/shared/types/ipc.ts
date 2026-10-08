@@ -210,6 +210,7 @@ export const MAIN_INVOKE = {
   },
   media: {
     saveAttachment: 'media:save-attachment',
+    savePdf: 'media:save-pdf',
   },
   desktop: {
     state: 'desktop:state',

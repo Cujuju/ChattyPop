@@ -48,6 +48,7 @@ import { registerDiscordHandlers } from './ipc/discord';
 import { registerKeyHandlers } from './ipc/keys';
 import { registerRuleHandlers } from './ipc/rules';
 import { registerMediaHandlers } from './ipc/media';
+import { htmlToPdf } from './pdf';
 import { registerStorageHandlers } from './ipc/storage';
 import { restartApp } from './restart';
 import { registerMarketplaceHandlers } from './marketplace/ipc';
@@ -297,6 +298,7 @@ void app.whenReady().then(() => {
     states,
     phone,
     pages,
+    pdf: htmlToPdf,
     tailnet: new TailnetServe(runTailscale, profilePath(TAILNET_RECORDS_FILE), diag, UNRECORDED_TAILNET),
     publish,
   });

@@ -234,6 +234,7 @@
   --cp-settings-number-w: 72px; /* a number field (days, GB, hours) on a settings row */
   --cp-settings-stat-min-w: 140px; /* narrowest figure tile (sizes, costs) before tiles wrap */
   --cp-compare-col-min-w: 240px; /* a model's column in a summary comparison: two fit the settings column at its default width */
+  --cp-compare-export-col-w: 360px; /* a model's column in a comparison's PDF: a comfortable reading measure */
   --cp-reorder-handle-w: var(--cp-btn-h-sm); /* a reorder handle's grab area: a header button's width, so the phone's is a full tap target */
   --cp-reorder-dot-step: 6px; /* the handle's dots: two columns of three, this far apart */
   --cp-reorder-dot-r: 1.5px;

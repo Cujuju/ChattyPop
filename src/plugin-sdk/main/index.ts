@@ -24,6 +24,8 @@ export { PluginInactiveError } from '@shared/pluginCall';
 // The phone (a transport plugin and phone routes) and main-side resources.
 export type { PhoneGateway, PhoneRoute, PhoneRouteRequest, PhoneTransport } from '@main/phone/hub';
 export { PhoneCallRefused, PhoneRouteMissing } from '@main/phone/hub';
+// What ctx.pdf draws: an export's document and the width it lays out at.
+export type { PdfSource } from '@shared/htmlPage';
 export type { LoopbackHandler, LoopbackServer } from '@main/plugins/loopback';
 export { TailnetError } from '@main/tailnet';
 export type { ActiveResource, ResourceRun } from '@main/plugins/context';

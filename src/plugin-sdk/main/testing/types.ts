@@ -2,7 +2,7 @@
 // see a host internal (tests/pluginTesting.test.ts checks the import graph).
 export type { MainLink } from '@plugin-sdk/shared/testing';
 import type { CoreLink, MainLink } from '@plugin-sdk/shared/testing';
-import type { AttachmentFetch, DeliveredNotification, DiscordClient, MainContext, MainPlugin, PhoneRouteRequest } from '@plugin-sdk/main';
+import type { AttachmentFetch, DeliveredNotification, DiscordClient, MainContext, MainPlugin, PdfSource, PhoneRouteRequest } from '@plugin-sdk/main';
 import type { ChannelsOf, Client, GuildEmoji, MembersFor, PhoneRouteNames, PluginDescriptor } from '@plugin-sdk/shared';
 
 /** How a test starts a plugin's main side over its core (a TestPlugin from @plugin-sdk/core/testing). */
@@ -23,6 +23,8 @@ export interface MainTestOptions {
   images?: (url: string, path: string) => Promise<string | null>;
   /** Downloads for ctx.media.fetchVideoTo; unset, each fails. */
   videos?: (url: string, path: string) => Promise<string | null>;
+  /** ctx.pdf's drawing; unset, each fails. */
+  pdf?: (source: PdfSource) => Promise<Uint8Array>;
   /** The plugin's stored secrets, by name. */
   secrets?: Readonly<Record<string, string>>;
 }

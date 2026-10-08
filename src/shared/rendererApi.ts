@@ -16,6 +16,7 @@ import type { DiscordProfile, MutualFriends, ReactionUsers } from './types/disco
 import type { DmOutcome, Friend, MuteWindow } from './dms';
 import type { UnreadTotals } from './unread';
 import type { MarketplaceApi } from './marketplace';
+import type { PdfPage } from './htmlPage';
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
@@ -144,6 +145,8 @@ export interface RendererApi {
   media: {
     /** Asks where to save an archived attachment (its own name offered), then copies it there. Resolves when done or cancelled. */
     saveAttachment(sha256: string, filename: string): Promise<void>;
+    /** Draws an export as a one-page PDF (main/pdf.ts) and asks where to save it. Resolves when done or cancelled. */
+    savePdf(page: PdfPage): Promise<void>;
   };
   /** Desktop settings; changes emit desktop-changed to main window. */
   desktop: {

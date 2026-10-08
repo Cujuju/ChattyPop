@@ -83,6 +83,7 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
     sync: { enqueue: (channelId) => void synced.push(channelId) },
     downloader: { fetchTo: o.attachments ?? refuse('attachment downloads') },
     media: { fetchImageTo: o.images ?? refuse('image downloads'), fetchVideoTo: o.videos ?? refuse('video downloads') },
+    pdf: o.pdf ?? refuse('PDF drawing'),
     states,
     phone: hub,
     pages: rendererPages(join(side.profileDir, 'renderer'), null),

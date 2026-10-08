@@ -10,8 +10,8 @@ export { Select } from '@/ui/Select';
 export { Switch } from '@/ui/Switch';
 export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type HeaderButtonVariant } from '@/ui/PanelHeader';
 export { createAction } from '@/ui/action';
-// An HTML export: saved on the desktop, opened in the phone's browser.
-export { exportHtmlPage, type HtmlPage } from '@/ui/exportPage';
+// Exports: saved on the desktop, opened in the phone's browser; a PDF is one page the desktop draws.
+export { exportHtmlPage, exportPdfPage, type HtmlPage, type PdfPage } from '@/ui/exportPage';
 export {
   clockTime,
   countText,

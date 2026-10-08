@@ -94,7 +94,7 @@ describe('a transport page', () => {
       pageFetch: (path: string) => Promise<unknown>;
     };
     const { createPhoneRendererApi } = (await import(phoneApiPath)) as {
-      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void; openPage?(page: unknown): void }) => unknown;
+      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void; openPage?(page: unknown, format: string): void }) => unknown;
     };
     const { mediaUrl } = await import('@shared/media');
     await pageFetch('/rpc');
@@ -124,10 +124,15 @@ describe('a transport page', () => {
     expect(mediaUrl('avatar', '1')).toBe('/media/avatar/1');
     // An HTML export opens through the transport, in the phone's browser, not as a download.
     const exportPath = '@/ui/exportPage';
-    const { exportHtmlPage } = (await import(exportPath)) as { exportHtmlPage: (page: unknown) => void };
+    const { exportHtmlPage, exportPdfPage } = (await import(exportPath)) as { exportHtmlPage: (page: unknown) => void; exportPdfPage: (page: unknown) => Promise<void> };
     const page = { html: '<p>x</p>', fileName: 'x.html' };
     exportHtmlPage(page);
-    expect(openPage).toHaveBeenCalledExactlyOnceWith(page);
+    expect(openPage).toHaveBeenCalledExactlyOnceWith(page, 'html');
+    // A PDF the desktop draws opens the same way, never through a desktop-only save.
+    const pdf = { html: '<p>x</p>', fileName: 'x.pdf', width: 800 };
+    await exportPdfPage(pdf);
+    expect(openPage).toHaveBeenLastCalledWith(pdf, 'pdf');
+    expect(call).toHaveBeenCalledTimes(3);
   });
 });
 
