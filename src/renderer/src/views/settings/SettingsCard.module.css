@@ -51,8 +51,9 @@
   gap: var(--cp-space-8);
 }
 
+/* As wide as its text: a label for its control must not turn the row's empty middle into a click on the control. */
 .rowLabel {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   color: var(--cp-text-1);
   font-size: var(--cp-text-md);
@@ -67,10 +68,11 @@
   text-wrap: pretty;
 }
 
-/* Shrinks no further than its widest item, so a button group wraps in a narrow window instead of overflowing. */
+/* Pinned right; shrinks no further than its widest item, so a button group wraps in a narrow window instead of overflowing. */
 .rowControl {
   display: flex;
   flex: 0 1 auto;
+  margin-inline-start: auto;
   align-items: center;
   gap: var(--cp-space-4);
 }
