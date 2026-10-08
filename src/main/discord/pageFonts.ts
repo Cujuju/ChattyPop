@@ -1,14 +1,12 @@
-import type { WebContents } from 'electron';
-import type { PageWorld } from './pageWorld';
+import { pageLoaded, type AssetPage } from './pageAssets';
 
 const DISCORD_ORIGIN = 'https://discord.com';
 
 /** Resolves declared Nitro font-family files to absolute Discord URLs. Returns null before declaration/loading; deployment filenames vary. */
-export async function discordFontUrl(page: { webContents: WebContents; world: Pick<PageWorld, 'evaluate'> } | undefined, family: string): Promise<string | null> {
+export async function discordFontUrl(page: AssetPage | undefined, family: string): Promise<string | null> {
   if (!page || page.webContents.isDestroyed()) return null;
-  const wc = page.webContents;
-  // At startup the Archive asks before the page has its stylesheets: wait for the load rather than answer "none".
-  if (wc.isLoading()) await new Promise<void>((resolve) => wc.once('did-stop-loading', () => resolve()));
+  // Wait for the page's stylesheets rather than answer "none".
+  await pageLoaded(page);
   // String.raw: the regex's escapes must reach the page intact.
   const script = String.raw`(() => {
     const want = ${JSON.stringify(family)};

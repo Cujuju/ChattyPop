@@ -40,14 +40,19 @@ const serveMedia = (m: Media | null, range: string | null): Response =>
 /** cp-media serves cached Discord assets, archived attachments and their video stills, proxied previews/full media and uncached Klipy GIFs. Attachment/thumb/proxied/gif routes support byte ranges. */
 export type MediaHandler = (url: URL, range?: string | null) => Promise<Response>;
 
-/**
- * `fontUrl`: where the Discord page loads a display-name font family from; null while it can't say. `posterSource`: where
- * a video attachment's still comes from; null once the attachment left Discord.
- */
+/** discord.com's own files, loaded in the Discord page as the client loads them (discord/pageAssets.ts). */
+export interface PageAssets {
+  /** Where the page loads a display-name font family from; null while it can't say. */
+  fontUrl(family: string): Promise<string | null>;
+  /** Loads `url`, as a font when `fontFamily` is given. */
+  load(url: string, fontFamily?: string): Promise<Response>;
+}
+
+/** `posterSource`: where a video attachment's still comes from; null once the attachment left Discord. */
 export function mediaHandler(
   dirs: MediaDirs,
   sessions: MediaSessions,
-  fontUrl: (family: string) => Promise<string | null>,
+  page: PageAssets,
   posterSource: (attachmentId: string) => Promise<PosterSource | null>,
 ): MediaHandler {
   const discordSession = sessions.discord;
@@ -58,14 +63,14 @@ export function mediaHandler(
     if (url.host === 'avatar') return serveAvatar(dirs.avatars, discordSession, parts[0], parts[1], parts[2] === LARGE);
     if (url.host === 'decoration') return serveDecoration(dirs.icons, discordSession, parts[0], parts[1] === 'animated', parts[2] === LARGE);
     if (url.host === 'badge') return serveBadge(dirs.icons, discordSession, parts[0]);
-    if (url.host === 'name-font') return serveNameFont(dirs.nameFonts, discordSession, fontUrl, decodeURIComponent(parts[0] ?? ''));
+    if (url.host === 'name-font') return serveNameFont(dirs.nameFonts, page, decodeURIComponent(parts[0] ?? ''));
     if (url.host === 'attachment') return serveAttachment(dirs.attachments, parts[0], range);
     if (url.host === 'emoji') return serveEmoji(dirs.emojis, discordSession, parts[0]);
     if (url.host === 'poster') return serveMedia(await servePoster(dirs.previews, sessions, posterSource, parts[0]).catch(() => null), range);
     if (url.host === 'proxied') return serveMedia(await proxiedMedia(sessions, dirs.proxied, url.searchParams.get('u') ?? '').catch(() => null), range);
     if (url.host === 'thumb') return serveMedia(await thumb(sessions, dirs.previews, url.searchParams.get('u') ?? '').catch(() => null), range);
     if (url.host === 'gif') return serveMedia(await gifPreview(sessions, url.searchParams.get('u') ?? '').catch(() => null), range);
-    if (url.host === 'sticker') return serveLottie(dirs.stickers, discordSession, parts[0]);
+    if (url.host === 'sticker') return serveLottie(dirs.stickers, page, parts[0]);
     return notFound();
   };
 }
@@ -75,12 +80,12 @@ export function handleMediaScheme(handler: MediaHandler): void {
   protocol.handle(MEDIA_SCHEME, (req) => handler(new URL(req.url), req.headers.get('range')));
 }
 
-/** cp-media://sticker/<id>.json: a Lottie sticker's animation, from Discord's asset host (where the live client loads it). */
-async function serveLottie(dir: string, ses: Session, name?: string): Promise<Response> {
+/** cp-media://sticker/<id>.json: a Lottie sticker's animation, from discord.com, loaded in the page as the live client loads it. */
+async function serveLottie(dir: string, page: PageAssets, name?: string): Promise<Response> {
   const m = name ? LOTTIE_FILE.exec(name) : null;
   if (!m) return notFound();
   const file = join(dir, name!);
-  const status = await fetchOnceToFile(ses, `https://discord.com/stickers/${m[1]!}.json`, file).catch(() => BAD_GATEWAY);
+  const status = await fetchOnceToFile({ fetch: (u) => page.load(u) }, `https://discord.com/stickers/${m[1]!}.json`, file).catch(() => BAD_GATEWAY);
   if (status !== null) return upstreamError(status);
   // Read with fetch() from the renderer's origin; the JSON is public sticker art, so any origin may read it.
   return new Response(await readFile(file), { headers: { 'content-type': 'application/json', 'access-control-allow-origin': '*' } });
@@ -143,14 +148,14 @@ async function serveDecoration(dir: string, ses: Session, asset: string | undefi
   return new Response(await readFile(file), { headers: { 'content-type': 'image/png' } });
 }
 
-/** A display-name font: from the store, else from where the Discord page loads it (its file names change per deploy). */
-async function serveNameFont(dir: string, ses: Session, fontUrl: (family: string) => Promise<string | null>, family: string): Promise<Response> {
+/** A display-name font: from the store, else loaded by the Discord page from where it loads it (file names change per deploy). */
+async function serveNameFont(dir: string, page: PageAssets, family: string): Promise<Response> {
   if (!isNameFontFamily(family)) return notFound();
   const file = join(dir, `${family}.woff2`);
   if (!existsSync(file)) {
-    const src = await fontUrl(family);
+    const src = await page.fontUrl(family);
     if (!src) return notFound();
-    const status = await fetchOnceToFile(ses, src, file);
+    const status = await fetchOnceToFile({ fetch: (u) => page.load(u, family) }, src, file);
     if (status !== null) return upstreamError(status);
   }
   return new Response(await readFile(file), { headers: { 'content-type': 'font/woff2', 'access-control-allow-origin': '*' } });

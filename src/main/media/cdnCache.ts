@@ -11,11 +11,16 @@ export const EXPIRED_STATUSES: ReadonlySet<number> = new Set([403, 404]);
 /** Largest render is a jumbo emoji (--cp-emoji-jumbo, 48 CSS px); 128 keeps it sharp up to ~2.5x displays. */
 export const EMOJI_SIZE_PX = 128;
 
+/** Where a file is fetched through: a session, or the Discord page (discord/pageAssets.ts). */
+export interface Fetcher {
+  fetch(url: string): Promise<Response>;
+}
+
 /** Downloads in progress by file: a second request for one waits on the first rather than fetching it again. */
 const inFlight = new Map<string, Promise<number | null>>();
 
 /** Fetches `url` into `file` unless it is already there. Resolves null once stored, else the upstream HTTP status. */
-export function fetchOnceToFile(ses: Session, url: string, file: string): Promise<number | null> {
+export function fetchOnceToFile(ses: Fetcher, url: string, file: string): Promise<number | null> {
   if (existsSync(file)) return Promise.resolve(null);
   let run = inFlight.get(file);
   if (!run) {
@@ -26,7 +31,7 @@ export function fetchOnceToFile(ses: Session, url: string, file: string): Promis
 }
 
 /** Written beside `file` and renamed into place, so a reader never sees it half written. */
-async function download(ses: Session, url: string, file: string): Promise<number | null> {
+async function download(ses: Fetcher, url: string, file: string): Promise<number | null> {
   const res = await ses.fetch(url);
   if (!res.ok) return res.status;
   await mkdir(dirname(file), { recursive: true });

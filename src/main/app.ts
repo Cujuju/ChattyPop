@@ -38,6 +38,7 @@ import { watchGuildOrder } from './discord/guildOrder';
 import { AccountChatSettings } from './discord/chatSettings';
 import { LiveLabelProviders } from './discord/labelProviders';
 import { LiveLabels } from './discord/liveLabels';
+import { pageAsset } from './discord/pageAssets';
 import { discordFontUrl } from './discord/pageFonts';
 import { GatewayAccess } from './discord/access';
 import { gatewayGuildRoles } from './discord/roles';
@@ -139,7 +140,8 @@ void app.whenReady().then(() => {
     const a = await core.call('attachmentSource', id);
     return a ? posterOf(a) : null;
   };
-  const serveMedia = mediaHandler(media, mediaSessions, (family) => discordFontUrl(discordRef, family), posterSource);
+  const pageAssets = { fontUrl: (family: string) => discordFontUrl(discordRef, family), load: (url: string, family?: string) => pageAsset(discordRef, url, family) };
+  const serveMedia = mediaHandler(media, mediaSessions, pageAssets, posterSource);
   handleMediaScheme(serveMedia);
   handlePluginScheme(core);
   // The installed plugins main accepted at start, for windows and the phone page.
