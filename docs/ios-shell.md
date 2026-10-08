@@ -31,6 +31,12 @@ pushes below are the transport's: this doc states what the shell expects of it, 
   detail `{ cellular: boolean }`) on `window` on each network change, and in reply to the page posting `{}` to the
   `shellNetwork` handler (`SHELL_NETWORK_HANDLER`), which `state/network.ts` does once when it loads. Data Saving reads
   it to send videos at Data Saver quality on cellular.
+- **Opening attachments:** inline images use the page's Lightbox (safe-area close button, pinch zoom and drag to dismiss).
+  A file link must never replace the conversation's web view. `ShellAttachmentNavigationPlugin` cancels top-level
+  `/media/attachment/<hash>.<ext>` navigation from the paired page and opens `ShellAttachmentViewer`. It downloads
+  through an ephemeral session with only the web view's pairing cookie, refuses redirects, and presents native Quick
+  Look with Done and Share. Unsupported files open the system share sheet (including Save to Files). Loading has Cancel;
+  failures have Done. Temporary copies are removed after dismissal. This requires a rebuilt iPhone app.
 - **Push:** Web Push doesn't exist in WKWebView, so the shell uses APNs (phase D). The home-screen web app keeps Web Push.
 - **Share auth reuses the phone's pairing.** The app copies the transport's pairing cookie (`cp_companion`) into a shared
   Keychain item, and the extension sends it. No new credential kind, and unpairing the phone on the desktop cuts the
@@ -215,3 +221,8 @@ Replaces phase A's build-time address.
   ([Apple API](https://developer.apple.com/documentation/webkit/wkhttpcookiestoreobserver)).
 - Native compilation, signing, Keychain sharing, extension activation, keyboard/status bar, offline recovery,
   external links, pull to refresh, and sharing from Safari/Notes require the Mac/device verification above.
+- Attachment verification on the Mac/iPhone: open a multipage PDF from a file chip, scroll and zoom, tap Done and confirm
+  the same conversation and scroll position remain. Repeat with the keyboard open, in landscape, and on a notched phone.
+  Open an image, pinch past fit and confirm its close button still works; drag down to dismiss at fit. Try an unsupported
+  file and cancel the share sheet; cancel while a large file downloads; disconnect the PC and confirm the error can close.
+  Check that images/video subresources still load and that external links retain Capacitor's normal handling.

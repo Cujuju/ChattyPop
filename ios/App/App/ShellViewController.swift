@@ -38,6 +38,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     /// One per process, like mediaSaver: its exports outlive a re-pairing's new controller.
     private static let photoLibrary = ShellPhotoLibrary()
     private let network = ShellNetworkMonitor()
+    private let attachmentViewer = ShellAttachmentViewer()
     /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
     static var launchNotification: UNNotificationResponse?
     /// Uses the default dark backdrop until the page publishes its own. The underlying window remains visible around the keyboard’s rounded corners.
@@ -184,6 +185,9 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             bridge.notificationRouter.userNotificationCenter(UNUserNotificationCenter.current(), didReceive: response, withCompletionHandler: {})
         }
         guard let webView else { return }
+        let attachments = ShellAttachmentNavigationPlugin()
+        attachments.open = { [weak self] action in self?.openAttachment(action) ?? false }
+        bridge?.registerPluginInstance(attachments)
         let scripts = webView.configuration.userContentController
         scripts.add(WeakMessageHandler { [weak self] in self?.retry($0) }, name: Self.retryHandler)
         scripts.add(WeakMessageHandler { [weak self] in self?.setBackdrop($0) }, name: Self.backdropHandler)
@@ -331,6 +335,17 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static func isPairedPage(_ frame: WKFrameInfo) -> Bool {
         let sender = frame.securityOrigin
         return frame.isMainFrame && isPairedOrigin(scheme: sender.`protocol`, host: sender.host, port: sender.port)
+    }
+
+    /// Attachment navigation opens above the conversation, never in its web view. Subresource media still loads normally.
+    private func openAttachment(_ action: WKNavigationAction) -> Bool {
+        guard action.targetFrame == nil || action.targetFrame?.isMainFrame == true,
+              Self.isPairedPage(action.sourceFrame), let url = action.request.url,
+              Self.isPairedOrigin(scheme: url.scheme, host: url.host, port: url.port),
+              url.path.range(of: "^/media/attachment/[a-f0-9]{64}\\.[a-z0-9]{1,8}$", options: .regularExpression) != nil,
+              let webView else { return false }
+        attachmentViewer.open(url, from: self, webView: webView)
+        return true
     }
 
     /// A camera capture's pieces, saved to Photos (ShellMediaSaver). Only the paired page may add to the library.
