@@ -1,6 +1,7 @@
 /* Daylight uses cool white, near-black text, larger Segoe UI and flat panels. Theme contrast tests cover text, accents, sections and platforms. */
 
 [data-theme='daylight'] {
+  --cp-sheet-bar: color-mix(in srgb, var(--cp-surface-1) 60%, transparent); /* the deep sheet's floating bar, light glass for dark text */
   --cp-sheet-deep: color-mix(in srgb, var(--cp-surface-1) 85%, transparent); /* light themes keep dark text, so their deep sheet stays light, only see-through */
   --cp-color-scheme: light;
 

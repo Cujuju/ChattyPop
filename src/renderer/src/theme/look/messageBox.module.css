@@ -127,6 +127,14 @@
   background: var(--cp-border);
 }
 
+/* The attach sheet's floating bar (its actions, or Add / Send) over the grid's bottom rows: see-through glass; its buttons
+   keep their own solid discs. */
+.sheetBar {
+  background: var(--cp-sheet-bar);
+  -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-frost-blur));
+}
+
 /* A cell in the sheet's media grid (a photo, a video, the camera): rounded as an attached image in the log is; the ground
    shows while its picture loads; dimmed while it is being read (data-state='busy'). */
 .mediaCell {

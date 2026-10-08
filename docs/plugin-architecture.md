@@ -580,7 +580,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `replyBand`, `pingToggle` | The box's top band (a reply); Discord's @ON/@OFF | `aria-pressed` |
 | `quietButton`, `pillClose` | A muted control brightening under the pointer; a pill's × | — |
 | `fileTile`, `filePreview`, `removeBadge` | An attached file's tile, its preview, and its floating remove button | `data-state="blank"` |
-| `sheetGrabber`, `mediaCell`, `mediaThumb`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; a rounded media grid cell, picked drawn on the `::after` the component places over its picture; the picture, faded in once loaded; a picked cell's check mark (an unpicked one has none); a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"`, `data-corner="top-start\|top-end"` (`mediaCell`); `data-loaded` (`mediaThumb`) |
+| `sheetGrabber`, `sheetBar`, `mediaCell`, `mediaThumb`, `pickMark`, `durationBadge`, `actionDisc` | The phone attach sheet: its grab handle; its floating glass bar over the grid's bottom rows; a rounded media grid cell, picked drawn on the `::after` the component places over its picture; the picture, faded in once loaded; a picked cell's check mark (an unpicked one has none); a video's length over its picture; an action's disc | `aria-pressed`, `data-state="busy"`, `data-corner="top-start\|top-end"` (`mediaCell`); `data-loaded` (`mediaThumb`) |
 | `popover`, `popoverHead` | A popover over the box (menus, suggestions, pickers); its sticky heading | — |
 | `listOption` | A keyboard-navigable choice in a popover's list | `aria-selected` |
 | `emojiGlyph`, `round` | An emoji at reaction size; a circle (avatars, app icons) | — |

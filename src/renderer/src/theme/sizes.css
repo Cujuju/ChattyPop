@@ -199,6 +199,7 @@
   --cp-attach-sheet-h: 50dvh; /* the phone's attach sheet with its media grid: half the screen, the newest rows in view */
   --cp-media-grid-gap: var(--cp-space-2); /* between the attach sheet's rounded media cells: wide enough that each cell's corners read */
   --cp-media-pick-ring: 2px; /* a picked media cell's ring: thick enough to read over any picture */
+  --cp-attach-rows-shown: 2.5; /* media rows the attach sheet opens on, counted from the screen's bottom edge, as Discord's: the half row says the grid scrolls */
   --cp-media-grid-corner: 16px; /* the media grid's outer top corners, rounder than a cell, following the sheet's curve as Discord's grid does */
   --cp-media-pick-mark: 22px; /* a picked media cell's check disc, iOS Photos' selection circle */
   --cp-attach-action-disc: var(--cp-quick-reaction-phone); /* an attach action's disc: the message sheet's quick-reaction size, so the phone's sheets share one disc */
@@ -260,6 +261,7 @@
   --cp-drawer-w: 320px; /* channels and plan usage drawer */
   --cp-drawer-max-w: 85vw; /* leaves a strip of the app showing, to tap and close it */
   --cp-sheet-max-h: 85vh; /* the message menu's sheet: the app stays in view above it, as in Discord's */
+  --cp-sheet-w: min(100vw, var(--cp-sheet-max-w)); /* a bottom sheet's width: the screen's, capped on a wide one */
   --cp-sheet-max-w: 540px; /* a sheet on a wide screen (iPad, landscape, a browser): iPadOS's form-sheet width, centred on the bottom edge */
   --cp-sheet-grabber-w: 36px; /* the sheet's drag handle: iOS's grabber */
   --cp-sheet-grabber-h: 5px;
