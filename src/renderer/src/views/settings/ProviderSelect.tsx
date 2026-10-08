@@ -11,12 +11,13 @@ const NONE = '';
 /**
  * `class` replaces the settings-column width (a panel header's select); `label` names a select without a Row label.
  * `short` lists display names only, without state notes, for a narrow header.
+ * `unsetLabel` makes no provider a lasting choice (e.g. "As in Settings"), listed first; without it, null asks for a pick.
  */
-export function ProviderSelect(props: { id?: string; class?: string; label?: string; short?: boolean; value: ProviderId | null; onChange: (id: ProviderId | null) => void }) {
+export function ProviderSelect(props: { id?: string; class?: string; label?: string; short?: boolean; unsetLabel?: string; value: ProviderId | null; onChange: (id: ProviderId | null) => void }) {
   const named = (id: ProviderId, label: string, state: string | null): string =>
     props.short ? providerName(id) : state ? `${label} (${state})` : label;
   const options = () => [
-    ...(props.value ? [] : [{ value: NONE, label: 'Pick a provider…' }]),
+    ...(props.unsetLabel ? [{ value: NONE, label: props.unsetLabel }] : props.value ? [] : [{ value: NONE, label: 'Pick a provider…' }]),
     // A chosen provider whose plugin isn't running keeps its row, so the choice stays visible.
     ...(props.value && !availableProviders().some((d) => d.id === props.value) ? [{ value: props.value, label: named(props.value, props.value, 'not running') }] : []),
     ...availableProviders().map((d) => ({
