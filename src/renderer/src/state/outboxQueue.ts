@@ -6,6 +6,7 @@ import { batch, createSignal } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
+import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 
 export type OutgoingStatus = 'queued' | 'sending' | 'failed';
 /** What a sending message is doing: shrinking its videos, uploading its files, or posting. */
@@ -39,7 +40,7 @@ export interface OutboxJob<D> {
   label: string;
   /** The message without its files; built once, so every attempt sends the same nonce. */
   message: OwnerMessage;
-  files: File[];
+  files: DraftFileInput[];
   /** Names for its `<@id>` mentions, by id, as picked: the pending row shows them before the archive knows them. */
   mentions: Record<string, string>;
   /** What Edit puts back in the composer; null when it can't go back (a GIF, a sticker). Structured-cloneable. */
@@ -51,7 +52,7 @@ export interface OutboxRecord<D> {
   channelId: string;
   label: string;
   message: OwnerMessage;
-  files: File[];
+  files: SavedDraftFile[];
   /** Absent in records saved before mention names. */
   mentions?: Record<string, string>;
   draft: D | null;
@@ -76,7 +77,7 @@ export interface OutboxDeps<D> {
   /** The files as they'll be uploaded (videos shrunk to this device's quality); reports progress. */
   prepare(channelId: string, files: File[], progress: (fraction: number) => void): Promise<File[]>;
   /** Uploads the files in pieces, reporting progress; resolves the tokens the message names. */
-  upload(channelId: string, files: File[], progress: (fraction: number) => void): Promise<string[]>;
+  upload(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]>;
   /** The desktop no longer holds the message's uploads (UPLOAD_GONE): they go again. */
   uploadGone(err: unknown): boolean;
   /** The desktop refused to post past the message's postWithinMs (POST_WINDOW_PASSED). */
@@ -115,7 +116,7 @@ interface Entry<D> {
   unreachable: boolean;
   uploads: string[] | null;
   /** The files as prepared for upload; kept across retries while the page lives. */
-  prepared: File[] | null;
+  prepared: SavedDraftFile[] | null;
   /**
    * The owner's Retry asked for it: it posts without a deadline. Otherwise (a first send, a retry by itself, one loaded
    * after a reload) it posts only while Discord still dedupes its nonce. Lasts until a post attempt fails.
@@ -152,7 +153,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
         const e = entries.get(id);
         if (!e) continue;
         const { channelId, label, message, files, mentions, draft } = e.job;
-        records.push({ channelId, label, message, files, mentions, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads, fileCount: e.fileCount });
+        records.push({ channelId, label, message, files: files.map(savedDraftFile), mentions, draft, status, error, firstSentAt: e.firstSentAt, unreachable: e.unreachable, uploads: e.uploads, fileCount: e.fileCount });
       }
     }
     deps.save(records);
@@ -178,7 +179,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     const fileCount = saved?.fileCount ?? job.files.length;
     entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, confirmed: false, fileCount });
     const retryable = job.files.length >= fileCount;
-    const row: Outgoing = { id, nonce: job.message.nonce, label: job.label, text: job.message.text, mentions: job.mentions, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
+    const row: Outgoing = { id, nonce: job.message.nonce, label: job.label, text: job.message.text, mentions: job.mentions, files: job.files.map((f) => savedDraftFile(f).file), ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
     setOutbox(produce((all) => void (all[job.channelId] ??= []).push(row)));
     undismiss(job.channelId);
     return id;
@@ -224,7 +225,9 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
   async function uploadFiles(channelId: string, id: number, e: Entry<D>): Promise<void> {
     if (!e.job.files.length || e.uploads) return;
     update(channelId, id, { phase: 'preparing', progress: 0 });
-    const prepared = e.prepared ?? (await deps.prepare(channelId, e.job.files, (p) => update(channelId, id, { progress: p })));
+    const original = e.job.files.map(savedDraftFile);
+    const prepared = e.prepared ?? (await deps.prepare(channelId, original.map((f) => f.file), (p) => update(channelId, id, { progress: p })))
+      .map((file, i) => ({ ...original[i]!, file }));
     e.prepared = prepared;
     update(channelId, id, { phase: 'uploading', progress: 0 });
     e.uploads = await deps.upload(channelId, prepared, (p) => update(channelId, id, { progress: p }));

@@ -79,7 +79,9 @@ export const attachmentPosterUrl = (attachmentId: string): string => mediaUrl('p
 /** Discord's attachment flags this app reads. */
 export const ATTACHMENT_FLAG = { spoiler: 1 << 3, animated: 1 << 5 } as const;
 /** An upload named with this prefix is a spoiler too (how clients mark one at upload). */
-const SPOILER_PREFIX = 'SPOILER_';
+export const SPOILER_PREFIX = 'SPOILER_';
+/** A prefixed name keeps its existing prefix. */
+export const uploadFilename = (name: string, spoiler = false): string => spoiler && !name.startsWith(SPOILER_PREFIX) ? SPOILER_PREFIX + name : name;
 /** Whether Discord's clients cover the attachment until clicked: its spoiler flag (set by Modify), else its name. */
 export const isSpoiler = (a: { filename: string; flags: number | null }): boolean =>
   ((a.flags ?? 0) & ATTACHMENT_FLAG.spoiler) !== 0 || a.filename.startsWith(SPOILER_PREFIX);

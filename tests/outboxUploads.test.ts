@@ -2,6 +2,7 @@
 // tokens and its nonce. A failure before the post retries any time; uploads the desktop let go are uploaded again.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST_WINDOW_PASSED, UPLOAD_GONE, type OwnerMessage } from '@shared/compose';
+import type { SavedDraftFile } from '../src/renderer/src/state/draftFiles';
 import { acceptedMessage } from './postedMessageFixture';
 import { isPostingLocked } from '@shared/posting';
 import { NONCE_DEDUPE_MS, createOutbox, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
@@ -27,7 +28,7 @@ function setup() {
       return acceptedMessage(m);
     },
     prepare: async (_c, files) => files,
-    upload: (_c, files, progress) => new Promise((resolve, reject) => void uploads.push({ files: files.map((f) => f.name), progress, resolve, reject })),
+    upload: (_c, files, progress) => new Promise((resolve, reject) => void uploads.push({ files: files.map((f) => f.file.name), progress, resolve, reject })),
     uploadGone: (err) => (err as Error).message === UPLOAD_GONE,
     windowPassed: (err) => (err as Error).message === POST_WINDOW_PASSED,
     errorText: (err) => (err as Error).message,
@@ -51,7 +52,7 @@ describe('outbox uploads', () => {
     const { posted, uploads, head, saved } = setup();
     await settle();
     expect(head()).toMatchObject({ status: 'sending', phase: 'uploading', text: 'look' });
-    expect(saved()[0]!.files[0]!.name).toBe('clip.mp4');
+    expect(saved()[0]!.files[0]!.file.name).toBe('clip.mp4');
     uploads[0]!.progress(0.5);
     expect(head()!.progress).toBe(0.5);
     uploads[0]!.resolve(['t1']);
@@ -126,4 +127,35 @@ describe('outbox uploads', () => {
     expect(uploads).toHaveLength(1);
     expect(head()).toMatchObject({ status: 'failed', error: UPLOAD_GONE });
   });
+});
+
+
+it('keeps options through outbox save/load, video preparation, upload and Edit', async () => {
+  const file = new File(['video'], 'clip.mov', { type: 'video/quicktime' });
+  const entry = { file, description: 'A bird in flight', spoiler: true };
+  const prepared = new File(['encoded'], 'clip.mp4', { type: 'video/mp4' });
+  let unlocked = false;
+  let saved: OutboxRecord<{ files: SavedDraftFile[] }>[] = [];
+  const uploaded: SavedDraftFile[][] = [];
+  const restored: { files: SavedDraftFile[] }[] = [];
+  const deps = {
+    unlocked: () => unlocked, locked: () => false,
+    send: async () => { throw new Error('refused'); },
+    prepare: async () => [prepared],
+    upload: async (_c: string, files: SavedDraftFile[]) => { uploaded.push(files); return ['t1']; },
+    uploadGone: () => false, windowPassed: () => false, unreachable: () => false,
+    errorText: (e: unknown) => (e as Error).message, now: () => Date.now(),
+    restore: (_c: string, d: { files: SavedDraftFile[] }) => { restored.push(d); return true; },
+    save: (records: OutboxRecord<{ files: SavedDraftFile[] }>[]) => { saved = records; },
+  };
+  const box = createOutbox(deps);
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: '', files: [], replyTo: null, stickerId: null, gif: null, nonce: 'n-options' }, files: [entry], mentions: {}, draft: { files: [entry] } });
+  expect(saved[0]!.files).toEqual([entry]);
+  unlocked = true;
+  const reloaded = createOutbox(deps);
+  reloaded.load(saved);
+  await settle();
+  expect(uploaded).toEqual([[{ file: prepared, description: entry.description, spoiler: true }]]);
+  reloaded.editSend(CHANNEL, reloaded.outgoing(CHANNEL)[0]!.id);
+  expect(restored).toEqual([{ files: [entry] }]);
 });

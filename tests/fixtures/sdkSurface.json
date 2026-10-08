@@ -1,10 +1,11 @@
 {
-  "version": "2.27.0",
+  "version": "2.28.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
       "AFTER_MESSAGE",
       "ALL_DAYS",
+      "ALT_TEXT_MAX",
       "APNS_ENVIRONMENTS",
       "ARCHIVE_DENSITIES",
       "BYTES_PER_GB",
@@ -500,6 +501,7 @@
       "sendingDismissed",
       "setCommandTail",
       "setDraftText",
+      "setFileOptions",
       "setOptionFile",
       "setOptionText",
       "setReplyPing",

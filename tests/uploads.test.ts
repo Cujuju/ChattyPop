@@ -2,7 +2,7 @@
 // a message names only finished uploads in its channel, and they are released once Discord accepts it.
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { POST_WINDOW_PASSED, UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
+import { ALT_TEXT_MAX, POST_WINDOW_PASSED, UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
 import { BYTES_PER_GB, BYTES_PER_MB } from '@shared/units';
 import { sendOwnerMessage } from '../src/main/discord/send';
 import { UPLOAD_IDLE_MS, Uploads } from '../src/main/discord/uploads';
@@ -83,6 +83,24 @@ describe('Uploads', () => {
     expect(posts.at(-1)!.json['attachments']).toEqual([{ id: '0', filename: 'clip.mp4', uploaded_filename: 'up/0' }]);
     expect(posts.at(-1)!.json['nonce']).toBe(NONCE);
     await expect(sendOwnerMessage(api, message([slot!.token]), uploads)).rejects.toThrow(UPLOAD_GONE);
+  });
+
+  it('keeps options with prepared uploads and posts their spoiler name and description', async () => {
+    const { api, uploads, posts } = setup();
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, description: 'Sunset', spoiler: true }]);
+    expect(posts[0]!.json['files']).toEqual([{ id: '0', filename: 'SPOILER_photo.png', file_size: 1, is_clip: false }]);
+    await uploads.chunk(slot!.token, 0, new Uint8Array(1));
+    await uploads.finish(slot!.token);
+    await sendOwnerMessage(api, message([slot!.token]), uploads);
+    expect(posts.at(-1)!.json['attachments']).toEqual([{ id: '0', filename: 'SPOILER_photo.png', uploaded_filename: 'up/0', description: 'Sunset' }]);
+  });
+
+  it('rejects invalid prepared-upload options before asking Discord', async () => {
+    const { api, uploads, posts } = setup();
+    for (const options of [{ description: 'x'.repeat(ALT_TEXT_MAX + 1) }, { description: false }, { spoiler: 1 }]) {
+      await expect(uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, ...options }])).rejects.toThrow(/alt text|attachment options/);
+    }
+    expect(posts).toEqual([]);
   });
 
   it('a message can’t name an unfinished upload, or one for another channel', async () => {

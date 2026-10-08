@@ -8,6 +8,7 @@ import { isPostingLocked } from '@shared/posting';
 import { errorText } from '@/ui/format';
 import { idbEntries, idbGet, idbSet, whenWritten } from '@/ui/idbStore';
 import { restoreDraft, type SavedDraft } from './drafts';
+import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 import { MS_PER_S } from '@shared/units';
 import { SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxRecord } from './outboxQueue';
 import { postingUnlocked } from './posting';
@@ -52,7 +53,7 @@ function saveQueue(records: OutboxRecord<SavedDraft>[]): void {
 async function withFiles(records: OutboxRecord<SavedDraft>[]): Promise<OutboxRecord<SavedDraft>[]> {
   return Promise.all(
     records.map(async (r) => {
-      const files = (await idbGet<File[]>(FILES_PREFIX + r.message.nonce)) ?? [];
+      const files = ((await idbGet<DraftFileInput[]>(FILES_PREFIX + r.message.nonce)) ?? r.files ?? []).map(savedDraftFile);
       if (files.length) keptFiles.add(r.message.nonce);
       return { ...r, files, draft: r.draft && { ...r.draft, files } };
     }),
@@ -72,15 +73,15 @@ function unstalled<T>(call: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go; resolves the slots' tokens. */
-async function uploadFiles(channelId: string, files: File[], progress: (fraction: number) => void): Promise<string[]> {
+async function uploadFiles(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]> {
   const slots = await unstalled(
-    api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.name, size: f.size }))),
+    api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.file.name, size: f.file.size, description: f.description, spoiler: f.spoiler }))),
     SEND_BASE_TIMEOUT_MS,
   );
-  const total = files.reduce((n, f) => n + f.size, 0);
+  const total = files.reduce((n, f) => n + f.file.size, 0);
   let sent = 0;
   for (const [i, slot] of slots.entries()) {
-    const file = files[i]!;
+    const file = files[i]!.file;
     for (let offset = 0; offset < file.size; offset += UPLOAD_CHUNK_BYTES) {
       const bytes = new Uint8Array(await file.slice(offset, offset + UPLOAD_CHUNK_BYTES).arrayBuffer());
       await unstalled(api.discord.uploadChunk(slot.token, offset, bytes), PIECE_TIMEOUT_MS);

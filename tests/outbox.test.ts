@@ -25,7 +25,7 @@ function setup(canRestore = false) {
     locked: isPostingLocked,
     send: (m) => new Promise<ReturnType<typeof acceptedMessage>>((resolve, reject) => void pending.push({ m, resolve: () => resolve(acceptedMessage(m)), reject })),
     prepare: async (_channelId, files) => files,
-    upload: async (_channelId, files) => files.map((f) => `token-${f.name}`),
+    upload: async (_channelId, files) => files.map((f) => `token-${f.file.name}`),
     uploadGone: () => false,
     windowPassed: (err) => (err as Error).message === POST_WINDOW_PASSED,
     errorText: (err) => (err as Error).message,

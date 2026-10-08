@@ -1,6 +1,6 @@
 // Per-channel text/files/entity selections persist in IndexedDB on changes and survive reloads/quits. composer.ts sends drafts.
 import { createStore } from 'solid-js/store';
-import { UPLOAD_BYTES_CEILING, emojiToken, mentionToken, type MentionPick } from '@shared/compose';
+import { UPLOAD_BYTES_CEILING, emojiToken, mentionToken, type FileOptions, type MentionPick } from '@shared/compose';
 import type { ArchiveMessage, MentionCandidate } from '@shared/contract';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX } from '@shared/discord';
 import type { CustomEmoji } from '@shared/emoji';
@@ -8,12 +8,13 @@ import { mediaKind } from '@shared/media';
 import { BYTES_PER_MB } from '@shared/units';
 import { api } from '@/api';
 import { idbEntries, idbSet } from '@/ui/idbStore';
+import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 import { restoreReply } from './reply';
+export type { DraftFileInput, SavedDraftFile } from './draftFiles';
 
 /** A file attached to a draft; `previewUrl` is a blob: URL for images and videos, else null. */
-export interface DraftFile {
+export interface DraftFile extends SavedDraftFile {
   id: number;
-  file: File;
   previewUrl: string | null;
 }
 
@@ -27,7 +28,7 @@ interface Draft {
 /** A draft taken out to send: plain data (Files by reference), so IndexedDB and the outbox can keep it for Edit. */
 export interface SavedDraft {
   text: string;
-  files: File[];
+  files: SavedDraftFile[];
   /** Picked custom emoji by the token shown in the text. */
   emoji: [string, CustomEmoji][];
   /** Picked people and roles by the `@token` shown in the text; absent from drafts saved before mentions. */
@@ -58,7 +59,10 @@ const ensure = (channelId: string): void => {
   if (!drafts[channelId]) setDrafts(channelId, { text: '', files: [], error: null });
 };
 const previewable = (f: File): boolean => f.type.startsWith('image/') || f.type.startsWith('video/');
-const toDraftFile = (file: File): DraftFile => ({ id: nextFileId++, file, previewUrl: previewable(file) ? URL.createObjectURL(file) : null });
+const toDraftFile = (input: DraftFileInput): DraftFile => {
+  const entry = savedDraftFile(input);
+  return { ...entry, id: nextFileId++, previewUrl: previewable(entry.file) ? URL.createObjectURL(entry.file) : null };
+};
 const revoke = (f: DraftFile): void => {
   if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
 };
@@ -75,7 +79,7 @@ const mentionEntries = (channelId: string): [string, MentionPick][] => [...menti
 const saveText = (channelId: string): void =>
   idbSet(TEXT_KEY + channelId, draftText(channelId) ? ({ text: draftText(channelId), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId) } satisfies SavedText) : undefined);
 const saveFiles = (channelId: string): void => {
-  const files = draftFiles(channelId).map((f) => f.file);
+  const files = draftFiles(channelId).map(savedDraftFile);
   idbSet(FILES_KEY + channelId, files.length ? files : undefined);
 };
 
@@ -115,12 +119,12 @@ const refreshLimit = (channelId: string): void =>
  * Synchronous so a send right after keeps them with its text. Until the channel's limit is known it assumes the ceiling;
  * the desktop still refuses an oversized file when the message is sent.
  */
-export function attachFiles(channelId: string, files: File[]): void {
+export function attachFiles(channelId: string, files: DraftFileInput[]): void {
   ensure(channelId);
   refreshLimit(channelId);
   const limit = limits.get(channelId) ?? UPLOAD_BYTES_CEILING;
   const room = DISCORD_FILES_PER_MESSAGE_MAX - draftFiles(channelId).length;
-  const fitting = files.filter((f) => uploadable(f, limit));
+  const fitting = files.map(savedDraftFile).filter((f) => uploadable(f.file, limit));
   const added = fitting.slice(0, Math.max(0, room)).map(toDraftFile);
   setDrafts(channelId, 'files', (fs) => [...fs, ...added]);
   setDrafts(
@@ -156,6 +160,13 @@ export function attachLongPaste(channelId: string, e: ClipboardEvent & { current
   return true;
 }
 
+/** Keeps the file's options with its bytes in IndexedDB. */
+export function setFileOptions(channelId: string, id: number, options: FileOptions): void {
+  if (!draftFiles(channelId).some((f) => f.id === id)) return;
+  setDrafts(channelId, 'files', (f) => f.id === id, { description: options.description, spoiler: options.spoiler });
+  saveFiles(channelId);
+}
+
 export function removeFile(channelId: string, id: number): void {
   const f = draftFiles(channelId).find((x) => x.id === id);
   if (f) revoke(f);
@@ -166,7 +177,7 @@ export function removeFile(channelId: string, id: number): void {
 /** Empties the channel's draft (to send it) and returns it; `reply` is the message it answers. */
 export function takeDraft(channelId: string, reply: ArchiveMessage | null): SavedDraft {
   ensure(channelId);
-  const taken: SavedDraft = { text: draftText(channelId), files: draftFiles(channelId).map((f) => f.file), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId), reply };
+  const taken: SavedDraft = { text: draftText(channelId), files: draftFiles(channelId).map(savedDraftFile), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId), reply };
   draftFiles(channelId).forEach(revoke);
   setDrafts(channelId, { text: '', files: [], error: null });
   picked.delete(channelId);
@@ -190,7 +201,7 @@ export function restoreDraft(channelId: string, d: SavedDraft): boolean {
 
 /** Brings back the drafts kept before a reload; a draft typed into since stays as it is. */
 async function loadSaved(): Promise<void> {
-  const [texts, files] = await Promise.all([idbEntries<SavedText>(TEXT_KEY), idbEntries<File[]>(FILES_KEY)]);
+  const [texts, files] = await Promise.all([idbEntries<SavedText>(TEXT_KEY), idbEntries<DraftFileInput[]>(FILES_KEY)]);
   for (const [key, t] of texts) {
     const channelId = key.slice(TEXT_KEY.length);
     if (draftText(channelId)) continue;

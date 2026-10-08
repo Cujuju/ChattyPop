@@ -12,11 +12,13 @@ export {
   draftText,
   mentionCandidateToken,
   removeFile,
+  setFileOptions,
   sendDraft,
   sendGif,
   sendPoll,
   setDraftText,
   type DraftFile,
+  type DraftFileInput,
 } from '@/state/composer';
 export { discardSend, dismissSending, editSend, outgoing, retrySend, sendingDismissed, type Outgoing } from '@/state/outbox';
 

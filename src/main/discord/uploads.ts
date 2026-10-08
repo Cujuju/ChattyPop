@@ -3,9 +3,11 @@
 import { randomUUID } from 'node:crypto';
 import { net, type ClientRequest, type Session } from 'electron';
 import { DISCORD_FILES_PER_MESSAGE_MAX, snowflakeArg } from '@shared/discord';
-import { UPLOAD_CHUNK_BYTES, UPLOAD_GONE, type UploadSlot } from '@shared/compose';
+import { UPLOAD_CHUNK_BYTES, UPLOAD_GONE, type UploadFileMeta, type UploadSlot } from '@shared/compose';
+import { uploadFilename } from '@shared/media';
 import { BYTES_PER_MB, MS_PER_MIN } from '@shared/units';
 import type { DiscordWriter } from './client';
+import { checkFileOptions } from './fileOptions';
 import type { UploadedFile } from './send';
 
 /** An upload with no piece for this long is dropped: its sender gave up or went away. */
@@ -23,6 +25,7 @@ interface Upload {
   channelId: string;
   name: string;
   size: number;
+  description: string;
   url: string;
   uploadFilename: string;
   sent: number;
@@ -37,7 +40,7 @@ interface Upload {
   idle: ReturnType<typeof setTimeout> | undefined;
 }
 
-const isFileMeta = (f: unknown): f is { name: string; size: number } => {
+const isFileMeta = (f: unknown): f is UploadFileMeta => {
   const o = f as { name?: unknown; size?: unknown } | null;
   return !!o && typeof o.name === 'string' && o.name.trim() !== '' && Number.isSafeInteger(o.size) && (o.size as number) >= 0;
 };
@@ -56,21 +59,25 @@ export class Uploads {
     const channelId = snowflakeArg(channelIdArg, 'channel');
     if (!Array.isArray(filesArg) || !filesArg.length || filesArg.length > DISCORD_FILES_PER_MESSAGE_MAX || !filesArg.every(isFileMeta))
       throw new Error(`Attach 1 to ${DISCORD_FILES_PER_MESSAGE_MAX} files.`);
+    const files = filesArg.map((f) => {
+      const options = checkFileOptions(f);
+      return { ...f, ...options, name: uploadFilename(f.name, options.spoiler) };
+    });
     const limit = await this.limit(channelId);
-    const tooBig = filesArg.find((f) => f.size > limit);
+    const tooBig = files.find((f) => f.size > limit);
     if (tooBig) throw new Error(`${tooBig.name} is over the ${Math.round(limit / BYTES_PER_MB)} MB upload limit here.`);
     const { attachments: slots } = await api.post<{ attachments: DiscordSlot[] }>(`channels/${channelId}/attachments`, {
-      files: filesArg.map((f, i) => ({ id: String(i), filename: f.name, file_size: f.size, is_clip: false })),
+      files: files.map((f, i) => ({ id: String(i), filename: f.name, file_size: f.size, is_clip: false })),
     });
     const batch = new Set<string>();
-    const refs = filesArg.map((f, i) => {
+    const refs = files.map((f, i) => {
       const slot = slots.find((s) => String(s.id) === String(i));
       if (!slot) throw new Error('Discord returned no upload slot for a file.');
       return { f, slot, token: randomUUID() };
     });
     for (const { f, slot, token } of refs) {
       batch.add(token);
-      this.held.set(token, { channelId, name: f.name, size: f.size, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
+      this.held.set(token, { channelId, name: f.name, size: f.size, description: f.description, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
     }
     this.touch(batch);
     return refs.map(({ f, token }) => ({ token, name: f.name, size: f.size }));
@@ -123,7 +130,7 @@ export class Uploads {
       if (!u || !u.finished || u.channelId !== channelId) throw new Error(UPLOAD_GONE);
       return u;
     });
-    return uploads.map((u, i) => ({ id: String(i), filename: u.name, uploaded_filename: u.uploadFilename }));
+    return uploads.map((u, i) => ({ id: String(i), filename: u.name, uploaded_filename: u.uploadFilename, ...(u.description ? { description: u.description } : {}) }));
   }
 
   /** Releases uploads a message used (after Discord accepted it). */

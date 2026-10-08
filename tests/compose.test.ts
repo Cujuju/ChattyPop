@@ -66,6 +66,28 @@ describe('owner messages from the composer', () => {
     ]);
   });
 
+  it('uploads spoiler names once and sends each file’s alt text', async () => {
+    const { api, posts, uploads } = fakeApi();
+    await sendOwnerMessage(api, message({ files: [
+      { ...file('a.png'), description: 'A blue bird', spoiler: true },
+      { ...file('SPOILER_b.png'), description: 'Another bird', spoiler: true },
+    ] }));
+    expect(uploads).toEqual(['https://upload/SPOILER_a.png', 'https://upload/SPOILER_b.png']);
+    expect(posts[1]![1]['attachments']).toEqual([
+      { id: '0', filename: 'SPOILER_a.png', uploaded_filename: 'up/SPOILER_a.png', description: 'A blue bird' },
+      { id: '1', filename: 'SPOILER_b.png', uploaded_filename: 'up/SPOILER_b.png', description: 'Another bird' },
+    ]);
+  });
+
+  it('validates new file options before making a request', async () => {
+    const { api, posts } = fakeApi();
+    for (const options of [{ description: 1 }, { spoiler: 'yes' }, { description: null }]) {
+      await expect(sendOwnerMessage(api, message({ files: [{ ...file('a.png'), ...options } as never] }))).rejects.toThrow(/attachment options/);
+    }
+    await expect(sendOwnerMessage(api, message({ files: [{ ...file('a.png'), description: 'x'.repeat(ALT_TEXT_MAX + 1) }] }))).rejects.toThrow(/alt text/);
+    expect(posts).toEqual([]);
+  });
+
   it('sends a sticker alone or with text, and reports a picked GIF before posting its URL', async () => {
     const { api, posts } = fakeApi();
     await sendOwnerMessage(api, message({ text: '', stickerId: STICKER }));

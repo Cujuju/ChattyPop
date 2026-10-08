@@ -7,8 +7,19 @@ import type { ArchiveEmoji } from './types/archive';
 import { DISCORD_UPLOAD_BYTES_MAX } from './discord';
 import { BYTES_PER_GB, BYTES_PER_MB } from './units';
 
+/** Options belonging to one attached file. */
+export interface FileOptions {
+  description: string;
+  spoiler: boolean;
+}
+/** Upload metadata; older senders may omit options. */
+export interface UploadFileMeta extends Partial<FileOptions> {
+  name: string;
+  size: number;
+}
+
 /** A file attached in the composer. */
-export interface OwnerFile {
+export interface OwnerFile extends Partial<FileOptions> {
   name: string;
   bytes: Uint8Array;
 }

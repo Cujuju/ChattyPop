@@ -1,7 +1,7 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
 import { checkPollDraft, pollPayload, type PollDraft } from '@shared/polls';
 import type { DirectMessage, NewThread } from '@shared/commands';
-import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type PostedOwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
+import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type FileOptions, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type PostedOwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
   DISCORD_FILES_PER_MESSAGE_MAX,
   DISCORD_TEXT_MAX,
@@ -18,10 +18,12 @@ import {
   type RawMessage,
 } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
+import { uploadFilename } from '@shared/media';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
 import { BYTES_PER_MB } from '@shared/units';
 import { diag } from '../diagnostics';
 import type { DiscordWriter } from './client';
+import { checkFileOptions } from './fileOptions';
 import type { Uploads } from './uploads';
 
 /** A file uploaded to Discord's upload slot, as a message references it. */
@@ -29,6 +31,7 @@ export interface UploadedFile {
   id: string;
   filename: string;
   uploaded_filename: string;
+  description?: string;
 }
 
 export interface OutgoingMessage {
@@ -91,7 +94,7 @@ interface UploadSlot {
 }
 
 /** A file for one message, as sent. */
-export interface OutgoingFile {
+export interface OutgoingFile extends Partial<FileOptions> {
   name: string;
   bytes: Buffer;
 }
@@ -99,6 +102,10 @@ export interface OutgoingFile {
 /** Uploads one message's files to slots Discord hands out, as the web client does; resolves with what the message references. */
 export async function uploadFiles(api: DiscordWriter, channelId: string, files: OutgoingFile[]): Promise<UploadedFile[]> {
   if (!files.length) return [];
+  files = files.map((f) => {
+    const options = checkFileOptions(f);
+    return { ...f, ...options, name: uploadFilename(f.name, options.spoiler) };
+  });
   const { attachments: slots } = await api.post<{ attachments: UploadSlot[] }>(`channels/${channelId}/attachments`, {
     files: files.map((f, i) => ({ id: String(i), filename: f.name, file_size: f.bytes.length, is_clip: false })),
   });
@@ -107,7 +114,7 @@ export async function uploadFiles(api: DiscordWriter, channelId: string, files: 
     const f = files[Number(slot.id)];
     if (!f) throw new Error('Discord returned an unexpected upload slot.');
     await api.upload(slot.upload_url, f.bytes);
-    uploaded.push({ id: String(slot.id), filename: f.name, uploaded_filename: slot.upload_filename });
+    uploaded.push({ id: String(slot.id), filename: f.name, uploaded_filename: slot.upload_filename, ...(f.description ? { description: f.description } : {}) });
   }
   return uploaded;
 }
@@ -126,6 +133,7 @@ export function checkOwnerMessage(v: unknown): OwnerMessage {
   const r = m.replyTo;
   const replyTo = r ? { messageId: snowflakeArg(r.messageId, 'message'), ping: r.ping === true } : null;
   if (!m.files.every(isFile)) throw new Error('Not a file to attach.');
+  m.files.forEach(checkFileOptions);
   const uploads = m.uploads ?? [];
   if (!Array.isArray(uploads) || !uploads.every((t) => typeof t === 'string')) throw new Error('Not the uploads of a message.');
   if (m.files.length + uploads.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error(`Discord takes up to ${DISCORD_FILES_PER_MESSAGE_MAX} files per message.`);
@@ -156,7 +164,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
   const uploaded = held?.take(m.channelId, tokens) ?? [];
   // The live client reports a picked GIF before sending it; a failed report doesn't stop the message.
   if (m.gif) await api.post('gifs/select', { id: m.gif.id, q: m.gif.query }).catch((err: unknown) => diag('gif-select-failed', { message: errorMessage(err) }));
-  const small = await uploadFiles(api, m.channelId, m.files.map((f) => ({ name: f.name, bytes: Buffer.from(f.bytes) })));
+  const small = await uploadFiles(api, m.channelId, m.files.map((f) => ({ ...f, bytes: Buffer.from(f.bytes) })));
   // Ids are each file's index in the message.
   const attachments = [...uploaded, ...small.map((f, i) => ({ ...f, id: String(uploaded.length + i) }))];
   const sent = await sendMessage(api, m.channelId, {

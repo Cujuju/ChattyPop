@@ -202,5 +202,5 @@ export {
   type VideoQuality,
 } from '@shared/chatSettings';
 export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from '@shared/phoneDevice';
-export type { OwnerMessage } from '@shared/compose';
+export { ALT_TEXT_MAX, type FileOptions, type OwnerMessage } from '@shared/compose';
 export type { DirectoryGuild } from '@shared/contract';
