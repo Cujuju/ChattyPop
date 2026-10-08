@@ -42,6 +42,8 @@ export function ModelRow(props: RowProps) {
         <Show when={status()} fallback={<span class={c.unit}>Loading models…</span>}>
           <SearchSelect
             id={props.fieldId}
+            label="Model"
+            searchLabel="Filter models"
             class={c.select}
             value={current()}
             disabled={!status()?.models}

@@ -69,6 +69,8 @@ export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
               hint={k.models.length ? undefined : 'No models listed yet.'}
               control={
                 <SearchSelect
+                  label="Add a model"
+                  searchLabel="Filter models"
                   class={c.select}
                   value=""
                   placeholder="Add a model to this key…"

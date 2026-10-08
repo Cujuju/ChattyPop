@@ -1,6 +1,6 @@
-/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats in the top layer with a filter field.
-   Hooks: .option[aria-selected='true'] (keyboard/hover), .option[data-current='true'] (the chosen value),
-   .list[data-tree='true'] (top-level options head nested ones). */
+/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats in the top layer with a filter
+   field, or fills the phone's screen as a page. Hooks: .option[data-active='true'] (keyboard/hover), .option[data-current='true']
+   (the chosen value), .list[data-tree='true'] (top-level options head nested ones), .trigger[data-mobile='true'] (opens the page). */
 .root {
   position: relative;
   min-width: 0;
@@ -27,12 +27,17 @@
   transition: border-color var(--cp-duration-fast) var(--cp-ease);
 }
 
+/* The phone: the trigger reads at native select size beside Provider and Range (theme/forms.css). */
+:global(html[data-surface='companion']) .trigger {
+  font-size: var(--cp-phone-text);
+}
+
 .trigger:hover:not(:disabled) {
   border-color: var(--cp-border-strong);
 }
 
 .trigger:focus-visible,
-.trigger[aria-expanded='true'] {
+.trigger[aria-expanded='true']:not([data-mobile='true']) {
   border-color: var(--cp-accent);
   outline: none;
 }
@@ -51,6 +56,14 @@
   white-space: nowrap;
 }
 
+/* The phone's trigger points right, to the page it opens. */
+.disclosure {
+  flex: 0 0 auto;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+}
+
 /* With cp-popover, in the top layer: SearchSelect.tsx sets left/top, min-width (the trigger's) and the window caps. */
 .popover {
   position: fixed;
@@ -64,10 +77,19 @@
 .popover:popover-open {
   display: flex;
   flex-direction: column;
+}
+
+/* The filter field over the list, in the popover or the page. */
+.content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: var(--cp-space-2);
+  min-height: 0;
 }
 
 .search {
+  flex: none;
   width: 100%;
 }
 
@@ -140,7 +162,7 @@
   padding-block: var(--cp-space-2);
 }
 
-.option[aria-selected='true'] {
+.option[data-active='true'] {
   background: var(--cp-surface-4);
   color: var(--cp-text-1);
 }
@@ -157,7 +179,8 @@
 }
 
 /* The phone: every row a full tap target. */
-:global(html[data-surface='companion']) .option {
+:global(html[data-surface='companion']) .option,
+.page .option {
   min-height: var(--cp-touch-h);
 }
 
@@ -177,4 +200,72 @@
   padding: var(--cp-space-3) var(--cp-space-4);
   color: var(--cp-text-muted);
   font-size: var(--cp-text-md);
+}
+
+/* The phone: a modal dialog filling the screen above the keyboard; header, then the filter field over the list. */
+.page {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: calc(var(--cp-screen-visible-h) - var(--cp-keyboard-inset));
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.page[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Back, then the title in what's left. */
+.pageHeader {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: var(--cp-touch-h) 1fr;
+  align-items: center;
+  gap: var(--cp-space-4);
+  padding: calc(var(--cp-safe-top) + var(--cp-space-4)) var(--cp-space-6) var(--cp-space-4);
+}
+
+.pageBack {
+  display: grid;
+  place-items: center;
+  width: var(--cp-touch-h);
+  height: var(--cp-touch-h);
+  padding: 0;
+}
+
+.pageBack > svg {
+  width: var(--cp-thumb-icon);
+  height: var(--cp-thumb-icon);
+}
+
+.pageTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Only the list scrolls; its last row clears the home indicator. */
+.pageBody {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--cp-space-4) var(--cp-space-6) max(var(--cp-space-4), var(--cp-safe-bottom));
+}
+
+.page .search {
+  min-height: var(--cp-touch-h);
+}
+
+.page .list {
+  min-width: 0;
+  max-width: none;
+  max-height: none;
+  overscroll-behavior: contain;
 }
