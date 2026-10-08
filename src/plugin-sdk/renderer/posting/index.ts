@@ -72,6 +72,7 @@ export { anyNameMatches } from '@shared/nameMatch';
 
 // Host UI the box reuses: the emoji tabs and picker parts the reaction picker shares, icons, keys and list navigation.
 export { ServerEmojiTab, SystemEmojiTab, type EmojiPick } from '@/panels/chat/compose/EmojiTab';
+export { EmojiPicker } from '@/panels/chat/compose/EmojiPicker';
 export { PickerSearch, PickerSection, guildOrder, normalQuery } from '@/panels/chat/compose/PickerParts';
 export { hexColor } from '@/panels/chat/MessageExtras';
 export { StickerArt } from '@/ui/StickerArt';
