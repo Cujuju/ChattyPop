@@ -1,4 +1,5 @@
-import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { For, Match, Show, Switch, createSignal, type JSX } from 'solid-js';
+import { Dynamic } from 'solid-js/web';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
 import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { AnimatedImage } from '@/ui/AnimatedImage';
@@ -59,35 +60,9 @@ export function Attachment(props: { message: ArchiveMessage; attachment: Archive
   );
 }
 
-const px = (v: string): number => parseFloat(v) || 0;
-
-/**
- * An attachment's or embed's tile (its first child) and its caption. data-beside: a note column (--cp-note-min-w) fits
- * beside the tile in the row, so the caption sits there; else it goes under the tile, at the tile's width.
- */
+/** An attachment's or embed's tile (its first child) and its caption, the tile's drawer: one card at the tile's width. */
 export function MediaFigure(props: { children: JSX.Element }) {
-  let figure!: HTMLElement;
-  const [beside, setBeside] = createSignal(false);
-  onMount(() => {
-    const row = figure.parentElement!;
-    const tile = figure.firstElementChild as HTMLElement;
-    const fit = (): void => {
-      const f = getComputedStyle(figure);
-      const r = getComputedStyle(row);
-      const room = row.clientWidth - px(r.paddingLeft) - px(r.paddingRight);
-      setBeside(tile.offsetWidth + px(f.columnGap) + px(f.getPropertyValue('--cp-note-min-w')) <= room);
-    };
-    // The row resizes with the log; the tile once its media's size is known.
-    const watch = new ResizeObserver(fit);
-    watch.observe(row);
-    watch.observe(tile);
-    onCleanup(() => watch.disconnect());
-  });
-  return (
-    <figure ref={figure} class={styles.figure} data-beside={beside()}>
-      {props.children}
-    </figure>
-  );
+  return <figure class={styles.figure}>{props.children}</figure>;
 }
 
 /** Stored video plays inline to keep phone navigation. cell crops media into mosaic bounds instead of intrinsic sizing. */
@@ -168,11 +143,14 @@ const TRANSLATION_KIND = 'translation';
 const translationsLast = (notes: AttachmentNote[]): AttachmentNote[] =>
   [...notes].sort((x, y) => Number(x.kind === TRANSLATION_KIND) - Number(y.kind === TRANSLATION_KIND));
 
-/** Beside or under an attachment or embed: image descriptions while shown, then plugins' notes; nothing when neither. Discord names pasted media generically (image.png), so no filename. */
-export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
+/**
+ * An attachment's or embed's drawer: image descriptions while shown, then plugins' notes; nothing when neither. Discord
+ * names pasted media generically (image.png), so no filename. In an embed card (no figure): a div, placed by `class`.
+ */
+export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: string[]; as?: 'div'; class?: string }) {
   return (
     <Show when={props.notes.length || props.descriptions?.length}>
-      <figcaption class={styles.caption}>
+      <Dynamic component={props.as ?? 'figcaption'} class={`${styles.caption} ${props.class ?? ''}`}>
         <For each={props.descriptions ?? []}>
           {(d) => (
             <span class={look.text} data-size="xs" data-tone="secondary">
@@ -181,7 +159,7 @@ export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: st
           )}
         </For>
         <For each={translationsLast(props.notes)}>{(n) => <Note note={n} />}</For>
-      </figcaption>
+      </Dynamic>
     </Show>
   );
 }
@@ -193,7 +171,10 @@ const NOTE_ICONS: Readonly<Record<string, IconName | undefined>> = {
   [TRANSLATION_KIND]: 'translate',
 };
 
-/** Plugin note labels retain constant height. Clicking toggles text; data-note-part/plugin identify notes for message menus. */
+/**
+ * Closed, a note is one line: its icon or label, then its text's start as a preview. Clicking toggles the whole text;
+ * data-note-part/plugin identify notes for message menus.
+ */
 export function Note(props: { note: AttachmentNote }) {
   const n = () => props.note;
   const [open, setOpen] = createSignal(false);
@@ -223,8 +204,9 @@ export function Note(props: { note: AttachmentNote }) {
             </span>
           )}
         </Show>
+        <span class={styles.notePreview}>{open() ? '' : n().text}</span>
         <button type="button" class={styles.noteToggle} aria-expanded={open()}>
-          {open() ? 'Hide' : 'Show'}
+          {open() ? 'Less' : 'More'}
         </button>
       </div>
       <Show when={open()}>

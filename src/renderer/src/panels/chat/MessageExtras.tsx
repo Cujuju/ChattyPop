@@ -1,5 +1,5 @@
 import { For, Show, type JSX } from 'solid-js';
-import type { ArchiveEmbed, ArchiveMessage, ArchiveReply, ArchiveSticker, MediaSize } from '@shared/contract';
+import type { ArchiveEmbed, ArchiveMessage, ArchiveReply, ArchiveSticker, AttachmentNote, MediaSize } from '@shared/contract';
 import { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 import { loopWhileLooking } from '@/ui/looking';
 import { animatedMediaUrl, avatarUrl, proxiedUrl, thumbUrl } from '@shared/media';
@@ -113,7 +113,7 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
             <Show when={!props.hideMedia && hasMedia(e)} fallback={<EmbedNotes embed={e} />}>
               <MediaFigure>
                 <EmbedMedia embed={e} />
-                <MediaCaption notes={presentedParts(e.notes ?? [], pluginPresents)} />
+                <MediaCaption notes={embedNotes(e)} />
               </MediaFigure>
             </Show>
           }
@@ -160,11 +160,11 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
                 <EmbedMedia embed={e} />
               </Show>
               <Show when={e.footer}>{(f) => <span class={styles.embedFooter}>{f()}</span>}</Show>
-              <EmbedNotes embed={e} />
             </div>
             <Show when={!props.hideMedia && e.thumbnailUrl && !e.imageUrl && !e.videoUrl && !LARGE_THUMB_TYPES.has(e.type)}>
               <img class={styles.embedThumb} src={thumbUrl(e.thumbnailUrl!)} alt="" loading="lazy" />
             </Show>
+            <MediaCaption as="div" class={styles.embedDrawer} notes={embedNotes(e)} />
           </article>
         </Show>
       )}
@@ -172,9 +172,12 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
   );
 }
 
-/** Plugins' notes on the embed's text and media (a transcript, a translation), as under an attachment. */
+/** Plugins' notes on the embed's text and media (a transcript, a translation). */
+const embedNotes = (e: ArchiveEmbed): AttachmentNote[] => presentedParts(e.notes ?? [], pluginPresents);
+
+/** The notes alone, with no media or card to hang from (media hidden): each a box of its own. */
 function EmbedNotes(props: { embed: ArchiveEmbed }) {
-  return <For each={presentedParts(props.embed.notes ?? [], pluginPresents)}>{(n) => <Note note={n} />}</For>;
+  return <For each={embedNotes(props.embed)}>{(n) => <Note note={n} />}</For>;
 }
 
 /** EmbedMedia draws something: a video, or an image or thumbnail to show. */

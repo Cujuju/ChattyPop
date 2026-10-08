@@ -63,39 +63,57 @@
 }
 
 /* Any attachment, or a media-only embed, and its caption: the figure is its tile's width (first child), the caption
-   under it at that width, or beside it where a note column fits (data-beside, measured: a portrait video's empty side).
-   A tile's width cap must be absolute: a percentage max-width is ignored when the figure sizes to its content, which
-   then takes the media's natural width and widens the caption past the capped tile. */
+   under it at that width. A tile's width cap must be absolute: a percentage max-width is ignored when the figure sizes
+   to its content, which then takes the media's natural width and widens the caption past the capped tile. */
 .figure {
   display: grid;
   grid-template-columns: minmax(0, auto);
   justify-items: start;
-  align-items: start;
-  gap: var(--cp-space-2) var(--cp-space-4);
   width: fit-content;
   max-width: 100%;
-}
-
-/* Beside: the tile's own width (max-content: the tile's inner minmax(0, 1fr) column would let an opened note squeeze
-   it), then the notes as wide as they need (closed, the narrowest column; open, wider), up to an attachment's width.
-   No caption: no second column, nor its gap. */
-.figure[data-beside='true']:has(> .caption) {
-  grid-template-columns: max-content fit-content(var(--cp-attachment-w));
 }
 
 .figure > :first-child {
   min-width: 0;
 }
 
-/* Under the tile: its width, adding none of its own to the figure's. */
-.figure:not([data-beside='true']) > .caption {
+/* The caption adds no width of its own to the figure's. */
+.figure > .caption {
   width: 0;
   min-width: 100%;
 }
 
-.figure[data-beside='true'] > .caption {
-  justify-self: stretch;
-  min-width: var(--cp-note-min-w);
+/* With a caption, tile and caption are one card: the figure (or mosaic) draws the frame, so what it holds drops its own
+   border and corners. The overlays (spoiler pill, marks, action bar) keep theirs. */
+:is(.figure, .mosaic):has(> .caption) {
+  overflow: hidden;
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.figure:has(> .caption) > :not(.caption),
+.figure:has(> .caption) > .tile > :not(.spoiler, .removed, .storedMark, .bar),
+.figure:has(> .caption) > :not(.caption) :is(img, video),
+.mosaic:has(> .caption) > .grid {
+  border: 0;
+  border-radius: 0;
+}
+
+.mosaic:has(> .caption) {
+  gap: 0;
+}
+
+/* Chromium's audio controls sit on the card instead of their own pill. */
+.figure:has(> .caption) .audio::-webkit-media-controls-enclosure,
+.figure:has(> .caption) .audio::-webkit-media-controls-panel {
+  border-radius: 0;
+  background: none;
+}
+
+/* A spoiler's notes stay covered with it: the preview line would read it out. */
+:is(.figure, .mosaic):has(.tile[data-covered='true']) > .caption .notePreview {
+  filter: blur(var(--cp-spoiler-blur));
 }
 
 /* The image is a button that opens the viewer; it adds no chrome of its own. Capped here for an image of unknown size. */
@@ -372,15 +390,25 @@
   aspect-ratio: auto;
 }
 
-/* Beside or under stored media: descriptions and plugins' notes, stacked. */
+/* The tile's drawer: descriptions and plugins' notes as rows, each ruled off from what is above it. */
 .caption {
   display: flex;
   flex-direction: column;
-  gap: var(--cp-space-2);
 }
 
-.caption .note {
+.caption > * {
   min-width: 0;
+  padding: var(--cp-space-2) var(--cp-space-4);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+/* In a drawer a note is a row of it, not a box of its own. */
+.caption > .note {
+  border-width: var(--cp-border-w) 0 0;
+  border-style: solid;
+  border-color: var(--cp-border-subtle);
+  border-radius: 0;
+  background: none;
 }
 
 /* The archived check in a folded-page corner: a translucent right triangle flush with the tile's top-left, rounded as
@@ -401,7 +429,8 @@
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
-/* A plugin's note (a transcript): its label and a Show toggle, then the text once opened. */
+/* A plugin's note (a transcript): its label, its text's preview and a More toggle, then the whole text once opened.
+   Alone (a link's note, no tile to hang from), a box of its own. */
 .note {
   display: flex;
   flex-direction: column;
@@ -414,11 +443,10 @@
   cursor: pointer; /* a click anywhere on it, open or closed, toggles it */
 }
 
-/* The toggle shares the label's line, so its appearing never changes the note's height. */
+/* Label, preview and toggle share one line, so opening never changes the head's height. */
 .noteHead {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: var(--cp-space-4);
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-2xs);
@@ -439,7 +467,19 @@
   font-size: var(--cp-text-md);
 }
 
+/* The text's start, cut to the line (nowrap folds its line breaks); empty while open, holding the toggle at the end. */
+.notePreview {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-edited-original-text);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .noteToggle {
+  flex: 0 0 auto;
   padding: 0;
   border: 0;
   background: none;

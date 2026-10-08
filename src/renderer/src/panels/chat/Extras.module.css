@@ -73,6 +73,14 @@
   background: var(--cp-surface-2);
 }
 
+/* Its notes as the card's drawer (Attachment.module.css .caption): under text and thumbnail, out to the card's edges.
+   Adds no width of its own, so opening a note never widens the card. */
+.embedDrawer {
+  grid-column: 1 / -1;
+  contain: inline-size;
+  margin: 0 calc(-1 * var(--cp-space-6)) calc(-1 * var(--cp-space-5));
+}
+
 .embedBody {
   display: flex;
   flex-direction: column;
