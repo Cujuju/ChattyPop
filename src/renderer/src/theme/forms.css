@@ -8,12 +8,12 @@ input:where(
   [type='number'],
   [type='search'],
   [type='date'],
+  [type='time'],
+  [type='datetime-local'],
   [type='password']
 ),
 textarea,
-select,
-/* The phone: time fields too, which else keep the UA's light well. */
-html[data-surface='companion'] input:where([type='time'], [type='datetime-local']) {
+select {
   height: var(--cp-btn-h);
   padding: 0 var(--cp-space-4);
   border: var(--cp-border-w) solid var(--cp-border);

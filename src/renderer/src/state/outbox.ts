@@ -73,7 +73,7 @@ function unstalled<T>(call: Promise<T>, ms: number): Promise<T> {
 }
 
 /** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go; resolves the slots' tokens. */
-async function uploadFiles(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]> {
+export async function uploadFiles(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]> {
   const slots = await unstalled(
     api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.file.name, size: f.file.size, description: f.description, spoiler: f.spoiler }))),
     SEND_BASE_TIMEOUT_MS,

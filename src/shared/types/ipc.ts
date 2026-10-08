@@ -154,6 +154,12 @@ export const MAIN_INVOKE = {
     suggestChannels: 'discord:suggest-channels',
     /** Posts what the owner wrote in the Archive composer (OwnerMessage). */
     send: 'discord:send',
+    scheduledAvailability: 'discord:scheduled-availability',
+    createScheduled: 'discord:create-scheduled',
+    scheduledMessages: 'discord:scheduled-messages',
+    updateScheduled: 'discord:update-scheduled',
+    cancelScheduled: 'discord:cancel-scheduled',
+    sendScheduledNow: 'discord:send-scheduled-now',
     uploadLimit: 'discord:upload-limit',
     prepareUploads: 'discord:prepare-uploads',
     uploadChunk: 'discord:upload-chunk',

@@ -301,7 +301,9 @@ export class DiscordApi implements DiscordClient {
       }
       if (res.status < 200 || res.status >= 300) {
         const reason = discordReason(res.body);
-        throw new DiscordHttpError(`Discord ${res.status} on ${redactedPath}${reason ? `: ${reason}` : ''}`, res.status);
+        let code: number | undefined;
+        try { const value = JSON.parse(res.body).code; if (Number.isSafeInteger(value)) code = value; } catch { /* Not every error is JSON. */ }
+        throw new DiscordHttpError(`Discord ${res.status} on ${redactedPath}${reason ? `: ${reason}` : ''}`, res.status, code);
       }
 
       // 204 No Content (a reaction PUT, for one) has no body to parse.

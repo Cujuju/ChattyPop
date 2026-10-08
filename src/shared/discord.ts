@@ -11,6 +11,7 @@ export class DiscordHttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: number,
   ) {
     super(message);
   }

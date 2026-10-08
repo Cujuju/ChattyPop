@@ -177,7 +177,7 @@ export function removeFile(channelId: string, id: number): void {
 /** Empties the channel's draft (to send it) and returns it; `reply` is the message it answers. */
 export function takeDraft(channelId: string, reply: ArchiveMessage | null): SavedDraft {
   ensure(channelId);
-  const taken: SavedDraft = { text: draftText(channelId), files: draftFiles(channelId).map(savedDraftFile), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId), reply };
+  const taken = snapshotDraft(channelId, reply);
   draftFiles(channelId).forEach(revoke);
   setDrafts(channelId, { text: '', files: [], error: null });
   picked.delete(channelId);
@@ -185,6 +185,11 @@ export function takeDraft(channelId: string, reply: ArchiveMessage | null): Save
   saveText(channelId);
   saveFiles(channelId);
   return taken;
+}
+
+/** A send snapshot without emptying the field; scheduled sends keep it until Discord accepts. */
+export function snapshotDraft(channelId: string, reply: ArchiveMessage | null): SavedDraft {
+  return { text: draftText(channelId), files: draftFiles(channelId).map(savedDraftFile), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId), reply };
 }
 
 /** Puts a message that came back unsent into the channel's draft (Edit); false when the draft has something new in it. */

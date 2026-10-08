@@ -78,3 +78,11 @@ export { StickerArt } from '@/ui/StickerArt';
 export { SolidIcon, type SolidIconName } from '@/ui/solidIcons';
 export { enterSends, enterToSend } from '@/ui/enterToSend';
 export { createListNav, type ListNav } from '@/ui/listNav';
+
+// Discord's server-side scheduled messages (desktop composer and channel list).
+export { loadScheduledAvailability, schedulingAvailable, scheduledLimit, scheduledTime, setScheduledTime, schedulingBusy,
+  scheduleDraft, schedulePoll, scheduledNotice, scheduledForChannel, refreshScheduledMessages, scheduledListError, scheduledLoading,
+  updateScheduledMessage, removeScheduledMessage } from '@/state/scheduledMessages';
+export { schedulingUnconfirmed, clearScheduleUnconfirmed } from '@/state/scheduledMessages';
+export { defaultScheduleTime, schedulePresets, scheduleWindowError, scheduledStateLabel, SUPPRESS_NOTIFICATIONS,
+  type ScheduledMessage, type ScheduledUpdate } from '@shared/scheduledMessages';

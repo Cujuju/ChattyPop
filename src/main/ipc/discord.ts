@@ -36,6 +36,8 @@ import { PHONE_DISCORD_METHODS } from '@shared/phone';
 import type { DiscordCalls } from '../phone/hub';
 import { gatePosting, postingClient, type PostingGate } from '../plugins/posting';
 import { registerDmHandlers } from './dms';
+import { readScheduledAccount } from '../discord/scheduledAvailability';
+import { ScheduledMessages } from '../discord/scheduledMessages';
 
 /** Channel kinds a suggestion samples: text and announcement channels (not DMs, threads or forums). */
 const SUGGESTABLE_KINDS = new Set([0, 5]);
@@ -77,6 +79,17 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     return uploadLimitBytes(account.premiumType, guild ? tiers.tier(guild.id) : null);
   };
   const uploads = new Uploads(d.discordSession, limitFor);
+  const scheduled = new ScheduledMessages(poster, (channelId) => readScheduledAccount(d.discord.webContents.debugger, channelId), uploads);
+  const scheduledCalls = gatePosting(d.posting, {
+    createScheduled: (m: unknown) => scheduled.create(m), updateScheduled: (u: unknown) => scheduled.update(u),
+    cancelScheduled: (id: unknown) => scheduled.remove(id), sendScheduledNow: (id: unknown) => scheduled.remove(id, true),
+  });
+  handleMain(channels.scheduledAvailability, (channelId) => scheduled.availability(channelId));
+  handleMain(channels.scheduledMessages, () => scheduled.list());
+  handleMain(channels.createScheduled, scheduledCalls.createScheduled);
+  handleMain(channels.updateScheduled, scheduledCalls.updateScheduled);
+  handleMain(channels.cancelScheduled, scheduledCalls.cancelScheduled);
+  handleMain(channels.sendScheduledNow, scheduledCalls.sendScheduledNow);
   const send = (m: unknown): ReturnType<typeof sendOwnerMessage> => sendOwnerMessage(poster, m, uploads);
   const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
   const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);

@@ -17,6 +17,7 @@ import type { DmOutcome, Friend, MuteWindow } from './dms';
 import type { UnreadTotals } from './unread';
 import type { MarketplaceApi } from './marketplace';
 import type { PdfPage } from './htmlPage';
+import type { ScheduledAvailability, ScheduledDraft, ScheduledMessage, ScheduledUpdate } from './scheduledMessages';
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
@@ -51,6 +52,12 @@ export interface RendererApi {
     suggestChannels(guildId: string): Promise<ChannelSuggestion[]>;
     /** Posts a message as the owner (text, reply, files, sticker or GIF); rejects with Discord's reason. */
     send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+    scheduledAvailability(channelId: string): Promise<ScheduledAvailability>;
+    createScheduled(m: ScheduledDraft): Promise<ScheduledMessage>;
+    scheduledMessages(): Promise<ScheduledMessage[]>;
+    updateScheduled(change: ScheduledUpdate): Promise<ScheduledMessage>;
+    cancelScheduled(id: string): Promise<void>;
+    sendScheduledNow(id: string): Promise<void>;
     /** The largest file the owner may upload to the channel: their plan's limit or its server's Boost limit. */
     uploadLimit(channelId: string): Promise<number>;
     /** Discord upload slots for a message's files; rejects with the reason one can't go (over the limit). */
