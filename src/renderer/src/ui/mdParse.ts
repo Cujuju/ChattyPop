@@ -21,6 +21,9 @@ export type MdBlock =
 
 const SAFE_HREF = /^https?:\/\//i;
 
+/** Shared by chat Markdown and attachment documents: only external HTTP(S) links. */
+export const isSafeMarkdownHref = (href: string): boolean => SAFE_HREF.test(href);
+
 /** Inline rules use first match. Escaped characters consume backslash pairs so escaped delimiters cannot end styled runs. */
 /** A JS Date spans ±8.64e15 ms (100,000,000 days either side of 1970), so ±8.64e12 s. */
 const DATE_MAX_S = 8.64e12;
@@ -38,7 +41,7 @@ const INLINE: { re: RegExp; make: (m: RegExpExecArray) => MdInline | null }[] = 
   // Masked link: [text](url) or [text](<url>); only http(s) targets.
   {
     re: /^\[((?:\\.|[^\]\\])+)\]\(<?(https?:\/\/[^\s)>]+)>?\)/,
-    make: (m) => (SAFE_HREF.test(m[2]!) ? { k: 'link', href: m[2]!, children: parseInline(m[1]!) } : null),
+    make: (m) => (isSafeMarkdownHref(m[2]!) ? { k: 'link', href: m[2]!, children: parseInline(m[1]!) } : null),
   },
   { re: /^<(https?:\/\/[^\s>]+)>/, make: (m) => ({ k: 'link', href: m[1]!, children: [{ k: 'text', text: m[1]! }] }) },
   { re: /^\*\*((?:\\[\s\S]|[^\\])+?)\*\*(?!\*)/, make: (m) => ({ k: 'strong', children: parseInline(m[1]!) }) },
@@ -56,7 +59,7 @@ const SPECIAL = /[\\`<@\[*_~|]/;
 function linkifyText(text: string, out: MdInline[]): void {
   let at = 0;
   for (const l of linkify.find(text, 'url')) {
-    if (!SAFE_HREF.test(l.href)) continue;
+    if (!isSafeMarkdownHref(l.href)) continue;
     if (l.start > at) out.push({ k: 'text', text: text.slice(at, l.start) });
     out.push({ k: 'link', href: l.href, children: [{ k: 'text', text: l.value }] });
     at = l.end;

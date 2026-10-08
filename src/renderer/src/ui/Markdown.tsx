@@ -4,6 +4,7 @@ import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { clockTime } from './format';
 import { SpoilersShown } from './spoilers';
+import { MarkdownLink } from './MarkdownLink';
 import { parseInline, parseMarkdown, type MdBlock, type MdInline } from './mdParse';
 import styles from './Markdown.module.css';
 
@@ -80,9 +81,9 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
           </Match>
           <Match when={n.k === 'link' && n}>
             {(l) => (
-              <a class={styles.link} href={l().href} target="_blank" rel="noreferrer" title={l().href}>
+              <MarkdownLink class={styles.link} href={l().href}>
                 <Inline nodes={l().children} mentions={props.mentions} jumbo={false} inert={props.inert} />
-              </a>
+              </MarkdownLink>
             )}
           </Match>
           {/* data-text-emoji: text to gestures (ui/touch.ts), so a double tap on it reacts as on the words around it. */}

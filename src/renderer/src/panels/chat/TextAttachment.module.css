@@ -64,7 +64,7 @@
 
 /* Reading or highlighting: the collapsed preview's height, so the row keeps it when the code arrives. */
 .loading {
-  height: calc(var(--cp-text-attachment-collapsed-lines) * 1lh + 2 * var(--cp-space-4));
+  height: calc(var(--collapsed-lines) * 1lh + 2 * var(--cp-space-4));
   line-height: var(--cp-leading-normal);
 }
 
@@ -80,6 +80,16 @@
 
 .code > code {
   font: inherit;
+}
+
+/* The wrapper inherits Source's code size: its lh is the same collapsed line height. The document owns its body font. */
+.formatted {
+  line-height: var(--cp-leading-normal);
+}
+
+.formatted[data-collapsed='true'] {
+  max-height: calc(var(--collapsed-lines) * 1lh + 2 * var(--cp-space-4));
+  overflow: hidden;
 }
 
 /* Expand / View whole file, and the cut-off notice; gone when the file needs none. */

@@ -35,8 +35,14 @@ export const TEXT_PREVIEW_BYTES = 50_001;
 export const TEXT_COLLAPSED_LINES = 6;
 export const TEXT_EXPANDED_LINES = 100;
 
+/** Endings Discord opens as formatted Markdown, rather than highlighted source. */
+const MARKDOWN_EXTENSIONS: ReadonlySet<string> = new Set(['md', 'markdown', 'mkd', 'mkdown']);
+
 /** A filename's last dot-segment, lower-cased: the whole name when it has no dot (Dockerfile). */
 export const textExtension = (filename: string): string => filename.slice(filename.lastIndexOf('.') + 1).toLowerCase();
 
 /** Whether Discord previews the file as text: by its ending alone, whatever its content type. */
 export const isTextFile = (filename: string): boolean => TEXT_EXTENSIONS.has(textExtension(filename));
+
+/** Whether Discord shows the file as formatted Markdown, with a Source toggle. */
+export const isMarkdownFile = (filename: string): boolean => MARKDOWN_EXTENSIONS.has(textExtension(filename));

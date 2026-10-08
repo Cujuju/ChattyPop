@@ -1,14 +1,16 @@
 // A stored text attachment shown as Discord does: the first 50 KB, 6 lines collapsed or 100 expanded, highlighted by its
 // ending (or a picked language), and a window for the whole preview.
-import { For, Show, createResource, createSignal } from 'solid-js';
+import { For, Show, createMemo, createResource, createSignal } from 'solid-js';
 import type { ArchiveAttachment } from '@shared/contract';
 import { fileKind, fileTypeLabel } from '@shared/fileKinds';
 import { attachmentUrl } from '@shared/media';
-import { TEXT_COLLAPSED_LINES, TEXT_EXPANDED_LINES, TEXT_PREVIEW_BYTES, textExtension } from '@shared/textFiles';
+import { TEXT_COLLAPSED_LINES, TEXT_EXPANDED_LINES, TEXT_PREVIEW_BYTES, isMarkdownFile, textExtension } from '@shared/textFiles';
 import { kilobytesText } from '@/ui/format';
 import { ModalDialog } from '@/ui/ModalDialog';
 import { Select } from '@/ui/Select';
 import { LANGUAGES, highlightLines, languageFor, type CodeLine } from '@/ui/highlight';
+import { MarkdownDocument } from '@/ui/mdDocument';
+import { MARKDOWN_CUT_NOTICE, parseDocument } from '@/ui/mdDocumentParse';
 import { FileIcon } from './FileIcon';
 import styles from './TextAttachment.module.css';
 
@@ -17,6 +19,7 @@ const CUT_CHARACTER = /�$/;
 
 const LANGUAGE_OPTIONS = LANGUAGES.map((l) => ({ value: l.id, label: l.name }));
 const CUT_NOTICE = 'This file is longer than the preview shows. Download it to read all of it.';
+const MODE_OPTIONS = [{ value: 'formatted', label: 'Formatted' }, { value: 'source', label: 'Source' }];
 
 interface Preview {
   text: string;
@@ -52,10 +55,10 @@ function Code(props: { lines: CodeLine[] }) {
   );
 }
 
-/** Selects the code alone, not the page, for Ctrl/Cmd+A inside the window. */
+/** Selects the document or code alone for Ctrl/Cmd+A inside the window. */
 function selectCode(e: KeyboardEvent): void {
   if (e.key.toLowerCase() !== 'a' || !(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return;
-  const code = (e.currentTarget as HTMLElement).querySelector('code');
+  const code = (e.currentTarget as HTMLElement).querySelector('[data-markdown-document], pre > code');
   if (!code) return;
   e.preventDefault();
   window.getSelection()?.selectAllChildren(code);
@@ -67,6 +70,9 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
   const [language, setLanguage] = createSignal(languageFor(textExtension(a().filename)));
   const [expanded, setExpanded] = createSignal(false);
   const [windowOpen, setWindowOpen] = createSignal(false);
+  const [mode, setMode] = createSignal('formatted');
+  const markdown = () => isMarkdownFile(a().filename);
+  const formatted = () => markdown() && mode() === 'formatted';
   const [preview] = createResource(
     () => a().sha256 && attachmentUrl(a().sha256!, a().filename),
     async (url) => {
@@ -79,11 +85,13 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
     },
   );
   const [lines] = createResource(
-    () => preview() && ([preview()!.text, language()] as const),
+    () => !formatted() && preview() && ([preview()!.text, language()] as const),
     ([text, lang]) => highlightLines(text, lang),
   );
   const shown = () => lines()?.slice(0, expanded() ? TEXT_EXPANDED_LINES : TEXT_COLLAPSED_LINES) ?? [];
-  const lineCount = () => lines()?.length ?? 0;
+  const lineCount = createMemo(() => preview()?.text.split('\n').length ?? 0);
+  const document = createMemo(() => formatted() && preview() ? parseDocument(preview()!.text) : undefined);
+  const modePicker = () => <Select class={styles.language} label="View" value={mode()} options={MODE_OPTIONS} onChange={setMode} />;
   return (
     <section class={styles.root} data-expanded={expanded()} aria-label={a().filename}>
       <header class={styles.header}>
@@ -91,19 +99,26 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
         <div class={styles.heading}>
           <span class={styles.name}>{a().filename}</span>
           <span class={styles.meta}>{[fileTypeLabel(a()), kilobytesText(a().size)].filter(Boolean).join(' · ')}</span>
-          <Select class={styles.language} label="Language" value={language()} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+          <Show when={markdown()}>{modePicker()}</Show>
+          <Show when={!formatted()}>
+            <Select class={styles.language} label="Language" value={language()} options={LANGUAGE_OPTIONS} onChange={setLanguage} />
+          </Show>
         </div>
       </header>
-      <Show when={lines()} fallback={<div class={styles.loading} aria-busy="true" />}>
-        <Code lines={shown()} />
+      <Show when={preview()} fallback={<div class={styles.loading} aria-busy="true" />}>
+        <Show when={formatted()} fallback={<Show when={lines()} fallback={<div class={styles.loading} aria-busy="true" />}><Code lines={shown()} /></Show>}>
+          <div class={styles.formatted} data-collapsed={!expanded()} style={{ '--collapsed-lines': TEXT_COLLAPSED_LINES }}>
+            <MarkdownDocument nodes={document()?.nodes ?? []} />
+          </div>
+        </Show>
       </Show>
       <footer class={styles.footer}>
-        <Show when={lineCount() > TEXT_COLLAPSED_LINES}>
+        <Show when={preview() && (formatted() || lineCount() > TEXT_COLLAPSED_LINES)}>
           <button type="button" class={styles.toggle} aria-expanded={expanded()} onClick={() => setExpanded(!expanded())}>
-            {expanded() ? 'Collapse' : `Expand (${Math.min(lineCount(), TEXT_EXPANDED_LINES)} of ${lineCount()} lines)`}
+            {expanded() ? 'Collapse' : formatted() ? 'Expand' : `Expand (${Math.min(lineCount(), TEXT_EXPANDED_LINES)} of ${lineCount()} lines)`}
           </button>
         </Show>
-        <Show when={lineCount() > TEXT_EXPANDED_LINES}>
+        <Show when={preview() && (formatted() || lineCount() > TEXT_EXPANDED_LINES)}>
           <button type="button" class={styles.viewAll} onClick={() => setWindowOpen(true)}>
             View whole file
           </button>
@@ -111,12 +126,17 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
         <Show when={expanded() && preview()?.cut}>
           <span class={styles.notice}>{CUT_NOTICE}</span>
         </Show>
+        <Show when={document()?.cut}><span class={styles.notice}>{MARKDOWN_CUT_NOTICE}</span></Show>
       </footer>
       {/* Mounted only while open: one dialog per shown file would sit in every log row. */}
       <Show when={windowOpen()}>
         <ModalDialog id={`text-attachment-${a().id}`} open title={a().filename} size="wide" onClose={() => setWindowOpen(false)}>
           <div class={styles.window} onKeyDown={selectCode} tabIndex={-1}>
-            <Code lines={lines() ?? []} />
+            <Show when={markdown()}><div class={styles.header}>{modePicker()}</div></Show>
+            <Show when={formatted()} fallback={<Code lines={lines() ?? []} />}>
+              <MarkdownDocument nodes={document()?.nodes ?? []} />
+              <Show when={document()?.cut}><span class={styles.notice}>{MARKDOWN_CUT_NOTICE}</span></Show>
+            </Show>
             <Show when={preview()?.cut}>
               <span class={styles.notice}>{CUT_NOTICE}</span>
             </Show>
