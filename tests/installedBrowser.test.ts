@@ -254,7 +254,9 @@ describe('the installed plugins’ loaders (windows and the phone page)', () => 
     expect(entries.map((e) => e.plugin.manifest.id)).toEqual(['ok']);
     expect(published()).toMatchObject(tiers);
     // Stylesheets apply before the renderer.js loads; a failed plugin's are removed and its renderer.js never loads.
-    expect(log.slice(0, 3)).toEqual(['style x://ok/a.css', 'style x://ok/b.css', 'load x://ok/browser/renderer.js with @plugin-sdk/renderer,solid-js']);
+    const rendererAt = log.indexOf('load x://ok/browser/renderer.js with @plugin-sdk/renderer,solid-js');
+    expect(rendererAt).toBeGreaterThan(log.indexOf('style x://ok/a.css'));
+    expect(rendererAt).toBeGreaterThan(log.indexOf('style x://ok/b.css'));
     expect(log).not.toContain('load x://badstyle/browser/renderer.js with @plugin-sdk/renderer,solid-js');
     expect(styles).toEqual(['x://ok/a.css', 'x://ok/b.css', 'x://bare/a.css']);
     expect(reports.map(([id]) => id)).toEqual(['badstyle', 'noview', 'throws', 'slotless', 'lacks']);

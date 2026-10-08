@@ -2,7 +2,7 @@
 import type { AnchorCatalog } from '@shared/bundledCheck';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { hostModules, publishHostModules } from '@shared/hostModules';
-import { INSTALLED_INDEX, INSTALLED_PHONE_PATH, INSTALLED_SCHEME } from '@shared/installedBrowser';
+import { INSTALLED_INDEX, INSTALLED_PAGE_ENTRY_META, INSTALLED_PHONE_PATH, INSTALLED_SCHEME } from '@shared/installedBrowser';
 import { acceptInstalled, missingImportsFrom } from '@shared/installedCheck';
 import { HOST_MODULES, parseInstalledManifest, type HostModuleId, type InstalledManifest, type TierHostModules } from '@shared/installedPlugins';
 import { checkSlotViews, type SlotViewsOf } from '@shared/slots';
@@ -11,6 +11,8 @@ import type { RendererPlugin } from './define';
 
 /** How the loader reaches the installed plugins; tests pass stand-ins. */
 export interface LoaderIo {
+  /** Installed page owner and its remembered section; absent in desktop windows. */
+  page?: { id: string; section: string | null };
   /** The index: the accepted plugins' manifests, in load order. */
   index(): Promise<unknown>;
   /** The URL of `file` in plugin `id`'s browser folder. */
@@ -28,7 +30,7 @@ export interface SharedLoaded {
   manifest: InstalledManifest;
   descriptor: PluginDescriptor;
 }
-
+type LoadResult<T> = { value: T } | { error: unknown };
 
 /** Throws naming the exports of `ids` that `manifest` imports and the published host modules lack. */
 function requireHostImports(manifest: InstalledManifest, ids: readonly HostModuleId[]): void {
@@ -64,18 +66,26 @@ async function manifests(io: LoaderIo): Promise<InstalledManifest[]> {
   });
 }
 
-/** Publishes shared SDK, imports accepted descriptors in order, then validates against bundled/accepted catalog. Plugins anchored to failed entries are excluded. */
+/** Imports independent shared modules concurrently; validation and registration retain index order. */
 export async function loadShared(io: LoaderIo, sdkShared: object, build: readonly PluginDescriptor[], catalog: AnchorCatalog | null): Promise<SharedLoaded[]> {
   publishHostModules({ '@plugin-sdk/shared': sdkShared });
   const loaded: SharedLoaded[] = [];
-  for (const manifest of await manifests(io)) {
+  const index = await manifests(io);
+  const load = async (manifest: InstalledManifest): Promise<LoadResult<SharedLoaded>> => {
     try {
       requireHostImports(manifest, ['@plugin-sdk/shared']);
       const mod = await io.load(io.url(manifest.id, manifest.browser.shared));
-      loaded.push({ manifest, descriptor: ownDefault<PluginDescriptor>(mod, manifest.id, (d) => d.manifest?.id, 'shared.js') });
+      return { value: { manifest, descriptor: ownDefault<PluginDescriptor>(mod, manifest.id, (d) => d.manifest?.id, 'shared.js') } };
     } catch (err) {
-      io.report(manifest.id, err);
+      return { error: err };
     }
+  };
+  const scheduled = [...index.filter((m) => m.id === io.page?.id), ...index.filter((m) => m.id !== io.page?.id)];
+  const pending = new Map(scheduled.map((manifest) => [manifest, load(manifest)]));
+  for (const manifest of index) {
+    const result = await pending.get(manifest)!;
+    if ('value' in result) loaded.push(result.value);
+    else io.report(manifest.id, result.error);
   }
   const { kept, refused } = acceptInstalled(build, catalog, loaded, (l) => l.descriptor);
   for (const { candidate, error } of refused) io.report(candidate.manifest.id, error);
@@ -98,33 +108,63 @@ async function addStylesheets(io: LoaderIo, manifest: InstalledManifest): Promis
 export async function loadRenderers(io: LoaderIo, shared: readonly SharedLoaded[], modules: TierHostModules<'browser'>): Promise<RendererPlugin[]> {
   publishHostModules(modules);
   const entries: RendererPlugin[] = [];
-  for (const { manifest, descriptor } of shared) {
+  const firstPaneNeeds = ({ manifest, descriptor }: SharedLoaded): boolean => {
+    if (!io.page) return false;
+    const section = io.page.section;
+    return manifest.id === io.page.id ||
+      !!descriptor.slots?.chatFooter?.length ||
+      !!descriptor.slots?.phoneSections?.some((s) => section === `${manifest.id}.${s.id}` || descriptor.adopts?.phoneSections?.[section ?? ''] === s.id);
+  };
+  const scheduled = [...shared.filter(firstPaneNeeds), ...shared.filter((p) => !firstPaneNeeds(p))];
+  const load = async (p: SharedLoaded): Promise<LoadResult<RendererPlugin | null>> => {
+    const { manifest, descriptor } = p;
     let removeStyles = (): void => undefined;
     try {
       requireHostImports(manifest, HOST_MODULES.browser);
       removeStyles = await addStylesheets(io, manifest);
       if (!manifest.browser.renderer) {
         checkSlotViews(manifest.id, descriptor.slots, {});
-        continue;
+        return { value: null };
       }
       const mod = await io.load(io.url(manifest.id, manifest.browser.renderer));
       const entry = ownDefault<RendererPlugin>(mod, manifest.id, (e) => e.plugin?.manifest?.id, 'renderer.js');
       checkSlotViews(manifest.id, entry.plugin.slots, entry.contributions as SlotViewsOf);
-      entries.push(entry);
+      return { value: entry };
     } catch (err) {
       removeStyles();
-      io.report(manifest.id, err);
+      return { error: err };
     }
+  };
+  const pending = new Map(scheduled.map((p) => [p, load(p)]));
+  // Completion order cannot change declared placement or which plugin wins a conflicting contribution.
+  for (const p of shared) {
+    const result = await pending.get(p)!;
+    if ('error' in result) io.report(p.manifest.id, result.error);
+    else if (result.value) entries.push(result.value);
   }
   return entries;
 }
 
 /** This window's base: the scheme in the desktop's windows (the preload's), the Companion's path on the phone page. */
 const base = (): string => (windowAudience() === 'renderer' ? `${INSTALLED_SCHEME}://` : INSTALLED_PHONE_PATH);
+/** A page's optional session bookmark, namespaced by its installed owner. */
+const PAGE_SECTION_STORAGE_SUFFIX = '.tab';
 
 /** The window's own IO: fetch and import from main (desktop) or the Companion's server (phone), link elements, the console. */
 export function windowIo(): LoaderIo {
+  const entry = windowAudience() === 'phone' ? document.querySelector<HTMLMetaElement>(`meta[name="${INSTALLED_PAGE_ENTRY_META}"]`)?.content : undefined;
+  const pageId = entry?.startsWith(INSTALLED_PHONE_PATH) ? entry.slice(INSTALLED_PHONE_PATH.length).split('/').shift() : undefined;
+  let section: string | null = null;
+  // Installed pages may remember their last section under their own namespace.
+  if (pageId) {
+    try {
+      section = sessionStorage.getItem(`${pageId}${PAGE_SECTION_STORAGE_SUFFIX}`);
+    } catch {
+      // Blocked storage uses the initial host section.
+    }
+  }
   return {
+    ...(pageId ? { page: { id: pageId, section } } : {}),
     async index() {
       const r = await fetch(`${base()}${INSTALLED_INDEX}`, { cache: 'no-store' });
       if (!r.ok) throw new Error(`the installed-plugin index answered ${r.status}`);
