@@ -18,8 +18,8 @@ const PHASE_TEXT: Record<NonNullable<Outgoing['phase']>, string> = { preparing: 
 export interface PendingRowProps {
   outgoing: Outgoing;
   channelId: string;
-  /** The owner's latest message here, for their name and avatar; null shows the row without a header. */
-  own: ArchiveMessage | null;
+  /** The owner as this channel shows them, for their name and avatar; null (not yet known) shows the row without a header. */
+  own: ArchiveMessage['author'] | null;
   /** Continues the owner's group above (no avatar or name). */
   grouped: boolean;
 }
@@ -31,13 +31,13 @@ export function PendingRow(props: PendingRowProps) {
   return (
     <article class={`${rowStyles.row} ${cozy.row} ${styles.row}`} data-density="cozy" data-grouped={!headed()} data-failed={failed()} aria-busy={!failed()}>
       <Show when={headed() && props.own} fallback={<span class={cozy.gutterTime} />}>
-        {(own) => <Avatar message={own()} />}
+        {(own) => <Avatar author={own()} />}
       </Show>
       <div class={cozy.main}>
         <Show when={headed() && props.own}>
           {(own) => (
             <div class={cozy.head}>
-              <AuthorName author={own().author} class={cozy.name} />
+              <AuthorName author={own()} class={cozy.name} />
               <span class={styles.state}>{failed() ? '' : PHASE_TEXT[o().phase ?? 'posting']}</span>
             </div>
           )}

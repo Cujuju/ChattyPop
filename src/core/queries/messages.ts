@@ -16,14 +16,8 @@ import { isAnimatedImage, isSpoiler } from '@shared/media';
 import { VERIFIED_BOT_FLAG } from '@shared/discord';
 import { REPLY_MESSAGE_TYPE, embedsFrom, nameFontFrom, serverTagFrom, interactionFrom, parseJson, mentionIdsFrom, mentionNames, mentionsFrom, reactionsFrom, repliesFor, stickersFrom } from './messageExtras';
 
-interface Row {
-  id: string;
-  channelId: string;
-  ts: number;
-  editedTs: number | null;
-  deletedAt: number | null;
-  prunedAt: number | null;
-  content: string;
+/** The author's columns of a row. */
+interface AuthorRow {
   authorId: string;
   username: string | null;
   displayName: string;
@@ -38,6 +32,16 @@ interface Row {
   tagBadge: string | null;
   bot: number | null;
   publicFlags: number | null;
+}
+
+interface Row extends AuthorRow {
+  id: string;
+  channelId: string;
+  ts: number;
+  editedTs: number | null;
+  deletedAt: number | null;
+  prunedAt: number | null;
+  content: string;
   replyToId: string | null;
   reactionsJson: string | null;
   embedsJson: string | null;
@@ -65,6 +69,32 @@ const SELECT_MESSAGE = `SELECT m.id, m.channel_id AS channelId, m.ts, m.edited_t
                          ${rawJsonSql('$.components')} AS componentsJson, ${rawJsonSql('$.interaction_metadata')} AS interactionJson,
                          ${rawJsonSql('$.interaction')} AS legacyInteractionJson, ${rawJsonSql('$.poll')} AS pollJson
                   FROM messages m LEFT JOIN users u ON u.id = m.author_id`;
+
+/** A message's author as the Archive draws them in the row's channel: name, avatar and style there. */
+const authorFrom = (r: AuthorRow): ArchiveMessage['author'] => ({
+  id: r.authorId,
+  name: r.displayName,
+  username: r.username,
+  avatar: r.avatar,
+  ...roleColors(r.roleColorsJson, r.enhancedRoles === 1),
+  font: nameFontFrom(r.nameStyle),
+  decoration: r.decoration,
+  roleIcon: parseJson(r.roleIconJson) as ArchiveMessage['author']['roleIcon'],
+  tag: serverTagFrom(r.tagGuildId, r.tag, r.tagBadge),
+  app: r.bot === 1 ? { verified: ((r.publicFlags ?? 0) & VERIFIED_BOT_FLAG) !== 0 } : null,
+});
+
+/** The owner as the author of a message they post in `channelId`, drawn as their archived messages there are; null before the archive knows them. */
+export function ownAuthor(db: Db, selfId: string | null, channelId: string): ArchiveMessage['author'] | null {
+  if (selfId === null) return null;
+  const row = db
+    .prepare(
+      `SELECT u.id AS authorId, u.username, ${displayNameSql('@self', '@channel')} AS displayName, u.avatar, ${authorStyleSql('@self', '@channel')},
+       NULL AS bot, NULL AS publicFlags FROM users u WHERE u.id = @self`,
+    )
+    .get({ self: selfId, channel: channelId }) as AuthorRow | undefined;
+  return row ? authorFrom(row) : null;
+}
 
 /** Archived messages by id, as the Archive shows them; ids not in the archive, or hidden by privacy mode, are left out. */
 export function messagesByIds(db: Db, ids: string[]): ArchiveMessage[] {
@@ -190,18 +220,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       deletedAt: r.deletedAt,
       prunedAt: r.prunedAt,
       content: r.content,
-      author: {
-        id: r.authorId,
-        name: r.displayName,
-        username: r.username,
-        avatar: r.avatar,
-        ...roleColors(r.roleColorsJson, r.enhancedRoles === 1),
-        font: nameFontFrom(r.nameStyle),
-        decoration: r.decoration,
-        roleIcon: parseJson(r.roleIconJson) as ArchiveMessage['author']['roleIcon'],
-        tag: serverTagFrom(r.tagGuildId, r.tag, r.tagBadge),
-        app: r.bot === 1 ? { verified: ((r.publicFlags ?? 0) & VERIFIED_BOT_FLAG) !== 0 } : null,
-      },
+      author: authorFrom(r),
       replyToId: r.replyToId,
       reply: r.replyToId ? (replies.get(r.replyToId) ?? null) : null,
       reactions: reactionsFrom(r.reactionsJson),

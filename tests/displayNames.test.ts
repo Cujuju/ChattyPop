@@ -3,7 +3,7 @@ import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
 import { applyGatewayEvent } from '../src/core/gatewayEvents';
-import { messagePage } from '../src/core/queries/messages';
+import { messagePage, ownAuthor } from '../src/core/queries/messages';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL } from '../src/core/arrival';
 
@@ -73,5 +73,16 @@ describe('who a message pings (the Archive highlights the owner’s)', () => {
       [[], true],
       [[], false],
     ]);
+  });
+});
+
+describe("the owner's face on a message on its way", () => {
+  it('is drawn as their archived messages in that channel are, with no message of theirs loaded; null before the archive knows them', () => {
+    expect(ownAuthor(db, alice.id, GENERAL)).toBeNull();
+    expect(ownAuthor(db, null, GENERAL)).toBeNull();
+    archive.ingestMessages([rawMessage(ELSEWHERE, T0, 'hey', { author: { ...alice, avatar: 'a'.repeat(32) } })], ARRIVAL.gateway);
+    applyGatewayEvent(archive, 'GUILD_MEMBERS_CHUNK', { guild_id: GUILD, members: [{ user: alice, nick: 'Al [mod]' }] }, deps);
+    expect(ownAuthor(db, alice.id, GENERAL)).toEqual(expect.objectContaining({ id: alice.id, name: 'Al [mod]', username: 'alice', app: null }));
+    expect(ownAuthor(db, alice.id, ELSEWHERE)).toEqual(author(ELSEWHERE));
   });
 });

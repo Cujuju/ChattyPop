@@ -190,6 +190,8 @@ export interface CoreMethods {
   findPeople(query: string, limit: number): PersonMatch[];
   /** Mention autocomplete returns eligible people, permitted everyone/here, then roles within one limit. */
   mentionCandidates(channelId: string, query: string, limit: number): MentionCandidate[];
+  /** The owner as the author of a message they post in the channel (name, avatar and style there); null before the archive knows them. */
+  ownAuthor(channelId: string): ArchiveMessage['author'] | null;
   /** Whether the owner has Manage Messages in the channel (Discord's spoiler setting "On servers I moderate"). */
   ownerModerates(channelId: string): boolean;
   /** These people as pickers name them; unknown ids are left out. */

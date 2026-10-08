@@ -1,11 +1,12 @@
 // The owner's own messages: editing one in place in the Archive (Discord's Edit: which message, its draft, saving it) and deleting one.
 import { api } from '@/api';
-import { createSignal } from 'solid-js';
+import { createResource, createSignal, type Resource } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { archiveChannelId, archiveState, openArchive } from './archive';
 import { chatSource } from './chat';
 import { createPushedValue, onAppEvent } from './events';
 import { closeWhenLocked, postingUnlocked } from './posting';
+import { membersVersion } from './mentions';
 import { inPanelWindow } from './ui';
 
 /** The signed-in Discord user's id; null until main has read it. */
@@ -34,6 +35,18 @@ export const setEditText = (text: string): void => void setDraft((d) => d && { .
 /** The owner's message, still on Discord (a deleted one is kept only in the archive). */
 /** Discord highlights it for the owner: it pings them, by @mention, a pinging reply, or @everyone / @here. */
 export const mentionsMe = (m: ArchiveMessage): boolean => m.mentionsEveryone || (selfId() !== null && m.mentionIds.includes(selfId()!));
+
+/** The owner as the author of their next message in `channelId` (a message on its way shows it); read again as names change. */
+export function createOwnAuthor(channelId: () => string | null): Resource<ArchiveMessage['author'] | null> {
+  const [author] = createResource(
+    () => {
+      const id = channelId();
+      return id !== null && selfId() !== null ? { id, names: membersVersion() } : false;
+    },
+    ({ id }) => api.core.ownAuthor(id),
+  );
+  return author;
+}
 
 /** The signed-in Discord user. */
 export const isSelf = (userId: string): boolean => selfId() !== null && userId === selfId();

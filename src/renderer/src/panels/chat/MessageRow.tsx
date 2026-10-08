@@ -138,9 +138,9 @@ function CozyRow(props: MessageRowProps) {
           </time>
         }
       >
-        <Show when={gutter()} fallback={<Avatar message={m()} />}>
+        <Show when={gutter()} fallback={<Avatar author={m().author} />}>
           <div class={cozy.gutter}>
-            <Avatar message={m()} />
+            <Avatar author={m().author} />
             {gutter()}
           </div>
         </Show>
@@ -192,8 +192,8 @@ function accountName(m: ArchiveMessage): string | null {
   return u && u.toLowerCase() !== m.author.name.toLowerCase() ? u : null;
 }
 
-export function Avatar(props: { message: ArchiveMessage }) {
-  const a = () => props.message.author;
+export function Avatar(props: { author: ArchiveMessage['author'] }) {
+  const a = () => props.author;
   const img = () => <img data-avatar class={`${cozy.avatar} ${look.avatar}`} src={avatarUrl(a().id, a().avatar)} alt="" loading="lazy" onClick={() => openPerson(a().id)} />;
   // The decoration frames the avatar, as in Discord: still, animated while the message is hovered.
   return (

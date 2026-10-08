@@ -207,6 +207,7 @@ export const RENDERER_CORE_METHODS = [
   'peopleByIds',
   'personNames',
   'mentionCandidates',
+  'ownAuthor',
   'ownerModerates',
   'conversation',
   'ownEmoji',

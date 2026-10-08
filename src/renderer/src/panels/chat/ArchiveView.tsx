@@ -22,7 +22,7 @@ import { attachFiles } from '@/state/composer';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
 import { listen } from '@/ui/listen';
-import { editingId, isSelf } from '@/state/ownMessages';
+import { createOwnAuthor, editingId, isSelf } from '@/state/ownMessages';
 import { outgoing, type Outgoing } from '@/state/outbox';
 import { postingUnlocked } from '@/state/posting';
 import { archivedChannels, channelById } from '@/state/directory';
@@ -61,7 +61,7 @@ const AT_NEWEST_SLOP_PX = 1;
 type Row =
   | { kind: 'day'; key: string; label: string; messageId: string }
   | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean }
-  | { kind: 'pending'; key: string; outgoing: Outgoing; own: ArchiveMessage | null; grouped: boolean };
+  | { kind: 'pending'; key: string; outgoing: Outgoing; own: ArchiveMessage['author'] | null; grouped: boolean };
 
 /** The layout panel the Archive is the body of (the phone's Archive section shares its id). */
 const CHAT_PANEL: PanelId = 'chat';
@@ -71,6 +71,7 @@ const GROUP_GAP_MS = 7 * MS_PER_MIN;
 
 /** ChattyPop's offline rendering of the archive for one channel. */
 export function ArchiveView() {
+  const ownAuthor = createOwnAuthor(archiveChannelId);
   const rows = createMemo<Row[]>(() => {
     const out: Row[] = [];
     let lastDay = '';
@@ -87,7 +88,8 @@ export function ArchiveView() {
     // The owner's messages on their way follow the newest, under the owner's group when it's the last one.
     const channelId = archiveChannelId();
     if (channelId && atNewest()) {
-      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id)) ?? null;
+      // As their newest message here shows them; with none loaded, as the archive knows them in this channel.
+      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id))?.author ?? ownAuthor.latest ?? null;
       let grouped = prev !== undefined && isSelf(prev.author.id) && Date.now() - prev.ts < GROUP_GAP_MS;
       for (const o of outgoing(channelId)) {
         out.push({ kind: 'pending', key: `pending-${o.id}`, outgoing: o, own, grouped });
