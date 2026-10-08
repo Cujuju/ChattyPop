@@ -153,15 +153,18 @@
 }
 
 /* Pixel size known (--media-w/--media-h): the box it will show at is reserved before the file loads, so the log row
-   never grows and moves the view as media arrives. */
+   never grows and moves the view as media arrives. The absolute cap keeps a captioned figure (Attachment.module.css
+   .figure) at the media's shown width. */
 .embedImage[data-sized='true'] {
-  width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)));
+  width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)), var(--cp-embed-max-w));
   height: auto;
   aspect-ratio: var(--media-w) / var(--media-h);
 }
 
+/* Capped here too for an image of unknown size, absolutely, as above. */
 .embedImageButton {
   display: block;
+  max-width: var(--cp-embed-max-w);
   cursor: zoom-in;
 }
 

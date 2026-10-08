@@ -10,7 +10,7 @@ import { InlineMarkdown, Markdown } from '@/ui/Markdown';
 import { SolidIcon } from '@/ui/solidIcons';
 import { StickerArt } from '@/ui/StickerArt';
 import { ReactionTipAnchor } from './ReactionTip';
-import { Note } from './Attachment';
+import { MediaCaption, MediaFigure, Note } from './Attachment';
 import { presentedParts } from './ownedParts';
 import { pluginPresents } from '@/state/plugins';
 import styles from './Extras.module.css';
@@ -110,12 +110,12 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
         <Show
           when={!isMediaOnly(e)}
           fallback={
-            <>
-              <Show when={!props.hideMedia}>
+            <Show when={!props.hideMedia && hasMedia(e)} fallback={<EmbedNotes embed={e} />}>
+              <MediaFigure>
                 <EmbedMedia embed={e} />
-              </Show>
-              <EmbedNotes embed={e} />
-            </>
+                <MediaCaption notes={presentedParts(e.notes ?? [], pluginPresents)} />
+              </MediaFigure>
+            </Show>
           }
         >
           <article
@@ -176,6 +176,9 @@ export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string,
 function EmbedNotes(props: { embed: ArchiveEmbed }) {
   return <For each={presentedParts(props.embed.notes ?? [], pluginPresents)}>{(n) => <Note note={n} />}</For>;
 }
+
+/** EmbedMedia draws something: a video, or an image or thumbnail to show. */
+const hasMedia = (e: ArchiveEmbed): boolean => Boolean(e.videoUrl || e.imageUrl || e.thumbnailUrl);
 
 /** Embeds whose thumbnail is their media, drawn large as Discord does (a video's still, a linked image), not beside the text. */
 const LARGE_THUMB_TYPES = new Set(['video', 'image']);

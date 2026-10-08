@@ -33,46 +33,39 @@ const kilobytes = (a: ArchiveAttachment): string => kilobytesText(a.size);
 const fileMeta = (a: ArchiveAttachment): string =>
   [fileTypeLabel(a), kilobytes(a), a.status === 'stored' ? '' : STATUS_LABEL[a.status]].filter(Boolean).join(' · ');
 
-/** Shows stored media or text inline, else file-status chips. Notes survive pruning; unplayable video and unreadable text fall back to chips. */
+/**
+ * Shows stored media or text inline, else file-status chips, each captioned the same way. Notes survive pruning; unplayable
+ * video and unreadable text fall back to chips.
+ */
 export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const [unshowable, setUnshowable] = createSignal(false);
   const view = () => (unshowable() || !uploadShownInline(attachmentView(a()), discordChatSettings()) ? 'file' : attachmentView(a()));
-  const notes = () => presentedParts(a().notes, pluginPresents);
+  const asMedia = () => view() !== 'file' && view() !== 'text';
   return (
-    <Switch
-      fallback={
-        <MediaFigure>
-          <AttachmentTile message={props.message} attachment={a()} stored>
-            <AttachmentMedia attachment={a()} onUnplayable={() => setUnshowable(true)} />
-          </AttachmentTile>
-          <MediaCaption notes={notes()} descriptions={shownDescriptions([a()])} />
-        </MediaFigure>
-      }
-    >
-      <Match when={view() === 'file'}>
-        <AttachmentTile message={props.message} attachment={a()} stored={a().status === 'stored'}>
-          <FileChip attachment={a()} messageLink={props.messageLink} />
-        </AttachmentTile>
-        <For each={notes()}>{(n) => <Note note={n} />}</For>
-      </Match>
-      <Match when={view() === 'text'}>
-        <AttachmentTile message={props.message} attachment={a()} stored>
-          <TextAttachment attachment={a()} onUnreadable={() => setUnshowable(true)} />
-        </AttachmentTile>
-        <For each={notes()}>{(n) => <Note note={n} />}</For>
-      </Match>
-    </Switch>
+    <MediaFigure>
+      <AttachmentTile message={props.message} attachment={a()} stored={view() !== 'file' || a().status === 'stored'}>
+        <Switch fallback={<AttachmentMedia attachment={a()} onUnplayable={() => setUnshowable(true)} />}>
+          <Match when={view() === 'file'}>
+            <FileChip attachment={a()} messageLink={props.messageLink} />
+          </Match>
+          <Match when={view() === 'text'}>
+            <TextAttachment attachment={a()} onUnreadable={() => setUnshowable(true)} />
+          </Match>
+        </Switch>
+      </AttachmentTile>
+      <MediaCaption notes={presentedParts(a().notes, pluginPresents)} descriptions={asMedia() ? shownDescriptions([a()]) : []} />
+    </MediaFigure>
   );
 }
 
 const px = (v: string): number => parseFloat(v) || 0;
 
 /**
- * One media tile and its caption. data-beside: a note column (--cp-note-min-w) fits beside the tile in the row, so the
- * caption sits there; else it goes under the tile, at the tile's width.
+ * An attachment's or embed's tile (its first child) and its caption. data-beside: a note column (--cp-note-min-w) fits
+ * beside the tile in the row, so the caption sits there; else it goes under the tile, at the tile's width.
  */
-function MediaFigure(props: { children: JSX.Element }) {
+export function MediaFigure(props: { children: JSX.Element }) {
   let figure!: HTMLElement;
   const [beside, setBeside] = createSignal(false);
   onMount(() => {
@@ -91,7 +84,7 @@ function MediaFigure(props: { children: JSX.Element }) {
     onCleanup(() => watch.disconnect());
   });
   return (
-    <figure ref={figure} class={styles.image} data-beside={beside()}>
+    <figure ref={figure} class={styles.figure} data-beside={beside()}>
       {props.children}
     </figure>
   );
@@ -175,7 +168,7 @@ const TRANSLATION_KIND = 'translation';
 const translationsLast = (notes: AttachmentNote[]): AttachmentNote[] =>
   [...notes].sort((x, y) => Number(x.kind === TRANSLATION_KIND) - Number(y.kind === TRANSLATION_KIND));
 
-/** Beside or under stored media: image descriptions while shown, then plugins' notes; nothing when neither. Discord names pasted media generically (image.png), so no filename. */
+/** Beside or under an attachment or embed: image descriptions while shown, then plugins' notes; nothing when neither. Discord names pasted media generically (image.png), so no filename. */
 export function MediaCaption(props: { notes: AttachmentNote[]; descriptions?: string[] }) {
   return (
     <Show when={props.notes.length || props.descriptions?.length}>

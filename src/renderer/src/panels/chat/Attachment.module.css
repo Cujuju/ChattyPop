@@ -62,9 +62,11 @@
   color: var(--cp-danger);
 }
 
-/* Inline image or video: bounded box, aspect ratio kept from the intrinsic attributes. Its caption goes under it at its
-   width, or beside it where a note column fits (data-beside, measured: a portrait video's empty side). */
-.image {
+/* Any attachment, or a media-only embed, and its caption: the figure is its tile's width (first child), the caption
+   under it at that width, or beside it where a note column fits (data-beside, measured: a portrait video's empty side).
+   A tile's width cap must be absolute: a percentage max-width is ignored when the figure sizes to its content, which
+   then takes the media's natural width and widens the caption past the capped tile. */
+.figure {
   display: grid;
   grid-template-columns: minmax(0, auto);
   justify-items: start;
@@ -74,41 +76,32 @@
   max-width: 100%;
 }
 
-/* Beside: the media's own width (max-content: the tile's inner minmax(0, 1fr) column would let an opened note squeeze
-   it), then the notes as wide as they need (closed, the narrowest column; open, wider), up to an attachment's width. */
-.image[data-beside='true'] {
+/* Beside: the tile's own width (max-content: the tile's inner minmax(0, 1fr) column would let an opened note squeeze
+   it), then the notes as wide as they need (closed, the narrowest column; open, wider), up to an attachment's width.
+   No caption: no second column, nor its gap. */
+.figure[data-beside='true']:has(> .caption) {
   grid-template-columns: max-content fit-content(var(--cp-attachment-w));
 }
 
-.image > .tile {
+.figure > :first-child {
   min-width: 0;
-  max-width: min(100%, var(--cp-attachment-w));
 }
 
 /* Under the tile: its width, adding none of its own to the figure's. */
-.image:not([data-beside='true']) > .caption {
+.figure:not([data-beside='true']) > .caption {
   width: 0;
   min-width: 100%;
 }
 
-/* Beside, the media keeps its own width (an absolute cap, not a percentage the caption could squeeze): with too
-   little room the measure moves the caption under it. */
-.image[data-beside='true'] > .tile {
-  max-width: none;
-}
-
-.image[data-beside='true'] :is(img, video) {
-  max-width: var(--cp-attachment-w);
-}
-
-.image[data-beside='true'] > .caption {
+.figure[data-beside='true'] > .caption {
   justify-self: stretch;
   min-width: var(--cp-note-min-w);
 }
 
-/* The image is a button that opens the viewer; it adds no chrome of its own. */
+/* The image is a button that opens the viewer; it adds no chrome of its own. Capped here for an image of unknown size. */
 .imageButton {
   display: block;
+  max-width: var(--cp-attachment-w);
   cursor: zoom-in;
 }
 
@@ -116,8 +109,7 @@
   outline-offset: var(--cp-focus-ring-offset);
 }
 
-.image img,
-.image video {
+.figure > .tile :is(img, video) {
   width: auto;
   height: auto;
   max-width: 100%;
@@ -128,9 +120,9 @@
 }
 
 /* Pixel size known (--media-w/--media-h): the box comes from it, not the file, so the row keeps its height while the
-   picture or a video's first frame loads. */
-.image :is(img, video)[data-sized='true'] {
-  width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)));
+   picture or a video's first frame loads. Capped at an attachment's width; a video of unknown size is not (its natural width). */
+.figure > .tile :is(img, video)[data-sized='true'] {
+  width: min(calc(var(--media-w) * 1px), calc(var(--cp-attachment-max-h) * var(--media-w) / var(--media-h)), var(--cp-attachment-w));
   aspect-ratio: var(--media-w) / var(--media-h);
 }
 
@@ -409,7 +401,7 @@
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
-/* A plugin's note under the file (a transcript): its label and a Show toggle, then the text once opened. */
+/* A plugin's note (a transcript): its label and a Show toggle, then the text once opened. */
 .note {
   display: flex;
   flex-direction: column;
