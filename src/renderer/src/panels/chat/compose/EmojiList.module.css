@@ -1,33 +1,71 @@
-/* Emoji picker uses one searchable list with section markers: desktop side rail, phone row above keyboard. */
+/* A server rail beside the search/list, with a fixed emoji/source preview below both. */
 .root {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: inherit;
 }
 
-.main {
+.main,
+.content {
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
 }
 
-/* The sections' offsetTop is measured from here (EmojiList's jump and track). */
+.content {
+  flex-direction: column;
+}
+
 .list {
   position: relative;
-  flex: 1 1 auto;
+}
+
+.list h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  font-size: var(--cp-text-xs);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.list h3 svg {
+  flex: 0 0 auto;
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+/* Exact section positions matter for rail jumps; avoid estimated offscreen section heights. */
+.list section {
+  content-visibility: visible;
 }
 
 .bar {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 0 var(--cp-emoji-rail-w);
   flex-direction: column;
-  gap: var(--cp-space-2);
-  padding: 0 var(--cp-space-2) var(--cp-space-4) var(--cp-space-4);
-  overflow-y: auto;
-  scrollbar-width: none;
+  min-height: 0;
+  background: var(--cp-surface-1);
+  border-right: var(--cp-border-w) solid var(--cp-border-subtle);
   --mark-size: var(--cp-picker-emoji);
   --mark-glyph: var(--cp-picker-emoji-glyph);
+}
+
+.barScroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-2);
+  min-height: 0;
+  padding: var(--cp-space-3) var(--cp-space-2);
+  overflow-y: auto;
+  scrollbar-width: none;
 }
 
 .mark {
@@ -38,9 +76,7 @@
   height: var(--mark-size);
   border-radius: var(--cp-radius-md);
   color: var(--cp-text-muted);
-  transition:
-    background-color var(--cp-duration-fast) var(--cp-ease),
-    color var(--cp-duration-fast) var(--cp-ease);
+  transition: background-color var(--cp-duration-fast) var(--cp-ease), color var(--cp-duration-fast) var(--cp-ease);
   --guild-icon-size: var(--mark-glyph);
 }
 
@@ -49,27 +85,148 @@
   height: var(--mark-glyph);
 }
 
-.mark:hover {
+.mark:hover:not(:disabled) {
   background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
 }
 
-/* The section in view. */
 .mark[aria-current='true'] {
   background: var(--cp-surface-active);
   color: var(--cp-text-1);
 }
 
-/* Phone: the bar is a row of thumb-sized marks under the list, scrolling sideways, as Discord iOS's. */
+.mark:disabled {
+  opacity: var(--cp-opacity-disabled);
+}
+
+.divider {
+  flex: 0 0 auto;
+  width: var(--mark-glyph);
+  height: var(--cp-border-w);
+  margin: var(--cp-space-1) 0;
+  background: var(--cp-border-subtle);
+}
+
+.systemMark {
+  display: flex;
+  flex: 0 0 var(--cp-emoji-rail-w);
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-emoji-preview-h);
+  border-right: var(--cp-border-w) solid var(--cp-border-subtle);
+  --mark-size: var(--cp-picker-emoji);
+  --mark-glyph: var(--cp-picker-emoji-glyph);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-2) var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.preview {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-height: var(--cp-emoji-preview-h);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-1);
+}
+
+.previewGlyph {
+  display: grid;
+  flex: 0 0 var(--cp-emoji-preview-glyph);
+  place-items: center;
+  width: var(--cp-emoji-preview-glyph);
+  height: var(--cp-emoji-preview-glyph);
+  min-width: 0;
+  font-size: var(--cp-emoji-preview-char);
+  line-height: var(--cp-leading-none);
+}
+
+.previewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.previewText {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.previewTag {
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+}
+
+.source {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  max-width: var(--cp-emoji-source-max-w);
+  margin-right: var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-2xs);
+  --guild-icon-size: var(--cp-picker-emoji-glyph);
+}
+
+.source span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source svg {
+  flex: 0 0 auto;
+  width: var(--cp-picker-emoji-glyph);
+  height: var(--cp-picker-emoji-glyph);
+}
+
+/* On phones, preserve the existing thumb-sized section row above the preview and keyboard. */
 :global(html[data-surface='companion']) .main {
   flex-direction: column-reverse;
 }
 
 :global(html[data-surface='companion']) .bar {
+  flex-basis: auto;
   flex-direction: row;
-  padding: var(--cp-space-3) var(--cp-space-4);
+  border-right: 0;
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  --mark-size: var(--cp-thumb-btn);
+  --mark-glyph: var(--cp-thumb-icon);
+}
+
+:global(html[data-surface='companion']) .barScroll {
+  flex-direction: row;
+  min-width: 0;
+  padding: var(--cp-space-2);
   overflow-x: auto;
   overflow-y: hidden;
-  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+:global(html[data-surface='companion']) .divider {
+  width: var(--cp-border-w);
+  height: var(--mark-glyph);
+}
+
+:global(html[data-surface='companion']) .systemMark {
   --mark-size: var(--cp-thumb-btn);
   --mark-glyph: var(--cp-thumb-icon);
 }

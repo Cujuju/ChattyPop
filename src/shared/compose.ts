@@ -184,12 +184,21 @@ export function planPerks(premiumType: number): PlanPerks {
 /** An emoji the owner has used: Unicode text, or a custom emoji. */
 export type UsedEmoji = { unicode: string } | { custom: CustomEmoji };
 
+/** Discord's favorite keys (custom ids or Unicode shortcodes) and this server's ranked top emoji. */
+export interface EmojiPickerData {
+  favorites: string[];
+  popular: string[];
+  favoritesError?: string;
+  popularError?: string;
+}
+
 /** Everything the composer's pickers offer, with what the account's plan allows. */
 export interface ExpressionCatalog {
   emojis: GuildEmoji[];
   stickers: GuildSticker[];
   packs: StickerPack[];
   perks: PlanPerks;
+  emojiPicker?: EmojiPickerData;
 }
 
 /** Whether a custom emoji can be sent in a channel of `guildId` (DM_GUILD_ID for DMs), as Discord's picker decides. */

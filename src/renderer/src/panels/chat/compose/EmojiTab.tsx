@@ -1,12 +1,12 @@
-import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
+import { For, Show, createSignal, onMount } from 'solid-js';
 import { canUseEmoji } from '@shared/compose';
 import type { GuildEmoji } from '@shared/emoji';
 import { EmojiImage } from '@/ui/AnimatedImage';
-import { directory } from '@/state/directory';
 import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, unicodeEmoji, type UnicodeGroup } from '@/state/expressions';
 import { errorText } from '@/ui/format';
-import { PickerSearch, PickerSection, guildOrder, normalQuery } from './PickerParts';
+import { PickerSearch, PickerSection, normalQuery } from './PickerParts';
 import styles from './Picker.module.css';
+import { EmojiList } from './EmojiList';
 
 /** A pick: Unicode emoji text, or a custom emoji. */
 export type EmojiPick = { unicode: string } | { custom: GuildEmoji };
@@ -43,47 +43,10 @@ export function frequentPicks(): EmojiPick[] {
 export const unicodeGroups = (q: string): UnicodeGroup[] =>
   (loaded(unicodeEmoji) ?? []).map((g) => ({ ...g, emojis: g.emojis.filter((e) => !q || e.search.includes(q)) })).filter((g) => g.emojis.length);
 
-/** Emoji tab lists frequent emoji then custom servers, channel server first. Unusable emoji disable; shift keeps picker open. */
+/** The composer's emoji view shares the section rail and preview with the reaction picker. */
 export function ServerEmojiTab(props: { guildId: string; onPick: OnPick }) {
-  const [query, setQuery] = createSignal('');
-  const byGuild = createMemo(() => emojisByGuild(normalQuery(query())));
-  /** Keys servers by ids to retain images across directory object refreshes. */
-  const customGuilds = (): string[] => guildOrder(props.guildId).filter((id) => byGuild().has(id));
-  const guildName = (id: string): string => directory().find((g) => g.id === id)?.name ?? 'Server';
-  const usable = (e: GuildEmoji): boolean => usableIn(e, props.guildId);
-  const frequent = frequentPicks;
-
-  return (
-    <>
-      <PickerSearch label="Search emoji" value={query()} onInput={setQuery} />
-      <div class={styles.body}>
-        <Show when={expressionCatalog.error ?? frequentEmoji.error}>{(err) => <p class="cp-error">Couldn't load emoji: {errorText(err())}</p>}</Show>
-        <Show when={!query() && frequent().length}>
-          <PickerSection title="Frequently used">
-            <div class={styles.emojiGrid}>
-              <For each={frequent()}>
-                {(f) => ('custom' in f ? <CustomButton emoji={f.custom} usable={usable(f.custom)} onPick={props.onPick} /> : <UnicodeButton text={f.unicode} title={f.unicode} onPick={props.onPick} />)}
-              </For>
-            </div>
-          </PickerSection>
-        </Show>
-        <For each={customGuilds()}>
-          {(guildId) => (
-            <PickerSection title={guildName(guildId)}>
-              <div class={styles.emojiGrid}>
-                <For each={byGuild().get(guildId)}>{(e) => <CustomButton emoji={e} usable={usable(e)} onPick={props.onPick} />}</For>
-              </div>
-            </PickerSection>
-          )}
-        </For>
-        <Show when={!expressionCatalog.loading && !customGuilds().length}>
-          <p class="cp-panel-empty">{query() ? `No server emoji match “${query()}”.` : 'No server emoji yet.'}</p>
-        </Show>
-      </div>
-    </>
-  );
+  return <EmojiList guildId={props.guildId} onPick={props.onPick} />;
 }
-
 /** The System tab: Unicode emoji by group (those this machine can draw); search matches names, tags and shortcodes. */
 export function SystemEmojiTab(props: { onPick: OnPick }) {
   const [query, setQuery] = createSignal('');
@@ -114,13 +77,18 @@ export function SystemEmojiTab(props: { onPick: OnPick }) {
 
 export type OnPick = (pick: EmojiPick, keep: boolean) => void;
 
-export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick }) {
+export type EmojiPreview = { pick: EmojiPick; tag: string };
+
+export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void }) {
+  const preview = (): void => props.onPreview?.({ pick: { custom: props.emoji }, tag: `:${props.emoji.name}:` });
   return (
     <button
       type="button"
       class={styles.emoji}
       disabled={!props.usable}
       title={props.usable ? `:${props.emoji.name}:` : `:${props.emoji.name}: · needs Nitro here`}
+      onPointerEnter={preview}
+      onFocus={preview}
       onClick={(ev) => props.onPick({ custom: props.emoji }, ev.shiftKey)}
     >
       <EmojiImage class={styles.emojiImg} emoji={props.emoji} alt={`:${props.emoji.name}:`} loading="lazy" />
@@ -128,9 +96,10 @@ export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick
   );
 }
 
-export function UnicodeButton(props: { text: string; title: string; onPick: OnPick }) {
+export function UnicodeButton(props: { text: string; title: string; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void }) {
+  const preview = (): void => props.onPreview?.({ pick: { unicode: props.text }, tag: props.title });
   return (
-    <button type="button" class={styles.emoji} title={props.title} onClick={(ev) => props.onPick({ unicode: props.text }, ev.shiftKey)}>
+    <button type="button" class={styles.emoji} title={props.title} onPointerEnter={preview} onFocus={preview} onClick={(ev) => props.onPick({ unicode: props.text }, ev.shiftKey)}>
       <span class={styles.emojiChar}>{props.text}</span>
     </button>
   );

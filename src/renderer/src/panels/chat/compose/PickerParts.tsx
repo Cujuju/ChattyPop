@@ -1,6 +1,7 @@
 import { onMount, type JSX } from 'solid-js';
 import { directory } from '@/state/directory';
 import styles from './Picker.module.css';
+import { Icon, type IconName } from '@/ui/icons';
 
 /** A search as typed, for matching: lower case, without the colons of a `:name:`. */
 export const normalQuery = (q: string): string => q.trim().replace(/:/g, '').toLowerCase();
@@ -13,23 +14,26 @@ export function PickerSearch(props: { label: string; value: string; onInput: (v:
   let input!: HTMLInputElement;
   onMount(() => input.focus());
   return (
-    <input
-      ref={input}
-      class={`cp-stroke ${styles.search}`}
-      type="search"
-      aria-label={props.label}
-      placeholder={props.label}
-      value={props.value}
-      onInput={(e) => props.onInput(e.currentTarget.value)}
-    />
+    <label class={`cp-stroke ${styles.search}`}>
+      <Icon name="search" />
+      <input
+        ref={input}
+        class={styles.searchInput}
+        type="search"
+        aria-label={props.label}
+        placeholder={props.label}
+        value={props.value}
+        onInput={(e) => props.onInput(e.currentTarget.value)}
+      />
+    </label>
   );
 }
 
 /** A titled section of a picker's list. `bar`: the section bar's mark it belongs to (EmojiList), if the picker has one. */
-export function PickerSection(props: { title: string; bar?: string; children: JSX.Element }) {
+export function PickerSection(props: { title: string; bar?: string; icon?: IconName; children: JSX.Element }) {
   return (
     <section class={styles.section} data-bar={props.bar}>
-      <h3 class={styles.sectionTitle}>{props.title}</h3>
+      <h3 class={styles.sectionTitle}>{props.icon && <Icon name={props.icon} />}{props.title}</h3>
       {props.children}
     </section>
   );

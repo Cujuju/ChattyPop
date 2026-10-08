@@ -19,6 +19,8 @@ export const SETTINGS_KEYS = {
   privacyMode: 'privacyMode',
   /** Saved archive searches: query strings in the owner's order (normalizeSavedSearches). */
   savedSearches: 'savedSearches',
+  /** Recent emoji picks, newest first; orders the mirrored Discord favorites (state/expressions.ts). */
+  recentEmoji: 'emoji.recent',
   /** Archive search results' order (normalizeSearchSort). */
   searchSort: 'search.sort',
   /** The Archive's row density (state/archive.ts). */

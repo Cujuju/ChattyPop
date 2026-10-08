@@ -143,6 +143,27 @@
   outline-offset: var(--cp-focus-ring-offset-inset);
 }
 
+/* Expression type selector: plain labels separated by short rules, with the selected label brighter. */
+:root .expressionTabs {
+  border: 0;
+  background: transparent;
+  --seg-active-bg: transparent;
+  --seg-active-border: transparent;
+  --seg-inactive-bg: transparent;
+  --seg-inactive-border: transparent;
+  --seg-hover-bg: transparent;
+}
+
+:root .expressionTabs > :global(.csb-btn):nth-child(n) {
+  border: 0;
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.expressionTabs :global(.csb-btn)::before {
+  background: var(--cp-border-subtle);
+}
+
 /* Thumb-sized button: primary is the accent action, raised the neutral one. */
 .button {
   border: 0;

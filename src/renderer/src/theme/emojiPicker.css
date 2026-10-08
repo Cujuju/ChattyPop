@@ -1,0 +1,7 @@
+:root {
+  --cp-emoji-rail-w: 52px;
+  --cp-emoji-preview-h: 60px;
+  --cp-emoji-preview-glyph: 36px;
+  --cp-emoji-preview-char: 30px; /* Windows' Unicode emoji have a wider advance than their font size. */
+  --cp-emoji-source-max-w: 132px;
+}

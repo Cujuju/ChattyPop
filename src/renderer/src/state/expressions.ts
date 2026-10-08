@@ -5,6 +5,19 @@ import { createResource, createSignal, untrack } from 'solid-js';
 import { canUseEmoji, type ExpressionCatalog, type Gif } from '@shared/compose';
 import type { GuildEmoji } from '@shared/emoji';
 import { onAppEvent } from './events';
+import { createSetting } from '@plugin-sdk/renderer/settings';
+import { SETTINGS_KEYS } from '@shared/settings';
+import { stringsOr } from '@shared/normalize';
+import { failureNotice } from './dialogs';
+
+const RECENT_EMOJI_MAX = 128;
+const [recentEmoji, setRecentEmoji] = createSetting<string[]>(SETTINGS_KEYS.recentEmoji, [], (v) => [...new Set(stringsOr([])(v))].slice(0, RECENT_EMOJI_MAX));
+export { recentEmoji };
+/** Choosing an emoji raises it in favorites without changing the owner's Discord favorite membership. */
+export function recordEmojiPick(pick: { custom: GuildEmoji } | { unicode: string }): void {
+  const key = 'custom' in pick ? pick.custom.id : pick.unicode;
+  void setRecentEmoji([key, ...recentEmoji().filter((k) => k !== key)]).catch(failureNotice("Couldn't save recent emoji"));
+}
 
 /** Each picker opening asks again (a new object), so emoji added since show up; main answers from memory. */
 const [catalogRequest, setCatalogRequest] = createSignal<{ guildId: string } | null>(null);

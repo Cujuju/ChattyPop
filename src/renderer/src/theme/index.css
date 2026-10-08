@@ -3,6 +3,7 @@
 @import '@cujuju/solidjs-seg-buttons/style.css';
 @import './tokens.css';
 @import './sizes.css';
+@import './emojiPicker.css';
 @import './fonts.css';
 @import './nameFonts.css';
 /* Themes after the default tokens: each overrides them on [data-theme='<id>'] (Settings → Appearance). */

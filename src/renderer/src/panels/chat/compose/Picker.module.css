@@ -8,8 +8,33 @@
 /* With cp-stroke, the message box's edge, over the field's own well. */
 .search {
   --cp-stroke-fill: var(--cp-surface-0);
+  display: flex;
   flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-3);
   margin: var(--cp-space-4);
+  padding-inline: var(--cp-space-4);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
+}
+
+.search svg {
+  flex: 0 0 auto;
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+.search:focus-within {
+  outline: var(--cp-focus-ring);
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.searchInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .body {

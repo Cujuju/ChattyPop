@@ -158,6 +158,7 @@ export const ICON_SHAPES = {
   ),
   // Filled by its caller's CSS when on (a saved search).
   star: () => <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />,
+  trophy: () => <path d="M8 3h8v6a4 4 0 0 1-8 0V3zM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21v-3h8v3H8z" />,
   summary: () => <path d="M4 6h16M4 10h16M4 14h10M4 18h6" />,
   swap: () => <path d="M7 4 3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7" />,
   tag: () => (

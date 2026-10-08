@@ -1,17 +1,16 @@
-// The composer's emoji tabs in an anchored picker, for choosing emoji outside a message box.
-import { Match, Switch, createSignal, createUniqueId, onCleanup, onMount } from 'solid-js';
+// The shared emoji list in an anchored picker, for choosing emoji outside a message box.
+import { createUniqueId, onCleanup, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
-import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { loadExpressions } from '@/state/expressions';
 import { coverOf, setOverlayCover } from '@/state/windows';
 import { tokenPx } from '@/ui/format';
 import { keepOnScreen } from '@/ui/keepOnScreen';
 import { listen } from '@/ui/listen';
-import { ServerEmojiTab, SystemEmojiTab, type OnPick } from './EmojiTab';
-import picker from './Picker.module.css';
+import type { OnPick } from './EmojiTab';
+import { EmojiList } from './EmojiList';
 import styles from './ReactionPicker.module.css';
 
-/** The composer's Emoji and System tabs, anchored to a button and kept clear of clipping panels and native Discord. */
+/** Emoji section rail and preview, anchored to a button and kept clear of clipping panels and native Discord. */
 export function EmojiPicker(props: {
   anchor: HTMLElement;
   guildId: string;
@@ -20,7 +19,6 @@ export function EmojiPicker(props: {
 }) {
   let root!: HTMLDivElement;
   const cover = `emoji-picker-${createUniqueId()}`;
-  const [tab, setTab] = createSignal<'emoji' | 'system'>('emoji');
   const place = (): void => {
     const r = props.anchor.getBoundingClientRect();
     const gap = tokenPx('--cp-space-4');
@@ -50,20 +48,7 @@ export function EmojiPicker(props: {
   return (
     <Portal>
       <div ref={root} class={styles.root} role="dialog" aria-label="Emoji picker">
-        <div class={picker.tabs}>
-          <SegGroup role="radiogroup" ariaLabel="Picker" value={tab()} onChange={setTab}>
-            <SegButton value="emoji" label="Emoji" size="sm" />
-            <SegButton value="system" label="System" size="sm" />
-          </SegGroup>
-        </div>
-        <Switch>
-          <Match when={tab() === 'emoji'}>
-            <ServerEmojiTab guildId={props.guildId} onPick={props.onPick} />
-          </Match>
-          <Match when={tab() === 'system'}>
-            <SystemEmojiTab onPick={props.onPick} />
-          </Match>
-        </Switch>
+        <EmojiList guildId={props.guildId} onPick={props.onPick} />
       </div>
     </Portal>
   );

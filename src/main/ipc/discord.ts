@@ -21,6 +21,7 @@ import type { HeaderCapture } from '../discord/capture';
 import { searchGifs } from '../discord/gifs';
 import { fetchMutualFriends, fetchProfile, fetchReactors, FriendIndex } from '../discord/profiles';
 import type { GuildEmojiIndex } from '../discord/guildEmojis';
+import { DiscordEmojiPickerData } from '../discord/emojiPickerData';
 import type { ReadStates } from '../discord/readStates';
 import { Interactions } from '../discord/interactions';
 import { probeDiscord, trackRecentMessageEvents } from '../discord/probe';
@@ -114,17 +115,18 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
 
   const stickerIndex = new GuildStickerIndex(d.discord.tap);
   const stickerPacks = new StickerPacks();
+  const emojiPickerData = new DiscordEmojiPickerData(d.discord.tap, d.owner);
   const expressions = async (guildId: unknown): Promise<ExpressionCatalog> => {
     // The channel's own server is fetched when the gateway didn't cover it: its emoji and stickers need no Nitro.
     if (guildId !== DM_GUILD_ID) {
       const id = snowflakeArg(guildId, 'server');
       await Promise.all([d.emojiIndex.forGuild(d.owner, id), stickerIndex.forGuild(d.owner, id)]);
     }
-    const packs = await stickerPacks.get(d.owner).catch((err: unknown) => {
+    const [packs, emojiPicker] = await Promise.all([stickerPacks.get(d.owner).catch((err: unknown) => {
       diag('sticker-packs-failed', { message: errorMessage(err) });
       return [];
-    });
-    return { emojis: d.emojiIndex.all(), stickers: stickerIndex.all(), packs, perks: account.perks };
+    }), emojiPickerData.get(guildId as string)]);
+    return { emojis: d.emojiIndex.all(), stickers: stickerIndex.all(), packs, perks: account.perks, emojiPicker };
   };
 
   const commandIndexes = new CommandIndexes(d.discord.tap);

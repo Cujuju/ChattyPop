@@ -553,6 +553,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `chip` | Raised pill toggle; pressed in the section colour | `aria-pressed` |
 | `filterChip` | Ghost filter chip; pressed in its identity colour | `aria-pressed`, `data-platform` |
 | `segments`, `segment` | Segmented control track and option | `aria-checked` |
+| `expressionTabs` | Plain expression type labels with short separators; used with `SegGroup` | `aria-checked` |
 | `button` | Thumb-sized button | `data-variant` (primary, raised) |
 | `iconButton` | A square around a line icon | — |
 | `navItem` | Navigation entry | `aria-current="page"` |
