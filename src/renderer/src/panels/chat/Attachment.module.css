@@ -237,6 +237,21 @@
   grid-area: 1 / 2;
 }
 
+/* An audio player's controls fill its tile, so a bar floated over it would cover its ⋮ menu (playback speed, download).
+   The bar follows the player in a column of its own, after the removed mark if any. */
+.tile:has(> .audio):not(.row > .tile) {
+  grid-auto-columns: auto;
+  align-items: center;
+  column-gap: var(--cp-space-4);
+}
+
+.tile:has(> .audio):not(.row > .tile) > .bar {
+  position: static;
+  grid-area: auto;
+  grid-row: 1;
+  margin-right: var(--cp-space-3); /* the floating bar's inset from the tile's edge */
+}
+
 /* Attachment bars appear on hover/focus without intercepting hidden clicks. Narrow tiles use measured stacked columns; right inset participates in sizing. */
 .bar {
   position: absolute;
