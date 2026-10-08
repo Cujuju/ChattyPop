@@ -7,7 +7,28 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
-const { confirmDialog, failureNotice, noticeDialog, shownPrompt, textDialog } = await import('../src/renderer/src/state/dialogs');
+// A renderer module: imported by path so the node type-check doesn't follow it.
+const dialogsPath = '../src/renderer/src/state/dialogs';
+interface Prompt {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel: string | null;
+  danger: boolean;
+  input?: string;
+  answer(ok: boolean, text?: string): void;
+}
+interface Asked {
+  title: string;
+  message: string;
+}
+const { confirmDialog, failureNotice, noticeDialog, shownPrompt, textDialog } = (await import(dialogsPath)) as {
+  confirmDialog(o: Asked & { confirmLabel: string; danger?: boolean }): Promise<boolean>;
+  textDialog(o: Asked & { confirmLabel: string; value?: string }): Promise<string | null>;
+  noticeDialog(o: Asked): Promise<void>;
+  failureNotice(title: string): (err: unknown) => void;
+  shownPrompt(): Prompt | null;
+};
 
 const SRC = resolve(__dirname, '../src');
 const sources = (dir: string): string[] =>
