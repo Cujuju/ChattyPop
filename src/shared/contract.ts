@@ -26,7 +26,7 @@ import type {
   PlanUsageWindow,
   ProviderStatus,
 } from './types/ai';
-import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
+import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, MessageWindow, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
 import type { MentionCandidate, PersonMatch, PersonName, PersonProfile } from './types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
 import type { ArchivedGatewayEvent } from './types/ipc';
@@ -171,6 +171,7 @@ export interface CoreMethods {
   /** Marks deleted every stored message of the channel in [sinceTs, untilTs] that a fresh fetch no longer returned; returns how many. */
   reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number): number;
   messagePage(q: MessagePageQuery): ArchiveMessage[];
+  messageWindow(q: MessagePageQuery): MessageWindow;
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */
   messageById(messageId: string): ArchiveMessage | null;
   /** The first `limit` matches in `sort` order. */

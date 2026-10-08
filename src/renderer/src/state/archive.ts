@@ -1,6 +1,6 @@
 // Loaded archive windows and in-place refreshes after content or label changes.
 import { api } from '@/api';
-import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { createEffect, createRoot, createSignal, onCleanup, type Accessor } from 'solid-js';
 import { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 import type { ArchiveMessage } from '@shared/contract';
 import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type ArchiveDensity } from '@shared/settings';
@@ -12,6 +12,7 @@ import { createPagedList } from './paged';
 import { messageBefore } from '@shared/messageOrder';
 import { textOrNull } from '@shared/normalize';
 import { createSetting } from '@plugin-sdk/renderer/settings';
+import { sentRows } from './outboxSent';
 
 export type { ArchiveDensity };
 /** Cozy: avatars and author groups. Compact: F2's one-line log. */
@@ -61,26 +62,36 @@ const list = createPagedList<ArchiveMessage>(
   (oldest) => query({ channelId: oldest.channelId, limit: PAGE_SIZE, before: oldest.id }),
   (newest) => query({ channelId: newest.channelId, limit: PAGE_SIZE, after: newest.id }),
 );
-export const archiveState = list.state;
+export const archiveState = {
+  get items() { return atNewest() ? sentRows.merge(archiveChannelId(), list.state.items) : list.state.items; },
+  get loading() { return list.state.loading; },
+  get reachedStart() { return list.state.reachedStart; },
+};
+createRoot(() => createEffect(() => sentRows.reconcile(list.state.items)));
 /** Prepends the previous page; returns how many messages were added (the view keeps its scroll anchor). */
 export const loadOlder = list.loadOlder;
 
 /** True when the loaded window reaches newest messages and accepts arrivals. Older jumps remain detached until Jump to newest. */
 export const [atNewest, setAtNewest] = createSignal(true);
 
+const windowReads = new Map<string, Promise<boolean>>();
+
 /** Loads `channelId`'s newest page, or the page around `around`; resolves false when a later load superseded it. */
 async function loadWindow(channelId: string, around: string | null): Promise<boolean> {
   let reachesNewest = true;
-  const loaded = await list.reload(async () => {
-    const page = await query({ channelId, limit: PAGE_SIZE, ...(around ? { around } : {}) });
-    if (around) {
-      const [newest] = await query({ channelId, limit: 1 });
-      reachesNewest = !newest || page.some((m) => m.id === newest.id);
-    }
-    return { items: page, reachedStart: !around && page.length < PAGE_SIZE };
+  const read = list.reload(async () => {
+    const page = await api.core.messageWindow({ channelId, limit: PAGE_SIZE, ...(around ? { around } : {}) });
+    reachesNewest = page.reachesNewest;
+    return { items: page.items, reachedStart: !around && page.items.length < PAGE_SIZE };
   });
-  if (loaded) setAtNewest(reachesNewest);
-  return loaded;
+  windowReads.set(channelId, read);
+  try {
+    const loaded = await read;
+    if (loaded) setAtNewest(reachesNewest);
+    return loaded;
+  } finally {
+    if (windowReads.get(channelId) === read) windowReads.delete(channelId);
+  }
 }
 
 export type { ArchivePlace };
@@ -109,12 +120,15 @@ async function open(channelId: string, around: string | null): Promise<void> {
   // Its last-read mark moves once the Archive shows it on screen (lastRead.ts).
   setChatSource('archive');
   const ticket = ++opens;
+  const detail = { channelId, around, ticket };
+  performance.mark('cp:restore:start', { detail });
   setArchiveOpening(true);
   try {
     if (await loadWindow(channelId, around)) setArchiveLoads((n) => n + 1);
   } finally {
     // A superseded open leaves the flag to the open that superseded it.
     if (ticket === opens) setArchiveOpening(false);
+    performance.mark('cp:restore:end', { detail });
   }
 }
 
@@ -160,23 +174,39 @@ onAppEvent('privacy-changed', async () => {
   await loadWindow(channelId, focusMessageId());
 });
 
+const arrivalReads = new Map<string, Promise<void>>();
+
 /** Refreshes newest pages for open-channel message changes. Name/role changes reload current rows to update styling and marks. */
 onAppEvent('archive-changed', async (e) => {
   const channelId = archiveChannelId();
-  if (channelId && e.channelIds.includes(channelId) && atNewest()) {
-    await catchUp(channelId);
-    await refreshNewest(channelId);
+  if (channelId && e.channelIds.includes(channelId) && (atNewest() || archiveOpening())) {
+    // Serialize reads so an event arriving during catch-up gets a read begun after its write.
+    const work = (arrivalReads.get(channelId) ?? Promise.resolve()).then(async () => {
+      await windowReads.get(channelId);
+      if (archiveChannelId() !== channelId || !atNewest()) return;
+      const covered = await catchUp(channelId);
+      if (!covered || !e.insertOnlyChannelIds?.includes(channelId)) await refreshNewest(channelId);
+    });
+    arrivalReads.set(channelId, work);
+    try {
+      await work;
+    } finally {
+      if (arrivalReads.get(channelId) === work) arrivalReads.delete(channelId);
+    }
   }
   if (e.namesChanged) await refreshLoaded(null);
 });
 
 /** Appends all newer messages page by page without gaps. Row refreshes cannot supersede arrival pagination. */
-async function catchUp(channelId: string): Promise<void> {
+async function catchUp(channelId: string): Promise<boolean> {
+  if (!list.state.items.length) return false;
   for (let pages = 0; pages < MAX_CATCH_UP_PAGES && archiveChannelId() === channelId; pages++) {
     const added = await list.loadNewer();
     // Null: another read is appending already (it carries on), or a reload superseded this one.
-    if (added === null || added < PAGE_SIZE) return;
+    if (added === null) return false;
+    if (added < PAGE_SIZE) return true;
   }
+  return true;
 }
 
 /** Re-reads the newest page in place (edits, deletions), keeping every older loaded message. */

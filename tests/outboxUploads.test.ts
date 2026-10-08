@@ -2,6 +2,7 @@
 // tokens and its nonce. A failure before the post retries any time; uploads the desktop let go are uploaded again.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST_WINDOW_PASSED, UPLOAD_GONE, type OwnerMessage } from '@shared/compose';
+import { acceptedMessage } from './postedMessageFixture';
 import { isPostingLocked } from '@shared/posting';
 import { NONCE_DEDUPE_MS, createOutbox, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
@@ -23,6 +24,7 @@ function setup() {
         throw err;
       }
       posted.push(m);
+      return acceptedMessage(m);
     },
     prepare: async (_c, files) => files,
     upload: (_c, files, progress) => new Promise((resolve, reject) => void uploads.push({ files: files.map((f) => f.name), progress, resolve, reject })),

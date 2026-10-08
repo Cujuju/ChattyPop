@@ -259,6 +259,8 @@ export interface AuthorStyle {
 /** A stored message as the Archive view renders it. */
 export interface ArchiveMessage {
   id: string;
+  /** Sender nonce when Discord supplied it; reconciles an in-flight send before its RPC answers. */
+  nonce?: string;
   channelId: string;
   ts: number;
   editedTs: number | null;
@@ -366,6 +368,12 @@ export interface ReadStateCount {
 
 /** Read-state merge patches channels; replace clears unlisted states while preserving omitted listed fields; reset also clears omitted fields after account changes. */
 export type ReadStateScope = 'merge' | 'replace' | 'reset';
+
+/** An opening page and its live-arrival boundary, from one core call. */
+export interface MessageWindow {
+  items: ArchiveMessage[];
+  reachesNewest: boolean;
+}
 
 export interface MessagePageQuery {
   channelId: string;

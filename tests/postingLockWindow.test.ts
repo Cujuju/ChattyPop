@@ -1,4 +1,5 @@
 // Window posting stays locked until the plugin list arrives. Enabled unlocking plugins release it; outbox adoption waits for unlock.
+import { acceptedMessage } from './postedMessageFixture';
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,7 +30,7 @@ vi.mock('../src/renderer/src/state/plugins', async () => {
     pluginActive: () => true,
   };
 });
-vi.mock('@/api', () => ({ api: { discord: { send: async () => undefined } } }));
+vi.mock('@/api', () => ({ api: { discord: { send: async (m: Parameters<typeof acceptedMessage>[0]) => acceptedMessage(m) } } }));
 vi.mock('@/ui/format', () => ({ errorText: String }));
 vi.mock('@/ui/idbStore', () => ({
   idbEntries: async (prefix: string) => {

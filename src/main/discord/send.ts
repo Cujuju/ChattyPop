@@ -1,7 +1,7 @@
 // Sending a message as the signed-in user, shaped as Discord's web client sends it.
 import { checkPollDraft, pollPayload, type PollDraft } from '@shared/polls';
 import type { DirectMessage, NewThread } from '@shared/commands';
-import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
+import { ALT_TEXT_MAX, POST_WINDOW_PASSED, type KeptAttachment, type OwnerEdit, type OwnerFile, type OwnerForward, type OwnerMessage, type PostedOwnerMessage, type OwnerMessageRef, type OwnerReaction } from '@shared/compose';
 import {
   DISCORD_FILES_PER_MESSAGE_MAX,
   DISCORD_TEXT_MAX,
@@ -15,6 +15,7 @@ import {
   newNonce,
   typedMentions,
   type AllowedMentions,
+  type RawMessage,
 } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
@@ -51,11 +52,12 @@ export interface OutgoingMessage {
 export interface SentMessage {
   id: string;
   attachmentIds: string[];
+  message: RawMessage;
 }
 
 /** Posts one message and resolves with its id and its attachments' ids. Its nonce is enforced, so a retried POST can't post twice. */
 export async function sendMessage(api: DiscordWriter, channelId: string, m: OutgoingMessage): Promise<SentMessage> {
-  const posted = await api.post<{ id: string; attachments?: { id: string }[] }>(`channels/${channelId}/messages`, {
+  const posted = await api.post<RawMessage & { attachments?: { id: string }[] }>(`channels/${channelId}/messages`, {
     content: m.content,
     nonce: m.nonce ?? newNonce(),
     enforce_nonce: true,
@@ -68,7 +70,7 @@ export async function sendMessage(api: DiscordWriter, channelId: string, m: Outg
     ...(m.replyTo ? { message_reference: { channel_id: m.replyTo.channelId, message_id: m.replyTo.messageId } } : {}),
     ...(m.forwardOf ? { message_reference: forwardReference(m.forwardOf) } : {}),
   }, m.guard ? { guard: m.guard } : undefined);
-  return { id: posted.id, attachmentIds: (posted.attachments ?? []).map((a) => a.id) };
+  return { message: posted, id: posted.id, attachmentIds: (posted.attachments ?? []).map((a) => a.id) };
 }
 
 /** Discord's message_reference type for a forward (0, the default, is a reply). */
@@ -141,7 +143,7 @@ export function checkOwnerMessage(v: unknown): OwnerMessage {
 }
 
 /** Posts what the owner wrote in the Archive composer: uploads its small files, then the message with those and its finished uploads. */
-export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Uploads): Promise<void> {
+export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Uploads): Promise<PostedOwnerMessage> {
   const m = checkOwnerMessage(v);
   // On this clock from now: the sender's own clock may differ.
   const deadline = m.postWithinMs === undefined ? null : Date.now() + m.postWithinMs;
@@ -157,7 +159,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
   const small = await uploadFiles(api, m.channelId, m.files.map((f) => ({ name: f.name, bytes: Buffer.from(f.bytes) })));
   // Ids are each file's index in the message.
   const attachments = [...uploaded, ...small.map((f, i) => ({ ...f, id: String(uploaded.length + i) }))];
-  await sendMessage(api, m.channelId, {
+  const sent = await sendMessage(api, m.channelId, {
     content: m.text,
     allowedMentions: typedMentions(m.replyTo?.ping ?? false),
     replyTo: m.replyTo ? { channelId: m.channelId, messageId: m.replyTo.messageId } : null,
@@ -169,6 +171,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
   });
   // Kept until Discord accepts the message: a retry (same nonce) reuses them.
   held?.release(tokens);
+  return { nonce: m.nonce, message: sent.message };
 }
 
 /** `v` checked as an OwnerForward (it comes from the renderer); throws the reason it can't be sent. */

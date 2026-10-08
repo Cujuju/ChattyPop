@@ -1,6 +1,7 @@
 // Outbox sends serialize per channel. Failures block successors; retries reuse nonces. Queues survive reloads; automatic retries stay within Discord’s nonce-deduplication window.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST_WINDOW_PASSED, type OwnerMessage } from '@shared/compose';
+import { acceptedMessage } from './postedMessageFixture';
 import { PostingLocked, isPostingLocked } from '@shared/posting';
 import { AUTO_RETRY_MS, NONCE_DEDUPE_MS, SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxJob, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
@@ -22,7 +23,7 @@ function setup(canRestore = false) {
   const box = createOutbox<string>({
     unlocked: () => lock.unlocked,
     locked: isPostingLocked,
-    send: (m) => new Promise<void>((resolve, reject) => void pending.push({ m, resolve, reject })),
+    send: (m) => new Promise<ReturnType<typeof acceptedMessage>>((resolve, reject) => void pending.push({ m, resolve: () => resolve(acceptedMessage(m)), reject })),
     prepare: async (_channelId, files) => files,
     upload: async (_channelId, files) => files.map((f) => `token-${f.name}`),
     uploadGone: () => false,

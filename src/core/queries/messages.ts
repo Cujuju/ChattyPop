@@ -1,6 +1,6 @@
 // Archive message pages with attachments, host judgments and plugin labels.
 import { pollFrom, type RawPoll } from '@shared/polls';
-import type { ArchiveAttachment, ArchiveEmbed, ArchiveMessage, AttachmentNote, MessageLabel, MessagePageQuery } from '@shared/contract';
+import type { ArchiveAttachment, ArchiveEmbed, ArchiveMessage, AttachmentNote, MessageLabel, MessageWindow, MessagePageQuery } from '@shared/contract';
 import { questionLabels } from '../jev/messageQuestions';
 import type { MessageAnnotation } from '@shared/plugins';
 import type { Db } from '../db';
@@ -36,6 +36,7 @@ interface AuthorRow {
 
 interface Row extends AuthorRow {
   id: string;
+  nonce: string | number | null;
   channelId: string;
   ts: number;
   editedTs: number | null;
@@ -59,7 +60,7 @@ interface Row extends AuthorRow {
 }
 
 /** Every column an ArchiveMessage is built from; callers add the WHERE clause. */
-const SELECT_MESSAGE = `SELECT m.id, m.channel_id AS channelId, m.ts, m.edited_ts AS editedTs, m.deleted_at AS deletedAt, m.pruned_at AS prunedAt, m.content, m.author_id AS authorId,
+const SELECT_MESSAGE = `SELECT ${rawJsonSql('$.nonce')} AS nonce, m.id, m.channel_id AS channelId, m.ts, m.edited_ts AS editedTs, m.deleted_at AS deletedAt, m.pruned_at AS prunedAt, m.content, m.author_id AS authorId,
                          u.username, ${displayNameSql('m.author_id', 'm.channel_id')} AS displayName, u.avatar,
                          ${authorStyleSql('m.author_id', 'm.channel_id')}, ${rawJsonSql('$.author.bot')} AS bot, ${rawJsonSql('$.author.public_flags')} AS publicFlags,
                          CASE WHEN ${rawJsonSql('$.type')} = ${REPLY_MESSAGE_TYPE} THEN ${rawJsonSql('$.message_reference.message_id')} END AS replyToId,
@@ -140,6 +141,14 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
   return hydrate(db, rows);
 }
 
+/** Returns a restore window and its newest boundary without a second renderer round trip. */
+export function messageWindow(db: Db, q: MessagePageQuery): MessageWindow {
+  const items = messagePage(db, q);
+  const newest = db.prepare(`SELECT m.id FROM messages m WHERE m.channel_id = ? AND ${visibleMessageSql('m')}
+    ORDER BY m.ts DESC, length(m.id) DESC, m.id DESC LIMIT 1`).get(q.channelId) as { id: string } | undefined;
+  return { items, reachesNewest: !newest || items.some((m) => m.id === newest.id) };
+}
+
 /** The notes on the message's own link texts (partKey.linkText): no attachment or card draws them. */
 const linkTextNotes = (notes: Map<string, AttachmentNote[]> | undefined): AttachmentNote[] =>
   [...(notes ?? [])].flatMap(([part, list]) => (part.startsWith(partKey.linkText('')) ? list : []));
@@ -214,6 +223,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
     const components = componentsFrom(parseJson(r.componentsJson));
     return {
       id: r.id,
+      ...(r.nonce == null ? {} : { nonce: String(r.nonce) }),
       channelId: r.channelId,
       ts: r.ts,
       editedTs: r.editedTs,

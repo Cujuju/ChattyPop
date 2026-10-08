@@ -1,4 +1,5 @@
 // Electron utility process owning SQLite, AI and core plugins.
+import { ArchiveChanges } from '@shared/archiveChanges';
 import { join } from 'node:path';
 import bundledCore, { failed as failedCore } from 'virtual:bundled-plugins/core';
 import {
@@ -105,24 +106,24 @@ function emit(event: AppEvent): void {
   process.parentPort.postMessage({ kind: 'event', event } satisfies CoreEventMessage);
 }
 
-const changed = new Set<string>();
+const changed = new ArchiveChanges();
 let namesChanged = false;
 /** The servers whose names changed since the last event; null once any server's may have. */
 let nameGuilds: Set<string> | null = new Set();
 let changeTimer: NodeJS.Timeout | undefined;
-function noteChanged(channelId: string): void {
-  changed.add(channelId);
+function noteChanged(channelId: string, insertOnly = false): void {
+  changed.add(channelId, insertOnly);
   forgetMentionPools(channelId);
   changeTimer ??= setTimeout(() => {
+    changeTimer = undefined;
     const names = namesChanged ? { namesChanged: true as const, ...(nameGuilds ? { nameGuildIds: [...nameGuilds] } : {}) } : {};
-    emit({ type: 'archive-changed', channelIds: [...changed], ...names });
+    const changes = changed.take();
+    emit({ type: 'archive-changed', ...changes, ...names });
     namesChanged = false;
     nameGuilds = new Set();
     // '' marks a change to no channel (disk use, a plugin's own refresh): plugins hear only about messages.
-    const channelIds = [...changed].filter((id) => id !== '');
+    const channelIds = changes.channelIds.filter((id) => id !== '');
     if (channelIds.length) plugins?.archiveChanged(channelIds);
-    changed.clear();
-    changeTimer = undefined;
   }, CHANGE_EVENT_DEBOUNCE_MS);
 }
 

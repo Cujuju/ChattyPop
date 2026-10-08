@@ -5,7 +5,7 @@ import type { Db } from './db';
 import { applyGatewayEvent, type GatewayDeps } from './gatewayEvents';
 import { directory } from './queries/directory';
 import { archivedBots } from './queries/bots';
-import { messagePage, messagesByIds } from './queries/messages';
+import { messagePage, messageWindow, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
 import { lastReader, markRead, newestMessageId, unreadMark, unreadSnapshot } from './queries/readMarks';
 import { putGuildOrder } from './queries/guildOrder';
@@ -47,6 +47,7 @@ type Handlers = Pick<
   | 'syncState'
   | 'reconcileDeletes'
   | 'messagePage'
+  | 'messageWindow'
   | 'messageById'
   | 'applyOwnReaction'
   | 'applyOwnPollVote'
@@ -57,7 +58,7 @@ export function archiveHandlers(o: {
   ready: () => { db: Db; archive: Archive };
   emit: (e: AppEvent) => void;
   /** An archive write touched this channel ('' = none in particular); coalesced into one UI refresh. */
-  noteChanged: (channelId: string) => void;
+  noteChanged: (channelId: string, insertOnly?: boolean) => void;
   /** Start of the history window sync fills. */
   backfillFromMs: () => number;
   /** The signed-in user; null until main has said. */
@@ -71,7 +72,11 @@ export function archiveHandlers(o: {
 }): Handlers {
   const archive = (): Archive => o.ready().archive;
   const gatewayDeps: GatewayDeps = {
-    changed: o.noteChanged,
+    changed: (channelId, insertOnly, insertedId) => {
+      // Late inserts behind the newest row need an in-place read; after-cursor catch-up cannot find them.
+      const appendOnly = insertOnly === true && newestMessageId(o.ready().db, channelId) === insertedId;
+      o.noteChanged(channelId, appendOnly);
+    },
     backfillFromMs: o.backfillFromMs,
     selfId: o.selfId,
     dmActivity: (channelId, lastMessageId) => {
@@ -151,7 +156,7 @@ export function archiveHandlers(o: {
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
       const r = archive().ingestMessages(messages, ARRIVAL.sync);
-      new Set(messages.map((m) => m.channel_id)).forEach(o.noteChanged);
+      new Set(messages.map((m) => m.channel_id)).forEach((id) => o.noteChanged(id));
       return r;
     },
     applyGatewayEvent: (t, d) => applyGatewayEvent(archive(), t, d, gatewayDeps),
@@ -199,6 +204,7 @@ export function archiveHandlers(o: {
       return n;
     },
     messagePage: (q) => messagePage(o.ready().db, q),
+    messageWindow: (q) => messageWindow(o.ready().db, q),
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
       const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd);

@@ -77,7 +77,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     return uploadLimitBytes(account.premiumType, guild ? tiers.tier(guild.id) : null);
   };
   const uploads = new Uploads(d.discordSession, limitFor);
-  const send = (m: unknown): Promise<void> => sendOwnerMessage(poster, m, uploads);
+  const send = (m: unknown): ReturnType<typeof sendOwnerMessage> => sendOwnerMessage(poster, m, uploads);
   const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
   const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);
   const uploadChunk = (token: unknown, offset: unknown, bytes: unknown): Promise<void> => uploads.chunk(token, offset, bytes);

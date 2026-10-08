@@ -2,9 +2,9 @@
 // Each goes in three phases: its videos shrunk, its files uploaded in pieces, then the post. Files stay by reference.
 // Saved on every change and loaded after a reload. A send that couldn't reach the desktop retries by itself while
 // Discord still dedupes its nonce. DOM-free (the app is injected), so it is tested directly; state/outbox.ts wires it.
-import { createSignal } from 'solid-js';
+import { batch, createSignal } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
-import type { OwnerMessage } from '@shared/compose';
+import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
 
 export type OutgoingStatus = 'queued' | 'sending' | 'failed';
@@ -13,6 +13,7 @@ export type OutgoingPhase = 'preparing' | 'uploading' | 'posting';
 
 export interface Outgoing {
   id: number;
+  nonce: string;
   /** What it's called where it can't show whole: its text, or what it carries. */
   label: string;
   /** Its text as the log shows it pending. */
@@ -67,7 +68,11 @@ export interface OutboxRecord<D> {
 }
 
 export interface OutboxDeps<D> {
-  send(m: OwnerMessage): Promise<void>;
+  send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+  /** Publishes the accepted row in the same batch that removes its pending row. */
+  accept?(result: PostedOwnerMessage): void;
+  /** Timing-only observer; paint observers are wired by the window. */
+  mark?(phase: 'enqueue' | 'rpc-start' | 'rpc-end' | 'accepted', nonce: string, id: number, messageId?: string): void;
   /** The files as they'll be uploaded (videos shrunk to this device's quality); reports progress. */
   prepare(channelId: string, files: File[], progress: (fraction: number) => void): Promise<File[]>;
   /** Uploads the files in pieces, reporting progress; resolves the tokens the message names. */
@@ -168,18 +173,20 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
     save();
   }
 
-  function add(job: OutboxJob<D>, state: Pick<Outgoing, 'status' | 'error'>, saved?: OutboxRecord<D>): void {
+  function add(job: OutboxJob<D>, state: Pick<Outgoing, 'status' | 'error'>, saved?: OutboxRecord<D>): number {
     const id = nextId++;
     const fileCount = saved?.fileCount ?? job.files.length;
     entries.set(id, { job, firstSentAt: saved?.firstSentAt ?? null, unreachable: saved?.unreachable ?? false, uploads: saved?.uploads ?? null, prepared: null, confirmed: false, fileCount });
     const retryable = job.files.length >= fileCount;
-    const row: Outgoing = { id, label: job.label, text: job.message.text, mentions: job.mentions, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
+    const row: Outgoing = { id, nonce: job.message.nonce, label: job.label, text: job.message.text, mentions: job.mentions, files: job.files, ...state, editable: job.draft !== null, retryable, phase: null, progress: null };
     setOutbox(produce((all) => void (all[job.channelId] ??= []).push(row)));
     undismiss(job.channelId);
+    return id;
   }
 
   function enqueue(job: OutboxJob<D>): void {
-    add(job, { status: 'queued', error: null });
+    const id = add(job, { status: 'queued', error: null });
+    deps.mark?.('enqueue', job.message.nonce, id);
     save();
     void pump(job.channelId);
   }
@@ -245,15 +252,20 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
           const postWithinMs = e.confirmed ? undefined : e.firstSentAt + NONCE_DEDUPE_MS - deps.now();
           if (postWithinMs !== undefined && postWithinMs <= 0) throw new CheckFirst();
           patch(channelId, id, { phase: 'posting', progress: null });
-          const sent = deps.send({ ...e.job.message, uploads: e.uploads ?? [], ...(postWithinMs === undefined ? {} : { postWithinMs }) });
+          deps.mark?.('rpc-start', e.job.message.nonce, id);
+          const sent = deps.send({ ...e.job.message, uploads: e.uploads ?? [], ...(postWithinMs === undefined ? {} : { postWithinMs }) }).then((posted) => {
+            batch(() => {
+              deps.accept?.(posted);
+              finish(channelId, id);
+            });
+            deps.mark?.('accepted', e.job.message.nonce, id, posted.message.id);
+          }).finally(() => deps.mark?.('rpc-end', e.job.message.nonce, id));
           if ((await within(sent, SEND_BASE_TIMEOUT_MS)) === 'timeout') {
             failure = TIMED_OUT;
             e.unreachable = true;
             // Landing later means it went: drop it (unless a retry is already on it) and send the rest.
             sent.then(
               () => {
-                if (outgoing(channelId).find((o) => o.id === id)?.status !== 'failed') return;
-                finish(channelId, id);
                 void pump(channelId);
               },
               () => undefined,

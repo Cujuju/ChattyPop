@@ -22,6 +22,7 @@ export const PHONE_CORE_METHODS = [
   'jevSpend',
   'jevQueryOverrides',
   'messagePage',
+  'messageWindow',
   'messageById',
   'searchMessages',
   'rankSearch',

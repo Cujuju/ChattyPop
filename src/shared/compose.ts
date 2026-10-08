@@ -2,6 +2,7 @@
 import type { PollDraft } from './polls';
 import type { CustomEmoji, GuildEmoji } from './emoji';
 import { escapeRegex } from './keywordPattern';
+import type { RawMessage } from './discord';
 import type { ArchiveEmoji } from './types/archive';
 import { DISCORD_UPLOAD_BYTES_MAX } from './discord';
 import { BYTES_PER_GB, BYTES_PER_MB } from './units';
@@ -35,6 +36,12 @@ export interface OwnerMessage {
    * deduping the nonce; it throws POST_WINDOW_PASSED instead. Absent: no deadline (the owner chose to send anyway).
    */
   postWithinMs?: number;
+}
+
+/** Discord accepted this nonce; its payload can be shown before gateway ingestion. */
+export interface PostedOwnerMessage {
+  nonce: string;
+  message: RawMessage;
 }
 
 /** Main refused to post: past the sender's postWithinMs, a copy that already went could be posted twice. */

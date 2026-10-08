@@ -12,6 +12,8 @@ import { MS_PER_S } from '@shared/units';
 import { SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxRecord } from './outboxQueue';
 import { postingUnlocked } from './posting';
 import { prepareFiles } from './uploadPrep';
+import { sentRows } from './outboxSent';
+import { markSend, markSendPaint } from './outboxTiming';
 
 export type { Outgoing } from './outboxQueue';
 
@@ -92,6 +94,15 @@ async function uploadFiles(channelId: string, files: File[], progress: (fraction
 
 const box = createOutbox<SavedDraft>({
   send: (m) => api.discord.send(m),
+  accept: sentRows.accept,
+  mark: (phase, nonce, id, messageId) => {
+    if (phase === 'accepted') {
+      if (messageId) markSendPaint('sent-row-painted', nonce, messageId);
+      return;
+    }
+    markSend(phase, nonce);
+    if (phase === 'enqueue') markSendPaint('pending-painted', nonce, `pending-${id}`);
+  },
   prepare: async (channelId, files, progress) => prepareFiles(files, await unstalled(api.discord.uploadLimit(channelId), SEND_BASE_TIMEOUT_MS), progress),
   upload: uploadFiles,
   uploadGone: (err) => err instanceof Error && err.message.includes(UPLOAD_GONE),
@@ -104,7 +115,8 @@ const box = createOutbox<SavedDraft>({
   unlocked: postingUnlocked,
   locked: isPostingLocked,
 });
-export const { outgoing, sendingDismissed, dismissSending, enqueue, retrySend, editSend, discardSend } = box;
+export const outgoing = (channelId: string) => box.outgoing(channelId).filter((m) => !sentRows.hasArchived(m.nonce));
+export const { sendingDismissed, dismissSending, enqueue, retrySend, editSend, discardSend } = box;
 
 type SavedQueue = [key: string, records: OutboxRecord<SavedDraft>[]];
 

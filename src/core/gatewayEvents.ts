@@ -7,7 +7,7 @@ import { ARRIVAL } from './arrival';
 
 export interface GatewayDeps {
   /** A channel's archived messages changed ('' = no one channel). */
-  changed(channelId: string): void;
+  changed(channelId: string, insertOnly?: boolean, insertedId?: string): void;
   /** Start of the history window sync fills; older threads aren't archived. */
   backfillFromMs(): number;
   /** The signed-in user; null until main has said. */
@@ -35,7 +35,8 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
         const since = deps.autoArchiveSinceMs();
         if (since !== null && snowflakeToMs(m.id) > since && a.autoArchive(m.channel_id, deps.selfId())) deps.optedIn(m.channel_id);
       }
-      if (a.ingestMessages([m], ARRIVAL.gateway).inserted) deps.changed(m.channel_id);
+      const result = a.ingestMessages([m], ARRIVAL.gateway);
+      if (result.inserted || result.edited) deps.changed(m.channel_id, result.inserted > 0 && result.edited === 0, m.id);
       return;
     }
     case 'MESSAGE_UPDATE': {
