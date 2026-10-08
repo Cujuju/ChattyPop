@@ -1,5 +1,5 @@
 {
-  "version": "2.26.0",
+  "version": "2.27.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -406,6 +406,7 @@
       "showJevQuery",
       "showPanel",
       "shownChannelId",
+      "snapshotPage",
       "startNewRule",
       "toLocalInput",
       "totalUnreadCount",

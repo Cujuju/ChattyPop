@@ -12,6 +12,8 @@ export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type
 export { createAction } from '@/ui/action';
 // Exports: saved on the desktop, opened in the phone's browser; a PDF is one page the desktop draws.
 export { exportHtmlPage, exportPdfPage, type HtmlPage, type PdfPage } from '@/ui/exportPage';
+// A view as a self-contained page drawn as the app draws it, for those exports.
+export { snapshotPage } from '@/ui/snapshot';
 export {
   clockTime,
   countText,

@@ -94,15 +94,15 @@ describe('a transport page', () => {
       pageFetch: (path: string) => Promise<unknown>;
     };
     const { createPhoneRendererApi } = (await import(phoneApiPath)) as {
-      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void; openPage?(page: unknown, format: string): void }) => unknown;
+      createPhoneRendererApi: (t: { call(c: { group: string; method: string; params: unknown[] }): Promise<unknown>; listen(deliver: unknown): void; openExport?(page: Promise<unknown>, format: string): void; openPage?(page: unknown, format: string): void }) => unknown;
     };
     const { mediaUrl } = await import('@shared/media');
     await pageFetch('/rpc');
     expect(fetched).toEqual(['/rpc']);
     for (const url of ['https://elsewhere.example/', '//elsewhere.example/x', 'rpc']) expect(() => pageFetch(url)).toThrow(/Not a path/);
     const call = vi.fn(async () => 'up');
-    const openPage = vi.fn();
-    installRendererApi(createPhoneRendererApi({ call, listen: () => undefined, openPage }), '/media/');
+    const openExport = vi.fn();
+    installRendererApi(createPhoneRendererApi({ call, listen: () => undefined, openExport }), '/media/');
     const leaf = '@/api';
     const { api } = (await import(leaf)) as {
       api: { core: { status(): Promise<string>; setSetting(key: string, value: unknown): Promise<void> }; desktop: { state(): Promise<unknown> }; storage: { move(): Promise<void> }; plugins: { callCore(id: string, name: string, args: unknown[]): Promise<unknown> } };
@@ -126,13 +126,28 @@ describe('a transport page', () => {
     const exportPath = '@/ui/exportPage';
     const { exportHtmlPage, exportPdfPage } = (await import(exportPath)) as { exportHtmlPage: (page: unknown) => void; exportPdfPage: (page: unknown) => Promise<void> };
     const page = { html: '<p>x</p>', fileName: 'x.html' };
-    exportHtmlPage(page);
-    expect(openPage).toHaveBeenCalledExactlyOnceWith(page, 'html');
+    // The transport gets the page while it is still being made, within the tap, so the browser may open its window.
+    void exportHtmlPage(Promise.resolve(page));
+    expect(openExport).toHaveBeenCalledExactlyOnceWith(expect.any(Promise), 'html');
+    await expect(openExport.mock.calls[0]![0]).resolves.toEqual(page);
     // A PDF the desktop draws opens the same way, never through a desktop-only save.
     const pdf = { html: '<p>x</p>', fileName: 'x.pdf', width: 800 };
     await exportPdfPage(pdf);
-    expect(openPage).toHaveBeenLastCalledWith(pdf, 'pdf');
+    expect(openExport).toHaveBeenLastCalledWith(expect.any(Promise), 'pdf');
+    await expect(openExport.mock.calls[1]![0]).resolves.toEqual(pdf);
     expect(call).toHaveBeenCalledTimes(3);
+  });
+  it("hands an older transport's openPage the export once it is made", async () => {
+    vi.stubGlobal('window', {});
+    const phoneApiPath = '@plugin-sdk/renderer/shell/phoneApi';
+    const { createPhoneRendererApi } = (await import(phoneApiPath)) as {
+      createPhoneRendererApi: (t: { call(): Promise<unknown>; listen(): void; openPage(page: unknown, format: string): void }) => { openExport?(page: Promise<unknown>, format: string): void };
+    };
+    const openPage = vi.fn();
+    const api = createPhoneRendererApi({ call: async () => undefined, listen: () => undefined, openPage });
+    const page = { html: '<p>x</p>', fileName: 'x.html' };
+    api.openExport!(Promise.resolve(page), 'html');
+    await vi.waitFor(() => expect(openPage).toHaveBeenCalledExactlyOnceWith(page, 'html'));
   });
 });
 

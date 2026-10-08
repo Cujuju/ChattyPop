@@ -8,7 +8,7 @@ import type { PhoneRendererApi } from './phoneApi';
 /** Installs the phone's API (createPhoneRendererApi) for host code, and where media URLs point. Once per page, before it renders. */
 export function installRendererApi(api: PhoneRendererApi, mediaRoot: string): void {
   setMediaRoot(mediaRoot);
-  setPageOpener(api.openPage ?? null);
+  setPageOpener(api.openExport ?? null);
   installApi(api);
 }
 

@@ -1,0 +1,19 @@
+/* A snapshot page (ui/snapshot.tsx): its content at full height inside the page margin, on the app's ground. Not part of the app's own styles. */
+html,
+body {
+  height: auto;
+  overflow: visible;
+}
+
+body {
+  margin: 0;
+  padding: var(--cp-snapshot-margin);
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Colours and backgrounds print as shown. */
+html {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}

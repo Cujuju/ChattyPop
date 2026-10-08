@@ -12,14 +12,24 @@ export interface PhoneTransport {
   listen(deliver: (e: AppEvent) => void): void;
   /**
    * Opens an export in the device's browser: the HTML itself, or the desktop's PDF of it (ctx.pdf). Runs within the tap that asked,
-   * where a browser may open a window. Absent: an HTML export downloads; a PDF one fails.
+   * where a browser may open a window, while page is still being made. Absent: openPage, else an HTML export downloads.
    */
+  openExport?(page: Promise<HtmlPage | PdfPage>, format: ExportFormat): void;
+  /** Older transports' openExport, for a page already made; a pending page reaches it once made, outside the tap. */
   openPage?(page: HtmlPage | PdfPage, format: ExportFormat): void;
+}
+
+type Opener = (page: Promise<HtmlPage | PdfPage>, format: ExportFormat) => void;
+/** The transport's way to open an export: its openExport, else its openPage once the page is made; null for neither. */
+function openerOf(t: PhoneTransport): Opener | null {
+  if (t.openExport) return (page, format) => t.openExport!(page, format);
+  if (t.openPage) return (page, format) => void page.then((p) => t.openPage!(p, format));
+  return null;
 }
 
 declare const phoneApi: unique symbol;
 /** The renderer API a phone page installs; only createPhoneRendererApi makes one, so an installed API is always the phone's. */
-export type PhoneRendererApi = RendererApi & { readonly [phoneApi]: true; readonly openPage?: (page: HtmlPage | PdfPage, format: ExportFormat) => void };
+export type PhoneRendererApi = RendererApi & { readonly [phoneApi]: true; readonly openExport?: Opener };
 
 const unavailable = (what: string) => (): Promise<never> => Promise.reject(new Error(`${what} is only on the desktop.`));
 const ignored = (): void => {};
@@ -146,5 +156,6 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       return () => listeners.delete(listener);
     },
   };
-  return { ...api, ...(transport.openPage ? { openPage: (page: HtmlPage | PdfPage, format: ExportFormat) => transport.openPage!(page, format) } : {}) } as PhoneRendererApi;
+  const openExport = openerOf(transport);
+  return { ...api, ...(openExport ? { openExport } : {}) } as PhoneRendererApi;
 }

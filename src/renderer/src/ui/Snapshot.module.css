@@ -1,0 +1,8 @@
+/* Where snapshotPage lays a view out: off screen, at the width it sets, never seen or reached. */
+.stage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform: translateX(-200%);
+  pointer-events: none;
+}

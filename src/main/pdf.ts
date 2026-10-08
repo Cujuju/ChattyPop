@@ -55,13 +55,16 @@ export async function htmlToPdf(source: PdfSource): Promise<Uint8Array> {
     await win.loadURL(url);
     await wc.insertCSS(PRINT_CSS);
     wc.debugger.attach(CDP_VERSION);
+    // Measured as printed: print layout can run taller than the screen's, and a page shorter than its content breaks onto a second.
+    await wc.debugger.sendCommand('Emulation.setEmulatedMedia', { media: 'print' });
     const metrics = (await wc.debugger.sendCommand('Page.getLayoutMetrics')) as { cssContentSize: { width: number; height: number } };
     wc.debugger.detach();
-    const { width, height } = metrics.cssContentSize;
+    const width = Math.ceil(Math.max(metrics.cssContentSize.width, source.width));
+    const height = Math.ceil(metrics.cssContentSize.height);
     return await wc.printToPDF({
       printBackground: true,
       margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      pageSize: { width: Math.max(width, source.width) / CSS_PX_PER_INCH, height: height / CSS_PX_PER_INCH },
+      pageSize: { width: width / CSS_PX_PER_INCH, height: height / CSS_PX_PER_INCH },
     });
   } finally {
     win.destroy();
