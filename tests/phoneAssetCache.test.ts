@@ -5,6 +5,7 @@ import { INSTALLED_INDEX } from '@shared/installedBrowser';
 import { INSTALLED_FORMAT, PLUGIN_SDK_VERSION, parseInstalledManifest, type InstalledManifest, type InstalledPlugin } from '@shared/installedPlugins';
 import { installedFiles } from '../src/main/plugins/installedFiles';
 import { rendererPages } from '../src/main/plugins/pages';
+import * as browserVersions from '../src/main/plugins/browserVersion';
 import { tempDir } from './helpers';
 
 function plugin(): InstalledPlugin {
@@ -32,11 +33,59 @@ describe('phone asset cache contracts', () => {
     expect(await (await files.response('probe', chunkPath)).text()).toContain('value = 1');
     writeFileSync(join(accepted.dir, 'browser/chunks/value.js'), 'export const value = 2;');
     expect((await files.response('probe', chunkPath)).status).toBe(404);
-    const updated = installedFiles([accepted]);
-    const [next] = await (await updated.response(INSTALLED_INDEX, '')).json() as InstalledManifest[];
+    const [next] = await (await files.response(INSTALLED_INDEX, '')).json() as InstalledManifest[];
     if (!next) throw new Error('Missing updated fixture manifest.');
     expect(next.browser.shared).not.toBe(manifest.browser.shared);
-    expect((await updated.response('probe', chunkPath)).status).toBe(404);
+    expect((await files.response('probe', chunkPath)).status).toBe(404);
+    const nextChunk = next.browser.shared.replace('shared.js', 'chunks/value.js');
+    expect(await (await files.response('probe', nextChunk)).text()).toContain('value = 2');
+  });
+
+  it('refreshes page URLs after a versioned public asset changes', async () => {
+    const accepted = plugin();
+    mkdirSync(join(accepted.dir, 'browser/public'));
+    writeFileSync(join(accepted.dir, 'browser/public/icon.png'), 'old icon');
+    writeFileSync(join(accepted.dir, 'browser/page.html'), '<html><head></head></html>');
+    accepted.manifest.browser.page = { html: 'browser/page.html', entry: 'browser/shared.js', styles: [], public: ['browser/public/icon.png'] };
+    const files = installedFiles([accepted]);
+    const firstPage = await files.page('/probe.html');
+    if (!firstPage || firstPage instanceof Response) throw new Error('Missing fixture page.');
+    const first = await files.publicFile('/icon.png');
+    const firstUrl = new URL(first!.headers.get('location')!, 'http://probe');
+    expect(await (await files.publicFile(firstUrl.pathname, firstUrl.search))!.text()).toBe('old icon');
+    writeFileSync(join(accepted.dir, 'browser/public/icon.png'), 'new icon');
+    expect((await files.publicFile(firstUrl.pathname, firstUrl.search))!.status).toBe(404);
+    const nextPage = await files.page('/probe.html');
+    if (!nextPage || nextPage instanceof Response) throw new Error('Missing updated fixture page.');
+    expect(nextPage.page.entry).not.toBe(firstPage.page.entry);
+    const next = await files.publicFile('/icon.png');
+    const nextUrl = new URL(next!.headers.get('location')!, 'http://probe');
+    expect(nextUrl.search).not.toBe(firstUrl.search);
+    expect(await (await files.publicFile(nextUrl.pathname, nextUrl.search))!.text()).toBe('new icon');
+    expect((await files.publicFile(firstUrl.pathname, firstUrl.search))!.status).toBe(404);
+  });
+
+  it('starts hashing every accepted plugin before a request and reuses the warm promises', async () => {
+    const accepted = [plugin(), plugin()];
+    accepted[1]!.manifest.id = 'other';
+    const hashing = vi.spyOn(browserVersions, 'browserVersion');
+    try {
+      const files = installedFiles(accepted);
+      expect(hashing.mock.calls.map(([root]) => root)).toEqual(accepted.map((p) => join(p.dir, 'browser')));
+      await (await files.response(INSTALLED_INDEX, '')).text();
+      expect(hashing).toHaveBeenCalledTimes(accepted.length);
+    } finally { hashing.mockRestore(); }
+  });
+
+  it('keeps warm hashing errors for requests that use the failed plugin', async () => {
+    const failure = new Error('Browser hashing failed.');
+    const hashing = vi.spyOn(browserVersions, 'browserVersion').mockRejectedValue(failure);
+    try {
+      const files = installedFiles([plugin()]);
+      await expect(files.response(INSTALLED_INDEX, '')).rejects.toBe(failure);
+      await expect(files.response('probe', 'browser/shared.js')).rejects.toBe(failure);
+      expect(hashing).toHaveBeenCalledTimes(1);
+    } finally { hashing.mockRestore(); }
   });
 
   it('validates built files, caching hashed assets and revalidating mutable entry points', async () => {

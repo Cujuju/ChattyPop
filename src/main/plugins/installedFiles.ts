@@ -63,10 +63,13 @@ async function browserFile(plugin: InstalledPlugin, urlPath: string, types: Read
 }
 
 /** `found` as a reply: the file with its type, or the status. */
-async function reply(found: { file: string; type: string } | number, immutable = false, expectedTag?: string): Promise<Response> {
+async function reply(found: { file: string; type: string } | number, immutable = false, expectedTag?: string, onMismatch?: () => void): Promise<Response> {
   if (typeof found === 'number') return status(found);
   const body = await readFile(found.file);
-  if (immutable && contentTag(body) !== expectedTag) return status(HTTP_NOT_FOUND);
+  if (immutable && contentTag(body) !== expectedTag) {
+    onMismatch?.();
+    return status(HTTP_NOT_FOUND);
+  }
   return assetReply(body, found.type, immutable, HEADERS);
 }
 
@@ -75,9 +78,18 @@ export function installedFiles(accepted: readonly InstalledPlugin[]): InstalledF
   const byId = new Map(accepted.map((p) => [p.manifest.id, p]));
   const pending = new Map<string, ReturnType<typeof browserVersion>>();
   const version = (id: string): ReturnType<typeof browserVersion> => {
-    if (!pending.has(id)) pending.set(id, browserVersion(resolve(byId.get(id)!.dir, BROWSER_DIR)));
+    if (!pending.has(id)) {
+      const hashing = browserVersion(resolve(byId.get(id)!.dir, BROWSER_DIR));
+      pending.set(id, hashing);
+      // Warm failures remain on the cached promise and surface when used.
+      void hashing.catch(() => undefined);
+    }
     return pending.get(id)!;
   };
+  const invalidate = (id: string, cached: ReturnType<typeof browserVersion>): void => {
+    if (pending.get(id) === cached) pending.delete(id);
+  };
+  for (const id of byId.keys()) version(id);
   const pages = new Map<string, InstalledPlugin>(accepted.flatMap((p) => (p.manifest.browser.page ? [[`/${p.manifest.id}.html`, p]] : [])));
   const publicFiles = new Map<string, { plugin: InstalledPlugin; file: string }>();
   for (const plugin of accepted) {
@@ -95,9 +107,10 @@ export function installedFiles(accepted: readonly InstalledPlugin[]): InstalledF
       }
       const plugin = byId.get(name);
       if (!plugin) return status(HTTP_NOT_FOUND);
-      const current = await version(name);
+      const cached = version(name);
+      const current = await cached;
       const target = unversionedFile(path, current.hash);
-      return target ? reply(await browserFile(plugin, target.path), target.immutable, current.tags.get(target.path)) : status(HTTP_NOT_FOUND);
+      return target ? reply(await browserFile(plugin, target.path), target.immutable, current.tags.get(target.path), () => invalidate(name, cached)) : status(HTTP_NOT_FOUND);
     },
     async page(path) {
       const plugin = pages.get(path);
@@ -112,12 +125,14 @@ export function installedFiles(accepted: readonly InstalledPlugin[]): InstalledF
       const found = publicFiles.get(path);
       if (!found) return null;
       if (MUTABLE_PUBLIC_FILE.test(found.file)) return reply(await browserFile(found.plugin, found.file));
-      const current = await version(found.plugin.manifest.id);
+      const id = found.plugin.manifest.id;
+      const cached = version(id);
+      const current = await cached;
       const query = new URLSearchParams(search);
       const requestedVersion = query.get(PUBLIC_VERSION_QUERY);
       if (requestedVersion !== null) {
         return requestedVersion === current.hash
-          ? reply(await browserFile(found.plugin, found.file), true, current.tags.get(found.file)) : status(HTTP_NOT_FOUND);
+          ? reply(await browserFile(found.plugin, found.file), true, current.tags.get(found.file), () => invalidate(id, cached)) : status(HTTP_NOT_FOUND);
       }
       query.set(PUBLIC_VERSION_QUERY, current.hash);
       return new Response(null, { status: HTTP_TEMPORARY_REDIRECT, headers: {
