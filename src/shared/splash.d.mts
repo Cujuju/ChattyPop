@@ -11,6 +11,8 @@ export declare const SPLASH_WINDOW: {
   title: string;
 };
 export declare const SPLASH_SHOWN_MESSAGE: string;
+export declare const RESTART_ARMED_MESSAGE: string;
+export declare const RESTART_CANCELLED_MESSAGE: string;
 export type SplashPhaseId = 'compile' | 'build' | 'app' | 'core' | 'database' | 'archive' | 'interface' | 'window';
 export declare const SPLASH_PHASES: readonly { id: SplashPhaseId; label: string; devOnly?: boolean }[];
 export declare const SPLASH_THEME_TOKENS: readonly string[];

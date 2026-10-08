@@ -17,6 +17,12 @@ export const SPLASH_WINDOW = {
 /** What the app sends a launcher that spawned it (scripts/dev.mjs) once the app's own splash shows. */
 export const SPLASH_SHOWN_MESSAGE = 'splash-shown';
 
+/** What the app sends that launcher once a restart's close is under way: it starts the app again when this one exits. */
+export const RESTART_ARMED_MESSAGE = 'restart-armed';
+
+/** What the app sends that launcher when the page refused that close: it exits with the app after all. */
+export const RESTART_CANCELLED_MESSAGE = 'restart-cancelled';
+
 /** Startup steps in order. The status names the first not done. `devOnly` runs before the app exists. */
 export const SPLASH_PHASES = [
   { id: 'compile', label: 'Compiling the app', devOnly: true },
