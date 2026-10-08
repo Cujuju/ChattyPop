@@ -58,6 +58,8 @@ export type { RuleTemplate } from '@shared/ruleTemplates';
 export type { Audience, CallMember, ChannelShapes, Channels, Client, Decoder, EventsOf, MembersFor, Served } from '@shared/pluginChannels';
 // The phone transport's codec and the shapes it carries.
 export { decodeWire, encodeWire, type IsWire, type Wire, type WireValue } from '@shared/wire';
+// Where an installed page keeps its shown section, so the loader can load it first.
+export { pageSectionKey } from '@shared/installedBrowser';
 export { defineChannels } from '@shared/pluginChannels';
 export type { HostPanelId, HostRuleTemplateId, HostSettingsTabId, HostShortcutId, SettingsPageId } from '@shared/anchors';
 

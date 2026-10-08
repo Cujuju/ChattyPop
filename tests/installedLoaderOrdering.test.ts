@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { INSTALLED_PAGE_ENTRY_META } from '@shared/installedBrowser';
+import { INSTALLED_PAGE_ENTRY_META, pageSectionKey } from '@shared/installedBrowser';
 import { INSTALLED_FORMAT, PLUGIN_SDK_VERSION, type InstalledManifest } from '@shared/installedPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 
@@ -40,7 +40,7 @@ describe('installed browser import scheduling', () => {
       return { content: '/installed/page/browser/cp-version/page.js' };
     } });
     vi.stubGlobal('sessionStorage', { getItem: (key: string) => {
-      expect(key).toBe('page.tab');
+      expect(key).toBe(pageSectionKey('page'));
       return 'inbox.feed';
     } });
     expect(windowIo().page).toEqual({ id: 'page', section: 'inbox.feed' });

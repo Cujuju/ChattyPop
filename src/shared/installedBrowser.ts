@@ -26,3 +26,5 @@ export const INSTALLED_CONTENT_TYPES: Readonly<Record<string, string>> = {
 export const INSTALLED_PAGE_SHELL = 'installed-page.html';
 /** The meta naming an installed page's entry module (its URL), which the host's page bootstrap imports last. */
 export const INSTALLED_PAGE_ENTRY_META = 'chattypop-page-entry';
+/** The sessionStorage key where installed page `pageId` keeps its shown section; the loader loads that section's plugins first. */
+export const pageSectionKey = (pageId: string): string => `${pageId}.tab`;
