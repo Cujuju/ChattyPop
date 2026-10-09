@@ -1,6 +1,8 @@
-// A message's right-click menu: copies, views, Jev and plugin groups; posting items come from a posting plugin.
+// A message's right-click menu: what was pressed (an attachment's Download), copies, views, Jev and plugin groups; posting
+// items come from a posting plugin.
 import { api } from '@/api';
-import type { ArchiveMessage, AttachmentNote } from '@shared/contract';
+import { HOST_ATTACHMENT_MENU_ITEMS } from '@shared/anchors';
+import type { ArchiveAttachment, ArchiveMessage, AttachmentNote } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelJevItems, jevMayRead } from './channelPolicy';
 import { channelById } from './directory';
@@ -8,9 +10,11 @@ import { openConversation } from './conversation';
 import { canReact } from './reactions';
 import { openPerson } from './person';
 import { aiSettings } from './preferences';
-import { messageMenuGroups, type MessageMenuScope } from '@/plugins/slots';
+import { attachmentMenuItems, messageMenuGroups, type MessageMenuScope } from '@/plugins/slots';
+import type { HostAttachmentMenuItem } from '@/plugins/readSlots';
 import { openContextMenu, setJevCheckFor, type MenuItem } from './ui';
 import { failureNotice } from './dialogs';
+import { canSave, saveAttachment } from './savedFiles';
 
 const DISCORD_APP = 'https://discord.com/channels';
 
@@ -46,12 +50,25 @@ function pressedNote(target: EventTarget | null, m: ArchiveMessage): AttachmentN
   return [m, ...m.attachments, ...m.embeds].flatMap((x) => x.notes ?? []).find((n) => n.part === el.dataset.notePart && n.pluginId === el.dataset.notePlugin);
 }
 
+/** The attachment of `m` that `target` is in, if any: its tile carries data-attachment-id (panels/chat/AttachmentTile.tsx). */
+function pressedAttachment(target: EventTarget | null, m: ArchiveMessage): ArchiveAttachment | undefined {
+  const el = target instanceof Element ? target.closest<HTMLElement>('[data-attachment-id]') : null;
+  return el ? m.attachments.find((a) => a.id === el.dataset.attachmentId) : undefined;
+}
+
+/** The host's items for a pressed attachment: Download while its file is held here; modify and delete are anchors. */
+const HOST_ATTACHMENT_ITEMS: readonly HostAttachmentMenuItem[] = HOST_ATTACHMENT_MENU_ITEMS.map((id) => ({
+  id,
+  item: (_m, a) => (id === 'download' && canSave(a) ? { label: 'Download', icon: 'download', run: () => saveAttachment(a) } : null),
+}));
+
 export type { MessageMenuScope };
 const FULL_ROW: MessageMenuScope = { drawsAttachments: true };
 
 /**
- * Opens a message's right-click menu: what was right-clicked (selection, image), quick reactions, views, copies, plugins'
- * groups and Jev. A posting plugin adds Reply and Forward before the views, Delete last.
+ * Opens a message's right-click menu: what was right-clicked (selection, image), the pressed attachment's items, quick
+ * reactions, views, copies, plugins' groups and Jev. A posting plugin adds Reply and Forward before the views, Delete last,
+ * and an attachment's Modify and Delete.
  */
 export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: MessageMenuScope = FULL_ROW): void {
   const target: MenuItem[] = [];
@@ -62,6 +79,9 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
   // A transcription can't be selected on the phone (a long press opens this menu): copied whole from here.
   const note = pressedNote(e.target, m);
   if (note) target.push({ label: 'Copy text', icon: 'copy', run: () => navigator.clipboard.writeText(note.text) });
+
+  const pressed = pressedAttachment(e.target, m);
+  const attachment = pressed ? attachmentMenuItems(m, pressed, HOST_ATTACHMENT_ITEMS) : [];
 
   const copy: MenuItem[] = m.content ? [{ label: 'Text', icon: 'text', run: () => navigator.clipboard.writeText(m.content) }] : [];
   copy.push({ label: 'Message link', icon: 'link', run: () => navigator.clipboard.writeText(messageLink(m)) }, { label: 'Message ID', icon: 'id', run: () => navigator.clipboard.writeText(m.id) });
@@ -76,6 +96,7 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
 
   openContextMenu(e, messageMenuGroups(m, scope, [
     { id: 'selection', items: target },
+    { id: 'attachment', items: attachment },
     { id: 'views', items: views },
     { id: 'copy', heading: 'Copy', items: copy },
     { id: 'jev', heading: 'Jev', items: jev },

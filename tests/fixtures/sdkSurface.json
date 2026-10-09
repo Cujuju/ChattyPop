@@ -1,5 +1,5 @@
 {
-  "version": "2.33.0",
+  "version": "2.34.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -223,6 +223,7 @@
     ],
     "@plugin-sdk/renderer": [
       "ARCHIVE_REFRESH_DEBOUNCE_MS",
+      "HOST_ATTACHMENT_MENU_ITEMS",
       "HOST_CHAT_FOOTER_ITEMS",
       "HOST_HOVER_ACTIONS",
       "HOST_HOVER_EMOJI_ITEMS",

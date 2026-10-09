@@ -1,6 +1,7 @@
 // Slot contracts define declared items, stamped identities and exact renderer implementation checks.
 import {
   HOST_ATTACHMENT_ACTIONS,
+  HOST_ATTACHMENT_MENU_ITEMS,
   HOST_CHAT_FOOTER_ITEMS,
   HOST_HOVER_ACTIONS,
   HOST_HOVER_EMOJI_ITEMS,
@@ -25,7 +26,9 @@ export const HOST_SLOT_ITEMS = {
   chatFooter: HOST_CHAT_FOOTER_ITEMS,
   hoverEmoji: HOST_HOVER_EMOJI_ITEMS,
   hoverActions: HOST_HOVER_ACTIONS,
+  /** Deprecated (SDK 2.34; removed at 3): still declarable, drawn nowhere. */
   attachmentActions: HOST_ATTACHMENT_ACTIONS,
+  attachmentMenu: HOST_ATTACHMENT_MENU_ITEMS,
   ruleTemplates: HOST_RULE_TEMPLATES,
   personSections: [],
   personLinks: [],

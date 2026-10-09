@@ -1,6 +1,6 @@
 import { For, Match, Show, Switch, createSignal, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import type { ArchiveAttachment, ArchiveMessage, AttachmentNote, MediaSize } from '@shared/contract';
+import type { ArchiveAttachment, AttachmentNote, MediaSize } from '@shared/contract';
 import { attachmentPosterUrl, attachmentUrl, attachmentView } from '@shared/media';
 import { AnimatedImage } from '@/ui/AnimatedImage';
 import { pluginPresents } from '@/state/plugins';
@@ -38,14 +38,14 @@ const fileMeta = (a: ArchiveAttachment): string =>
  * Shows stored media or text inline, else file-status chips, each captioned the same way. Notes survive pruning; unplayable
  * video and unreadable text fall back to chips.
  */
-export function Attachment(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
+export function Attachment(props: { attachment: ArchiveAttachment; messageLink: string }) {
   const a = () => props.attachment;
   const [unshowable, setUnshowable] = createSignal(false);
   const view = () => (unshowable() || !uploadShownInline(attachmentView(a()), discordChatSettings()) ? 'file' : attachmentView(a()));
   const asMedia = () => view() !== 'file' && view() !== 'text';
   return (
     <MediaFigure>
-      <AttachmentTile message={props.message} attachment={a()} stored={view() !== 'file' || a().status === 'stored'}>
+      <AttachmentTile attachment={a()} stored={view() !== 'file' || a().status === 'stored'}>
         <Switch fallback={<AttachmentMedia attachment={a()} onUnplayable={() => setUnshowable(true)} />}>
           <Match when={view() === 'file'}>
             <FileChip attachment={a()} messageLink={props.messageLink} />

@@ -72,6 +72,8 @@ export const ICON_SHAPES = {
   ),
   // A group's owner, as Discord marks them.
   crown: () => <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" />,
+  // An arrow down onto a tray: saves a file.
+  download: () => <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,
   edit: () => <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />,
   // A box with an arrow leaving it: opens outside the app.
   // A plain smiley: the standard emoji.

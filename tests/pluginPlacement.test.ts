@@ -51,7 +51,7 @@ const probe: ReadSlotEntry = {
 /** Read slots placed by the complete catalog: every plugin folder's declarations, whichever the build includes. */
 const slotsOf = (list: readonly ReadSlotEntry[], enabled: (id: string) => boolean) =>
   readSlots(() => list, enabled, () => true, catalogSlotAnchor(anchorCatalog([...entries, probe].map((entry) => entry.plugin))));
-const baselineMenu = ['selection', 'views', 'copy', 'voice', 'labels', 'jev', 'delete'];
+const baselineMenu = ['selection', 'attachment', 'views', 'copy', 'voice', 'labels', 'jev', 'delete'];
 const baselineRules = {
   triggers: ['message', 'labels.applied', 'timed'],
   filters: ['contains', 'linkPlatforms', 'linkDomains', 'labels.any'],
@@ -123,14 +123,14 @@ it(
   () => {
     const slots = slotsOf([probe, ...entries], () => true);
     expect(slots.messages(message, scope, host).flatMap((group) => group.items.map((entry) => entry.label)))
-    .toEqual(['selection', 'views', 'copy', 'voice', 'labels', 'probe', 'jev', 'delete']);
+    .toEqual(['selection', 'attachment', 'views', 'copy', 'voice', 'labels', 'probe', 'jev', 'delete']);
     const off = slotsOf([probe, ...entries], (id) => id !== 'labels');
     expect(off.messages(message, scope, host).flatMap((group) => group.items.map((entry) => entry.label)))
-    .toEqual(['selection', 'views', 'copy', 'voice', 'probe', 'jev', 'delete']);
+    .toEqual(['selection', 'attachment', 'views', 'copy', 'voice', 'probe', 'jev', 'delete']);
     // Labels left out of the build: the catalog keeps its group's place, before jev.
     const absent = slotsOf([probe], () => true);
     expect(absent.messages(message, scope, host).flatMap((group) => group.items.map((entry) => entry.label)))
-    .toEqual(['selection', 'views', 'copy', 'probe', 'jev', 'delete']);
+    .toEqual(['selection', 'attachment', 'views', 'copy', 'probe', 'jev', 'delete']);
   },
 );
 

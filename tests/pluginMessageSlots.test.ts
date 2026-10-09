@@ -2,7 +2,7 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 import type { ArchiveMessage } from '@shared/contract';
-import { HOST_ATTACHMENT_ACTIONS, HOST_CHAT_FOOTER_ITEMS, HOST_HOVER_ACTIONS, HOST_HOVER_EMOJI_ITEMS } from '@shared/anchors';
+import { HOST_CHAT_FOOTER_ITEMS, HOST_HOVER_ACTIONS, HOST_HOVER_EMOJI_ITEMS } from '@shared/anchors';
 import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { definePlugin, type PluginDescriptor, type SlotDecls } from '@plugin-sdk/shared';
 import { readSlots, type ReadSlotEntry } from '../src/renderer/src/plugins/readSlots';
@@ -13,9 +13,16 @@ vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cj
 const SELF = 'me';
 const menus = vi.hoisted(() => [] as { label: string }[][][]);
 /** Places menu groups according to renderer slots; each test sets the groups. */
-const placeMenu = vi.hoisted(() => ({ groups: (_m: unknown, _scope: unknown, host: unknown): unknown => host }));
+const placeMenu = vi.hoisted(() => ({
+  groups: (_m: unknown, _scope: unknown, host: unknown): unknown => host,
+  attachments: (_m: unknown, _a: unknown, _host: unknown): unknown => [],
+}));
 vi.mock('@/api', () => ({ api: {} }));
-vi.mock('@/plugins/slots', () => ({ messageMenuGroups: (m: unknown, scope: unknown, host: unknown) => placeMenu.groups(m, scope, host) }));
+vi.mock('@/plugins/slots', () => ({
+  messageMenuGroups: (m: unknown, scope: unknown, host: unknown) => placeMenu.groups(m, scope, host),
+  attachmentMenuItems: (m: unknown, a: unknown, host: unknown) => placeMenu.attachments(m, a, host),
+}));
+vi.mock('../src/renderer/src/state/savedFiles', () => ({ canSave: (a: { status: string }) => a.status === 'stored', saveAttachment: () => Promise.resolve() }));
 vi.mock('@/ui/format', () => ({ errorText: String }));
 vi.mock('../src/renderer/src/state/channelPolicy', () => ({ channelJevItems: () => [], jevMayRead: () => false }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => undefined }));
@@ -37,7 +44,7 @@ type Entry = { plugin: PluginDescriptor; contributions: Record<string, Record<st
 type Placed = <T extends Item>(host: readonly T[]) => T[];
 type HoverItem = Item & { Component(p: { message: ArchiveMessage }): unknown };
 const { messageSlots, HOST_HOVER_ACTION_ANCHORS } = (await import(slotsPath)) as {
-  messageSlots(entries: () => readonly Entry[], enabled: (id: string) => boolean, anchorOf: unknown): { chatFooter: Placed; hoverEmoji: Placed; hoverActions: Placed; attachmentActions: Placed };
+  messageSlots(entries: () => readonly Entry[], enabled: (id: string) => boolean, anchorOf: unknown): { chatFooter: Placed; hoverEmoji: Placed; hoverActions: Placed };
   HOST_HOVER_ACTION_ANCHORS: readonly HoverItem[];
 };
 const { openMessageMenu } = (await import(actionsPath)) as { openMessageMenu(e: unknown, m: ArchiveMessage): void };
@@ -60,7 +67,6 @@ describe('message slots', () => {
     expect(ids(none.chatFooter(host(HOST_CHAT_FOOTER_ITEMS)))).toEqual(['composer']);
     expect(ids(none.hoverEmoji(host(HOST_HOVER_EMOJI_ITEMS)))).toEqual(['reactions']);
     expect(ids(none.hoverActions(host(HOST_HOVER_ACTIONS)))).toEqual(['edit', 'reply', 'forward']);
-    expect(ids(none.attachmentActions(host(HOST_ATTACHMENT_ACTIONS)))).toEqual(['modify', 'delete', 'download']);
     expect(none.chatFooter([])).toEqual([]);
   });
 
@@ -89,11 +95,17 @@ describe('posting actions', () => {
   const message = (more: Partial<ArchiveMessage> = {}) =>
     ({ id: 'm', channelId: 'c', content: 'hi', attachments: [], author: { id: SELF, name: 'A' }, deletedAt: null, prunedAt: null, ...more }) as unknown as ArchiveMessage;
   /** The labels of the menu `m` opens, by group, placed among `entries`' groups. */
-  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[]): string[][] => {
-    placeMenu.groups = readSlots(() => entries, () => true, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin)))).messages as typeof placeMenu.groups;
+  /** `attachmentId`: the menu opens on that attachment's tile, else on the message's text. */
+  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[], attachmentId?: string): string[][] => {
+    const slots = readSlots(() => entries, () => true, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin))));
+    placeMenu.groups = slots.messages as typeof placeMenu.groups;
+    placeMenu.attachments = slots.attachments as typeof placeMenu.attachments;
+    const Element = class {};
     vi.stubGlobal('window', { getSelection: () => null });
-    vi.stubGlobal('Element', class {});
-    openMessageMenu({ target: { closest: () => null } }, m);
+    vi.stubGlobal('Element', Element);
+    const tile = { dataset: { attachmentId } };
+    const target = Object.assign(new Element(), { closest: (s: string) => (s === '[data-attachment-id]' && attachmentId ? tile : null) });
+    openMessageMenu({ target }, m);
     vi.unstubAllGlobals();
     return menus.at(-1)!.map((items) => items.map((i) => i.label));
   };
@@ -114,10 +126,24 @@ describe('posting actions', () => {
     expect(menuOf(message(), [])).toEqual([['View conversation', 'View A'], ['Text', 'Message link', 'Message ID']]);
   });
 
-  it("land on an attachment's bar at the host's anchors, before Download, as Discord orders them", () => {
-    const slots = { attachmentActions: [{ id: 'modify', before: 'modify' }, { id: 'delete', before: 'delete' }] };
-    const bar = slotsOf([entry('poster', slots, { attachmentActions: { modify: view, delete: view } })], () => true);
-    expect(ids(bar.attachmentActions(host(HOST_ATTACHMENT_ACTIONS)))).toEqual(['poster.modify', 'modify', 'poster.delete', 'delete', 'download']);
+  it("put a pressed attachment's Download, then Modify and Delete at their anchors, after what was pressed", () => {
+    const attachments = [{ id: 'a1', status: 'stored', sha256: 'h' }, { id: 'a2', status: 'pending', sha256: null }];
+    const m = message({ attachments } as unknown as Partial<ArchiveMessage>);
+    const changer = definePlugin({
+      manifest: { id: 'poster', name: 'poster', version: '1', description: '' },
+      slots: { attachmentMenu: [{ id: 'modify', before: 'modify' }, { id: 'delete', before: 'delete' }] },
+    });
+    const menu: ReadSlotEntry = {
+      plugin: changer,
+      contributions: { attachmentMenu: { modify: { calls: [], item: () => item('Modify attachment') }, delete: { calls: [], item: () => item('Delete attachment') } } },
+    };
+    const views = ['View conversation', 'View A'];
+    const copies = ['Text', 'Message link', 'Message ID'];
+    expect(menuOf(m, [menu], 'a1')).toEqual([['Download', 'Modify attachment', 'Delete attachment'], views, copies]);
+    // Not held here: no Download.
+    expect(menuOf(m, [menu], 'a2')).toEqual([['Modify attachment', 'Delete attachment'], views, copies]);
+    // Pressed elsewhere: no attachment's items.
+    expect(menuOf(m, [menu])).toEqual([views, copies]);
   });
 
   it("land at the host's anchors in today's order: Edit, Reply, Forward on the bar; Reply, Forward lead the menu, Delete last", () => {

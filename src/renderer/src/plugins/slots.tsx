@@ -116,6 +116,8 @@ export const bundledUnread = (id: string): UnreadSource | undefined => active().
 const reads = readSlots(() => rendererPlugins().map((p) => ({ plugin: p.plugin, contributions: contributions(p) })), pluginActive, pluginMayCall, slotAnchor);
 /** Active message menu groups, preserving each plugin's optional heading. */
 export const messageMenuGroups = reads.messages;
+/** A pressed attachment's menu items: the host's with active plugins' placed among them. */
+export const attachmentMenuItems = reads.attachments;
 /** Active sections rendered after a person's channels. */
 export const personSections = reads.people;
 /** The active view of a person's links, or null: the Person window then lists them plainly. */
@@ -132,8 +134,6 @@ export const chatFooterItems = messages.chatFooter;
 export const hoverEmojiItems = messages.hoverEmoji;
 /** Host and active plugin actions in a hovered message's bar, before More, through shared placement. */
 export const hoverActionItems = messages.hoverActions;
-/** Host and active plugin actions in a hovered attachment's bar, through shared placement. */
-export const attachmentActionItems = messages.attachmentActions;
 
 const frame = frameSlots(() => rendererPlugins().map((p) => ({ plugin: p.plugin, contributions: contributions(p) })), pluginActive, slotAnchor, noticeAnchor);
 /** Host and active plugin top-bar items through shared placement. */

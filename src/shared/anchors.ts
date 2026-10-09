@@ -26,8 +26,11 @@ export type HostShortcutId = keyof typeof HOST_SHORTCUTS;
 export const HOST_RULE_TEMPLATES = ['links'] as const;
 export type HostRuleTemplateId = (typeof HOST_RULE_TEMPLATES)[number];
 
-/** Fixed message-menu groups, including groups whose items may be empty; `delete` is always empty, an anchor. */
-export const HOST_MESSAGE_MENU_GROUPS = ['selection', 'views', 'copy', 'jev', 'delete'] as const;
+/**
+ * Fixed message-menu groups, including groups whose items may be empty; `delete` is always empty, an anchor. `attachment`:
+ * the pressed attachment's items (attachmentMenu).
+ */
+export const HOST_MESSAGE_MENU_GROUPS = ['selection', 'attachment', 'views', 'copy', 'jev', 'delete'] as const;
 export type HostMessageMenuGroupId = (typeof HOST_MESSAGE_MENU_GROUPS)[number];
 
 /** The Archive view's footer under the log: the message box. */
@@ -41,9 +44,12 @@ export type HostHoverEmojiItemId = (typeof HOST_HOVER_EMOJI_ITEMS)[number];
 /** Anchors in the message hover bar, between its reaction group and More, in order; the host draws nothing at them. */
 export const HOST_HOVER_ACTIONS = ['edit', 'reply', 'forward'] as const;
 export type HostHoverActionId = (typeof HOST_HOVER_ACTIONS)[number];
-/** A hovered attachment's bar, in order: anchors modify and delete (the host draws nothing at them), then Download. */
+/** Deprecated (SDK 2.34; removed at 3): the attachment hover bar's anchors. The bar is gone; its items draw nowhere. */
 export const HOST_ATTACHMENT_ACTIONS = ['modify', 'delete', 'download'] as const;
 export type HostAttachmentActionId = (typeof HOST_ATTACHMENT_ACTIONS)[number];
+/** A pressed attachment's menu items, in order: Download, then anchors modify and delete (the host draws nothing at them). */
+export const HOST_ATTACHMENT_MENU_ITEMS = ['download', 'modify', 'delete'] as const;
+export type HostAttachmentMenuItemId = (typeof HOST_ATTACHMENT_MENU_ITEMS)[number];
 
 /** Fixed items in the top bar's end group. */
 export const HOST_TOP_BAR_ITEMS = ['layout', 'privacy', 'settings'] as const;

@@ -1,7 +1,7 @@
 // Renderer probe contributions are present only while their plugin is active.
 import { expect, it } from 'vitest';
 import { readSlots, type ReadSlotEntry } from '../src/renderer/src/plugins/readSlots';
-import type { ArchiveMessage, DirectoryChannel } from '@shared/contract';
+import type { ArchiveAttachment, ArchiveMessage, DirectoryChannel } from '@shared/contract';
 import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { audiencesOf } from '@shared/pluginChannels';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
@@ -98,25 +98,29 @@ it("offers a plugin's menu actions only in windows that may make their core call
     channels: defineChannels<{ core: { status(): string; request(id: string): void } }>()({
       core: { status: { audiences: ['renderer', 'phone'], writes: false }, request: ['renderer'] },
     }),
-    slots: { messageMenu: [{ id: 'transcribe' }] },
+    slots: { messageMenu: [{ id: 'transcribe' }], attachmentMenu: [{ id: 'transcribe' }] },
   });
   const menuItem = { label: 'Transcribe', icon: 'waveform' as const, run: () => undefined };
   const entry = {
     plugin,
     contributions: {
       messageMenu: { transcribe: { calls: ['request'], menu: () => [menuItem] } },
+      attachmentMenu: { transcribe: { calls: ['request'], item: () => menuItem } },
       channels: { calls: ['request'], jevItems: () => [menuItem] },
     },
   } as unknown as ReadSlotEntry;
   const message = { id: 'm', labels: [], attachments: [] } as unknown as ArchiveMessage;
   const channel = { id: 'c' } as DirectoryChannel;
+  const attachment = { id: 'a' } as ArchiveAttachment;
   // The request call serves desktop windows only, so the phone offers no Transcribe item.
   const mayCallFrom = (audience: 'renderer' | 'phone') => (id: string, name: string) =>
     id === plugin.manifest.id && audiencesOf(plugin.channels, 'core', name).includes(audience);
   const desktop = slotsOf([entry], () => true, mayCallFrom('renderer'));
   expect(desktop.messages(message, { drawsAttachments: true }).flatMap((g) => g.items)).toEqual([menuItem]);
   expect(desktop.channels(channel)).toEqual([menuItem]);
+  expect(desktop.attachments(message, attachment, [])).toEqual([menuItem]);
   const phone = slotsOf([entry], () => true, mayCallFrom('phone'));
   expect(phone.messages(message, { drawsAttachments: true })).toEqual([]);
   expect(phone.channels(channel)).toEqual([]);
+  expect(phone.attachments(message, attachment, [])).toEqual([]);
 });

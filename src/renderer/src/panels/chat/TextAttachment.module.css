@@ -17,8 +17,7 @@
   font-size: var(--cp-text-code);
 }
 
-/* The file's type icon, then its name over its size and grammar, all at the start: the tile's hover bar (Download)
-   floats over the end. */
+/* The file's type icon, then its name over its size and grammar, all at the start. */
 .header {
   display: flex;
   align-items: center;

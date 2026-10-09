@@ -15,11 +15,11 @@ export function Attachments(props: { message: ArchiveMessage; messageLink: strin
   // Inline uploads off (Discord's "When uploaded directly to Discord"): images and videos are their chips.
   const media = () => props.message.attachments.filter((a) => inMosaic(a) && uploadShownInline(attachmentView(a), discordChatSettings()));
   const others = () => props.message.attachments.filter((a) => !media().includes(a));
-  const one = (a: ArchiveAttachment) => <Attachment message={props.message} attachment={a} messageLink={props.messageLink} />;
+  const one = (a: ArchiveAttachment) => <Attachment attachment={a} messageLink={props.messageLink} />;
   return (
     <>
       <Show when={media().length > 1} fallback={<For each={media()}>{one}</For>}>
-        <MediaMosaic message={props.message} attachments={media()} messageLink={props.messageLink} />
+        <MediaMosaic attachments={media()} messageLink={props.messageLink} />
       </Show>
       <For each={others()}>{one}</For>
     </>
@@ -27,7 +27,7 @@ export function Attachments(props: { message: ArchiveMessage; messageLink: strin
 }
 
 /** Mosaic rows expose tile counts. One status line lists archive state and all tile notes in order. */
-function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttachment[]; messageLink: string }) {
+function MediaMosaic(props: { attachments: ArchiveAttachment[]; messageLink: string }) {
   const rows = (): ArchiveAttachment[][] => {
     let at = 0;
     return mosaicRows(props.attachments.length).map((n) => props.attachments.slice(at, (at += n)));
@@ -39,7 +39,7 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
         <For each={rows()}>
           {(row) => (
             <div class={styles.row} data-count={row.length}>
-              <For each={row}>{(a) => <MosaicTile message={props.message} attachment={a} messageLink={props.messageLink} />}</For>
+              <For each={row}>{(a) => <MosaicTile attachment={a} messageLink={props.messageLink} />}</For>
             </div>
           )}
         </For>
@@ -50,10 +50,10 @@ function MediaMosaic(props: { message: ArchiveMessage; attachments: ArchiveAttac
 }
 
 /** One cell: the picture or video, cropped to it; a video this browser can't decode shows as its file card, checked as the media was. */
-function MosaicTile(props: { message: ArchiveMessage; attachment: ArchiveAttachment; messageLink: string }) {
+function MosaicTile(props: { attachment: ArchiveAttachment; messageLink: string }) {
   const [unplayable, setUnplayable] = createSignal(false);
   return (
-    <AttachmentTile message={props.message} attachment={props.attachment} stored={props.attachment.status === 'stored'}>
+    <AttachmentTile attachment={props.attachment} stored={props.attachment.status === 'stored'}>
       <Show when={!unplayable()} fallback={<FileChip attachment={props.attachment} messageLink={props.messageLink} />}>
         <AttachmentMedia attachment={props.attachment} cell onUnplayable={() => setUnplayable(true)} />
       </Show>

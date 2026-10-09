@@ -84,7 +84,7 @@
 }
 
 /* With a caption, tile and caption are one card: the figure (or mosaic) draws the frame, so what it holds drops its own
-   border and corners. The overlays (spoiler pill, marks, action bar) keep theirs. */
+   border and corners. The overlays (spoiler pill, marks) keep theirs. */
 :is(.figure, .mosaic):has(> .caption) {
   overflow: hidden;
   border: var(--cp-border-w) solid var(--cp-border-subtle);
@@ -93,7 +93,7 @@
 }
 
 .figure:has(> .caption) > :not(.caption),
-.figure:has(> .caption) > .tile > :not(.spoiler, .removed, .storedMark, .bar),
+.figure:has(> .caption) > .tile > :not(.spoiler, .removed, .storedMark),
 .figure:has(> .caption) > :not(.caption) :is(img, video),
 .mosaic:has(> .caption) > .grid {
   border: 0;
@@ -168,16 +168,16 @@
   border-radius: var(--cp-radius-md);
 }
 
-.tile[data-covered='true'] > :not(.spoiler, .removed, .storedMark, .bar) {
+.tile[data-covered='true'] > :not(.spoiler, .removed, .storedMark) {
   filter: blur(var(--cp-spoiler-blur));
 }
 
 /* Removed from its message on Discord: still shown, set back. */
-.tile[data-removed='true'] > :not(.spoiler, .removed, .bar) {
+.tile[data-removed='true'] > :not(.spoiler, .removed) {
   opacity: var(--cp-attachment-removed-opacity);
 }
 
-/* Spoiler pill’s veil covers the tile and extends its hit area. Bar/removal marks paint above it. */
+/* Spoiler pill’s veil covers the tile and extends its hit area. The removed mark paints above it. */
 .spoiler {
   z-index: var(--cp-z-base);
   place-self: center;
@@ -235,82 +235,6 @@
 .tile[data-removed='true']:has(> :is(.file, .audio)):not(.row > .tile) > .removed {
   position: static;
   grid-area: 1 / 2;
-}
-
-/* An audio player's controls fill its tile, so a bar floated over it would cover its ⋮ menu (playback speed, download).
-   The bar follows the player in a column of its own, after the removed mark if any. */
-.tile:has(> .audio):not(.row > .tile) {
-  grid-auto-columns: auto;
-  align-items: center;
-  column-gap: var(--cp-space-4);
-}
-
-.tile:has(> .audio):not(.row > .tile) > .bar {
-  position: static;
-  grid-area: auto;
-  grid-row: 1;
-  margin-right: var(--cp-space-3); /* the floating bar's inset from the tile's edge */
-}
-
-/* Attachment bars appear on hover/focus without intercepting hidden clicks. Narrow tiles use measured stacked columns; right inset participates in sizing. */
-.bar {
-  position: absolute;
-  top: var(--cp-space-3);
-  right: var(--cp-space-3);
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--cp-space-1);
-  padding: var(--cp-space-1);
-  border-radius: var(--cp-radius-lg);
-  box-shadow: var(--cp-shadow-popover);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--cp-duration-fast) var(--cp-ease);
-}
-
-.bar[data-stacked='true'] {
-  flex-direction: column;
-}
-
-/* Uses keyboard focus so clicked images do not keep hover bars pinned after viewer closure. */
-.tile:hover > .bar,
-.tile:has(:focus-visible) > .bar {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* No actions for this attachment (not held here, no plugin's): no empty strip. */
-.bar:not(:has(*)) {
-  display: none;
-}
-
-/* Corners as the message hover bar's, where lengths can divide. */
-@supports (width: calc(1px * 1px / 1px)) {
-  .bar {
-    border-radius: var(--cp-action-bar-radius);
-  }
-
-  /* The end buttons' outer corners follow the bar's along its axis: left and right in a row, top and bottom in a column. */
-  .bar:not([data-stacked='true']) > :first-child {
-    border-top-left-radius: var(--cp-action-bar-edge-radius);
-    border-bottom-left-radius: var(--cp-action-bar-edge-radius);
-  }
-
-  .bar:not([data-stacked='true']) > :last-child {
-    border-top-right-radius: var(--cp-action-bar-edge-radius);
-    border-bottom-right-radius: var(--cp-action-bar-edge-radius);
-  }
-
-  .bar[data-stacked='true'] > :first-child {
-    border-top-left-radius: var(--cp-action-bar-edge-radius);
-    border-top-right-radius: var(--cp-action-bar-edge-radius);
-  }
-
-  .bar[data-stacked='true'] > :last-child {
-    border-bottom-left-radius: var(--cp-action-bar-edge-radius);
-    border-bottom-right-radius: var(--cp-action-bar-edge-radius);
-  }
 }
 
 /* Media mosaics use equal-width square rows of two/three, with wide leading cells for seven/ten tiles. Grid/row counts drive styles. */

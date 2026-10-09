@@ -15,7 +15,7 @@ export type { PanelView, PluginWindowView, ProviderView, RendererContributions, 
 export type { ComposerCommand, MessageMenuScope, RuleTemplate, UnreadSource } from '@/plugins/bundledTypes';
 export type { KindProps, KindView, FilterView } from '@/views/settings/rules/kinds/types';
 export type { TopBarView, PhoneSectionView, PhoneSectionPlace, PhoneDrawerView, ProviderRowView, StatusBarView, TopBarItem, PhoneSection, PhoneDrawerItem, NotificationKind, NotificationKindView, FrameContributions, ProviderRow, StatusBarContribution } from '@/plugins/frameSlots';
-export type { MessageMenuView, PersonLinksView, PersonSectionView } from '@/plugins/readSlots';
+export type { AttachmentMenuView, MessageMenuView, PersonLinksView, PersonSectionView } from '@/plugins/readSlots';
 export type { AttachmentBarView, ChatFooterProps, ChatFooterView, HoverBarView } from '@/plugins/messageSlots';
 export type { Placement } from '@shared/anchors';
 export type { JevFeatureView } from '@/views/settings/jevFeatures';
@@ -28,6 +28,7 @@ export {
   HOST_CHAT_FOOTER_ITEMS,
   HOST_HOVER_EMOJI_ITEMS,
   HOST_HOVER_ACTIONS,
+  HOST_ATTACHMENT_MENU_ITEMS,
 } from '@shared/anchors';
 
 /** Descriptor-derived renderer contributions cover declared views/slots. NoInfer ensures callback parameter types come from descriptor slots. */
