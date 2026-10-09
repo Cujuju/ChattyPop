@@ -158,6 +158,8 @@ export const ICON_SHAPES = {
       <circle cx="12" cy="12" r="3" />
     </>
   ),
+  // A gauge's arc and needle: playback speed.
+  speed: () => <path d="M4.5 17a8 8 0 1 1 15 0M12 13l4-4" />,
   // Filled by its caller's CSS when on (a saved search).
   star: () => <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />,
   trophy: () => <path d="M8 3h8v6a4 4 0 0 1-8 0V3zM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 13v5M8 21v-3h8v3H8z" />,

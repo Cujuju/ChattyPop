@@ -47,8 +47,11 @@ export type HostHoverActionId = (typeof HOST_HOVER_ACTIONS)[number];
 /** Deprecated (SDK 2.34; removed at 3): the attachment hover bar's anchors. The bar is gone; its items draw nowhere. */
 export const HOST_ATTACHMENT_ACTIONS = ['modify', 'delete', 'download'] as const;
 export type HostAttachmentActionId = (typeof HOST_ATTACHMENT_ACTIONS)[number];
-/** A pressed attachment's menu items, in order: Download, then anchors modify and delete (the host draws nothing at them). */
-export const HOST_ATTACHMENT_MENU_ITEMS = ['download', 'modify', 'delete'] as const;
+/**
+ * A pressed attachment's menu items, in order: its player's speed, Download, then anchors modify and delete (the host draws
+ * nothing at them).
+ */
+export const HOST_ATTACHMENT_MENU_ITEMS = ['speed', 'download', 'modify', 'delete'] as const;
 export type HostAttachmentMenuItemId = (typeof HOST_ATTACHMENT_MENU_ITEMS)[number];
 
 /** Fixed items in the top bar's end group. */

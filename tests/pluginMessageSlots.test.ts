@@ -95,15 +95,17 @@ describe('posting actions', () => {
   const message = (more: Partial<ArchiveMessage> = {}) =>
     ({ id: 'm', channelId: 'c', content: 'hi', attachments: [], author: { id: SELF, name: 'A' }, deletedAt: null, prunedAt: null, ...more }) as unknown as ArchiveMessage;
   /** The labels of the menu `m` opens, by group, placed among `entries`' groups. */
-  /** `attachmentId`: the menu opens on that attachment's tile, else on the message's text. */
-  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[], attachmentId?: string): string[][] => {
+  /** The last menu's groups. */
+  const lastMenu = () => menus.at(-1)! as unknown as { label: string; checked?: boolean; run?(): void; submenu?: { items: { label: string; checked?: boolean; run(): void }[] }[] }[][];
+  /** `attachmentId`: the menu opens on that attachment's tile (holding `player`, if any), else on the message's text. */
+  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[], attachmentId?: string, player: object | null = null): string[][] => {
     const slots = readSlots(() => entries, () => true, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin))));
     placeMenu.groups = slots.messages as typeof placeMenu.groups;
     placeMenu.attachments = slots.attachments as typeof placeMenu.attachments;
     const Element = class {};
     vi.stubGlobal('window', { getSelection: () => null });
     vi.stubGlobal('Element', Element);
-    const tile = { dataset: { attachmentId } };
+    const tile = { dataset: { attachmentId }, querySelector: (s: string) => (s === 'audio, video' ? player : null) };
     const target = Object.assign(new Element(), { closest: (s: string) => (s === '[data-attachment-id]' && attachmentId ? tile : null) });
     openMessageMenu({ target }, m);
     vi.unstubAllGlobals();
@@ -144,6 +146,17 @@ describe('posting actions', () => {
     expect(menuOf(m, [menu], 'a2')).toEqual([['Modify attachment', 'Delete attachment'], views, copies]);
     // Pressed elsewhere: no attachment's items.
     expect(menuOf(m, [menu])).toEqual([views, copies]);
+  });
+
+  it("put a playing attachment's speed first, its choices Chromium's, the current one checked, a choice applying to that player", () => {
+    const m = message({ attachments: [{ id: 'a1', status: 'stored', sha256: 'h' }] } as unknown as Partial<ArchiveMessage>);
+    const player = { playbackRate: 1.5 };
+    expect(menuOf(m, [], 'a1', player)[0]).toEqual(['Playback speed', 'Download']);
+    const speeds = lastMenu()[0]![0]!.submenu![0]!.items;
+    expect(speeds.map((s) => s.label)).toEqual(['0.25×', '0.5×', '0.75×', 'Normal', '1.25×', '1.5×', '1.75×', '2×']);
+    expect(speeds.filter((s) => s.checked).map((s) => s.label)).toEqual(['1.5×']);
+    speeds.find((s) => s.label === 'Normal')!.run();
+    expect(player.playbackRate).toBe(1);
   });
 
   it("land at the host's anchors in today's order: Edit, Reply, Forward on the bar; Reply, Forward lead the menu, Delete last", () => {

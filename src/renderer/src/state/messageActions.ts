@@ -50,17 +50,44 @@ function pressedNote(target: EventTarget | null, m: ArchiveMessage): AttachmentN
   return [m, ...m.attachments, ...m.embeds].flatMap((x) => x.notes ?? []).find((n) => n.part === el.dataset.notePart && n.pluginId === el.dataset.notePlugin);
 }
 
-/** The attachment of `m` that `target` is in, if any: its tile carries data-attachment-id (panels/chat/AttachmentTile.tsx). */
-function pressedAttachment(target: EventTarget | null, m: ArchiveMessage): ArchiveAttachment | undefined {
-  const el = target instanceof Element ? target.closest<HTMLElement>('[data-attachment-id]') : null;
-  return el ? m.attachments.find((a) => a.id === el.dataset.attachmentId) : undefined;
+/**
+ * The attachment of `m` that `target` is in, if any, and its player when it plays inline: its tile carries
+ * data-attachment-id (panels/chat/AttachmentTile.tsx).
+ */
+function pressedAttachment(target: EventTarget | null, m: ArchiveMessage): { attachment: ArchiveAttachment; player: HTMLMediaElement | null } | undefined {
+  const tile = target instanceof Element ? target.closest<HTMLElement>('[data-attachment-id]') : null;
+  const attachment = tile ? m.attachments.find((a) => a.id === tile.dataset.attachmentId) : undefined;
+  return attachment && { attachment, player: tile!.querySelector('audio, video') };
 }
 
-/** The host's items for a pressed attachment: Download while its file is held here; modify and delete are anchors. */
-const HOST_ATTACHMENT_ITEMS: readonly HostAttachmentMenuItem[] = HOST_ATTACHMENT_MENU_ITEMS.map((id) => ({
-  id,
-  item: (_m, a) => (id === 'download' && canSave(a) ? { label: 'Download', icon: 'download', run: () => saveAttachment(a) } : null),
-}));
+/** Playback speeds offered, as Chromium's own player menu offers them (the player's menu is hidden: Attachment.tsx). */
+const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
+const NORMAL_RATE = 1;
+
+/** The player's speed as a choice of PLAYBACK_RATES; the choice applies to this player only, as the native menu's did. */
+const speedItem = (player: HTMLMediaElement): MenuItem => ({
+  label: 'Playback speed',
+  icon: 'speed',
+  submenu: [{
+    exclusive: true,
+    items: PLAYBACK_RATES.map((rate) => ({
+      label: rate === NORMAL_RATE ? 'Normal' : `${rate}×`,
+      icon: 'speed',
+      checked: player.playbackRate === rate,
+      run: () => void (player.playbackRate = rate),
+    })),
+  }],
+});
+
+/** The host's items for a pressed attachment: its player's speed, Download while its file is held here; modify and delete are anchors. */
+const hostAttachmentItems = (player: HTMLMediaElement | null): HostAttachmentMenuItem[] =>
+  HOST_ATTACHMENT_MENU_ITEMS.map((id) => ({
+    id,
+    item: (_m, a) => {
+      if (id === 'speed') return player && speedItem(player);
+      return id === 'download' && canSave(a) ? { label: 'Download', icon: 'download', run: () => saveAttachment(a) } : null;
+    },
+  }));
 
 export type { MessageMenuScope };
 const FULL_ROW: MessageMenuScope = { drawsAttachments: true };
@@ -81,7 +108,7 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
   if (note) target.push({ label: 'Copy text', icon: 'copy', run: () => navigator.clipboard.writeText(note.text) });
 
   const pressed = pressedAttachment(e.target, m);
-  const attachment = pressed ? attachmentMenuItems(m, pressed, HOST_ATTACHMENT_ITEMS) : [];
+  const attachment = pressed ? attachmentMenuItems(m, pressed.attachment, hostAttachmentItems(pressed.player)) : [];
 
   const copy: MenuItem[] = m.content ? [{ label: 'Text', icon: 'text', run: () => navigator.clipboard.writeText(m.content) }] : [];
   copy.push({ label: 'Message link', icon: 'link', run: () => navigator.clipboard.writeText(messageLink(m)) }, { label: 'Message ID', icon: 'id', run: () => navigator.clipboard.writeText(m.id) });

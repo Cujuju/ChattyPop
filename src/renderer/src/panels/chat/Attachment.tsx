@@ -30,6 +30,11 @@ const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachment
 /** An animated image's still while the owner can't look: Discord's proxy's first frame, kept once fetched. */
 const still = (a: ArchiveAttachment): string | undefined => (a.animated ? attachmentPosterUrl(a.id) : undefined);
 const kilobytes = (a: ArchiveAttachment): string => kilobytesText(a.size);
+/**
+ * The player menu's items its message menu holds instead (state/messageActions.ts): Download, saved under the file's own
+ * name, and Playback speed. With neither, an audio player shows no menu button.
+ */
+const MENU_HELD_CONTROLS = 'nodownload noplaybackrate';
 /** Under a file card's name: its type (the part an ellipsized name loses), size, and status unless held here. */
 const fileMeta = (a: ArchiveAttachment): string =>
   [fileTypeLabel(a), kilobytes(a), a.status === 'stored' ? '' : STATUS_LABEL[a.status]].filter(Boolean).join(' · ');
@@ -92,6 +97,7 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
           data-sized={size() !== null}
           style={mediaSizeVars(size())}
           controls
+          controlslist={MENU_HELD_CONTROLS}
           playsinline
           preload="metadata"
           aria-label={`Play ${a().filename}`}
@@ -100,7 +106,7 @@ export function AttachmentMedia(props: { attachment: ArchiveAttachment; cell?: b
       </Match>
       <Match when={attachmentView(a()) === 'audio'}>
         {/* Metadata, not "none": without it the player shows 00:00 until played. Ogg's length sits in its last page. */}
-        <audio class={styles.audio} controls preload="metadata" src={src(a())} aria-label={`Play ${a().filename}`} />
+        <audio class={styles.audio} controls controlslist={MENU_HELD_CONTROLS} preload="metadata" src={src(a())} aria-label={`Play ${a().filename}`} />
       </Match>
     </Switch>
   );
