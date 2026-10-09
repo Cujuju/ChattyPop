@@ -93,16 +93,14 @@ export type { MessageMenuScope };
 const FULL_ROW: MessageMenuScope = { drawsAttachments: true };
 
 /**
- * Opens a message's right-click menu: what was right-clicked (selection, image), the pressed attachment's items, quick
- * reactions, views, copies, plugins' groups and Jev. A posting plugin adds Reply and Forward before the views, Delete last,
+ * Opens a message's right-click menu: what was right-clicked (selection, a note's text), the pressed attachment's items,
+ * quick reactions, views, copies (the pressed image's too), plugins' groups and Jev. A posting plugin adds Reply and Forward before the views, Delete last,
  * and an attachment's Modify and Delete.
  */
 export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: MessageMenuScope = FULL_ROW): void {
   const target: MenuItem[] = [];
   const selection = window.getSelection()?.toString() ?? '';
   if (selection.trim()) target.push({ label: 'Copy selection', icon: 'copy', run: () => navigator.clipboard.writeText(selection) });
-  const img = (e.target as HTMLElement).closest('img');
-  if (img && !img.closest('[data-avatar]')) target.push({ label: 'Copy image', icon: 'image', run: () => copyImage(img.currentSrc || img.src) });
   // A transcription can't be selected on the phone (a long press opens this menu): copied whole from here.
   const note = pressedNote(e.target, m);
   if (note) target.push({ label: 'Copy text', icon: 'copy', run: () => navigator.clipboard.writeText(note.text) });
@@ -111,6 +109,9 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
   const attachment = pressed ? attachmentMenuItems(m, pressed.attachment, hostAttachmentItems(pressed.player)) : [];
 
   const copy: MenuItem[] = m.content ? [{ label: 'Text', icon: 'text', run: () => navigator.clipboard.writeText(m.content) }] : [];
+  // The pressed image, an attachment's or an embed's; not an avatar.
+  const img = (e.target as HTMLElement).closest('img');
+  if (img && !img.closest('[data-avatar]')) copy.push({ label: 'Image', icon: 'image', run: () => copyImage(img.currentSrc || img.src) });
   copy.push({ label: 'Message link', icon: 'link', run: () => navigator.clipboard.writeText(messageLink(m)) }, { label: 'Message ID', icon: 'id', run: () => navigator.clipboard.writeText(m.id) });
 
   const jev: MenuItem[] = aiSettings().jev.messageCheck && m.content && jevMayRead(m.channelId) ? [{ label: 'Check this message…', icon: 'jev', run: () => void setJevCheckFor(m) }] : [];
