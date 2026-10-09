@@ -27,6 +27,10 @@ const INVALID_SESSION_OP = 9;
 const WS_CLOSE_OPCODE = 8;
 /** WebSocket text frame opcode. */
 const WS_TEXT_OPCODE = 1;
+/** Temporary tap diagnosis: one metadata-only snapshot per minute, never frame content. */
+const TAP_DIAGNOSTIC_INTERVAL_MS = 60_000;
+/** Bound repeated failure logging while retaining complete counters in snapshots. */
+const TAP_DIAGNOSTIC_FAILURES_LOGGED = 3;
 
 type Decoder = { write(chunk: Buffer): Promise<string> };
 
@@ -43,17 +47,73 @@ export interface GatewaySend {
 export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend] }> {
   readonly stats: GatewayTapStats = { url: null, compress: null, frames: 0, decodeErrors: 0, events: {} };
   private readonly decoders = new Map<string, Decoder>();
+  private readonly diagnosticStarted = performance.now();
+  private readonly diagnosticMethods: Record<string, number> = {};
+  private readonly diagnosticOrphans = new Set<string>();
+  private diagnosticNetwork: 'pending' | 'enabled' | 'failed' = 'pending';
+  private diagnosticReceived = 0;
+  private diagnosticUntracked = 0;
+  private diagnosticSessionMessages = 0;
+  private diagnosticPayloads = 0;
 
   constructor(wc: WebContents) {
     super();
     wc.debugger.attach(CDP_PROTOCOL_VERSION);
-    wc.debugger.on('message', (_e, method, params) => this.onCdp(method, params));
-    void wc.debugger.sendCommand('Network.enable');
+    wc.debugger.on('message', (_e, method, params, sessionId) => {
+      this.diagnosticMethods[method] = (this.diagnosticMethods[method] ?? 0) + 1;
+      if (sessionId) this.diagnosticSessionMessages++;
+      this.onCdp(method, params);
+    });
+    const snapshot = (reason: string): void => {
+      const destroyed = wc.isDestroyed();
+      diag('gateway-tap-snapshot', {
+        reason, webContentsId: wc.id, elapsedMs: Math.round(performance.now() - this.diagnosticStarted),
+        destroyed, attached: !destroyed && wc.debugger.isAttached(),
+        rendererPid: destroyed ? null : wc.getOSProcessId(), network: this.diagnosticNetwork,
+        sockets: this.decoders.size, socketObserved: this.stats.url !== null, compress: this.stats.compress,
+        rawReceived: this.diagnosticReceived, untrackedReceived: this.diagnosticUntracked,
+        sessionMessages: this.diagnosticSessionMessages, payloads: this.diagnosticPayloads,
+        frames: this.stats.frames, decodeErrors: this.stats.decodeErrors,
+        events: { ...this.stats.events }, methods: { ...this.diagnosticMethods },
+      });
+    };
+    wc.debugger.on('detach', (_e, reason) => {
+      diag('gateway-tap-detached', { webContentsId: wc.id, reason });
+      snapshot('detach');
+    });
+    wc.on('did-start-navigation', (_e, _url, inPlace, mainFrame) => {
+      if (mainFrame && !inPlace) snapshot('navigation-start');
+    });
+    wc.on('did-navigate', () => snapshot('did-navigate'));
+    wc.on('dom-ready', () => snapshot('dom-ready'));
+    wc.on('did-finish-load', () => snapshot('did-finish-load'));
+    wc.on('render-process-gone', (_e, details) => {
+      diag('gateway-tap-renderer-gone', { webContentsId: wc.id, reason: details.reason, exitCode: details.exitCode });
+      snapshot('renderer-gone');
+    });
+    const timer = setInterval(() => snapshot('interval'), TAP_DIAGNOSTIC_INTERVAL_MS);
+    timer.unref();
+    wc.on('destroyed', () => { clearInterval(timer); snapshot('destroyed'); });
+    snapshot('attached');
+    void wc.debugger.sendCommand('Network.enable').then(
+      () => { this.diagnosticNetwork = 'enabled'; snapshot('network-enabled'); },
+      (error: unknown) => {
+        this.diagnosticNetwork = 'failed';
+        diag('gateway-tap-network-failed', { webContentsId: wc.id, message: error instanceof Error ? error.message : String(error) });
+        snapshot('network-failed');
+      },
+    );
   }
 
   private onCdp(method: string, params: Record<string, unknown>): void {
     if (method === 'Network.webSocketCreated') {
       const url = String(params['url']);
+      const socketUrl = new URL(url);
+      diag('gateway-tap-socket-created', {
+        requestId: params['requestId'], host: socketUrl.hostname,
+        gateway: GATEWAY_HOST.test(socketUrl.hostname), compress: socketUrl.searchParams.get('compress'),
+        encoding: socketUrl.searchParams.get('encoding'), elapsedMs: Math.round(performance.now() - this.diagnosticStarted),
+      });
       if (!GATEWAY_HOST.test(new URL(url).hostname)) return;
       const compress = new URL(url).searchParams.get('compress');
       this.stats.url = url;
@@ -70,8 +130,17 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
       return;
     }
     if (method !== 'Network.webSocketFrameReceived') return;
+    this.diagnosticReceived++;
     const decoder = this.decoders.get(String(params['requestId']));
-    if (!decoder) return;
+    if (!decoder) {
+      this.diagnosticUntracked++;
+      const requestId = String(params['requestId']);
+      if (!this.diagnosticOrphans.has(requestId)) {
+        this.diagnosticOrphans.add(requestId);
+        diag('gateway-tap-untracked-frame', { requestId, elapsedMs: Math.round(performance.now() - this.diagnosticStarted) });
+      }
+      return;
+    }
     const { opcode, payloadData } = params['response'] as { opcode: number; payloadData: string };
     if (opcode === WS_CLOSE_OPCODE) diag('gateway-close-frame', { bytes: payloadData.length });
     this.stats.frames++;
@@ -80,7 +149,16 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     decoder
       .write(chunk)
       .then((json) => this.onPayload(json))
-      .catch(() => this.stats.decodeErrors++);
+      .catch((error: unknown) => {
+        this.stats.decodeErrors++;
+        if (this.stats.decodeErrors <= TAP_DIAGNOSTIC_FAILURES_LOGGED) {
+          diag('gateway-tap-payload-failed', {
+            requestId: params['requestId'], opcode, bytes: chunk.length,
+            errorName: error instanceof Error ? error.name : typeof error,
+            stack: error instanceof Error ? error.stack?.split('\n').slice(1, 4) : undefined,
+          });
+        }
+      });
   }
 
   /** A text frame sent (the client sends JSON uncompressed); binary ones carry no shape to read. */
@@ -96,6 +174,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
   }
 
   private onPayload(json: string): void {
+    this.diagnosticPayloads++;
     const msg = JSON.parse(json) as { op: number; t: string | null; s: number | null; d: unknown };
     if (msg.op === INVALID_SESSION_OP) diag('gateway-invalid-session', { resumable: msg.d });
     if (msg.op !== DISPATCH_OP || !msg.t) return;

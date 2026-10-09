@@ -66,7 +66,14 @@ describe('client shapes', () => {
     expect(seen).toEqual([`POST ${url} {"content":"a"}`]);
 
     let cdp: ((e: unknown, method: string, params: Record<string, unknown>) => void) | undefined;
-    const wc = { debugger: { attach: () => undefined, on: (_n: string, l: typeof cdp) => (cdp = l), sendCommand: async () => undefined } };
+    const wc = {
+      id: 1, isDestroyed: () => false, getOSProcessId: () => 0, on: () => undefined,
+      debugger: {
+        attach: () => undefined, isAttached: () => true,
+        on: (name: string, listener: typeof cdp) => { if (name === 'message') cdp = listener; },
+        sendCommand: async () => undefined,
+      },
+    };
     const tap = new GatewayTap(wc as never);
     const sent: unknown[] = [];
     tap.on('sent', (s) => sent.push(['client', s]));
