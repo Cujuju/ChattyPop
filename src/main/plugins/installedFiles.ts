@@ -51,6 +51,8 @@ async function browserFile(plugin: InstalledPlugin, urlPath: string, types: Read
     return HTTP_NOT_FOUND;
   }
   if (path.includes('\0')) return HTTP_NOT_FOUND;
+  // A separator on Windows only; refused everywhere, so no system serves a path another would read as leaving the folder.
+  if (path.includes('\\')) return HTTP_FORBIDDEN;
   const root = resolve(plugin.dir, BROWSER_DIR);
   const file = resolve(plugin.dir, path.replace(/^[/\\]+/, ''));
   const type = types[extname(file).toLowerCase()];
