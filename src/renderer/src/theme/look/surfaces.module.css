@@ -108,6 +108,11 @@
   backdrop-filter: blur(var(--cp-frost-blur));
 }
 
+/* A raised sheet (data-tone='raised'): a picker's ground, the one its sticky headings carry. */
+.sheet[data-tone='raised'] {
+  background: var(--cp-surface-2);
+}
+
 /* The finger leads while it pulls (pullToClose). */
 .sheet[data-pull='true'] {
   transition: none;

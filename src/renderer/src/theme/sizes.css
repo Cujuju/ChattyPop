@@ -214,6 +214,8 @@
   --cp-picker-emoji-glyph: 26px; /* the emoji inside it */
   --cp-picker-sticker: 88px; /* sticker cell in the picker */
   --cp-picker-gif-cols: 2; /* GIF columns in the picker (unitless) */
+  --cp-expression-sheet-h: 336px; /* the phone's expression sheet, which takes the keyboard's place, until the keyboard's own height is known: an iPhone's with its suggestions row */
+  --cp-expression-sheet-cap: 50dvh; /* the most of the screen it takes before a pull (a phone on its side): the box and the log stay in view */
   --cp-command-menu-max-h: 420px; /* slash command menu: about six two-line commands, then it scrolls */
   --cp-command-app-icon: 32px; /* app icon beside each command, Discord's size */
   --cp-command-rail-mark: 28px; /* a group's mark in the menu's side rail */
