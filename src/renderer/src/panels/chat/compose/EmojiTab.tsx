@@ -4,6 +4,7 @@ import type { GuildEmoji } from '@shared/emoji';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, unicodeEmoji, type UnicodeGroup } from '@/state/expressions';
 import { errorText } from '@/ui/format';
+import type { SeenLoading } from '@/ui/seenLoading';
 import { PickerSearch, PickerSection, normalQuery } from './PickerParts';
 import styles from './Picker.module.css';
 import { EmojiList } from './EmojiList';
@@ -79,7 +80,8 @@ export type OnPick = (pick: EmojiPick, keep: boolean) => void;
 
 export type EmojiPreview = { pick: EmojiPick; tag: string };
 
-export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void }) {
+/** `whenSeen`: in a long list, the picture waits until it can be seen (SeenLoading). */
+export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void; whenSeen?: SeenLoading['whenSeen'] }) {
   const preview = (): void => props.onPreview?.({ pick: { custom: props.emoji }, tag: `:${props.emoji.name}:` });
   return (
     <button
@@ -91,7 +93,7 @@ export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick
       onFocus={preview}
       onClick={(ev) => props.onPick({ custom: props.emoji }, ev.shiftKey)}
     >
-      <EmojiImage class={styles.emojiImg} emoji={props.emoji} alt={`:${props.emoji.name}:`} loading="lazy" />
+      <EmojiImage class={styles.emojiImg} emoji={props.emoji} alt={`:${props.emoji.name}:`} loading={props.whenSeen ? undefined : 'lazy'} whenSeen={props.whenSeen} />
     </button>
   );
 }

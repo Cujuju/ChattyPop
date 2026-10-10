@@ -9,12 +9,15 @@ export interface AnimatedImageProps extends Omit<JSX.ImgHTMLAttributes<HTMLImage
   /** The still shown while the owner can't look; none: always `src`. */
   still?: string;
   ref?: (el: HTMLImageElement) => void;
+  /** Holds the picture back until `start` is called (a long list's SeenLoading.whenSeen); none: it is asked for at once. */
+  whenSeen?: (picture: HTMLImageElement, start: () => void) => void;
 }
 
 /** An <img> that is animated only while the owner can look at it. A still that fails to load gives way to `src`. */
 export function AnimatedImage(props: AnimatedImageProps) {
-  const [own, rest] = splitProps(props, ['src', 'still', 'ref']);
+  const [own, rest] = splitProps(props, ['src', 'still', 'ref', 'whenSeen', 'alt']);
   const [looking, setLooking] = createSignal<Accessor<boolean>>(() => false);
+  const [started, setStarted] = createSignal(!props.whenSeen);
   const [stillFailed, setStillFailed] = createSignal(false);
   createEffect(on(() => own.still, () => setStillFailed(false), { defer: true }));
   const shown = (): string | undefined => (own.still && !stillFailed() && !looking()() ? own.still : own.src);
@@ -23,9 +26,12 @@ export function AnimatedImage(props: AnimatedImageProps) {
       {...rest}
       ref={(el) => {
         setLooking(() => createLooking(el));
+        own.whenSeen?.(el, () => setStarted(true));
         own.ref?.(el);
       }}
-      src={shown()}
+      // Held back, it has no address, and no text in its place: an <img> without one shows its alt.
+      src={started() ? shown() : undefined}
+      alt={started() ? own.alt : ''}
       onError={() => own.still && shown() === own.still && setStillFailed(true)}
     />
   );

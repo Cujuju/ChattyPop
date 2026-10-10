@@ -10,6 +10,7 @@ import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, recentE
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { errorText, tokenPx } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
+import { createSeenLoading } from '@/ui/seenLoading';
 import { Icon, type IconName } from '@/ui/icons';
 import { sameIds } from '@plugin-sdk/renderer/settings';
 import { CustomButton, UnicodeButton, emojisByGuild, frequentPicks, unicodeGroups, usableIn, type EmojiPick, type EmojiPreview, type OnPick } from './EmojiTab';
@@ -32,6 +33,8 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   onMount(loadUnicodeEmojiData);
   // The top sections open built; each server's and each system group's cells are built as the view nears them.
   const staging = createGridStaging(() => body, () => topGrid);
+  // A picture is asked for only once it can be seen: a fling asks for none of what it passes.
+  const pictures = createSeenLoading(() => body);
   const q =(): string => normalQuery(query());
   const catalog = () => loaded(expressionCatalog);
   const data = () => catalog()?.emojiPicker;
@@ -146,7 +149,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
     const custom = () => 'custom' in p.preview.pick ? p.preview.pick.custom : undefined;
     const unicode = () => 'unicode' in p.preview.pick ? p.preview.pick.unicode : '';
     return <Show when={custom()} fallback={<UnicodeButton text={unicode()} title={p.preview.tag} onPick={onPick} onPreview={setHovered} />}>
-      {(e) => <CustomButton emoji={e()} usable={usableIn(e(), props.guildId)} onPick={onPick} onPreview={setHovered} />}
+      {(e) => <CustomButton emoji={e()} usable={usableIn(e(), props.guildId)} onPick={onPick} onPreview={setHovered} whenSeen={pictures.whenSeen} />}
     </Show>;
   };
 
@@ -183,7 +186,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
               {(id) => (
                 <PickerSection title={guild(id)?.name ?? 'Server'} bar={id}>
                   <StagedGrid staging={staging} items={byGuild().get(id)}>
-                    {(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} />}
+                    {(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} whenSeen={pictures.whenSeen} />}
                   </StagedGrid>
                 </PickerSection>
               )}
