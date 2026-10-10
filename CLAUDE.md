@@ -13,6 +13,7 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 # Commands
 - `pnpm dev`: electron-vite dev in parallel (`scripts/dev.mjs`): main builds in a worker while the renderer server pre-transforms; a splash shows from the start
 - `pnpm build`: build main/preload/renderer
+- `pnpm dist` / `pnpm dist:mac`: the Windows installer / the macOS disk images and update zips, into `release/`
 - `pnpm typecheck`: TS type-check all targets
 - `pnpm test`: vitest contract tests (`tests/`)
 - `pnpm plugin:check <pluginDir>`: check a plugin folder against this checkout.
@@ -30,8 +31,12 @@ The Discord login lives in the embedded session and is flushed to disk only on a
   ```powershell
   foreach ($i in 1..2) { $p = Get-Process electron -EA 0 | ? { $_.Path -like "$PWD\*" -and $_.MainWindowHandle -ne 0 }; if (-not $p) { break }; [void]$p.CloseMainWindow(); $t = 0; while ($t -lt 12 -and (Get-Process -Id $p.Id -EA 0)) { Start-Sleep 1; $t++ } }
   ```
+- macOS: send SIGTERM to the main process and wait. It runs the same graceful close whether or not the window is hidden in the menu bar; never `kill -9`. From the checkout:
+  ```sh
+  pid=$(pgrep -f "$PWD/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron \\." | head -1); [ -n "$pid" ] && kill -TERM "$pid" && while kill -0 "$pid" 2>/dev/null; do sleep 1; done
+  ```
 - Confirm no ChattyPop `electron` process remains, then relaunch with `pnpm dev` (`pnpm dev -- --remote-debugging-port=<port>` for CDP).
-- The app profile (settings, Discord login, keys, whisper models) lives in `CHATTYPOP_PROFILE_DIR` when set, else AppData.
+- The app profile (settings, Discord login, keys, whisper models) lives in `CHATTYPOP_PROFILE_DIR` when set, else AppData (`~/Library/Application Support/chattypop` on macOS).
 - Other sessions may be using the running app. Ask them before restarting it.
 
 # Commits
