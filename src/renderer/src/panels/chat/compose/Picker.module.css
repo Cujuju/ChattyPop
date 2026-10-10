@@ -5,14 +5,15 @@
   padding: var(--cp-space-4) var(--cp-space-4) 0;
 }
 
-/* With cp-stroke, the message box's edge, over the field's own well. */
+/* With cp-stroke, the message box's edge, over the field's own well. A picker whose head already clears the field
+   (thumb-tall tabs) sets --cp-picker-search-top. */
 .search {
   --cp-stroke-fill: var(--cp-surface-0);
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: var(--cp-space-3);
-  margin: var(--cp-space-4);
+  margin: var(--cp-picker-search-top, var(--cp-space-4)) var(--cp-space-4) var(--cp-space-4);
   padding-inline: var(--cp-space-4);
   border-radius: var(--cp-radius-sm);
   color: var(--cp-text-muted);
