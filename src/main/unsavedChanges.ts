@@ -2,6 +2,7 @@
 // the owner in its own themed dialog, and Discard repeats what was held.
 import { ipcMain, type BrowserWindow, type WebContents } from 'electron';
 import { APP_EVENT_CHANNEL, DISCARD_UNSAVED_CHANNEL, UNSAVED_CHANNEL, type AppEvent } from '@shared/contract';
+import { closeFromCode } from './windowClose';
 
 /** Windows whose page reports unsaved edits. */
 const unsaved = new WeakSet<WebContents>();
@@ -41,7 +42,7 @@ export function askIfUnsaved(win: BrowserWindow, repeat: () => void): boolean {
  * any that tears part of it down (the Discord view's unload). True when held for the owner's answer.
  */
 export function holdCloseIfUnsaved(win: BrowserWindow, e: Electron.Event): boolean {
-  if (askIfUnsaved(win, () => win.close())) {
+  if (askIfUnsaved(win, () => closeFromCode(win))) {
     e.preventDefault();
     return true;
   }
@@ -59,6 +60,6 @@ export function guardUnsavedChanges(win: BrowserWindow): void {
   wc.on('will-prevent-unload', () => {
     // Left un-prevented, the unload is cancelled; Discard repeats it.
     const wasClosing = closing.delete(wc);
-    ask(wc, wasClosing ? () => win.close() : () => wc.reload());
+    ask(wc, wasClosing ? () => closeFromCode(win) : () => wc.reload());
   });
 }

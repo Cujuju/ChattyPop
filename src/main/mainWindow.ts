@@ -1,13 +1,15 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, BrowserWindow, ipcMain, session, type BrowserWindowConstructorOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, powerMonitor, session, type BrowserWindowConstructorOptions } from 'electron';
 import { DISCORD_OPEN_CHANNEL, DISCORD_SIDEBAR_CHANNEL, DISCORD_SLOT_CHANNEL, type DiscordSlot } from '@shared/contract';
 import { normalizeDiscordSidebar } from '@shared/settings';
 import { diag } from './diagnostics';
 import { DISCORD_PARTITION, DiscordView } from './discordView';
 import { guardNavigation } from './externalLinks';
+import { IS_WINDOWS } from './platform';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from './unsavedChanges';
-import { WindowStateFile } from './windowState';
+import { closeFromCode, takeCodeClose } from './windowClose';
+import { raiseWindow, WindowStateFile } from './windowState';
 
 /** out/main: only index.ts imports this module, so it is bundled into out/main/index.js. */
 const here = import.meta.dirname;
@@ -34,8 +36,11 @@ export function loadRenderer(win: BrowserWindow, panel?: string): void {
   else void win.loadFile(join(here, '../renderer/index.html'), query ? { query } : {});
 }
 
+/** Windows reads its icon sizes from the .ico; other systems can't load one, and take the png. */
+const ICON_FILE = IS_WINDOWS ? 'icon.ico' : 'icon.png';
+
 /** The app icon file: in dev from build/, packaged beside the app (electron-builder extraResources), for the tray. */
-export const appIconPath = (): string => (app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(app.getAppPath(), 'build', 'icon.ico'));
+export const appIconPath = (): string => (app.isPackaged ? join(process.resourcesPath, ICON_FILE) : join(app.getAppPath(), 'build', ICON_FILE));
 
 /** What every window showing the renderer shares: the app icon, no menu bar, the sandboxed preload. */
 export function rendererWindowOptions(): BrowserWindowConstructorOptions {
@@ -108,18 +113,47 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
   win.webContents.on('will-prevent-unload', () => diag('renderer-prevented-unload'));
   // Set by SC_CLOSE, which Windows turns into WM_CLOSE (the 'close' below) before the hook returns.
   let closeCommand = false;
-  win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
-    if (sysCommand(wParam) !== SC_CLOSE) return;
-    closeCommand = true;
-    // Refused close commands must not classify later programmatic closes as owner commands.
-    setImmediate(() => (closeCommand = false));
-  });
+  // Set while the app itself is quitting (macOS' Quit, a sign-out), which closes the window without it being the owner's close.
+  let appQuitting = false;
+  if (IS_WINDOWS) {
+    win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
+      if (sysCommand(wParam) !== SC_CLOSE) return;
+      closeCommand = true;
+      // Refused close commands must not classify later programmatic closes as owner commands.
+      setImmediate(() => (closeCommand = false));
+    });
+  } else {
+    // No window message tells the close button from a close in code here: code marks its own (windowClose.ts).
+    const onBeforeQuit = (): void => void (appQuitting = true);
+    // The dock icon (macOS) brings back a window hidden to the tray.
+    const onActivate = (): void => void raiseWindow(win);
+    // Delays a shutdown or restart while the graceful close below keeps the Discord login; it goes on once ChattyPop exits.
+    // Electron's types leave the event out; it is passed.
+    const onShutdown = (e?: Electron.Event): void => {
+      diag('system-shutdown', { discordClosed });
+      if (discordClosed) return;
+      e?.preventDefault();
+      closeFromCode(win);
+    };
+    app.on('before-quit', onBeforeQuit);
+    app.on('activate', onActivate);
+    powerMonitor.on('shutdown', onShutdown);
+    win.on('closed', () => {
+      app.off('before-quit', onBeforeQuit);
+      app.off('activate', onActivate);
+      powerMonitor.off('shutdown', onShutdown);
+    });
+  }
   win.on('minimize', () => {
     if (tray.minimizeToTray()) win.hide();
   });
   win.on('close', (e) => {
-    const toTray = closeCommand && tray.closeToTray();
+    const byCode = takeCodeClose(win);
+    // Elsewhere every close not made in code or by a quit is the window's own command (the close button, the Close shortcut).
+    const ownerClose = IS_WINDOWS ? closeCommand : !byCode && !appQuitting && !closing && !discordClosed;
+    const toTray = ownerClose && tray.closeToTray();
     closeCommand = false;
+    appQuitting = false;
     diag('window-close', { discordClosed, toTray });
     if (toTray) {
       e.preventDefault();
@@ -133,7 +167,7 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
     closing ??= discord.closeGracefully().then(() => {
       discordClosed = true;
       session.fromPartition(DISCORD_PARTITION).flushStorageData();
-      if (!win.isDestroyed()) win.close();
+      if (!win.isDestroyed()) closeFromCode(win);
     });
   });
   // Delays Windows session termination while graceful close preserves Discord login; shutdown continues after ChattyPop exits.

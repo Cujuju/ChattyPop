@@ -1,8 +1,9 @@
 // The notification-area icon and taskbar badge: the tray opens the main window, restarts (installing a downloaded update) and quits;
-// both show which kinds are unread (badgeImage.ts draws their dots).
-import { Menu, Tray, nativeImage, type BrowserWindow, type NativeImage } from 'electron';
+// both show which kinds are unread (badgeImage.ts draws their dots). On macOS these are the menu-bar icon and the dock badge.
+import { Menu, Tray, app, nativeImage, type BrowserWindow, type NativeImage } from 'electron';
 import { NO_UNREAD, UNREAD_KINDS, unreadSummary, type UnreadKind, type UnreadTotals } from '@shared/unread';
 import { dotsBitmap, withDots, type Bitmap } from './badgeImage';
+import { IS_MAC, IS_WINDOWS } from './platform';
 
 const APP_NAME = 'ChattyPop';
 /** Small-icon size in DIPs (Windows' SM_CXSMICON at 100%): the tray icon and the taskbar overlay. */
@@ -84,7 +85,9 @@ export class AppTray {
     const images = kinds.length > 0 ? this.images(kinds) : null;
     this.tray.setImage(images?.tray ?? this.plain);
     this.tray.setToolTip(text ? `${APP_NAME}: ${text}` : APP_NAME);
-    if (!this.win.isDestroyed()) this.win.setOverlayIcon(images?.overlay ?? null, text ?? '');
+    // The taskbar overlay is Windows'; the dock's badge takes text, so it shows the count.
+    if (IS_WINDOWS && !this.win.isDestroyed()) this.win.setOverlayIcon(images?.overlay ?? null, text ?? '');
+    if (IS_MAC) app.dock?.setBadge(kinds.length > 0 ? String(UNREAD_KINDS.reduce((n, k) => n + this.unread[k], 0)) : '');
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: `Open ${APP_NAME}`, click: () => this.actions.open() },

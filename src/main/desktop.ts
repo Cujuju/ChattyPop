@@ -12,6 +12,7 @@ import { restartApp } from './restart';
 import { profilePath } from './storageLocation';
 import { AppTray } from './tray';
 import { Updates } from './updates';
+import { closeFromCode } from './windowClose';
 import { raiseWindow } from './windowState';
 
 /** In the app profile, not the archive: these apply before core opens it, and when it can't. */
@@ -62,7 +63,7 @@ export class Desktop {
       // Installs a downloaded update on the way (restart.ts).
       restart: () => restartApp(win),
       // A close from code, not the window's own close command, so it quits rather than going to the tray.
-      quit: () => win.close(),
+      quit: () => closeFromCode(win),
     });
     this.updates = new Updates((status) => {
       this.tray?.setUpdate(status.phase === 'ready' ? status.version : null);

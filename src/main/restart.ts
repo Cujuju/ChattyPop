@@ -2,6 +2,7 @@
 import { app, type BrowserWindow } from 'electron';
 import { RESTART_ARMED_MESSAGE, RESTART_CANCELLED_MESSAGE } from '@shared/splash.mjs';
 import { askIfUnsaved } from './unsavedChanges';
+import { closeFromCode } from './windowClose';
 
 /** What a restart runs around the window's close: `armed` once under way, `cancelled` if the page refuses it, `atQuit` while quitting. */
 interface RestartSteps {
@@ -41,7 +42,7 @@ function closeThen(win: BrowserWindow, steps: RestartSteps): void {
       steps.cancelled();
     });
   }
-  win.close();
+  closeFromCode(win);
 }
 
 /** What a restart runs: a downloaded update's installer, which starts ChattyPop again itself, else a relaunch. */
