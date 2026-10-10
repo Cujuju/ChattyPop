@@ -55,7 +55,8 @@ import { restartApp } from './restart';
 import { registerMarketplaceHandlers } from './marketplace/ipc';
 import { buildFromSource } from './marketplace/sourceBuild';
 import { Desktop } from './desktop';
-import { createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
+import { appIconPath, createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
+import { IS_MAC } from './platform';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
@@ -102,6 +103,8 @@ const SPLASH_STEP_OF_CORE: Record<CoreInitStep, SplashPhaseId> = { loaded: 'core
 // Stays synchronous (no await): gateway tap listeners must attach in the window's creation tick, or READY is missed.
 void app.whenReady().then(() => {
   app.setAppUserModelId(APP_USER_MODEL_ID);
+  // A dev run is Electron's own bundle, so the dock shows Electron's icon unless told; a packaged app carries its own.
+  if (IS_MAC && !app.isPackaged) app.dock?.setIcon(appIconPath());
   const dataDir = archiveDir();
   mkdirSync(dataDir, { recursive: true });
   const pluginsDir = profilePath(PLUGINS_DIR);
