@@ -1,7 +1,6 @@
 // Staged grids: a long list of emoji grids builds the cells in view first, then the rest a piece at a time between paints.
 import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
 import { tokenPx } from '@/ui/format';
-import { listen } from '@/ui/listen';
 
 /** How far outside the list's view a grid is built ahead, in list heights above and below. */
 const BUILD_AHEAD_VIEWS = 1;
@@ -13,12 +12,6 @@ const BUILD_AHEAD_MARGIN = `${BUILD_AHEAD_VIEWS * 100}% 0px`;
  * at once stalled it 330 ms), so a frame waits little; built a whole grid a paint, the largest stalled it 135 ms.
  */
 export const CELLS_PER_PIECE = 200;
-
-/**
- * How long after a touch lifts its tap's click may still come: iOS's double-tap wait. Content that appears as a tap lands
- * makes WebKit take the tap for a hover and withhold its click, so no piece is built until then.
- */
-const TAP_LANDS_MS = 350;
 
 /** Whether `grid` lies within BUILD_AHEAD_VIEWS of `list`'s view. */
 function nearView(grid: Element, list: Element): boolean {
@@ -85,7 +78,6 @@ export function createGridStaging(list: () => HTMLElement, sample: () => HTMLEle
    */
   const buildRest = (): void => {
     restQueued = false;
-    if (touched) return;
     const next = begun.at(-1) ?? builds.keys().next().value;
     if (next === undefined) return;
     build(next);
@@ -97,33 +89,6 @@ export function createGridStaging(list: () => HTMLElement, sample: () => HTMLEle
     // A frame's callback runs before its paint; the task queued from it runs after.
     requestAnimationFrame(() => setTimeout(buildRest));
   };
-  /** A finger is down, or its tap may still land: nothing is built between paints meanwhile (TAP_LANDS_MS). */
-  let touched = false;
-  let tapLands: ReturnType<typeof setTimeout> | undefined;
-  const untouched = (): void => {
-    clearTimeout(tapLands);
-    touched = false;
-    queueRest();
-  };
-  const lifted = (e: TouchEvent): void => {
-    if (e.touches.length) return;
-    clearTimeout(tapLands);
-    tapLands = setTimeout(untouched, TAP_LANDS_MS);
-  };
-  listen(
-    document,
-    'touchstart',
-    () => {
-      clearTimeout(tapLands);
-      touched = true;
-    },
-    { capture: true, passive: true },
-  );
-  listen(document, 'touchend', lifted, { capture: true, passive: true });
-  listen(document, 'touchcancel', lifted, { capture: true, passive: true });
-  // The tap landed: its click is being delivered, and the next piece comes after a paint.
-  listen(document, 'click', untouched, { capture: true });
-  onCleanup(() => clearTimeout(tapLands));
   onMount(() => {
     const measure = (): void => void setColumns(gridColumns(sample().clientWidth, tokenPx('--cp-picker-emoji')));
     measure();
