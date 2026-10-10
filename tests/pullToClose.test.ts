@@ -15,8 +15,10 @@ const { pullToClose } = (await import(pullPath)) as {
 const SHEET_PX = 400;
 (globalThis as { getComputedStyle?: unknown }).getComputedStyle = () => ({ maxHeight: `${SHEET_PX * 2}px` });
 
-const touchOn = (target: EventTarget) => (type: string, y: number) => {
-  const e = Object.assign(new Event(type, { cancelable: true }), { touches: [{ clientY: y }] });
+/** A touch event as the screen reports it: a lifted finger is in no touchend's `touches`; `others` are fingers elsewhere on the screen. */
+const touchOn = (target: EventTarget) => (type: string, y: number, others = 0) => {
+  const own = type === 'touchend' ? [] : [{ clientY: y }];
+  const e = Object.assign(new Event(type, { cancelable: true }), { touches: [...own, ...Array.from({ length: others }, () => ({ clientY: 0 }))] });
   target.dispatchEvent(e);
   return e.defaultPrevented;
 };
@@ -89,6 +91,41 @@ describe('pullToClose', () => {
     touch('touchend', 450);
     expect(setExpanded).toHaveBeenCalledWith(false);
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it('ends the pull when a second finger lands off the grip, closing nothing', () => {
+    const sheet = fakeSheet();
+    const close = vi.fn();
+    createRoot(() => pullToClose(sheet, close));
+    const touch = touchOn(sheet);
+    touch('touchstart', 300);
+    touch('touchmove', 300 + SHEET_PX / 2);
+    touch('touchmove', 300 + SHEET_PX / 2, 1);
+    expect(sheet.dataset['pull']).toBeUndefined();
+    touch('touchend', 300 + SHEET_PX / 2, 1);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('closes nothing when the pulling finger lifts while another rests on the screen', () => {
+    const sheet = fakeSheet();
+    const close = vi.fn();
+    createRoot(() => pullToClose(sheet, close));
+    const touch = touchOn(sheet);
+    touch('touchstart', 300);
+    touch('touchmove', 300 + SHEET_PX / 2);
+    touch('touchend', 300 + SHEET_PX / 2, 1);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('closes a sheet pulled down past its share and let go', () => {
+    const sheet = fakeSheet();
+    const close = vi.fn();
+    createRoot(() => pullToClose(sheet, close));
+    const touch = touchOn(sheet);
+    touch('touchstart', 300);
+    touch('touchmove', 300 + SHEET_PX / 2);
+    touch('touchend', 300 + SHEET_PX / 2);
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it('leaves an expanded sheet expanded after a short pull', () => {

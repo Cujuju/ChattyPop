@@ -25,6 +25,7 @@ export interface SheetExpand {
  * SHEET_DISMISS_RATIO of that rise it stays expanded. data-pull disables the snap transitions while dragging.
  * `grip`: the part of the sheet that takes the pulls (all of it by default), leaving the rest to scroll; it is
  * its own `scroller`, as it never scrolls.
+ * A second finger anywhere on the screen ends the pull where it began: nothing closes or changes height.
  */
 export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTMLElement = sheet, expand?: SheetExpand, grip: HTMLElement = sheet): void {
   let startY: number | null = null;
@@ -64,6 +65,8 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     (e) => {
       const t = e.touches[0];
       if (startY === null || !t || mode === 'scroll') return;
+      // A finger off the grip never reached touchstart: it shows only in the screen's touches.
+      if (e.touches.length > 1) return settle();
       const dy = t.clientY - startY;
       if (mode === null && Math.abs(dy) < PULL_SLOP_PX) return;
       mode ??= dy > 0 && atTop ? (expand?.expanded() ? 'lower' : 'down') : dy < 0 && canRise ? 'up' : 'scroll';
@@ -82,7 +85,8 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     },
     { passive: false },
   );
-  listen(grip, 'touchend', () => {
+  listen(grip, 'touchend', (e) => {
+    if (e.touches.length > 0) return settle();
     const was = mode;
     const passed = moved > (was === 'up' ? maxHeight - startHeight : startHeight) * SHEET_DISMISS_RATIO;
     settle();
