@@ -23,7 +23,14 @@ const paint = async (): Promise<void> => {
   for (const frame of page.frames.splice(0)) frame();
   await new Promise((done) => setTimeout(done));
 };
+/** The page's touch and click listeners, by event: the test plays a finger. */
+const heard = new Map<string, Set<(e: unknown) => void>>();
+const finger = (type: string, touches = 0): void => heard.get(type)?.forEach((hear) => hear({ touches: { length: touches } }));
 Object.assign(globalThis, {
+  document: {
+    addEventListener: (type: string, hear: (e: unknown) => void) => void (heard.get(type) ?? heard.set(type, new Set()).get(type)!).add(hear),
+    removeEventListener: (type: string, hear: (e: unknown) => void) => void heard.get(type)?.delete(hear),
+  },
   requestAnimationFrame: (frame: () => void) => page.frames.push(frame),
   IntersectionObserver: class {
     constructor(seen: Seen) {
@@ -42,6 +49,8 @@ Object.assign(globalThis, {
   },
 });
 
+/** Longer than a tap's click may trail its touch. */
+const PAST_TAP_MS = 1000;
 const LIST_PX = 300;
 /** Past the list's view and the one list height built ahead of it. */
 const FAR_PX = 2 * LIST_PX + 1;
@@ -133,6 +142,34 @@ describe('grid staging', () => {
     expect(other).toHaveBeenCalledTimes(1);
     await paint();
     expect(large).toHaveBeenCalledTimes(PIECES);
+  });
+
+  it('builds nothing between paints while a finger is down, until its tap lands', async () => {
+    const { build } = stagedList(9 * CELL_PX);
+    await beforePaint();
+    finger('touchstart', 1);
+    await paint();
+    await paint();
+    expect(build).not.toHaveBeenCalled();
+    finger('touchend');
+    await paint();
+    expect(build).not.toHaveBeenCalled();
+    finger('click');
+    await paint();
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds again once a lifted finger’s tap can no longer land (a scroll: no click comes)', async () => {
+    const { build } = stagedList(9 * CELL_PX);
+    await beforePaint();
+    vi.useFakeTimers();
+    finger('touchstart', 1);
+    finger('touchend');
+    await vi.advanceTimersByTimeAsync(PAST_TAP_MS);
+    vi.useRealTimers();
+    expect(build).not.toHaveBeenCalled();
+    await paint();
+    expect(build).toHaveBeenCalledTimes(1);
   });
 
   it('stops watching when its owner goes', () => {
