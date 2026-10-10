@@ -12,7 +12,8 @@ import { GuildIcon } from '@/ui/GuildIcon';
 import { Icon, type IconName } from '@/ui/icons';
 import { sameIds } from '@plugin-sdk/renderer/settings';
 import { CustomButton, UnicodeButton, emojisByGuild, frequentPicks, unicodeGroups, usableIn, type EmojiPick, type EmojiPreview, type OnPick } from './EmojiTab';
-import { PickerSearch, PickerSection, normalQuery } from './PickerParts';
+import { createGridStaging } from './gridStaging';
+import { PickerSearch, PickerSection, StagedGrid, normalQuery } from './PickerParts';
 import picker from './Picker.module.css';
 import styles from './EmojiList.module.css';
 
@@ -23,11 +24,14 @@ const STANDARD = 'standard';
 /** Popular in the channel's server, Discord favorites, servers in sidebar order, then system emoji. */
 export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   let body!: HTMLDivElement;
+  let topGrid!: HTMLDivElement;
   const [query, setQuery] = createSignal('');
   const [current, setCurrent] = createSignal(POPULAR);
   const [hovered, setHovered] = createSignal<EmojiPreview>();
   onMount(loadUnicodeEmojiData);
-  const q = (): string => normalQuery(query());
+  // The top sections open built; each server's and each system group's cells wait until scrolled near.
+  const staging = createGridStaging(() => body, () => topGrid);
+  const q =(): string => normalQuery(query());
   const catalog = () => loaded(expressionCatalog);
   const data = () => catalog()?.emojiPicker;
   const allByGuild = createMemo(() => emojisByGuild(''));
@@ -153,7 +157,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
           <div ref={body} class={`${picker.body} ${styles.list}`} onScroll={track}>
             <Show when={expressionCatalog.error ?? frequentEmoji.error ?? unicodeEmoji.error}>{(err) => <p class="cp-error">Couldn't load emoji: {errorText(err())}</p>}</Show>
             <PickerSection title={props.guildId === DM_GUILD_ID ? 'Frequently used' : `Top emoji in ${channelGuild()?.name ?? 'this server'}`} bar={POPULAR} icon="trophy">
-              <div class={picker.emojiGrid}><For each={popular()}>{(p) => <PickButton preview={p} />}</For></div>
+              <div ref={topGrid} class={picker.emojiGrid}><For each={popular()}>{(p) => <PickButton preview={p} />}</For></div>
               <Show when={!popular().length}>
                 <p class={styles.empty}>{data()?.popularError ? "Couldn't load this server's top emoji." : expressionCatalog.loading ? 'Loading top emoji…' : q() ? 'No top emoji match your search.' : 'No top emoji available yet.'}</p>
               </Show>
@@ -167,18 +171,18 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
             <For each={matchingServers()}>
               {(id) => (
                 <PickerSection title={guild(id)?.name ?? 'Server'} bar={id}>
-                  <div class={picker.emojiGrid}>
-                    <For each={byGuild().get(id)}>{(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} />}</For>
-                  </div>
+                  <StagedGrid staging={staging} items={byGuild().get(id)}>
+                    {(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} />}
+                  </StagedGrid>
                 </PickerSection>
               )}
             </For>
             <For each={groups()}>
               {(g, i) => (
                 <PickerSection title={g.name} bar={i() === 0 ? STANDARD : undefined}>
-                  <div class={picker.emojiGrid}>
-                    <For each={g.emojis}>{(e) => <UnicodeButton text={e.emoji} title={e.shortcodes[0] ? `:${e.shortcodes[0]}:` : e.label} onPick={onPick} onPreview={setHovered} />}</For>
-                  </div>
+                  <StagedGrid staging={staging} items={g.emojis}>
+                    {(e) => <UnicodeButton text={e.emoji} title={e.shortcodes[0] ? `:${e.shortcodes[0]}:` : e.label} onPick={onPick} onPreview={setHovered} />}
+                  </StagedGrid>
                 </PickerSection>
               )}
             </For>

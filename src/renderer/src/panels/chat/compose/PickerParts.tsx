@@ -1,6 +1,7 @@
-import { onMount, type JSX } from 'solid-js';
+import { For, Show, createSignal, onMount, type JSX } from 'solid-js';
 import { directory } from '@/state/directory';
 import { inCompanion } from '@/state/ui';
+import { gridRows, type GridStaging } from './gridStaging';
 import styles from './Picker.module.css';
 import { Icon, type IconName } from '@/ui/icons';
 
@@ -39,5 +40,22 @@ export function PickerSection(props: { title: string; bar?: string; icon?: IconN
       <h3 class={styles.sectionTitle}>{props.icon && <Icon name={props.icon} />}{props.title}</h3>
       {props.children}
     </section>
+  );
+}
+
+/**
+ * An emoji grid whose cells are built once it nears its list's view (`staging`). Until then it holds its rows' height,
+ * so the sections after it keep their places for a section bar's jumps.
+ */
+export function StagedGrid<T>(props: { staging: GridStaging; items: readonly T[] | undefined; children: (item: T) => JSX.Element }) {
+  let grid!: HTMLDivElement;
+  const [built, setBuilt] = createSignal(false);
+  onMount(() => props.staging.watch(grid, () => setBuilt(true)));
+  return (
+    <div ref={grid} class={styles.emojiGrid} data-held={!built()} style={{ '--held-rows': built() ? undefined : gridRows(props.items?.length ?? 0, props.staging.columns()) }}>
+      <Show when={built()}>
+        <For each={props.items}>{props.children}</For>
+      </Show>
+    </div>
   );
 }
