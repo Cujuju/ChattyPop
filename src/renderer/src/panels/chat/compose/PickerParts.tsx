@@ -1,7 +1,7 @@
-import { For, Show, createSignal, onMount, type JSX } from 'solid-js';
+import { For, createSignal, onMount, type JSX } from 'solid-js';
 import { directory } from '@/state/directory';
 import { inCompanion } from '@/state/ui';
-import { gridRows, type GridStaging } from './gridStaging';
+import { CELLS_PER_PIECE, gridRows, type GridStaging } from './gridStaging';
 import styles from './Picker.module.css';
 import { Icon, type IconName } from '@/ui/icons';
 
@@ -44,18 +44,24 @@ export function PickerSection(props: { title: string; bar?: string; icon?: IconN
 }
 
 /**
- * An emoji grid whose cells are built once it nears its list's view (`staging`). Until then it holds its rows' height,
- * so the sections after it keep their places for a section bar's jumps.
+ * An emoji grid whose cells are built in pieces, as `staging` calls for them: from when it nears its list's view, or
+ * its turn comes. Until whole it holds its rows' height, so the sections after it keep their places for a section
+ * bar's jumps.
  */
 export function StagedGrid<T>(props: { staging: GridStaging; items: readonly T[] | undefined; children: (item: T) => JSX.Element }) {
   let grid!: HTMLDivElement;
-  const [built, setBuilt] = createSignal(false);
-  onMount(() => props.staging.watch(grid, () => setBuilt(true)));
+  /** Cells built so far; Infinity once whole, so items that come later (a search cleared) show too. */
+  const [shown, setShown] = createSignal(0);
+  const built = (): boolean => shown() === Infinity;
+  onMount(() =>
+    props.staging.watch(grid, () => {
+      setShown((n) => (n + CELLS_PER_PIECE >= (props.items?.length ?? 0) ? Infinity : n + CELLS_PER_PIECE));
+      return built();
+    }),
+  );
   return (
     <div ref={grid} class={styles.emojiGrid} data-held={!built()} style={{ '--held-rows': built() ? undefined : gridRows(props.items?.length ?? 0, props.staging.columns()) }}>
-      <Show when={built()}>
-        <For each={props.items}>{props.children}</For>
-      </Show>
+      <For each={built() ? props.items : props.items?.slice(0, shown())}>{props.children}</For>
     </div>
   );
 }

@@ -10,7 +10,7 @@ const { createRoot } = await import('solid-js');
 // A variable path keeps the renderer module out of the node type-check.
 const stagingPath = '../src/renderer/src/panels/chat/compose/gridStaging';
 const { createGridStaging, gridColumns, gridRows } = (await import(stagingPath)) as {
-  createGridStaging(list: () => unknown, sample: () => unknown): { columns: () => number; watch(grid: unknown, build: () => void): void };
+  createGridStaging(list: () => unknown, sample: () => unknown): { columns: () => number; watch(grid: unknown, piece: () => boolean): void };
   gridColumns(width: number, cell: number): number;
   gridRows(count: number, columns: number): number;
 };
@@ -53,7 +53,7 @@ const beforePaint = (): Promise<void> => Promise.resolve();
 function stagedList(width: number, gridTop = FAR_PX) {
   const sample = { clientWidth: width };
   const grid = box(gridTop, 0);
-  const build = vi.fn();
+  const build = vi.fn(() => true);
   const { staging, dispose } = createRoot((dispose) => {
     const staging = createGridStaging(() => box(0, LIST_PX), () => sample);
     staging.watch(grid, build);
@@ -100,7 +100,7 @@ describe('grid staging', () => {
   });
 
   it('builds the grids left one a paint, in the order watched', async () => {
-    const builds = [vi.fn(), vi.fn()];
+    const builds = [vi.fn(() => true), vi.fn(() => true)];
     createRoot(() => {
       const staging = createGridStaging(() => box(0, LIST_PX), () => ({ clientWidth: 9 * CELL_PX }));
       for (const build of builds) staging.watch(box(FAR_PX, 0), build);
@@ -112,6 +112,27 @@ describe('grid staging', () => {
     expect(builds[1]).not.toHaveBeenCalled();
     await paint();
     expect(builds[1]).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds a large grid a piece a paint, finishing it before one not begun', async () => {
+    const PIECES = 3;
+    const large = vi.fn(() => large.mock.calls.length === PIECES);
+    const other = vi.fn(() => true);
+    createRoot(() => {
+      const staging = createGridStaging(() => box(0, LIST_PX), () => ({ clientWidth: 9 * CELL_PX }));
+      staging.watch(box(0, LIST_PX), large);
+      staging.watch(box(FAR_PX, 0), other);
+    });
+    await beforePaint();
+    expect(large).toHaveBeenCalledTimes(1);
+    await paint();
+    await paint();
+    expect(large).toHaveBeenCalledTimes(PIECES);
+    expect(other).not.toHaveBeenCalled();
+    await paint();
+    expect(other).toHaveBeenCalledTimes(1);
+    await paint();
+    expect(large).toHaveBeenCalledTimes(PIECES);
   });
 
   it('stops watching when its owner goes', () => {

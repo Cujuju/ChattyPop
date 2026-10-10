@@ -1,4 +1,4 @@
-// Staged grids: a long list of emoji grids builds the cells in view first, then the rest a grid at a time between paints.
+// Staged grids: a long list of emoji grids builds the cells in view first, then the rest a piece at a time between paints.
 import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
 import { tokenPx } from '@/ui/format';
 
@@ -6,6 +6,12 @@ import { tokenPx } from '@/ui/format';
 const BUILD_AHEAD_VIEWS = 1;
 /** BUILD_AHEAD_VIEWS as an observer's margin: a share of its root's height, above and below. */
 const BUILD_AHEAD_MARGIN = `${BUILD_AHEAD_VIEWS * 100}% 0px`;
+
+/**
+ * Cells a grid builds in one piece, between two paints. About 11 ms on an iPhone (estimate: a list of 6,167 cells built
+ * at once stalled it 330 ms), so a frame waits little; built a whole grid a paint, the largest stalled it 135 ms.
+ */
+export const CELLS_PER_PIECE = 200;
 
 /** Whether `grid` lies within BUILD_AHEAD_VIEWS of `list`'s view. */
 function nearView(grid: Element, list: Element): boolean {
@@ -25,10 +31,11 @@ export interface GridStaging {
   /** Columns each of the list's grids has. */
   columns: Accessor<number>;
   /**
-   * Calls `build` once: before the next paint when `grid` is already near the list's view, else when it nears it or its
-   * turn comes among the grids built between paints. Owner-scoped.
+   * Has `grid` built piece by piece: `piece` builds its next CELLS_PER_PIECE cells and tells whether it is now whole.
+   * The first piece comes before the next paint when `grid` is already near the list's view, else when it nears it or
+   * its turn comes; the rest follow one a paint. Owner-scoped.
    */
-  watch(grid: Element, build: () => void): void;
+  watch(grid: Element, piece: () => boolean): void;
 }
 
 /**
@@ -37,14 +44,23 @@ export interface GridStaging {
  */
 export function createGridStaging(list: () => HTMLElement, sample: () => HTMLElement): GridStaging {
   const [columns, setColumns] = createSignal(1);
-  const builds = new Map<Element, () => void>();
+  const builds = new Map<Element, () => boolean>();
+  /** Grids begun and not yet whole, the last begun last: they are finished ahead of those not begun. */
+  const begun: Element[] = [];
   let nearing: IntersectionObserver | undefined;
   let checkQueued = false;
-  const build = (grid: Element): void => {
-    const run = builds.get(grid);
+  const forget = (grid: Element): void => {
     builds.delete(grid);
     nearing?.unobserve(grid);
-    run?.();
+    const at = begun.indexOf(grid);
+    if (at >= 0) begun.splice(at, 1);
+  };
+  /** Builds `grid`'s next piece. */
+  const build = (grid: Element): void => {
+    const piece = builds.get(grid);
+    if (!piece) return;
+    if (piece()) forget(grid);
+    else if (!begun.includes(grid)) begun.push(grid);
   };
   /**
    * Builds the watched grids already near the view. The observer reports only after a paint, which would show them
@@ -57,14 +73,14 @@ export function createGridStaging(list: () => HTMLElement, sample: () => HTMLEle
   };
   let restQueued = false;
   /**
-   * Builds the grids left, in the order watched, one after each paint: scrolling finds them built, and no frame waits
-   * on more than one grid.
+   * Builds what is left, one piece after each paint: a grid begun first, then the rest in the order watched. Scrolling
+   * finds them built, and no frame waits on more than one piece.
    */
   const buildRest = (): void => {
     restQueued = false;
-    const next = builds.keys().next();
-    if (next.done) return;
-    build(next.value);
+    const next = begun.at(-1) ?? builds.keys().next().value;
+    if (next === undefined) return;
+    build(next);
     queueRest();
   };
   const queueRest = (): void => {
@@ -83,14 +99,11 @@ export function createGridStaging(list: () => HTMLElement, sample: () => HTMLEle
   onCleanup(() => nearing?.disconnect());
   return {
     columns,
-    watch(grid, run) {
+    watch(grid, piece) {
       nearing ??= new IntersectionObserver((entries) => entries.forEach((e) => e.isIntersecting && build(e.target)), { root: list(), rootMargin: BUILD_AHEAD_MARGIN });
-      builds.set(grid, run);
+      builds.set(grid, piece);
       nearing.observe(grid);
-      onCleanup(() => {
-        builds.delete(grid);
-        nearing?.unobserve(grid);
-      });
+      onCleanup(() => forget(grid));
       if (checkQueued) return;
       checkQueued = true;
       queueMicrotask(buildNear);
