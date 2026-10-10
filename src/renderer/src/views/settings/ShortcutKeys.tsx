@@ -1,7 +1,7 @@
 // Captures next keys for desktop/leader shortcuts. Escape cancels, lone modifiers keep listening and conflicts reject.
 import { For, Show, createSignal } from 'solid-js';
 import { bundledPlugin } from '@shared/bundledPlugins';
-import { hotkeyLabel, hotkeyOf } from '@shared/desktop';
+import { hotkeyLabel, hotkeyOf, modifierList, type DesktopPlatform } from '@shared/desktop';
 import { desktopState, patchDesktopSettings } from '@/state/desktop';
 import { inCompanion } from '@/state/ui';
 import { DEFAULT_LEADER_KEY, MODIFIER_KEYS, keyLabel } from '@/state/leaderRules';
@@ -12,10 +12,12 @@ import { Icon } from '@/ui/icons';
 import { Note, Row, SettingsButton } from './SettingsLayout';
 import styles from './ShortcutKeys.module.css';
 
-const CHORD_REFUSAL = 'Shortcuts take one key, without Ctrl, Alt or Win.';
+/** The desktop's system, whose names the keys take. */
+const platform = (): DesktopPlatform | undefined => desktopState()?.platform;
+const chordRefusal = (): string => `Shortcuts take one key, without ${modifierList(platform())}.`;
 const chord = (e: KeyboardEvent): boolean => e.ctrlKey || e.altKey || e.metaKey;
 
-/** The system-wide show/hide shortcut: the next key press with Ctrl, Alt or Win held; Backspace or Delete clears it. */
+/** The system-wide show/hide shortcut: the next key press with a modifier (Ctrl, Alt or Win on Windows) held; Backspace or Delete clears it. */
 export function HotkeyRow() {
   const hotkey = (): string | null => desktopState()?.settings.hotkey ?? null;
   const onKeyDown = (e: KeyboardEvent): void => {
@@ -29,11 +31,11 @@ export function HotkeyRow() {
     <Row
       label="Show or hide ChattyPop"
       for="desktop-hotkey"
-      hint="From any app. Needs Ctrl, Alt or Win."
+      hint={`From any app. Needs ${modifierList(platform())}.`}
       control={
-        <Show when={!inCompanion} fallback={<input id="desktop-hotkey" readOnly placeholder="Not set" value={hotkey() ? hotkeyLabel(hotkey()!) : ''} />}>
+        <Show when={!inCompanion} fallback={<input id="desktop-hotkey" readOnly placeholder="Not set" value={hotkey() ? hotkeyLabel(hotkey()!, platform()) : ''} />}>
           <div class={styles.keyControl}>
-            <input id="desktop-hotkey" readOnly placeholder="Press a shortcut" value={hotkey() ? hotkeyLabel(hotkey()!) : ''} disabled={!desktopState()} onKeyDown={onKeyDown} />
+            <input id="desktop-hotkey" readOnly placeholder="Press a shortcut" value={hotkey() ? hotkeyLabel(hotkey()!, platform()) : ''} disabled={!desktopState()} onKeyDown={onKeyDown} />
             <SettingsButton disabled={!hotkey()} onClick={() => void patchDesktopSettings({ hotkey: null })}>
               Clear
             </SettingsButton>
@@ -42,7 +44,7 @@ export function HotkeyRow() {
       }
     >
       <Show when={desktopState()?.hotkeyTaken && desktopState()?.settings.hotkey}>
-        {(taken) => <Note kind="error">Another app uses {hotkeyLabel(taken())}.</Note>}
+        {(taken) => <Note kind="error">Another app uses {hotkeyLabel(taken(), platform())}.</Note>}
       </Show>
     </Row>
   );
@@ -68,7 +70,7 @@ function KeyField(props: { id: string; class?: string; value: string; placeholde
     e.stopPropagation();
     if (e.key === 'Escape') return stop();
     if (MODIFIER_KEYS.has(e.key)) return;
-    const reason = chord(e) ? CHORD_REFUSAL : props.take(e.key);
+    const reason = chord(e) ? chordRefusal() : props.take(e.key);
     props.setRefusal(reason);
     if (!reason) setListening(false);
   };
@@ -133,7 +135,7 @@ function BindingKey(props: { def: ShortcutDef }) {
   const shadow = () => shadowedBindings(bindings()).get(props.def.id);
   /** Binds `key` (null: the default) unless refused; returns why not. */
   const take = (key: string | null): string | null => {
-    const reason = rebindRefusal(props.def.id, key ?? props.def.defaultKey ?? leaderKey(), bindings(), leaderKey());
+    const reason = rebindRefusal(props.def.id, key ?? props.def.defaultKey ?? leaderKey(), bindings(), leaderKey(), modifierList(platform()));
     if (!reason) void setBindingOverrides(withBinding(bindingOverrides(), props.def, key, leaderKey()));
     return reason;
   };

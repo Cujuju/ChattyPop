@@ -3,11 +3,12 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { app, globalShortcut, ipcMain, type BrowserWindow } from 'electron';
 import { handleMain } from './ipc/mainCalls';
 import { MAIN_INVOKE, type AppEvent } from '@shared/contract';
-import { DEFAULT_DESKTOP_SETTINGS, indicatedUnread, normalizeDesktopSettings, type DesktopSettings, type DesktopState } from '@shared/desktop';
+import { DEFAULT_DESKTOP_SETTINGS, desktopPlatform, indicatedUnread, normalizeDesktopSettings, type DesktopSettings, type DesktopState } from '@shared/desktop';
 import { NO_UNREAD, normalizeUnreadTotals, type UnreadTotals } from '@shared/unread';
 import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
 import { appIconPath } from './mainWindow';
+import { IS_WINDOWS } from './platform';
 import { restartApp } from './restart';
 import { profilePath } from './storageLocation';
 import { AppTray } from './tray';
@@ -30,12 +31,16 @@ function readSettings(): DesktopSettings {
   }
 }
 
-/** Reports Windows sign-in startup; null for dev runs. */
+/** Reports whether the system starts the app at sign-in; null for dev runs. */
 function openAtLogin(): boolean | null {
   if (!app.isPackaged) return null;
   // Windows' Startup apps switch can turn the entry off without removing it.
-  return app.getLoginItemSettings({ args: [AT_LOGIN_ARG] }).executableWillLaunchAtLogin;
+  if (IS_WINDOWS) return app.getLoginItemSettings({ args: [AT_LOGIN_ARG] }).executableWillLaunchAtLogin;
+  return app.getLoginItemSettings().openAtLogin;
 }
+
+/** Whether the system started this run at sign-in. Windows passes the entry's argument; macOS entries take none, and it says so itself. */
+const startedAtLogin = (): boolean => process.argv.includes(AT_LOGIN_ARG) || (!IS_WINDOWS && app.getLoginItemSettings().wasOpenedAtLogin);
 
 export class Desktop {
   private settings = readSettings();
@@ -49,8 +54,8 @@ export class Desktop {
   private win: BrowserWindow | undefined;
   private emit: (e: AppEvent) => void = () => {};
 
-  /** Whether this start stays in the tray: Windows started it at sign-in and the owner chose that. */
-  readonly startHidden = process.argv.includes(AT_LOGIN_ARG) && this.settings.startHidden;
+  /** Whether this start stays in the tray: the system started it at sign-in and the owner chose that. */
+  readonly startHidden = startedAtLogin() && this.settings.startHidden;
   readonly minimizeToTray = (): boolean => this.settings.minimizeToTray;
   readonly closeToTray = (): boolean => this.settings.closeToTray;
 
@@ -76,6 +81,7 @@ export class Desktop {
 
   private state(): DesktopState {
     return {
+      platform: desktopPlatform(process.platform),
       settings: this.settings,
       openAtLogin: openAtLogin(),
       hotkeyTaken: this.hotkeyTaken,
@@ -106,8 +112,8 @@ export class Desktop {
 
   private setOpenAtLogin(on: boolean): void {
     if (!app.isPackaged) throw new Error('Starting at sign-in needs an installed ChattyPop.');
-    // `enabled` also sets Windows' Startup apps switch, which may have turned the entry off.
-    app.setLoginItemSettings({ openAtLogin: on, enabled: on, args: [AT_LOGIN_ARG], name: LOGIN_ITEM_NAME });
+    // `enabled` also sets Windows' Startup apps switch, which may have turned the entry off. Only Windows' entries carry arguments and a name.
+    app.setLoginItemSettings(IS_WINDOWS ? { openAtLogin: on, enabled: on, args: [AT_LOGIN_ARG], name: LOGIN_ITEM_NAME } : { openAtLogin: on });
     this.changed();
   }
 

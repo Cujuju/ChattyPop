@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DirectoryChannel, DirectoryGuild } from '@shared/contract';
-import { DEFAULT_DESKTOP_SETTINGS, hotkeyOf, indicatedUnread, isHotkey, normalizeDesktopSettings, type KeyChord } from '@shared/desktop';
+import { DEFAULT_DESKTOP_SETTINGS, desktopPlatform, desktopWords, hotkeyLabel, hotkeyOf, indicatedUnread, isHotkey, modifierList, normalizeDesktopSettings, type KeyChord } from '@shared/desktop';
 import { NO_UNREAD, chatUnreadCount, normalizeUnreadTotals, unreadSummary, type UnreadKind } from '@shared/unread';
 import { DOT_BGR, dotsBitmap, withDots, type Bitmap } from '../src/main/badgeImage';
 
@@ -19,6 +19,21 @@ describe('desktop hotkeys', () => {
     expect(hotkeyOf(press('Digit3', { metaKey: true }))).toBe('Super+3');
     expect(hotkeyOf(press('F12', { altKey: true }))).toBe('Alt+F12');
     expect(hotkeyOf(press('Space', { ctrlKey: true }))).toBe('Ctrl+Space');
+  });
+
+  it('names a hotkey’s keys as each system does', () => {
+    expect(hotkeyLabel('Ctrl+Alt+Super+P')).toBe('Ctrl+Alt+Win+P');
+    expect(hotkeyLabel('Ctrl+Alt+Shift+Super+P', 'mac')).toBe('Control+Option+Shift+Command+P');
+    expect(hotkeyLabel('Super+Space', 'linux')).toBe('Super+Space');
+    expect(modifierList('windows')).toBe('Ctrl, Alt or Win');
+    expect(modifierList('mac')).toBe('Control, Option or Command');
+  });
+
+  it('reads Node’s platform, and words the tray and sign-in for it', () => {
+    expect(['win32', 'darwin', 'linux', 'freebsd'].map(desktopPlatform)).toEqual(['windows', 'mac', 'linux', 'linux']);
+    expect(desktopWords('windows').startAtSignIn).toBe('Start at Windows sign-in');
+    expect(desktopWords('mac')).toMatchObject({ startAtSignIn: 'Start at login', tray: 'the menu bar', trayTitle: 'Menu bar' });
+    expect(desktopWords().tray).toBe('the tray');
   });
 
   it('refuses presses that would take a typed character or are no key', () => {

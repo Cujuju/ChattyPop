@@ -1,7 +1,7 @@
 // Settings → Desktop: starting at sign-in, the tray, the show/hide shortcut, the leader key and updates.
 import { Show } from 'solid-js';
 import { api } from '@/api';
-import type { DesktopSettings, UpdateStatus } from '@shared/desktop';
+import { desktopWords, type DesktopSettings, type DesktopWords, type UpdateStatus } from '@shared/desktop';
 import { desktopState, patchDesktopSettings } from '@/state/desktop';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
@@ -52,11 +52,12 @@ export function DesktopSection() {
   const update = createAction();
   const status = (): UpdateStatus => desktopState()?.update ?? { phase: 'unsupported' };
   const openAtLogin = (): boolean | null | undefined => desktopState()?.openAtLogin;
+  const words = (): DesktopWords => desktopWords(desktopState()?.platform);
   return (
-    <Page id="desktop" title="Desktop" lede="Startup, tray, shortcuts and updates.">
+    <Page id="desktop" title="Desktop" lede={`Startup, ${words().trayTitle.toLowerCase()}, shortcuts and updates.`}>
       <Card title="Start">
         <Row
-          label="Start at Windows sign-in"
+          label={words().startAtSignIn}
           for="desktop-open-at-login"
           hint={openAtLogin() === null ? 'Installed builds only.' : undefined}
           control={
@@ -73,23 +74,23 @@ export function DesktopSection() {
         <SettingSwitch
           id="desktop-start-hidden"
           setting="startHidden"
-          label="Start in the tray"
+          label={`Start in ${words().tray}`}
           hint="When started at sign-in."
         />
       </Card>
-      <Card title="Tray">
-        <SettingSwitch id="desktop-minimize-to-tray" setting="minimizeToTray" label="Minimize to the tray" />
+      <Card title={words().trayTitle}>
+        <SettingSwitch id="desktop-minimize-to-tray" setting="minimizeToTray" label={`Minimize to ${words().tray}`} />
         <SettingSwitch
           id="desktop-close-to-tray"
           setting="closeToTray"
-          label="Close to the tray"
-          hint="Quit from the tray icon’s menu."
+          label={`Close to ${words().tray}`}
+          hint={`Quit from ${words().tray} icon’s menu.`}
         />
         <SettingSwitch
           id="desktop-indicate-chat"
           setting="indicateChat"
           label="Dot for unread messages"
-          hint="Blue, on the tray and taskbar icons."
+          hint={`Blue, ${words().unreadDots}`}
         />
         <SettingSwitch
           id="desktop-indicate-alerts"

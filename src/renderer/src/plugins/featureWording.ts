@@ -1,5 +1,6 @@
 // Host sentences composed from feature vocabulary rather than plugin-owned prose.
 import type { PluginDescriptor, PanelImportance } from '@shared/bundledTypes';
+import { desktopWords, type DesktopPlatform } from '@shared/desktop';
 import { andList } from '@shared/lists';
 import { placeByAnchor, type PlacementAnchor } from '@shared/anchors';
 
@@ -57,8 +58,8 @@ export function phoneOverview(sections: readonly PhoneOverview[]): string {
 }
 
 /** Encrypted content contributed by active owners, in declaration order. */
-export function encryptionHint(nouns: readonly string[]): string {
-  return `${andList(['Messages', ...nouns, 'settings'])} are encrypted on disk; the key is protected by your Windows sign-in, so only this Windows account can open the archive. Attachment files are not encrypted.`;
+export function encryptionHint(nouns: readonly string[], platform: DesktopPlatform = 'windows'): string {
+  return `${andList(['Messages', ...nouns, 'settings'])} are encrypted on disk; the key is ${desktopWords(platform).keyGuard} Attachment files are not encrypted.`;
 }
 
 /** Titles and emphasis supplied by panel metadata, in panel order. */

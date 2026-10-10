@@ -1,6 +1,7 @@
 // Pure shortcut overrides resolve owner or declared keys; state/shortcuts.ts wires bindings.
 import { HOST_SHORTCUTS, type HostShortcutId } from '@shared/anchors';
 import { stampedName } from '@shared/bundledTypes';
+import { modifierList } from '@shared/desktop';
 import { recordOf } from '@shared/normalize';
 import { MODIFIER_KEYS, isLeaderKey, keyLabel } from './leaderRules';
 
@@ -103,10 +104,10 @@ export function shortcutTarget(key: string, bindings: readonly Binding[]): Short
 const taken = (b: Binding): string => `“${b.name}” uses ${keyLabel(b.key)}`;
 
 /** Why shortcut `id` can't take `key`, or null when it can. A shortcut that follows the leader may take it back. */
-export function rebindRefusal(id: string, key: string, bindings: readonly Binding[], leader: string): string | null {
+export function rebindRefusal(id: string, key: string, bindings: readonly Binding[], leader: string, modifiers = modifierList()): string | null {
   const own = bindings.find((b) => b.id === id);
   if (!own) return 'That shortcut isn’t loaded.';
-  if (!isBindableKey(key)) return 'Press a key other than Escape, Shift, Ctrl, Alt or Win.';
+  if (!isBindableKey(key)) return `Press a key other than Escape, Shift, ${modifiers}.`;
   if (LAYOUT_KEYS.includes(key)) return `${LAYOUT_KEYS[0]}–${LAYOUT_KEYS.at(-1)} pick layouts.`;
   if (key === leader && own.defaultKey !== null) return `${keyLabel(key)} is the leader key.`;
   const other = bindings.find((b) => b.id !== id && b.key === key);

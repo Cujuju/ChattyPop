@@ -165,6 +165,7 @@ describe('theme and encryption wording', () => {
     expect(encryptionHint(['summaries'])).toBe(`Messages, summaries and settings${tail}`);
     expect(encryptionHint(['summaries', 'notes'])).toBe(`Messages, summaries, notes and settings${tail}`);
     expect(encryptionHint([])).toBe(`Messages and settings${tail}`);
+    expect(encryptionHint([], 'mac')).toBe('Messages and settings are encrypted on disk; the key is kept in your macOS keychain, so only this Mac account can open the archive. Attachment files are not encrypted.');
   });
 });
 

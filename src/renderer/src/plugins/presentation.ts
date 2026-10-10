@@ -2,6 +2,7 @@
 import { BUNDLED_PLUGINS, bundledPanel, panelAnchor } from '@shared/bundledPlugins';
 import { placeByAnchor } from '@shared/anchors';
 import { activeBundledPanels } from './slots';
+import { desktopState } from '../state/desktop';
 import { pluginActive } from '../state/plugins';
 import { PANEL_TITLES, panelImportance, type PanelId } from '../panels/titles';
 import { aiRunWording, coverageWording, encryptionHint, themeHints } from './featureWording';
@@ -15,7 +16,7 @@ export const coverageText = () => coverageWording(active().find((plugin) => plug
 export const aiText = () => aiRunWording(active().find((plugin) => plugin.aiRuns)?.aiRuns);
 
 /** Active owners add their stored nouns to the host's encryption description. */
-export const encryptionText = () => encryptionHint(active().flatMap((plugin) => plugin.storedContent ?? []));
+export const encryptionText = () => encryptionHint(active().flatMap((plugin) => plugin.storedContent ?? []), desktopState()?.platform);
 
 /** Active panel titles and importance determine theme descriptions. */
 export function appearanceText() {

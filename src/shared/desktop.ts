@@ -80,8 +80,72 @@ export function hotkeyOf(e: KeyChord): string | null {
   return isHotkey(hotkey) ? hotkey : null;
 }
 
-/** A hotkey as Windows names its keys. */
-export const hotkeyLabel = (hotkey: string): string => hotkey.replace('Super', 'Win');
+/** The desktop system main runs on, for wording that names its parts: its keys, its tray, its sign-in. */
+export type DesktopPlatform = 'windows' | 'mac' | 'linux';
+
+/** Node's `process.platform` as a desktop platform; anything but Windows and macOS reads as Linux. */
+export const desktopPlatform = (nodePlatform: string): DesktopPlatform => (nodePlatform === 'win32' ? 'windows' : nodePlatform === 'darwin' ? 'mac' : 'linux');
+
+type HotkeyModifier = 'Ctrl' | 'Alt' | 'Super';
+/** Each system's names for the accelerator modifiers a hotkey may hold. */
+const MODIFIER_NAMES: Record<DesktopPlatform, Record<HotkeyModifier, string>> = {
+  windows: { Ctrl: 'Ctrl', Alt: 'Alt', Super: 'Win' },
+  mac: { Ctrl: 'Control', Alt: 'Option', Super: 'Command' },
+  linux: { Ctrl: 'Ctrl', Alt: 'Alt', Super: 'Super' },
+};
+
+/** A hotkey as `platform` names its keys. */
+export const hotkeyLabel = (hotkey: string, platform: DesktopPlatform = 'windows'): string =>
+  hotkey
+    .split('+')
+    .map((part) => MODIFIER_NAMES[platform][part as HotkeyModifier] ?? part)
+    .join('+');
+
+/** The modifiers a hotkey needs one of, as a sentence names them: "Ctrl, Alt or Win". */
+export const modifierList = (platform: DesktopPlatform = 'windows'): string => {
+  const names = MODIFIER_NAMES[platform];
+  return `${names.Ctrl}, ${names.Alt} or ${names.Super}`;
+};
+
+/** What Settings calls the parts of the desktop that differ by system. */
+export interface DesktopWords {
+  /** The switch that starts the app with the owner's session. */
+  startAtSignIn: string;
+  /** Where a hidden window's icon stays, after "to" or "in": "the tray". */
+  tray: string;
+  /** The same as a heading: "Tray". */
+  trayTitle: string;
+  /** Where the unread dots show. */
+  unreadDots: string;
+  /** What guards the archive key, completing "the key is …". */
+  keyGuard: string;
+}
+
+const DESKTOP_WORDS: Record<DesktopPlatform, DesktopWords> = {
+  windows: {
+    startAtSignIn: 'Start at Windows sign-in',
+    tray: 'the tray',
+    trayTitle: 'Tray',
+    unreadDots: 'on the tray and taskbar icons.',
+    keyGuard: 'protected by your Windows sign-in, so only this Windows account can open the archive.',
+  },
+  mac: {
+    startAtSignIn: 'Start at login',
+    tray: 'the menu bar',
+    trayTitle: 'Menu bar',
+    unreadDots: 'on the menu bar icon. The Dock icon shows the count.',
+    keyGuard: 'kept in your macOS keychain, so only this Mac account can open the archive.',
+  },
+  linux: {
+    startAtSignIn: 'Start at sign-in',
+    tray: 'the tray',
+    trayTitle: 'Tray',
+    unreadDots: 'on the tray icon.',
+    keyGuard: 'kept in your desktop keyring, so only this account can open the archive.',
+  },
+};
+
+export const desktopWords = (platform: DesktopPlatform = 'windows'): DesktopWords => DESKTOP_WORDS[platform];
 
 /** Where updating stands. Builds not installed from a release (dev runs) can't update. */
 export type UpdateStatus =
@@ -94,8 +158,10 @@ export type UpdateStatus =
   | { phase: 'failed'; message: string };
 
 export interface DesktopState {
+  /** The system main runs on. */
+  platform: DesktopPlatform;
   settings: DesktopSettings;
-  /** Windows sign-in startup state; null where unsupported, including dev. */
+  /** Whether the system starts the app at sign-in; null where unsupported, including dev. */
   openAtLogin: boolean | null;
   /** The hotkey is set but another app holds it. */
   hotkeyTaken: boolean;
