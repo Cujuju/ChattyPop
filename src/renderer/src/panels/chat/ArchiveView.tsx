@@ -19,6 +19,7 @@ import {
   readArchivePlaceWith,
 } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
+import { preloadExpressions } from '@/state/expressions';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
 import { listen } from '@/ui/listen';
@@ -141,6 +142,7 @@ export function ArchiveView() {
 
   // Nothing selected yet: reopen the last channel shown, else the first archived one.
   createEffect(() => openRestoredArchive(channels()));
+  preloadExpressions(() => current()?.guildId);
 
   // Follows newest messages unless scrolled away, viewing old windows or holding citation targets. Phone/background/offscreen views retain previous reading position.
   const [offScreen, setOffScreen] = createSignal(false);

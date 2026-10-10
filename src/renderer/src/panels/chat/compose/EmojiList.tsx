@@ -1,6 +1,7 @@
 // One emoji picker shared by the composer, reactions and settings.
 import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import type { DirectoryGuild } from '@shared/contract';
+import type { GuildEmoji } from '@shared/emoji';
 import { DM_GUILD_ID } from '@shared/discord';
 import { rankEmojiFavorites } from './emojiFavorites';
 import { directory } from '@/state/directory';
@@ -56,9 +57,19 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
     }
     return map;
   });
+  // One preview per emoji, however often the lists are worked out again: they key their cells by it.
+  const customPreviews = new WeakMap<GuildEmoji, EmojiPreview>();
+  const plainPreviews = new Map<string, EmojiPreview>();
+  const kept = <K,>(previews: { get(key: K): EmojiPreview | undefined; set(key: K, p: EmojiPreview): unknown }, key: K, pick: EmojiPick, tag: string): EmojiPreview => {
+    const had = previews.get(key);
+    if (had) return had;
+    const made = { pick, tag };
+    previews.set(key, made);
+    return made;
+  };
   const asPreview = (pick: EmojiPick): EmojiPreview => 'custom' in pick
-    ? { pick, tag: `:${pick.custom.name}:` }
-    : unicodeByKey().get(pick.unicode) ?? { pick, tag: pick.unicode };
+    ? kept(customPreviews, pick.custom, pick, `:${pick.custom.name}:`)
+    : unicodeByKey().get(pick.unicode) ?? kept(plainPreviews, pick.unicode, pick, pick.unicode);
   const matches = (p: EmojiPreview): boolean => {
     const pick = p.pick;
     return !q() || p.tag.toLowerCase().includes(q()) || ('unicode' in pick && (loaded(unicodeEmoji) ?? []).some((g) => g.emojis.some((e) => e.emoji === pick.unicode && e.search.includes(q()))));

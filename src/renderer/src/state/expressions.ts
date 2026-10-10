@@ -1,13 +1,14 @@
 // What the composer's pickers offer: every server's emoji and stickers and Discord's sticker packs (main, from the live
 // client), Unicode emoji (emojibase, loaded on first use) and GIF search.
 import { api } from '@/api';
-import { createResource, createSignal, untrack } from 'solid-js';
+import { createEffect, createResource, createSignal, untrack, type ResourceFetcherInfo } from 'solid-js';
 import { canUseEmoji, type ExpressionCatalog, type Gif } from '@shared/compose';
 import type { GuildEmoji } from '@shared/emoji';
 import { onAppEvent } from './events';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { stringsOr } from '@shared/normalize';
+import { keepUnchanged } from '@shared/sameItems';
 import { failureNotice } from './dialogs';
 
 const RECENT_EMOJI_MAX = 128;
@@ -21,7 +22,16 @@ export function recordEmojiPick(pick: { custom: GuildEmoji } | { unicode: string
 
 /** Each picker opening asks again (a new object), so emoji added since show up; main answers from memory. */
 const [catalogRequest, setCatalogRequest] = createSignal<{ guildId: string } | null>(null);
-export const [expressionCatalog] = createResource(catalogRequest, (r) => api.discord.expressions(r.guildId));
+/** A reloaded catalog whose unchanged emoji and stickers are `prev`'s own objects: the pickers key their cells by them, so a reload rebuilds only what changed. */
+const refreshed = (prev: ExpressionCatalog | undefined, next: ExpressionCatalog): ExpressionCatalog => ({
+  ...next,
+  emojis: keepUnchanged(prev?.emojis, next.emojis),
+  stickers: keepUnchanged(prev?.stickers, next.stickers),
+  packs: keepUnchanged(prev?.packs, next.packs),
+});
+export const [expressionCatalog] = createResource(catalogRequest, async (r, info: ResourceFetcherInfo<ExpressionCatalog>) =>
+  refreshed(info.value, await api.discord.expressions(r.guildId)),
+);
 /** Emoji in the "Frequently used" row: two picker rows' worth, as Discord shows. */
 const FREQUENT_EMOJI_MAX = 22;
 /** Refreshes frequently used emoji with catalog reloads, including just-sent messages. Excludes Unicode glyphs unavailable on this machine. */
@@ -124,6 +134,16 @@ const [unicodeWanted, setUnicodeWanted] = createSignal(false);
 /** Unicode emoji by group, loaded the first time the emoji picker opens. */
 export const [unicodeEmoji] = createResource(unicodeWanted, loadUnicodeEmoji);
 export const loadUnicodeEmojiData = (): void => void setUnicodeWanted(true);
+
+/** Loads the pickers' emoji for the open channel's server (`guildId`) ahead of any picker, which then opens with them ready. Owner-scoped. */
+export function preloadExpressions(guildId: () => string | undefined): void {
+  createEffect(() => {
+    const id = guildId();
+    if (id === undefined) return;
+    ensureExpressions(id);
+    loadUnicodeEmojiData();
+  });
+}
 
 /** A `:name` suggestion while typing: a custom emoji the plan can send here, or a Unicode emoji by its shortcode. */
 export type EmojiSuggestion = { custom: GuildEmoji; name: string } | { unicode: string; name: string };
