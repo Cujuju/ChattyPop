@@ -3,7 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, isAbsolute, join } from 'node:path';
+import { delimiter, isAbsolute } from 'node:path';
 import { app } from 'electron';
 import { errorMessage } from '@shared/errors';
 import { MS_PER_S } from '@shared/units';
@@ -18,7 +18,7 @@ const SHELL_TIMEOUT_MS = 3 * MS_PER_S;
 const DEFAULT_SHELL = '/bin/sh';
 
 /** Where tools are commonly installed, for when the shell can't be asked: Homebrew, /usr/local, and per-user installs. */
-export const commonToolDirs = (home: string): string[] => ['/opt/homebrew/bin', '/usr/local/bin', join(home, '.local', 'bin')];
+export const commonToolDirs = (home: string): string[] => ['/opt/homebrew/bin', '/usr/local/bin', `${home}/.local/bin`];
 
 /** The PATH between the marks in a login shell's output; null when it printed none. */
 export function pathFromShellOutput(output: string): string | null {
