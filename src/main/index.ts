@@ -9,6 +9,7 @@ import { registerMediaScheme } from './media/mediaProtocol';
 import { prepareInstalled } from './plugins/installed/boot';
 import { encodeInstalledStart } from './plugins/installed/runtime';
 import { INSTALLED_SCHEME_PRIVILEGES, PLUGIN_SCHEME_PRIVILEGES } from './pluginProtocol';
+import { applyShellPath } from './shellPath';
 import { applyProfileDirOverride, profilePath } from './storageLocation';
 
 /** Custom schemes registered beside the media scheme; Electron takes privileged schemes once, before 'ready'. */
@@ -32,6 +33,8 @@ function decideInstalled(): InstalledStart {
 }
 // Enforces one process per profile to protect staged installs. Secondary instances open nothing and quit; the running instance raises its window.
 if (app.requestSingleInstanceLock()) {
+  // After the lock: a second instance quits without asking the shell.
+  applyShellPath();
   // Core inherits it (CoreClient), so both processes load the same plugins.
   process.env[INSTALLED_ENV] = encodeInstalledStart(profilePath(INSTALLED_PLUGINS_DIR), decideInstalled());
   await import('./app');

@@ -2,9 +2,10 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { IS_WINDOWS, findExecutable } from '@core/ai/resolveCli';
+import { findExecutable } from '@core/ai/resolveCli';
 import { errorMessage } from '@shared/errors';
 import { MS_PER_S } from '@shared/units';
+import { IS_MAC, IS_WINDOWS } from './platform';
 
 /** `tailscale serve` answers at once when Serve is enabled; it waits indefinitely when it isn't, printing a link. */
 const CLI_TIMEOUT_MS = 15 * MS_PER_S;
@@ -51,11 +52,20 @@ export function rootProxies(serveStatusJson: string, httpsPort: number): string[
   });
 }
 
-/** The installer's location on Windows is not always on PATH for apps started before it ran. */
+/** The macOS app is its own CLI; its `tailscale` command on PATH is an optional extra the owner installs from its menu. */
+const MAC_APP_CLI = '/Applications/Tailscale.app/Contents/MacOS/Tailscale';
+
+/** Where Tailscale installs its CLI when it isn't on PATH; null where it has no fixed place (Linux packages use PATH). */
+function installedTailscale(): string | null {
+  // The installer's location on Windows is not always on PATH for apps started before it ran.
+  if (IS_WINDOWS) return join(process.env['ProgramFiles'] ?? 'C:\\Program Files', 'Tailscale', 'tailscale.exe');
+  return IS_MAC ? MAC_APP_CLI : null;
+}
+
 function tailscaleExe(): string | null {
   const onPath = findExecutable('tailscale');
   if (onPath) return onPath;
-  const installed = IS_WINDOWS ? join(process.env['ProgramFiles'] ?? 'C:\\Program Files', 'Tailscale', 'tailscale.exe') : null;
+  const installed = installedTailscale();
   return installed && existsSync(installed) ? installed : null;
 }
 
