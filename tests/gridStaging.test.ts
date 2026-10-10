@@ -36,13 +36,20 @@ Object.assign(globalThis, {
   },
 });
 
-/** A list whose sample grid is `width` wide, with one grid watched. */
-function stagedList(width: number) {
+const LIST_PX = 300;
+/** Past the list's view and the one list height built ahead of it. */
+const FAR_PX = 2 * LIST_PX + 1;
+const box = (top: number, height: number) => ({ getBoundingClientRect: () => ({ top, bottom: top + height, height }) });
+/** The checks queued for before the next paint have run. */
+const beforePaint = (): Promise<void> => Promise.resolve();
+
+/** A list whose sample grid is `width` wide, with one grid watched, `gridTop` px below the list's top. */
+function stagedList(width: number, gridTop = FAR_PX) {
   const sample = { clientWidth: width };
-  const grid = {};
+  const grid = box(gridTop, 0);
   const build = vi.fn();
   const { staging, dispose } = createRoot((dispose) => {
-    const staging = createGridStaging(() => ({}), () => sample);
+    const staging = createGridStaging(() => box(0, LIST_PX), () => sample);
     staging.watch(grid, build);
     return { staging, dispose };
   });
@@ -67,8 +74,17 @@ describe('grid staging', () => {
     expect(staging.columns()).toBe(12);
   });
 
-  it('builds a grid once, when it nears the view', () => {
+  it('builds a grid already near the view before the next paint, without the observer', async () => {
+    const { grid, build } = stagedList(9 * CELL_PX, 2 * LIST_PX);
+    expect(build).not.toHaveBeenCalled();
+    await beforePaint();
+    expect(build).toHaveBeenCalledTimes(1);
+    expect(page.watched.has(grid)).toBe(false);
+  });
+
+  it('builds a grid once, when it nears the view', async () => {
     const { grid, build } = stagedList(9 * CELL_PX);
+    await beforePaint();
     page.seen!([{ target: grid, isIntersecting: false }]);
     expect(build).not.toHaveBeenCalled();
     page.seen!([{ target: grid, isIntersecting: true }]);
