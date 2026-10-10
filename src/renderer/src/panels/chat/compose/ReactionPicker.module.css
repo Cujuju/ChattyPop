@@ -26,9 +26,7 @@
   left: 0;
   width: auto;
   height: auto;
-  /* The list's rail takes the home-bar inset: its glass runs to the screen's edge (EmojiList.module.css). */
-  --cp-picker-inset-bottom: var(--cp-safe-bottom);
-  padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) var(--cp-safe-bottom) env(safe-area-inset-left);
   border-width: var(--cp-border-w) 0 0;
   border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0;
 }

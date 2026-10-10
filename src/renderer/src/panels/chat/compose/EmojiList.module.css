@@ -199,32 +199,18 @@
   height: var(--cp-picker-emoji-glyph);
 }
 
-/* On phones the rail is a thumb-sized row of glass floating over the list's end, the System mark last; there is no
-   preview row. A sheet that reaches the screen's edge hands it the home-bar inset (--cp-picker-inset-bottom), which
-   the glass covers. */
+/* On phones the rail is a thumb-sized row closing the picker, the System mark at its end; there is no preview row. */
 :global(html[data-surface='companion']) .main {
-  position: relative;
+  flex-direction: column-reverse;
 }
 
 :global(html[data-surface='companion']) .bar {
-  position: absolute;
-  inset: auto 0 0;
-  z-index: var(--cp-z-sticky);
+  flex-basis: auto;
   flex-direction: row;
-  padding-bottom: var(--cp-picker-inset-bottom, 0px);
   border-right: 0;
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
-  background: var(--cp-picker-rail-glass);
-  -webkit-backdrop-filter: blur(var(--cp-frost-blur)); /* iOS before 18 knows only the prefixed name */
-  backdrop-filter: blur(var(--cp-frost-blur));
   --mark-size: var(--cp-thumb-btn);
   --mark-glyph: var(--cp-thumb-icon);
-}
-
-/* The list scrolls under the rail, its end clearing it; its sticky titles stay under the rail too. */
-:global(html[data-surface='companion']) .list {
-  isolation: isolate;
-  padding-bottom: calc(var(--cp-thumb-btn) + 2 * var(--cp-space-2) + var(--cp-border-w) + var(--cp-picker-inset-bottom, 0px));
 }
 
 :global(html[data-surface='companion']) .barScroll {

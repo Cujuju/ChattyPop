@@ -289,7 +289,6 @@
   --cp-sheet-deep: color-mix(in srgb, black 85%, transparent); /* a deep sheet (data-tone='deep', the attach sheet): near-black, a little see-through, so the pictures on it stand apart */
   --cp-sheet-deep-grabber: color-mix(in srgb, white 30%, transparent); /* a deep sheet's grab handle: neutral grey over the black, as iOS's */
   --cp-sheet-bar: color-mix(in srgb, black 55%, transparent); /* a deep sheet's floating bar (the attach sheet's actions): lighter glass than the sheet, so the photos under it read through */
-  --cp-picker-rail-glass: color-mix(in srgb, var(--cp-surface-1) 55%, transparent); /* the phone emoji picker's section rail over its list: the rail's ground at the attach bar's share, so its marks read and the emoji under it show through */
   --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
   --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
   --cp-frost-edge: var(--cp-space-8); /* the glass's soft top edge while it reaches over the typing line: it bleeds this far above the line, fading in */
