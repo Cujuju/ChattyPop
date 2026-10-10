@@ -37,8 +37,9 @@ html[data-surface='companion'] {
   --cp-bezel-gap: var(--cp-space-6);
   /* Reserves typing clearance above composer using the home-indicator inset, matching below-box clearance when keyboard is hidden. */
   --cp-composer-typing-slot: 34px;
-  /* Under the message box: the home-bar inset, shrinking as the keyboard covers it, and never under the box's clearance from the keyboard. */
-  --cp-composer-pad-bottom: max(var(--cp-space-4), var(--cp-safe-bottom));
+  /* Under the message box with nothing held under it: the home-bar inset, shrinking as the keyboard covers it, and never under the box's clearance from the keyboard. */
+  --cp-composer-pad-free: max(var(--cp-space-4), var(--cp-safe-bottom));
+  --cp-composer-pad-bottom: var(--cp-composer-pad-free);
 }
 
 /* The phone's text sizes (its Settings, PHONE_TEXT_SIZES): Apple's Dynamic Type steps for the same seven styles.

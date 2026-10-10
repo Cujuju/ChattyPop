@@ -7,6 +7,13 @@
   initial-value: 0px;
 }
 
+/* Registered so the Archive view can ease it (Archive.module.css): 1 while a footer item holds a sheet in the keyboard's place, else 0. */
+@property --cp-sheet-hold {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
 :root {
   /* Layout: app frame */
   --cp-topbar-h: 48px;
