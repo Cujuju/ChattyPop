@@ -13,6 +13,8 @@
     "package": "electron-vite build && electron-builder --win --dir",
     "test": "vitest run",
     "dist": "electron-vite build && electron-builder --win nsis --publish never",
+    "package:mac": "electron-vite build && electron-builder --mac --dir",
+    "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "plugin:release-changed": "node scripts/runTs.mjs scripts/pluginReleaseChanged.ts",
     "plugin:check": "node scripts/runTs.mjs scripts/pluginCheck.ts",
     "shell:sync": "vite build --config mobile/vite.config.ts && cap sync ios"
