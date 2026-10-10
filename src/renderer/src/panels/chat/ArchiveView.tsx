@@ -253,6 +253,7 @@ export function ArchiveView() {
       ref={root}
       class={styles.root}
       data-dropping={dropping()}
+      data-jump={!log.following()}
       style={{ display: 'flex', 'flex-direction': 'column', 'min-height': 0, position: 'relative', '--cp-composer-box-h': `${footer.height()}px` }}
       onDragOver={(e) => {
         if (!dropTarget() || !hasFiles(e)) return;

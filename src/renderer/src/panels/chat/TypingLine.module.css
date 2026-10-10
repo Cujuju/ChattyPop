@@ -4,7 +4,8 @@
   position: relative;
   box-sizing: border-box;
   height: var(--cp-typing-h);
-  margin: 0 var(--cp-composer-inset-right) 0 var(--cp-composer-inset-left);
+  /* --cp-typing-inset-end: room at the line's end for an overlay lying over its slot (Archive.module.css). */
+  margin: 0 calc(var(--cp-composer-inset-right) + var(--cp-typing-inset-end, 0px)) 0 var(--cp-composer-inset-left);
   color: var(--cp-text-muted);
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-xs);
