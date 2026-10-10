@@ -55,6 +55,7 @@ import { restartApp } from './restart';
 import { registerMarketplaceHandlers } from './marketplace/ipc';
 import { buildFromSource } from './marketplace/sourceBuild';
 import { Desktop } from './desktop';
+import { installAppMenu } from './appMenu';
 import { appIconPath, createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
 import { IS_MAC } from './platform';
 import { startSplash } from './splash';
@@ -105,6 +106,7 @@ void app.whenReady().then(() => {
   app.setAppUserModelId(APP_USER_MODEL_ID);
   // A dev run is Electron's own bundle, so the dock shows Electron's icon unless told; a packaged app carries its own.
   if (IS_MAC && !app.isPackaged) app.dock?.setIcon(appIconPath());
+  installAppMenu();
   const dataDir = archiveDir();
   mkdirSync(dataDir, { recursive: true });
   const pluginsDir = profilePath(PLUGINS_DIR);
