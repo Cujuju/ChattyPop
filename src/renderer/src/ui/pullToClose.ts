@@ -21,8 +21,10 @@ export interface SheetExpand {
  * follows, and past SHEET_DISMISS_RATIO of its height it closes on release, or, expanded, returns to its first height.
  * Up, with `expand` and not yet expanded, from anywhere: the sheet grows with the finger to its max-height, and past
  * SHEET_DISMISS_RATIO of that rise it stays expanded. data-pull disables the snap transitions while dragging.
+ * `grip`: the part of the sheet that takes the pulls (all of it by default), leaving the rest to scroll; it is
+ * its own `scroller`, as it never scrolls.
  */
-export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTMLElement = sheet, expand?: SheetExpand): void {
+export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTMLElement = sheet, expand?: SheetExpand, grip: HTMLElement = sheet): void {
   let startY: number | null = null;
   let atTop = false;
   let canRise = false;
@@ -40,7 +42,7 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     sheet.style.removeProperty('height');
   };
   listen(
-    sheet,
+    grip,
     'touchstart',
     (e) => {
       const t = e.touches[0];
@@ -55,7 +57,7 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
   );
   // Not passive: a pull replaces the content's own scrolling.
   listen(
-    sheet,
+    grip,
     'touchmove',
     (e) => {
       const t = e.touches[0];
@@ -75,7 +77,7 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     },
     { passive: false },
   );
-  listen(sheet, 'touchend', () => {
+  listen(grip, 'touchend', () => {
     const was = mode;
     const passed = moved > (was === 'up' ? maxHeight - startHeight : startHeight) * SHEET_DISMISS_RATIO;
     settle();
@@ -86,5 +88,5 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
       else close();
     }
   });
-  listen(sheet, 'touchcancel', settle);
+  listen(grip, 'touchcancel', settle);
 }
