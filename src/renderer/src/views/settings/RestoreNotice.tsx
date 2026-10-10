@@ -71,7 +71,7 @@ function NeededMarketplace(props: { repo: string }) {
           </button>
         }
       >
-        <Note>A fine-grained, read-only token for it, stored encrypted on this PC and sent only to GitHub.</Note>
+        <Note>A fine-grained, read-only token for it, stored encrypted on this computer and sent only to GitHub.</Note>
         <ErrorNote error={actionError(key())} />
       </InlineForm>
     </Card>

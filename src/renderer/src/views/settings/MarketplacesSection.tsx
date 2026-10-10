@@ -72,7 +72,7 @@ function AddCard() {
           </button>
         }
       >
-        <Show when={repo().trim() && !valid()} fallback={<Note>A repo with a marketplace.json on its default branch. A private one also needs a fine-grained, read-only token for it, stored encrypted on this PC and sent only to GitHub.</Note>}>
+        <Show when={repo().trim() && !valid()} fallback={<Note>A repo with a marketplace.json on its default branch. A private one also needs a fine-grained, read-only token for it, stored encrypted on this computer and sent only to GitHub.</Note>}>
           <Note kind="error">Write the repository as owner/name.</Note>
         </Show>
         <ErrorNote error={marketplaceLoadError()} />

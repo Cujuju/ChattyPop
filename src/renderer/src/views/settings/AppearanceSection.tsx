@@ -82,7 +82,7 @@ export function AppearanceSection() {
           <Row
             label="Message layout"
             for="archive-density"
-            hint="How the Archive lists messages, on this PC and on phones that don’t choose their own."
+            hint="How the Archive lists messages, on this computer and on phones that don’t choose their own."
             control={
               <Select id="archive-density" class={c.select} value={archiveDensity()} options={DENSITIES} onChange={(v) => setArchiveDensity(v as ArchiveDensity)} />
             }

@@ -53,7 +53,7 @@ function hasDependencies(pluginDir: string): boolean {
 export async function installPluginPackages(pluginDir: string, args: readonly string[]): Promise<void> {
   if (!hasDependencies(pluginDir)) return;
   const npm = npmCommand(pathValue(process.env), process.platform);
-  if (!npm) throw new Error("Installing this plugin's packages needs npm (it comes with Node.js), which isn't on this PC's PATH.");
+  if (!npm) throw new Error("Installing this plugin's packages needs npm (it comes with Node.js), which isn't on this computer's PATH.");
   try {
     await run(npm.file, [...npm.args, ...args], {
       cwd: pluginDir,

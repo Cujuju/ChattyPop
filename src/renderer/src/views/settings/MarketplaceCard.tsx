@@ -31,7 +31,7 @@ export function MarketplaceCard(props: { listing: () => MarketplaceListing | und
     const at = props.listing()?.fetchedAt;
     const read = at ? `Index read ${shortDateTime(at)}.` : 'Index not read yet.';
     if (builtIn()) return `${read} Built in: public, so it needs no token, and always listed.`;
-    return `${read} ${props.listing()?.hasToken ? 'Token stored encrypted on this PC; sent only to GitHub.' : 'No token; a private repo needs one.'}`;
+    return `${read} ${props.listing()?.hasToken ? 'Token stored encrypted on this computer; sent only to GitHub.' : 'No token; a private repo needs one.'}`;
   };
   return (
     <Card title={props.repo} meta={meta()}>

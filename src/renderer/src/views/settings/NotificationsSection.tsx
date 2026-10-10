@@ -29,7 +29,7 @@ export function NotificationsSection() {
         />
         <Row
           label="Muted servers and channels"
-          hint="No notifications about them on this PC or your phones; alerts still land in the inbox. A channel covers its threads."
+          hint="No notifications about them on this computer or your phones; alerts still land in the inbox. A channel covers its threads."
         >
           <PlacePicker
             places={notificationSettings().muted}

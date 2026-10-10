@@ -72,7 +72,7 @@ function tailscaleExe(): string | null {
 /** The real CLI; rejects with TailnetError, carrying the enable link when Serve is off. */
 export const runTailscale: TailscaleCli = (args) => {
   const exe = tailscaleExe();
-  if (!exe) return Promise.reject(new TailnetError('Tailscale isn’t installed on this PC.'));
+  if (!exe) return Promise.reject(new TailnetError('Tailscale isn’t installed on this computer.'));
   return new Promise((resolve, reject) => {
     const child = spawn(exe, args, { windowsHide: true });
     let out = '';
@@ -123,7 +123,7 @@ export class TailnetServe {
   publish(pluginId: string, httpsPort: number, localPort: number): Promise<string> {
     return this.serial(async () => {
       const name = tailnetName(await this.cli(['status', '--json']).catch(() => ''));
-      if (!name) throw new TailnetError('Tailscale isn’t connected on this PC.');
+      if (!name) throw new TailnetError('Tailscale isn’t connected on this computer.');
       const target = `http://127.0.0.1:${localPort}`;
       // Recorded first: a command that times out may still take effect.
       this.save([...this.read().filter((p) => !(p.pluginId === pluginId && p.httpsPort === httpsPort)), { pluginId, httpsPort, target }]);

@@ -206,7 +206,7 @@ function JevConnectionCard(props: { status: JevStatus | undefined; changed: () =
               <Row
                 label="TypeSafe key"
                 for="typesafe-key"
-                hint="From console.typesafe.ai/keys. Checked with TypeSafe, then stored encrypted on this PC."
+                hint="From console.typesafe.ai/keys. Checked with TypeSafe, then stored encrypted on this computer."
                 control={
                   <div class={c.buttons}>
                     <input

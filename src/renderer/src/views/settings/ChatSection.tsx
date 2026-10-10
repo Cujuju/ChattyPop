@@ -148,7 +148,7 @@ export function ChatSection() {
         <Row
           label="Sync across clients"
           for="chat-sync"
-          hint="On: Discord’s settings above are your account’s, and changes here reach Discord’s other apps. Off: this PC keeps its own."
+          hint="On: Discord’s settings above are your account’s, and changes here reach Discord’s other apps. Off: this computer keeps its own."
           control={<Switch id="chat-sync" checked={discordChatSettings().syncAcrossClients} onChange={(on) => void setSyncAcrossClients(on)} />}
         />
       </Card>
