@@ -32,6 +32,7 @@ Download `ChattyPop-Setup-<version>.exe` from [Releases](https://github.com/Cuju
 |---|---|
 | `pnpm install` | Install dependencies |
 | `pnpm dev` | Run in development |
+| `scripts/installMacDevApp.sh` | macOS: install “ChattyPop Dev.app”, an icon that runs this checkout’s dev build |
 | `pnpm typecheck` | Type-check main, preload, core and renderer |
 | `pnpm test` | Contract tests (vitest, `tests/`) |
 | `pnpm build` | Build main, preload, core and renderer |
