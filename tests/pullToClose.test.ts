@@ -39,6 +39,15 @@ function grippedSheet() {
   return { sheet, setExpanded, onGrip: touchOn(grip), offGrip: touchOn(sheet) };
 }
 
+/** An expanded two-height sheet: a pull down lowers it to its first height. */
+function expandedSheet() {
+  const sheet = fakeSheet();
+  const close = vi.fn();
+  const setExpanded = vi.fn();
+  createRoot(() => pullToClose(sheet, close, sheet, { expanded: () => true, setExpanded }));
+  return { sheet, close, setExpanded, touch: touchOn(sheet) };
+}
+
 describe('pullToClose', () => {
   it('leaves a tap’s wobble alone, so the click still fires', () => {
     const { sheet, touch } = risingSheet();
@@ -69,5 +78,24 @@ describe('pullToClose', () => {
     expect(sheet.style.height).toBe(`${SHEET_PX + 150}px`);
     onGrip('touchend', 150);
     expect(setExpanded).toHaveBeenCalledWith(true);
+  });
+
+  it('shrinks an expanded sheet under the finger, never moving it, and lowers it on release', () => {
+    const { sheet, close, setExpanded, touch } = expandedSheet();
+    touch('touchstart', 300);
+    expect(touch('touchmove', 450)).toBe(true);
+    expect(sheet.style.height).toBe(`${SHEET_PX - 150}px`);
+    expect(sheet.style.translate).toBe('');
+    touch('touchend', 450);
+    expect(setExpanded).toHaveBeenCalledWith(false);
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('leaves an expanded sheet expanded after a short pull', () => {
+    const { setExpanded, touch } = expandedSheet();
+    touch('touchstart', 300);
+    touch('touchmove', 350);
+    touch('touchend', 350);
+    expect(setExpanded).not.toHaveBeenCalled();
   });
 });

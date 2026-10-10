@@ -18,7 +18,9 @@ export interface SheetExpand {
 
 /**
  * Pulls on a phone sheet. Down, from the top of `scroller` (what scrolls inside it, the sheet by default): the sheet
- * follows, and past SHEET_DISMISS_RATIO of its height it closes on release, or, expanded, returns to its first height.
+ * follows, and past SHEET_DISMISS_RATIO of its height it closes on release. An expanded one shrinks under the finger
+ * instead, its bottom edge in place, and past that ratio returns to its first height; either way the release eases its
+ * height from where the finger left it.
  * Up, with `expand` and not yet expanded, from anywhere: the sheet grows with the finger to its max-height, and past
  * SHEET_DISMISS_RATIO of that rise it stays expanded. data-pull disables the snap transitions while dragging.
  * `grip`: the part of the sheet that takes the pulls (all of it by default), leaving the rest to scroll; it is
@@ -30,8 +32,8 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
   let canRise = false;
   let startHeight = 0;
   let maxHeight = 0;
-  /** Decided by the first move: 'down' pulls the sheet down, 'up' raises it, 'scroll' leaves the touch to the content. */
-  let mode: 'down' | 'up' | 'scroll' | null = null;
+  /** Decided by the first move: 'down' pulls the sheet down, 'lower' shrinks an expanded one, 'up' raises it, 'scroll' leaves the touch to the content. */
+  let mode: 'down' | 'lower' | 'up' | 'scroll' | null = null;
   let moved = 0;
   const settle = (): void => {
     startY = null;
@@ -64,10 +66,13 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
       if (startY === null || !t || mode === 'scroll') return;
       const dy = t.clientY - startY;
       if (mode === null && Math.abs(dy) < PULL_SLOP_PX) return;
-      mode ??= dy > 0 && atTop ? 'down' : dy < 0 && canRise ? 'up' : 'scroll';
+      mode ??= dy > 0 && atTop ? (expand?.expanded() ? 'lower' : 'down') : dy < 0 && canRise ? 'up' : 'scroll';
       if (mode === 'down') {
         moved = Math.max(0, dy);
         sheet.style.translate = `0 ${moved}px`;
+      } else if (mode === 'lower') {
+        moved = Math.max(0, dy);
+        sheet.style.height = `${Math.max(0, startHeight - moved)}px`;
       } else if (mode === 'up') {
         moved = Math.max(0, -dy);
         sheet.style.height = `${Math.min(maxHeight, startHeight + moved)}px`;
@@ -83,10 +88,8 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     settle();
     if (!passed) return;
     if (was === 'up') expand?.setExpanded(true);
-    else if (was === 'down') {
-      if (expand?.expanded()) expand.setExpanded(false);
-      else close();
-    }
+    else if (was === 'lower') expand?.setExpanded(false);
+    else if (was === 'down') close();
   });
   listen(grip, 'touchcancel', settle);
 }
