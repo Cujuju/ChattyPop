@@ -38,6 +38,8 @@ const config: Configuration = {
     category: 'public.app-category.social-networking',
     // Ad-hoc: Apple silicon runs no unsigned code, and no developer's certificate is used, even one in the builder's keychain.
     identity: '-',
+    // The hardened runtime's library validation refuses the app's own frameworks under an ad-hoc signature; it serves notarization, which these builds skip.
+    hardenedRuntime: false,
     // The architecture in every name: latest-mac.yml lists both, and the updater picks its own by it.
     artifactName: '${productName}-${version}-${arch}-mac.${ext}',
     // The menu-bar icon loads from disk (main/mainWindow.ts).
