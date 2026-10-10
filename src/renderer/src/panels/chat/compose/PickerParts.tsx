@@ -1,5 +1,6 @@
 import { onMount, type JSX } from 'solid-js';
 import { directory } from '@/state/directory';
+import { inCompanion } from '@/state/ui';
 import styles from './Picker.module.css';
 import { Icon, type IconName } from '@/ui/icons';
 
@@ -9,10 +10,12 @@ export const normalQuery = (q: string): string => q.trim().replace(/:/g, '').toL
 /** Server ids for picker sections: this channel's server first, then the rest in sidebar order. */
 export const guildOrder = (guildId: string): string[] => [guildId, ...directory().map((g) => g.id).filter((id) => id !== guildId)];
 
-/** The picker tab's search field; focused on open, as in Discord. */
+/** The picker tab's search field; focused on open, as in Discord. Not on the phone, where focus raises the keyboard over the picker. */
 export function PickerSearch(props: { label: string; value: string; onInput: (v: string) => void }) {
   let input!: HTMLInputElement;
-  onMount(() => input.focus());
+  onMount(() => {
+    if (!inCompanion) input.focus();
+  });
   return (
     <label class={`cp-stroke ${styles.search}`}>
       <Icon name="search" />

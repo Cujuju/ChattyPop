@@ -4,6 +4,7 @@ import type { DirectoryGuild } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import { rankEmojiFavorites } from './emojiFavorites';
 import { directory } from '@/state/directory';
+import { inCompanion } from '@/state/ui';
 import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, recentEmoji, recordEmojiPick, unicodeEmoji } from '@/state/expressions';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { errorText, tokenPx } from '@/ui/format';
@@ -143,6 +144,8 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
             <Mark mark={FAVORITES} label="Favorites" icon="star" />
             <div class={styles.divider} />
             <For each={servers()}>{(id) => <Mark mark={id} label={guild(id)?.name ?? 'Server'} guild={guild(id)} disabled={!byGuild().has(id)} />}</For>
+            {/* The phone has no preview row, so its System mark ends the rail, as Discord's does. */}
+            <Show when={inCompanion}><Mark mark={STANDARD} label="System emoji" icon="emoji" disabled={!groups().length} /></Show>
           </div>
         </nav>
         <div class={styles.content}>
@@ -185,30 +188,33 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
           </div>
         </div>
       </div>
-      <div class={styles.preview} aria-label="Emoji preview">
-        <nav class={styles.systemMark} aria-label="System emoji section">
-          <Mark mark={STANDARD} label="System emoji" icon="emoji" disabled={!groups().length} />
-        </nav>
-        <Show when={preview()} fallback={<span class={styles.hint}>Hover an emoji to preview</span>}>
-          {(p) => <>
-            <div class={styles.previewGlyph}>
-              <Show when={previewCustom()} fallback={<span>{previewUnicode()}</span>}>
-                {(e) => <EmojiImage class={styles.previewImage} emoji={e()} alt={p().tag} />}
-              </Show>
-            </div>
-            <div class={styles.previewText}>
-              <strong class={styles.previewTag} title={p().tag}>{p().tag}</strong>
-              <span class={styles.hint}>{previewCustom() && !usableIn(previewCustom()!, props.guildId) ? 'Needs Nitro here' : 'Emoji preview'}</span>
-            </div>
-            <div class={styles.source} title={sourceName()}>
-              <span>{sourceName()}</span>
-              <Show when={sourceGuild()} fallback={<Icon name="emoji" />}>
-                {(g) => <GuildIcon id={g().id} name={g().name} icon={g().icon} />}
-              </Show>
-            </div>
-          </>}
-        </Show>
-      </div>
+      {/* A preview follows the pointer: a phone has none, and the row's height goes to the list. */}
+      <Show when={!inCompanion}>
+        <div class={styles.preview} aria-label="Emoji preview">
+          <nav class={styles.systemMark} aria-label="System emoji section">
+            <Mark mark={STANDARD} label="System emoji" icon="emoji" disabled={!groups().length} />
+          </nav>
+          <Show when={preview()} fallback={<span class={styles.hint}>Hover an emoji to preview</span>}>
+            {(p) => <>
+              <div class={styles.previewGlyph}>
+                <Show when={previewCustom()} fallback={<span>{previewUnicode()}</span>}>
+                  {(e) => <EmojiImage class={styles.previewImage} emoji={e()} alt={p().tag} />}
+                </Show>
+              </div>
+              <div class={styles.previewText}>
+                <strong class={styles.previewTag} title={p().tag}>{p().tag}</strong>
+                <span class={styles.hint}>{previewCustom() && !usableIn(previewCustom()!, props.guildId) ? 'Needs Nitro here' : 'Emoji preview'}</span>
+              </div>
+              <div class={styles.source} title={sourceName()}>
+                <span>{sourceName()}</span>
+                <Show when={sourceGuild()} fallback={<Icon name="emoji" />}>
+                  {(g) => <GuildIcon id={g().id} name={g().name} icon={g().icon} />}
+                </Show>
+              </div>
+            </>}
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 }

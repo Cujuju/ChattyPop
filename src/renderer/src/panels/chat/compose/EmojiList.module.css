@@ -199,7 +199,7 @@
   height: var(--cp-picker-emoji-glyph);
 }
 
-/* On phones, preserve the existing thumb-sized section row above the preview and keyboard. */
+/* On phones the rail is a thumb-sized row closing the picker, the System mark at its end; there is no preview row. */
 :global(html[data-surface='companion']) .main {
   flex-direction: column-reverse;
 }
@@ -224,9 +224,4 @@
 :global(html[data-surface='companion']) .divider {
   width: var(--cp-border-w);
   height: var(--mark-glyph);
-}
-
-:global(html[data-surface='companion']) .systemMark {
-  --mark-size: var(--cp-thumb-btn);
-  --mark-glyph: var(--cp-thumb-icon);
 }
