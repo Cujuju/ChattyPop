@@ -1,4 +1,4 @@
-# Publishes the Windows installer and latest.yml as v<version>. Manual runs release main; pushed tags must match the target commit’s version.
+# Publishes the Windows installer and latest.yml as v<version>, then adds the macOS builds and latest-mac.yml to that release. Manual runs release main; pushed tags must match the target commit’s version.
 name: Release app
 
 on:
@@ -72,3 +72,44 @@ jobs:
           gh release create "v$env:VERSION" $installer "$installer.blockmap" release/latest.yml `
             --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "ChattyPop $env:VERSION" --generate-notes
           exit $LASTEXITCODE
+
+  release-mac:
+    # After the Windows job: it makes the release these files join. Until they arrive a Mac finds no latest-mac.yml and stays as it is.
+    needs: release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      # Builds are ad-hoc signed (electron-builder.ts); no certificate is looked for.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Version calculation requires complete git history.
+          fetch-depth: 0
+
+      - name: Set up pnpm (packageManager)
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Cache Electron's download
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm dist:mac
+
+      - name: Add the macOS builds to the release
+        # The same commit as the Windows job, so the same version.
+        run: |
+          version=$(node scripts/runTs.mjs scripts/printVersion.ts)
+          gh release upload "v$version" release/*.dmg release/*-mac.zip release/latest-mac.yml --repo "$GITHUB_REPOSITORY"

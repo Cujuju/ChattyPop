@@ -37,6 +37,35 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  check-mac:
+    # The same checks on macOS. Its own job, not a matrix leg: release-on-sdk-change waits on `check` alone.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm (packageManager)
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Cache Electron's download
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
   release-on-sdk-change:
     # Plugin repos build against main: once its plugin SDK changes, their new releases need an app that has it. Ship that
     # app as soon as main passes, rather than waiting for someone to press Release app.
