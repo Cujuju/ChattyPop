@@ -38,6 +38,7 @@ import { typing } from '@/state/typing';
 import { inCompanion } from '@/state/ui';
 import type { PanelId } from '@/panels/titles';
 import { chatFooterItems } from '@/plugins/slots';
+import { noteKeyboardHeight } from '@/ui/keyboardPlace';
 import { createTallestBox } from '@/ui/tallestBox';
 import { HOST_FOOTER } from './archiveFooter';
 import { NotArchived, NotArchivingBar } from './DmState';
@@ -101,6 +102,12 @@ export function ArchiveView() {
   });
   // Measures overlaid footer height to clear log content/overlays. Channel-keyed remounts re-observe it.
   const footer = createTallestBox();
+  // A footer item's sheet in the keyboard's place: the view keeps the footer and the log's box above it (Archive.module.css).
+  const [sheetHeld, setSheetHeld] = createSignal(false);
+  const holdSheetPlace = (held: boolean): void => {
+    if (held) noteKeyboardHeight();
+    setSheetHeld(held);
+  };
 
   // `log` is declared below (it reads vlog.holding); only read once rows are measured.
   const vlog = createVirtualLog({
@@ -256,6 +263,7 @@ export function ArchiveView() {
       class={styles.root}
       data-dropping={dropping()}
       data-jump={!log.following()}
+      data-sheet-held={sheetHeld()}
       style={{ display: 'flex', 'flex-direction': 'column', 'min-height': 0, position: 'relative', '--cp-composer-box-h': `${footer.height()}px` }}
       onDragOver={(e) => {
         if (!dropTarget() || !hasFiles(e)) return;
@@ -339,7 +347,7 @@ export function ArchiveView() {
           <div ref={footer.observe} class={styles.footer} data-typing={typing().length > 0}>
             <TypingLine />
             <For each={chatFooterItems(HOST_FOOTER)}>
-              {(item) => <item.Component channel={postable()!} measure={footer.observe}/>}
+              {(item) => <item.Component channel={postable()!} measure={footer.observe} holdSheetPlace={holdSheetPlace} />}
             </For>
           </div>
         </Show>

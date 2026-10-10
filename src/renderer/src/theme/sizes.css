@@ -217,6 +217,8 @@
   --cp-picker-gif-cols: 2; /* GIF columns in the picker (unitless) */
   --cp-expression-sheet-h: 336px; /* the phone's expression sheet, which takes the keyboard's place, until the keyboard's own height is known: an iPhone's with its suggestions row */
   --cp-expression-sheet-cap: 50dvh; /* the most of the screen it takes before a pull (a phone on its side): the box and the log stay in view */
+  --cp-sheet-place-h: min(var(--cp-keyboard-h, var(--cp-expression-sheet-h)), var(--cp-expression-sheet-cap)); /* a sheet in the keyboard's place: the keyboard's own height once one has been up (--cp-keyboard-h, set on html by ui/keyboardPlace.ts), within the cap */
+  --cp-composer-pad-bottom: var(--cp-space-6); /* under the message box, down to the panel's edge; the phone keeps the home bar clear (phone.css) */
   --cp-command-menu-max-h: 420px; /* slash command menu: about six two-line commands, then it scrolls */
   --cp-command-app-icon: 32px; /* app icon beside each command, Discord's size */
   --cp-command-rail-mark: 28px; /* a group's mark in the menu's side rail */

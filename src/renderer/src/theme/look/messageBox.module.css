@@ -132,16 +132,6 @@
   background: var(--cp-sheet-deep-grabber);
 }
 
-/* Room the box keeps under it for a sheet in the keyboard's place. Held (data-held), it follows the keyboard exactly;
-   let go, it closes at the keyboard's pace, so the box holds still while the keyboard rises into the sheet's place. */
-.keyboardRoom {
-  transition: height var(--cp-keyboard-duration) var(--cp-ease-keyboard);
-}
-
-.keyboardRoom[data-held='true'] {
-  transition: none;
-}
-
 /* The attach sheet's floating bar (its actions, or Add / Send) over the grid's bottom rows: see-through glass; its buttons
    keep their own solid discs. */
 .sheetBar {

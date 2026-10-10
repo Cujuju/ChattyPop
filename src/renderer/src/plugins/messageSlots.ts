@@ -11,6 +11,12 @@ export interface ChatFooterProps {
   channel: DirectoryChannel;
   /** Reports the item's root when it lies over the log's bottom: the log ends that far above it (the tallest, if several). */
   measure(el: HTMLElement): void;
+  /**
+   * Phone: while `held`, keeps the footer and the log above a sheet the item lays in the keyboard's place, --cp-sheet-place-h
+   * tall: the item's box stays --cp-space-4 above the sheet, or above the keyboard while that covers it, and the log holds
+   * still as the two swap. Let go, the room closes at the keyboard's pace.
+   */
+  holdSheetPlace(held: boolean): void;
 }
 
 /** An item under the Archive view's log (the message box). */

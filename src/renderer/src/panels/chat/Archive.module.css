@@ -31,15 +31,35 @@
   --cp-typing-inset-end: calc(var(--cp-composer-btn) + var(--cp-space-4));
 }
 
+/* Phone: a footer item's sheet in the keyboard's place (ChatFooterProps.holdSheetPlace: the expression sheet). While it is
+   held the view keeps room under the footer and the log's box, so the box stays --cp-space-4 above the sheet's top, or
+   above the keyboard while that still covers the sheet: swapping keyboard and sheet moves neither the box nor the log.
+   Held, the room follows the keyboard exactly; let go, it closes at the keyboard's pace. */
+.root {
+  --cp-footer-room: 0px;
+  padding-bottom: var(--cp-footer-room);
+  transition: padding-bottom var(--cp-keyboard-duration) var(--cp-ease-keyboard);
+}
+
+.root[data-sheet-held='true'] {
+  --cp-footer-room: max(0px, var(--cp-sheet-place-h) + var(--cp-space-4) - var(--cp-keyboard-inset) - var(--cp-composer-pad-bottom));
+  transition: none;
+}
+
 /* The footer column over the log's bottom: the typing line in its slot (--cp-composer-typing-slot), then the footer
    items (a posting plugin's message box). Item popovers place against it. */
 .footer {
   position: absolute;
-  inset: auto 0 0;
+  inset: auto 0 var(--cp-footer-room);
   display: flex;
   flex-direction: column;
+  transition: bottom var(--cp-keyboard-duration) var(--cp-ease-keyboard);
   --cp-typing-gap-below: 0px; /* room between the typing line and the box */
   padding-top: calc(var(--cp-composer-typing-slot) - var(--cp-typing-h));
+}
+
+.root[data-sheet-held='true'] > .footer {
+  transition: none;
 }
 
 /* While someone types (data-typing), the composer's glass reaches up over the typing line, softening in over
