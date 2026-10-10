@@ -44,9 +44,8 @@ export function PickerSection(props: { title: string; bar?: string; icon?: IconN
 }
 
 /**
- * An emoji grid whose cells are built in pieces, as `staging` calls for them: from when it nears its list's view, or
- * its turn comes. Until whole it holds its rows' height, so the sections after it keep their places for a section
- * bar's jumps.
+ * An emoji grid whose cells are built in pieces, as `staging` calls for them: when its list's view nears them. Until
+ * whole it holds its rows' height, so the sections after it keep their places for a section bar's jumps.
  */
 export function StagedGrid<T>(props: { staging: GridStaging; items: readonly T[] | undefined; children: (item: T) => JSX.Element }) {
   let grid!: HTMLDivElement;

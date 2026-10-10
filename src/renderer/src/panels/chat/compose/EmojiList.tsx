@@ -30,7 +30,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   const [current, setCurrent] = createSignal(POPULAR);
   const [hovered, setHovered] = createSignal<EmojiPreview>();
   onMount(loadUnicodeEmojiData);
-  // The top sections open built; each server's and each system group's cells wait until scrolled near.
+  // The top sections open built; each server's and each system group's cells are built as the view nears them.
   const staging = createGridStaging(() => body, () => topGrid);
   const q =(): string => normalQuery(query());
   const catalog = () => loaded(expressionCatalog);
