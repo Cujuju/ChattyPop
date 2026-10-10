@@ -1,4 +1,4 @@
-// Staged grids: a long list of emoji grids builds each one's cells only as it nears the list's view.
+// Staged grids: a long list of emoji grids builds the cells in view first, then the rest a grid at a time between paints.
 import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
 import { tokenPx } from '@/ui/format';
 
@@ -24,7 +24,10 @@ export const gridRows = (count: number, columns: number): number => Math.ceil(co
 export interface GridStaging {
   /** Columns each of the list's grids has. */
   columns: Accessor<number>;
-  /** Calls `build` once, when `grid` nears the list's view; before the next paint when it is already near. Owner-scoped. */
+  /**
+   * Calls `build` once: before the next paint when `grid` is already near the list's view, else when it nears it or its
+   * turn comes among the grids built between paints. Owner-scoped.
+   */
   watch(grid: Element, build: () => void): void;
 }
 
@@ -50,6 +53,25 @@ export function createGridStaging(list: () => HTMLElement, sample: () => HTMLEle
   const buildNear = (): void => {
     checkQueued = false;
     for (const grid of [...builds.keys()]) if (nearView(grid, list())) build(grid);
+    queueRest();
+  };
+  let restQueued = false;
+  /**
+   * Builds the grids left, in the order watched, one after each paint: scrolling finds them built, and no frame waits
+   * on more than one grid.
+   */
+  const buildRest = (): void => {
+    restQueued = false;
+    const next = builds.keys().next();
+    if (next.done) return;
+    build(next.value);
+    queueRest();
+  };
+  const queueRest = (): void => {
+    if (restQueued || !builds.size) return;
+    restQueued = true;
+    // A frame's callback runs before its paint; the task queued from it runs after.
+    requestAnimationFrame(() => setTimeout(buildRest));
   };
   onMount(() => {
     const measure = (): void => void setColumns(gridColumns(sample().clientWidth, tokenPx('--cp-picker-emoji')));

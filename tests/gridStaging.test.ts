@@ -16,9 +16,15 @@ const { createGridStaging, gridColumns, gridRows } = (await import(stagingPath))
 };
 
 type Seen = (entries: { target: unknown; isIntersecting: boolean }[]) => void;
-/** The observers the page would run: the test delivers what they would see. */
-const page = { seen: undefined as Seen | undefined, resized: undefined as (() => void) | undefined, watched: new Set<unknown>() };
+/** The observers and frames the page would run: the test delivers what they would see, and paints. */
+const page = { seen: undefined as Seen | undefined, resized: undefined as (() => void) | undefined, watched: new Set<unknown>(), frames: [] as (() => void)[] };
+/** One frame paints: its callbacks run, then the tasks they queued. */
+const paint = async (): Promise<void> => {
+  for (const frame of page.frames.splice(0)) frame();
+  await new Promise((done) => setTimeout(done));
+};
 Object.assign(globalThis, {
+  requestAnimationFrame: (frame: () => void) => page.frames.push(frame),
   IntersectionObserver: class {
     constructor(seen: Seen) {
       page.seen = seen;
@@ -91,6 +97,21 @@ describe('grid staging', () => {
     page.seen!([{ target: grid, isIntersecting: true }]);
     expect(build).toHaveBeenCalledTimes(1);
     expect(page.watched.has(grid)).toBe(false);
+  });
+
+  it('builds the grids left one a paint, in the order watched', async () => {
+    const builds = [vi.fn(), vi.fn()];
+    createRoot(() => {
+      const staging = createGridStaging(() => box(0, LIST_PX), () => ({ clientWidth: 9 * CELL_PX }));
+      for (const build of builds) staging.watch(box(FAR_PX, 0), build);
+    });
+    await beforePaint();
+    expect(builds[0]).not.toHaveBeenCalled();
+    await paint();
+    expect(builds[0]).toHaveBeenCalledTimes(1);
+    expect(builds[1]).not.toHaveBeenCalled();
+    await paint();
+    expect(builds[1]).toHaveBeenCalledTimes(1);
   });
 
   it('stops watching when its owner goes', () => {
