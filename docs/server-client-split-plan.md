@@ -4,6 +4,24 @@ Tracking issue: #132. Branch: `server-client-split`; the phone transport's chang
 Base: `origin/main` at `a9cdb21`. Scope: macOS and Windows servers and clients first; Linux last (used here only as a
 headless test harness under Xvfb).
 
+## Status (2026-10-11)
+All six phases are implemented on this branch (and the phone transport's branch in its repo). User guide:
+`docs/remote.md`. Where the build differs from the plan below:
+- **One preload, by role.** A sandboxed preload can't load a second file, so separate client and connect preloads
+  split into chunks that broke every window. `src/preload/index.ts` picks its role from its arguments
+  (`SHELL_ORIGIN_ARG`, `CONNECT_PAGE_ARG`).
+- **Unsaved edits and window commands** in a client use the app's own channels (`UNSAVED_CHANNEL`,
+  `APP_EVENT_CHANNEL`), so `unsavedChanges.ts` guards a server window unchanged; the shell has no channels for them.
+- **No system message boxes** (`tests/themedDialogs.test.ts`): the tray's Pair a device… opens the transport's own
+  Settings section (`PairingPrompt.settingsSection`, `open-settings` event); a client's unreachable server opens its
+  connect page with the reason and Try again.
+- **Gating** uses `onServerScreen` (not a `serverOnly` store). A typed path (a rule file, a local plugin) works
+  remotely; only pickers, the plugins folder and OpenRouter sign-in are refused.
+- **The desktop page** is the transport's page served at `/desktop` with its root marked `remote` by the server, so the
+  host modules read the surface before they evaluate (the page bootstrap runs before the page's own code).
+- **The sign-in relay** needs the server's window shown: a hidden window paints no frames (spike). The relay shows it
+  without focus and holds the Discord view over it while it runs.
+
 ## 0. Already on main (not in this plan)
 The macOS work under #132 has landed: packaging (dmg + update zip), macOS CI and release builds, tray and menus,
 login item, Tailscale lookup on macOS (`171c942`), POSIX tool folders. This plan builds on it.

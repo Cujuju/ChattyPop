@@ -12,6 +12,7 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 
 # Commands
 - `pnpm dev`: electron-vite dev in parallel (`scripts/dev.mjs`): main builds in a worker while the renderer server pre-transforms; a splash shows from the start
+- `pnpm dev -- --server` runs it as a server for other computers; `--connect[=<https origin>]` as a client of one (`docs/remote.md`)
 - `pnpm build`: build main/preload/renderer
 - `pnpm dist` / `pnpm dist:mac`: the Windows installer / the macOS disk images and update zips, into `release/`
 - `pnpm typecheck`: TS type-check all targets

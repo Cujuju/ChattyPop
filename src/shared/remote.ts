@@ -1,5 +1,5 @@
 // What a remote desktop may reach, whatever transport carries it: the desktop UI served by a ChattyPop server to
-// another machine (docs/server-client-split-plan.md §3.1). It acts with the renderer audience, as the server's own
+// another machine (docs/remote.md). It acts with the renderer audience, as the server's own
 // window does, less what needs the server's screen or disk.
 import { rendererGetsEvent } from './bundledPlugins';
 import { RENDERER_CORE_METHODS } from './rendererApi';
