@@ -2,7 +2,8 @@
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
 import type { ExportFormat, HtmlPage, PdfPage } from '@shared/htmlPage';
-import { isPhoneDeviceSetting, phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { DesktopUnreachableError, isPhoneDeviceSetting, phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { SCHEDULE_UNCONFIRMED } from '@shared/scheduledMessages';
 
 /** How a phone page reaches the desktop. */
 export interface PhoneTransport {
@@ -50,6 +51,22 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
   const relay = <K extends PhoneDiscordMethod>(method: K): DiscordApi[K] =>
     ((...params: unknown[]) => transport.call({ group: 'discord', method, params })) as DiscordApi[K];
 
+  /** A dropped creation reply cannot prove that Discord refused it: retain the draft's uncertain-send guard. */
+  const createScheduled: DiscordApi['createScheduled'] = async (message) => {
+    try {
+      const item = await relay('createScheduled')(message);
+      if (!item || typeof item.scheduled_message_id !== 'string' || !item.scheduled_message_id
+        || !Number.isFinite(Date.parse(item.send_at_timestamp)) || item.create_args?.channel_id !== message.channelId)
+        throw new Error(SCHEDULE_UNCONFIRMED);
+      return item;
+    } catch (error) {
+      // A missing desktop or interrupted response body leaves creation uncertain.
+      if (error instanceof DesktopUnreachableError || error instanceof TypeError || (error instanceof Error && error.name === 'AbortError'))
+        throw new Error(SCHEDULE_UNCONFIRMED);
+      throw error;
+    }
+  };
+
   /** A main call the phone makes through the desktop by its channel (PHONE_MAIN_CALLS). */
   const viaMain =
     <F extends (...args: never[]) => Promise<unknown>>(channel: string): F =>
@@ -78,12 +95,12 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       saveMessage: relay('saveMessage'),
       removeSavedMessage: relay('removeSavedMessage'),
       send: relay('send'),
-      scheduledAvailability: () => Promise.resolve({ enabled: false, limit: 0 }),
-      createScheduled: unavailable('Scheduling messages'),
-      scheduledMessages: unavailable('Scheduled messages'),
-      updateScheduled: unavailable('Editing scheduled messages'),
-      cancelScheduled: unavailable('Cancelling scheduled messages'),
-      sendScheduledNow: unavailable('Sending scheduled messages'),
+      scheduledAvailability: relay('scheduledAvailability'),
+      createScheduled,
+      scheduledMessages: relay('scheduledMessages'),
+      updateScheduled: relay('updateScheduled'),
+      cancelScheduled: relay('cancelScheduled'),
+      sendScheduledNow: relay('sendScheduledNow'),
       uploadLimit: relay('uploadLimit'),
       prepareUploads: relay('prepareUploads'),
       uploadChunk: relay('uploadChunk'),

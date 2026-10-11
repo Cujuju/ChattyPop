@@ -95,16 +95,12 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const uploads = new Uploads(d.discordSession, limitFor);
   const scheduledGate = new ScheduledGate(d.discord.tap, account);
   const scheduled = new ScheduledMessages(poster, () => scheduledGate.account, uploads);
-  const scheduledCalls = gatePosting(d.posting, {
+  const scheduledCalls = {
+    scheduledAvailability: async (channelId: unknown) => scheduled.availability(channelId),
+    scheduledMessages: () => scheduled.list(),
     createScheduled: (m: unknown) => scheduled.create(m), updateScheduled: (u: unknown) => scheduled.update(u),
     cancelScheduled: (id: unknown) => scheduled.remove(id), sendScheduledNow: (id: unknown) => scheduled.remove(id, true),
-  });
-  handleMain(channels.scheduledAvailability, (channelId) => scheduled.availability(channelId));
-  handleMain(channels.scheduledMessages, () => scheduled.list());
-  handleMain(channels.createScheduled, scheduledCalls.createScheduled);
-  handleMain(channels.updateScheduled, scheduledCalls.updateScheduled);
-  handleMain(channels.cancelScheduled, scheduledCalls.cancelScheduled);
-  handleMain(channels.sendScheduledNow, scheduledCalls.sendScheduledNow);
+  };
   const send = (m: unknown): ReturnType<typeof sendOwnerMessage> => sendOwnerMessage(poster, m, uploads);
   const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
   const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);
@@ -201,7 +197,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
   handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
+  const calls: DiscordCalls = gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }
