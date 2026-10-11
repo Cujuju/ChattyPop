@@ -5,6 +5,7 @@ import { QuickReactions } from '@/panels/chat/compose/QuickReactions';
 import { ReactionPicker } from '@/panels/chat/compose/ReactionPicker';
 import { BotModalWindow } from '@/views/botModal/BotModalWindow';
 import { Lightbox } from '@/ui/Lightbox';
+import { ReminderDialog } from '@/views/reminder/ReminderDialog';
 import { PromptDialog } from '@/ui/PromptDialog';
 import { JevAsk } from '@/views/jev/JevAsk';
 import { JevCheck } from '@/views/jev/JevCheck';
@@ -28,6 +29,7 @@ export function Overlays() {
       <ForwardWindow />
       {/* Their stores never open them while posting is locked; unmounted then as well. */}
       <Show when={postingUnlocked()}>
+        <ReminderDialog />
         <NewMessageWindow />
         <DmDialog />
         <DeleteMessageDialog />

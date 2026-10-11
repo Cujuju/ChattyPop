@@ -1,0 +1,78 @@
+/* Set a reminder (ReminderDialog.tsx): the bookmarked message's summary, quick presets, a date-time field and the
+   shared footer actions. Hooks: .error[role='alert']. The dialog body supplies padding and scrolling. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-6);
+  min-width: 0;
+}
+
+.summary {
+  margin: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Preset times wrap onto further lines in a narrow dialog. */
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-3);
+}
+
+.presets button {
+  display: inline-flex;
+  align-items: center;
+  height: var(--cp-chip-h);
+  min-height: var(--cp-hit-min);
+  padding: 0 var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.presets button:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-5);
+  color: var(--cp-text-1);
+}
+
+.presets button:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+.presets button:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.form input[type='datetime-local'] {
+  width: 100%;
+  min-width: 0;
+  color-scheme: var(--cp-color-scheme);
+}
+
+.error {
+  margin: 0;
+  color: var(--cp-danger);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+/* The answers, at the foot on the right; they wrap rather than overflow a narrow dialog. */
+.form > :global(.cp-actions) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

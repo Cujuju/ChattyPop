@@ -31,6 +31,21 @@ const requestKey = (method: string, url: string): string => `${method} ${url}`;
 /** Observes the embedded client's own API traffic: captures auth headers and the page sizes it requests. ChattyPop's requests are not the client's. */
 export class HeaderCapture {
   private headers: ClientHeaders | undefined;
+  private generation = 0;
+  private gatewayAuthorization: string | undefined;
+  private readonly invalidations = new Set<(reason: 'replaced' | 'revoked') => void>();
+  private readonly captures = new Set<() => void>();
+  /** Opaque authentication generation; ordinary header recapture does not change it. No credential leaves this class. */
+  get sessionGeneration(): number { return this.generation; }
+  onInvalidated(listener: (reason: 'replaced' | 'revoked') => void): () => void {
+    this.invalidations.add(listener);
+    return () => this.invalidations.delete(listener);
+  }
+  /** Passive IDENTIFY proof only; this value never supplies REST headers or leaves memory. */
+  expectGatewayAuthorization(value: unknown): void { this.gatewayAuthorization = typeof value === 'string' && value.length > 0 ? value : undefined; }
+  matchesGatewayAuthorization(value: unknown): boolean { return this.gatewayAuthorization !== undefined && value === this.gatewayAuthorization; }
+  get gatewayAuthorized(): boolean { return !!this.headers && this.headers.authorization === this.gatewayAuthorization; }
+  onCaptured(listener: () => void): () => void { this.captures.add(listener); return () => this.captures.delete(listener); }
   /** ChattyPop's requests in flight, by requestKey: they replay captured headers, so they say nothing new. */
   private readonly ours = new Map<string, number>();
   /** History page limits observed from the live client. */
@@ -55,8 +70,10 @@ export class HeaderCapture {
       const authorization = h['Authorization'] ?? h['authorization'];
       if (authorization && details.webContentsId !== undefined) {
         const wasAbsent = this.headers === undefined;
+        if (this.headers && this.headers.authorization !== authorization) this.invalidate('replaced');
         const extra = sessionHeaders(h);
         this.headers = { authorization, extra, capturedAt: Date.now() };
+        for (const listener of this.captures) listener();
         if (wasAbsent) {
           diag('session-captured', { customHeaders: Object.keys(extra) });
           this.onAvailable?.();
@@ -92,7 +109,10 @@ export class HeaderCapture {
   }
 
   /** Called on a 401, or when the client shows its login page: the token is void until the client authorizes a request again. */
-  invalidate(): void {
+  invalidate(reason: 'replaced' | 'revoked' = 'revoked'): void {
     this.headers = undefined;
+    if (reason === 'revoked') this.gatewayAuthorization = undefined;
+    this.generation++;
+    for (const listener of this.invalidations) listener(reason);
   }
 }

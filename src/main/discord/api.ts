@@ -163,7 +163,7 @@ export class DiscordApi implements DiscordClient {
       } catch (err) {
         return Promise.reject(err);
       }
-      return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: !opts.once, paced, context: opts.context, guard: opts.guard }));
+      return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: opts.retryServerErrors !== false && !opts.once, paced, context: opts.context, guard: opts.guard, verify: opts.verify }));
     };
     // Undefined sends no body (typing), as the client does.
     const json = (v: unknown): PageRequest['body'] => (v === undefined ? undefined : { text: JSON.stringify(v) });
@@ -261,7 +261,8 @@ export class DiscordApi implements DiscordClient {
       paced = true,
       context,
       guard,
-    }: { retryServerErrors?: boolean; paced?: boolean; context?: RequestContext | undefined; guard?: RequestOptions['guard'] } = {},
+      verify,
+    }: { retryServerErrors?: boolean; paced?: boolean; context?: RequestContext | undefined; guard?: RequestOptions['guard']; verify?: RequestOptions['verify'] } = {},
   ): Promise<T> {
     const route = routeKey(method, url);
     for (let attempt = 1; ; attempt++) {
@@ -270,6 +271,7 @@ export class DiscordApi implements DiscordClient {
       const limited = this.limits.until(route) - Date.now();
       if (limited > 0) await sleep(limited);
       await guard?.();
+      verify?.();
       const headers = this.capture.current;
       const page = this.page();
       if (!headers || !page || page.webContents.isDestroyed()) throw new DiscordAuthError('Not logged in to Discord (no captured session yet).');

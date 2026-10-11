@@ -67,7 +67,7 @@ export const PHONE_CORE_METHODS = [
 ] as const satisfies readonly RendererCoreMethod[];
 
 /** Discord calls the phone may make: posting from the Archive composer and its pickers, and its Chat settings while they sync. */
-export const PHONE_DISCORD_METHODS = ['send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'typing', 'createThread', 'votePoll', 'sendDirect', 'profile', 'mutualFriends', 'reactors', 'setChatSettings'] as const satisfies readonly (keyof RendererApi['discord'])[];
+export const PHONE_DISCORD_METHODS = ['savedMessages', 'savedBookmarks', 'saveMessage', 'removeSavedMessage', 'send', 'uploadLimit', 'prepareUploads', 'uploadChunk', 'finishUpload', 'edit', 'deleteMessage', 'forward', 'react', 'gifs', 'expressions', 'commands', 'runCommand', 'autocomplete', 'useComponent', 'submitModal', 'roles', 'requestMembers', 'typing', 'createThread', 'votePoll', 'sendDirect', 'profile', 'mutualFriends', 'reactors', 'setChatSettings'] as const satisfies readonly (keyof RendererApi['discord'])[];
 export type PhoneDiscordMethod = (typeof PHONE_DISCORD_METHODS)[number];
 
 /** Main's calls the phone may make (main/ipc/mainCalls.ts), all for Settings. Those needing the PC's screen (dialogs, sign-in in its browser) stay there. */
@@ -104,6 +104,7 @@ export const PHONE_EVENT_TYPES = [
   // Another account signed in: the directory (its DMs) is read again.
   'self-changed',
   'privacy-changed',
+  'saved-messages-changed',
   'rules-changed',
   'message-labels-changed',
   'setting-changed',

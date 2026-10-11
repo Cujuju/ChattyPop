@@ -6,6 +6,8 @@ import type { RendererApi } from './rendererApi';
 /** Discord calls refused while posting is locked: posts and typing, edits, deletes, forwards, threads, interactions, DM management. */
 export const POSTING_CALLS = [
   'send',
+  'saveMessage',
+  'removeSavedMessage',
   'createScheduled',
   'updateScheduled',
   'cancelScheduled',

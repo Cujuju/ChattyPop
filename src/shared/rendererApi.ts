@@ -19,6 +19,7 @@ import type { MarketplaceApi } from './marketplace';
 import type { PdfPage } from './htmlPage';
 import type { ScheduledAvailability, ScheduledDraft, ScheduledMessage, ScheduledUpdate } from './scheduledMessages';
 import type { DiscordSessionState, LoginRelayState, RelayInput } from './discordLogin';
+import type { SavedBookmarkPage, SavedIndex, SavedPageRequest, SavedRemove, SavedWrite } from './savedMessages';
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
@@ -38,6 +39,10 @@ export interface RendererApi {
     removeKey(): Promise<void>;
   };
   discord: {
+    savedMessages(refresh?: boolean): Promise<SavedIndex>;
+    savedBookmarks(page: SavedPageRequest): Promise<SavedBookmarkPage>;
+    saveMessage(message: SavedWrite): Promise<void>;
+    removeSavedMessage(message: SavedRemove): Promise<void>;
     setSlot(slot: DiscordSlot): void;
     /** Hides the live client's server column and/or collapses its channel column. */
     setSidebar(sidebar: DiscordSidebar): void;

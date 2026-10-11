@@ -27,6 +27,7 @@ export const SECTION_ICON_PATHS: Record<PanelId | 'plugin' | 'settings', () => J
     </>
   ),
   chat: ICON_SHAPES.conversation,
+  bookmarks: ICON_SHAPES.archive,
   'status-bar': () => <path d="M4 12h16" />,
 };
 

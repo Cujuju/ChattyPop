@@ -28,8 +28,8 @@ export function ModalDialog(props: {
       class={styles.dialog}
       data-size={props.size}
       aria-label={props.title}
-      // Esc: the UA's cancel closes it; onClose keeps the owner's state in step.
-      onClose={() => props.onClose()}
+      // Native close events are queued. An older close must not dismiss a dialog already reopened.
+      onClose={() => { if (!el.open) props.onClose(); }}
       // A click on the backdrop lands on the dialog itself.
       onClick={(e) => e.target === e.currentTarget && props.onClose()}
     >

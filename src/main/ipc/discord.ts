@@ -39,11 +39,15 @@ import { gatePosting, postingClient, type PostingGate } from '../plugins/posting
 import { registerDmHandlers } from './dms';
 import { ScheduledGate } from '../discord/scheduledAvailability';
 import { ScheduledMessages } from '../discord/scheduledMessages';
+import { SavedMessages } from '../discord/savedMessages';
+import { SavedAccess } from '../discord/savedAccess';
+import type { AppEvent } from '@shared/contract';
 
 /** Channel kinds a suggestion samples: text and announcement channels (not DMs, threads or forums). */
 const SUGGESTABLE_KINDS = new Set([0, 5]);
 
 export interface DiscordDeps {
+  emit(event: AppEvent): void;
   win: BrowserWindow;
   core: CoreClient;
   sync: SyncService;
@@ -61,7 +65,7 @@ export interface DiscordDeps {
   /** The account's chat settings: writes go through it, one at a time. */
   chatSettings: Pick<AccountChatSettings, 'write'>;
   /** Servers and channels from the client's gateway. */
-  directory: Pick<GatewayDirectory, 'guildList'>;
+  directory: Pick<GatewayDirectory, 'guildList' | 'channelsOf'>;
 }
 
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
@@ -73,6 +77,15 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   // Posting calls' requests go through `poster`, which checks the lock before every attempt; reactions and reads don't.
   const poster = postingClient(d.owner, d.posting);
   const account = new OwnerAccount(d.discord.tap);
+  const savedAccess = new SavedAccess(d.discord.tap, d.directory, d.core);
+  const saved = new SavedMessages({ client: poster, capture: d.capture, tap: d.discord.tap,
+    filter: (items, ids) => d.core.call('filterSavedMessages', items, ids),
+    visible: (target) => d.core.call('savedTargetVisible', target), writable: (accountId) => savedAccess.channels(accountId), emit: d.emit });
+  d.core.on('event', (e) => { if (e.type === 'privacy-changed') saved.privacyChanged(); });
+  const savedMessages = (refresh?: unknown) => saved.index(refresh);
+  const savedBookmarks = (page: unknown) => saved.bookmarks(page);
+  const saveMessage = (message: unknown) => saved.save(message);
+  const removeSavedMessage = (message: unknown) => saved.remove(message);
   const tiers = new GuildTiers(d.discord.tap);
   /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
   const limitFor = async (channelId: string): Promise<number> => {
@@ -188,7 +201,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
   handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
+  const calls: DiscordCalls = gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

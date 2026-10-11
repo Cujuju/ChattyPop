@@ -5,6 +5,8 @@ import { diag } from '../diagnostics';
 
 /** Gateway dispatch as the client received it. `t` is the event name, `d` its payload. */
 export interface GatewayDispatch {
+  /** Passive socket provenance prevents delayed frames from a previous login authorizing a new one. */
+  socketId?: string;
   t: string;
   s: number | null;
   d: unknown;
@@ -36,6 +38,7 @@ type Decoder = { write(chunk: Buffer): Promise<string> };
 
 /** A frame sent on the gateway socket: its opcode and payload. */
 export interface GatewaySend {
+  socketId?: string;
   op: number;
   d: unknown;
 }
@@ -122,7 +125,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
       return;
     }
     if (method === 'Network.webSocketFrameSent') {
-      if (this.decoders.has(String(params['requestId']))) this.onSent(params['response'] as { opcode: number; payloadData: string });
+      if (this.decoders.has(String(params['requestId']))) this.onSent(params['response'] as { opcode: number; payloadData: string }, String(params['requestId']));
       return;
     }
     if (method === 'Network.webSocketClosed') {
@@ -148,7 +151,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     const chunk = opcode === 2 ? Buffer.from(payloadData, 'base64') : Buffer.from(payloadData, 'utf8');
     decoder
       .write(chunk)
-      .then((json) => this.onPayload(json))
+      .then((json) => this.onPayload(json, String(params['requestId'])))
       .catch((error: unknown) => {
         this.stats.decodeErrors++;
         if (this.stats.decodeErrors <= TAP_DIAGNOSTIC_FAILURES_LOGGED) {
@@ -162,7 +165,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
   }
 
   /** A text frame sent (the client sends JSON uncompressed); binary ones carry no shape to read. */
-  private onSent({ opcode, payloadData }: { opcode: number; payloadData: string }): void {
+  private onSent({ opcode, payloadData }: { opcode: number; payloadData: string }, socketId: string): void {
     if (opcode !== WS_TEXT_OPCODE) return;
     let msg: { op?: unknown; d?: unknown };
     try {
@@ -170,17 +173,17 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     } catch {
       return;
     }
-    if (typeof msg.op === 'number') this.emit('sent', { op: msg.op, d: msg.d });
+    if (typeof msg.op === 'number') this.emit('sent', { op: msg.op, d: msg.d, socketId });
   }
 
-  private onPayload(json: string): void {
+  private onPayload(json: string, socketId: string): void {
     this.diagnosticPayloads++;
     const msg = JSON.parse(json) as { op: number; t: string | null; s: number | null; d: unknown };
     if (msg.op === INVALID_SESSION_OP) diag('gateway-invalid-session', { resumable: msg.d });
     if (msg.op !== DISPATCH_OP || !msg.t) return;
     if (msg.t === 'READY') diag('gateway-ready');
     this.stats.events[msg.t] = (this.stats.events[msg.t] ?? 0) + 1;
-    this.emit('dispatch', { t: msg.t, s: msg.s, d: msg.d });
+    this.emit('dispatch', { t: msg.t, s: msg.s, d: msg.d, socketId });
   }
 }
 

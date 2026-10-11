@@ -1,7 +1,7 @@
 // Shared placement ordering and host slot anchors.
 
 /** Built-in panels, in the top bar's order (renderer panels/titles.ts PANEL_TITLES). */
-export const HOST_PANELS = ['channels', 'sync-status', 'chat', 'status-bar'] as const;
+export const HOST_PANELS = ['channels', 'sync-status', 'chat', 'bookmarks', 'status-bar'] as const;
 export type HostPanelId = (typeof HOST_PANELS)[number];
 
 /** Settings tabs (renderer SettingsDialog). */
@@ -30,7 +30,7 @@ export type HostRuleTemplateId = (typeof HOST_RULE_TEMPLATES)[number];
  * Fixed message-menu groups, including groups whose items may be empty; `delete` is always empty, an anchor. `attachment`:
  * the pressed attachment's items (attachmentMenu).
  */
-export const HOST_MESSAGE_MENU_GROUPS = ['selection', 'attachment', 'views', 'copy', 'jev', 'delete'] as const;
+export const HOST_MESSAGE_MENU_GROUPS = ['selection', 'attachment', 'saved', 'views', 'copy', 'jev', 'delete'] as const;
 export type HostMessageMenuGroupId = (typeof HOST_MESSAGE_MENU_GROUPS)[number];
 
 /** The Archive view's footer under the log: the message box. */

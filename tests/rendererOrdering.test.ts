@@ -59,7 +59,7 @@ it('orders the top bar and Add-below menu by panel anchors and collapses splits 
   const panelAnchor = (id: string) => catalog.panels[id] ?? undefined;
   const fixtureIds = panelsOf(FIXTURE_PLUGINS).map((p) => p.id);
   const order = placeByAnchor<string>(Object.keys(PANEL_TITLES), fixtureIds, (id) => id, panelAnchor);
-  expect(order).toEqual(['channels', 'sync-status', DIGEST_PANEL, USAGE_PANEL, 'chat', NOTES_PANEL, EXTRA_PANEL, 'status-bar']);
+  expect(order).toEqual(['channels', 'sync-status', DIGEST_PANEL, USAGE_PANEL, 'chat', NOTES_PANEL, EXTRA_PANEL, 'bookmarks', 'status-bar']);
   // The usage panel's anchor is Digest's panel: left out, the usage panel takes Digest's own anchor.
   const withoutDigest = placeByAnchor<string>(Object.keys(PANEL_TITLES), fixtureIds.filter((id) => id !== DIGEST_PANEL), (id) => id, panelAnchor);
   expect(withoutDigest).toEqual(order.filter((id) => id !== DIGEST_PANEL));

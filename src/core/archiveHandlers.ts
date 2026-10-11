@@ -7,6 +7,7 @@ import { directory } from './queries/directory';
 import { archivedBots } from './queries/bots';
 import { messagePage, messageWindow, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
+import { filterSavedMessages, savedTargetVisible, savedWritableChannels } from './queries/savedMessages';
 import { lastReader, markRead, newestMessageId, unreadMark, unreadSnapshot } from './queries/readMarks';
 import { putGuildOrder } from './queries/guildOrder';
 import { putReadStates } from './queries/readStates';
@@ -38,6 +39,9 @@ type Handlers = Pick<
   | 'setChannelPolicy'
   | 'setGuildHideInPrivacy'
   | 'privacyScope'
+  | 'filterSavedMessages'
+  | 'savedTargetVisible'
+  | 'savedWritableChannels'
   | 'ingestMessages'
   | 'applyGatewayEvent'
   | 'replaceGuildRoles'
@@ -153,6 +157,9 @@ export function archiveHandlers(o: {
       o.emit({ type: 'privacy-changed' });
     },
     privacyScope: () => privacyScope(o.ready().db),
+    filterSavedMessages: (items, ids) => filterSavedMessages(o.ready().db, items, ids),
+    savedTargetVisible: (target) => savedTargetVisible(o.ready().db, target),
+    savedWritableChannels: (accountId) => o.selfId() === accountId ? savedWritableChannels(o.ready().db, accountId) : [],
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
       const r = archive().ingestMessages(messages, ARRIVAL.sync);

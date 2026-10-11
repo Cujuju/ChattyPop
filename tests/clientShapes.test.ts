@@ -52,7 +52,7 @@ describe('client shapes', () => {
     expect(reports).toHaveLength(3);
   });
 
-  it("learns the client's API requests and gateway sends, not ChattyPop's", () => {
+  it("learns the client's API requests and gateway sends, not ChattyPop's", async () => {
     let before: ((d: { method: string; url: string; uploadData?: { bytes?: Buffer }[] }, cb: () => void) => void) | undefined;
     const session = { webRequest: { onBeforeRequest: (_f: unknown, l: typeof before) => (before = l), onBeforeSendHeaders: () => undefined, onCompleted: () => undefined } };
     const capture = new HeaderCapture(session as never);
@@ -83,10 +83,14 @@ describe('client shapes', () => {
     cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: JSON.stringify({ op: 1, d: 5 }) } });
     cdp!({}, 'Network.webSocketFrameSent', { requestId: 'r', response: { opcode: 1, payloadData: search } });
     expect(sent).toEqual([
-      ['client', { op: 8, d: { query: 'a' } }],
-      ['client', { op: 1, d: 5 }],
-      ['client', { op: 8, d: { query: 'a' } }],
+      ['client', { op: 8, d: { query: 'a' }, socketId: 'r' }],
+      ['client', { op: 1, d: 5, socketId: 'r' }],
+      ['client', { op: 8, d: { query: 'a' }, socketId: 'r' }],
     ]);
+    const received: unknown[] = [];
+    tap.on('dispatch', (d) => received.push(d));
+    cdp!({}, 'Network.webSocketFrameReceived', { requestId: 'r', response: { opcode: 1, payloadData: JSON.stringify({ op: 0, t: 'READY', s: 1, d: { user: { id: C } } }) } });
+    await vi.waitFor(() => expect(received).toEqual([{ t: 'READY', s: 1, d: { user: { id: C } }, socketId: 'r' }]));
     expect(gatewayRoute(8)).toBe('gateway op 8');
   });
 });

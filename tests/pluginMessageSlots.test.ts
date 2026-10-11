@@ -40,6 +40,8 @@ vi.mock('../src/renderer/src/state/ui', () => ({
   setJevCheckFor: () => undefined,
 }));
 
+vi.mock('../src/renderer/src/state/savedMessages', () => ({ savedMenuItems: () => [], prepareSavedMenu: () => undefined }));
+
 // Renderer modules: imported by path so the node type-check doesn't follow them (they name DOM types).
 const slotsPath = '../src/renderer/src/plugins/messageSlots';
 const actionsPath = '../src/renderer/src/state/messageActions';

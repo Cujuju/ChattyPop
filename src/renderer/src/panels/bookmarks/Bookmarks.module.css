@@ -1,0 +1,191 @@
+/* Bookmarks panel (Bookmarks.tsx): toolbar, two filter tabs, then the scrolling list of bookmark rows.
+   Hooks: .tab[aria-pressed], .due[data-overdue='true'], .error[role='alert']. Only .list scrolls. */
+
+.root {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--cp-space-4) var(--cp-panel-pad-x) var(--cp-space-2);
+}
+
+.toolbar button,
+.actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cp-space-2);
+  height: var(--cp-btn-h-sm);
+  min-width: var(--cp-hit-min);
+  padding: 0 var(--cp-space-4);
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+  transition:
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.toolbar button:hover:not(:disabled),
+.actions button:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+  background: var(--cp-surface-5);
+}
+
+.toolbar button:disabled,
+.actions button:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+/* Segmented filter: a recessed track; the pressed tab is raised. */
+.tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--cp-space-1);
+  margin: 0 var(--cp-panel-pad-x) var(--cp-space-4);
+  padding: var(--cp-space-1);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-1);
+}
+
+.tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--cp-seg-h);
+  min-height: var(--cp-hit-min);
+  padding: 0 var(--cp-space-4);
+  border: 0;
+  border-radius: var(--cp-radius-sm);
+  background: transparent;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tabs button:hover {
+  color: var(--cp-text-1);
+}
+
+.tabs button[aria-pressed='true'] {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.tabs button:focus-visible,
+.toolbar button:focus-visible,
+.actions button:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-2);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--cp-panel-pad-x) var(--cp-space-7);
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+  padding: var(--cp-space-5) var(--cp-space-6);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-2);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--cp-space-1) var(--cp-space-4);
+  min-width: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-tight);
+}
+
+.meta > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.meta > :first-child {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.summary {
+  margin: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+/* Reminder time: muted while pending, danger once past due. */
+.due {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.due[data-overdue='true'] {
+  color: var(--cp-danger);
+  font-weight: var(--cp-weight-semibold);
+}
+
+/* Empty, loading and error notes sit at the top of the list area. */
+.empty,
+.error {
+  margin: 0;
+  padding: var(--cp-space-6) var(--cp-panel-pad-x);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  color: var(--cp-text-muted);
+}
+
+.error {
+  color: var(--cp-danger);
+}

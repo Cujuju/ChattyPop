@@ -159,7 +159,7 @@ describe('when posting locks', () => {
 const VIEWS = join(import.meta.dirname, '../src/renderer/src');
 const VIEW_GATES: [what: string, file: string, gate: RegExp][] = [
   ["the DMs header's New message", 'panels/channels/Dms.tsx', /<Show when=\{!inCompanion && postingUnlocked\(\)\}>\s*<button[^>]*aria-label="New message"/],
-  ['the posting windows and dialogs', 'frame/Overlays.tsx', /<Show when=\{postingUnlocked\(\)\}>\s*<NewMessageWindow \/>\s*<DmDialog \/>\s*<DeleteMessageDialog \/>\s*<ModifyAttachmentDialog \/>\s*<DeleteAttachmentDialog \/>\s*<BotModalWindow \/>\s*<\/Show>/],
+  ['the posting windows and dialogs', 'frame/Overlays.tsx', /<Show when=\{postingUnlocked\(\)\}>\s*<ReminderDialog \/>\s*<NewMessageWindow \/>\s*<DmDialog \/>\s*<DeleteMessageDialog \/>\s*<ModifyAttachmentDialog \/>\s*<DeleteAttachmentDialog \/>\s*<BotModalWindow \/>\s*<\/Show>/],
   ["a bot message's buttons", 'panels/chat/MessageComponents.tsx', /disabled=\{b\.disabled \|\|[^}]*!postingUnlocked\(\)\}/],
   ["a bot message's menus", 'panels/chat/MessageComponents.tsx', /const disabled = \(\): boolean => s\.disabled \|\|[^;]*!postingUnlocked\(\);/],
   ['swipe to reply', 'panels/chat/rowGestures.ts', /reply: \{ run: startReply, allowed: \(m\) => postingUnlocked\(\) && canReply\(m\) \}/],

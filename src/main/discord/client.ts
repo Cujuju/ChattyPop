@@ -10,8 +10,12 @@ export interface RequestContext {
 
 /** One request's own options. */
 export interface RequestOptions {
+  /** A native read that does not retry server failures; route/global 429 handling remains shared. */
+  retryServerErrors?: false;
   /** Run just before each attempt is sent, after any queue wait; throwing aborts the request unsent. */
   guard?: () => void | Promise<void>;
+  /** Synchronous final check after all async guards, immediately before captured headers are attached. */
+  verify?: () => void;
 }
 
 /** One write's own options. */

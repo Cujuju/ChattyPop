@@ -1,5 +1,6 @@
 // Typed renderer/main/core API contracts re-export shared data types and renderer interfaces from one import.
 import type { PluginCallResult } from './pluginCall';
+import type { SavedMessage, SavedTarget, SavedVisible, SavedChannelAccess } from './savedMessages';
 import type { Audience } from './pluginChannels';
 import type { UsedCommand } from './commands';
 import type { OwnerReaction, UsedEmoji } from './compose';
@@ -138,6 +139,10 @@ export interface CoreMethods {
   /** Marks a server private: hidden, with all its channels, while privacy mode is on. */
   setGuildHideInPrivacy(guildId: string, on: boolean): void;
   privacyScope(): PrivacyScope;
+  /** Main-only filtering of native saved-message summaries through the archive's privacy scope. */
+  filterSavedMessages(items: SavedMessage[], bookmarkIds: string[]): SavedVisible;
+  savedTargetVisible(target: SavedTarget): boolean;
+  savedWritableChannels(accountId: string): SavedChannelAccess[];
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
   /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */

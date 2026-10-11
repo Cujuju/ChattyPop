@@ -80,6 +80,11 @@
   --cp-section: var(--cp-section-stats);
 }
 
+/* Bookmarks take Plans' apricot: saved messages carry reminder dates, the same "dates and commitments" hue. */
+[data-section='bookmarks'] {
+  --cp-section: var(--cp-section-plans);
+}
+
 /* Plugin panels share one neutral identity: the plugin, not the host, decides what they are. */
 [data-section='plugin'] {
   --cp-section: var(--cp-text-2);

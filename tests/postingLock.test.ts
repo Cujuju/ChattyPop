@@ -33,7 +33,7 @@ const REACTION = `channels/${CHANNEL}/messages/${MESSAGE}/reactions/%F0%9F%91%8D
 const ACK = `channels/${CHANNEL}/messages/${MESSAGE}/ack`;
 /** Calls that write but are exempt from the lock (owner's choice), and reads, which aren't writes. */
 const EXEMPT = ['react', 'setChatSettings'];
-const READS = ['refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'uploadLimit', 'shownChannel', 'probe', 'friends', 'scheduledAvailability', 'scheduledMessages'];
+const READS = ['savedMessages', 'savedBookmarks', 'refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'uploadLimit', 'shownChannel', 'probe', 'friends', 'scheduledAvailability', 'scheduledMessages'];
 
 const info = (id: string, status: PluginInfo['status']): PluginInfo =>
   ({ key: id, conflict: false, id, name: id, version: '1.0.0', description: null, dir: '', bundled: true, origin: 'bundled', status, error: null, commands: [], renderer: null }) as PluginInfo;
@@ -57,20 +57,21 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
   env.handlers.clear();
   const state = { list: LOCKED };
   const api = owner(() => queued?.(state));
-  const core = { call: vi.fn(async (_method: string, ...args: unknown[]) => args[0]) };
+  const core = { on: () => undefined, call: vi.fn(async (_method: string, ...args: unknown[]) => args[0]) };
   const calls = registerDiscordHandlers({
     win: {} as never,
     core: core as never,
     sync: {} as never,
     owner: api,
-    capture: {} as never,
+    capture: { onInvalidated: () => () => undefined, onCaptured: () => () => undefined } as never,
+    emit: () => undefined,
     discordSession: {} as never,
     discord: { tap: new EventEmitter(), webContents: { debugger: {} }, shownChannel: null } as never,
     emojiIndex: {} as never,
     readStates: { settingsChanged: () => undefined },
     posting: postingGate(async () => state.list),
     chatSettings: { write: async () => undefined },
-    directory: { guildList: () => [] },
+    directory: { guildList: () => [], channelsOf: () => [] },
   });
   const hub = new PhoneHub({ core: core as never, discord: () => calls, main: async () => undefined, media: async () => new Response(), active: () => true });
   const invoke = (name: keyof typeof MAIN_INVOKE.discord, ...args: unknown[]) => env.handlers.get(MAIN_INVOKE.discord[name])!({}, ...args);
