@@ -558,6 +558,8 @@
       "archiveChannelId",
       "archiveLoads",
       "createPhoneRendererApi",
+      "createRemoteRendererApi",
+      "desktopShell",
       "focusMessageId",
       "installRendererApi",
       "longPressOpensMenus",
@@ -574,6 +576,7 @@
       "searchOpen",
       "showPhoneTextSize",
       "startPage",
+      "startRemoteDesktop",
       "swipeOutcome"
     ]
   }

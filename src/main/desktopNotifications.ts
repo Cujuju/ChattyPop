@@ -2,7 +2,7 @@
 import { Notification, type BrowserWindow } from 'electron';
 import type { AppEvent } from '@shared/contract';
 import type { Notice } from '@shared/notices';
-import type { DeliveredNotification } from '@shared/notifications';
+import { targetEvent, type DeliveredNotification } from '@shared/notifications';
 import { diag } from './diagnostics';
 import { raiseWindow } from './windowState';
 
@@ -27,16 +27,8 @@ export function notifyDesktop(
   });
   n.on('click', () => {
     if (!raiseWindow(win)) return;
-    const target = notice.target;
-    if (target?.kind === 'message') toMain({
-      type: 'open-message',
-      channelId: target.channelId,
-      messageId: target.messageId,
-    });
-    if (target?.kind === 'panel') toMain({
-      type: 'open-panel',
-      panelId: target.panelId,
-    });
+    const opens = targetEvent(notice.target);
+    if (opens) toMain(opens);
   });
   show(n, notice.kind);
 }

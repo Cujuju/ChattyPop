@@ -1,5 +1,6 @@
 // Notification delivery requests shared by main, plugins and the companion.
 import type { Notice, NoticeKind } from './notices';
+import type { AppEvent } from './types/ipc';
 
 /** What a notification click opens; null raises the app without navigating. */
 export type NotificationTarget =
@@ -33,6 +34,13 @@ export const DEFAULT_NOTICE_KIND: NoticeKind = 'plugin';
 
 /** A request as the transports get it: its kind settled by the service. */
 export type DeliveredNotification = Omit<NotificationRequest, 'aboutChannels'> & { kind: NoticeKind };
+
+/** What a click on a notice asks of the window it raises: open the message, or the panel, it names; null for neither. */
+export function targetEvent(target: NotificationTarget): AppEvent | null {
+  if (target?.kind === 'message') return { type: 'open-message', channelId: target.channelId, messageId: target.messageId };
+  if (target?.kind === 'panel') return { type: 'open-panel', panelId: target.panelId };
+  return null;
+}
 
 /** Main's settings-aware delivery service, for a plugin whose declared notice kinds are `K`. */
 export interface Notifications<K extends string = NoticeKind> {

@@ -1,6 +1,10 @@
 // First-party phone/page SDK exposes transport plumbing, root and host shell slots. Only declared phone transport plugins may import it.
 export { createPhoneRendererApi, type PhoneRendererApi, type PhoneTransport } from './phoneApi';
 export { installRendererApi, pageEvents, pageFetch, reloadPage } from './transport';
+// A remote desktop's page: the desktop UI over the transport, and the client app's shell around it.
+export { createRemoteRendererApi, startRemoteDesktop, type RemoteRendererApi, type RemoteTransport } from './remoteApi';
+export { desktopShell, type DesktopShell } from '@shared/desktopShell';
+export type { DeliveredNotification } from '@shared/notifications';
 export type { ExportFormat, HtmlPage, PdfPage } from '@shared/htmlPage';
 export { showPhoneTextSize, startPage } from './page';
 export type { AppEvent } from '@shared/contract';
