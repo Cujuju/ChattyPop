@@ -30,13 +30,17 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private static let photosHandler = "shellPhotos"
     private static let photosEvent = "cp-shell-photos"
     /// Mirrors SHELL_CAPABILITIES in src/shared/shell.ts: the native features this build has, which the page offers and no others.
-    private static let capabilities = ["camera", "saveMedia", "network", "photoLibrary", "photoPicker", "documentPicker"]
+    private static let capabilities = ["camera", "saveMedia", "network", "photoLibrary", "photoPicker", "documentPicker", "emojiCache"]
     /// WKSecurityOrigin reports a scheme's default port as 0; the saved origin is https.
     private static let httpsDefaultPort = 443
     /// One per process: a new controller (re-pairing) mustn't purge a capture still being saved.
     private static let mediaSaver = ShellMediaSaver()
     /// One per process, like mediaSaver: its exports outlive a re-pairing's new controller.
     private static let photoLibrary = ShellPhotoLibrary()
+    /// One serialized durable store across controller replacements; each controller has its own request lifetime.
+    private static let emojiStore = ShellEmojiStore()
+    private var emojiCache: ShellEmojiCache?
+    private var emojiPairing: EmojiPairingContext?
     private let network = ShellNetworkMonitor()
     private let attachmentViewer = ShellAttachmentViewer()
     /// Launch notification retained until Capacitor’s first bridge forwards it to the push delegate.
@@ -47,6 +51,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     private var pairingURL: URL?
     private var cookieStore: WKHTTPCookieStore?
     private var cookieRevision = 0
+    private var cookieLookupInFlight = false
+    private var cookieLookupQueued = false
     /// Last keyboard frame in screen coordinates, reused after window changes.
     private var keyboardFrame: CGRect?
     /// Latest bottom keyboard coverage published to the page.
@@ -113,6 +119,7 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
                     NSLog("Could not clear companion pairing in the shared Keychain.")
                 }
                 UserDefaults.standard.set(link.origin.absoluteString, forKey: originKey)
+                (window.rootViewController as? ShellViewController)?.emojiCache?.close()
                 let controller = ShellViewController()
                 controller.pairingURL = link.page
                 window.rootViewController = controller
@@ -167,8 +174,18 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         // On load, after the page's scripts have added their listeners, asks for the network state.
         let ready = "addEventListener('load', () => window.webkit?.messageHandlers?.\(Self.networkHandler)?.postMessage(null));"
         configuration.userContentController.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        configuration.setURLSchemeHandler(ShellAssetSchemeHandler(thumbnails: Self.photoLibrary.thumbnails) { Self.savedOrigin },
+        let cache = ShellEmojiCache(store: Self.emojiStore, downloader: ShellEmojiDownloader())
+        emojiCache = cache
+        configuration.setURLSchemeHandler(ShellAssetSchemeHandler(thumbnails: Self.photoLibrary.thumbnails, emoji: cache) { Self.savedOrigin },
                                         forURLScheme: ShellAssetSchemeHandler.scheme)
+        // Register before the initial page can request images. Loads await the first validated cookie snapshot.
+        let store = configuration.websiteDataStore.httpCookieStore
+        cookieStore = store
+        store.add(self)
+        if origin == nil { cache.replacePairing(with: nil) }
+        else { cookiesDidChange(in: store) }
+        NotificationCenter.default.addObserver(self, selector: #selector(emojiBackgrounded), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(emojiForegrounded), name: UIApplication.willEnterForegroundNotification, object: nil)
         let view = PairingWebView(frame: frame, configuration: configuration)
         view.initialURL = pairingURL
         pairingURL = nil
@@ -202,18 +219,23 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
         }, contentWorld: .page, name: Self.photosHandler)
         Self.photoLibrary.changed = { [weak self] in self?.publishPhotosChanged() }
         network.start { [weak self] _ in self?.publishNetwork() }
-        let store = webView.configuration.websiteDataStore.httpCookieStore
-        cookieStore = store
-        store.add(self)
-        cookiesDidChange(in: store)
     }
 
     func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
         guard let origin, let host = origin.host else { return }
         cookieRevision += 1
+        if cookieLookupInFlight { cookieLookupQueued = true; return }
+        cookieLookupInFlight = true
         let revision = cookieRevision
         cookieStore.getAllCookies { [weak self] cookies in
-            guard let self, revision == self.cookieRevision, origin == Self.savedOrigin else { return }
+            guard let self else { return }
+            self.cookieLookupInFlight = false
+            guard origin == Self.savedOrigin else { self.emojiCache?.close(); return }
+            if self.cookieLookupQueued || revision != self.cookieRevision {
+                self.cookieLookupQueued = false
+                self.cookiesDidChange(in: cookieStore)
+                return
+            }
             let cookie = cookies.first {
                 $0.name == SharedPairing.cookieName &&
                 ($0.domain == host || $0.domain == ".\(host)") && $0.path == "/" && $0.isSecure &&
@@ -224,7 +246,21 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
             } catch {
                 NSLog("Could not update companion pairing in the shared Keychain.")
             }
+            let candidate = cookie.flatMap { EmojiPairingContext(origin: origin, token: $0.value) }
+            let context = candidate?.namespace == self.emojiPairing?.namespace ? self.emojiPairing : candidate
+            self.emojiPairing = context
+            self.emojiCache?.replacePairing(with: context)
         }
+    }
+
+    @objc private func emojiBackgrounded() { emojiCache?.suspend() }
+    @objc private func emojiForegrounded() {
+        if let cookieStore { cookiesDidChange(in: cookieStore) }
+    }
+
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        emojiCache?.purgeMemory()
     }
 
     fileprivate func retry(_ message: WKScriptMessage) {
@@ -379,6 +415,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
     }
 
     deinit {
+        let cache = emojiCache
+        Task { @MainActor in cache?.close() }
         let scripts = webView?.configuration.userContentController
         scripts?.removeScriptMessageHandler(forName: Self.retryHandler)
         scripts?.removeScriptMessageHandler(forName: Self.backdropHandler)
