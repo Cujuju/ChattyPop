@@ -216,15 +216,15 @@ describe('network access', () => {
     const auth: (string | null)[] = [];
     const sent = vi.fn(async (u: URL, init: RequestInit) => {
       const h = new Headers(init.headers);
-      auth.push([h.get('authorization'), h.get('cookie'), h.get('proxy-authorization')].join('|'));
+      auth.push([h.get('authorization'), h.get('cookie'), h.get('proxy-authorization'), h.get('x-api-key')].join('|'));
       if (u.href === 'https://example.com/a') return new Response(null, { status: 307, headers: { location: '/b' } });
       if (u.href === 'https://example.com/b') return new Response(null, { status: 307, headers: { location: 'https://cdn.example.com/c' } });
       return new Response('ok');
     });
     vi.stubGlobal('fetch', sent);
     const get = pluginFetch('p', ['example.com'], noOwnerUrls);
-    await get('https://example.com/a', { method: 'POST', body: '{}', headers: { authorization: 'Bearer sk', cookie: 'c=1', 'proxy-authorization': 'p' } });
-    expect(auth).toEqual(['Bearer sk|c=1|p', 'Bearer sk|c=1|p', '||']);
+    await get('https://example.com/a', { method: 'POST', body: '{}', headers: { authorization: 'Bearer sk', cookie: 'c=1', 'proxy-authorization': 'p', 'x-api-key': 'test-key' } });
+    expect(auth).toEqual(['Bearer sk|c=1|p|test-key', 'Bearer sk|c=1|p|test-key', '|||']);
   });
 
   it('treats a trailing-dot hostname as the same host: Discord stays unreachable, listed hosts still match', async () => {

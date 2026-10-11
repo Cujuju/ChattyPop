@@ -24,7 +24,7 @@ export function hostListed(hosts: readonly string[], hostname: string): boolean 
 }
 
 /** Request headers a redirect to another origin drops, as native fetch does: credentials and the explicit host. */
-const CROSS_ORIGIN_DROPPED = ['authorization', 'proxy-authorization', 'cookie', 'host'];
+const CROSS_ORIGIN_DROPPED = ['authorization', 'proxy-authorization', 'cookie', 'host', 'x-api-key'];
 /** Body headers dropped when a redirect turns the request into a GET, as native fetch does. */
 const BODY_HEADERS = ['content-type', 'content-encoding', 'content-language', 'content-location'];
 const without = (headers: RequestInit['headers'], names: readonly string[]): Headers => {
