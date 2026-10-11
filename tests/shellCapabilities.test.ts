@@ -34,7 +34,7 @@ describe('shellCapabilities', () => {
     expect(shellHas(SHELL_CAPABILITIES.photoLibrary)).toBe(false);
   });
 
-  it('is what this checkout\'s app lists, and nothing it does not know', () => {
+  it('the app lists every implemented capability', () => {
     const listed = /static let capabilities = \[([^\]]*)\]/.exec(SWIFT)?.[1]?.match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1));
     expect(listed?.sort()).toEqual([...ALL].sort());
   });

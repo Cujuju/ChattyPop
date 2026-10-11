@@ -64,6 +64,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm test:ios-cache
       - run: pnpm build
 
   release-on-sdk-change:

@@ -29,6 +29,16 @@
 		C0A1E500000000000000000A /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000002 /* ShareViewController.swift */; };
 		C0A1E500000000000000000B /* SharedPairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1DBC11AFFF54EBAB5B735D4 /* SharedPairing.swift */; };
 		C0A1E500000000000000000C /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C0A1E5000000000000000001 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C0E004000000000000000001 /* ShellEmojiTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E004000000000000000000 /* ShellEmojiTypes.swift */; };
+		C0E004000000000000000003 /* ShellEmojiStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E004000000000000000002 /* ShellEmojiStore.swift */; };
+		C0E004000000000000000005 /* ShellEmojiDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E004000000000000000004 /* ShellEmojiDownloader.swift */; };
+		C0E004000000000000000007 /* ShellEmojiCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E004000000000000000006 /* ShellEmojiCache.swift */; };
+		C0E044000000000000000101 /* ShellEmojiSchemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000100; };
+		C0E044000000000000000103 /* EmojiCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000102; };
+		C0E044000000000000000105 /* EmojiDownloaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000104; };
+		C0E044000000000000000107 /* EmojiStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000106; };
+		C0E044000000000000000109 /* EmojiTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000108; };
+		C0E04400000000000000010B /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E04400000000000000010A; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,6 +49,7 @@
 			remoteGlobalIDString = C0A1E5000000000000000006;
 			remoteInfo = ShareExtension;
 		};
+		C0E04400000000000000001A = {isa = PBXContainerItemProxy; containerPortal = 504EC2FC1FED79650016851F; proxyType = 1; remoteGlobalIDString = 504EC3031FED79650016851F; remoteInfo = App; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -82,6 +93,17 @@
 		C0A1E5000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C0A1E5000000000000000004 /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
 		C0A1E5000000000000000013 /* Project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Project.xcconfig; sourceTree = "<group>"; };
+		C0E004000000000000000000 /* ShellEmojiTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEmojiTypes.swift; sourceTree = "<group>"; };
+		C0E004000000000000000002 /* ShellEmojiStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEmojiStore.swift; sourceTree = "<group>"; };
+		C0E004000000000000000004 /* ShellEmojiDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEmojiDownloader.swift; sourceTree = "<group>"; };
+		C0E004000000000000000006 /* ShellEmojiCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellEmojiCache.swift; sourceTree = "<group>"; };
+		C0E044000000000000000100 /* ShellEmojiSchemeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ShellEmojiSchemeTests.swift"; sourceTree = "<group>"; };
+		C0E044000000000000000102 /* EmojiCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiCacheTests.swift"; sourceTree = SOURCE_ROOT; };
+		C0E044000000000000000104 /* EmojiDownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiDownloaderTests.swift"; sourceTree = SOURCE_ROOT; };
+		C0E044000000000000000106 /* EmojiStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiStoreTests.swift"; sourceTree = SOURCE_ROOT; };
+		C0E044000000000000000108 /* EmojiTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiTypesTests.swift"; sourceTree = SOURCE_ROOT; };
+		C0E04400000000000000010A /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/TestSupport.swift"; sourceTree = SOURCE_ROOT; };
+		C0E044000000000000000011 /* AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +122,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0E044000000000000000014 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -108,6 +131,7 @@
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				C0A1E5000000000000000013 /* Project.xcconfig */,
+				C0E044000000000000000012 /* AppTests */,
 				504EC3061FED79650016851F /* App */,
 				C0A1E5000000000000000005 /* ShareExtension */,
 				504EC3051FED79650016851F /* Products */,
@@ -117,6 +141,7 @@
 		504EC3051FED79650016851F /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				C0E044000000000000000011 /* AppTests.xctest */,
 				504EC3041FED79650016851F /* App.app */,
 				C0A1E5000000000000000001 /* ShareExtension.appex */,
 			);
@@ -126,6 +151,10 @@
 		504EC3061FED79650016851F /* App */ = {
 			isa = PBXGroup;
 			children = (
+				C0E004000000000000000000 /* ShellEmojiTypes.swift */,
+				C0E004000000000000000002 /* ShellEmojiStore.swift */,
+				C0E004000000000000000004 /* ShellEmojiDownloader.swift */,
+				C0E004000000000000000006 /* ShellEmojiCache.swift */,
 				7795E2E077A24C048E07B94A /* ShellViewController.swift */,
 				C0A1E5000000000000000014 /* ShellMediaSaver.swift */,
 				C0A1E5000000000000000015 /* ShellNetworkMonitor.swift */,
@@ -159,6 +188,7 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
+		C0E044000000000000000012 /* AppTests */ = {isa = PBXGroup; children = (C0E044000000000000000100, C0E044000000000000000102, C0E044000000000000000104, C0E044000000000000000106, C0E044000000000000000108, C0E04400000000000000010A,); path = AppTests; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -201,6 +231,17 @@
 			productReference = C0A1E5000000000000000001 /* ShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		C0E044000000000000000010 /* AppTests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = C0E044000000000000000018;
+            buildPhases = (C0E044000000000000000013, C0E044000000000000000014, C0E044000000000000000015,);
+            buildRules = ();
+            dependencies = (C0E044000000000000000019,);
+            name = AppTests;
+            productName = AppTests;
+            productReference = C0E044000000000000000011;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -237,6 +278,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				C0E044000000000000000010 /* AppTests */,
 				504EC3031FED79650016851F /* App */,
 				C0A1E5000000000000000006 /* ShareExtension */,
 			);
@@ -264,6 +306,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0E044000000000000000015 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -272,6 +315,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				C0E004000000000000000001 /* ShellEmojiTypes.swift in Sources */,
+				C0E004000000000000000003 /* ShellEmojiStore.swift in Sources */,
+				C0E004000000000000000005 /* ShellEmojiDownloader.swift in Sources */,
+				C0E004000000000000000007 /* ShellEmojiCache.swift in Sources */,
 				4A8E7788453B4AF4B9CFB545 /* ShellViewController.swift in Sources */,
 				C0A1E5000000000000000016 /* ShellMediaSaver.swift in Sources */,
 				C0A1E5000000000000000017 /* ShellNetworkMonitor.swift in Sources */,
@@ -295,6 +342,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C0E044000000000000000013 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C0E044000000000000000101, C0E044000000000000000103, C0E044000000000000000105, C0E044000000000000000107, C0E044000000000000000109, C0E04400000000000000010B,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -303,6 +351,7 @@
 			target = C0A1E5000000000000000006 /* ShareExtension */;
 			targetProxy = C0A1E500000000000000000E /* PBXContainerItemProxy */;
 		};
+		C0E044000000000000000019 = {isa = PBXTargetDependency; target = 504EC3031FED79650016851F; targetProxy = C0E04400000000000000001A; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -532,6 +581,36 @@
 			};
 			name = Release;
 		};
+		C0E044000000000000000016 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.cujuju.chattypop.tests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
+            };
+            name = Debug;
+        };
+		C0E044000000000000000017 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_STYLE = Automatic;
+                GENERATE_INFOPLIST_FILE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.cujuju.chattypop.tests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/App";
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -562,6 +641,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		C0E044000000000000000018 = {isa = XCConfigurationList; buildConfigurations = (C0E044000000000000000016, C0E044000000000000000017,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */

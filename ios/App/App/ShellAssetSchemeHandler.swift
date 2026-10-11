@@ -3,8 +3,9 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
 
-/// Serves SHELL_ASSET_SCHEME to the paired page: `thumb/<id>?px=<side>`, a square JPEG of a library item (ShellThumbnails).
+/// Serves SHELL_ASSET_SCHEME to the paired page: photo thumbnails and persistent v1 emoji images.
 /// The page loads them as `<img>`s: WebKit lets an https page show an app scheme's images, but not fetch from it.
+@MainActor
 final class ShellAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     // Mirrors SHELL_ASSET_SCHEME, SHELL_ASSET_HOSTS, SHELL_THUMB_SIZE_PARAM and SHELL_THUMB_PX_MAX in src/shared/shell.ts.
     static let scheme = "chattypop-asset"
@@ -23,11 +24,14 @@ final class ShellAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     /// The paired origin the page must be from; nil serves nothing.
     private let allowedOrigin: () -> URL?
     private let thumbnails: ShellThumbnails
+    private let emoji: any EmojiImageLoader
     /// Tasks WebKit hasn't stopped. Touched only on the main queue: a stopped task mustn't be answered.
     private var live = Set<ObjectIdentifier>()
+    private var emojiTokens: [ObjectIdentifier: EmojiRequestToken] = [:]
 
-    init(thumbnails: ShellThumbnails, allowedOrigin: @escaping () -> URL?) {
+    init(thumbnails: ShellThumbnails, emoji: any EmojiImageLoader, allowedOrigin: @escaping () -> URL?) {
         self.thumbnails = thumbnails
+        self.emoji = emoji
         self.allowedOrigin = allowedOrigin
         super.init()
     }
@@ -36,6 +40,24 @@ final class ShellAssetSchemeHandler: NSObject, WKURLSchemeHandler {
         live.insert(ObjectIdentifier(task))
         guard let url = task.request.url, let origin = allowedOrigin(), Self.fromPage(task.request, origin: origin) else {
             return fail(task, status: Self.forbiddenStatus)
+        }
+        // Emoji access is independent of the user's Photos permission.
+        if url.host == "emoji" {
+            guard let key = EmojiAssetKey(assetURL: url) else { return fail(task, status: Self.notFoundStatus) }
+            let id = ObjectIdentifier(task)
+            emojiTokens[id] = emoji.load(key) { [weak self] result in
+                guard let self, self.live.contains(id) else { return }
+                self.emojiTokens.removeValue(forKey: id)
+                // Pairing changes can occur while lookup/download is pending.
+                guard let current = self.allowedOrigin(), Self.fromPage(task.request, origin: current) else {
+                    return self.fail(task, status: Self.forbiddenStatus)
+                }
+                switch result {
+                case .success(let asset): self.respond(task, type: asset.contentType, data: asset.data, cache: "private, max-age=31536000, immutable")
+                case .failure: self.fail(task, status: Self.notFoundStatus)
+                }
+            }
+            return
         }
         guard url.host == Self.thumbHost, PHPhotoLibrary.authorizationStatus(for: .readWrite) != .denied else {
             return fail(task, status: Self.notFoundStatus)
@@ -52,27 +74,35 @@ final class ShellAssetSchemeHandler: NSObject, WKURLSchemeHandler {
     }
 
     func webView(_ webView: WKWebView, stop task: WKURLSchemeTask) {
-        live.remove(ObjectIdentifier(task))
+        let id = ObjectIdentifier(task)
+        live.remove(id)
+        if let token = emojiTokens.removeValue(forKey: id) { emoji.cancel(token) }
     }
 
     /// The request comes from a document on the paired origin.
     private static func fromPage(_ request: URLRequest, origin: URL) -> Bool {
-        guard let document = request.mainDocumentURL else { return false }
-        return document.scheme == origin.scheme && document.host?.lowercased() == origin.host?.lowercased() && document.port == origin.port
+        emojiSameOrigin(request.mainDocumentURL, origin)
     }
 
     private func respond(_ task: WKURLSchemeTask, type: String, data: Data, cache: String) {
-        guard live.remove(ObjectIdentifier(task)) != nil, let url = task.request.url,
+        let id = ObjectIdentifier(task)
+        guard live.contains(id), let url = task.request.url,
               let response = HTTPURLResponse(url: url, statusCode: Self.okStatus, httpVersion: nil,
                                              headerFields: ["Content-Type": type, "Content-Length": String(data.count), "Cache-Control": cache]) else { return }
         task.didReceive(response)
+        guard live.contains(id) else { return }
         task.didReceive(data)
+        guard live.contains(id) else { return }
         task.didFinish()
+        live.remove(id)
     }
 
     private func fail(_ task: WKURLSchemeTask, status: Int) {
-        guard live.remove(ObjectIdentifier(task)) != nil, let url = task.request.url else { return }
-        if let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil) { task.didReceive(response) }
+        let id = ObjectIdentifier(task)
+        guard live.contains(id), let url = task.request.url else { return }
+        if let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: ["Cache-Control": "no-store"]) { task.didReceive(response) }
+        guard live.contains(id) else { return }
         task.didFinish()
+        live.remove(id)
     }
 }

@@ -7,6 +7,10 @@ Sideloaded from Xcode or TestFlight; never the App Store.
 The shell's side of the contract is `src/shared/shell.ts` (exported by `@plugin-sdk/shared`). The routes, pairing and
 pushes below are the transport's: this doc states what the shell expects of it, not how a transport builds them.
 
+The [emoji image cache](ios-emoji-cache.md) implements persistent native storage, download limits, size eviction,
+and the versioned asset interface. Builds advertising `emojiCache` use it through the shared renderer. Catalog
+reconciliation is a subsequent phase.
+
 ## Decisions
 - **Thin shell.** The web view loads the paired desktop's phone page. UI and data stay on the desktop; only a welcome
   page and an offline page are bundled.

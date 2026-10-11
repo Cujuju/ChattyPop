@@ -34,6 +34,8 @@ export const SHELL_CAPABILITIES = {
   photoPicker: 'photoPicker',
   /** SHELL_PHOTOS_HANDLER's `browse`: the system Files browser. */
   documentPicker: 'documentPicker',
+  /** SHELL_EMOJI_CACHE_ROOT: persistent v1 emoji images. */
+  emojiCache: 'emojiCache',
 } as const;
 export type ShellCapability = (typeof SHELL_CAPABILITIES)[keyof typeof SHELL_CAPABILITIES];
 const CAPABILITY_NAMES: readonly string[] = Object.values(SHELL_CAPABILITIES);
@@ -151,8 +153,14 @@ export const SHELL_ASSET_READ_BYTES = 4 * 1024 * 1024;
  * content, with a console warning); fetch may not. The page's CSP must list it in `img-src`.
  */
 export const SHELL_ASSET_SCHEME = 'chattypop-asset';
-/** SHELL_ASSET_SCHEME hosts: `thumb/<id>?px=<side>` is a square JPEG thumbnail. */
-export const SHELL_ASSET_HOSTS = { thumb: 'thumb' } as const;
+/** SHELL_ASSET_SCHEME hosts: photo thumbnails, and versioned emoji images in builds with `emojiCache`. */
+export const SHELL_ASSET_HOSTS = { thumb: 'thumb', emoji: 'emoji' } as const;
+/** The phone media root the native emoji cache's download contract serves. Other roots keep their own URLs. */
+export const SHELL_EMOJI_SOURCE_ROOT = '/media/';
+/** Version of the native emoji image representation. v1 keeps the host's 128 px WebP and GIF bytes. */
+export const SHELL_EMOJI_CACHE_VERSION = 1;
+/** Native emoji URL prefix: `<id>.webp` (still) or `<id>.gif` (animated). Only with `emojiCache`. */
+export const SHELL_EMOJI_CACHE_ROOT = `${SHELL_ASSET_SCHEME}://${SHELL_ASSET_HOSTS.emoji}/v${SHELL_EMOJI_CACHE_VERSION}/`;
 /** Query parameter naming a thumbnail's side in device pixels. */
 export const SHELL_THUMB_SIZE_PARAM = 'px';
 /** The largest thumbnail side the app serves, in device pixels. */

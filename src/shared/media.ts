@@ -7,12 +7,15 @@ export const MEDIA_SCHEME = 'cp-media';
 
 /** Prefix of every media URL: the scheme in Electron windows; the companion server's /media/ path on a phone. */
 let mediaRoot = `${MEDIA_SCHEME}://`;
-/** Set once at startup, before anything renders. */
-export const setMediaRoot = (root: string): void => {
+/** Complete URL prefixes for routes served by the native shell instead of the page's media server. */
+let mediaRouteRoots = new Map<string, string>();
+/** Set once at startup, before anything renders. A new root replaces all route overrides too. */
+export const setMediaRoot = (root: string, routeRoots: Readonly<Record<string, string>> = {}): void => {
   mediaRoot = root;
+  mediaRouteRoots = new Map(Object.entries(routeRoots));
 };
 /** A media URL: route host (avatar, thumb, …) then the rest of the path and query. */
-export const mediaUrl = (route: string, rest: string): string => `${mediaRoot}${route}/${rest}`;
+export const mediaUrl = (route: string, rest: string): string => `${mediaRouteRoots.get(route) ?? `${mediaRoot}${route}/`}${rest}`;
 
 /** Stands in for the hash of a user with no avatar: Discord's default avatar is served instead. */
 export const DEFAULT_AVATAR = 'default';

@@ -9,6 +9,8 @@ release/
 
 # iPhone shell: generated offline page
 /mobile/www/
+/ios/.build/
+/ios/.swiftpm/
 
 # Local, per-machine
 .claude/
