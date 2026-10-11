@@ -5,7 +5,7 @@ import { RULE_FILE_EXTENSIONS, type RuleFileFormat } from '@shared/ruleKinds/hos
 import type { FileConfig, CommandConfig } from '@shared/ruleKinds/host';
 import { plugins } from '@/state/plugins';
 import { pickRuleFile } from '@/state/rules';
-import { inCompanion } from '@/state/ui';
+import { inCompanion, onServerScreen } from '@/state/ui';
 import { Show } from 'solid-js';
 import { createAction } from '@/ui/action';
 import { Select } from '@/ui/Select';
@@ -34,7 +34,7 @@ function FileEditor(props: KindProps<FileConfig>) {
         for={id('path')}
         hint={`Full path ending in ${RULE_FILE_EXTENSIONS[props.config.format].join(', ')}; created if missing, appended each run.`}
         control={
-          <Show when={!inCompanion}>
+          <Show when={onServerScreen}>
             <button type="button" class="cp-button" disabled={picking.busy()} onClick={() => void pickFile(props.config)}>
               Choose…
             </button>
@@ -48,8 +48,8 @@ function FileEditor(props: KindProps<FileConfig>) {
           value={props.config.path}
           onInput={(e) => set({ path: e.currentTarget.value })}
         />
-        <Show when={inCompanion}>
-          <Note>Choose a file on your PC, or enter its PC path here.</Note>
+        <Show when={!onServerScreen}>
+          <Note>{inCompanion ? 'Choose a file on your PC, or enter its PC path here.' : 'Choose a file on the server, or enter its path on the server here.'}</Note>
         </Show>
         <ErrorNote error={picking.error()} />
       </Row>

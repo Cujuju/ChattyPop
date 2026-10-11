@@ -2,7 +2,7 @@ import { Show } from 'solid-js';
 import type { StorageMovePhase } from '@shared/contract';
 import { BYTES_PER_MB } from '@shared/units';
 import { deletePreviousArchive, moveArchive, storageInfo, storageMove } from '@/state/storage';
-import { inCompanion } from '@/state/ui';
+import { inCompanion, onServerScreen } from '@/state/ui';
 import { Card, Note, Row } from './SettingsLayout';
 import styles from './Settings.module.css';
 
@@ -35,7 +35,7 @@ export function StorageLocation() {
         label={storageInfo()?.dir ?? '…'}
         hint="Moving copies the database and media to the new folder, checks the copy, then restarts there. The original stays until you delete it."
         control={
-          <Show when={!inCompanion}>
+          <Show when={onServerScreen}>
             <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void moveArchive()}>
               Move archive…
             </button>
@@ -61,8 +61,8 @@ export function StorageLocation() {
           />
         )}
       </Show>
-      <Show when={inCompanion}>
-        <Note>Move the archive or delete its previous copy on your PC.</Note>
+      <Show when={!onServerScreen}>
+        <Note>{inCompanion ? 'Move the archive or delete its previous copy on your PC.' : 'Move the archive on the server.'}</Note>
       </Show>
     </Card>
   );

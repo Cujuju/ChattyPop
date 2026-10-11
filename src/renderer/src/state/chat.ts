@@ -11,15 +11,21 @@ import {
 } from '@shared/settings';
 import { listen } from '@/ui/listen';
 import { createSetting } from '@plugin-sdk/renderer/settings';
-import { inCompanion } from './ui';
+import { onServerScreen } from './ui';
 import { windowsCover } from './windows';
 
 export type { ChatSource };
 
-/** Which source the chat panel shows, restored on start. The phone has no live client, only the Archive, and stores nothing. */
-export const [chatSource, setChatSource]: readonly [Accessor<ChatSource>, (v: ChatSource) => unknown, ...unknown[]] = inCompanion
-  ? createSignal<ChatSource>('archive')
-  : createSetting<ChatSource>(SETTINGS_KEYS.chatSource, DEFAULT_CHAT_SOURCE, normalizeChatSource);
+/** Which source the chat panel shows, restored on start. Off the server's screen (the phone, a remote desktop) there is no live client, only the Archive, and nothing is stored. */
+export const [chatSource, setChatSource]: readonly [Accessor<ChatSource>, (v: ChatSource) => unknown, ...unknown[]] = onServerScreen
+  ? createSetting<ChatSource>(SETTINGS_KEYS.chatSource, DEFAULT_CHAT_SOURCE, normalizeChatSource)
+  : archiveOnly();
+
+/** The source off the server's screen: always the Archive, whatever asks for the live client. */
+function archiveOnly(): readonly [Accessor<ChatSource>, (v: ChatSource) => unknown] {
+  const [source] = createSignal<ChatSource>('archive');
+  return [source, () => undefined];
+}
 
 /** Live client columns hidden or collapsed; applied to the Discord page by main while a slot is bound. */
 export const [discordSidebar, setDiscordSidebar] = createSetting<DiscordSidebar>(SETTINGS_KEYS.discordSidebar, DEFAULT_DISCORD_SIDEBAR, normalizeDiscordSidebar);

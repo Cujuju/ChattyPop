@@ -4,7 +4,7 @@ import type { ModelOption } from '@shared/contract';
 import { JEV_OPENROUTER_MODEL, type OpenRouterKeyBalance, type OpenRouterKeyInfo, type OpenRouterKeyRouting } from '@shared/openrouter';
 import { confirmDialog } from '@/state/dialogs';
 import { providerStatus, refetchProviderStatus } from '@/state/preferences';
-import { inCompanion } from '@/state/ui';
+import { inCompanion, onServerScreen } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { usdText as usd } from '@/ui/format';
 import { SearchSelect } from '@/ui/SearchSelect';
@@ -152,13 +152,13 @@ export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
             }
           />
           <Row
-            label={inCompanion ? 'Save key' : 'Save it, or sign in instead'}
+            label={onServerScreen ? 'Save it, or sign in instead' : 'Save key'}
             control={
               <div class={c.buttons}>
                 <button type="submit" class={`cp-button ${styles.button}`} disabled={busy() || !pasted().trim()}>
                   Save key
                 </button>
-                <Show when={!inCompanion}>
+                <Show when={onServerScreen}>
                   <button type="button" class={`cp-button ${styles.button}`} disabled={busy()} onClick={() => void run(api.openRouter.signIn)}>
                     {busy() ? 'Working…' : 'Sign in with OpenRouter'}
                   </button>
@@ -166,8 +166,8 @@ export function OpenRouterKeys(props: { models: ModelOption[] | null }) {
               </div>
             }
           />
-          <Show when={inCompanion}>
-            <Note>Sign in with OpenRouter on your PC, or paste a key here.</Note>
+          <Show when={!onServerScreen}>
+            <Note>Sign in with OpenRouter on {inCompanion ? 'your PC' : 'the server'}, or paste a key here.</Note>
           </Show>
         </form>
       </Card>

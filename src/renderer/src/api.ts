@@ -17,8 +17,14 @@ let draining = false;
 /** The API, if one is there yet and nothing waits: a transport's, else the preload's (present before any script in the app's windows). */
 const live = (): RendererApi | undefined => (draining ? undefined : (installed ?? window.chattypop));
 
-/** Preload calls carry desktop audiences; external page calls use the phone transport audience. */
-export const windowAudience = (): 'renderer' | 'phone' => (window.chattypop ? 'renderer' : 'phone');
+/** Where this window runs: the app's own (its preload), a remote desktop a ChattyPop server serves, or the phone. */
+export type WindowSurface = 'desktop' | 'remote' | 'phone';
+export const windowSurface = (): WindowSurface => (window.chattypop ? 'desktop' : pageSurface() === 'remote' ? 'remote' : 'phone');
+/** The surface a served page marks on its root; none in a page without a document (a worker, a test). */
+const pageSurface = (): string | undefined => (typeof document === 'undefined' ? undefined : document.documentElement?.dataset['surface']);
+
+/** Preload calls and a remote desktop's carry desktop audiences; the phone page's use the phone transport audience. */
+export const windowAudience = (): 'renderer' | 'phone' => (windowSurface() === 'phone' ? 'phone' : 'renderer');
 
 /** Installs a transport's API; calls made earlier run now, in the order they were made. Once per page. */
 export function installApi(api: RendererApi): void {

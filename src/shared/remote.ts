@@ -18,10 +18,9 @@ export const REMOTE_LOCAL_MAIN_CALLS: readonly string[] = [
 export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
   // Opens the server's browser for OAuth.
   MAIN_INVOKE.openRouter.signIn,
-  // Pick a folder, a file or a path on the server.
+  // Pick a folder or a file on the server's screen; a typed path (a rule file, a local plugin) still crosses.
   MAIN_INVOKE.storage.move,
   MAIN_INVOKE.rules.pickFile,
-  MAIN_INVOKE.marketplace.installLocal,
   PLUGINS_OPEN_FOLDER_CHANNEL,
 ];
 

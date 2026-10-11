@@ -17,6 +17,10 @@ export const PANEL_WINDOW_ID: string | null = new URLSearchParams(location.searc
 export const inPanelWindow = PANEL_WINDOW_ID !== null;
 /** The phone companion (the companion plugin's page marks its root): one panel at a time over the network, no layout. */
 export const inCompanion = document.documentElement.dataset['surface'] === 'companion';
+/** A desktop UI a ChattyPop server serves to another machine (its page marks the root): the server's own window, elsewhere. */
+export const inRemote = document.documentElement.dataset['surface'] === 'remote';
+/** This window is on the server's own screen: it may pick the server's files, open its browser and show the live client. */
+export const onServerScreen = !inCompanion && !inRemote;
 /** Panels shown outside the main window's layout (a panel window or the phone): no folding, moving or layout menus. */
 export const outsideLayout = inPanelWindow || inCompanion;
 /** Opens a panel in its own window (or focuses it). */

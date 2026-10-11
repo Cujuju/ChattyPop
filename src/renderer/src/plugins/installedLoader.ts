@@ -6,7 +6,7 @@ import { INSTALLED_INDEX, INSTALLED_PAGE_ENTRY_META, INSTALLED_PHONE_PATH, INSTA
 import { acceptInstalled, missingImportsFrom } from '@shared/installedCheck';
 import { HOST_MODULES, parseInstalledManifest, type HostModuleId, type InstalledManifest, type TierHostModules } from '@shared/installedPlugins';
 import { checkSlotViews, type SlotViewsOf } from '@shared/slots';
-import { windowAudience } from '@/api';
+import { windowSurface } from '@/api';
 import type { RendererPlugin } from './define';
 
 /** How the loader reaches the installed plugins; tests pass stand-ins. */
@@ -145,12 +145,12 @@ export async function loadRenderers(io: LoaderIo, shared: readonly SharedLoaded[
   return entries;
 }
 
-/** This window's base: the scheme in the desktop's windows (the preload's), the Companion's path on the phone page. */
-const base = (): string => (windowAudience() === 'renderer' ? `${INSTALLED_SCHEME}://` : INSTALLED_PHONE_PATH);
+/** This window's base: the scheme in the desktop's windows (the preload's), the Companion's path on its pages (phone, remote desktop). */
+const base = (): string => (windowSurface() === 'desktop' ? `${INSTALLED_SCHEME}://` : INSTALLED_PHONE_PATH);
 
 /** The window's own IO: fetch and import from main (desktop) or the Companion's server (phone), link elements, the console. */
 export function windowIo(): LoaderIo {
-  const entry = windowAudience() === 'phone' ? document.querySelector<HTMLMetaElement>(`meta[name="${INSTALLED_PAGE_ENTRY_META}"]`)?.content : undefined;
+  const entry = windowSurface() === 'phone' ? document.querySelector<HTMLMetaElement>(`meta[name="${INSTALLED_PAGE_ENTRY_META}"]`)?.content : undefined;
   const pageId = entry?.startsWith(INSTALLED_PHONE_PATH) ? entry.slice(INSTALLED_PHONE_PATH.length).split('/').shift() : undefined;
   let section: string | null = null;
   // Installed pages may remember their last section under their own namespace.

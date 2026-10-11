@@ -42,22 +42,44 @@ function elements(file: string): Element[] {
   return result;
 }
 
-function gate(element: Element, all: Element[], companion: boolean): boolean {
-  return element.ancestors.some((ancestor) => {
-    const show = all.find((candidate) => candidate.node === ancestor && candidate.name === 'Show');
-    if (!show) return false;
-    const inFallback = element.ancestors.slice(element.ancestors.indexOf(ancestor) + 1).some((node) =>
-      node.type === 'JSXAttribute' && (node['name'] as { name?: string })?.name === 'fallback');
-    return show.attrs['when'] === (companion !== inFallback ? '{inCompanion}' : '{!inCompanion}')
-      || (!companion && !inFallback && show.attrs['when']?.startsWith('{!inCompanion &&') === true);
+/** Where a Settings window runs: the app's own (on the server's screen), a remote desktop, or the phone. */
+type Surface = 'desktop' | 'remote' | 'phone';
+/** The surface flags Settings gates on (state/ui.ts), as each surface has them. */
+const FLAGS: Record<string, (s: Surface) => boolean> = {
+  inCompanion: (s) => s === 'phone',
+  onServerScreen: (s) => s === 'desktop',
+};
+
+/** A Show condition on `surface`: its surface flags evaluated, anything else (a signal) taken as true. */
+function holds(when: string, surface: Surface): boolean {
+  return when.replace(/^\{|\}$/g, '').split('&&').every((part) => {
+    const term = part.trim();
+    const negated = term.startsWith('!');
+    const flag = FLAGS[negated ? term.slice(1) : term];
+    return flag ? flag(surface) !== negated : true;
   });
 }
 
+/** Whether `element` shows on `surface`: every Show around it holds there (or fails, for its fallback). */
+function shownOn(element: Element, all: Element[], surface: Surface): boolean {
+  return element.ancestors.every((ancestor, i) => {
+    const show = all.find((candidate) => candidate.node === ancestor && candidate.name === 'Show');
+    if (!show) return true;
+    const inFallback = element.ancestors.slice(i + 1).some((node) =>
+      node.type === 'JSXAttribute' && (node['name'] as { name?: string })?.name === 'fallback');
+    return holds(show.attrs['when'] ?? '', surface) !== inFallback;
+  });
+}
+
+/** Whether `element` shows on the phone only (`companion`) or on the desktop only. */
+const gate = (element: Element, all: Element[], companion: boolean): boolean =>
+  companion ? shownOn(element, all, 'phone') && !shownOn(element, all, 'desktop') : shownOn(element, all, 'desktop') && !shownOn(element, all, 'phone');
+
 const NOTES = [
   ['StorageLocation.tsx', 'Move the archive or delete its previous copy on your PC.'],
-  ['OpenRouterKeys.tsx', 'Sign in with OpenRouter on your PC, or paste a key here.'],
-  ['PluginsSection.tsx', 'Open the plugins folder on your PC.'],
-  ['MarketplacesSection.tsx', 'Use a plugin folder or .tar.gz on your PC.'],
+  ['OpenRouterKeys.tsx', 'Sign in with OpenRouter on'],
+  ['PluginsSection.tsx', 'Open the plugins folder on'],
+  ['MarketplacesSection.tsx', 'Use a plugin folder or .tar.gz on'],
   ['rules/kinds/actions.tsx', 'Choose a file on your PC, or enter its PC path here.'],
   ['ShortcutKeys.tsx', "Change shortcuts with your PC's keyboard."],
   ['AppearanceSection.tsx', "This phone's theme and layout: Settings → Look"],
@@ -85,6 +107,29 @@ describe('phone Settings controls', () => {
     expect(gate(buttons[0]!, all, false)).toBe(true);
     expect(gate(buttons[0]!, all, true)).toBe(false);
   });
+
+  it.each([
+    ['StorageLocation.tsx', 'moveArchive', false],
+    ['StorageLocation.tsx', 'deletePreviousArchive', true],
+    ['OpenRouterKeys.tsx', 'api.openRouter.signIn', false],
+    ['PluginsSection.tsx', 'openPluginsFolder', false],
+    ['rules/kinds/actions.tsx', 'pickFile', false],
+  ])("%s on a remote desktop: the %s button shows only when it doesn't need the server's screen (%s)", (file, call, shown) => {
+    const all = elements(file);
+    const button = all.find((element) => element.name === 'button' && element.attrs['onClick']?.includes(call))!;
+    expect(shownOn(button, all, 'remote')).toBe(shown);
+  });
+
+  it.each(['StorageLocation.tsx', 'OpenRouterKeys.tsx', 'PluginsSection.tsx', 'MarketplacesSection.tsx', 'rules/kinds/actions.tsx'])(
+    '%s tells a remote desktop to use the server for what it hides',
+    (file) => {
+      const all = elements(file);
+      const notes = all.filter((element) => element.name === 'Note' && element.text.includes('the server'));
+      expect(notes).toHaveLength(1);
+      expect(shownOn(notes[0]!, all, 'remote')).toBe(true);
+      expect(shownOn(notes[0]!, all, 'desktop')).toBe(false);
+    },
+  );
 
   it.each([
     ['OpenRouterKeys.tsx', 'id', '"openrouter-key"'],

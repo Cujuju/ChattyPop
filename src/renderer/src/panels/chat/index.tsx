@@ -3,6 +3,7 @@ import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { bindDiscordSlot, chatSource, discordSidebar, setDiscordSidebar, type ChatSource } from '@/state/chat';
 import { showArchive, showLive } from '@/state/archive';
 import { overlayOpen } from '@/state/overlay';
+import { onServerScreen } from '@/state/ui';
 import { ArchiveView } from './ArchiveView';
 import { PanelHeader, headerStyles as hs } from '@/ui/PanelHeader';
 import styles from './Chat.module.css';
@@ -16,10 +17,13 @@ export function ChatPanel() {
           <Show when={chatSource() === 'live'}>
             <SidebarToggles />
           </Show>
-          <SegGroup role="radiogroup" ariaLabel="Chat source" value={chatSource()} onChange={(v: ChatSource) => (v === 'archive' ? showArchive() : showLive())}>
-            <SegButton value="archive" label="Archive" size="sm" />
-            <SegButton value="live" label="Live" size="sm" class={styles.live} />
-          </SegGroup>
+          {/* Off the server's screen (a remote desktop) there is no live client to switch to. */}
+          <Show when={onServerScreen}>
+            <SegGroup role="radiogroup" ariaLabel="Chat source" value={chatSource()} onChange={(v: ChatSource) => (v === 'archive' ? showArchive() : showLive())}>
+              <SegButton value="archive" label="Archive" size="sm" />
+              <SegButton value="live" label="Live" size="sm" class={styles.live} />
+            </SegGroup>
+          </Show>
         </div>
       </PanelHeader>
       <Switch>

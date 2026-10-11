@@ -28,7 +28,7 @@ describe('remote desktop calls', () => {
     expect(remote.remoteMayCallMain(APP_RESTART_CHANNEL)).toBe(true);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.storage.move)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.rules.pickFile)).toBe(false);
-    expect(remote.remoteMayCallMain(MAIN_INVOKE.marketplace.installLocal)).toBe(false);
+    expect(remote.remoteMayCallMain(MAIN_INVOKE.marketplace.installLocal)).toBe(true);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.openRouter.signIn)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.marketplace.install)).toBe(true);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.storage.info)).toBe(true);

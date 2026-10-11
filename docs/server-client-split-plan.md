@@ -57,7 +57,6 @@ export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
   MAIN_INVOKE.openRouter.signIn,        // opens the server's browser for OAuth
   MAIN_INVOKE.storage.move,             // picks a folder on the server
   MAIN_INVOKE.rules.pickFile,           // picks a file on the server
-  MAIN_INVOKE.marketplace.installLocal, // a path on the server
   PLUGINS_OPEN_FOLDER_CHANNEL,
 ];
 
@@ -165,7 +164,7 @@ export const hasLiveClient: boolean;
 - `state/chat.ts`: `chatSource` is `'archive'` when `!hasLiveClient` (as for `inCompanion` today).
 - Panels read `hasLiveClient` and the new `serverOnly(feature)` store (below) to hide the live-pane switch and disable
   refused actions with "Only on the server" (view layer only; CSS by the design agent, law 3).
-- `state/serverOnly.ts` (new): `serverOnly(f: 'storageMove' | 'rulePickFile' | 'openRouterSignIn' | 'installLocal' | 'pluginsFolder'): boolean`.
+- `onServerScreen` (= not the phone, not a remote desktop) gates what needs the server's screen: OpenRouter sign-in, the rule file picker, moving the archive. A typed path (a rule file, a local plugin) still works remotely.
 
 ### 4.3 `src/plugin-sdk/renderer/shell/remoteApi.ts` (new)
 ```ts
@@ -207,7 +206,7 @@ Behavior of `createRemoteRendererApi`:
 | `discord.setSlot/setSidebar/openChannel` | no-op |
 | other `discord.*` | `transport.call({ group: 'discord', … })` |
 | `plugins.callCore/callMain` | transport, group `plugins` |
-| `storage.move`, `rules.pickFile`, `openRouter.signIn`, `marketplace.installLocal`, `openPluginsFolder` | reject: "Only on the server." |
+| `storage.move`, `rules.pickFile`, `openRouter.signIn`, `openPluginsFolder` | reject: "Only on the server." |
 | other `MAIN_INVOKE` groups | transport, group `main`, by channel |
 | `media.saveAttachment` | `shell.saveMedia(mediaPath(sha256, filename), filename)`; browser: download link |
 | `media.savePdf` | `shell.savePdf(page)`; browser: `transport.openExport(page, 'pdf')` |
