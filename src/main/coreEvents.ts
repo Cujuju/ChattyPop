@@ -1,6 +1,6 @@
 // Core event routing to windows, the phone and main-process services.
 import type { BrowserWindow } from 'electron';
-import { channelAudiences, privacyScopedNotice } from '@shared/bundledPlugins';
+import { privacyScopedNotice, rendererGetsEvent } from '@shared/bundledPlugins';
 import { APP_EVENT_CHANNEL, sharedEvent, type AppEvent } from '@shared/contract';
 import { SETTINGS_KEYS, normalizeNotificationSettings } from '@shared/settings';
 import { notifyDesktop } from './desktopNotifications';
@@ -59,7 +59,7 @@ export function routeCoreEvents(d: CoreEventDeps): EventSinks {
   // A plugin event goes to windows only when its audiences include them; the phone's hub filters the phone's.
   const publish = (event: AppEvent): void => {
     const e = sharedEvent(event);
-    if (e.type !== 'plugin-event' || channelAudiences(e.pluginId, 'events', e.name).includes('renderer')) toRenderer(e);
+    if (e.type !== 'plugin-event' || rendererGetsEvent(e.pluginId, e.name)) toRenderer(e);
     else d.phone.broadcast(e);
   };
   core.on('event', publish);

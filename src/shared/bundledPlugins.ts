@@ -91,6 +91,8 @@ export const channelAudiences = (pluginId: string, section: keyof ChannelShapes,
 export const phoneMayCall = (pluginId: string, name: string): boolean => channelAudiences(pluginId, 'core', name).includes('phone');
 /** Whether this plugin event reaches the phone. */
 export const phoneGetsEvent = (pluginId: string, name: string): boolean => channelAudiences(pluginId, 'events', name).includes('phone');
+/** Whether this plugin event reaches windows: the app's own and remote desktops. */
+export const rendererGetsEvent = (pluginId: string, name: string): boolean => channelAudiences(pluginId, 'events', name).includes('renderer');
 
 const PREFERENCE_KEYS = new Set(bundled.flatMap((p) => Object.keys(p.preferences ?? {}).map((name) => pluginSettingKey(p.manifest.id, name))));
 /** Whether `key` (plugin.<id>.<name>) is a preference a plugin in this build declares. */

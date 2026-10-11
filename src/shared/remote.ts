@@ -1,0 +1,79 @@
+// What a remote desktop may reach, whatever transport carries it: the desktop UI served by a ChattyPop server to
+// another machine (docs/server-client-split-plan.md §3.1). It acts with the renderer audience, as the server's own
+// window does, less what needs the server's screen or disk.
+import { rendererGetsEvent } from './bundledPlugins';
+import { RENDERER_CORE_METHODS } from './rendererApi';
+import { SETTINGS_KEYS } from './settings';
+import { PHONE_UNSHARED_SETTINGS } from './phone';
+import { APP_RESTART_CHANNEL, MAIN_INVOKE, PLUGINS_OPEN_FOLDER_CHANNEL, type AppEvent } from './types/ipc';
+
+/** Main calls a remote desktop answers itself (its shell or page): they never reach the server. */
+export const REMOTE_LOCAL_MAIN_CALLS: readonly string[] = [
+  MAIN_INVOKE.desktop.setBadge,
+  MAIN_INVOKE.desktop.setSplashTheme,
+  MAIN_INVOKE.media.saveAttachment,
+  MAIN_INVOKE.media.savePdf,
+];
+
+/** Main calls that act on the server's screen or disk; a remote desktop is refused them. */
+export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
+  // Opens the server's browser for OAuth.
+  MAIN_INVOKE.openRouter.signIn,
+  // Pick a folder, a file or a path on the server.
+  MAIN_INVOKE.storage.move,
+  MAIN_INVOKE.rules.pickFile,
+  MAIN_INVOKE.marketplace.installLocal,
+  PLUGINS_OPEN_FOLDER_CHANNEL,
+];
+
+/** Groups a remote desktop reaches through the `main` call group, by channel; Discord and plugin calls have their own groups. */
+const MAIN_GROUPS = ['openRouter', 'typeSafe', 'storage', 'rules', 'media', 'desktop', 'marketplace'] as const;
+const notCrossing = new Set([...REMOTE_LOCAL_MAIN_CALLS, ...REMOTE_REFUSED_MAIN_CALLS]);
+
+/** Main calls a remote desktop may make, by channel: the window groups' calls neither local nor refused, and restart. */
+export const REMOTE_MAIN_CALLS: readonly string[] = [
+  ...MAIN_GROUPS.flatMap((g) => Object.values<string>(MAIN_INVOKE[g])).filter((channel) => !notCrossing.has(channel)),
+  APP_RESTART_CHANNEL,
+];
+const mainCalls = new Set(REMOTE_MAIN_CALLS);
+/** Whether a remote desktop may make main call `channel` (REMOTE_MAIN_CALLS). */
+export const remoteMayCallMain = (channel: string): boolean => mainCalls.has(channel);
+
+/** Discord calls a remote desktop may make: every one the window invokes. The live pane's (setSlot, setSidebar, openChannel) stay local. */
+export const REMOTE_DISCORD_METHODS = Object.keys(MAIN_INVOKE.discord) as (keyof typeof MAIN_INVOKE.discord)[];
+export type RemoteDiscordMethod = (typeof REMOTE_DISCORD_METHODS)[number];
+const discordMethods = new Set<string>(REMOTE_DISCORD_METHODS);
+export const remoteMayCallDiscord = (method: string): method is RemoteDiscordMethod => discordMethods.has(method);
+
+const coreMethods = new Set<string>(RENDERER_CORE_METHODS);
+/** A core call a remote desktop may make: every one the window may (RENDERER_CORE_METHODS). */
+export const remoteMayCallCore = (method: string): boolean => coreMethods.has(method);
+
+/**
+ * Settings a remote desktop keeps for itself, stored per device by its transport: a window's own place, and how this
+ * screen lays out and shows the archive. Every other setting is the server's, shared with its window.
+ */
+export const REMOTE_DEVICE_SETTINGS: readonly string[] = [
+  ...PHONE_UNSHARED_SETTINGS,
+  SETTINGS_KEYS.layoutPreset,
+  SETTINGS_KEYS.layoutCustom,
+  SETTINGS_KEYS.layoutCollapsedPanels,
+  SETTINGS_KEYS.layoutSidebarCollapsed,
+  SETTINGS_KEYS.archiveDensity,
+  // Hiding what is private on one screen (sharing it) must not hide it on the others.
+  SETTINGS_KEYS.privacyMode,
+  SETTINGS_KEYS.searchSort,
+  SETTINGS_KEYS.discordSidebar,
+];
+const deviceSettings = new Set(REMOTE_DEVICE_SETTINGS);
+export const isRemoteDeviceSetting = (key: string): boolean => deviceSettings.has(key);
+
+/**
+ * An event as a remote desktop gets it: what the server's window gets (plugin events whose audiences include the
+ * renderer), except changes to settings the desktop keeps for itself, which its transport sends.
+ */
+export function remoteAppEvent(e: AppEvent): AppEvent | null {
+  if (e.type === 'plugin-event') return rendererGetsEvent(e.pluginId, e.name) ? e : null;
+  if (e.type === 'setting-changed' && isRemoteDeviceSetting(e.key)) return null;
+  return e;
+}
