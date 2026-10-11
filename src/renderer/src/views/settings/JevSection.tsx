@@ -7,13 +7,13 @@ import type { JevStatus } from '@shared/contract';
 import { managedRuleFeatures, pluginJevFeatures } from '@/plugins/slots';
 import { bundledJevFeatures } from '@shared/bundledPlugins';
 import { HOST_JEV_FEATURES, jevFeatureOn, type JevConnection, type JevFeature } from '@shared/settings';
-import { confirmDialog } from '@/state/dialogs';
 import { jevQueryOverrides } from '@/state/jevQueries';
 import { jevUseRecent, jevUseToday, usdPerQuestion } from '@/state/jevSpend';
 import { jevFeatureLocked, jevStatus, refetchJevStatus, toggleJevFeature } from '@/state/jevStatus';
 import { aiSettings, patchAiSettings } from '@/state/preferences';
 import { availableProviders } from '@/state/aiProviders';
 import { OpenRouterKeys } from './OpenRouterKeys';
+import { StoredKeyRow } from './StoredKeyRow';
 import { createAction } from '@/ui/action';
 import { percentText, usdText } from '@/ui/format';
 import { Select } from '@/ui/Select';
@@ -170,14 +170,6 @@ const CONNECTION_OPTIONS: { value: JevConnection; label: string }[] = [
 
 /** Which connection Jev uses, and the TypeSafe key for the direct one. OpenRouter keys are listed under the provider paid through them. */
 function JevConnectionCard(props: { status: JevStatus | undefined; changed: () => void }) {
-  const [pasted, setPasted] = createSignal('');
-  const action = createAction();
-  const { busy, error } = action;
-  const run = (job: () => Promise<void>): Promise<unknown> =>
-    action.run(async () => {
-      await job();
-      props.changed();
-    });
   const choose = (v: string): void => {
     patchAiSettings({ jevConnection: v as JevConnection });
     props.changed();
@@ -191,60 +183,17 @@ function JevConnectionCard(props: { status: JevStatus | undefined; changed: () =
         control={<Select id="jev-connection" class={c.select} value={aiSettings().jevConnection} options={CONNECTION_OPTIONS} onChange={choose} />}
       />
       <Show when={aiSettings().jevConnection === 'typesafe'}>
-        <Show
-          when={props.status?.typeSafeKeyHint}
-          fallback={
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void run(async () => {
-                  await api.typeSafe.setKey(pasted());
-                  setPasted('');
-                });
-              }}
-            >
-              <Row
-                label="TypeSafe key"
-                for="typesafe-key"
-                hint="From console.typesafe.ai/keys. Checked with TypeSafe, then stored encrypted on this computer."
-                control={
-                  <div class={c.buttons}>
-                    <input
-                      id="typesafe-key"
-                      type="password"
-                      autocomplete="off"
-                      class={c.select}
-                      value={pasted()}
-                      onInput={(e) => setPasted(e.currentTarget.value)}
-                    />
-                    <button type="submit" class={`cp-button ${styles.button}`} disabled={busy() || !pasted().trim()}>
-                      {busy() ? 'Checking…' : 'Save key'}
-                    </button>
-                  </div>
-                }
-              />
-            </form>
-          }
-        >
-          {(hint) => (
-            <Row
-              label="TypeSafe key"
-              hint={`Stored, ending ${hint()}.`}
-              control={
-                <button
-                  type="button"
-                  class={`cp-button ${styles.button}`}
-                  disabled={busy()}
-                  onClick={() => void confirmDialog({ title: 'Remove key', message: 'Remove the TypeSafe key from ChattyPop? It stays valid on TypeSafe.', confirmLabel: 'Remove', danger: true }).then((ok) => ok && run(api.typeSafe.removeKey))}
-                >
-                  Remove key
-                </button>
-              }
-            />
-          )}
-        </Show>
+        <StoredKeyRow
+          label="TypeSafe key"
+          fieldId="typesafe-key"
+          placeholder=""
+          hint={props.status?.typeSafeKeyHint ?? null}
+          emptyHint="From console.typesafe.ai/keys. Checked with TypeSafe, then stored encrypted on this computer."
+          onSave={async (key) => { await api.typeSafe.setKey(key); props.changed(); }}
+          onRemove={async () => { await api.typeSafe.removeKey(); props.changed(); }}
+          removeMessage="Remove the TypeSafe key from ChattyPop? It stays valid on TypeSafe."
+        />
       </Show>
-      <ErrorNote error={error()} />
     </Card>
   );
 }

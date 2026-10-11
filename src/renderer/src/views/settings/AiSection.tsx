@@ -10,13 +10,14 @@ import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders } from '@/state/aiProviders';
-import { providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, updateProvider } from '@/state/preferences';
+import { providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
 import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
+import { StoredKeyRow } from './StoredKeyRow';
 import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import styles from './Settings.module.css';
 
@@ -94,11 +95,27 @@ function EnabledRow(props: { provider: ProviderId }) {
 /** The host's rows of a provider's card, in HOST_PROVIDER_ROWS order; plugins place theirs among them. */
 const HOST_ROWS: readonly (ProviderRow & { id: HostProviderRowId })[] = [
   { id: 'enabled', Component: EnabledRow },
+  { id: 'api-key', Component: ProviderApiKeyRow },
   { id: 'model', Component: (p) => <ProviderModels provider={p.provider} /> },
   { id: 'effort', Component: (p) => <EffortRow fieldId={`ai-effort-${p.provider}`} provider={p.provider} value={providerSettingsOf(p.provider)} onChange={(v) => updateProvider(p.provider, v)} /> },
   { id: 'plan-usage', Component: (p) => <Show when={declaredProvider(p.provider)?.planUsage && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },
   { id: 'rows', Component: (p) => <Show when={providerView(p.provider)?.rows}>{(Rows) => <Dynamic component={Rows()} />}</Show> },
 ];
+
+function ProviderApiKeyRow(props: { provider: ProviderId }) {
+  const declaration = () => declaredProvider(props.provider);
+  const hint = () => statusOf(props.provider)?.apiKeyHint ?? null;
+  return <Show when={declaration()?.apiKey}>{(key) => <StoredKeyRow
+    label="API key"
+    fieldId={`ai-key-${props.provider}`}
+    placeholder={key().placeholder}
+    hint={hint()}
+    storedHint={hint() ? `Stored, ending ${hint()}. Requests are billed to this key.` : undefined}
+    onSave={async (value) => { await api.providerKeys.setKey(props.provider, value); await refetchProviderStatus(); }}
+    onRemove={async () => { await api.providerKeys.removeKey(props.provider); await refetchProviderStatus(); }}
+    removeMessage={`Remove the ${declaration()?.displayName} API key from ChattyPop? It stays valid with its provider.`}
+  />}</Show>;
+}
 
 /** The provider's models, one picked for its requests; its plugin's action (Delete) beside each. */
 function ProviderModels(props: { provider: ProviderId }) {
