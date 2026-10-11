@@ -107,10 +107,12 @@ describe('the client app shell', () => {
     const t = transport();
     const s = shell();
     const api = createRemoteRendererApi(t, s);
-    t.notice(notice);
-    expect(s.notify).toHaveBeenCalledWith(notice);
     const got: AppEvent[] = [];
     const off = api.onEvent((e) => got.push(e));
+    // Notices start with the event stream: the first subscription.
+    expect(t.notifications).toHaveBeenCalledOnce();
+    t.notice(notice);
+    expect(s.notify).toHaveBeenCalledWith(notice);
     t.event({ type: 'status-changed' });
     s.command({ type: 'open-message', channelId: 'c', messageId: 'm' });
     off();
@@ -133,6 +135,7 @@ describe('in a browser', () => {
     expect(api.openExport).toBeTypeOf('function');
     await api.media.savePdf({ html: '<p>', fileName: 'x.pdf', width: 800 });
     expect(t.openExport).toHaveBeenCalledWith(expect.any(Promise), 'pdf');
+    api.onEvent(() => undefined);
     expect(() => t.notice(notice)).not.toThrow();
   });
 });

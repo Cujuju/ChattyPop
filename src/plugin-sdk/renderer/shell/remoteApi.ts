@@ -13,7 +13,7 @@ import type { PhoneTransport } from './phoneApi';
 
 /** How a remote desktop page reaches its server: the phone's transport, plus notices for this desktop. */
 export interface RemoteTransport extends PhoneTransport {
-  /** Starts delivering the notices the server sends this desktop; called once, when the page installs the API. */
+  /** Starts delivering the notices the server sends this desktop; called once, with listen, when the page first subscribes. */
   notifications(deliver: (n: DeliveredNotification) => void): void;
 }
 
@@ -60,7 +60,6 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
   const local = new Set<(e: AppEvent) => void>();
   const deliverLocal = (e: AppEvent): void => local.forEach((l) => l(e));
   shell?.onLocalEvent(deliverLocal);
-  transport.notifications((n) => (shell ? shell.notify(n) : browserNotify(n, deliverLocal)));
 
   const listeners = new Set<(e: AppEvent) => void>();
   let listening = false;
@@ -117,6 +116,7 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
       if (!listening) {
         listening = true;
         transport.listen((e) => listeners.forEach((l) => l(e)));
+        transport.notifications((n) => (shell ? shell.notify(n) : browserNotify(n, deliverLocal)));
       }
       return () => {
         listeners.delete(listener);
