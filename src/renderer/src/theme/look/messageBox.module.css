@@ -33,6 +33,19 @@
   border: none;
 }
 
+.messageField[data-empty='true']::before {
+  color: var(--cp-text-muted);
+}
+
+.messageField[aria-disabled='true'] {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
+:global(html[data-surface='companion']) .messageField {
+  font-size: var(--cp-phone-text);
+}
+
 /* An icon button in the box: muted, lit under the pointer or while pressed. */
 .boxButton {
   border-radius: var(--cp-radius-md);

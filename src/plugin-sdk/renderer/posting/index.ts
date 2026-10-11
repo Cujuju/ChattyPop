@@ -78,6 +78,7 @@ export { hexColor } from '@/panels/chat/MessageExtras';
 export { StickerArt } from '@/ui/StickerArt';
 export { SolidIcon, type SolidIconName } from '@/ui/solidIcons';
 export { enterSends, enterToSend } from '@/ui/enterToSend';
+export { DraftField, type DraftFieldHandle } from '@/ui/DraftField';
 export { createListNav, type ListNav } from '@/ui/listNav';
 
 // Discord's server-side scheduled messages (desktop composer and channel list).

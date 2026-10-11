@@ -75,6 +75,8 @@ export const draftError = (channelId: string): string | null => drafts[channelId
 
 /** Copies, since a picker's emoji may be a store proxy, which IndexedDB can't clone. */
 const emojiEntries = (channelId: string): [string, CustomEmoji][] => [...pickedIn(channelId)].map(([token, e]) => [token, { id: e.id, name: e.name, animated: e.animated }]);
+/** Read selected IDs for the editing surface; callers cannot mutate the draft's token map. */
+export const customEmojiEntries = emojiEntries;
 const mentionEntries = (channelId: string): [string, MentionPick][] => [...mentionedIn(channelId)];
 const saveText = (channelId: string): void =>
   idbSet(TEXT_KEY + channelId, draftText(channelId) ? ({ text: draftText(channelId), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId) } satisfies SavedText) : undefined);
@@ -148,11 +150,10 @@ const LONG_PASTE_TYPE = 'text/plain';
  * (it converts at 4000, Nitro's limit; the field here holds DISCORD_TEXT_MAX). True when it took the paste; the field's
  * own paste is then prevented. A paste carrying files is left to the caller.
  */
-export function attachLongPaste(channelId: string, e: ClipboardEvent & { currentTarget: HTMLTextAreaElement | HTMLInputElement }): boolean {
+export function attachLongPaste(channelId: string, e: ClipboardEvent, field: Pick<HTMLInputElement, 'value' | 'selectionStart' | 'selectionEnd'> = e.currentTarget as HTMLInputElement): boolean {
   const data = e.clipboardData;
   if (!data || data.files.length) return false;
   const pasted = data.getData(LONG_PASTE_TYPE);
-  const field = e.currentTarget;
   const replaced = (field.selectionEnd ?? 0) - (field.selectionStart ?? 0);
   if (field.value.length - replaced + pasted.length <= DISCORD_TEXT_MAX) return false;
   e.preventDefault();
@@ -195,9 +196,9 @@ export function snapshotDraft(channelId: string, reply: ArchiveMessage | null): 
 /** Puts a message that came back unsent into the channel's draft (Edit); false when the draft has something new in it. */
 export function restoreDraft(channelId: string, d: SavedDraft): boolean {
   if (!isDraftEmpty(channelId)) return false;
-  setDrafts(channelId, { text: d.text, files: d.files.map(toDraftFile), error: null });
   picked.set(channelId, new Map(d.emoji));
   mentioned.set(channelId, new Map(d.mentions));
+  setDrafts(channelId, { text: d.text, files: d.files.map(toDraftFile), error: null });
   if (d.reply) restoreReply(d.reply);
   saveText(channelId);
   saveFiles(channelId);
@@ -211,9 +212,9 @@ async function loadSaved(): Promise<void> {
     const channelId = key.slice(TEXT_KEY.length);
     if (draftText(channelId)) continue;
     ensure(channelId);
-    setDrafts(channelId, 'text', t.text);
     picked.set(channelId, new Map(t.emoji));
     mentioned.set(channelId, new Map(t.mentions));
+    setDrafts(channelId, 'text', t.text);
   }
   for (const [key, fs] of files) {
     const channelId = key.slice(FILES_KEY.length);

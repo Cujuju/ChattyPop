@@ -1,0 +1,25 @@
+.field {
+  position: relative;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+  outline: none;
+}
+
+.field[data-empty='true']::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.emoji {
+  display: inline-block;
+  width: var(--cp-composer-line-h);
+  height: var(--cp-composer-line-h);
+  vertical-align: top;
+  object-fit: contain;
+}
