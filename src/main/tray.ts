@@ -30,6 +30,8 @@ export interface TrayActions {
   open(): void;
   restart(): void;
   quit(): void;
+  /** Server mode: shows a code another device pairs with. */
+  pair?(): void;
 }
 
 export class AppTray {
@@ -91,6 +93,7 @@ export class AppTray {
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: `Open ${APP_NAME}`, click: () => this.actions.open() },
+        ...(this.actions.pair ? [{ label: 'Pair a device…', click: () => this.actions.pair!() }] : []),
         { type: 'separator' },
         { label: this.update ? `Restart to update to ${this.update}` : `Restart ${APP_NAME}`, click: () => this.actions.restart() },
         { label: `Quit ${APP_NAME}`, click: () => this.actions.quit() },

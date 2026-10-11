@@ -54,13 +54,21 @@ export class Desktop {
   private win: BrowserWindow | undefined;
   private emit: (e: AppEvent) => void = () => {};
 
-  /** Whether this start stays in the tray: the system started it at sign-in and the owner chose that. */
-  readonly startHidden = startedAtLogin() && this.settings.startHidden;
+  /** Whether this start stays in the tray: a server's always; else the system started it at sign-in and the owner chose that. */
+  readonly startHidden: boolean;
   readonly minimizeToTray = (): boolean => this.settings.minimizeToTray;
-  readonly closeToTray = (): boolean => this.settings.closeToTray;
+  readonly closeToTray = (): boolean => this.serverMode || this.settings.closeToTray;
 
-  /** Adds the tray, hotkey and updates for the main window; `emit` carries state changes to every window and the phone. */
-  attach(win: BrowserWindow, emit: (e: AppEvent) => void): void {
+  /** Server mode (--server): the window starts hidden and closes to the tray; ChattyPop runs until Quit. */
+  constructor(private readonly serverMode = false) {
+    this.startHidden = serverMode || (startedAtLogin() && this.settings.startHidden);
+  }
+
+  /**
+   * Adds the tray, hotkey and updates for the main window; `emit` carries state changes to every window and the phone.
+   * `pair` (server mode) adds the tray's "Pair a device…".
+   */
+  attach(win: BrowserWindow, emit: (e: AppEvent) => void, pair?: () => void): void {
     this.win = win;
     this.emit = emit;
     this.tray = new AppTray(win, appIconPath(), {
@@ -69,6 +77,7 @@ export class Desktop {
       restart: () => restartApp(win),
       // A close from code, not the window's own close command, so it quits rather than going to the tray.
       quit: () => closeFromCode(win),
+      ...(pair ? { pair } : {}),
     });
     this.updates = new Updates((status) => {
       this.tray?.setUpdate(status.phase === 'ready' ? status.version : null);

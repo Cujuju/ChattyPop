@@ -2,7 +2,7 @@
 // precede 'ready' is done and installed plugins are decided.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, ipcMain, session, shell } from 'electron';
+import { app, dialog, ipcMain, session, shell } from 'electron';
 import { callMain, handleMain } from './ipc/mainCalls';
 import {
   CORE_INVOKE_CHANNEL,
@@ -58,6 +58,8 @@ import { Desktop } from './desktop';
 import { installAppMenu } from './appMenu';
 import { appIconPath, createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
 import { IS_MAC } from './platform';
+import { launchMode } from './launchMode';
+import { printPairing, showPairing } from './serverMode';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
@@ -100,6 +102,9 @@ const RENDERER_DIR = join(here, '../renderer');
 const rendererCoreMethods = new Set<string>(RENDERER_CORE_METHODS);
 /** The splash step each core init milestone ends. */
 const SPLASH_STEP_OF_CORE: Record<CoreInitStep, SplashPhaseId> = { loaded: 'core', database: 'database' };
+/** This run's mode (index.ts starts a client elsewhere): the app, or a server for other machines (--server). */
+const mode = launchMode(process.argv, process.env);
+const serverMode = mode.kind === 'server';
 
 // Stays synchronous (no await): gateway tap listeners must attach in the window's creation tick, or READY is missed.
 void app.whenReady().then(() => {
@@ -172,8 +177,14 @@ void app.whenReady().then(() => {
     return core.call(method as CoreMethod, ...(params as []));
   });
 
-  const desktop = new Desktop();
+  const desktop = new Desktop(serverMode);
   const { win, discord } = createMainWindow(desktop);
+  // A server is a menu-bar app on macOS: its dock icon shows only while its window does.
+  if (serverMode && IS_MAC) {
+    app.dock?.hide();
+    win.on('show', () => void app.dock?.show());
+    win.on('hide', () => app.dock?.hide());
+  }
   const splash = startSplash(win, desktop.startHidden);
   core.on('init-step', (step) => splash.finish(SPLASH_STEP_OF_CORE[step]));
   // Core answers only once its init is done, so its first answer marks the archive open.
@@ -222,8 +233,12 @@ void app.whenReady().then(() => {
   // The Discord calls exist once their handlers are registered (below); a transport connects only after that.
   let discordCalls: DiscordCalls | undefined;
   const phone = new PhoneHub({ core, discord: () => discordCalls!, main: callMain, media: serveMedia, active: (id) => states.active(id) });
-  const { toRenderer, toMain, publish, notifications } = routeCoreEvents({ win, panelWindows, core, downloader, phone });
-  desktop.attach(win, toRenderer);
+  const { toRenderer, toMain, publish, notifications } = routeCoreEvents({ win, panelWindows, core, downloader, phone, desktopNotices: !serverMode });
+  // A server's tray offers a pairing code; --pair also prints one for a server started from a terminal.
+  const pairOnScreen = (): void =>
+    void showPairing(() => phone.startPairing(), (text) => void dialog.showMessageBox({ type: 'info', message: 'Pair a device', detail: text }));
+  desktop.attach(win, toRenderer, serverMode ? pairOnScreen : undefined);
+  if (mode.kind === 'server' && mode.printPairing) void printPairing(() => phone.startPairing(), (text) => console.log(text));
   ipcMain.on(SHOW_IN_MAIN_CHANNEL, (_e, channelId: unknown, messageId: unknown, compose: unknown) => {
     if (typeof channelId !== 'string' || !raiseWindow(win)) return;
     toMain({ type: 'open-message', channelId, ...(typeof messageId === 'string' ? { messageId, ...(isComposeIntent(compose) ? { compose } : {}) } : {}) });

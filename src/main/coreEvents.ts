@@ -18,6 +18,8 @@ export interface CoreEventDeps {
   panelWindows: PanelWindows;
   core: CoreClient;
   downloader: AttachmentDownloader;
+  /** Whether notices show as this computer's own toasts: not on a server (--server), whose devices get them. */
+  desktopNotices: boolean;
   /** The phone's transport, when one is connected (main/phone/hub.ts). */
   phone: {
     broadcast(e: AppEvent): void;
@@ -51,7 +53,9 @@ export function routeCoreEvents(d: CoreEventDeps): EventSinks {
       // Read per delivery, so Settings changes apply at once.
       return { notifications: normalizeNotificationSettings(await core.call('getSetting', SETTINGS_KEYS.notifications)) };
     },
-    desktop: (request) => notifyDesktop(win, request, toMain),
+    desktop: (request) => {
+      if (d.desktopNotices) notifyDesktop(win, request, toMain);
+    },
     push: (request) => d.phone.notify(request),
     privacyScoped: privacyScopedNotice,
     muted: (channelIds) => core.call('allMuted', channelIds),
