@@ -1,5 +1,5 @@
 import { Match, Show, Switch as Branch } from 'solid-js';
-import { ALL_DAYS, DEFAULT_BACKFILL_HOURS, TIMED_HOURS_MAX, TIMED_HOURS_MIN, type TimedTrigger } from '@shared/ruleTime';
+import { ALL_DAYS, DEFAULT_BACKFILL_HOURS, TIMED_HOURS_MAX, TIMED_HOURS_MIN, maxBackfillRuns, type TimedTrigger } from '@shared/ruleTime';
 import { Select } from '@/ui/Select';
 import { NumberField, settingsControl as c } from '../SettingsLayout';
 import { Checks, Field } from './fields';
@@ -23,24 +23,33 @@ function MissedRunsField(props: { id: string; trigger: Scheduled; onChange: (t: 
     const { backfillHours: _, ...rest } = props.trigger;
     props.onChange(v === 'each' ? { ...rest, backfillHours: DEFAULT_BACKFILL_HOURS } : rest);
   };
+  const most = (): number => maxBackfillRuns(props.trigger);
   return (
-    <Field
-      label="If missed"
-      for={`${props.id}-missed`}
-      hint={each() ? 'Each missed time runs over its own stretch, oldest first. Older ones are skipped.' : 'One run covers everything since the last.'}
-    >
-      <Select id={`${props.id}-missed`} class={c.select} value={each() ? 'each' : 'merge'} options={MISSED_OPTIONS} onChange={pick} />
+    <>
+      <Field
+        label="If missed"
+        for={`${props.id}-missed`}
+        hint={each() ? 'Each missed time runs over its own stretch, oldest first.' : 'One run covers everything since the last.'}
+      >
+        <Select id={`${props.id}-missed`} class={c.select} value={each() ? 'each' : 'merge'} options={MISSED_OPTIONS} onChange={pick} />
+      </Field>
       <Show when={each()}>
-        <NumberField
-          label="How far back missed times run"
-          min={TIMED_HOURS_MIN}
-          max={TIMED_HOURS_MAX}
-          value={props.trigger.backfillHours ?? DEFAULT_BACKFILL_HOURS}
-          unit="hours back at most"
-          onChange={(n) => Number.isFinite(n) && props.onChange({ ...props.trigger, backfillHours: n })}
-        />
+        <Field
+          label="Going back"
+          for={`${props.id}-backfill`}
+          hint={`Missed times due longer ago are skipped: at most ${most()} ${most() === 1 ? 'run' : 'runs'} per start.`}
+        >
+          <NumberField
+            id={`${props.id}-backfill`}
+            min={TIMED_HOURS_MIN}
+            max={TIMED_HOURS_MAX}
+            value={props.trigger.backfillHours ?? DEFAULT_BACKFILL_HOURS}
+            unit="hours"
+            onChange={(n) => Number.isFinite(n) && props.onChange({ ...props.trigger, backfillHours: n })}
+          />
+        </Field>
       </Show>
-    </Field>
+    </>
   );
 }
 

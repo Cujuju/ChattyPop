@@ -115,6 +115,12 @@ export interface TimedWindow {
   untilTs: number;
 }
 
+/** The most windows one start can owe a trigger that runs each missed time: the due times its backfill reach can hold. 0 when merging. */
+export function maxBackfillRuns(t: Exclude<TimedTrigger, { kind: 'appStart' }>): number {
+  if (t.backfillHours === undefined) return 0;
+  return Math.ceil((t.backfillHours * MS_PER_HOUR) / (t.kind === 'every' ? t.hours * MS_PER_HOUR : MS_PER_DAY));
+}
+
 /** The daily due times after `from`, up to `now`, oldest first. */
 function dailyDuesSince(t: { at: string; days: readonly number[] }, from: number, now: number): number[] {
   const dues: number[] = [];

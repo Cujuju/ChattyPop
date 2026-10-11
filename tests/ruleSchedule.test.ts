@@ -4,7 +4,7 @@ import { AFTER_MESSAGE, defineRuleAction, definePlugin } from '@plugin-sdk/share
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { newRuleAction, validateRuleInput } from '@shared/ruleSpec';
-import { TIMED_MAX_LOOKBACK_MS, dueWindows, lastDailyDue, type TimedState, type TimedTrigger } from '@shared/ruleTime';
+import { TIMED_MAX_LOOKBACK_MS, dueWindows, lastDailyDue, maxBackfillRuns, type TimedState, type TimedTrigger } from '@shared/ruleTime';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
 import { claimRun } from '../src/core/rules/ruleStore';
 import { RuleSchedule } from '../src/core/rules/schedule';
@@ -121,6 +121,16 @@ describe('when a timed rule is due', () => {
     // A month away at the widest reach: a week of due times, no more.
     const far = dueWindows({ kind: 'every', hours: 24, backfillHours: 168 }, state({ now: at(9), lastRunAt: at(9) - 30 * MS_PER_DAY }));
     expect(far.map((w) => w.untilTs)).toEqual([6, 5, 4, 3, 2, 1, 0].map((days) => at(9) - days * MS_PER_DAY));
+  });
+
+  it('says the most runs one start can owe, from how far back missed times run', () => {
+    expect(maxBackfillRuns({ kind: 'every', hours: 3 })).toBe(0);
+    expect(maxBackfillRuns({ kind: 'every', hours: 3, backfillHours: 24 })).toBe(8);
+    expect(maxBackfillRuns({ kind: 'every', hours: 3, backfillHours: 2 })).toBe(1);
+    expect(maxBackfillRuns({ kind: 'daily', at: '08:00', days: [1], backfillHours: 72 })).toBe(3);
+    // The reach holds no more due times than it says: 01:00 to 22:00 is eight, three hours apart.
+    const every: TimedTrigger = { kind: 'every', hours: 3, backfillHours: 24 };
+    expect(dueWindows(every, state({ now: at(22), lastRunAt: at(22) - 3 * MS_PER_DAY }))).toHaveLength(8);
   });
 
   it('owes each missed daily time its own day, on its days only', () => {
