@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'" />
+    <title>Connect to a ChattyPop server</title>
+  </head>
+  <body>
+    <main id="root">
+      <h1>Connect to a ChattyPop server</h1>
+      <p>A ChattyPop server runs on another computer and serves this one over Tailscale (or your private network).</p>
+      <section id="unreachable" role="alert" hidden>
+        <p id="unreachable-text"></p>
+        <button id="retry" class="cp-button" type="button">Try again</button>
+      </section>
+      <form id="add">
+        <label for="server">Server address</label>
+        <input id="server" name="server" type="text" placeholder="pc.example.ts.net:8443" autocomplete="url" spellcheck="false" required autofocus />
+        <button class="cp-button" type="submit">Connect</button>
+        <p id="error" role="alert" hidden></p>
+      </form>
+      <section aria-labelledby="saved-title">
+        <h2 id="saved-title">Saved servers</h2>
+        <p id="none">None yet.</p>
+        <ul id="saved"></ul>
+      </section>
+    </main>
+    <script type="module" src="/src/connect/main.ts"></script>
+  </body>
+</html>

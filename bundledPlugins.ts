@@ -267,8 +267,8 @@ function filesUnder(dir: string): string[] {
 /** The installed-page shell's build input name: its file name without `.html`. */
 const SHELL_INPUT = basename(INSTALLED_PAGE_SHELL, extname(INSTALLED_PAGE_SHELL));
 
-/** The host's own renderer pages (index.html, the startup splash), which a plugin page of the same name would replace. */
-const HOST_PAGES = ['index', 'splash'];
+/** The host's own renderer pages (index.html, the startup splash, a client's connect page), which a plugin page of the same name would replace. */
+const HOST_PAGES = ['index', 'splash', 'connect'];
 
 /** Selected plugin pages build as <id>.html. Excluded plugins have no page; the installed-page shell always builds. */
 export function pageInputs(rendererRoot: string, source: PluginSource): Record<string, string> {

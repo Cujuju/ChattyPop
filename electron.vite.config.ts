@@ -28,6 +28,8 @@ export default defineConfig(({ command }) => {
           input: {
             index: resolve(import.meta.dirname, 'src/main/index.ts'),
             app: resolve(import.meta.dirname, 'src/main/app.ts'),
+            // Client mode (--connect): a server's desktop UI in this app's windows; no core, no Discord.
+            client: resolve(import.meta.dirname, 'src/main/client/clientApp.ts'),
             core: resolve(import.meta.dirname, 'src/core/index.ts'),
           },
         },
@@ -37,6 +39,8 @@ export default defineConfig(({ command }) => {
       resolve: { alias: { '@shared': shared } },
       build: {
         rollupOptions: {
+          // One entry for every window (the app's, a client's server windows and its connect page): a sandboxed
+          // preload can't load a second file, so it must not split into chunks. It picks its role from its arguments.
           // Sandboxed preloads must be CommonJS.
           output: { format: 'cjs', entryFileNames: '[name].cjs' },
         },
@@ -62,6 +66,7 @@ export default defineConfig(({ command }) => {
           input: {
             index: resolve(rendererRoot, 'index.html'),
             splash: resolve(rendererRoot, 'splash.html'),
+            connect: resolve(rendererRoot, 'connect.html'),
             ...pageInputs(rendererRoot, plugins),
           },
         },

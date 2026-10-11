@@ -18,6 +18,8 @@ import {
   type MainInvokeGroup,
   type RendererApi,
 } from '@shared/contract';
+import { exposeShell, shellServer } from './client';
+import { exposeConnect, isConnectPage } from './connect';
 
 // One generic forwarder per renderer-visible core method; adding one to the contract exposes it here.
 const core = Object.fromEntries(
@@ -62,4 +64,9 @@ const api: RendererApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('chattypop', api);
+// One preload for every window, by its role: a client's server window gets the desktop shell, its connect page the
+// server list, and the app's own windows the renderer API.
+const server = shellServer(process.argv);
+if (server !== undefined) exposeShell(server);
+else if (isConnectPage(process.argv)) exposeConnect();
+else contextBridge.exposeInMainWorld('chattypop', api);

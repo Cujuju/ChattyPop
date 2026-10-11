@@ -32,7 +32,11 @@ export interface DesktopShell {
   onLocalEvent(listener: (e: AppEvent) => void): () => void;
 }
 
-/** Page → client app calls (ipcRenderer.invoke / send). */
+/**
+ * Page → client app calls (ipcRenderer.invoke / send). Unsaved edits and the app's commands for the window travel on the
+ * app's own window channels (UNSAVED_CHANNEL, DISCARD_UNSAVED_CHANNEL, APP_EVENT_CHANNEL), so main guards a server's
+ * window as it does its own (unsavedChanges.ts).
+ */
 export const SHELL_CHANNELS = {
   notify: 'shell:notify',
   setBadge: 'shell:set-badge',
@@ -40,13 +44,33 @@ export const SHELL_CHANNELS = {
   savePdf: 'shell:save-pdf',
   openPanelWindow: 'shell:open-panel',
   showInMainWindow: 'shell:show-in-main',
-  setUnsaved: 'shell:unsaved',
-  discardUnsaved: 'shell:discard-unsaved',
 } as const;
-/** Client app → page: a command for this window (DesktopShell.onLocalEvent). */
-export const SHELL_LOCAL_EVENT_CHANNEL = 'shell:local-event';
 /** The argument the client app passes its server windows' preload: the only origin the shell is given to. */
 export const SHELL_ORIGIN_ARG = '--cp-server-origin=';
+
+/** The client app's own page for picking a server (connect.html): the argument its window passes the preload, its global and calls. */
+export const CONNECT_PAGE_ARG = '--cp-connect-page';
+/** The connect page's query when a server didn't load: which server, and Chromium's reason. */
+export const CONNECT_UNREACHABLE_PARAMS = { origin: 'unreachable', reason: 'reason' } as const;
+export const CONNECT_GLOBAL = 'chattypopConnect';
+export const CONNECT_CHANNELS = {
+  list: 'connect:list',
+  add: 'connect:add',
+  remove: 'connect:remove',
+  open: 'connect:open',
+} as const;
+/** A server the client app knows, most recently used first. */
+export interface SavedServer {
+  origin: string;
+  lastUsedAt: number;
+}
+/** What the connect page's preload gives it. `add` resolves with the origin it saved, or rejects with why it can't. */
+export interface ConnectApi {
+  list(): Promise<SavedServer[]>;
+  add(input: string): Promise<string>;
+  remove(origin: string): Promise<void>;
+  open(origin: string): Promise<void>;
+}
 
 /** The shell the page may use: the client app's, when its contract matches; null in a browser or an older app. */
 export function desktopShell(scope: object = globalThis): DesktopShell | null {
