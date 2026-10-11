@@ -91,7 +91,7 @@ export class HeaderCapture {
     return this.headers;
   }
 
-  /** Called on 401: the captured token is stale until the client sends a fresh request. */
+  /** Called on a 401, or when the client shows its login page: the token is void until the client authorizes a request again. */
   invalidate(): void {
     this.headers = undefined;
   }
