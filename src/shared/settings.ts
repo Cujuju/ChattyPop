@@ -64,7 +64,7 @@ export const SETTINGS_KEYS = {
   discordChat: 'chat.discord',
   /** This device's chat choices (DeviceChatRecord); a phone's are its own, kept by the phone transport (PHONE_DEVICE_SETTINGS). */
   chatDevice: 'chat.device',
-  /** Content this device covers locally, independently of Discord's spoiler flags. */
+  /** Personal content covers shared by this archive's devices, independently of Discord's spoiler flags. */
   localSpoilers: 'chat.localSpoilers',
   /** Plugin restore offers the owner dismissed or deferred (shared/pluginRestore.ts). */
   pluginsRestore: 'plugins.restore',

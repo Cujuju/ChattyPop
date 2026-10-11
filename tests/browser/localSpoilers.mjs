@@ -21,6 +21,14 @@ window.chattypop = {
       localStorage.setItem(prefix + key, JSON.stringify(value));
       listeners.forEach(listener => listener({ type: 'setting-changed', key, value }));
     },
+    setLocalSpoiler: async (key, marked) => {
+      const marks = new Set(JSON.parse(localStorage.getItem(prefix + 'chat.localSpoilers') ?? '[]'));
+      if (marked) marks.add(key);
+      else marks.delete(key);
+      const value = [...marks];
+      await window.chattypop.core.setSetting('chat.localSpoilers', value);
+      return value;
+    },
   }),
   discord: group({}), plugins: group({}), windows: group({}), media: group({}),
   onEvent: listener => { listeners.push(listener); return () => {}; },

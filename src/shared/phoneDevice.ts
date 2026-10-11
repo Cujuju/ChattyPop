@@ -1,6 +1,5 @@
 // Settings each phone keeps for itself, and the window places it never shares. Registry-free, so the shared SDK tier can export it (tests/installedPlugins.test.ts).
 import { normalizeDeviceChatRecord } from './chatSettings';
-import { normalizeLocalSpoilers } from './localSpoilers';
 import { SETTINGS_KEYS } from './settings';
 
 /**
@@ -9,7 +8,6 @@ import { SETTINGS_KEYS } from './settings';
  */
 export const PHONE_DEVICE_SETTINGS: Readonly<Record<string, (v: unknown) => unknown>> = {
   [SETTINGS_KEYS.chatDevice]: normalizeDeviceChatRecord,
-  [SETTINGS_KEYS.localSpoilers]: normalizeLocalSpoilers,
 };
 
 /** Whether the phone keeps setting `key` for itself (PHONE_DEVICE_SETTINGS). */
@@ -34,5 +32,4 @@ export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
   SETTINGS_KEYS.archivePlace,
   // The desktop's own chat choices; each phone keeps its own through its transport (PHONE_DEVICE_SETTINGS).
   SETTINGS_KEYS.chatDevice,
-  SETTINGS_KEYS.localSpoilers,
 ];

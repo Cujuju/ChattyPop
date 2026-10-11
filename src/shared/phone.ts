@@ -8,6 +8,7 @@ import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent } from './types/ipc';
 export const PHONE_CORE_METHODS = [
   'status',
   'getSetting',
+  'setLocalSpoiler',
   'directory',
   'channelUnread',
   'channelUnreadSnapshot',
@@ -138,6 +139,8 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingShare>> = 
   [SETTINGS_KEYS.leaderKey]: 'config',
   [SETTINGS_KEYS.shortcutBindings]: 'config',
   [SETTINGS_KEYS.pluginsRestore]: 'config',
+  // Personal covers belong to the archive, so every connected device sees the same marks.
+  [SETTINGS_KEYS.localSpoilers]: 'config',
   // Showing what is hidden on the phone must not unhide it on the PC.
   [SETTINGS_KEYS.privacyMode]: 'view',
   [SETTINGS_KEYS.searchSort]: 'view',

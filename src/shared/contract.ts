@@ -87,6 +87,8 @@ export interface CoreMethods {
   /** JSON value stored under `key`, or undefined. */
   getSetting(key: string): unknown;
   setSetting(key: string, value: unknown): void;
+  /** Changes one personal spoiler mark against the archive's latest marks and returns the stored list. */
+  setLocalSpoiler(key: string, marked: boolean): string[];
   directory(): DirectoryGuild[];
   /** Whether notices about these channels are muted (Settings → Notifications): there is one and every one is, whatever privacy mode hides. */
   allMuted(channelIds: readonly string[]): boolean;

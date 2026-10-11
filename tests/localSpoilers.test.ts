@@ -1,31 +1,57 @@
 import { createRequire } from 'node:module';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { attachmentSpoilerKey, embedSpoilerKey, linkSpoilerKey, normalizeLocalSpoilers } from '@shared/localSpoilers';
 import { SETTINGS_KEYS } from '@shared/settings';
-import { PHONE_DEVICE_SETTINGS, PHONE_UNSHARED_SETTINGS } from '@shared/phoneDevice';
+import { DESKTOP_CONNECTED_EVENT, PHONE_UNSHARED_SETTINGS, isPhoneDeviceSetting, phoneAppEvent, phoneMayWriteSetting, phoneSetting } from '@shared/phone';
 import { isRemoteDeviceSetting } from '@shared/remoteDevice';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 const host = vi.hoisted(() => ({
   writes: [] as [string, unknown][],
+  stored: ['restored'] as unknown,
   refuse: false,
+  refuseRead: false,
+  holdRead: false,
+  reads: [] as (() => void)[],
+  holdWrite: false,
+  replies: [] as (() => void)[],
+  window: new EventTarget(),
   listeners: [] as ((event: unknown) => void)[],
 }));
 vi.mock('@/api', () => ({ api: {
   core: {
-    getSetting: async () => ['restored'],
-    setSetting: async (key: string, value: unknown) => {
+    getSetting: async () => {
+      if (host.refuseRead) throw new Error('Desktop unavailable');
+      const value = host.stored;
+      if (host.holdRead) await new Promise<void>((resolve) => host.reads.push(resolve));
+      return value;
+    },
+    setLocalSpoiler: async (key: string, marked: boolean) => {
       if (host.refuse) throw new Error('Storage unavailable');
-      host.writes.push([key, value]);
+      const marks = new Set(normalizeLocalSpoilers(host.stored));
+      if (marked) marks.add(key);
+      else marks.delete(key);
+      const value = [...marks];
+      host.stored = value;
+      host.writes.push([SETTINGS_KEYS.localSpoilers, value]);
+      if (host.holdWrite) await new Promise<void>((resolve) => host.replies.push(resolve));
+      return value;
     },
   },
   onEvent: (listener: (event: unknown) => void) => { host.listeners.push(listener); return () => undefined; },
 } }));
+vi.stubGlobal('window', host.window);
+afterAll(() => vi.unstubAllGlobals());
 const statePath = '../src/renderer/src/state/localSpoilers';
 const parserPath = '../src/renderer/src/ui/mdParse';
 const state = await import(statePath) as { isLocalSpoiler(key: string): boolean; setLocalSpoiler(key: string, marked: boolean): Promise<void> };
 const { senderSpoilerLinks } = await import(parserPath) as { senderSpoilerLinks(text: string): ReadonlySet<string> };
-const changed = (value: unknown): void => host.listeners.forEach((listener) => listener({ type: 'setting-changed', key: SETTINGS_KEYS.localSpoilers, value }));
+const changed = (value: unknown): void => {
+  host.stored = value;
+  host.listeners.forEach((listener) => listener({ type: 'setting-changed', key: SETTINGS_KEYS.localSpoilers, value }));
+};
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
+const reconnect = (): void => { host.window.dispatchEvent(new Event(DESKTOP_CONNECTED_EVENT)); };
 
 describe('local spoiler storage', () => {
   it('restores marks and validates malformed stored values', () => {
@@ -35,7 +61,10 @@ describe('local spoiler storage', () => {
   });
 
   describe('changes', () => {
-    beforeEach(() => { changed([]); host.writes = []; host.refuse = false; });
+    beforeEach(() => {
+      changed([]); host.writes = []; host.refuse = false; host.refuseRead = false;
+      host.holdRead = false; host.reads = []; host.holdWrite = false; host.replies = [];
+    });
 
     it('persists only selected parts, serializes quick changes, and removes one without dropping the others', async () => {
       const one = attachmentSpoilerKey('one');
@@ -61,6 +90,59 @@ describe('local spoiler storage', () => {
       await state.setLocalSpoiler('later', true);
       expect(host.writes.at(-1)).toEqual([SETTINGS_KEYS.localSpoilers, ['other-window', 'later']]);
     });
+
+    it('refreshes missed desktop additions and removals when the phone reconnects', async () => {
+      host.stored = ['desktop'];
+      reconnect();
+      await settle();
+      expect(state.isLocalSpoiler('desktop')).toBe(true);
+      host.stored = [];
+      reconnect();
+      await settle();
+      expect(state.isLocalSpoiler('desktop')).toBe(false);
+    });
+
+    it('keeps the last covers on a failed refresh and recovers at the next connection', async () => {
+      changed(['kept']);
+      host.refuseRead = true;
+      reconnect();
+      await settle();
+      expect(state.isLocalSpoiler('kept')).toBe(true);
+      host.refuseRead = false;
+      host.stored = ['current'];
+      reconnect();
+      await settle();
+      expect(state.isLocalSpoiler('kept')).toBe(false);
+      expect(state.isLocalSpoiler('current')).toBe(true);
+    });
+
+    it('ignores a stale reconnect snapshot when a newer desktop event arrives', async () => {
+      host.stored = ['old'];
+      host.holdRead = true;
+      reconnect();
+      changed(['new']);
+      host.reads[0]!();
+      await settle();
+      expect(state.isLocalSpoiler('old')).toBe(false);
+      expect(state.isLocalSpoiler('new')).toBe(true);
+    });
+
+    it('changes current archive marks even when this device missed an event', async () => {
+      host.stored = ['desktop'];
+      await state.setLocalSpoiler('phone', true);
+      expect(host.writes.at(-1)).toEqual([SETTINGS_KEYS.localSpoilers, ['desktop', 'phone']]);
+      expect(state.isLocalSpoiler('desktop')).toBe(true);
+    });
+
+    it('ignores a write reply older than a newly delivered archive event', async () => {
+      host.holdWrite = true;
+      const write = state.setLocalSpoiler('phone', true);
+      await settle();
+      changed(['phone', 'desktop']);
+      host.replies[0]!();
+      await write;
+      expect(state.isLocalSpoiler('desktop')).toBe(true);
+    });
   });
 });
 
@@ -77,9 +159,15 @@ describe('content identity and provenance', () => {
     expect([...senderSpoilerLinks('||https://EXAMPLE.com||')]).toEqual(['https://example.com/']);
   });
 
-  it('keeps phone and remote desktop marks on those devices', () => {
-    expect(PHONE_DEVICE_SETTINGS[SETTINGS_KEYS.localSpoilers]!(['one', 'one'])).toEqual(['one']);
-    expect(PHONE_UNSHARED_SETTINGS).toContain(SETTINGS_KEYS.localSpoilers);
-    expect(isRemoteDeviceSetting(SETTINGS_KEYS.localSpoilers)).toBe(true);
+  it('shares archive marks, changes and events with phones and remote desktops', () => {
+    const key = SETTINGS_KEYS.localSpoilers;
+    const value = ['one'];
+    const event = { type: 'setting-changed', key, value } as const;
+    expect(isPhoneDeviceSetting(key)).toBe(false);
+    expect(PHONE_UNSHARED_SETTINGS).not.toContain(key);
+    expect(isRemoteDeviceSetting(key)).toBe(false);
+    expect(phoneSetting(key, value)).toEqual(value);
+    expect(phoneMayWriteSetting(key)).toBe(true);
+    expect(phoneAppEvent(event)).toEqual(event);
   });
 });

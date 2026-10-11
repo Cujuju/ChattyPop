@@ -202,6 +202,7 @@ export const RENDERER_CORE_METHODS = [
   'status',
   'getSetting',
   'setSetting',
+  'setLocalSpoiler',
   'directory',
   'channelUnread',
   'channelUnreadSnapshot',

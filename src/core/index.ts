@@ -30,6 +30,7 @@ import type { Arrived, TextMessage } from './arrival';
 import { rederiveIfStale } from './derive/rederive';
 import { enforceAttachmentCap } from './attachmentRetention';
 import { archiveHandlers } from './archiveHandlers';
+import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
 import { getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
@@ -226,6 +227,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     }
     if (key === SETTINGS_KEYS.privacyMode) emit({ type: 'privacy-changed' });
   },
+  ...localSpoilerHandlers(() => ready().db, emit),
   ...archiveHandlers({
     ready,
     emit,
