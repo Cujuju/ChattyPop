@@ -48,6 +48,99 @@ function setup(clientOverride?: DiscordClient | ((capture: HeaderCapture) => Dis
 }
 
 describe('native saved-message contract', () => {
+  it('matches native empty-index handling for 404/10133 and allows a guarded first save', async () => {
+    const f = setup(); f.answer = new DiscordHttpError('Unknown Saved Messages', 404, 10133);
+    const index = await f.service.index();
+    expect(index.indexReadFailed).toBe(true);
+    expect(index.reminders).toEqual([]); expect(index.bookmarkIds).toEqual([]); expect(index.writableChannelIds).toEqual([CHANNEL]);
+    expect((await f.service.bookmarks({ session: index.session, pageEpoch: index.pageEpoch })).bookmarks).toEqual([]);
+    await f.service.save({ ...target, ...index, source: 'context_menu' });
+    expect((await f.service.index()).bookmarkIds).toEqual([MESSAGE]);
+    expect((await f.service.index()).indexReadFailed).toBe(true);
+    expect((await f.service.bookmarks({ session: index.session })).bookmarks.map((m) => m.messageId)).toEqual([MESSAGE]);
+    expect((await f.service.bookmarks({ session: index.session, refresh: true })).bookmarks.map((m) => m.messageId)).toEqual([MESSAGE]);
+    expect(f.sent.map((r) => [r.method, r.path])).toEqual([
+      ['GET', 'users/@me/saved-messages'], ['PUT', `users/@me/saved-messages/${CHANNEL}/${MESSAGE}`],
+    ]);
+    f.answer = { reminders: [], bookmark_ids: [MESSAGE] };
+    expect((await f.service.index(true)).indexReadFailed).toBeUndefined();
+  });
+  it('keeps privacy, permission, saved-identity and account guards after a native unknown-index response', async () => {
+    const f = setup(); f.answer = new DiscordHttpError('Unknown Saved Messages', 404, 10133);
+    const index = await f.service.index();
+    await expect(f.service.remove({ ...target, ...index })).rejects.toThrow(/no longer saved/);
+    await expect(f.service.save({ ...target, ...index, source: 'for_later_list' })).rejects.toThrow(/no longer saved/);
+    f.visible.mockResolvedValue(false);
+    await expect(f.service.save({ ...target, ...index, source: 'context_menu' })).rejects.toThrow(/privacy/);
+    f.visible.mockResolvedValue(true); f.writable.mockResolvedValue([]);
+    await expect(f.service.save({ ...target, ...index, source: 'context_menu' })).rejects.toThrow(/read-history/);
+    f.writable.mockResolvedValue([CHANNEL]); f.capture.invalidate();
+    await expect(f.service.save({ ...target, ...index, source: 'context_menu' })).rejects.toThrow(/account changed/i);
+    expect(f.sent).toHaveLength(1);
+  });
+  it.each([true, false])('keeps saves newest-first without another page request after an empty index (10133=%s)', async (unknownIndex) => {
+    const secondId = '200000000000000002';
+    const older = { ...wire(), save_data: { ...wire().save_data, saved_at: '2026-10-01T12:00:00.000001Z' } };
+    const newer = { ...wire(null, secondId), save_data: { ...wire(null, secondId).save_data, saved_at: '2026-10-01T12:00:00.000002Z' } };
+    const get = vi.fn(async () => {
+      if (unknownIndex) throw new DiscordHttpError('Unknown Saved Messages', 404, 10133);
+      return { reminders: [], bookmark_ids: [] };
+    });
+    const putJson = vi.fn(async (path: string, _body: unknown, opts?: WriteOptions) => {
+      await opts?.guard?.(); opts?.verify?.();
+      return path.endsWith(`/${secondId}`) ? newer : older;
+    });
+    const f = setup({ get, putJson } as unknown as DiscordClient), first = await f.service.index();
+    expect(first.indexReadFailed).toBe(unknownIndex ? true : undefined);
+    await f.service.save({ ...target, ...first, source: 'context_menu' });
+    const second = await f.service.index();
+    await f.service.save({ ...target, ...second, messageId: secondId, source: 'context_menu' });
+    const current = await f.service.index();
+    expect(current.indexReadFailed).toBe(unknownIndex ? true : undefined);
+    for (const refresh of [false, true]) {
+      const page = await f.service.bookmarks({ session: current.session, refresh });
+      expect(page.bookmarks.map((m) => m.messageId)).toEqual([secondId, MESSAGE]);
+      expect(page.hasMore).toBe(false); expect(page.nextBefore).toBeNull();
+    }
+    expect(get).toHaveBeenCalledTimes(1); expect(putJson).toHaveBeenCalledTimes(2);
+  });
+  it('does not adopt an unknown-index response after its account changes, or normalize other server errors', async () => {
+    const get = vi.fn().mockResolvedValue({ reminders: [], bookmark_ids: [] });
+    const f = setup({ get } as unknown as DiscordClient);
+    get.mockImplementationOnce(async (_path: string, _query: unknown, opts?: RequestOptions) => {
+      opts?.verify?.(); f.ready('300000000000000002'); throw new DiscordHttpError('Unknown Saved Messages', 404, 10133);
+    });
+    await expect(f.service.index()).rejects.toThrow(/account/i);
+    expect((await f.service.index()).bookmarkIds).toEqual([]); expect(get).toHaveBeenCalledTimes(2);
+    for (const [status, code] of [[404, 10003], [403, 10133], [500, 10133]] as const) {
+      const other = setup(); other.answer = new DiscordHttpError('Other failure', status, code);
+      await expect(other.service.index()).rejects.toThrow();
+      expect(other.sent).toHaveLength(1);
+    }
+  });
+  it('replays a native save during an unknown-index read without a bookmark page request', async () => {
+    let rejectRead!: (error: Error) => void;
+    const get = vi.fn(() => new Promise((_, reject) => { rejectRead = reject; }));
+    const f = setup({ get } as unknown as DiscordClient), read = f.service.index();
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    f.tap.emit('dispatch', { socketId: 'socket', t: 'SAVED_MESSAGE_CREATE', d: wire() });
+    rejectRead(new DiscordHttpError('Unknown Saved Messages', 404, 10133));
+    const index = await read;
+    expect(index.bookmarkIds).toEqual([MESSAGE]);
+    expect((await f.service.bookmarks({ session: index.session, pageEpoch: index.pageEpoch, refresh: true })).bookmarks.map((m) => m.messageId)).toEqual([MESSAGE]);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+  it('clears previous local saves when an explicit index refresh again returns the native unknown-index response', async () => {
+    const f = setup(); f.answer = new DiscordHttpError('Unknown Saved Messages', 404, 10133);
+    const index = await f.service.index();
+    await f.service.save({ ...target, ...index, source: 'context_menu' });
+    expect((await f.service.index()).bookmarkIds).toEqual([MESSAGE]);
+    const refreshed = await f.service.index(true);
+    expect(refreshed.bookmarkIds).toEqual([]);
+    await expect(f.service.remove({ ...target, ...refreshed })).rejects.toThrow(/no longer saved/);
+    expect((await f.service.bookmarks({ session: refreshed.session, pageEpoch: refreshed.pageEpoch })).bookmarks).toEqual([]);
+    expect(f.sent.map((r) => r.method)).toEqual(['GET', 'PUT', 'GET']);
+  });
   it('repairs access changes during the initial permission read and avoids a second forced page read within the retry cap', async () => {
     const f = setup(); let resolve!: (ids: string[]) => void;
     f.writable.mockImplementationOnce(() => new Promise((r) => { resolve = r; })); f.writable.mockResolvedValue([]);
@@ -70,7 +163,7 @@ describe('native saved-message contract', () => {
     await expect(f.service.save({ ...target, ...next, source: 'context_menu' })).rejects.toThrow(/changed/);
     expect(f.sent.filter((r) => r.method === 'PUT')).toHaveLength(1);
   });
-  it('keeps an account refusal across re-identification, caps explicit retries, and releases it for another account', async () => {
+  it('keeps a failed read across re-identification, caps explicit retries, and releases it for another account', async () => {
     vi.useFakeTimers();
     const f = setup(); f.answer = new DiscordHttpError('Unknown Saved Messages', 404);
     await expect(f.service.index()).rejects.toThrow(/Refresh/); f.ready();
@@ -238,7 +331,7 @@ describe('native saved-message contract', () => {
   it('latches a refusal across ordinary reads until an explicit refresh', async () => {
     const get = vi.fn(async () => { throw new DiscordHttpError('Unknown Saved Messages', 404); });
     const f = setup({ get } as unknown as DiscordClient);
-    await expect(f.service.index()).rejects.toThrow(/not make saved messages available/);
+    await expect(f.service.index()).rejects.toThrow(/404.*cause is not confirmed/);
     await expect(f.service.index()).rejects.toThrow(/Refresh/);
     expect(get).toHaveBeenCalledTimes(1);
     await expect(f.service.index(true)).rejects.toThrow(/Refresh/); expect(get).toHaveBeenCalledTimes(2);
@@ -296,6 +389,13 @@ describe('native saved-message contract', () => {
 
 afterEach(() => vi.useRealTimers());
 describe('existing embedded-page transport protections', () => {
+  it('recognizes the native unknown-index response through the actual protected transport and code decoder', async () => {
+    const evaluate = vi.fn(async () => ({ status: 404, headers: {}, body: JSON.stringify({ message: 'Unknown Saved Messages', code: 10133 }) }));
+    const f = setup((capture) => new DiscordApi(() => ({ webContents: { isDestroyed: () => false }, world: { evaluate } }) as never, capture, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 })).prompt);
+    const index = await f.service.index(); expect(index.bookmarkIds).toEqual([]);
+    await f.service.bookmarks({ session: index.session }); await f.service.index();
+    expect(evaluate).toHaveBeenCalledTimes(1);
+  });
   it('does not retry saved reads on a server failure, while retaining the shared transport', async () => {
     let attempts = 0;
     const f = setup((capture) => new DiscordApi(() => ({ webContents: { isDestroyed: () => false }, world: { evaluate: async () => { attempts++; return { status: 503, headers: {}, body: '{"message":"Offline"}' }; } } }) as never, capture, async () => ({ apiMs: 0, mediaMs: 0, jitter: 0 })).prompt);

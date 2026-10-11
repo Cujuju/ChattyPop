@@ -8,6 +8,24 @@ const index = (session = 'a', revision = 1): SavedIndex => ({ session, revision,
 const page = (session = 'a', revision = 1): SavedBookmarkPage => ({ session, revision, pageEpoch: 0, bookmarks: [row()], hasMore: true, nextBefore: row().savedAt });
 const deferred = <T>() => { let resolve!: (v: T) => void; const promise = new Promise<T>((r) => { resolve = r; }); return { resolve, promise }; };
 describe('saved-message renderer fencing', () => {
+  it('distinguishes a failed index from an empty account through local updates until a successful read or reset', async () => {
+    const load = vi.fn(async (): Promise<SavedIndex> => ({ ...index(), bookmarkIds: [] }));
+    const pages = vi.fn(async (): Promise<SavedBookmarkPage> => ({ ...page(), bookmarks: [], hasMore: false, nextBefore: null }));
+    const store = new SavedMessageStore({ savedMessages: load, savedBookmarks: pages }, () => undefined);
+    await store.refresh(); expect(store.state.indexReadFailed).toBe(false);
+    load.mockResolvedValue({ ...index(), bookmarkIds: [], indexReadFailed: true });
+    await store.refresh(true);
+    expect(store.state.indexReadFailed).toBe(true); expect(store.state.error).toBe(''); expect(store.state.stale).toBe(false);
+    store.invalidate('a', 2, false);
+    load.mockResolvedValue({ ...index('a', 2), indexReadFailed: true }); pages.mockResolvedValue({ ...page('a', 2), hasMore: false, nextBefore: null });
+    await store.refresh();
+    expect(store.state.indexReadFailed).toBe(true); expect(store.state.bookmarks).toHaveLength(1);
+    await store.refresh(true); expect(store.state.indexReadFailed).toBe(true);
+    load.mockResolvedValue(index('a', 2)); await store.refresh(true); expect(store.state.indexReadFailed).toBe(false);
+    load.mockResolvedValue({ ...index('a', 2), indexReadFailed: true }); await store.refresh();
+    store.invalidate('b', 0, true); expect(store.state.indexReadFailed).toBe(false);
+    await store.refresh(); store.clear(); expect(store.state.indexReadFailed).toBe(false);
+  });
   it('retains pagination through an index-only update, remount and subsequent load-more', async () => {
     const load = vi.fn(async () => index()), pages = vi.fn(async () => page()), store = new SavedMessageStore({ savedMessages: load, savedBookmarks: pages }, () => undefined);
     await store.refresh(); const cursor = store.state.nextBefore;

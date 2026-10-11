@@ -21,9 +21,10 @@ export function BookmarksPanel() {
       <button aria-pressed={savedTab() === 'reminders'} onClick={() => setSavedTab('reminders')}>Reminders</button>
     </div>
     <Show when={savedMessages().error}><p class={styles.error} role="alert">{savedMessages().error}</p></Show>
+    <Show when={savedMessages().indexReadFailed}><p class={styles.error} role="status">Discord could not load saved messages. Existing bookmarks and reminders may be missing. Use Refresh to try again.</p></Show>
     <Show when={savedMessages().loading}><p class={styles.empty} role="status">Loading saved messages…</p></Show>
     <Show when={!savedMessages().loading && !savedMessages().error && (savedMessages().stale || (savedTab() === 'bookmarks' && !savedMessages().bookmarksLoaded))}><p class={styles.empty}>Use Refresh to load saved messages for the current account and privacy settings.</p></Show>
-    <Show when={!savedMessages().loading && !savedMessages().error && !savedMessages().stale && (savedTab() === 'reminders' || savedMessages().bookmarksLoaded) && rows().length === 0}><p class={styles.empty}>No {savedTab()} yet. Save a message from its context menu.</p></Show>
+    <Show when={!savedMessages().loading && !savedMessages().error && !savedMessages().indexReadFailed && !savedMessages().stale && (savedTab() === 'reminders' || savedMessages().bookmarksLoaded) && rows().length === 0}><p class={styles.empty}>No {savedTab()} yet. Save a message from its context menu.</p></Show>
     <ul class={styles.list}><For each={rows()}>{(row) => <li class={styles.row}>
       <div class={styles.meta}><span>{row.authorName || 'Unknown author'}</span><span>{row.channelName || 'Unknown channel'}</span><time dateTime={row.savedAt}>{new Date(row.savedAt).toLocaleString()}</time></div>
       <p class={styles.summary}>{row.summary || 'Message unavailable'}</p>

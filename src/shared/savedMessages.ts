@@ -26,6 +26,8 @@ export interface SavedIndex extends SavedStamp {
   writableChannelIds: string[];
   reminders: SavedMessage[];
   bookmarkIds: string[];
+  /** A native-compatible local list after a failed index read cannot establish remote emptiness. */
+  indexReadFailed?: true;
   /** Older Discord clients return every saved message in the index itself. */
   legacyBookmarks?: SavedMessage[];
 }

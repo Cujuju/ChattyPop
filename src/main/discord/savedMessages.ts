@@ -8,6 +8,12 @@ import type { HeaderCapture } from './capture';
 import type { GatewayTap } from './gatewayTap';
 
 const PATH = 'users/@me/saved-messages';
+/** Native index failure clears its local list. Limit that behavior to this observed Discord error. */
+const UNKNOWN_SAVED_MESSAGES = 10133;
+function newestFirst(a: SavedMessage, b: SavedMessage): number {
+  const left = savedTimeOrder(a.savedAt), right = savedTimeOrder(b.savedAt);
+  return left > right ? -1 : left < right ? 1 : 0;
+}
 const ACCESS_EVENTS = new Set(['READY_SUPPLEMENTAL', 'GUILD_CREATE', 'GUILD_UPDATE', 'GUILD_DELETE', 'GUILD_ROLE_CREATE', 'GUILD_ROLE_UPDATE', 'GUILD_ROLE_DELETE', 'GUILD_MEMBER_UPDATE', 'CHANNEL_CREATE', 'CHANNEL_UPDATE', 'CHANNEL_DELETE', 'THREAD_CREATE', 'THREAD_UPDATE', 'THREAD_DELETE', 'THREAD_LIST_SYNC', 'THREAD_MEMBER_UPDATE', 'THREAD_MEMBERS_UPDATE']);
 const itemPath = (target: SavedRemove): string => `${PATH}/${target.channelId}/${target.messageId}`;
 type ObjectValue = Record<string, unknown>;
@@ -76,7 +82,7 @@ export class SavedMessages {
   private ready = false;
   private identifying = false;
   private accountId: string | null = null;
-  private cachedIndex: IndexData | null = null;
+  private cachedIndex: (IndexData & { bookmarksComplete?: true }) | null = null;
   private readonly pages = new Map<string, PageData>();
   private readonly known = new Map<string, SavedMessage>();
   private readonly readChanges = new Set<CacheChange[]>();
@@ -191,7 +197,7 @@ export class SavedMessages {
       if (row.dueAt) this.cachedIndex.reminders.push(row);
       else { this.cachedIndex.bookmarkIds.push(row.messageId); this.cachedIndex.legacyBookmarks?.unshift(row); }
     }
-    if (!row.dueAt) { const first = this.pages.get(''); if (first) { first.bookmarks.unshift(row); first.bookmarks.sort((a, b) => savedTimeOrder(a.savedAt) > savedTimeOrder(b.savedAt) ? -1 : 1); } }
+    if (!row.dueAt) { const first = this.pages.get(''); if (first) { first.bookmarks.unshift(row); first.bookmarks.sort(newestFirst); } }
     this.changed(false);
   }
   private drop(id: string): void {
@@ -220,7 +226,7 @@ export class SavedMessages {
     const session = this.stamp().session;
     const pageGeneration = this.pageGeneration, cacheGeneration = this.cacheGeneration;
     const request = run().catch((error: unknown) => {
-      const friendly = error instanceof DiscordHttpError && error.status === 404 ? new Error('Discord did not make saved messages available for this account. Use Refresh to retry, at most once per minute.') : error instanceof Error ? error : new Error(String(error));
+      const friendly = error instanceof DiscordHttpError && error.status === 404 ? new Error('Discord returned 404 while loading saved messages. The cause is not confirmed. Use Refresh to retry, at most once per minute.', { cause: error }) : error instanceof Error ? error : new Error(String(error));
       if (this.session === session && cacheGeneration === this.cacheGeneration && (!key.startsWith('page:') || pageGeneration === this.pageGeneration) && !(error instanceof SavedConflict)) { this.failures.set(key, friendly); if (key === 'index') this.ownerFailure = friendly; }
       throw friendly;
     }).finally(() => { if (this.pending.get(key) === request) this.pending.delete(key); });
@@ -236,8 +242,17 @@ export class SavedMessages {
       const cacheGeneration = this.cacheGeneration;
       const verify = (): void => { this.stamp(stamp.session); if (cacheGeneration !== this.cacheGeneration) throw new SavedConflict('Saved-message cache was reset. Refresh to try again.'); };
       try {
-        const row = decodeSavedIndex(await this.d.client.get<unknown>(PATH, { bookmark_ids: 'true' }, { retryServerErrors: false, verify }));
+        let response: unknown, indexReadFailed = false;
+        try { response = await this.d.client.get<unknown>(PATH, { bookmark_ids: 'true' }, { retryServerErrors: false, verify }); }
+        catch (error) {
+          if (!(error instanceof DiscordHttpError && error.status === 404 && error.code === UNKNOWN_SAVED_MESSAGES)) throw error;
+          response = { reminders: [], bookmark_ids: [] }; indexReadFailed = true;
+        }
+        const row = decodeSavedIndex(response);
         verify();
+        if (indexReadFailed) row.indexReadFailed = true;
+        // Native finishes paging on an empty index, even if later events add bookmarks.
+        const bookmarksComplete = row.legacyBookmarks === undefined && row.bookmarkIds.length === 0;
         for (const change of changes) {
           if (change.kind === 'deleted') { [...row.reminders, ...(row.legacyBookmarks ?? [])].forEach((m) => { if (change.ids.includes(m.messageId)) m.available = false; }); continue; }
           const id = change.kind === 'save' ? change.row.messageId : change.id;
@@ -246,6 +261,7 @@ export class SavedMessages {
           if (change.kind === 'save') { if (change.row.dueAt) row.reminders.push(change.row); else { row.bookmarkIds.push(id); row.legacyBookmarks?.unshift(change.row); } }
         }
         this.cachedIndex = row;
+        if (bookmarksComplete) this.cachedIndex.bookmarksComplete = true;
         for (const id of this.known.keys()) if (!row.bookmarkIds.includes(id) && !row.reminders.some((m) => m.messageId === id)) this.known.delete(id);
         [...row.reminders, ...(row.legacyBookmarks ?? [])].forEach((m) => this.known.set(m.messageId, m)); return row;
       } finally { this.readChanges.delete(changes); }
@@ -260,6 +276,7 @@ export class SavedMessages {
     this.writableIds = writableChannelIds;
     if (this.accessDirty) this.accessChanged();
     return { session: stamp.session, revision, pageEpoch: this.pageGeneration, writableChannelIds, reminders: visible.items.filter((m) => m.dueAt !== null), bookmarkIds: visible.bookmarkIds,
+      ...(decoded.indexReadFailed ? { indexReadFailed: true as const } : {}),
       ...(decoded.legacyBookmarks === undefined ? {} : { legacyBookmarks: visible.items.filter((m) => m.dueAt === null) }) };
   }
   async bookmarks(value: unknown): Promise<SavedBookmarkPage> {
@@ -275,6 +292,7 @@ export class SavedMessages {
     const force = v.refresh === true && !this.pending.has(requestKey) && this.forceAllowed(requestKey);
     if (force && before === undefined && (this.pages.size || [...this.failures.keys()].some((k) => k.startsWith('page:')))) this.clearPages(true);
     if (this.cachedIndex.bookmarkIds.length === 0) return { ...stamp, pageEpoch: this.pageGeneration, bookmarks: [], hasMore: false, nextBefore: null };
+    if (before === undefined && this.cachedIndex.bookmarksComplete) this.pages.set('', { bookmarks: [...this.known.values()].filter((m) => !m.dueAt && this.cachedIndex!.bookmarkIds.includes(m.messageId)).sort(newestFirst), hasMore: false, nextBefore: null });
     if (before === undefined && this.cachedIndex.legacyBookmarks) this.pages.set('', { bookmarks: this.cachedIndex.legacyBookmarks, hasMore: false, nextBefore: this.cachedIndex.legacyBookmarks.at(-1)?.savedAt ?? null });
     const pageGeneration = this.pageGeneration;
     const decoded = this.pages.get(key) ?? await this.load(requestKey, force, async () => {
@@ -289,7 +307,7 @@ export class SavedMessages {
           row.bookmarks = row.bookmarks.filter((m) => m.messageId !== id);
           if (change.kind === 'save' && !change.row.dueAt && (wasInPage || before === undefined || (savedTimeOrder(change.row.savedAt) < savedTimeOrder(before) && (!row.nextBefore || savedTimeOrder(change.row.savedAt) >= savedTimeOrder(row.nextBefore))))) row.bookmarks.push(change.row);
         }
-        row.bookmarks.sort((a, b) => savedTimeOrder(a.savedAt) > savedTimeOrder(b.savedAt) ? -1 : 1);
+        row.bookmarks.sort(newestFirst);
         this.pages.set(key, row); row.bookmarks.forEach((m) => this.known.set(m.messageId, m)); return row;
       } finally { this.readChanges.delete(changes); }
     });

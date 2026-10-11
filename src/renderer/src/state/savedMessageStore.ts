@@ -17,8 +17,9 @@ export interface SavedState {
   paging: boolean;
   error: string;
   bookmarksLoaded: boolean;
+  indexReadFailed: boolean;
 }
-const empty = (): SavedState => ({ session: null, revision: 0, pageEpoch: 0, bookmarks: [], reminders: [], bookmarkIds: [], writableChannelIds: [], hasMore: false, nextBefore: null, stale: true, loading: false, paging: false, error: '', bookmarksLoaded: false });
+const empty = (): SavedState => ({ session: null, revision: 0, pageEpoch: 0, bookmarks: [], reminders: [], bookmarkIds: [], writableChannelIds: [], hasMore: false, nextBefore: null, stale: true, loading: false, paging: false, error: '', bookmarksLoaded: false, indexReadFailed: false });
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 type SavedApi = Pick<RendererApi['discord'], 'savedMessages' | 'savedBookmarks'>;
 
@@ -70,7 +71,7 @@ export class SavedMessageStore {
         const incoming = preserveMore ? [...initial, ...this.state.bookmarks.filter((m) => index.bookmarkIds.includes(m.messageId) && !initial.some((v) => savedKey(v) === savedKey(m)))] : initial;
         const stable = (items: SavedMessage[], previous: SavedMessage[]): SavedMessage[] => items.map((m) => previous.find((p) => savedKey(p) === savedKey(m) && JSON.stringify(p) === JSON.stringify(m)) ?? m);
         const bookmarks = loaded ? stable(incoming, this.state.bookmarks) : samePages ? this.state.bookmarks.filter((m) => index.bookmarkIds.includes(m.messageId)) : [];
-        this.set({ session: index.session, revision: index.revision, pageEpoch: index.pageEpoch, writableChannelIds: index.writableChannelIds,
+        this.set({ session: index.session, revision: index.revision, pageEpoch: index.pageEpoch, writableChannelIds: index.writableChannelIds, indexReadFailed: index.indexReadFailed === true,
           reminders: stable([...index.reminders].sort((a, b) => Date.parse(a.dueAt!) - Date.parse(b.dueAt!)), this.state.reminders),
           bookmarks, bookmarkIds: [...new Set([...index.bookmarkIds, ...bookmarks.map((m) => m.messageId)])],
           hasMore: keepCursor ? this.state.hasMore : page?.hasMore ?? false, nextBefore: keepCursor ? this.state.nextBefore : page?.nextBefore ?? null, stale: false, error: '', bookmarksLoaded: (samePages && this.state.bookmarksLoaded) || loaded });

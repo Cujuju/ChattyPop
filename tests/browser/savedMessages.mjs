@@ -12,7 +12,7 @@ window.fetch = (url, options) => String(url) === 'chattypop-installed://index.js
   : originalFetch(url, options);
 const listeners = [], calls = [];
 const CHANNEL = '100000000000000001', BOOKMARK = '200000000000000001', REMINDER = '200000000000000002';
-let session = 'fixture', revision = 1, locked = false, failRead = false;
+let session = 'fixture', revision = 1, locked = false, failRead = false, indexReadFailed = false;
 const row = (messageId, dueAt, summary) => ({ channelId: CHANNEL, messageId, guildId: null, savedAt: '2026-10-01T12:00:00Z', dueAt,
   authorName: 'Sample author', channelName: '#planning', summary, available: messageId === BOOKMARK });
 let records = [row(BOOKMARK, null, 'Keep the project checklist handy.'), row(REMINDER, '2090-10-12T16:00:00Z', 'Review the launch checklist.')];
@@ -25,10 +25,11 @@ window.chattypop = {
   core: group({ plugins: async () => plugins(), getSetting: async () => undefined, directory: async () => [], messageById: async () => null }),
   discord: group({
     savedMessages: async (refresh) => {
-      calls.push(['index', refresh]); if (failRead) throw new Error('Discord did not make saved messages available for this account. Use Refresh to retry.');
-      return { session, revision, pageEpoch: 0, writableChannelIds: [CHANNEL], reminders: records.filter((m) => m.dueAt), bookmarkIds: records.filter((m) => !m.dueAt).map((m) => m.messageId) };
+      calls.push(['index', refresh]); if (failRead) throw new Error('Discord returned 404 while loading saved messages. The cause is not confirmed. Use Refresh to retry.');
+      const current = indexReadFailed ? [] : records;
+      return { session, revision, pageEpoch: 0, writableChannelIds: [CHANNEL], reminders: current.filter((m) => m.dueAt), bookmarkIds: current.filter((m) => !m.dueAt).map((m) => m.messageId), ...(indexReadFailed ? { indexReadFailed: true } : {}) };
     },
-    savedBookmarks: async (request) => { calls.push(['page', request]); return { session, revision, pageEpoch: 0, bookmarks: records.filter((m) => !m.dueAt), hasMore: false, nextBefore: null }; },
+    savedBookmarks: async (request) => { calls.push(['page', request]); return { session, revision, pageEpoch: 0, bookmarks: indexReadFailed ? [] : records.filter((m) => !m.dueAt), hasMore: false, nextBefore: null }; },
     saveMessage: async (input) => {
       calls.push(['save', input]); if (locked || input.session !== session || input.revision !== revision) throw new Error('Saved messages changed. Refresh to try again.');
       records = records.map((m) => m.messageId === input.messageId ? { ...m, dueAt: input.dueAt ?? null } : m); changed();
@@ -57,6 +58,7 @@ window.savedFixture = {
   saved, calls, postingUnlocked,
   lock: (value) => { locked = value; emit({ type: 'plugins-changed' }); },
   failure: (value) => { failRead = value; return saved.refreshSavedMessages(); },
+  readFailure: (value) => { indexReadFailed = value; return saved.refreshSavedMessages(); },
   privacy: () => emit({ type: 'privacy-changed' }),
   remoteChange: () => changed(),
   newSession: () => { session = 'fixture-new'; revision = 0; changed(true); },
