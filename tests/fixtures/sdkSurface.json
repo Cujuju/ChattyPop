@@ -1,5 +1,5 @@
 {
-  "version": "2.34.0",
+  "version": "2.35.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -51,6 +51,7 @@
       "POLL_QUESTION_MAX",
       "PROVIDER_DISPLAY_NAME_MAX",
       "PUBLIC_THREAD_TYPE",
+      "REMOTE_DEVICE_SETTINGS",
       "RULE_SPEC_VERSION",
       "SHELL_ASSET_SCHEME",
       "SHELL_BUNDLE_ID",
@@ -111,6 +112,7 @@
       "isObj",
       "isPhoneDeviceSetting",
       "isReactionEmoji",
+      "isRemoteDeviceSetting",
       "lastDailyDue",
       "mediaKind",
       "mediaSize",

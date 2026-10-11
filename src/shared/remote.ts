@@ -3,8 +3,7 @@
 // window does, less what needs the server's screen or disk.
 import { rendererGetsEvent } from './bundledPlugins';
 import { RENDERER_CORE_METHODS } from './rendererApi';
-import { SETTINGS_KEYS } from './settings';
-import { PHONE_UNSHARED_SETTINGS } from './phone';
+import { isRemoteDeviceSetting } from './remoteDevice';
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, PLUGINS_OPEN_FOLDER_CHANNEL, type AppEvent } from './types/ipc';
 
 /** Main calls a remote desktop answers itself (its shell or page): they never reach the server. */
@@ -49,24 +48,7 @@ const coreMethods = new Set<string>(RENDERER_CORE_METHODS);
 /** A core call a remote desktop may make: every one the window may (RENDERER_CORE_METHODS). */
 export const remoteMayCallCore = (method: string): boolean => coreMethods.has(method);
 
-/**
- * Settings a remote desktop keeps for itself, stored per device by its transport: a window's own place, and how this
- * screen lays out and shows the archive. Every other setting is the server's, shared with its window.
- */
-export const REMOTE_DEVICE_SETTINGS: readonly string[] = [
-  ...PHONE_UNSHARED_SETTINGS,
-  SETTINGS_KEYS.layoutPreset,
-  SETTINGS_KEYS.layoutCustom,
-  SETTINGS_KEYS.layoutCollapsedPanels,
-  SETTINGS_KEYS.layoutSidebarCollapsed,
-  SETTINGS_KEYS.archiveDensity,
-  // Hiding what is private on one screen (sharing it) must not hide it on the others.
-  SETTINGS_KEYS.privacyMode,
-  SETTINGS_KEYS.searchSort,
-  SETTINGS_KEYS.discordSidebar,
-];
-const deviceSettings = new Set(REMOTE_DEVICE_SETTINGS);
-export const isRemoteDeviceSetting = (key: string): boolean => deviceSettings.has(key);
+export { REMOTE_DEVICE_SETTINGS, isRemoteDeviceSetting } from './remoteDevice';
 
 /**
  * An event as a remote desktop gets it: what the server's window gets (plugin events whose audiences include the

@@ -153,28 +153,7 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingShare>> = 
   [SETTINGS_KEYS.discordChat]: 'view',
 };
 
-export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from './phoneDevice';
-
-/** Host settings that are one window's own place (open tabs, filters, recent channels): the phone neither reads nor writes the PC's. */
-export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
-  SETTINGS_KEYS.layoutTabPicks,
-  SETTINGS_KEYS.channelsBrowsing,
-  SETTINGS_KEYS.dmFilter,
-  SETTINGS_KEYS.settingsTab,
-  SETTINGS_KEYS.settingsSections,
-  SETTINGS_KEYS.jevView,
-  SETTINGS_KEYS.jevQuery,
-  SETTINGS_KEYS.newMessageArchive,
-  SETTINGS_KEYS.rulesFilter,
-  SETTINGS_KEYS.jevQuerySearch,
-  SETTINGS_KEYS.jevQueryFilter,
-  SETTINGS_KEYS.recentChannels,
-  SETTINGS_KEYS.chatSource,
-  SETTINGS_KEYS.archiveChannel,
-  SETTINGS_KEYS.archivePlace,
-  // The desktop's own chat choices; each phone keeps its own through its transport (PHONE_DEVICE_SETTINGS).
-  SETTINGS_KEYS.chatDevice,
-];
+export { PHONE_DEVICE_SETTINGS, PHONE_UNSHARED_SETTINGS, isPhoneDeviceSetting } from './phoneDevice';
 
 /** How the phone shares setting `key`: a host setting's PHONE_HOST_SETTINGS entry; every plugin preference is config. */
 const phoneShare = (key: string): PhoneSettingShare | undefined =>
