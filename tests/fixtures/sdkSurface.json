@@ -1,5 +1,5 @@
 {
-  "version": "2.36.0",
+  "version": "2.37.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -259,6 +259,8 @@
     "@plugin-sdk/renderer/kit": [
       "AddPicker",
       "AnimatedImage",
+      "AuthorName",
+      "Avatar",
       "Card",
       "ChatEmoji",
       "Checks",
@@ -283,6 +285,7 @@
       "JevQuestionField",
       "JumpToNewest",
       "LinkButton",
+      "Markdown",
       "MessageRow",
       "ModelList",
       "ModelRow",
@@ -465,6 +468,7 @@
       "commandsLoading",
       "composerFocus",
       "createListNav",
+      "createOwnAuthor",
       "createThread",
       "customEmojiToken",
       "defaultScheduleTime",
