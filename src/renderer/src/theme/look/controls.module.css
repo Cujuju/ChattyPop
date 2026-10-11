@@ -188,6 +188,20 @@
   color: var(--cp-text-muted);
 }
 
+/* Window-header controls use the same hover treatment as Settings' close button. */
+.iconButton[data-variant='window'] {
+  font-size: var(--cp-text-xl);
+  line-height: var(--cp-leading-none);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.iconButton[data-variant='window']:hover {
+  color: var(--cp-text-1);
+  background: var(--cp-surface-hover);
+}
+
 .iconButton:active {
   background: var(--cp-surface-active);
 }

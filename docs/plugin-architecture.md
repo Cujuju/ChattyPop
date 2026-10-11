@@ -556,7 +556,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `segments`, `segment` | Segmented control track and option | `aria-checked` |
 | `expressionTabs` | Plain expression type labels with short separators; used with `SegGroup` | `aria-checked` |
 | `button` | Thumb-sized button | `data-variant` (primary, raised) |
-| `iconButton` | A square around a line icon | — |
+| `iconButton` | A square around a line icon | `data-variant="window"` (Settings-style header control) |
 | `navItem` | Navigation entry | `aria-current="page"` |
 | `link` | Inline link, underlined on hover | `data-underline="always"` |
 | `quietLink` | Muted text that is a link (who / where / when) | — |
