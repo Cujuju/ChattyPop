@@ -1,5 +1,5 @@
 {
-  "version": "2.37.0",
+  "version": "2.39.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -436,6 +436,7 @@
       "weekdayDateTime"
     ],
     "@plugin-sdk/renderer/posting": [
+      "DraftField",
       "EMOJI_SUGGEST_MIN_CHARS",
       "EmojiPicker",
       "OPTION",
@@ -567,6 +568,7 @@
       "archiveLoads",
       "createPhoneRendererApi",
       "createRemoteRendererApi",
+      "createWireDecoder",
       "desktopShell",
       "focusMessageId",
       "installRendererApi",
