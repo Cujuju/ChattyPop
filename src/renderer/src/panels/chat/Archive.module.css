@@ -63,10 +63,10 @@
   padding-top: calc(var(--cp-composer-typing-slot) - var(--cp-typing-h));
 }
 
-/* While someone types (data-typing), the composer's glass reaches up over the typing line, softening in over
-   --cp-frost-edge above it: one blur, not two meeting at a seam. It snaps back when typing ends. */
+/* While someone types (data-typing), the composer's glass reaches up to the typing line's top, softening in over
+   --cp-frost-edge below it: one blur, not two meeting at a seam. It snaps back when typing ends. */
 .footer[data-typing='true'] {
-  --cp-frost-reach: calc(var(--cp-typing-h) + var(--cp-typing-gap-below) + var(--cp-frost-edge));
+  --cp-frost-reach: calc(var(--cp-typing-h) + var(--cp-typing-gap-below));
   --cp-frost-mask: var(--cp-frost-mask-reach);
 }
 

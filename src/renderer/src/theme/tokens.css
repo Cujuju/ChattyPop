@@ -292,7 +292,7 @@
   --cp-picker-rail-glass: color-mix(in srgb, var(--cp-surface-1) 55%, transparent); /* the phone emoji picker's section rail over its list: the rail's ground at the attach bar's share, so its marks read and the emoji under it show through */
   --cp-frost-blur: 8px; /* the blur of what scrolls under it: a text line stays a readable smudge; past ~12px, text on a dark ground blurs away to nothing */
   --cp-frost-mask: linear-gradient(to bottom, transparent, black var(--cp-composer-h)); /* the glass's reveal: clear at the box's top edge, full by a one-line box's bottom */
-  --cp-frost-edge: var(--cp-space-8); /* the glass's soft top edge while it reaches over the typing line: it bleeds this far above the line, fading in */
+  --cp-frost-edge: calc(var(--cp-typing-h) / 2); /* the glass's soft top edge while it reaches over the typing line: clear at the line's top, full by its midline, so nothing above the line blurs */
   /* That edge's fade, eased (smoothstep sampled at quarters: 0.16, 0.5, 0.84) so it neither starts nor stops on a visible line */
   --cp-frost-mask-reach: linear-gradient(
     to bottom,
