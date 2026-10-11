@@ -44,6 +44,8 @@ export const SHELL_CHANNELS = {
   savePdf: 'shell:save-pdf',
   openPanelWindow: 'shell:open-panel',
   showInMainWindow: 'shell:show-in-main',
+  /** Sent by the preload when the page subscribes (onLocalEvent): the app holds a window's commands until then. */
+  listening: 'shell:listening',
 } as const;
 /** The argument the client app passes its server windows' preload: the only origin the shell is given to. */
 export const SHELL_ORIGIN_ARG = '--cp-server-origin=';

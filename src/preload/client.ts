@@ -20,6 +20,8 @@ const shell: DesktopShell = {
   onLocalEvent: (listener) => {
     const handler = (_e: IpcRendererEvent, event: AppEvent): void => listener(event);
     ipcRenderer.on(APP_EVENT_CHANNEL, handler);
+    // Only now can a command reach the page; the app sends those it held for it.
+    ipcRenderer.send(SHELL_CHANNELS.listening);
     return () => ipcRenderer.off(APP_EVENT_CHANNEL, handler);
   },
 };

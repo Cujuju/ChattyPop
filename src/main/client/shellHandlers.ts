@@ -1,9 +1,10 @@
 // The desktop shell's calls in the client (src/shared/desktopShell.ts): notices, the badge, saving files and PDFs, panel
-// windows and show-in-main. Each call is checked to come from a server window, and acts for that server only.
+// windows and show-in-main. Each call is checked to come from a server window, and acts for that server only. Commands
+// for a window go through ServerWindows.command, which holds them until its page listens.
 import { writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { app, dialog, ipcMain, nativeImage, Notification, type BrowserWindow, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron';
-import { APP_EVENT_CHANNEL, isComposeIntent, type AppEvent } from '@shared/contract';
+import { isComposeIntent } from '@shared/contract';
 import { SHELL_CHANNELS } from '@shared/desktopShell';
 import { decodePdfSource } from '@shared/htmlPage';
 import { targetEvent, type DeliveredNotification } from '@shared/notifications';
@@ -17,11 +18,6 @@ import type { ServerWindow, ServerWindows } from './serverWindows';
 /** The taskbar overlay's size in pixels (Windows' small icon at 100%). */
 const OVERLAY_PX = 16;
 const FALLBACK_PDF_NAME = 'export.pdf';
-
-/** Sends a command to a server window's page (DesktopShell.onLocalEvent). */
-const command = (win: BrowserWindow, e: AppEvent): void => {
-  if (!win.isDestroyed()) win.webContents.send(APP_EVENT_CHANNEL, e);
-};
 
 /** Asks where to save `name`; null when cancelled. */
 async function saveAs(win: BrowserWindow, title: string, name: string, filters?: Electron.FileFilter[]): Promise<string | null> {
@@ -48,7 +44,7 @@ export function registerShellHandlers(windows: ServerWindows): void {
       const main = windows.main(origin) ?? windows.open(origin);
       if (!raiseWindow(main)) return;
       const opens = targetEvent(n.target ?? null);
-      if (opens) command(main, opens);
+      if (opens) windows.command(main, opens);
     });
     shown.show();
   });
@@ -98,6 +94,8 @@ export function registerShellHandlers(windows: ServerWindows): void {
     if (!w || typeof channelId !== 'string') return;
     const main = windows.main(w.origin) ?? windows.open(w.origin);
     if (!raiseWindow(main)) return;
-    command(main, { type: 'open-message', channelId, ...(typeof messageId === 'string' ? { messageId, ...(isComposeIntent(compose) ? { compose } : {}) } : {}) });
+    windows.command(main, { type: 'open-message', channelId, ...(typeof messageId === 'string' ? { messageId, ...(isComposeIntent(compose) ? { compose } : {}) } : {}) });
   });
+
+  ipcMain.on(SHELL_CHANNELS.listening, (e) => windows.listening(e.sender));
 }

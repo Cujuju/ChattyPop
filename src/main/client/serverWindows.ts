@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { BrowserWindow, session, type Session, type WebContents } from 'electron';
+import { APP_EVENT_CHANNEL, type AppEvent } from '@shared/contract';
 import { SHELL_ORIGIN_ARG } from '@shared/desktopShell';
 import { guardNavigation } from '../externalLinks';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from '../unsavedChanges';
@@ -40,9 +41,37 @@ export interface ServerWindow {
   panel: string | null;
 }
 
+/**
+ * The app's commands for one window's page (DesktopShell.onLocalEvent). A page gets them only once it listens: one sent
+ * while it still loads, or shows the pairing page, would be lost, so it waits for the page instead.
+ */
+export class PageCommands {
+  private listening = false;
+  private readonly waiting: AppEvent[] = [];
+
+  constructor(private readonly deliver: (e: AppEvent) => void) {}
+
+  send(e: AppEvent): void {
+    if (this.listening) this.deliver(e);
+    else this.waiting.push(e);
+  }
+
+  /** The page subscribed: it gets what waited for it, in order. */
+  listen(): void {
+    this.listening = true;
+    for (const e of this.waiting.splice(0)) this.deliver(e);
+  }
+
+  /** A new document loads in the window; it hasn't subscribed yet. */
+  reset(): void {
+    this.listening = false;
+  }
+}
+
 export class ServerWindows {
   private readonly windows = new Set<ServerWindow>();
   private readonly guarded = new WeakSet<Session>();
+  private readonly commands = new WeakMap<BrowserWindow, PageCommands>();
 
   /** `unreachable`: a window's page didn't load (the server is off, or this computer isn't on its network). */
   constructor(private readonly unreachable: (w: ServerWindow, reason: string) => void) {}
@@ -73,6 +102,11 @@ export class ServerWindows {
     const entry: ServerWindow = { win, origin, panel };
     this.windows.add(entry);
     win.on('closed', () => this.windows.delete(entry));
+    const commands = new PageCommands((e) => {
+      if (!win.isDestroyed()) win.webContents.send(APP_EVENT_CHANNEL, e);
+    });
+    this.commands.set(win, commands);
+    win.webContents.on('did-navigate', () => commands.reset());
     // The server's pages only (its pairing page and its desktop); links elsewhere open in the system browser.
     guardNavigation(win.webContents, (url) => new URL(url).origin === origin);
     guardUnsavedChanges(win);
@@ -88,6 +122,17 @@ export class ServerWindows {
     });
     void win.loadURL(serverPageUrl(origin, panel));
     return win;
+  }
+
+  /** Sends a command to a server window's page, once that page listens for them. */
+  command(win: BrowserWindow, e: AppEvent): void {
+    this.commands.get(win)?.send(e);
+  }
+
+  /** `wc`'s page subscribed to its commands (SHELL_CHANNELS.listening); anything but a server window is ignored. */
+  listening(wc: WebContents): void {
+    const w = this.of(wc);
+    if (w) this.commands.get(w.win)?.listen();
   }
 
   /** The server window `wc` belongs to; undefined for anything else (a sender to refuse). */

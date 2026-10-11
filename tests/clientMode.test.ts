@@ -1,6 +1,8 @@
 // Client mode (main/client): the servers it keeps, the page and session each server's windows get, and the preload
 // that gives the desktop shell to that server's pages and no other.
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { AppEvent } from '@shared/contract';
+import type { DesktopShell } from '@shared/desktopShell';
 
 const electron = vi.hoisted(() => ({ exposed: [] as [string, unknown][] }));
 vi.mock('electron', () => ({
@@ -15,8 +17,8 @@ vi.mock('electron', () => ({
 }));
 
 const { ServerList } = await import('../src/main/client/servers');
-const { serverPageUrl, serverPartition } = await import('../src/main/client/serverWindows');
-const { CONNECT_GLOBAL, CONNECT_PAGE_ARG, DESKTOP_SHELL_API_VERSION, DESKTOP_SHELL_GLOBAL, SHELL_ORIGIN_ARG } = await import('@shared/desktopShell');
+const { PageCommands, serverPageUrl, serverPartition } = await import('../src/main/client/serverWindows');
+const { CONNECT_GLOBAL, CONNECT_PAGE_ARG, DESKTOP_SHELL_API_VERSION, DESKTOP_SHELL_GLOBAL, SHELL_CHANNELS, SHELL_ORIGIN_ARG } = await import('@shared/desktopShell');
 
 function memory(text: string | null = null) {
   const store = { text, read: () => store.text, write: (t: string) => void (store.text = t) };
@@ -66,6 +68,24 @@ describe('server windows', () => {
     expect(serverPartition('https://a.example')).toBe(a);
     expect(serverPartition('https://b.example')).not.toBe(a);
   });
+
+  it('hold a command until the page listens for it, and again while a new document loads', () => {
+    const got: AppEvent[] = [];
+    const commands = new PageCommands((e) => void got.push(e));
+    const open = (channelId: string): AppEvent => ({ type: 'open-message', channelId });
+    commands.send(open('1'));
+    commands.send(open('2'));
+    expect(got).toEqual([]);
+    commands.listen();
+    expect(got).toEqual([open('1'), open('2')]);
+    commands.send(open('3'));
+    expect(got).toHaveLength(3);
+    commands.reset();
+    commands.send(open('4'));
+    expect(got).toHaveLength(3);
+    commands.listen();
+    expect(got).toEqual([open('1'), open('2'), open('3'), open('4')]);
+  });
 });
 
 describe("a server window's preload", () => {
@@ -88,6 +108,17 @@ describe("a server window's preload", () => {
     const exposed = await load('https://pc.tail1.ts.net:8443', 'https://pc.tail1.ts.net:8443');
     expect(exposed.map(([key]) => key)).toEqual([DESKTOP_SHELL_GLOBAL]);
     expect((exposed[0]![1] as { apiVersion: number }).apiVersion).toBe(DESKTOP_SHELL_API_VERSION);
+  });
+
+  it('tells the app the page listens for commands only once one can reach it', async () => {
+    const exposed = await load('https://pc.tail1.ts.net:8443', 'https://pc.tail1.ts.net:8443');
+    const { ipcRenderer } = await import('electron');
+    const on = vi.mocked(ipcRenderer.on);
+    const send = vi.mocked(ipcRenderer.send);
+    expect(send).not.toHaveBeenCalledWith(SHELL_CHANNELS.listening);
+    (exposed[0]![1] as DesktopShell).onLocalEvent(() => undefined);
+    expect(send).toHaveBeenCalledWith(SHELL_CHANNELS.listening);
+    expect(on.mock.invocationCallOrder.at(-1)!).toBeLessThan(send.mock.invocationCallOrder.at(-1)!);
   });
 
   it('gives nothing to a page anywhere else, not even the app’s API', async () => {
