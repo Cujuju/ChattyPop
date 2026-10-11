@@ -5,6 +5,8 @@ import { showArchive, showLive } from '@/state/archive';
 import { overlayOpen } from '@/state/overlay';
 import { onServerScreen } from '@/state/ui';
 import { ArchiveView } from './ArchiveView';
+import { DiscordSignIn } from './DiscordSignIn';
+import { discordSession, relayRunning, signInDismissed } from '@/state/discordLogin';
 import { PanelHeader, headerStyles as hs } from '@/ui/PanelHeader';
 import styles from './Chat.module.css';
 
@@ -32,7 +34,10 @@ export function ChatPanel() {
           <div class={styles.liveSlot} ref={(el) => bindDiscordSlot(el, () => chatSource() === 'live' && !overlayOpen())} />
         </Match>
         <Match when={chatSource() === 'archive'}>
-          <ArchiveView />
+          {/* Off the server's screen, a signed-out server's Discord is signed in from here (or the archive read as is). */}
+          <Show when={!onServerScreen && ((discordSession() === 'signed-out' && !signInDismissed()) || relayRunning())} fallback={<ArchiveView />}>
+            <DiscordSignIn />
+          </Show>
         </Match>
       </Switch>
     </section>

@@ -6,6 +6,7 @@ import { Notification, app, ipcMain, session, shell } from 'electron';
 import { callMain, handleMain } from './ipc/mainCalls';
 import {
   CORE_INVOKE_CHANNEL,
+  MAIN_INVOKE,
   PANEL_WINDOW_CHANNEL,
   PLUGINS_OPEN_FOLDER_CHANNEL,
   APP_RESTART_CHANNEL,
@@ -44,6 +45,8 @@ import { GatewayAccess } from './discord/access';
 import { gatewayArchivePayload } from './discord/gatewayPeople';
 import { gatewayGuildRoles } from './discord/roles';
 import { TypingEvents } from './discord/typing';
+import { LoginRelay } from './discord/loginRelay';
+import { normalizeRelayInput } from '@shared/discordLogin';
 import { DISCORD_PARTITION, type DiscordView } from './discordView';
 import { registerDiscordHandlers } from './ipc/discord';
 import { registerKeyHandlers } from './ipc/keys';
@@ -265,6 +268,22 @@ void app.whenReady().then(() => {
   });
   applyPrivacy();
 
+  // Signing the Discord client in from a remote desktop: the page says when it shows the login, its first captured
+  // request when it is signed in.
+  const relay = new LoginRelay({ win, view: discord, emit: toRenderer, diag });
+  discord.onLoginPage = (atLogin) => {
+    if (atLogin) relay.setState('signed-out');
+  };
+  const { discord: discordChannels } = MAIN_INVOKE;
+  handleMain(discordChannels.loginState, () => relay.state);
+  handleMain(discordChannels.loginStart, () => relay.start());
+  handleMain(discordChannels.loginStop, () => relay.stop());
+  handleMain(discordChannels.loginInput, (e) => {
+    const input = normalizeRelayInput(e);
+    if (!input) throw new Error('Not a pointer or key event.');
+    return relay.input(input);
+  });
+
   discord.onChannel = (guildId, channelId) => {
     toRenderer({ type: 'live-channel', guildId, channelId });
     liveLabels.showChannel(channelId);
@@ -276,7 +295,10 @@ void app.whenReady().then(() => {
     // Sync keeps only the signed-in account's DMs: READY naming one queues them.
     if (e.type === 'self-changed') void sync.signedIn(e.userId);
   });
-  capture.onAvailable = () => void sync.syncAll();
+  capture.onAvailable = () => {
+    relay.setState('signed-in');
+    void sync.syncAll();
+  };
   sync.onSettled = () => void core.call('syncSettled');
   const gatewayAccess = new GatewayAccess();
   discord.tap.on('dispatch', ({ t, d }) => {

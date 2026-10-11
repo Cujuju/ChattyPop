@@ -114,6 +114,11 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       closeDm: unavailable('Closing a conversation'),
       renameDm: unavailable('Renaming a group'),
       muteDm: unavailable('Muting a conversation'),
+      // Signing Discord in from another machine is a desktop's (a remote desktop's) job.
+      loginState: () => Promise.resolve('unknown'),
+      loginStart: unavailable('Signing in to Discord'),
+      loginStop: unavailable('Signing in to Discord'),
+      loginInput: unavailable('Signing in to Discord'),
     },
     // Moving the archive picks a folder on the PC.
     storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), dismissNotice: unavailable('Archive notices'), setEncrypted: viaMain(storage.setEncrypted) },

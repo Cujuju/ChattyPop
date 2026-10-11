@@ -5,6 +5,7 @@ import type { DesktopState } from '../desktop';
 import type { JevSpend } from '../jevSpend';
 import type { ReadStateCount } from './archive';
 import type { StorageMovePhase } from './storage';
+import type { DiscordSessionState, LoginFrame } from '../discordLogin';
 
 /** What the Archive does with a message it shows for another window: open the composer on it (reply) or edit it in place. */
 export const COMPOSE_INTENTS = ['reply', 'edit'] as const;
@@ -31,6 +32,12 @@ export type AppEvent =
   | { type: 'open-panel'; panelId: string }
   /** Main → the main window: open Settings at a section (a server's tray pairing a device). */
   | { type: 'open-settings'; section: string }
+  /** Whether the server's Discord client is signed in (shared/discordLogin.ts). */
+  | { type: 'discord-session'; state: DiscordSessionState }
+  /** A sign-in relay started or stopped. */
+  | { type: 'discord-login-relay'; running: boolean }
+  /** One frame of the server's Discord page while a sign-in relay runs. */
+  | ({ type: 'discord-login-frame' } & LoginFrame)
   /** Main asks the renderer to show a message (e.g. a clicked notification). Sent to the main window only (panel windows hand their message clicks to it). */
   | { type: 'open-message'; channelId: string; messageId?: string; compose?: ComposeIntent }
   /** Main holds this window's close or reload for its unsaved edits: the window asks the owner (state/unsavedChanges). Sent to that window only. */
@@ -203,6 +210,11 @@ export const MAIN_INVOKE = {
     closeDm: 'discord:close-dm',
     renameDm: 'discord:rename-dm',
     muteDm: 'discord:mute-dm',
+    /** Signing the server's Discord client in from another machine (shared/discordLogin.ts). */
+    loginState: 'discord:login-state',
+    loginStart: 'discord:login-start',
+    loginStop: 'discord:login-stop',
+    loginInput: 'discord:login-input',
   },
   storage: {
     info: 'storage:info',

@@ -4,6 +4,7 @@ import { sidebarCollapsed } from '@/state/layout';
 import { ageLabel, captureOn } from '@/state/statusBar';
 import { backfillProgress } from '@/state/syncDetails';
 import { percentText, shortDate } from '@/ui/format';
+import { onServerScreen } from '@/state/ui';
 import styles from './SyncStatus.module.css';
 
 const PHASE_LABEL = {
@@ -49,7 +50,7 @@ export function SyncStatusPanel() {
       <section class={styles.root} aria-label="Sync status">
         <h2 class={styles.title}>Sync</h2>
         <p class={styles.idle} data-capture={captureOn() === false ? 'off' : 'on'}>
-          {captureOn() === false ? 'Live capture off: sign in to Discord in the Live view' : 'Live capture on'}
+          {captureOn() === false ? `Live capture off: sign in to Discord ${onServerScreen ? 'in the Live view' : 'from the Chat panel'}` : 'Live capture on'}
         </p>
         <Show when={rows().length > 0} fallback={<p class={styles.idle}>All archived channels up to date</p>}>
           <For each={rows()}>

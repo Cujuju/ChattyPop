@@ -80,6 +80,11 @@ export class DiscordView {
   private slot: DiscordSlot = { visible: false, x: 0, y: 0, width: 0, height: 0 };
   /** Open Discord modals expand the native view to the full window. */
   private modalOpen = false;
+  /** A sign-in relay holds the view over the whole window, whatever the renderer's slot says (loginRelay.ts). */
+  private relayHold = false;
+  /** Whether the page shows Discord's login, so the client isn't signed in; changes call onLoginPage. */
+  private atLogin: boolean | undefined;
+  onLoginPage: ((atLogin: boolean) => void) | undefined;
 
   /** The server and channel the client shows now; undefined before it shows one. */
   get shownChannel(): { guildId: string; channelId: string } | undefined {
@@ -103,7 +108,12 @@ export class DiscordView {
     guardNavigation(wc, isDiscordUrl);
     const notePath = (url: string): void => {
       const path = new URL(url).pathname;
-      if (path.startsWith('/login')) diag('discord-login-page', { path });
+      const atLogin = path.startsWith('/login');
+      if (atLogin) diag('discord-login-page', { path });
+      if (atLogin !== this.atLogin) {
+        this.atLogin = atLogin;
+        this.onLoginPage?.(atLogin);
+      }
       const channel = CHANNEL_PATH.exec(path);
       this.shown = channel ? { guildId: channel[1]!, channelId: channel[2]! } : undefined;
       if (!channel || this.leaveIfHidden()) return;
@@ -131,14 +141,20 @@ export class DiscordView {
     this.applyBounds();
   }
 
-  /** Over the slot; over the whole window while a modal is open. Hidden whenever the slot is. */
+  /** Holds the view over the whole window (a sign-in relay streams it), or gives it back to the renderer's slot. */
+  holdForRelay(on: boolean): void {
+    this.relayHold = on;
+    this.applyBounds();
+  }
+
+  /** Over the slot; over the whole window while a modal is open or a relay holds it. Hidden whenever the slot is, unless held. */
   private applyBounds(): void {
     const { slot } = this;
-    const visible = slot.visible && slot.width > 0 && slot.height > 0;
+    const visible = this.relayHold || (slot.visible && slot.width > 0 && slot.height > 0);
     if (visible) {
       const [width, height] = this.win.getContentSize() as [number, number];
       this.view.setBounds(
-        this.modalOpen
+        this.modalOpen || this.relayHold
           ? { x: 0, y: 0, width, height }
           : { x: Math.round(slot.x), y: Math.round(slot.y), width: Math.round(slot.width), height: Math.round(slot.height) },
       );
