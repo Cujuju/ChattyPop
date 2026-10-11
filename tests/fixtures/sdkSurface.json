@@ -1,5 +1,5 @@
 {
-  "version": "2.35.0",
+  "version": "2.36.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACTION_LOOKBACKS",
@@ -315,6 +315,7 @@
       "appearanceSettings",
       "archivePlace",
       "archivedChannels",
+      "attachmentUrl",
       "changeDeviceChatSettings",
       "changeDiscordChatSettings",
       "channelById",
@@ -396,6 +397,7 @@
       "providerRuns",
       "providerSettingsOf",
       "providerStatus",
+      "proxiedUrl",
       "pullToClose",
       "querySearch",
       "recentPhotos",
@@ -409,6 +411,7 @@
       "saveRule",
       "scrolledFromTop",
       "setBotCounted",
+      "setLightbox",
       "setProviderDisplayName",
       "setSearchOpen",
       "setSyncAcrossClients",
@@ -419,6 +422,7 @@
       "shownChannelId",
       "snapshotPage",
       "startNewRule",
+      "thumbUrl",
       "toLocalInput",
       "totalUnreadCount",
       "unreadCount",

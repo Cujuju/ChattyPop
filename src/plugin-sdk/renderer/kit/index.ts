@@ -40,7 +40,8 @@ export { createVirtualLog } from '@/ui/virtualLog';
 export { VirtualRows } from '@/ui/VirtualRows';
 export { createPagedList, keyedById } from '@/state/paged';
 // Messages drawn as the Archive draws them.
-export { MessageRow } from '@/panels/chat/MessageRow';
+export { Avatar, MessageRow } from '@/panels/chat/MessageRow';
+export { AuthorName } from '@/panels/chat/AuthorName';
 export { Embeds, isMediaOnly } from '@/panels/chat/MessageExtras';
 // A person named in a plugin's text: their name as Discord draws it in a place, kept current, opening their profile.
 export { PersonName } from '@/panels/chat/PersonName';
@@ -57,11 +58,14 @@ export { Checks, Field, RuleBadge } from '@/views/settings/rules/fields';
 export { AddPicker, ChipRow } from '@/views/settings/rules/pickers';
 export { RuleLookback } from '@/views/settings/rules/RuleLookback';
 export { JevQuestionField, conditionWording } from '@/ui/JevQuestionField';
-export { InlineMarkdown } from '@/ui/Markdown';
+export { InlineMarkdown, Markdown } from '@/ui/Markdown';
 export { listen, onPointerDownOutside } from '@/ui/listen';
 // A phone sheet's pull down to close, as the message menu's.
 export { pullToClose } from '@/ui/pullToClose';
 export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
+// Image previews use the host's cached media routes and embedded Discord session.
+export { attachmentUrl, proxiedUrl, thumbUrl } from '@shared/media';
+export { setLightbox } from '@/state/ui';
 export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect, type SearchOption } from '@/ui/SearchSelect';
 // A server's icon (initials when it has none), as the sidebar draws it.
