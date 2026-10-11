@@ -26,8 +26,8 @@ export const outsideLayout = inPanelWindow || inCompanion;
 /** Opens a panel in its own window (or focuses it). */
 export const openPanelWindow = (id: string): void => void api.openPanelWindow(id);
 
-/** Panels the top bar opens in an in-app window, like Settings, instead of their own app window: bundled ones that ask to. */
-export const DIALOG_PANELS: readonly string[] = bundledPanels().filter((p) => p.dialog).map((p) => p.id);
+/** Built-in and bundled panels the top bar opens inside the app, like Settings. */
+export const DIALOG_PANELS: readonly string[] = ['bookmarks', ...bundledPanels().filter((p) => p.dialog).map((p) => p.id)];
 export const isDialogPanel = (id: string): boolean => DIALOG_PANELS.includes(id);
 /** In-app panel windows that are open. */
 export const [panelDialogs, setPanelDialogs] = createSignal<readonly string[]>([]);
