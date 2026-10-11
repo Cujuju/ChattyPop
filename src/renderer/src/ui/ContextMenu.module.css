@@ -156,6 +156,8 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  /* The iPhone shell's keyboard covers the page's bottom edge: the sheet rests on the keyboard and follows it. */
+  padding-bottom: var(--cp-keyboard-inset);
   background: var(--cp-backdrop);
   touch-action: none;
 }
@@ -164,8 +166,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--cp-space-4);
-  max-height: var(--cp-sheet-max-h);
-  padding: var(--cp-space-3) calc(var(--cp-space-6) + env(safe-area-inset-right)) calc(var(--cp-space-7) + env(safe-area-inset-bottom))
+  /* Its top stays where it is without a keyboard; a menu taller than the room above the keyboard scrolls. */
+  max-height: calc(var(--cp-sheet-max-h) - var(--cp-keyboard-inset));
+  padding: var(--cp-space-3) calc(var(--cp-space-6) + env(safe-area-inset-right)) calc(var(--cp-space-7) + var(--cp-safe-bottom))
     calc(var(--cp-space-6) + env(safe-area-inset-left));
   overflow-y: auto;
   overscroll-behavior: contain;
