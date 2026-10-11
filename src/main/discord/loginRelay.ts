@@ -3,7 +3,7 @@
 // replays the owner's pointer and keys as CDP input. A hidden window paints nothing, so there is nothing to stream.
 import type { BrowserWindow, WebContents } from 'electron';
 import type { AppEvent } from '@shared/contract';
-import type { DiscordSessionState, RelayInput } from '@shared/discordLogin';
+import type { DiscordSessionState, LoginFrame, LoginRelayState, RelayInput } from '@shared/discordLogin';
 import { errorMessage } from '@shared/errors';
 import { MS_PER_MIN } from '@shared/units';
 import type { HeaderCapture } from './capture';
@@ -56,6 +56,8 @@ export class LoginRelay {
   /** Whether the relay showed the window, so stopping hides it again. */
   private shown = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** The running relay's latest frame; null before its first, and once it stops. */
+  private lastFrame: LoginFrame | null = null;
   /** Starts and stops run one at a time, so a stop still finishing never dismantles the relay started after it. */
   private turn: Promise<void> = Promise.resolve();
 
@@ -64,12 +66,18 @@ export class LoginRelay {
       if (method !== 'Page.screencastFrame' || !this.relaying) return;
       const frame = params as ScreencastFrame;
       void this.command('Page.screencastFrameAck', { sessionId: frame.sessionId });
-      d.emit({ type: 'discord-login-frame', data: frame.data, width: frame.metadata.deviceWidth, height: frame.metadata.deviceHeight });
+      this.lastFrame = { data: frame.data, width: frame.metadata.deviceWidth, height: frame.metadata.deviceHeight };
+      d.emit({ type: 'discord-login-frame', ...this.lastFrame });
     });
   }
 
   get state(): DiscordSessionState {
     return this.sessionState;
+  }
+
+  /** The relay as a page that just loaded finds it; a still page sends no new frame, so the latest one comes with it. */
+  get relayState(): LoginRelayState {
+    return this.relaying ? { running: true, frame: this.lastFrame } : { running: false, frame: null };
   }
 
   /**
@@ -107,6 +115,7 @@ export class LoginRelay {
     return this.inTurn(async () => {
       if (!this.running) return;
       this.running = false;
+      this.lastFrame = null;
       clearTimeout(this.timer);
       await this.command('Page.stopScreencast');
       this.d.view.holdForRelay(false);

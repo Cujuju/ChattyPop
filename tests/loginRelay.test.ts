@@ -56,6 +56,22 @@ describe('the sign-in relay', () => {
     expect(h.win.hide).not.toHaveBeenCalled();
   });
 
+  it('tells a page that loads while it runs that it runs, with its latest frame', async () => {
+    const h = harness();
+    expect(h.relay.relayState).toEqual({ running: false, frame: null });
+    await h.relay.start();
+    expect(h.relay.relayState).toEqual({ running: true, frame: null });
+    h.frame('abc');
+    expect(h.relay.relayState).toEqual({ running: true, frame: { data: 'abc', width: 1200, height: 800 } });
+    await h.relay.stop();
+    expect(h.relay.relayState).toEqual({ running: false, frame: null });
+    // The next relay starts without the last one's picture.
+    await h.relay.start();
+    expect(h.relay.relayState).toEqual({ running: true, frame: null });
+    h.relay.setState('signed-in');
+    expect(h.relay.relayState).toEqual({ running: false, frame: null });
+  });
+
   it('starts only at the sign-in page: a signed-in client is never shown or driven', async () => {
     for (const state of ['unknown', 'signed-in'] as const) {
       const h = harness({ state });

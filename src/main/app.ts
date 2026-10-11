@@ -272,6 +272,7 @@ void app.whenReady().then(() => {
   const relay = new LoginRelay({ win, view: discord, emit: toRenderer, diag });
   const { discord: discordChannels } = MAIN_INVOKE;
   handleMain(discordChannels.loginState, () => relay.state);
+  handleMain(discordChannels.loginRelayState, () => relay.relayState);
   handleMain(discordChannels.loginStart, () => relay.start());
   handleMain(discordChannels.loginStop, () => relay.stop());
   handleMain(discordChannels.loginInput, (e) => {

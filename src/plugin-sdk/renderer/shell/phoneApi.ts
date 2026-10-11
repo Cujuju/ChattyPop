@@ -116,6 +116,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       muteDm: unavailable('Muting a conversation'),
       // Signing Discord in from another machine is a desktop's (a remote desktop's) job.
       loginState: () => Promise.resolve('unknown'),
+      loginRelayState: () => Promise.resolve({ running: false, frame: null }),
       loginStart: unavailable('Signing in to Discord'),
       loginStop: unavailable('Signing in to Discord'),
       loginInput: unavailable('Signing in to Discord'),

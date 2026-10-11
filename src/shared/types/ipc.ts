@@ -212,6 +212,7 @@ export const MAIN_INVOKE = {
     muteDm: 'discord:mute-dm',
     /** Signing the server's Discord client in from another machine (shared/discordLogin.ts). */
     loginState: 'discord:login-state',
+    loginRelayState: 'discord:login-relay-state',
     loginStart: 'discord:login-start',
     loginStop: 'discord:login-stop',
     loginInput: 'discord:login-input',

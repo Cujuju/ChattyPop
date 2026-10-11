@@ -18,7 +18,7 @@ import type { UnreadTotals } from './unread';
 import type { MarketplaceApi } from './marketplace';
 import type { PdfPage } from './htmlPage';
 import type { ScheduledAvailability, ScheduledDraft, ScheduledMessage, ScheduledUpdate } from './scheduledMessages';
-import type { DiscordSessionState, RelayInput } from './discordLogin';
+import type { DiscordSessionState, LoginRelayState, RelayInput } from './discordLogin';
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
@@ -129,6 +129,8 @@ export interface RendererApi {
     muteDm(channelId: string, window: MuteWindow | null): Promise<void>;
     /** Whether the server's Discord client is signed in; changes emit discord-session. */
     loginState(): Promise<DiscordSessionState>;
+    /** Whether a sign-in relay runs now, and its latest frame: a page that loads while one runs shows it. */
+    loginRelayState(): Promise<LoginRelayState>;
     /** Streams the server's Discord page (discord-login-frame) until signed in, stopped, or a while passes. */
     loginStart(): Promise<void>;
     loginStop(): Promise<void>;

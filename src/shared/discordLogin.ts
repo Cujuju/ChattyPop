@@ -12,6 +12,12 @@ export interface LoginFrame {
   height: number;
 }
 
+/** A sign-in relay as a page that just loaded finds it: whether one runs, and the latest frame it sent (null: none yet). */
+export interface LoginRelayState {
+  running: boolean;
+  frame: LoginFrame | null;
+}
+
 /** Pointer buttons a relayed click may name. */
 export const RELAY_BUTTONS = ['none', 'left', 'right', 'middle'] as const;
 export type RelayButton = (typeof RELAY_BUTTONS)[number];
