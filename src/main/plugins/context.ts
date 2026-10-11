@@ -16,7 +16,7 @@ import { errorMessage } from '@shared/errors';
 import type { GuildEmojiIndex } from '../discord/guildEmojis';
 import { guildEmojis, pluginDiscord, type GuildEmojis, type PluginDiscord, type PluginDiscordDeps } from './discordContext';
 import type { AttachmentDownloader, AttachmentFetch } from '../media/attachmentDownloader';
-import type { PhoneGateway, PhoneHub, PhoneRoute, PhoneTransport } from '../phone/hub';
+import type { PhoneHub, PhoneLink, PhoneRoute, PhoneTransport } from '../phone/hub';
 import type { SyncService } from '../sync/syncService';
 import type { TailnetServe } from '../tailnet';
 import { listenLoopback, type LoopbackHandler, type LoopbackServer } from './loopback';
@@ -104,8 +104,8 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
   /** Draws an HTML export as a one-page PDF the size of its content, in a window that runs no script and loads nothing. */
   pdf(source: PdfSource): Promise<Uint8Array>;
   phone: {
-    /** Carries the phone (descriptor `phone.transport`): receives its events and pushes, and gets the gateway. */
-    connect(transport: PhoneTransport): { gateway: PhoneGateway; disconnect(): void };
+    /** Carries the phone and remote desktops (descriptor `phone.transport`): receives their events and pushes, and gets their gateways. */
+    connect(transport: PhoneTransport): PhoneLink;
     /** Serves a declared phone route; the transport routes a paired phone's request to it while this plugin is on. */
     route(name: PhoneRouteNames<D>, fn: PhoneRoute): void;
   };
