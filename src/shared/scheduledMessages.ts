@@ -53,7 +53,7 @@ export function scheduleWindowError(at: number, now = Date.now(), replyId?: stri
   return null;
 }
 
-/** Next ISO-week Monday, including when today is Monday. Matches the client's startOf(isoWeek) + week. */
+/** Short delays round up to a whole minute so the ten-minute choice has confirmation headroom. */
 export function schedulePresets(now = Date.now()): { label: string; timestamp: string }[] {
   const soonest = now + SCHEDULE_MIN_MS;
   const times = [9, 13].map((hour) => {
@@ -66,7 +66,9 @@ export function schedulePresets(now = Date.now()): { label: string; timestamp: s
   const monday = new Date(now);
   monday.setDate(monday.getDate() + (8 - (monday.getDay() || 7)));
   monday.setHours(9, 0, 0, 0);
-  return [...times, { label: 'Next Monday 9 AM', timestamp: monday.toISOString() }];
+  const nextMinute = (Math.floor(now / MS_PER_MIN) + 1) * MS_PER_MIN;
+  const delays = [10, 30].map((minutes) => ({ label: `In ${minutes} minutes`, timestamp: new Date(nextMinute + minutes * MS_PER_MIN).toISOString() }));
+  return [...delays, ...times, { label: 'Next Monday 9 AM', timestamp: monday.toISOString() }];
 }
 
 export function defaultScheduleTime(now = Date.now()): string {

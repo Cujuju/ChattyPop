@@ -45,12 +45,23 @@ describe('scheduled send times', () => {
   });
   it('moves presets too close to tomorrow, and always chooses next ISO-week Monday', () => {
     const presets = schedulePresets();
-    expect(presets.map((p) => p.label)).toEqual(['Tomorrow 9 AM', 'Today 1 PM', 'Next Monday 9 AM']);
-    const next = new Date(presets[2]!.timestamp);
+    expect(presets.map((p) => p.label)).toEqual(['In 10 minutes', 'In 30 minutes', 'Tomorrow 9 AM', 'Today 1 PM', 'Next Monday 9 AM']);
+    const next = new Date(presets[4]!.timestamp);
     expect([next.getDay(), next.getHours(), next.getDate()]).toEqual([1, 9, 12]);
     const monday = new Date(2026, 9, 12, 7).getTime();
-    expect(new Date(schedulePresets(monday)[2]!.timestamp).getDate()).toBe(19);
+    expect(new Date(schedulePresets(monday)[4]!.timestamp).getDate()).toBe(19);
     for (const p of presets) expect(scheduleWindowError(Date.parse(p.timestamp))).toBeNull();
+  });
+  it('rounds short-delay choices to a future whole minute and keeps the ten-minute choice valid when selected', () => {
+    const clicked = NOW + 12_345;
+    const presets = schedulePresets(clicked);
+    for (const [index, minutes] of [[0, 10], [1, 30]] as const) {
+      const at = Date.parse(presets[index]!.timestamp);
+      expect(at % MS_PER_MIN).toBe(0);
+      expect(at - clicked).toBeGreaterThan(minutes * MS_PER_MIN);
+      expect(at - clicked).toBeLessThanOrEqual((minutes + 1) * MS_PER_MIN);
+      expect(scheduleWindowError(at, clicked)).toBeNull();
+    }
   });
   it('defaults to a whole local hour at least ten minutes away', () => {
     expect(new Date(defaultScheduleTime()).getHours()).toBe(10);
