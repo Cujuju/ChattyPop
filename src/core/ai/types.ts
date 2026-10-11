@@ -60,7 +60,7 @@ export class ProviderUnavailableError extends Error {}
 export type ProviderChoice = Pick<ProviderSettings, 'model' | 'effort'>;
 
 /** A provider's Settings → AI state: whether it can run, why in one line, and its models (null: not listed). */
-export type ProviderReport = Omit<ProviderStatus, 'id'>;
+export type ProviderReport = Omit<ProviderStatus, 'id' | 'apiKeyHint'>;
 
 /** What a plugin registers for a declared provider (ctx.ai.registerProvider). */
 export interface ProviderImpl {
@@ -68,6 +68,8 @@ export interface ProviderImpl {
   create(choice: ProviderChoice): LlmProvider;
   /** Its Settings → AI state; `refresh` re-lists what it keeps for the session (model lists). */
   status(choice: ProviderChoice, refresh: boolean): Promise<ProviderReport>;
+  /** Rejects a key its vendor doesn't accept before storage. Required when the declaration has `apiKey`. */
+  checkApiKey?(key: string): Promise<void>;
 }
 
 /** A provider whose plugin runs but whose Use switch in Settings → AI is off. */

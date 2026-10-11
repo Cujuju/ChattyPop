@@ -51,7 +51,7 @@ export type {
 } from '@shared/bundledTypes';
 export type { SlotDecl, SlotDecls, SlotKind } from '@shared/slots';
 export type { Placement } from '@shared/anchors';
-export type { OwnerUrl, ProviderDecl } from '@shared/descriptorParts';
+export type { OwnerUrl, ProviderDecl, ProviderApiKeyDecl } from '@shared/descriptorParts';
 export { definePreference, type CorePreferences, type FieldPath, type MainPreferences, type PhoneView, type Preference, type PreferenceField, type PreferenceNames, type PreferenceValue } from '@shared/preferences';
 export { newPluginAction } from '@shared/bundledTypes';
 export type { RuleTemplate } from '@shared/ruleTemplates';

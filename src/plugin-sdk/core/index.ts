@@ -84,7 +84,7 @@ export { queryLabel, queryMatch, queryRequest } from '@core/jev/queries';
 export { SerialLoop } from '@core/serialLoop';
 export { deadline } from '@core/deadline';
 export { IS_WINDOWS, exeName, findExecutable, resolveCli, type Launch } from '@core/ai/resolveCli';
-export { signedInCli, type CliSpec } from '@core/ai/cliProvider';
+export { signedInCli, type CliSpec, type CliKeyAuth } from '@core/ai/cliProvider';
 
 export { toJson } from '@core/db';
 export { carriedQuestion, sumCosts } from '@core/ai/decisions';

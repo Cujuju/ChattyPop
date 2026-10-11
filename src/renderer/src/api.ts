@@ -96,6 +96,7 @@ export const api: RendererApi = {
   core: group('core'),
   openRouter: group('openRouter'),
   typeSafe: group('typeSafe'),
+  providerKeys: group('providerKeys'),
   discord: group('discord', keepLocked),
   storage: group('storage'),
   plugins: group('plugins'),

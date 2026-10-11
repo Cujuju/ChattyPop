@@ -4,6 +4,8 @@ import type { CoreClient } from '../coreClient';
 import { checkOpenRouterKey, signInToOpenRouter } from '../openrouterAuth';
 import { addOpenRouterKey, loadOpenRouterKeys, removeOpenRouterKey, updateOpenRouterKey } from '../openrouterKeys';
 import { forgetTypeSafeKey, loadTypeSafeKey, saveTypeSafeKey } from '../typesafeKey';
+import { forgetProviderKey, loadProviderKeys, saveProviderKey } from '../providerKeys';
+import { requireSecretStorage, SECRET_FILES } from '../secretFile';
 import { handleMain } from './mainCalls';
 
 /** A string argument from a window or the phone; throws on anything else. */
@@ -14,7 +16,7 @@ function text(v: unknown, what: string): string {
 
 /** Hands core the stored keys, then keeps it current as the renderer adds, edits or removes them. */
 export function registerKeyHandlers(core: CoreClient): void {
-  const { openRouter, typeSafe } = MAIN_INVOKE;
+  const { openRouter, typeSafe, providerKeys } = MAIN_INVOKE;
   // OpenRouter keys are decrypted here (safeStorage is main-only) and held by core in memory; every change is re-sent whole.
   void core.call('setOpenRouterKeys', loadOpenRouterKeys());
   handleMain(openRouter.signIn, async () => core.call('setOpenRouterKeys', addOpenRouterKey(await signInToOpenRouter(), null)));
@@ -30,4 +32,14 @@ export function registerKeyHandlers(core: CoreClient): void {
     forgetTypeSafeKey();
     return core.call('setTypeSafeKey', null);
   });
+  void core.call('setProviderApiKeys', loadProviderKeys(SECRET_FILES));
+  handleMain(providerKeys.setKey, async (id, raw) => {
+    const providerId = text(id, 'provider id');
+    const key = text(raw, 'key').trim();
+    if (!key) throw new Error('Paste an API key.');
+    requireSecretStorage();
+    await core.call('checkProviderApiKey', providerId, key);
+    return core.call('setProviderApiKeys', saveProviderKey(SECRET_FILES, providerId, key));
+  });
+  handleMain(providerKeys.removeKey, (id) => core.call('setProviderApiKeys', forgetProviderKey(SECRET_FILES, text(id, 'provider id'))));
 }

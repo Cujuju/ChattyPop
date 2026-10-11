@@ -35,6 +35,7 @@ function desktopApi(core: CorePort, main: MainPort | null, deliver: (fn: (e: App
     },
     openRouter: without('openRouter'),
     typeSafe: without('typeSafe'),
+    providerKeys: without('providerKeys'),
     discord: without('discord'),
     storage: without('storage'),
     rules: without('rules'),

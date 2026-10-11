@@ -25,7 +25,7 @@ export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
 ];
 
 /** Groups a remote desktop reaches through the `main` call group, by channel; Discord and plugin calls have their own groups. */
-const MAIN_GROUPS = ['openRouter', 'typeSafe', 'storage', 'rules', 'media', 'desktop', 'marketplace'] as const;
+const MAIN_GROUPS = ['openRouter', 'typeSafe', 'providerKeys', 'storage', 'rules', 'media', 'desktop', 'marketplace'] as const;
 const notCrossing = new Set([...REMOTE_LOCAL_MAIN_CALLS, ...REMOTE_REFUSED_MAIN_CALLS]);
 
 /** Main calls a remote desktop may make, by channel: the window groups' calls neither local nor refused, and restart. */

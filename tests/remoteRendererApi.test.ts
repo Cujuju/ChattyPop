@@ -61,12 +61,16 @@ describe('remote desktop calls', () => {
     await api.core.setSetting('k', 1);
     await api.discord.setOptIn('c', true);
     await api.plugins.callCore('relay', 'go', [1]);
+    await api.providerKeys.setKey('probe', 'test-key');
+    await api.providerKeys.removeKey('probe');
     await api.storage.info();
     await api.restartApp();
     expect(t.calls).toEqual([
       { group: 'core', method: 'setSetting', params: ['k', 1] },
       { group: 'discord', method: 'setOptIn', params: ['c', true] },
       { group: 'plugins', method: 'callCore', params: ['relay', 'go', [1]] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe', 'test-key'] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe'] },
       { group: 'main', method: MAIN_INVOKE.storage.info, params: [] },
       { group: 'main', method: APP_RESTART_CHANNEL, params: [] },
     ]);

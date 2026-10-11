@@ -70,7 +70,7 @@ export interface BundledDeps {
 }
 
 /** The registry members plugin contexts use, and the plugin host's state binding. */
-export type AiProviders = Pick<ProviderRegistry, 'get' | 'register' | 'providers' | 'unavailable' | 'isLocal' | 'openRouterKeys' | 'bindPlugins'>;
+export type AiProviders = Pick<ProviderRegistry, 'get' | 'register' | 'providers' | 'unavailable' | 'isLocal' | 'apiKey' | 'openRouterKeys' | 'bindPlugins'>;
 
 /** A plugin's view of its rule actions' runs. */
 export interface RuleRuns {

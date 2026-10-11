@@ -9,6 +9,7 @@ import { ProviderUnavailableError, TURNED_OFF, type ProviderImpl, type ProviderI
 import { registerUsage, type UsageReader } from '../ai/usage';
 import { servicesLive, type Registrations } from './api';
 import { revocable } from '../ai/revocable';
+import { keyError } from '../ai/keyError';
 import type { BundledDeps } from './bundled';
 import { registration } from './registrationCheck';
 
@@ -31,6 +32,8 @@ export interface PluginAi<D extends PluginDescriptor = PluginDescriptor> {
   isLocal(id: ProviderId): boolean;
   /** Supplies a provider this plugin declares, until the plugin turns off. */
   registerProvider(id: ProviderIds<D>, impl: ProviderImpl): void;
+  /** The owner's stored key for a provider declared with `apiKey`; null when absent or unloaded. Read per request. */
+  apiKey(id: ProviderIds<D>): string | null;
   /** A call's cost at the model's API list rates (OpenRouter id), for plan-paid providers; undefined when unknown or off. */
   apiCost: PriceAtApiRates;
   /** The host's OpenRouter keys, for a provider declared as paid through them. */
@@ -55,6 +58,15 @@ export function pluginAi<D extends PluginDescriptor>(
 ): PluginAi<D> {
   const live = (): boolean => servicesLive(reg);
   const { providers } = bundled;
+  const checked = async <T>(job: () => Promise<T>, key: string | null): Promise<T> => {
+    try {
+      return await job();
+    } catch (err) {
+      const safe = keyError(err, key);
+      guard(() => { throw safe; });
+      throw safe;
+    }
+  };
   /** Why `id` can't run for this plugin: its plugin can't, or the owner turned it off in Settings → AI. */
   const unavailable = (id: ProviderId, settings: AiSettings = bundled.aiSettings()): string | null =>
     providers.unavailable(id) ?? (settings.providers[id]?.enabled ? null : TURNED_OFF);
@@ -69,6 +81,12 @@ export function pluginAi<D extends PluginDescriptor>(
     providers: () => providers.providers().map((p) => ({ ...p, unavailable: unavailable(p.id) })),
     unavailable: (id) => unavailable(id),
     isLocal: (id) => providers.isLocal(id),
+    apiKey: (id) => {
+      const declared = plugin.providers?.find((p) => p.id === id);
+      if (!declared) throw new Error(`${plugin.manifest.id} reads AI provider ${id} but declares none`);
+      if (!declared.apiKey) throw new Error(`${plugin.manifest.id} reads API key for ${id} but declares no apiKey`);
+      return live() ? providers.apiKey(id) : null;
+    },
     registerProvider: (id, impl) => {
       if (!plugin.providers?.some((p) => p.id === id)) throw new Error(`${plugin.manifest.id} registers AI provider ${id} but declares none`);
       if (!live()) return;
@@ -77,13 +95,8 @@ export function pluginAi<D extends PluginDescriptor>(
         providers.register(id, {
           create: (choice) => impl.create(choice),
           // A throwing report is recorded on the plugin; Settings → AI shows its message as the reason.
-          status: (choice, refresh) =>
-            impl.status(choice, refresh).catch((err: unknown) => {
-              guard(() => {
-                throw err;
-              });
-              throw err;
-            }),
+          status: (choice, refresh) => checked(() => impl.status(choice, refresh), providers.apiKey(id)),
+          ...(impl.checkApiKey ? { checkApiKey: (key: string) => checked(() => impl.checkApiKey!(key), key) } : {}),
         }),
       );
     },

@@ -5,11 +5,12 @@ const proc = Object.assign(new EventEmitter(), { postMessage: vi.fn(), kill: vi.
 vi.mock('electron', () => ({ utilityProcess: { fork: () => proc } }));
 const { CoreClient } = await import('../src/main/coreClient');
 
-const init = { archiveDir: 'a', pluginsDir: 'p', pluginData: { root: 'r', unmoved: {} }, key: null };
+const init = { archiveDir: 'a', pluginsDir: 'p', pluginData: { root: 'r', unmoved: {} }, key: null, openRouterKeys: [], typeSafeKey: null, providerApiKeys: { probe: 'test-key' } };
 
 describe('CoreClient routes what core posts', () => {
   it('sends init milestones, events and answers each to its own listener', async () => {
     const core = new CoreClient('core.js', init);
+    expect(proc.postMessage).toHaveBeenNthCalledWith(1, { kind: 'init', ...init });
     const steps: unknown[] = [];
     const events: unknown[] = [];
     core.on('init-step', (s) => steps.push(s));

@@ -77,6 +77,8 @@ export const PHONE_MAIN_CALLS: readonly string[] = [
   MAIN_INVOKE.openRouter.removeKey,
   MAIN_INVOKE.typeSafe.setKey,
   MAIN_INVOKE.typeSafe.removeKey,
+  MAIN_INVOKE.providerKeys.setKey,
+  MAIN_INVOKE.providerKeys.removeKey,
   MAIN_INVOKE.discord.customTheme,
   MAIN_INVOKE.storage.info,
   MAIN_INVOKE.storage.setEncrypted,

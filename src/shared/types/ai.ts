@@ -29,6 +29,8 @@ export interface ModelOption {
 
 export interface ProviderStatus {
   id: ProviderId;
+  /** Last characters of the stored API key; null when none is stored or the provider takes none. */
+  apiKeyHint: string | null;
   available: boolean;
   detail: string;
   /** Models the provider offers; null when it couldn't be listed (see detail). */

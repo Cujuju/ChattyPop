@@ -102,6 +102,8 @@ export interface TestOptions<D extends PluginDescriptor> {
   preferences?: { [N in PreferenceNames<D>]?: PreferenceValue<D, N> };
   ai?: {
     providers?: readonly ScriptedProvider[];
+    /** Stored owner API keys, held in memory before activation. */
+    apiKeys?: Readonly<Record<string, string>>;
     /** Jev, asked only for switches that are on. */
     jev?: DecisionProvider;
     /** Settings → Jev switches: the plugin's own by local key, or the host's. */

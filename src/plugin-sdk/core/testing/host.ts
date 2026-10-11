@@ -80,6 +80,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   const decls = [...providerDeclarations(installed), ...scripted.map((p) => scriptedDeclaration(p.id, p.local ?? false, p.images ?? false))];
   const features = installed.flatMap((p) => (p.jev?.features ?? []).map((f) => ({ key: stampedName(p.manifest.id, f.key), default: f.default })));
   const registry = new ProviderRegistry(() => undefined, decls);
+  registry.setProviderApiKeys(o.ai?.apiKeys ?? {});
   for (const p of scripted) registry.register(p.id, { create: () => p.provider, status: async () => SCRIPTED_STATUS });
   const ai = (): AiSettings => normalizeAiSettings(getSetting(db, SETTINGS_KEYS.ai), decls, features);
   // Jev for a switch that is on: the registry's check, with the scripted Jev in place of a keyed connection.

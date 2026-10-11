@@ -16,10 +16,11 @@ export function startProviders(
   plugins: readonly CorePlugin[],
   declared: readonly PluginDescriptor[] = plugins.map((p) => p.plugin),
   db: Db = tempDb(),
-  options: { jev?: DecisionProvider; pluginsDir?: string } = {},
+  options: { jev?: DecisionProvider; pluginsDir?: string; apiKeys?: Record<string, string> } = {},
 ) {
   const decls = providerDeclarations(declared);
   const registry = new ProviderRegistry(() => undefined, decls);
+  registry.setProviderApiKeys(options.apiKeys ?? {});
   const rules = new RuleKinds();
   const ai = (): AiSettings => normalizeAiSettings(getSetting(db, 'ai'), decls);
   const jev = (): DecisionProvider | null => options.jev ?? null;

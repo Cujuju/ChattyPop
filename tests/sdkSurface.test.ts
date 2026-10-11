@@ -1,4 +1,4 @@
-// SDK runtime exports are versioned; surface changes require the corresponding version bump.
+// SDK value and type exports are versioned; surface changes require the corresponding version bump.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { parse } from '@babel/parser';
@@ -14,6 +14,7 @@ const SDK_MODULES = [...new Set([...HOST_MODULES.node, ...HOST_MODULES.browser])
 interface Surface {
   version: string;
   modules: Record<string, string[]>;
+  types?: Record<string, string[]>;
 }
 
 const SDK_ROOT = join(import.meta.dirname, '../src/plugin-sdk');
@@ -27,21 +28,25 @@ const moduleFile = (base: string): string => {
   return file;
 };
 
-/** The value names `file` exports, read from its source (types are erased, so they aren't part of the surface). */
+/** Exported names read from source; type names carry a prefix because they occupy a separate namespace. */
 function exportNames(file: string): string[] {
   const program = parse(readFileSync(file, 'utf8'), { sourceType: 'module', plugins: file.endsWith('x') ? ['typescript', 'jsx'] : ['typescript'] }).program;
   return program.body.flatMap((node): string[] => {
     if (node.type === 'ExportDefaultDeclaration') return ['default'];
     if (node.type === 'ExportAllDeclaration') {
-      if (node.exportKind === 'type') return [];
       const spec = node.source.value;
-      if (spec.startsWith('.')) return exportNames(moduleFile(resolve(dirname(file), spec)));
-      return spec.startsWith(SHARED_ALIAS) ? exportNames(moduleFile(join(SHARED_ROOT, spec.slice(SHARED_ALIAS.length)))) : [`* from ${spec}`];
+      const names = spec.startsWith('.') ? exportNames(moduleFile(resolve(dirname(file), spec)))
+        : spec.startsWith(SHARED_ALIAS) ? exportNames(moduleFile(join(SHARED_ROOT, spec.slice(SHARED_ALIAS.length)))) : [`* from ${spec}`];
+      return node.exportKind === 'type' ? names.map((name) => name.startsWith('type ') ? name : `type ${name}`) : names;
     }
-    if (node.type !== 'ExportNamedDeclaration' || node.exportKind === 'type') return [];
+    if (node.type !== 'ExportNamedDeclaration') return [];
     const d = node.declaration;
     // `export * as ns from` is a namespace specifier here.
-    if (!d) return node.specifiers.flatMap((sp) => (sp.type === 'ExportSpecifier' && sp.exportKind === 'type' ? [] : [sp.exported.type === 'Identifier' ? sp.exported.name : sp.exported.value]));
+    if (!d) return node.specifiers.map((sp) => {
+      const name = sp.exported.type === 'Identifier' ? sp.exported.name : sp.exported.value;
+      return node.exportKind === 'type' || (sp.type === 'ExportSpecifier' && sp.exportKind === 'type') ? `type ${name}` : name;
+    });
+    if (d.type === 'TSInterfaceDeclaration' || d.type === 'TSTypeAliasDeclaration') return [`type ${d.id.name}`];
     if (d.type === 'VariableDeclaration') return d.declarations.flatMap((v) => (v.id.type === 'Identifier' ? [v.id.name] : []));
     if (d.type === 'FunctionDeclaration' || d.type === 'ClassDeclaration' || d.type === 'TSEnumDeclaration') return d.id ? [d.id.name] : [];
     return [];
@@ -51,7 +56,10 @@ function exportNames(file: string): string[] {
 /** Which part of an x.y.z version a change to the surface must raise; null when none changed. */
 function neededBump(recorded: Surface, now: Surface): { part: 'major' | 'minor'; names: string[] } | null {
   const diff = (from: Surface, to: Surface): string[] =>
-    SDK_MODULES.flatMap((id) => (from.modules[id] ?? []).filter((n) => !(to.modules[id] ?? []).includes(n)).map((n) => `${id} ${n}`));
+    SDK_MODULES.flatMap((id) => [
+      ...(from.modules[id] ?? []).filter((n) => !(to.modules[id] ?? []).includes(n)).map((n) => `${id} ${n}`),
+      ...(from.types?.[id] ?? []).filter((n) => !(to.types?.[id] ?? []).includes(n)).map((n) => `${id} type ${n}`),
+    ]);
   const removed = diff(recorded, now);
   if (removed.length) return { part: 'major', names: removed };
   const added = diff(now, recorded);
@@ -62,8 +70,12 @@ const part = (version: string, at: 0 | 1): number => Number(version.split('.')[a
 
 describe('the Plugin SDK surface', () => {
   it('is recorded at the current PLUGIN_SDK_VERSION; a change raises it (minor: additions, major: removals)', () => {
-    const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {} };
-    for (const id of SDK_MODULES) now.modules[id] = [...new Set(exportNames(moduleFile(join(SDK_ROOT, id.slice('@plugin-sdk/'.length)))))].sort();
+    const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {}, types: {} };
+    for (const id of SDK_MODULES) {
+      const names = [...new Set(exportNames(moduleFile(join(SDK_ROOT, id.slice('@plugin-sdk/'.length)))))].sort();
+      now.modules[id] = names.filter((n) => !n.startsWith('type '));
+      now.types![id] = names.filter((n) => n.startsWith('type ')).map((n) => n.slice('type '.length));
+    }
     const recorded = JSON.parse(readFileSync(RECORD, 'utf8')) as Surface;
     const bump = neededBump(recorded, now);
     if (bump) {
