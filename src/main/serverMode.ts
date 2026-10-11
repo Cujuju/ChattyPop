@@ -1,5 +1,5 @@
-// Server mode's pairing: the tray's "Pair a device…" and --pair. The phone transport makes the code; this shows it on
-// the server's screen, and prints it for a server started from a terminal.
+// Server mode's pairing: the tray's "Pair a device…" and --pair. The phone transport makes the code; the tray opens its
+// Settings section on the server's screen (the app's own themed window), and --pair prints it to the terminal.
 import { MS_PER_S } from '@shared/units';
 import type { PairingPrompt } from './phone/hub';
 
@@ -22,8 +22,8 @@ export function pairingText(prompt: PairingPrompt): string {
 export const NO_TRANSPORT_TEXT = 'Nothing serves other devices yet. Open ChattyPop from this menu and turn on Settings → Phone.';
 
 /**
- * Asks the transport for a code until it has one or `waitMs` pass (none: asks once, as the tray does); `show` gets the
- * code's text, or why there is none.
+ * Asks the transport for a code until it has one or `waitMs` pass (none: asks once); `show` gets the code's text, or
+ * why there is none.
  */
 export async function showPairing(
   startPairing: () => Promise<PairingPrompt | null>,
@@ -37,6 +37,23 @@ export async function showPairing(
     if (waited >= waitMs) return show(NO_TRANSPORT_TEXT);
     await wait(PAIR_RETRY_MS);
   }
+}
+
+/** Where the server's tray goes to pair a device: the transport's Settings section with a new code, else none to open. */
+export interface PairingScreen {
+  /** Brings the main window forward. */
+  raise(): void;
+  openSettings(section: string): void;
+  /** No transport serves devices: a system notification says so (the window is up). */
+  tell(text: string): void;
+}
+
+/** The tray's "Pair a device…": a new code in the transport's own Settings section, in the server's window. */
+export async function pairOnScreen(startPairing: () => Promise<PairingPrompt | null>, screen: PairingScreen): Promise<void> {
+  const prompt = await startPairing().catch(() => null);
+  screen.raise();
+  if (prompt?.settingsSection) screen.openSettings(prompt.settingsSection);
+  else if (!prompt) screen.tell(NO_TRANSPORT_TEXT);
 }
 
 /** --pair: a server started from a terminal prints its code there, once the transport serves. */

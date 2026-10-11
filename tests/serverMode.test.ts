@@ -1,7 +1,7 @@
 // How a run starts (main/launchMode.ts) and a server's pairing codes (main/serverMode.ts).
 import { describe, expect, it, vi } from 'vitest';
 import { LAUNCH_MODE_ENV, launchMode, serverOrigin } from '../src/main/launchMode';
-import { NO_TRANSPORT_TEXT, pairingText, showPairing } from '../src/main/serverMode';
+import { NO_TRANSPORT_TEXT, pairOnScreen, pairingText, showPairing } from '../src/main/serverMode';
 
 describe('launch mode', () => {
   it('starts the app unless a flag or the environment says otherwise', () => {
@@ -58,5 +58,20 @@ describe('server pairing', () => {
     expect(calls).toBe(3);
     expect(wait).toHaveBeenCalledTimes(2);
     expect(printed[0]).toContain('123456');
+  });
+
+  it("opens the transport's Settings section from the tray, with a new code, in the server's window", async () => {
+    const screen = { raise: vi.fn(), openSettings: vi.fn(), tell: vi.fn() };
+    await pairOnScreen(async () => ({ ...prompt, settingsSection: 'phone' }), screen);
+    expect(screen.raise).toHaveBeenCalledOnce();
+    expect(screen.openSettings).toHaveBeenCalledWith('phone');
+    expect(screen.tell).not.toHaveBeenCalled();
+  });
+
+  it('says so from the tray when nothing serves devices', async () => {
+    const screen = { raise: vi.fn(), openSettings: vi.fn(), tell: vi.fn() };
+    await pairOnScreen(async () => null, screen);
+    expect(screen.tell).toHaveBeenCalledWith(NO_TRANSPORT_TEXT);
+    expect(screen.openSettings).not.toHaveBeenCalled();
   });
 });

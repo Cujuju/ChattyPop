@@ -17,6 +17,8 @@ export interface PairingPrompt {
   /** Opens the pairing page with the code filled in; null while the transport isn't published. */
   url: string | null;
   expiresAt: number;
+  /** The transport's Settings section that shows the code (and its QR code), which the server's tray opens. */
+  settingsSection?: string;
 }
 
 /** What the connected transport receives: events the phone and remote desktops may get, and notifications. */

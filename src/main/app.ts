@@ -2,7 +2,7 @@
 // precede 'ready' is done and installed plugins are decided.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { app, dialog, ipcMain, session, shell } from 'electron';
+import { Notification, app, ipcMain, session, shell } from 'electron';
 import { callMain, handleMain } from './ipc/mainCalls';
 import {
   CORE_INVOKE_CHANNEL,
@@ -59,7 +59,7 @@ import { installAppMenu } from './appMenu';
 import { appIconPath, createMainWindow, loadRenderer, rendererWindowOptions } from './mainWindow';
 import { IS_MAC } from './platform';
 import { launchMode } from './launchMode';
-import { printPairing, showPairing } from './serverMode';
+import { pairOnScreen, printPairing } from './serverMode';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
@@ -234,10 +234,14 @@ void app.whenReady().then(() => {
   let discordCalls: DiscordCalls | undefined;
   const phone = new PhoneHub({ core, discord: () => discordCalls!, main: callMain, media: serveMedia, active: (id) => states.active(id) });
   const { toRenderer, toMain, publish, notifications } = routeCoreEvents({ win, panelWindows, core, downloader, phone, desktopNotices: !serverMode });
-  // A server's tray offers a pairing code; --pair also prints one for a server started from a terminal.
-  const pairOnScreen = (): void =>
-    void showPairing(() => phone.startPairing(), (text) => void dialog.showMessageBox({ type: 'info', message: 'Pair a device', detail: text }));
-  desktop.attach(win, toRenderer, serverMode ? pairOnScreen : undefined);
+  // A server's tray pairs a device in the transport's Settings section; --pair also prints a code to the terminal.
+  const pair = (): void =>
+    void pairOnScreen(() => phone.startPairing(), {
+      raise: () => raiseWindow(win),
+      openSettings: (section) => toMain({ type: 'open-settings', section }),
+      tell: (text) => Notification.isSupported() && new Notification({ title: 'Pair a device', body: text }).show(),
+    });
+  desktop.attach(win, toRenderer, serverMode ? pair : undefined);
   if (mode.kind === 'server' && mode.printPairing) void printPairing(() => phone.startPairing(), (text) => console.log(text));
   ipcMain.on(SHOW_IN_MAIN_CHANNEL, (_e, channelId: unknown, messageId: unknown, compose: unknown) => {
     if (typeof channelId !== 'string' || !raiseWindow(win)) return;

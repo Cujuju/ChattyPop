@@ -29,6 +29,8 @@ export type AppEvent =
   | { type: 'live-channel'; guildId: string; channelId: string }
   /** Main asks its window to reveal a panel named by a notification. */
   | { type: 'open-panel'; panelId: string }
+  /** Main → the main window: open Settings at a section (a server's tray pairing a device). */
+  | { type: 'open-settings'; section: string }
   /** Main asks the renderer to show a message (e.g. a clicked notification). Sent to the main window only (panel windows hand their message clicks to it). */
   | { type: 'open-message'; channelId: string; messageId?: string; compose?: ComposeIntent }
   /** Main holds this window's close or reload for its unsaved edits: the window asks the owner (state/unsavedChanges). Sent to that window only. */
