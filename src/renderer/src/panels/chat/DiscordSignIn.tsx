@@ -9,6 +9,8 @@ const BUTTONS: Record<number, RelayButton> = { 0: 'left', 1: 'middle', 2: 'right
 
 export function DiscordSignIn() {
   let img: HTMLImageElement | undefined;
+  /** What holds keyboard focus while the owner types on the frame. */
+  let surface: HTMLDivElement | undefined;
   /** A point on the shown frame in the server page's CSS px. */
   const at = (e: MouseEvent): { x: number; y: number } => {
     const frame = loginFrame();
@@ -18,6 +20,8 @@ export function DiscordSignIn() {
   const pointer = (type: 'mousePressed' | 'mouseReleased' | 'mouseMoved') => (e: PointerEvent) => {
     // Moves count only while a button is down (a drag, a selection), so hovering sends nothing.
     if (type === 'mouseMoved' && e.buttons === 0) return;
+    // Cancelling the press also cancels the focus a click gives, so the press takes it: keys then reach the server's page.
+    if (type === 'mousePressed') surface?.focus({ preventScroll: true });
     e.preventDefault();
     sendRelayInput({ kind: 'mouse', type, ...at(e), button: type === 'mouseMoved' ? 'left' : (BUTTONS[e.button] ?? 'none'), clickCount: type === 'mouseMoved' ? 0 : Math.max(e.detail, 1) });
   };
@@ -55,6 +59,7 @@ export function DiscordSignIn() {
           {(frame) => (
             // Focusable, so keys typed while it has focus go to the server's page; pasting types the pasted text.
             <div
+              ref={surface}
               tabIndex={0}
               onKeyDown={key('keyDown')}
               onKeyUp={key('keyUp')}
