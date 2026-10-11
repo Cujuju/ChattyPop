@@ -1,0 +1,78 @@
+/* Local covers preserve the original box; provenance stays visible after a reveal. */
+.root {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.content {
+  display: block;
+}
+
+.root[data-inline='true'],
+.root[data-inline='true'] > .content {
+  display: inline;
+}
+
+.root[data-covered='true'] > .content {
+  visibility: hidden;
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  z-index: var(--cp-z-base);
+  display: grid;
+  place-content: center;
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-4);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-semibold);
+  cursor: pointer;
+}
+
+.cover:hover {
+  background: var(--cp-surface-5);
+}
+
+.root[data-inline='true'] > .cover {
+  border-radius: var(--cp-radius-xs);
+  white-space: nowrap;
+}
+
+/* A short masked link still leaves enough room for the local-spoiler label. */
+.root[data-inline='true'][data-covered='true'] {
+  display: inline-grid;
+}
+
+.root[data-inline='true'][data-covered='true'] > :is(.content, .cover) {
+  grid-area: 1 / 1;
+}
+
+.root[data-inline='true'][data-covered='true'] > .cover {
+  position: relative;
+  padding-inline: var(--cp-space-2);
+}
+
+.badge {
+  position: absolute;
+  top: var(--cp-space-3);
+  right: var(--cp-space-3);
+  z-index: var(--cp-z-base);
+  padding: var(--cp-space-1) var(--cp-space-2);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-spoiler-pill-bg);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+}
+
+.badge[data-inline='true'] {
+  position: static;
+  margin-inline-start: var(--cp-space-2);
+}

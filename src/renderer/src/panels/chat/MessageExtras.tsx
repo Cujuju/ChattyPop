@@ -1,4 +1,7 @@
-import { For, Show, type JSX } from 'solid-js';
+import { For, Show, useContext, type JSX } from 'solid-js';
+import { canonicalSpoilerLink, embedSpoilerKey, linkSpoilerKey } from '@shared/localSpoilers';
+import { LocalSpoiler } from '@/ui/LocalSpoiler';
+import { SpoilerMessage } from '@/ui/spoilers';
 import type { ArchiveEmbed, ArchiveMessage, ArchiveReply, ArchiveSticker, AttachmentNote, MediaSize } from '@shared/contract';
 import { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 import { loopWhileLooking } from '@/ui/looking';
@@ -104,69 +107,76 @@ export const textIsEmbedLink = (content: string, embeds: ArchiveEmbed[]): boolea
  * no images or videos (Discord's "When posted as links" off): a media-only embed shows only its notes, a card only its text.
  */
 export function Embeds(props: { embeds: ArchiveEmbed[]; mentions: Record<string, string>; brief?: boolean; hideMedia?: boolean }) {
+  const message = useContext(SpoilerMessage);
   return (
     <For each={props.embeds}>
-      {(e) => (
-        <Show
-          when={!isMediaOnly(e)}
-          fallback={
-            <Show when={!props.hideMedia && hasMedia(e)} fallback={<EmbedNotes embed={e} />}>
-              <MediaFigure>
-                <EmbedMedia embed={e} />
-                <MediaCaption notes={embedNotes(e)} />
-              </MediaFigure>
-            </Show>
-          }
+      {(e, index) => (
+        <LocalSpoiler
+          spoilerKey={message() ? (e.url ? linkSpoilerKey(message()!.id, e.url) : embedSpoilerKey(message()!.id, index())) : null}
+          senderSpoiler={!!e.url && !!message()?.senderLinks.has(canonicalSpoilerLink(e.url))}
+          label={e.title ?? 'link preview'}
         >
-          <article
-            class={styles.embed}
-            style={e.color !== null ? { '--embed-color': hexColor(e.color) } : {}}
+          <Show
+            when={!isMediaOnly(e)}
+            fallback={
+              <Show when={!props.hideMedia && hasMedia(e)} fallback={<EmbedNotes embed={e} />}>
+                <MediaFigure>
+                  <EmbedMedia embed={e} />
+                  <MediaCaption notes={embedNotes(e)} />
+                </MediaFigure>
+              </Show>
+            }
           >
-            <div class={styles.embedBody}>
-              <Show when={e.provider}>{(p) => <span class={styles.embedProvider}>{p()}</span>}</Show>
-              <Show when={e.author}>
-                {(a) => (
-                  <span class={styles.embedAuthor}>
-                    <Show when={a().iconUrl}>{(src) => <img class={styles.embedAuthorIcon} src={thumbUrl(src())} alt="" loading="lazy" />}</Show>
-                    <Show when={a().url} fallback={a().name}>
+            <article
+              class={styles.embed}
+              style={e.color !== null ? { '--embed-color': hexColor(e.color) } : {}}
+            >
+              <div class={styles.embedBody}>
+                <Show when={e.provider}>{(p) => <span class={styles.embedProvider}>{p()}</span>}</Show>
+                <Show when={e.author}>
+                  {(a) => (
+                    <span class={styles.embedAuthor}>
+                      <Show when={a().iconUrl}>{(src) => <img class={styles.embedAuthorIcon} src={thumbUrl(src())} alt="" loading="lazy" />}</Show>
+                      <Show when={a().url} fallback={a().name}>
+                        {(href) => (
+                          <a href={href()} target="_blank" rel="noreferrer">
+                            {a().name}
+                          </a>
+                        )}
+                      </Show>
+                    </span>
+                  )}
+                </Show>
+                <Show when={e.title}>
+                  {(t) => (
+                    <Show when={e.url} fallback={<span class={styles.embedTitle}>{t()}</span>}>
                       {(href) => (
-                        <a href={href()} target="_blank" rel="noreferrer">
-                          {a().name}
+                        <a class={styles.embedTitle} data-link="true" href={href()} target="_blank" rel="noreferrer">
+                          {t()}
                         </a>
                       )}
                     </Show>
-                  </span>
-                )}
+                  )}
+                </Show>
+                <Show when={e.description}>
+                  {(d) => (
+                    <div class={styles.embedDescription} data-clamped={props.brief || e.type !== 'rich'}>
+                      <Markdown text={d()} mentions={props.mentions} />
+                    </div>
+                  )}
+                </Show>
+                <Show when={!props.hideMedia && (e.imageUrl || e.videoUrl || (LARGE_THUMB_TYPES.has(e.type) && e.thumbnailUrl))}>
+                  <EmbedMedia embed={e} />
+                </Show>
+                <Show when={e.footer}>{(f) => <span class={styles.embedFooter}>{f()}</span>}</Show>
+              </div>
+              <Show when={!props.hideMedia && e.thumbnailUrl && !e.imageUrl && !e.videoUrl && !LARGE_THUMB_TYPES.has(e.type)}>
+                <img class={styles.embedThumb} src={thumbUrl(e.thumbnailUrl!)} alt="" loading="lazy" />
               </Show>
-              <Show when={e.title}>
-                {(t) => (
-                  <Show when={e.url} fallback={<span class={styles.embedTitle}>{t()}</span>}>
-                    {(href) => (
-                      <a class={styles.embedTitle} data-link="true" href={href()} target="_blank" rel="noreferrer">
-                        {t()}
-                      </a>
-                    )}
-                  </Show>
-                )}
-              </Show>
-              <Show when={e.description}>
-                {(d) => (
-                  <div class={styles.embedDescription} data-clamped={props.brief || e.type !== 'rich'}>
-                    <Markdown text={d()} mentions={props.mentions} />
-                  </div>
-                )}
-              </Show>
-              <Show when={!props.hideMedia && (e.imageUrl || e.videoUrl || (LARGE_THUMB_TYPES.has(e.type) && e.thumbnailUrl))}>
-                <EmbedMedia embed={e} />
-              </Show>
-              <Show when={e.footer}>{(f) => <span class={styles.embedFooter}>{f()}</span>}</Show>
-            </div>
-            <Show when={!props.hideMedia && e.thumbnailUrl && !e.imageUrl && !e.videoUrl && !LARGE_THUMB_TYPES.has(e.type)}>
-              <img class={styles.embedThumb} src={thumbUrl(e.thumbnailUrl!)} alt="" loading="lazy" />
-            </Show>
-            <MediaCaption as="div" class={styles.embedDrawer} notes={embedNotes(e)} />
-          </article>
-        </Show>
+              <MediaCaption as="div" class={styles.embedDrawer} notes={embedNotes(e)} />
+            </article>
+          </Show>
+        </LocalSpoiler>
       )}
     </For>
   );

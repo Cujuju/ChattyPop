@@ -15,6 +15,8 @@ import type { HostAttachmentMenuItem } from '@/plugins/readSlots';
 import { openContextMenu, setJevCheckFor, type MenuItem } from './ui';
 import { failureNotice } from './dialogs';
 import { canSave, saveAttachment } from './savedFiles';
+import { attachmentSpoilerKey } from '@shared/localSpoilers';
+import { isLocalSpoiler, setLocalSpoiler } from './localSpoilers';
 
 const DISCORD_APP = 'https://discord.com/channels';
 
@@ -107,6 +109,16 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
 
   const pressed = pressedAttachment(e.target, m);
   const attachment = pressed ? attachmentMenuItems(m, pressed.attachment, hostAttachmentItems(pressed.player)) : [];
+  const part = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-local-spoiler-key]') : null;
+  const spoilerKey = pressed ? attachmentSpoilerKey(pressed.attachment.id) : part?.dataset.localSpoilerKey;
+  if (spoilerKey) {
+    const marked = isLocalSpoiler(spoilerKey);
+    attachment.push({
+      label: marked ? 'Remove local spoiler' : 'Mark as spoiler locally',
+      icon: marked ? 'eye' : 'eyeOff',
+      run: () => setLocalSpoiler(spoilerKey, !marked).catch(failureNotice("Couldn't save the local spoiler")),
+    });
+  }
 
   const copy: MenuItem[] = m.content ? [{ label: 'Text', icon: 'text', run: () => navigator.clipboard.writeText(m.content) }] : [];
   // The pressed image, an attachment's or an embed's; not an avatar.

@@ -3,7 +3,7 @@ import { EmojiImage } from '@/ui/AnimatedImage';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { clockTime } from './format';
-import { SpoilersShown } from './spoilers';
+import { SenderSpoiler, SpoilersShown } from './spoilers';
 import { MarkdownLink } from './MarkdownLink';
 import { parseInline, parseMarkdown, type MdBlock, type MdInline } from './mdParse';
 import styles from './Markdown.module.css';
@@ -47,7 +47,7 @@ function Spoiler(props: { children: JSX.Element; inert: boolean }) {
   if (props.inert) return <span class={styles.spoiler} data-shown="false">{props.children}</span>;
   return (
     <span class={styles.spoiler} data-shown={shown()} role="button" tabIndex={0} aria-label={shown() ? undefined : 'Spoiler, press to reveal'} onClick={() => setShown(true)} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setShown(true)}>
-      {props.children}
+      <SenderSpoiler.Provider value={true}>{props.children}</SenderSpoiler.Provider>
     </span>
   );
 }

@@ -93,7 +93,7 @@
 }
 
 .figure:has(> .caption) > :not(.caption),
-.figure:has(> .caption) > .tile > :not(.spoiler, .removed, .storedMark),
+.figure:has(> .caption) > .tile > :not([data-spoiler-control], .removed, .storedMark),
 .figure:has(> .caption) > :not(.caption) :is(img, video),
 .mosaic:has(> .caption) > .grid {
   border: 0;
@@ -168,12 +168,12 @@
   border-radius: var(--cp-radius-md);
 }
 
-.tile[data-covered='true'] > :not(.spoiler, .removed, .storedMark) {
+.tile[data-covered='true'] > :not([data-spoiler-control], .removed, .storedMark) {
   filter: blur(var(--cp-spoiler-blur));
 }
 
 /* Removed from its message on Discord: still shown, set back. */
-.tile[data-removed='true'] > :not(.spoiler, .removed) {
+.tile[data-removed='true'] > :not([data-spoiler-control], .removed) {
   opacity: var(--cp-attachment-removed-opacity);
 }
 

@@ -1,5 +1,6 @@
 import * as linkify from 'linkifyjs';
 import { CUSTOM_EMOJI } from '@shared/emoji';
+import { canonicalSpoilerLink } from '@shared/localSpoilers';
 
 /** Parsed Discord markdown. Text is always plain strings: nothing is ever rendered as HTML. */
 export type MdInline =
@@ -101,6 +102,25 @@ export function parseInline(src: string): MdInline[] {
   }
   flush();
   return out;
+}
+
+/** Links the sender put within ||spoiler|| Markdown, including styled links and quoted blocks. */
+export function senderSpoilerLinks(text: string): ReadonlySet<string> {
+  const links = new Set<string>();
+  const inline = (nodes: MdInline[], covered: boolean): void => {
+    for (const node of nodes) {
+      if (node.k === 'link' && covered) links.add(canonicalSpoilerLink(node.href));
+      if ('children' in node) inline(node.children, covered || node.k === 'spoiler');
+    }
+  };
+  const blocks = (nodes: MdBlock[]): void => {
+    for (const node of nodes) {
+      if ('children' in node) inline(node.children, false);
+      if (node.k === 'quote') blocks(node.blocks);
+    }
+  };
+  blocks(parseMarkdown(text));
+  return links;
 }
 
 /** Parses multiline language fences or same-line triple-backtick blocks. Unclosed fences return null/plain text. */

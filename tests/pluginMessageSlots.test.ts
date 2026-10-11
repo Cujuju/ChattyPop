@@ -12,6 +12,11 @@ vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cj
 
 const SELF = 'me';
 const menus = vi.hoisted(() => [] as { label: string }[][][]);
+const localSpoilers = vi.hoisted(() => new Set<string>());
+vi.mock('../src/renderer/src/state/localSpoilers', () => ({
+  isLocalSpoiler: (key: string) => localSpoilers.has(key),
+  setLocalSpoiler: async (key: string, marked: boolean) => { if (marked) localSpoilers.add(key); else localSpoilers.delete(key); },
+}));
 /** Places menu groups according to renderer slots; each test sets the groups. */
 const placeMenu = vi.hoisted(() => ({
   groups: (_m: unknown, _scope: unknown, host: unknown): unknown => host,
@@ -98,7 +103,7 @@ describe('posting actions', () => {
   /** The last menu's groups. */
   const lastMenu = () => menus.at(-1)! as unknown as { label: string; checked?: boolean; run?(): void; submenu?: { items: { label: string; checked?: boolean; run(): void }[] }[] }[][];
   /** `attachmentId`: the menu opens on that attachment's tile (holding `player`, if any), else on the message's text. */
-  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[], attachmentId?: string, player: object | null = null): string[][] => {
+  const menuOf = (m: ArchiveMessage, entries: readonly ReadSlotEntry[], attachmentId?: string, player: object | null = null, part?: { localSpoilerKey: string; senderSpoiler?: string }): string[][] => {
     const slots = readSlots(() => entries, () => true, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin))));
     placeMenu.groups = slots.messages as typeof placeMenu.groups;
     placeMenu.attachments = slots.attachments as typeof placeMenu.attachments;
@@ -106,7 +111,7 @@ describe('posting actions', () => {
     vi.stubGlobal('window', { getSelection: () => null });
     vi.stubGlobal('Element', Element);
     const tile = { dataset: { attachmentId }, querySelector: (s: string) => (s === 'audio, video' ? player : null) };
-    const target = Object.assign(new Element(), { closest: (s: string) => (s === '[data-attachment-id]' && attachmentId ? tile : null) });
+    const target = Object.assign(new Element(), { closest: (s: string) => (s === '[data-attachment-id]' && attachmentId ? tile : s === '[data-local-spoiler-key]' && part ? { dataset: part } : null) });
     openMessageMenu({ target }, m);
     vi.unstubAllGlobals();
     return menus.at(-1)!.map((items) => items.map((i) => i.label));
@@ -141,9 +146,9 @@ describe('posting actions', () => {
     };
     const views = ['View conversation', 'View A'];
     const copies = ['Text', 'Message link', 'Message ID'];
-    expect(menuOf(m, [menu], 'a1')).toEqual([['Download', 'Modify attachment', 'Delete attachment'], views, copies]);
+    expect(menuOf(m, [menu], 'a1')).toEqual([['Download', 'Modify attachment', 'Delete attachment', 'Mark as spoiler locally'], views, copies]);
     // Not held here: no Download.
-    expect(menuOf(m, [menu], 'a2')).toEqual([['Modify attachment', 'Delete attachment'], views, copies]);
+    expect(menuOf(m, [menu], 'a2')).toEqual([['Modify attachment', 'Delete attachment', 'Mark as spoiler locally'], views, copies]);
     // Pressed elsewhere: no attachment's items.
     expect(menuOf(m, [menu])).toEqual([views, copies]);
   });
@@ -151,12 +156,41 @@ describe('posting actions', () => {
   it("put a playing attachment's speed first, its choices Chromium's, the current one checked, a choice applying to that player", () => {
     const m = message({ attachments: [{ id: 'a1', status: 'stored', sha256: 'h' }] } as unknown as Partial<ArchiveMessage>);
     const player = { playbackRate: 1.5 };
-    expect(menuOf(m, [], 'a1', player)[0]).toEqual(['Playback speed', 'Download']);
+    expect(menuOf(m, [], 'a1', player)[0]).toEqual(['Playback speed', 'Download', 'Mark as spoiler locally']);
     const speeds = lastMenu()[0]![0]!.submenu![0]!.items;
     expect(speeds.map((s) => s.label)).toEqual(['0.25×', '0.5×', '0.75×', 'Normal', '1.25×', '1.5×', '1.75×', '2×']);
     expect(speeds.filter((s) => s.checked).map((s) => s.label)).toEqual(['1.5×']);
     speeds.find((s) => s.label === 'Normal')!.run();
     expect(player.playbackRate).toBe(1);
+  });
+
+  it('marks only the pressed attachment and offers removal, while sender spoilers retain their own state', async () => {
+    localSpoilers.clear();
+    const m = message({ attachments: [{ id: 'a1', spoiler: false }, { id: 'a2', spoiler: true }] } as unknown as Partial<ArchiveMessage>);
+    expect(menuOf(m, [], 'a1')[0]).toEqual(['Mark as spoiler locally']);
+    await lastMenu()[0]![0]!.run!();
+    expect(menuOf(m, [], 'a1')[0]).toEqual(['Remove local spoiler']);
+    expect(menuOf(m, [], 'a2')[0]).toEqual(['Mark as spoiler locally']);
+    await lastMenu()[0]![0]!.run!();
+    expect(menuOf(m, [], 'a2')[0]).toEqual(['Remove local spoiler']);
+    await lastMenu()[0]![0]!.run!();
+    menuOf(m, [], 'a1');
+    await lastMenu()[0]![0]!.run!();
+    expect(localSpoilers.size).toBe(0);
+    expect(m.attachments[0]!.spoiler).toBe(false);
+    expect(m.attachments[1]!.spoiler).toBe(true);
+  });
+
+  it('adds a local action for the pressed link or preview, including sender spoilers, with none on plain text', async () => {
+    localSpoilers.clear();
+    const m = message();
+    const part = { localSpoilerKey: 'link:m:one' };
+    expect(menuOf(m, [], undefined, null, part)[0]).toEqual(['Mark as spoiler locally']);
+    await lastMenu()[0]![0]!.run!();
+    expect(menuOf(m, [], undefined, null, part)[0]).toEqual(['Remove local spoiler']);
+    expect(menuOf(m, []).flat()).not.toContain('Remove local spoiler');
+    expect(menuOf(m, [], undefined, null, { localSpoilerKey: 'link:m:two', senderSpoiler: 'true' })[0]).toEqual(['Mark as spoiler locally']);
+    localSpoilers.clear();
   });
 
   it("land at the host's anchors in today's order: Edit, Reply, Forward on the bar; Reply, Forward lead the menu, Delete last", () => {
