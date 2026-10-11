@@ -12,6 +12,25 @@ import { rawMessage, seedArchive, tempDb } from './helpers';
 const OPEN = '100000000000000001', HIDDEN = '100000000000000002', GUILD = '300000000000000001';
 const saved = (channelId: string, messageId: string, summary = 'hello', guildId: string | null = null): SavedMessage => ({ channelId, messageId, summary, guildId, savedAt: '2026-10-01T12:00:00Z', dueAt: null, authorName: 'Alice', channelName: '#general', available: false });
 describe('native saved content privacy', () => {
+  it('fills missing presentation metadata from a visible archived message, including a deleted original', () => {
+    const db = tempDb(), archive = seedArchive(db, [{ id: OPEN, name: 'general' }]);
+    const author = { id: '400000000000000001', username: 'alice', global_name: 'Alice', avatar: 'a'.repeat(32) };
+    const original = rawMessage(OPEN, Date.now(), 'local content', { author });
+    archive.ingestMessages([original], ARRIVAL.sync);
+    const row = { ...saved(OPEN, original.id, 'saved summary'), authorName: '', channelName: '' };
+    expect(filterSavedMessages(db, [row], []).items[0]).toMatchObject({
+      authorName: 'Alice', channelName: '#general', author: { id: author.id, avatar: author.avatar }, summary: 'saved summary', available: false,
+    });
+  });
+  it('scans enriched author metadata for hidden references and never enriches from a hidden message', () => {
+    const db = tempDb(), archive = seedArchive(db, [{ id: OPEN, name: 'general' }, { id: HIDDEN, name: 'private' }]);
+    archive.setChannelPolicy(HIDDEN, { hideInPrivacy: true }); setSetting(db, SETTINGS_KEYS.privacyMode, true);
+    const author = { id: '400000000000000001', username: 'alice', global_name: `See ${HIDDEN}`, avatar: 'a'.repeat(32) };
+    const original = rawMessage(OPEN, Date.now(), 'plain content', { author });
+    const hidden = rawMessage(HIDDEN, Date.now() + 1, 'private content');
+    archive.ingestMessages([original, hidden], ARRIVAL.sync);
+    expect(filterSavedMessages(db, [{ ...saved(OPEN, original.id), authorName: '' }, saved(HIDDEN, hidden.id)], []).items).toEqual([]);
+  });
   it('permits new saves only with read history, current-account open DMs and visible scope', () => {
     const db = tempDb(), owner = '400000000000000001', dm = '100000000000000004';
     const archive = seedArchive(db, [{ id: OPEN, guildId: GUILD, name: 'general' }], { guilds: [{ id: GUILD, name: 'guild' }] });

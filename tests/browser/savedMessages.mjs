@@ -11,10 +11,10 @@ window.fetch = (url, options) => String(url) === 'chattypop-installed://index.js
   ? Promise.resolve(new Response('[]', { headers: { 'Content-Type': 'application/json' } }))
   : originalFetch(url, options);
 const listeners = [], calls = [];
-const CHANNEL = '100000000000000001', BOOKMARK = '200000000000000001', REMINDER = '200000000000000002';
+const CHANNEL = '100000000000000001', BOOKMARK = '200000000000000001', REMINDER = '200000000000000002', AUTHOR = '300000000000000001', GUILD = '400000000000000001';
 let session = 'fixture', revision = 1, locked = false, failRead = false, indexReadFailed = false;
-const row = (messageId, dueAt, summary) => ({ channelId: CHANNEL, messageId, guildId: null, savedAt: '2026-10-01T12:00:00Z', dueAt,
-  authorName: 'Sample author', channelName: '#planning', summary, available: messageId === BOOKMARK });
+const row = (messageId, dueAt, summary) => ({ channelId: CHANNEL, messageId, guildId: GUILD, savedAt: '2026-10-01T12:00:00Z', dueAt,
+  authorName: 'Sample author', author: { id: AUTHOR, avatar: 'a'.repeat(32) }, channelName: '#planning', summary, available: messageId === BOOKMARK });
 let records = [row(BOOKMARK, null, 'Keep the project checklist handy.'), row(REMINDER, '2090-10-12T16:00:00Z', 'Review the launch checklist.')];
 const emit = (e) => listeners.forEach((fn) => fn(e));
 const changed = (reset = false) => emit({ type: 'saved-messages-changed', session, revision: ++revision, pageEpoch: 0, reset });
@@ -22,7 +22,8 @@ const defaultCall = async () => [];
 const group = (methods) => new Proxy(methods, { get: (target, key) => target[key] ?? defaultCall });
 const plugins = () => [{ id: 'discord-client', key: 'discord-client', name: 'Discord client', bundled: true, status: locked ? 'disabled' : 'active', commands: [] }];
 window.chattypop = {
-  core: group({ plugins: async () => plugins(), getSetting: async () => undefined, directory: async () => [], messageById: async () => null }),
+  core: group({ plugins: async () => plugins(), getSetting: async () => undefined,
+    directory: async () => [{ id: GUILD, name: 'Project team', icon: null, channels: [{ id: CHANNEL, guildId: GUILD, name: 'planning', kind: 0, parentId: null, optedIn: true, position: 0, messageCount: 2 }] }], messageById: async () => null }),
   discord: group({
     savedMessages: async (refresh) => {
       calls.push(['index', refresh]); if (failRead) throw new Error('Discord returned 404 while loading saved messages. The cause is not confirmed. Use Refresh to retry.');

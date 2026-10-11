@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AppEvent } from '@shared/contract';
 import { DiscordHttpError, snowflakeArg } from '@shared/discord';
-import { SAVED_BOOKMARK_PAGE_SIZE, SAVED_LIMIT_CODE, SAVED_REFRESH_INTERVAL_MS, SAVED_SOURCES, reminderTime, savedKey, savedTarget, savedTimestamp, savedTimeOrder, type SavedBookmarkPage, type SavedIndex, type SavedMessage, type SavedRemove, type SavedVisible, type SavedWrite } from '@shared/savedMessages';
+import { SAVED_BOOKMARK_PAGE_SIZE, SAVED_LIMIT_CODE, SAVED_REFRESH_INTERVAL_MS, SAVED_SOURCES, reminderTime, savedAuthor, savedKey, savedTarget, savedTimestamp, savedTimeOrder, type SavedBookmarkPage, type SavedIndex, type SavedMessage, type SavedRemove, type SavedVisible, type SavedWrite } from '@shared/savedMessages';
 import type { DiscordClient } from './client';
 import type { HeaderCapture } from './capture';
 import type { GatewayTap } from './gatewayTap';
@@ -23,15 +23,18 @@ function object(value: unknown): ObjectValue {
 }
 const text = (value: unknown): string => typeof value === 'string' ? value : '';
 
-/** Deliberately forwards plain summaries only, never a raw Discord message or media URL. */
+/** Plain summaries and narrow author metadata, never a raw Discord message or media URL. */
 export function decodeSavedMessage(value: unknown): SavedMessage {
   const record = object(value), data = object(record.save_data);
   const channelId = snowflakeArg(data.channel_id, 'saved channel'), messageId = snowflakeArg(data.message_id, 'saved message');
   const message = record.message == null ? null : object(record.message);
   if (message && (message.id !== messageId || message.channel_id !== channelId)) throw new Error('Discord returned a different saved message.');
+  const person = message?.author && typeof message.author === 'object' && !Array.isArray(message.author) ? message.author as ObjectValue : undefined;
+  const author = savedAuthor(person);
   const guildId = data.guild_id == null || data.guild_id === '0' || data.guild_id === 0 ? null : snowflakeArg(data.guild_id, 'saved server');
   return { channelId, messageId, guildId, savedAt: savedTimestamp(data.saved_at), dueAt: data.due_at == null ? null : savedTimestamp(data.due_at),
-    authorName: text(data.author_summary), channelName: text(data.channel_summary), summary: text(data.message_summary) || text(message?.content), available: message !== null };
+    authorName: text(data.author_summary) || text(person?.global_name) || text(person?.username), ...(author ? { author } : {}),
+    channelName: text(data.channel_summary), summary: text(data.message_summary) || text(message?.content), available: message !== null };
 }
 function rows(value: unknown): SavedMessage[] {
   if (!Array.isArray(value)) throw new Error('Discord returned an unexpected saved-message list.');

@@ -266,6 +266,22 @@ describe('native saved-message contract', () => {
     expect(decodeSavedIndex({ reminders: [wire(FUTURE)], bookmark_ids: [MESSAGE, MESSAGE] })).toMatchObject({ reminders: [saved], bookmarkIds: [MESSAGE] });
     expect(decodeSavedIndex({ results: [wire(), wire(FUTURE, '200000000000000002')] }).legacyBookmarks).toHaveLength(1);
   });
+  it('uses the original author when native summaries are absent, forwarding only identity and avatar hash', () => {
+    const data = { ...wire().save_data, author_summary: '', message_summary: '' };
+    const author = { id: OWNER, username: 'alice', global_name: 'Alice', avatar: `a_${'a'.repeat(32)}`, token: 'never-forward', avatar_url: 'https://untrusted.invalid/avatar' };
+    const decoded = decodeSavedMessage({ save_data: data, message: { id: MESSAGE, channel_id: CHANNEL, content: '**Saved text**', author } });
+    expect(decoded).toMatchObject({ authorName: 'Alice', summary: '**Saved text**', author: { id: OWNER, avatar: author.avatar } });
+    expect(decoded.author).toEqual({ id: OWNER, avatar: author.avatar });
+    expect(JSON.stringify(decoded)).not.toContain('never-forward');
+    expect(JSON.stringify(decoded)).not.toContain('untrusted.invalid');
+  });
+  it('does not turn arbitrary author ids or avatar URLs into media paths', () => {
+    const data = { ...wire().save_data, author_summary: '' };
+    const decode = (author: unknown) => decodeSavedMessage({ save_data: data, message: { id: MESSAGE, channel_id: CHANNEL, author } });
+    expect(decode({ id: OWNER, username: 'Alice', avatar: '../image?token=secret' }).author).toEqual({ id: OWNER, avatar: null });
+    expect(decode({ id: '../users', username: 'Alice', avatar: 'a'.repeat(32) }).author).toBeUndefined();
+    expect(decode(null).author).toBeUndefined();
+  });
   it('refuses malformed responses, wrong identities, mixed record types and nonadvancing cursors', () => {
     expect(() => decodeSavedIndex({})).toThrow();
     expect(() => decodeSavedIndex({ reminders: [wire()], bookmark_ids: [] })).toThrow();

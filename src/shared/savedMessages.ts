@@ -1,5 +1,5 @@
 // Discord owns one saved record per message: dueAt makes it a reminder, otherwise a bookmark.
-import { snowflakeArg } from './discord';
+import { SNOWFLAKE_ID, snowflakeArg } from './discord';
 import { MS_PER_HOUR, MS_PER_MIN } from './units';
 
 /** Native desktop bookmarks page size, verified in Discord's October 9, 2026 client. */
@@ -16,9 +16,17 @@ export interface SavedMessage extends SavedTarget {
   savedAt: string;
   dueAt: string | null;
   authorName: string;
+  /** Narrow author identity for the host's cached avatar route; never a media URL or raw Discord author. */
+  author?: { id: string; avatar: string | null };
   channelName: string;
   summary: string;
   available: boolean;
+}
+export function savedAuthor(value: unknown): SavedMessage['author'] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const author = value as Record<string, unknown>;
+  if (typeof author.id !== 'string' || !SNOWFLAKE_ID.test(author.id)) return undefined;
+  return { id: author.id, avatar: typeof author.avatar === 'string' && /^(?:a_)?[a-f\d]{32}$/.test(author.avatar) ? author.avatar : null };
 }
 export interface SavedStamp { session: string; revision: number }
 export interface SavedIndex extends SavedStamp {
