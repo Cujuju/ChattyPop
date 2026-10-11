@@ -145,7 +145,7 @@ export const ICON_SHAPES = {
   plus: () => <path d="M12 5v14M5 12h14" />,
   // Answers' bars of differing length: a poll.
   poll: () => <path d="M4 6h10M4 12h16M4 18h7" />,
-  refresh: () => <path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.9 5.9" />,
+  refresh: () => <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5" />,
   reply: () => <path d="M9 17l-5-5 5-5M4 12h11a5 5 0 0 1 5 5v1" />,
   search: () => (
     <>
