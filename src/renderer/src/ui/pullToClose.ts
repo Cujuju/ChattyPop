@@ -17,7 +17,8 @@ export interface SheetExpand {
 }
 
 /**
- * Pulls on a phone sheet. Down, from the top of `scroller` (what scrolls inside it, the sheet by default): the sheet
+ * Pulls on a phone sheet. Down, from the top of `scroller` (what scrolls inside it, the sheet by default) or from
+ * anywhere outside it (a header, which scrolls nothing): the sheet
  * follows, and past SHEET_DISMISS_RATIO of its height it closes on release. An expanded one shrinks under the finger
  * instead, its bottom edge in place, and past that ratio returns to its first height; either way the release eases its
  * height from where the finger left it.
@@ -50,7 +51,7 @@ export function pullToClose(sheet: HTMLElement, close: () => void, scroller: HTM
     (e) => {
       const t = e.touches[0];
       if (!t || e.touches.length !== 1) return settle();
-      atTop = scrolledFromTop(scroller) <= 0;
+      atTop = scrolledFromTop(scroller) <= 0 || !scroller.contains(e.target as Node | null);
       canRise = expand !== undefined && !expand.expanded();
       startY = atTop || canRise ? t.clientY : null;
       startHeight = sheet.offsetHeight;

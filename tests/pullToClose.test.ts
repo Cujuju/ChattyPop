@@ -1,10 +1,12 @@
 // A tap on a phone sheet stays a tap: a finger's few-pixel wobble must not start a pull, whose prevented touchmove would
 // cancel the tap's click (the attach sheet's buttons then took two taps).
 import { createRequire } from 'node:module';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+/** How far the sheet's content is scrolled from its top. */
+const scrolled = vi.hoisted(() => ({ px: 0 }));
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
-vi.mock('../src/renderer/src/ui/scrollEdges', () => ({ scrolledFromTop: () => 0 }));
+vi.mock('../src/renderer/src/ui/scrollEdges', () => ({ scrolledFromTop: () => scrolled.px }));
 const { createRoot } = await import('solid-js');
 // A variable path keeps the renderer module out of the node type-check.
 const pullPath = '../src/renderer/src/ui/pullToClose';
@@ -50,7 +52,36 @@ function expandedSheet() {
   return { sheet, close, setExpanded, touch: touchOn(sheet) };
 }
 
+/** A sheet whose body scrolls under a header, the body scrolled down; `inBody`: whether the touch lands in the body. */
+function headedSheet(inBody: boolean) {
+  const sheet = fakeSheet();
+  const close = vi.fn();
+  const body = Object.assign(new EventTarget(), { contains: () => inBody });
+  scrolled.px = SHEET_PX;
+  createRoot(() => pullToClose(sheet, close, body));
+  return { sheet, close, touch: touchOn(sheet) };
+}
+
 describe('pullToClose', () => {
+  afterEach(() => void (scrolled.px = 0));
+
+  it('closes a sheet pulled down by its header while its body is scrolled', () => {
+    const { close, touch } = headedSheet(false);
+    touch('touchstart', 300);
+    expect(touch('touchmove', 300 + SHEET_PX / 2)).toBe(true);
+    touch('touchend', 300 + SHEET_PX / 2);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves a scrolled body to scroll back up', () => {
+    const { sheet, close, touch } = headedSheet(true);
+    touch('touchstart', 300);
+    expect(touch('touchmove', 300 + SHEET_PX / 2)).toBe(false);
+    expect(sheet.dataset['pull']).toBeUndefined();
+    touch('touchend', 300 + SHEET_PX / 2);
+    expect(close).not.toHaveBeenCalled();
+  });
+
   it('leaves a tap’s wobble alone, so the click still fires', () => {
     const { sheet, touch } = risingSheet();
     touch('touchstart', 300);

@@ -165,19 +165,14 @@
 .sheet {
   display: flex;
   flex-direction: column;
-  gap: var(--cp-space-4);
   /* Its top stays where it is without a keyboard; a menu taller than the room above the keyboard scrolls. */
   max-height: calc(var(--cp-sheet-max-h) - var(--cp-keyboard-inset));
-  padding: var(--cp-space-3) calc(var(--cp-space-6) + env(safe-area-inset-right)) calc(var(--cp-space-7) + var(--cp-safe-bottom))
-    calc(var(--cp-space-6) + env(safe-area-inset-left));
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   border-top: var(--cp-border-w) solid var(--cp-border);
   border-radius: var(--cp-radius-lg) var(--cp-radius-lg) 0 0;
   background: var(--cp-surface-1);
   box-shadow: var(--cp-shadow-dialog);
   font-family: var(--cp-font-sans);
-  touch-action: pan-y;
   /* Springs back from a short pull. */
   transition: translate var(--cp-duration-base) var(--cp-ease-out);
   /* Rises from the bottom edge. */
@@ -195,13 +190,27 @@
   transition: none;
 }
 
+/* The sheet's header: it stays put while the rows scroll under it. */
 .grabber {
   flex: 0 0 auto;
   align-self: center;
   width: var(--cp-sheet-grabber-w);
   height: var(--cp-sheet-grabber-h);
+  margin: var(--cp-space-3) 0 var(--cp-space-4);
   border-radius: var(--cp-radius-full);
   background: var(--cp-border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  min-height: 0;
+  padding: 0 calc(var(--cp-space-6) + env(safe-area-inset-right)) calc(var(--cp-space-7) + var(--cp-safe-bottom))
+    calc(var(--cp-space-6) + env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* Each group a card of full-width rows; cards, not rules, separate groups. */

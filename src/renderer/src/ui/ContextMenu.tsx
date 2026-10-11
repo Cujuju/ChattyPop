@@ -213,25 +213,37 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
     </>
   );
 
+  /** The phone's sheet: the grabber is its header and stays put; the rows scroll under it. */
+  const sheet = (m: ContextMenuState): JSX.Element => {
+    const rows = (
+      <div class={styles.body}>
+        <Show when={sub()} fallback={body(m)}>
+          {(s) => drilled(s())}
+        </Show>
+      </div>
+    ) as HTMLDivElement;
+    return (
+      <div
+        ref={(el) => {
+          menu = el;
+          pullToClose(el, close, rows);
+        }}
+        class={styles.sheet}
+        role="menu"
+        data-marked={anyMarked(sub()?.item.submenu ?? m.groups)}
+      >
+        <div class={styles.grabber} aria-hidden="true" />
+        {rows}
+      </div>
+    );
+  };
+
   return (
     <Show when={contextMenu()} keyed>
       {(m) =>
         inCompanion ? (
           <div class={styles.backdrop}>
-            <div
-              ref={(el) => {
-                menu = el;
-                pullToClose(el, close);
-              }}
-              class={styles.sheet}
-              role="menu"
-              data-marked={anyMarked(sub()?.item.submenu ?? m.groups)}
-            >
-              <div class={styles.grabber} aria-hidden="true" />
-              <Show when={sub()} fallback={body(m)}>
-                {(s) => drilled(s())}
-              </Show>
-            </div>
+            {sheet(m)}
           </div>
         ) : (
           // Position is data (the pointer, the row), set inline; the look is in ContextMenu.module.css.
