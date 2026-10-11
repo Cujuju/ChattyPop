@@ -112,7 +112,7 @@ export interface PhoneTransport {
   broadcast(e: AppEvent): void;
   notify(request: DeliveredNotification): void;
   /** New, optional: events for remote desktops (remoteAppEvent applied). Absent: the transport serves phones only. */
-  broadcastDesktop?(e: AppEvent): void;
+  broadcastDesktop?(e: AppEvent, momentary?: boolean): void;   // momentary (momentaryAppEvent): sent, not kept for replay
   /** New, optional: a fresh pairing code for the server's tray and console (server mode). */
   startPairing?(): Promise<PairingPrompt>;
 }
@@ -346,7 +346,8 @@ export class LoginRelay {
 { type: 'discord-login-frame'; data: string /* base64 jpeg */; width: number; height: number }
 { type: 'discord-session'; state: 'signed-in' | 'signed-out' }   // from HeaderCapture.onAvailable and gateway op 9
 // RendererApi.discord: loginStart(): Promise<void>; loginStop(): Promise<void>; loginInput(e: RelayInput): Promise<void>
-// MAIN_INVOKE.discord: loginStart, loginStop, loginInput (handleMain; remote and local)
+//                      loginRelayState(): Promise<LoginRelayState>   // read at page load: running, latest frame
+// MAIN_INVOKE.discord: loginRelayState, loginStart, loginStop, loginInput (handleMain; remote and local)
 ```
 View: a "Sign in to Discord on the server" panel on remote desktops while `discord-session` is `signed-out`
 (store `state/discordSession.ts`; canvas view; CSS by the design agent).

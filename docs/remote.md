@@ -23,7 +23,8 @@ before. Plan and decisions: `docs/server-client-split-plan.md`; issue #132.
 - **The live Discord pane** is on the server's screen only. A remote desktop shows the Archive; while the server's
   Discord is signed out, its Chat panel offers a **sign-in relay**: the server's Discord page as frames, the owner's
   pointer and keys sent back (`src/main/discord/loginRelay.ts`). A hidden window paints nothing, so while a relay runs
-  the server shows its window without focus.
+  the server shows its window without focus. A relay runs only while the server's Discord is signed out; a desktop
+  that opens or reloads while one runs shows it, with its latest frame.
 
 ## Running a server
 1. Install ChattyPop on the server and start it once normally: sign in to Discord, choose archived channels, install
@@ -54,5 +55,6 @@ own reverse proxy and certificate); the client never accepts plain http.
 - Moving the archive, the rule file picker, OpenRouter sign-in and the plugins folder need the server's screen; a
   remote desktop says "Only on the server". A typed path (a rule file, a local plugin) works.
 - A sign-in relay sends JPEG frames (about 40 KB each) through the transport's event stream while it runs; it stops
-  once signed in, when stopped, or after ten minutes.
+  once signed in, when stopped, or after ten minutes. A frame is momentary: the hub tells the transport so, and the
+  transport keeps none for a desktop that reconnects.
 - Several servers sharing one archive is not supported (see the plan's out-of-scope list).
