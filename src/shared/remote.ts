@@ -58,3 +58,9 @@ export function remoteAppEvent(e: AppEvent): AppEvent | null {
   if (e.type === 'setting-changed' && isRemoteDeviceSetting(e.key)) return null;
   return e;
 }
+
+/**
+ * Whether an event is worth only the moment it is sent: a sign-in relay's frame, which the next one replaces. A
+ * transport sends it to the desktops connected now and keeps none for a desktop that reconnects.
+ */
+export const momentaryAppEvent = (e: AppEvent): boolean => e.type === 'discord-login-frame';

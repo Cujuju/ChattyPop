@@ -75,6 +75,21 @@ describe('remote desktop events and pairing', () => {
     expect(to.broadcastDesktop).toHaveBeenCalledTimes(1);
   });
 
+  it("marks a sign-in relay's frame momentary, so a transport keeps none for a desktop that reconnects", () => {
+    const { hub } = harness();
+    const to = transport();
+    hub.connect('companion', to);
+    const frame: AppEvent = { type: 'discord-login-frame', data: 'abc', width: 1200, height: 800 };
+    hub.broadcast(frame);
+    hub.broadcast({ type: 'discord-login-relay', running: true });
+    expect(to.broadcastDesktop.mock.calls).toEqual([
+      [frame, true],
+      [{ type: 'discord-login-relay', running: true }, false],
+    ]);
+    // A frame is a desktop's; no phone gets one.
+    expect(to.broadcast).not.toHaveBeenCalledWith(frame);
+  });
+
   it('serves a transport that carries phones only', () => {
     const { hub } = harness();
     const to = { broadcast: vi.fn(), notify: vi.fn() };

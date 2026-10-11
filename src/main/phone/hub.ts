@@ -4,7 +4,7 @@ import { MAIN_INVOKE, type AppEvent, type CoreMethod } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';
 import { PHONE_DISCORD_METHODS, phoneAppEvent, phoneMayCallCore, phoneMayCallMain, phoneMayWriteSetting, phoneSetting, type PhoneCallGroup, type PhoneDiscordMethod } from '@shared/phone';
-import { remoteAppEvent, remoteMayCallCore, remoteMayCallDiscord, remoteMayCallMain } from '@shared/remote';
+import { momentaryAppEvent, remoteAppEvent, remoteMayCallCore, remoteMayCallDiscord, remoteMayCallMain } from '@shared/remote';
 import type { CoreClient } from '../coreClient';
 import type { MediaHandler } from '../media/mediaProtocol';
 
@@ -25,8 +25,11 @@ export interface PairingPrompt {
 export interface PhoneTransport {
   broadcast(e: AppEvent): void;
   notify(request: DeliveredNotification): void;
-  /** Events for remote desktops (remoteAppEvent applied). Absent: the transport serves phones only. */
-  broadcastDesktop?(e: AppEvent): void;
+  /**
+   * Events for remote desktops (remoteAppEvent applied). Absent: the transport serves phones only. `momentary`
+   * (momentaryAppEvent): for the desktops connected now, not kept for one that reconnects.
+   */
+  broadcastDesktop?(e: AppEvent, momentary?: boolean): void;
   /** A new pairing code, replacing any earlier one. Absent: the transport pairs only from its own Settings. */
   startPairing?(): PairingPrompt | Promise<PairingPrompt>;
 }
@@ -129,7 +132,7 @@ export class PhoneHub {
     const shown = phoneAppEvent(e);
     if (shown) this.transport?.to.broadcast(shown);
     const desktop = remoteAppEvent(e);
-    if (desktop) this.transport?.to.broadcastDesktop?.(desktop);
+    if (desktop) this.transport?.to.broadcastDesktop?.(desktop, momentaryAppEvent(desktop));
   }
 
   /** Hands the transport a notification for paired devices. */
