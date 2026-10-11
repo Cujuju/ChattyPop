@@ -17,6 +17,10 @@ const plugin = definePlugin({
     { id: 'keyprobe.plain', label: 'Plain', displayName: 'Plain', enabledByDefault: false },
   ],
 });
+const other = definePlugin({
+  manifest: { id: 'other', name: 'Other', version: '1', description: '' },
+  providers: [{ id: 'other', label: 'Other', displayName: 'Other', enabledByDefault: true, apiKey: { placeholder: 'test-key' } }],
+});
 const implementation = (checkApiKey = vi.fn(async (_key: string) => undefined)): ProviderImpl => ({
   create: () => ({ id: 'keyprobe', maxInputChars: 1, complete: async () => ({ text: 'answer' }), listModels: async () => [] }),
   status: async () => ({ available: true, detail: 'ready', models: [] }),
@@ -33,11 +37,12 @@ describe('provider API key contract', () => {
       ctx.ai.registerProvider('keyprobe', implementation());
       ctx.ai.registerProvider('keyprobe.plain', implementation());
     });
-    const { host, registry } = startProviders([entry], [plugin], undefined, { apiKeys: { keyprobe: KEY } });
+    const foreign = defineCorePlugin(other, (ctx) => ctx.ai.registerProvider('other', implementation()));
+    const { host, registry } = startProviders([entry, foreign], [plugin, other], undefined, { apiKeys: { keyprobe: KEY, other: 'test-other-key' } });
     expect(initial).toEqual([KEY]);
     expect(ctx.ai.apiKey('keyprobe')).toBe(KEY);
     expect(() => ctx.ai.apiKey('keyprobe.plain')).toThrow(/declares no apiKey/);
-    expect(() => ctx.ai.apiKey('another' as never)).toThrow(/declares none/);
+    expect(() => ctx.ai.apiKey('other' as never)).toThrow(/declares none/);
     registry.setProviderApiKeys({});
     expect(ctx.ai.apiKey('keyprobe')).toBeNull();
     registry.setProviderApiKeys({ keyprobe: KEY });
