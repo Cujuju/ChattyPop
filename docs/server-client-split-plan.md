@@ -1,6 +1,6 @@
 # Server/client split: implementation plan
 
-Tracking issue: #132. Branch: `server-client-split` (host) and `server-client-split` (Plugins-Private, companion).
+Tracking issue: #132. Branch: `server-client-split`; the phone transport's changes are in its plugin repo.
 Base: `origin/main` at `a9cdb21`. Scope: macOS and Windows servers and clients first; Linux last (used here only as a
 headless test harness under Xvfb).
 
@@ -13,7 +13,7 @@ login item, Tailscale lookup on macOS (`171c942`), POSIX tool folders. This plan
 |---|---|---|
 | D1 | Live Discord pane on a remote desktop | **Archive only** (option c). The server's live client is reachable from a client only through the sign-in relay (phase 5). |
 | D2 | §0 "No background running: closed means closed" | **Amended for server mode only**: a `--server` run keeps running hidden until Quit. Normal runs unchanged. |
-| D3 | Device auth | **Reuse the companion's pairing** (one-time code, `cp_companion` cookie) over Tailscale Serve. No Tailscale identity headers in v1. |
+| D3 | Device auth | **Reuse the phone transport's pairing** (one-time code, pairing cookie) over Tailscale Serve. No Tailscale identity headers in v1. |
 | D4 | How a remote desktop is served | **The server serves the desktop UI** (same build as the server, so no version skew). The client app is a thin native shell around it, like the iOS shell (`docs/ios-shell.md`, "Thin shell"). |
 | D5 | Settings a remote desktop keeps for itself | Window-place settings (`PHONE_UNSHARED_SETTINGS`) plus layout, density, privacy mode, chat source and Discord sidebar. Everything else is shared with the server. |
 | D6 | Device kind (phone or desktop) | Chosen at pairing (the pairing page reached from `/desktop` pairs a desktop). Both kinds are the owner's own devices. |
@@ -25,9 +25,9 @@ login item, Tailscale lookup on macOS (`171c942`), POSIX tool folders. This plan
  │ ChattyPop --connect <origin>  │   Tailscale    │ main: hidden main window + Discord view      │
  │  client main (no core, no     │ ─────────────▶ │  PhoneHub ── gateway (phone audience)        │
  │  Discord): server list, tray, │   /desktop     │          └─ desktop gateway (renderer aud.)  │
- │  badge, notifications, save   │   /rpc /events │  companion plugin: HTTP server, pairing,     │
+ │  badge, notifications, save   │   /rpc /events │  phone transport plugin: HTTP server, pairing│
  │  dialogs, panel windows       │   /media ...   │   SSE, push, Tailscale Serve                 │
- │  BrowserWindow ⇢ <origin>/desktop  (page = companion.html in desktop mode, │
+ │  BrowserWindow ⇢ <origin>/desktop  (the transport's page marked remote,    │
  │  preload: window.chattypopShell                renders the host <App/>)    │
  └───────────────────────────────┘                │ core utilityProcess (unchanged)              │
                                                   └──────────────────────────────────────────────┘
@@ -35,7 +35,7 @@ login item, Tailscale lookup on macOS (`171c942`), POSIX tool folders. This plan
 - Phones keep working as today (`/`, phone audience).
 - A remote desktop is a paired device of kind `desktop`. Its calls go through a second gateway with the **renderer
   audience**: the full desktop surface minus calls that need the server's own screen or disk.
-- The page a remote desktop loads is the companion's page in desktop mode (`/desktop`). It installs an HTTP
+- The page a remote desktop loads is the phone transport's page marked remote (`/desktop`). It installs an HTTP
   `RendererApi` and renders the host `App`. In a plain browser it also works; inside the client shell it gets native
   extras through `window.chattypopShell`.
 
@@ -220,47 +220,18 @@ Behavior of `createRemoteRendererApi`:
 Exports from `@plugin-sdk/renderer/shell`: `createRemoteRendererApi`, `startRemoteDesktop`, `RemoteTransport`,
 `DesktopShell`, `RemoteRendererApi`.
 
-## 5. Phase 3: companion serves remote desktops (repo: ChattyPop-Plugins-Private, `plugins/companion`)
-
-### 5.1 Devices (`main/devices.ts`, `shared/protocol.ts`)
-```ts
-export type DeviceKind = 'phone' | 'desktop';
-export interface PairedDevice { /* existing fields */ kind: DeviceKind }
-// PairedDevices
-add(now: number, userAgent: string | undefined, kind: DeviceKind): string;
-kindOf(id: string): DeviceKind | null;
-```
-Stored devices without `kind` read as `'phone'`.
-
-### 5.2 Routes (`main/server.ts`)
-| Path | Change |
-|---|---|
-| `GET /desktop` | Serves `COMPANION_PAGE` (the same page; it starts in desktop mode by its path). Unpaired: redirect to `/pair?kind=desktop`. |
-| `/pair` | Form carries `kind` (`phone` default); `pair()` records it. |
-| `POST /rpc` | Desktop devices: `this.desktopPrefs.gatewayFor(device)` over `desktopGateway`; phones unchanged. |
-| `GET /events` | Desktop devices get `broadcastDesktop` events; phones get `broadcast` events. Notices for desktops come as `event: notification` frames. |
-
-### 5.3 Server class
-```ts
-export class CompanionServer implements PhoneTransport {
-  broadcast(e: AppEvent): void;                 // phones
-  broadcastDesktop(e: AppEvent): void;          // new: desktop devices' streams
-  notify(request: DeliveredNotification): void; // phones: push (as today); desktops: SSE `notification` frame
-  startPairing(): Promise<PairingPrompt>;       // existing PairingCode, now also through the hub
-}
-```
-- `EventStreams` gets the device kind per stream and routes by it; replay keeps both.
-- `main/desktopPrefs.ts` (new): `DesktopSettings.gatewayFor(device)` keeps `REMOTE_DEVICE_SETTINGS` per device
-  (`ownSetting`/`setOwnSetting`), sends their changes to that device only.
-- Settings → Phone (`renderer/PhoneSection.tsx`) lists the device kind; a desktop row has no push or quiet-hours controls.
-
-### 5.4 Page (`page/`)
-- `page/surface.ts` (new, the first import in `main.tsx`): when `location.pathname === '/desktop'`, sets
-  `<html data-surface="remote">` before any host module evaluates (`inCompanion`/`inRemote` read it at load).
-- `page/main.tsx`: desktop mode does `await import('./desktop')` (its own chunk, so the phone bundle stays as is).
-- `page/desktop.ts` (new): builds a `RemoteTransport` on the existing `/rpc`, `/events`, `/pages` and the new
-  `notification` frames, then `startRemoteDesktop(createRemoteRendererApi(transport, window.chattypopShell ?? null), COMPANION_PATHS.media)`.
-- CSP of `page/index.html` is unchanged (`connect-src 'self'`).
+## 5. Phase 3: the phone transport serves remote desktops (its plugin repo; tracked there)
+What the host expects of a transport that serves remote desktops (SDK 2.35):
+- **Device kinds.** A paired device is a phone or a desktop, chosen at pairing (D6); devices paired before are phones.
+- **A desktop page.** A path (`/desktop`) serves the transport's page with `<html data-surface="remote">`, so the host
+  modules read the remote surface from their first evaluation; the page then starts the desktop UI with
+  `startRemoteDesktop(createRemoteRendererApi(transport, desktopShell()), mediaRoot)`. An unpaired request lands on a
+  pairing page that pairs a desktop.
+- **Calls.** A desktop's calls go through `desktopGateway`; the settings in `REMOTE_DEVICE_SETTINGS` are kept per
+  device by the transport and their changes sent to that device only.
+- **Events.** `broadcastDesktop(e)` reaches desktops only; `broadcast(e)` phones only.
+- **Notices.** `notify(request)` also reaches desktops with an event stream open (`RemoteTransport.notifications`).
+- **Pairing prompts.** `startPairing()` gives the server's tray a code (and the transport's own Settings shows it).
 
 ## 6. Phase 4: server mode (repo: ChattyPop)
 
@@ -369,7 +340,7 @@ View: a "Sign in to Discord on the server" panel on remote desktops while `disco
   - `tests/remoteRendererApi.test.ts` (4.3 table, shell and browser fallbacks),
   - `tests/launchMode.test.ts`, `tests/serverList.test.ts`,
   - `tests/clientPreloadOrigin.test.ts` (shell exposed only on the expected origin).
-- Companion: its tests (`tests/companionServer.test.ts` and new desktop-device tests) and
+- The phone transport: its own tests (desktop devices among them) and
   `pnpm plugin:check <plugins dir>` against this branch.
 - End to end in the cloud container (Linux, Xvfb): `--server` and `--connect` on one machine; pair; core calls,
   events and media through the client window. No Discord login there, so ingest is not covered.
@@ -381,15 +352,13 @@ View: a "Sign in to Discord on the server" panel on remote desktops while `disco
 3. `feat: the phone hub carries remote desktops (desktop gateway, events, pairing prompt)`.
 4. `feat: plugin SDK 2.35: desktopGateway, broadcastDesktop, startPairing`.
 5. `feat: the renderer runs as a remote desktop (surface, remote API, archive-only chat)`.
-6. Companion: `feat: desktop devices`, `feat: /desktop page and desktop event streams`, `feat: notices to desktops`.
+6. The phone transport, in its repo: desktop devices, the desktop page and event streams, notices to desktops.
 7. `feat: server mode (--server)`.
 8. `feat: client mode (--connect), server list and connect page`.
 9. `feat: Discord sign-in relay for remote desktops` (after the spike).
 10. `docs: remote server and client (docs/remote.md, §0, plugin-architecture §3)`.
 
 ## 11. Needs from the owner
-- **Push access to Cujuju/ChattyPop-Plugins-Private** for this session (phase 3). Read access is attached; the push
-  request was refused by the session's permission check.
 - Decisions D1 to D6 (defaults above).
 - After merge, on your machines: first-run setup on the server (enable Settings → Phone, sign in to Discord or use
   phase 6), pairing a desktop, and a real Tailscale run.
