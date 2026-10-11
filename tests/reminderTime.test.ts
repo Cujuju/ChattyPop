@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { localReminderTime, localReminderValue, reminderPreset, reminderTime, savedTimestamp } from '@shared/savedMessages';
+import { REMINDER_PRESETS, localReminderTime, localReminderValue, reminderPreset, reminderTime, savedTimestamp } from '@shared/savedMessages';
 describe('reminder times', () => {
+  it('offers ten- and thirty-minute reminders first and resolves both from the current clock', () => {
+    expect(REMINDER_PRESETS.slice(0, 2)).toEqual(['10m', '30m']);
+    const now = new Date('2026-10-12T06:58:42.123Z');
+    expect(reminderPreset('10m', now).toISOString()).toBe('2026-10-12T07:08:42.123Z');
+    expect(reminderPreset('30m', now).toISOString()).toBe('2026-10-12T07:28:42.123Z');
+  });
   it('validates future dates and refuses impossible ISO calendar dates', () => {
     const now = Date.parse('2026-10-10T10:00:00Z');
     expect(reminderTime('2026-10-10T10:01:00+00:00', now)).toBe('2026-10-10T10:01:00.000Z');

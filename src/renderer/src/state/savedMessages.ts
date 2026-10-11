@@ -68,7 +68,7 @@ export function editReminder(row: SavedMessage, session = savedMessages().sessio
   if (session && postingUnlocked()) setReminderDraft({ ...targetAt(row, session), source: 'for_later_list', summary: row.summary, dueAt: row.dueAt });
 }
 export const openSavedMessage = async (row: SavedMessage): Promise<void> => { if (!(await api.core.messageById(row.messageId))) throw new Error('This message is not in the archive. Open it in the live Discord client.'); await openArchiveAt({ channelId: row.channelId, messageId: row.messageId, bottom: 0 }); };
-export const reminderPresetLabel = (preset: ReminderPreset): string => ({ '30m': 'In 30 minutes', '1h': 'In 1 hour', '4h': 'In 4 hours', morning: 'At 9am today / tomorrow', monday: 'Monday at 9am' })[preset];
+export const reminderPresetLabel = (preset: ReminderPreset): string => ({ '10m': 'In 10 minutes', '30m': 'In 30 minutes', '1h': 'In 1 hour', '4h': 'In 4 hours', morning: 'At 9am today / tomorrow', monday: 'Monday at 9am' })[preset];
 
 /** Callbacks capture their original session, so a stale menu cannot write against a newly signed-in account. */
 export function savedMenuItems(target: SavedTarget & { summary: string }): MenuItem[] {

@@ -69,11 +69,11 @@ export function reminderTime(value: unknown, now = Date.now()): string {
 }
 
 const REMINDER_HOUR = 9;
-export const REMINDER_PRESETS = ['30m', '1h', '4h', 'morning', 'monday'] as const;
+export const REMINDER_PRESETS = ['10m', '30m', '1h', '4h', 'morning', 'monday'] as const;
 export type ReminderPreset = (typeof REMINDER_PRESETS)[number];
 /** Calendar presets intentionally use local dates so DST does not turn 9am into 8am/10am. */
 export function reminderPreset(preset: ReminderPreset, now = new Date()): Date {
-  if (preset === '30m') return new Date(now.getTime() + 30 * MS_PER_MIN);
+  if (preset === '10m' || preset === '30m') return new Date(now.getTime() + (preset === '10m' ? 10 : 30) * MS_PER_MIN);
   if (preset === '1h' || preset === '4h') return new Date(now.getTime() + (preset === '1h' ? 1 : 4) * MS_PER_HOUR);
   const due = new Date(now);
   due.setHours(REMINDER_HOUR, 0, 0, 0);
