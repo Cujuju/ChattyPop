@@ -235,6 +235,7 @@
   --cp-command-tail-min-w: 6ch; /* the bar's end field: room to type an option name before it wraps to its own line */
   --cp-command-chip-h: var(--cp-seg-h); /* an optional option to add, in the list above the command bar */
   --cp-bot-modal-w: 440px; /* a bot's pop-up form, Discord's width */
+  --cp-scheduled-modal-w: 560px; /* scheduled inbox cards: channel details beside four actions */
   --cp-delete-quote-max-h: 240px; /* the delete dialog's quoted message: about eleven body lines, then it scrolls */
   --cp-component-media-max-h: 320px; /* an image in a bot message's gallery or section */
   --cp-component-thumb: 84px; /* a section's thumbnail beside its text */
