@@ -46,7 +46,7 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
     return run;
   });
   ipcMain.handle(storage.move, () => moveArchive(win, { stop: stopArchive, emit, restart }));
-  ipcMain.handle(storage.deletePrevious, () => deletePreviousArchive());
-  ipcMain.handle(storage.dismissNotice, () => dismissStorageNotice());
+  handleMain(storage.deletePrevious, () => deletePreviousArchive());
+  handleMain(storage.dismissNotice, () => dismissStorageNotice());
   void verifyMovedArchive(core, restart);
 }

@@ -67,7 +67,7 @@ export interface DiscordDeps {
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
 export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const { discord: channels } = MAIN_INVOKE;
-  ipcMain.handle(channels.refreshDirectory, (_e, guildId: unknown) =>
+  handleMain(channels.refreshDirectory, (guildId: unknown) =>
     d.sync.refreshDirectory(guildId === undefined || guildId === DM_GUILD_ID ? guildId : snowflakeArg(guildId, 'server')),
   );
   // Posting calls' requests go through `poster`, which checks the lock before every attempt; reactions and reads don't.
@@ -153,13 +153,13 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const dms = registerDmHandlers({ core: d.core, owner: poster, account, friends, readStates: d.readStates, posting: d.posting });
   const direct = (m: unknown): Promise<void> => sendDirect(poster, (userId) => dms.dmWith(userId), m);
   // Only this server's text channels that aren't archived; samples go straight to Jev and are dropped.
-  ipcMain.handle(channels.suggestChannels, async (_e, guildId: unknown) => {
+  handleMain(channels.suggestChannels, async (guildId: unknown) => {
     const id = snowflakeArg(guildId, 'server');
     const guild = (await d.core.call('directory')).find((g) => g.id === id);
     const candidates = (guild?.channels ?? []).filter((c) => !c.optedIn && SUGGESTABLE_KINDS.has(c.kind)).map((c) => ({ id: c.id, name: c.name }));
     return d.core.call('suggestChannels', await d.sync.sampleChannels(candidates));
   });
-  ipcMain.handle(channels.setOptIn, async (_e, channelId: unknown, on: unknown) => {
+  handleMain(channels.setOptIn, async (channelId: unknown, on: unknown) => {
     const id = snowflakeArg(channelId, 'channel');
     if (typeof on !== 'boolean') throw new Error('Opt in or out.');
     // Core's opt-in-changed names the channel; main syncs it from there (app.ts), as for auto-archive.
@@ -185,8 +185,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   };
 
   const recent = trackRecentMessageEvents(d.discord.tap);
-  ipcMain.handle(channels.shownChannel, () => d.discord.shownChannel ?? null);
-  ipcMain.handle(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
+  handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
+  handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
   const calls: DiscordCalls = gatePosting(d.posting, { send, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));

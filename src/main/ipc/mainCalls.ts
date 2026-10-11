@@ -1,10 +1,11 @@
-// Main's window calls by channel, kept so the phone hub can reach those PHONE_MAIN_CALLS allows (main/phone/hub.ts).
+// Main's window calls by channel, kept so the phone hub can reach those PHONE_MAIN_CALLS and REMOTE_MAIN_CALLS allow
+// (main/phone/hub.ts).
 import { ipcMain } from 'electron';
 
 type MainCall = (...args: unknown[]) => unknown;
 const calls = new Map<string, MainCall>();
 
-/** Serves `channel` to windows and records it for the phone. Calls that read their sender register with ipcMain directly. */
+/** Serves `channel` to windows and records it for the phone and remote desktops. Calls that read their sender register with ipcMain directly. */
 export function handleMain(channel: string, fn: MainCall): void {
   calls.set(channel, fn);
   ipcMain.handle(channel, (_e, ...args: unknown[]) => fn(...args));

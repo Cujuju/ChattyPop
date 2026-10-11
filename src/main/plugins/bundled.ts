@@ -1,9 +1,10 @@
 // Bundled plugins' main side (docs/plugin-architecture.md §5): starts each plugin's main side, hands core's plugin
-// events for main to its listeners, and serves windows' plugin calls, stamping them as a window's.
-import { ipcMain } from 'electron';
+// events for main to its listeners, and serves windows' plugin calls (the app's and remote desktops'), stamping them
+// as a window's.
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { MAIN_INVOKE } from '@shared/contract';
 import { PLUGIN_ID_PATTERN } from '@shared/plugins';
+import { handleMain } from '../ipc/mainCalls';
 import type { MainPlugin, MainPluginDeps } from './context';
 import { startMainSides } from './sides';
 
@@ -21,7 +22,7 @@ export function startMainPlugins(plugins: readonly MainPlugin[], d: MainPluginDe
     void d.tailnet.reconcile((id) => d.states.active(id));
   });
   d.core.on('event', (e) => sides.deliver(e));
-  ipcMain.handle(MAIN_INVOKE.plugins.callCore, (_e, pluginId: unknown, name: unknown, args: unknown) => d.core.call('pluginCall', 'renderer', ...checkCall(pluginId, name, args)));
-  ipcMain.handle(MAIN_INVOKE.plugins.callMain, (_e, pluginId: unknown, name: unknown, args: unknown) => sides.callMain(...checkCall(pluginId, name, args)));
+  handleMain(MAIN_INVOKE.plugins.callCore, (pluginId: unknown, name: unknown, args: unknown) => d.core.call('pluginCall', 'renderer', ...checkCall(pluginId, name, args)));
+  handleMain(MAIN_INVOKE.plugins.callMain, (pluginId: unknown, name: unknown, args: unknown) => sides.callMain(...checkCall(pluginId, name, args)));
   return { stop: () => sides.stop() };
 }
