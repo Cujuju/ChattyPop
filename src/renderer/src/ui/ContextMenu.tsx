@@ -120,7 +120,8 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
       items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
     }
   });
-  listen(window, 'blur', close);
+  // The phone's window blurs with the app still in view (a screenshot, Control Centre): its sheet stays.
+  if (!inCompanion) listen(window, 'blur', close);
   listen(
     window,
     'scroll',
