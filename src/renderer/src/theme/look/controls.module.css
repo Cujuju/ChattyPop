@@ -55,6 +55,26 @@
   background: var(--cp-surface-4);
 }
 
+/* A heading that folds what follows it: a bare button whose cp-chevron points right while closed, brightening
+   under the pointer. */
+.disclosure {
+  cursor: pointer;
+}
+
+.disclosure > :global(.cp-chevron) {
+  transition:
+    transform var(--cp-duration-base) var(--cp-ease-out),
+    border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.disclosure[aria-expanded='false'] > :global(.cp-chevron) {
+  transform: var(--cp-chevron-closed);
+}
+
+.disclosure:hover > :global(.cp-chevron) {
+  border-color: var(--cp-text-1);
+}
+
 /* A control flush in a row draws its focus ring inside, so focusing never grows it. */
 .insetFocus:focus-visible {
   outline-offset: var(--cp-focus-ring-offset-inset);
