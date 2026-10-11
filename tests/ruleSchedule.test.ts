@@ -4,8 +4,9 @@ import { AFTER_MESSAGE, defineRuleAction, definePlugin } from '@plugin-sdk/share
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { newRuleAction, validateRuleInput } from '@shared/ruleSpec';
-import { TIMED_MAX_LOOKBACK_MS, dueWindow, lastDailyDue, type TimedState, type TimedTrigger } from '@shared/ruleTime';
+import { TIMED_MAX_LOOKBACK_MS, dueWindows, lastDailyDue, type TimedState, type TimedTrigger } from '@shared/ruleTime';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
+import { claimRun } from '../src/core/rules/ruleStore';
 import { RuleSchedule } from '../src/core/rules/schedule';
 import { probeAction, ruleHarness, ruleInput, type Harness } from './ruleHarness';
 
@@ -63,39 +64,106 @@ const state = (o: Partial<TimedState>): TimedState => ({
 describe('when a timed rule is due', () => {
   it('runs daily once its time passes, from its last run, at most a week back, on its days only', () => {
     const daily: TimedTrigger = { kind: 'daily', at: '08:00', days: [0, 1, 2, 3, 4, 5, 6] };
-    expect(dueWindow(daily, state({ now: at(7), lastRunAt: at(8) - MS_PER_DAY }))).toBeNull();
-    expect(dueWindow(daily, state({ lastRunAt: at(8, 1) - MS_PER_DAY }))).toEqual({
-      key: `time:daily:${at(8)}`,
-      sinceTs: at(8, 1) - MS_PER_DAY,
-    });
-    expect(dueWindow(daily, state({ lastRunAt: null }))!.sinceTs).toBe(at(9) - TIMED_MAX_LOOKBACK_MS);
+    expect(dueWindows(daily, state({ now: at(7), lastRunAt: at(8) - MS_PER_DAY }))).toEqual([]);
+    expect(dueWindows(daily, state({ lastRunAt: at(8, 1) - MS_PER_DAY }))).toEqual([
+      { key: `time:daily:${at(8)}`, sinceTs: at(8, 1) - MS_PER_DAY, untilTs: at(9) },
+    ]);
+    expect(dueWindows(daily, state({ lastRunAt: null }))[0]!.sinceTs).toBe(at(9) - TIMED_MAX_LOOKBACK_MS);
     // Turned on after today's time: that one counts as done.
-    expect(dueWindow(daily, state({ armedAt: at(8, 30) }))).toBeNull();
+    expect(dueWindows(daily, state({ armedAt: at(8, 30) }))).toEqual([]);
     // Saturdays only, on a Friday: last Saturday's.
     expect(lastDailyDue(at(9), '08:00', [6])).toBe(at(8, 0, 19));
   });
 
   it('runs every N hours from the last run, or from being turned on', () => {
     const every: TimedTrigger = { kind: 'every', hours: 6 };
-    expect(dueWindow(every, state({ armedAt: at(4) }))).toBeNull();
-    expect(dueWindow(every, state({ armedAt: at(3) }))).toEqual({ key: `time:every:${at(9)}`, sinceTs: at(3) });
-    expect(dueWindow(every, state({ armedAt: at(0), lastRunAt: at(5) }))).toBeNull();
+    expect(dueWindows(every, state({ armedAt: at(4) }))).toEqual([]);
+    expect(dueWindows(every, state({ armedAt: at(3) }))).toEqual([{ key: `time:every:${at(9)}`, sinceTs: at(3), untilTs: at(9) }]);
+    expect(dueWindows(every, state({ armedAt: at(0), lastRunAt: at(5) }))).toEqual([]);
     // Sat out the rule's 05:00 run: catches up now, then is due with the rest at 11:00.
-    expect(dueWindow(every, state({ armedAt: at(0), lastRunAt: null, ruleRunAt: at(5) }))).toEqual({ key: `time:catchUp:${at(5)}`, sinceTs: at(0) });
-    expect(dueWindow(every, state({ armedAt: at(0), lastRunAt: at(6), ruleRunAt: at(5), now: at(11) }))).toEqual({ key: `time:every:${at(11)}`, sinceTs: at(6) });
+    expect(dueWindows(every, state({ armedAt: at(0), lastRunAt: null, ruleRunAt: at(5) }))).toEqual([
+      { key: `time:catchUp:${at(5)}`, sinceTs: at(0), untilTs: at(9) },
+    ]);
+    expect(dueWindows(every, state({ armedAt: at(0), lastRunAt: at(6), ruleRunAt: at(5), now: at(11) }))).toEqual([
+      { key: `time:every:${at(11)}`, sinceTs: at(6), untilTs: at(11) },
+    ]);
+  });
+
+  it('merges due times missed while closed into one window ending now', () => {
+    const every: TimedTrigger = { kind: 'every', hours: 3 };
+    // Last ran 22:00 yesterday; opened 12 hours and a quarter later.
+    expect(dueWindows(every, state({ now: at(10, 15), lastRunAt: at(22, 0, 24) }))).toEqual([
+      { key: `time:every:${at(1)}`, sinceTs: at(22, 0, 24), untilTs: at(10, 15) },
+    ]);
+  });
+
+  it('owes each missed due time its own window, tiling from the last one to the newest due time', () => {
+    const every: TimedTrigger = { kind: 'every', hours: 3, backfillHours: 24 };
+    const closed = state({ now: at(10, 15), lastRunAt: at(22, 0, 24) });
+    expect(dueWindows(every, closed)).toEqual([
+      { key: `time:every:${at(1)}`, sinceTs: at(22, 0, 24), untilTs: at(1) },
+      { key: `time:every:${at(4)}`, sinceTs: at(1), untilTs: at(4) },
+      { key: `time:every:${at(7)}`, sinceTs: at(4), untilTs: at(7) },
+      { key: `time:every:${at(10)}`, sinceTs: at(7), untilTs: at(10) },
+    ]);
+    // On time, the one window ends at its due time, not when the tick reached it: the schedule never drifts.
+    expect(dueWindows(every, state({ now: at(13, 1), lastRunAt: at(10) }))).toEqual([{ key: `time:every:${at(13)}`, sinceTs: at(10), untilTs: at(13) }]);
+    expect(dueWindows(every, state({ now: at(12, 59), lastRunAt: at(10) }))).toEqual([]);
+  });
+
+  it('drops missed due times older than the backfill reach, keeping the due-time grid', () => {
+    const every: TimedTrigger = { kind: 'every', hours: 3, backfillHours: 6 };
+    // Due 01:00, 04:00, 07:00 and 10:00; only those within six hours of 10:15 run, each over its own three hours.
+    expect(dueWindows(every, state({ now: at(10, 15), lastRunAt: at(22, 0, 24) })).map((w) => [w.sinceTs, w.untilTs])).toEqual([
+      [at(4), at(7)],
+      [at(7), at(10)],
+    ]);
+    // A month away at the widest reach: a week of due times, no more.
+    const far = dueWindows({ kind: 'every', hours: 24, backfillHours: 168 }, state({ now: at(9), lastRunAt: at(9) - 30 * MS_PER_DAY }));
+    expect(far.map((w) => w.untilTs)).toEqual([6, 5, 4, 3, 2, 1, 0].map((days) => at(9) - days * MS_PER_DAY));
+  });
+
+  it('owes each missed daily time its own day, on its days only', () => {
+    const daily: TimedTrigger = { kind: 'daily', at: '08:00', days: [0, 1, 2, 3, 4, 5, 6], backfillHours: 72 };
+    // Last ran Tuesday 22 Sep 08:00; opened Friday 09:00.
+    expect(dueWindows(daily, state({ lastRunAt: at(8, 0, 22) }))).toEqual([
+      { key: `time:daily:${at(8, 0, 23)}`, sinceTs: at(8, 0, 22), untilTs: at(8, 0, 23) },
+      { key: `time:daily:${at(8, 0, 24)}`, sinceTs: at(8, 0, 23), untilTs: at(8, 0, 24) },
+      { key: `time:daily:${at(8)}`, sinceTs: at(8, 0, 24), untilTs: at(8) },
+    ]);
+    // Wednesdays and Fridays only: Thursday owes nothing, and Friday's window reaches back to Wednesday's.
+    expect(dueWindows({ ...daily, days: [3, 5] }, state({ lastRunAt: at(8, 0, 22) })).map((w) => [w.sinceTs, w.untilTs])).toEqual([
+      [at(8, 0, 22), at(8, 0, 23)],
+      [at(8, 0, 23), at(8)],
+    ]);
+  });
+
+  it('catches an action that sat out up to the last due time, so it rejoins the grid', () => {
+    const every: TimedTrigger = { kind: 'every', hours: 6, backfillHours: 24 };
+    expect(dueWindows(every, state({ armedAt: at(0), lastRunAt: null, ruleRunAt: at(6) }))).toEqual([
+      { key: `time:catchUp:${at(6)}`, sinceTs: at(0), untilTs: at(6) },
+    ]);
+  });
+
+  it('refuses a backfill reach outside the hours a timed rule takes', () => {
+    expect(() => validateRuleInput(ruleInput([windowAction()], { trigger: { kind: 'every', hours: 3, backfillHours: 24 } }))).not.toThrow();
+    expect(() => validateRuleInput(ruleInput([windowAction()], { trigger: { kind: 'every', hours: 3, backfillHours: 0 } }))).toThrow(/1 to 168 hours back/);
+    expect(() =>
+      validateRuleInput(ruleInput([windowAction()], { trigger: { kind: 'daily', at: '08:00', days: [1], backfillHours: 200 } })),
+    ).toThrow(/1 to 168 hours back/);
   });
 
   it('catches up once per start after a long enough absence, after what a summary already covers', () => {
     const start: TimedTrigger = { kind: 'appStart', awayHours: 8 };
     const away = { lastSeenAt: at(0) };
-    expect(dueWindow(start, state(away))).toEqual({ key: `time:start:${at(9)}`, sinceTs: at(0) });
-    expect(dueWindow(start, state({ lastSeenAt: at(3) }))).toBeNull();
-    expect(dueWindow(start, state({ ...away, appStartDone: true }))).toBeNull();
-    expect(dueWindow(start, state({ ...away, armedAt: at(9, 1), now: at(9, 5) }))).toBeNull(); // turned on this session
-    expect(dueWindow(start, state({ ...away, coveredFrom: () => at(6) }))!.sinceTs).toBe(at(6));
-    expect(dueWindow(start, state({ ...away, coveredFrom: () => at(9) }))).toBeNull();
+    expect(dueWindows(start, state(away))).toEqual([{ key: `time:start:${at(9)}`, sinceTs: at(0), untilTs: at(9) }]);
+    expect(dueWindows(start, state({ lastSeenAt: at(3) }))).toEqual([]);
+    expect(dueWindows(start, state({ ...away, appStartDone: true }))).toEqual([]);
+    expect(dueWindows(start, state({ ...away, armedAt: at(9, 1), now: at(9, 5) }))).toEqual([]); // turned on this session
+    expect(dueWindows(start, state({ ...away, coveredFrom: () => at(6) }))[0]!.sinceTs).toBe(at(6));
+    expect(dueWindows(start, state({ ...away, coveredFrom: () => at(9) }))).toEqual([]);
     // Owed from an earlier start: due however short this absence, from where that window began.
-    expect(dueWindow(start, state({ lastSeenAt: at(3), owedSince: at(1) }))).toEqual({ key: `time:start:${at(9)}`, sinceTs: at(1) });
+    expect(dueWindows(start, state({ lastSeenAt: at(3), owedSince: at(1) }))).toEqual([{ key: `time:start:${at(9)}`, sinceTs: at(1), untilTs: at(9) }]);
   });
 });
 
@@ -292,5 +360,80 @@ describe('a timed rule whose action’s plugin turns off while an earlier action
     await schedule.tick();
     await schedule.tick();
     expect(spans(h)).toEqual([[at(0), at(9)]]);
+  });
+});
+
+describe('a timed rule set to run each missed time', () => {
+  const every3 = { kind: 'every', hours: 3, backfillHours: 24 } as const;
+  /** When a run stored by an earlier build ran: some seconds after its due time. */
+  const LEGACY_RAN_LATE_MS = 40_000;
+  /** A session's schedule over `h`, as an app start makes it. */
+  const session = (h: Harness, now: () => number, lastSeenAt: number) => new RuleSchedule(h.db, h.engine, h.actions, lastSeenAt, (e) => h.events.push(e), now);
+  const commandSpans = (h: Harness) => h.ranges.commands.map((c) => [c.range.sinceTs, c.range.untilTs]);
+
+  it('runs one window per due time missed while closed, oldest first, then stays on the grid', async () => {
+    let now = at(22, 0, 24);
+    const h = ruleHarness(() => now);
+    const id = h.rules.create(ruleInput([windowAction(), command()], { trigger: every3, gates: { channelIds: ['c1'] } }));
+    // Closed from 22:00 until 10:15 the next morning.
+    now = at(10, 15);
+    const schedule = session(h, () => now, at(22, 0, 24));
+    await schedule.tick();
+    const missed = [[at(22, 0, 24), at(1)], [at(1), at(4)], [at(4), at(7)], [at(7), at(10)]];
+    expect(spans(h)).toEqual(missed);
+    expect(commandSpans(h)).toEqual(missed);
+    // Each says how many it still owes, so an action can stay quiet until the newest.
+    expect(windows(h).map((w) => w.owedAfter)).toEqual([3, 2, 1, 0]);
+    expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome))).toEqual(Array(4).fill(['done', 'done']));
+    await schedule.tick();
+    expect(windows(h)).toHaveLength(4);
+    // The next due time is 13:00, three hours after the last due time, not after the app opened.
+    now = at(12, 59);
+    await schedule.tick();
+    expect(windows(h)).toHaveLength(4);
+    now = at(13, 1);
+    await schedule.tick();
+    expect(spans(h).at(-1)).toEqual([at(10), at(13)]);
+  });
+
+  it('leaves the rest owed when the app quits mid-way, and runs again a window the quit interrupted', async () => {
+    let now = at(22, 0, 24);
+    const h = ruleHarness(() => now);
+    const id = h.rules.create(ruleInput([command()], { trigger: every3 }));
+    // Opened at 01:05: the 01:00 window runs. At 04:01 the 04:00 window is claimed, and the app quits while its action runs.
+    now = at(1, 5);
+    await session(h, () => now, at(22, 0, 24)).tick();
+    claimRun(h.db, id, `time:every:${at(4)}`, null, true, at(4, 1), at(4));
+    expect(h.rules.runs(id, 10).map((r) => r.actions.length).sort()).toEqual([0, 1]);
+
+    now = at(10, 30);
+    await session(h, () => now, at(4, 1)).tick();
+    expect(commandSpans(h)).toEqual([[at(22, 0, 24), at(1)], [at(1), at(4)], [at(4), at(7)], [at(7), at(10)]]);
+    expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome))).toEqual(Array(4).fill(['done']));
+  });
+
+  it('keeps a failed window claimed: reported once, and the later ones still run', async () => {
+    let now = at(22, 0, 24);
+    const h = ruleHarness(() => now);
+    const id = h.rules.create(ruleInput([command()], { trigger: every3 }));
+    now = at(4, 30);
+    h.ranges.answer = () => (h.ranges.commands.length === 1 ? Promise.reject(new Error('provider down')) : Promise.resolve('answered'));
+    const schedule = session(h, () => now, at(22, 0, 24));
+    await schedule.tick();
+    await schedule.tick();
+    expect(commandSpans(h)).toEqual([[at(22, 0, 24), at(1)], [at(1), at(4)]]);
+    expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome)).sort()).toEqual([['done'], ['failed']]);
+  });
+
+  it('counts a run stored before window ends were kept as ending when it ran', async () => {
+    let now = at(22, 0, 24);
+    const h = ruleHarness(() => now);
+    const id = h.rules.create(ruleInput([command()], { trigger: every3 }));
+    const ranAt = at(1) + LEGACY_RAN_LATE_MS;
+    const runId = claimRun(h.db, id, `time:every:${at(1)}`, null, true, ranAt)!;
+    h.db.prepare("INSERT INTO rule_action_runs (run_id, action_id, kind, outcome, at) VALUES (?, 'legacy', 'command', 'done', ?)").run(runId, ranAt);
+    now = at(4, 5);
+    await session(h, () => now, at(1, 30)).tick();
+    expect(commandSpans(h)).toEqual([[ranAt, ranAt + 3 * MS_PER_HOUR]]);
   });
 });

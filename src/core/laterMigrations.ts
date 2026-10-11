@@ -194,6 +194,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   storedBotAuthors,
   // The named group Settings → Rules lists a rule under; NULL = ungrouped.
   'ALTER TABLE rules ADD COLUMN list_group TEXT;',
+  // Where a timed run's window ended (ms): its due time when each missed time runs, else when it ran. NULL: at.
+  'ALTER TABLE rule_runs ADD COLUMN window_until INTEGER;',
 ];
 
 /** Keep bot identity after retention drops payloads; decode old payloads once during upgrade, never while counting. */

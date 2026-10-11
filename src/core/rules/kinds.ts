@@ -41,6 +41,8 @@ export interface WindowEvent {
   kind: 'window';
   range: PluginRange;
   timing: TimedTriggerKind;
+  /** Windows this action still owes after this one (missed due times caught up oldest first); 0 for the newest. */
+  owedAfter: number;
 }
 
 /** One action invocation; history has no run id and produces no recorded outcome. */
@@ -111,10 +113,11 @@ export interface Settled {
   answers: Answers | null;
 }
 
-/** The due window’s run key, lower time bound and trigger timing label. */
+/** The due window’s run key, time bounds and trigger timing label. */
 export interface WindowDue {
   key: string;
   sinceTs: number;
+  untilTs: number;
   timing: TimedTriggerKind;
 }
 
@@ -124,9 +127,9 @@ export interface CoverageQuery {
   channelIds: string[] | null;
 }
 
-/** A window trigger’s due calculation and whether it runs once per session. */
+/** A window trigger’s owed windows (oldest first; empty when none is due) and whether it runs once per session. */
 export interface WindowImpl {
-  due(config: unknown, state: TimedState): WindowDue | null;
+  due(config: unknown, state: TimedState): WindowDue[];
   oncePerSession(config: unknown): boolean;
 }
 

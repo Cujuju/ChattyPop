@@ -5,7 +5,7 @@ import type { TextConfig } from '@shared/ruleKinds/host';
 import type { ContentKind } from '@shared/messageContent';
 import type { Platform } from '@shared/links';
 import { ruleSubject } from '@shared/rules';
-import { dueWindow, type TimedTrigger } from '@shared/ruleTime';
+import { dueWindows, type TimedTrigger } from '@shared/ruleTime';
 import { queryMatch, queryRequest, specMatch } from '../jev/queries';
 import { customQuestion, QUERY } from '../jev/questions';
 import type { RuleKinds } from './kinds';
@@ -51,8 +51,7 @@ export function registerHostMatches(k: RuleKinds): void {
   k.windows.register('timed', {
     due: (config, state) => {
       const t = config as TimedTrigger;
-      const due = dueWindow(t, state);
-      return due ? { ...due, timing: t.kind } : null;
+      return dueWindows(t, state).map((w) => ({ ...w, timing: t.kind }));
     },
     oncePerSession: (c) => (c as TimedTrigger).kind === 'appStart',
   });

@@ -1,11 +1,18 @@
 // Timed rules run daily, periodically or on app return, acting over configured channel/time windows.
 import { MS_PER_DAY, MS_PER_HOUR } from './units';
 
+/**
+ * Due times that passed while the rule could not run (the app was closed). Set: each runs over its own stretch, those
+ * due within the last `backfillHours`; older ones are dropped. Unset: one run covers everything since the last.
+ */
+export interface MissedRuns {
+  backfillHours?: number;
+}
 export type TimedTrigger =
   /** Each listed weekday (0 = Sunday) at local "HH:MM". */
-  | { kind: 'daily'; at: string; days: number[] }
-  /** Every `hours` hours, counted from the rule's last scheduled run (or from when it was turned on). */
-  | { kind: 'every'; hours: number }
+  | ({ kind: 'daily'; at: string; days: number[] } & MissedRuns)
+  /** Every `hours` hours, counted from where the rule's last scheduled window ended (or from when it was turned on). */
+  | ({ kind: 'every'; hours: number } & MissedRuns)
   /** Once per app start, when ChattyPop was closed at least `awayHours` hours. */
   | { kind: 'appStart'; awayHours: number };
 export type TimedTriggerKind = TimedTrigger['kind'];
@@ -24,6 +31,8 @@ export const DEFAULT_DAILY_AT = '08:00';
 export const DEFAULT_EVERY_HOURS = 6;
 /** A new app-start rule: a night away. */
 export const DEFAULT_AWAY_HOURS = 8;
+/** Turning on "each missed time": a day away is caught up, and a longer absence costs no more runs than that. */
+export const DEFAULT_BACKFILL_HOURS = 24;
 const DAILY_AT = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DAYS_PER_WEEK = 7;
 /** Every weekday, Sunday first (Date.getDay order). */
@@ -48,16 +57,19 @@ export function newTimedTrigger(kind: TimedTriggerKind): TimedTrigger {
 
 const inHours = (n: number): boolean => Number.isInteger(n) && n >= TIMED_HOURS_MIN && n <= TIMED_HOURS_MAX;
 
+const backfillError = (t: MissedRuns): string | null =>
+  t.backfillHours === undefined || inHours(t.backfillHours) ? null : `Catch up missed times ${TIMED_HOURS_MIN} to ${TIMED_HOURS_MAX} hours back.`;
+
 /** Why a timed trigger can't run as written, or null. */
 export function timedTriggerError(t: TimedTrigger): string | null {
   switch (t.kind) {
     case 'daily':
       if (!DAILY_AT.test(t.at)) return 'Pick the time of day it runs.';
       return t.days.length && t.days.every((d) => Number.isInteger(d) && d >= 0 && d < DAYS_PER_WEEK)
-        ? null
+        ? backfillError(t)
         : 'Pick the days it runs.';
     case 'every':
-      return inHours(t.hours) ? null : `Run every ${TIMED_HOURS_MIN} to ${TIMED_HOURS_MAX} hours.`;
+      return inHours(t.hours) ? backfillError(t) : `Run every ${TIMED_HOURS_MIN} to ${TIMED_HOURS_MAX} hours.`;
     case 'appStart':
       return inHours(t.awayHours) ? null : `Pick an absence of ${TIMED_HOURS_MIN} to ${TIMED_HOURS_MAX} hours.`;
   }
@@ -78,9 +90,9 @@ export interface TimedState {
   now: number;
   /** When the rule was turned on: it never covers time before. */
   armedAt: number;
-  /** This action's last timed run, or null. */
+  /** Where this action's last timed window ended, or null. */
   lastRunAt: number | null;
-  /** The rule's last scheduled timed run of any of its actions (catch-ups excluded), or null. */
+  /** Where the rule's last scheduled window (of any of its actions; catch-ups excluded) ended, or null. */
   ruleRunAt: number | null;
   /** When this app session started, and when the previous one was last seen. */
   sessionStart: number;
@@ -96,29 +108,69 @@ export interface TimedState {
   coveredFrom(sinceTs: number): number | null;
 }
 
-/** What a timed rule owes now: the run's key (once per due time) and where its range starts; null when nothing is due. */
-export function dueWindow(t: TimedTrigger, s: TimedState): { key: string; sinceTs: number } | null {
+/** A stretch a timed rule owes: the run's key (once per due time) and the span its actions read. */
+export interface TimedWindow {
+  key: string;
+  sinceTs: number;
+  untilTs: number;
+}
+
+/** The daily due times after `from`, up to `now`, oldest first. */
+function dailyDuesSince(t: { at: string; days: readonly number[] }, from: number, now: number): number[] {
+  const dues: number[] = [];
+  for (let due = lastDailyDue(now, t.at, t.days); due > from; due = lastDailyDue(due - 1, t.at, t.days)) dues.unshift(due);
+  return dues;
+}
+
+/** The due times `stepMs` apart counted from `scheduled`, after `from` and up to `now`, oldest first. */
+function everyDuesSince(scheduled: number, stepMs: number, from: number, now: number): number[] {
+  const dues: number[] = [];
+  for (let due = scheduled + (Math.floor((from - scheduled) / stepMs) + 1) * stepMs; due <= now; due += stepMs) dues.push(due);
+  return dues;
+}
+
+/**
+ * What a timed rule owes now, oldest first; empty when nothing is due. Merging (no `backfillHours`), missed due times
+ * are one window ending now. Otherwise each due time has its own window ending at it, so windows tile without overlap.
+ */
+export function dueWindows(t: TimedTrigger, s: TimedState): TimedWindow[] {
   const floor = s.now - TIMED_MAX_LOOKBACK_MS;
   const from = Math.max(s.lastRunAt ?? s.armedAt, s.armedAt);
   switch (t.kind) {
     case 'daily': {
-      const due = lastDailyDue(s.now, t.at, t.days);
-      return due > from ? { key: `${TIMED_RUN_PREFIX}daily:${due}`, sinceTs: Math.max(from, floor) } : null;
+      const key = (due: number): string => `${TIMED_RUN_PREFIX}daily:${due}`;
+      if (t.backfillHours === undefined) {
+        const due = lastDailyDue(s.now, t.at, t.days);
+        return due > from ? [{ key: key(due), sinceTs: Math.max(from, floor), untilTs: s.now }] : [];
+      }
+      const reach = Math.max(from, s.now - t.backfillHours * MS_PER_HOUR);
+      return dailyDuesSince(t, reach, s.now).map((due) => ({
+        key: key(due),
+        sinceTs: Math.max(from, lastDailyDue(due - 1, t.at, t.days)),
+        untilTs: due,
+      }));
     }
     case 'every': {
+      const stepMs = t.hours * MS_PER_HOUR;
+      const key = (due: number): string => `${TIMED_RUN_PREFIX}every:${due}`;
       const scheduled = Math.max(s.ruleRunAt ?? s.armedAt, s.armedAt);
-      // Sat out the rule's last scheduled run: catches up now, then runs with the others.
-      if (from < scheduled) return { key: `${TIMED_CATCH_UP_PREFIX}${scheduled}`, sinceTs: Math.max(from, floor) };
-      const due = scheduled + t.hours * MS_PER_HOUR;
-      return due <= s.now ? { key: `${TIMED_RUN_PREFIX}every:${due}`, sinceTs: Math.max(from, floor) } : null;
+      const each = t.backfillHours !== undefined;
+      // Sat out the rule's last scheduled run: catches up to it (each) or to now (merging), then runs with the others.
+      if (from < scheduled) return [{ key: `${TIMED_CATCH_UP_PREFIX}${scheduled}`, sinceTs: Math.max(from, floor), untilTs: each ? scheduled : s.now }];
+      if (t.backfillHours === undefined) {
+        const due = scheduled + stepMs;
+        return due <= s.now ? [{ key: key(due), sinceTs: Math.max(from, floor), untilTs: s.now }] : [];
+      }
+      const reach = Math.max(from, s.now - t.backfillHours * MS_PER_HOUR);
+      return everyDuesSince(scheduled, stepMs, reach, s.now).map((due) => ({ key: key(due), sinceTs: Math.max(from, due - stepMs), untilTs: due }));
     }
     case 'appStart': {
       // Turned on during this session: its first app start is the next one.
-      if (s.appStartDone || s.armedAt > s.sessionStart) return null;
-      if (s.owedSince === null && s.sessionStart - s.lastSeenAt < t.awayHours * MS_PER_HOUR) return null;
+      if (s.appStartDone || s.armedAt > s.sessionStart) return [];
+      if (s.owedSince === null && s.sessionStart - s.lastSeenAt < t.awayHours * MS_PER_HOUR) return [];
       const from = Math.max(s.owedSince ?? s.lastSeenAt, s.armedAt, floor);
       const sinceTs = Math.max(from, s.coveredFrom(from) ?? from);
-      return sinceTs < s.now ? { key: `${TIMED_RUN_PREFIX}start:${s.sessionStart}`, sinceTs } : null;
+      return sinceTs < s.now ? [{ key: `${TIMED_RUN_PREFIX}start:${s.sessionStart}`, sinceTs, untilTs: s.now }] : [];
     }
   }
 }
@@ -146,7 +198,9 @@ export function timedTriggerText(t: TimedTrigger, dayNames: readonly string[]): 
 export const timedCoverText = (t: TimedTrigger, appStart = 'Since you were last here, after already covered time; at most a week'): string =>
   t.kind === 'appStart'
     ? appStart
-    : 'Since its last run; at most a week';
+    : t.backfillHours !== undefined
+      ? 'The stretch before each due time'
+      : 'Since its last run; at most a week';
 
 /** Weekday labels in Date.getDay order. */
 export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;

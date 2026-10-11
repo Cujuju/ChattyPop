@@ -178,7 +178,7 @@ export function deleteRule(db: Db, id: number): void {
   db.prepare('DELETE FROM rules WHERE id = ?').run(id); // runs cascade
 }
 
-/** Claims one event for a rule; returns the run id, or null when the rule already fired on it. */
+/** Claims one event for a rule; returns the run id, or null when the rule already fired on it. `windowUntil`: where a timed run's window ends. */
 export function claimRun(
   db: Db,
   ruleId: number,
@@ -186,13 +186,27 @@ export function claimRun(
   m: { id: string; channelId: string } | null,
   live: boolean,
   now: number,
+  windowUntil: number | null = null,
 ): number | null {
   const info = db
     .prepare(
-      'INSERT OR IGNORE INTO rule_runs (rule_id, event_key, message_id, channel_id, live, at) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO rule_runs (rule_id, event_key, message_id, channel_id, live, at, window_until) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(ruleId, eventKey, m?.id ?? null, m?.channelId ?? null, live ? 1 : 0, now);
+    .run(ruleId, eventKey, m?.id ?? null, m?.channelId ?? null, live ? 1 : 0, now, windowUntil);
   return info.changes ? Number(info.lastInsertRowid) : null;
+}
+
+/**
+ * Drops timed runs claimed with no action outcome: the app quit while their first action ran. Their windows are owed
+ * again. Call before a session claims any, since a run in progress has none either. Returns how many.
+ */
+export function releaseInterruptedTimedRuns(db: Db): number {
+  return db
+    .prepare(
+      `DELETE FROM rule_runs WHERE substr(event_key, 1, length(@prefix)) = @prefix
+         AND NOT EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id)`,
+    )
+    .run({ prefix: TIMED_RUN_PREFIX }).changes;
 }
 
 /** Stores or replaces the outcome of one action in a claimed run; `satOut`: its plugin was off, so the run owes it still. */
@@ -215,11 +229,14 @@ export function recordOutcome(
 /** A run in which action `@actionId` sat out. */
 const SAT_OUT = `EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id AND a.action_id = @actionId AND a.sat_out = 1)`;
 
-/** Returns a timed action’s latest applicable execution. Excludes pre-trigger-change message runs and runs skipped while its plugin was disabled. */
+/** A timed run's window end; runs stored before it was kept ended when they ran. */
+const WINDOW_END = 'COALESCE(window_until, at)';
+
+/** Where a timed action’s latest applicable window ended. Excludes pre-trigger-change message runs and runs skipped while its plugin was disabled. */
 export function lastTimedRun(db: Db, ruleId: number, actionId: string): number | null {
   const r = db
     .prepare(
-      `SELECT MAX(at) AS at FROM rule_runs WHERE rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
+      `SELECT MAX(${WINDOW_END}) AS at FROM rule_runs WHERE rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
          AND (instr(event_key, @mark) = 0 OR substr(event_key, instr(event_key, @mark) + 1) = @actionId) AND NOT ${SAT_OUT}`,
     )
     .get({ ruleId, prefix: TIMED_RUN_PREFIX, mark: TIMED_RUN_ACTION_MARK, actionId }) as { at: number | null };
@@ -227,13 +244,13 @@ export function lastTimedRun(db: Db, ruleId: number, actionId: string): number |
 }
 
 /**
- * When a timed rule last ran on schedule (any of its actions), or null: an action catching up alone doesn't count, nor a
- * run every action sat out.
+ * Where the window of a timed rule's last run on schedule (any of its actions) ended, or null: an action catching up
+ * alone doesn't count, nor a run every action sat out.
  */
 export function lastScheduledRun(db: Db, ruleId: number): number | null {
   const r = db
     .prepare(
-      `SELECT MAX(at) AS at FROM rule_runs WHERE rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
+      `SELECT MAX(${WINDOW_END}) AS at FROM rule_runs WHERE rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
          AND substr(event_key, 1, length(@catchUp)) != @catchUp
          AND (NOT EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id AND a.sat_out = 1)
               OR EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id AND a.sat_out = 0))`,
