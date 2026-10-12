@@ -9,7 +9,7 @@ import type { DecisionProvider } from './decisions';
 import { JevProvider, openRouterJevRoute, typeSafeJevRoute, type JevRoute, type JevSpent } from './jev';
 import { openRouterKeyBalance } from './openRouterKeys';
 import { revocable } from './revocable';
-import { keyError, keyedProvider } from './keyError';
+import { keyError, keyedProvider, redactKey } from './keyError';
 import {
   ProviderUnavailableError,
   chosenModel,
@@ -136,7 +136,7 @@ export class ProviderRegistry {
         const apiKeyHint = key ? keyHint(key) : null;
         try {
           const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh);
-          return { id, apiKeyHint, available: report.available, detail: key ? report.detail.replaceAll(key, '[API key]') : report.detail, models: report.models };
+          return { id, apiKeyHint, available: report.available, detail: redactKey(report.detail, key), models: report.models };
         } catch (err) {
           return { id, apiKeyHint, available: false, detail: keyError(err, key).message, models: null };
         }

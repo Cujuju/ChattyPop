@@ -1,11 +1,17 @@
 import { errorMessage } from '@shared/errors';
 import type { LlmProvider } from './types';
 
+/** Stands in for a credential in text that leaves core. */
+const REDACTED_KEY = '[API key]';
+
+/** `text` without the credential, if it echoes it. */
+export const redactKey = (text: string, key: string | null): string => (key ? text.replaceAll(key, REDACTED_KEY) : text);
+
 /** Removes a credential if a provider's error echoes it. */
 export function keyError(err: unknown, key: string | null): Error {
   const message = errorMessage(err);
   if (!key || !message.includes(key)) return err instanceof Error ? err : new Error(message);
-  return new Error(key ? message.replaceAll(key, '[API key]') : message);
+  return new Error(redactKey(message, key));
 }
 
 /** Provider errors are safe to carry across process boundaries, including a request started before a key change. */
