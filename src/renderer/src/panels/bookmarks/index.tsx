@@ -2,6 +2,7 @@ import { For, Show, createEffect, on, onCleanup, onMount } from 'solid-js';
 import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
 import { editReminder, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedMessages, savedTab, setSavedTab } from '@/state/savedMessages';
 import { postingUnlocked } from '@/state/posting';
+import { closePanelDialog } from '@/state/ui';
 import { now } from '@/state/clock';
 import { failureNotice } from '@/state/dialogs';
 import { HeaderButton } from '@/ui/PanelHeader';
@@ -69,10 +70,11 @@ function SavedPost(props: { row: SavedMessage }) {
   const postedAt = () => snowflakeToMs(row().messageId);
   const disabled = () => savedBusy() || savedMessages().loading || savedMessages().stale;
   const remindLabel = () => row().dueAt ? 'Edit reminder' : 'Remind me';
+  const viewInArchive = () => void openSavedMessage(row()).then(() => closePanelDialog('bookmarks')).catch(failureNotice("Couldn't open the message"));
   return <article class={`${styles.row} ${look.card}`} aria-label={`Saved message by ${actionSubject(row())}`}>
     <header class={`${styles.context} ${look.ruleBelow}`} data-rule="subtle">
       <button type="button" class={styles.destination} title={`Open message in ${channelName()} · ${place()}`} aria-label={`Open message by ${actionSubject(row())}`}
-        onClick={() => void openSavedMessage(row()).catch(failureNotice("Couldn't open the message"))}>
+        onClick={viewInArchive}>
         <span class={styles.channelIcon} aria-hidden="true">
           <Show when={guild()?.id !== DM_GUILD_ID && guild()} fallback={<Icon name="conversation" />}>
             {(server) => <GuildIcon id={server().id} name={server().name} icon={server().icon} />}
@@ -85,6 +87,8 @@ function SavedPost(props: { row: SavedMessage }) {
         </span>
       </button>
       <div class={styles.actions}>
+        <button type="button" class={`${styles.action} ${look.button} ${look.text}`} data-variant="raised" title="View in archive" aria-label={`View in archive: ${actionSubject(row())}`}
+          onClick={viewInArchive}><Icon name="external" class={styles.actionIcon} /></button>
         <Show when={postingUnlocked()}>
           <button type="button" class={`${styles.action} ${look.button} ${look.text}`} data-variant="raised" title={remindLabel()} aria-label={`${remindLabel()} for ${actionSubject(row())}`} disabled={disabled()}
             onClick={() => editReminder(row())}><Icon name="bell" class={styles.actionIcon} /></button>
