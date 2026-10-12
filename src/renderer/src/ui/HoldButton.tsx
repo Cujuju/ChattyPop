@@ -1,7 +1,6 @@
 // An icon button that acts only after a full hold: the hold is the confirmation, and a line traces the button's edge while it runs.
 import { Show } from 'solid-js';
 import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
-import { look } from '@/theme/look';
 import { Icon } from './icons';
 import type { IconName } from './iconNames';
 import styles from './HoldButton.module.css';
@@ -24,7 +23,7 @@ export function HoldButton(props: {
     <button
       ref={button}
       type="button"
-      class={`${styles.button} ${look.iconButton}`}
+      class={`cp-button ${styles.button}`}
       data-holding={hold.holding()}
       disabled={props.disabled}
       title={label()}

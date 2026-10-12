@@ -1,5 +1,5 @@
-/* Hold to confirm (HoldButton.tsx): a square icon button whose edge is traced while it is held. The theme's iconButton
-   role is its resting look. Hooks: .button[data-holding='true']. */
+/* Hold to confirm (HoldButton.tsx): a square button around an icon, whose edge is traced while it is held. The shared
+   cp-button is its resting look. Hooks: .button[data-holding='true']. */
 .button {
   position: relative; /* the traced line is placed against it */
   display: inline-grid;
@@ -11,7 +11,10 @@
   touch-action: manipulation;
   -webkit-user-select: none;
   user-select: none;
-  transition: color var(--cp-duration-fast) var(--cp-ease);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    border-color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
 }
 
 .icon {
@@ -19,9 +22,11 @@
   height: var(--cp-hold-icon);
 }
 
-/* What a hold does is destructive: the icon and the traced line (currentColor) say so. */
+/* What a hold does is destructive: the button and the traced line (currentColor) say so, as cp-danger does. */
 .button:hover:not(:disabled),
 .button[data-holding='true'] {
+  border-color: var(--cp-danger-border);
+  background: var(--cp-danger-bg);
   color: var(--cp-danger);
 }
 
