@@ -1,3 +1,4 @@
+import { normalizeProviderId } from '@shared/aiSettings';
 import type { SecretFiles } from './plugins/context';
 
 /** All provider API keys as one encrypted JSON object, by provider id. */
@@ -11,7 +12,7 @@ export function loadProviderKeys(secrets: SecretFiles): Record<string, string> {
     const value: unknown = JSON.parse(stored);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     const entries = Object.entries(value);
-    if (entries.some(([, key]) => typeof key !== 'string' || !key.trim())) return {};
+    if (entries.some(([id, key]) => !normalizeProviderId(id) || typeof key !== 'string' || !key.trim())) return {};
     return Object.fromEntries(entries);
   } catch {
     return {};
@@ -19,12 +20,14 @@ export function loadProviderKeys(secrets: SecretFiles): Record<string, string> {
 }
 
 export function saveProviderKey(secrets: SecretFiles, id: string, key: string): Record<string, string> {
+  if (!normalizeProviderId(id)) throw new TypeError('Invalid AI provider id.');
   const keys = { ...loadProviderKeys(secrets), [id]: key };
   secrets.write(PROVIDER_KEYS_FILE, JSON.stringify(keys));
   return keys;
 }
 
 export function forgetProviderKey(secrets: SecretFiles, id: string): Record<string, string> {
+  if (!normalizeProviderId(id)) throw new TypeError('Invalid AI provider id.');
   const keys = loadProviderKeys(secrets);
   delete keys[id];
   secrets.write(PROVIDER_KEYS_FILE, JSON.stringify(keys));

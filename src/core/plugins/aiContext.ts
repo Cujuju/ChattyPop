@@ -1,5 +1,7 @@
 // A bundled plugin's AI services (docs/plugin-architecture.md §3, AI providers and AI usage): settings, providers it
 // registers or requests, completions and usage. Registrations are dropped when the plugin turns off.
+import { join } from 'node:path';
+import { accountProvider } from '@shared/providerAccounts';
 import type { PluginDescriptor, ProviderIds } from '@shared/bundledTypes';
 import { SETTINGS_KEYS, type AiSettings, type ProviderId } from '@shared/settings';
 import { apiCost, type PriceAtApiRates } from '../ai/apiRates';
@@ -24,7 +26,7 @@ export interface PluginAi<D extends PluginDescriptor = PluginDescriptor> {
   provider(id: ProviderId, settings?: AiSettings): PluginProvider;
   /** Picks the channels a provider or Jev may be sent, before a request declares them. */
   sources: AiSources;
-  /** Every provider this build declares, with why each can't run now. */
+  /** Every provider and account, with why each cannot run. */
   providers(): ProviderInfo[];
   /** Why provider `id` can't run now (its plugin is off or absent, or it is turned off in Settings → AI); null while it can. */
   unavailable(id: ProviderId): string | null;
@@ -32,8 +34,8 @@ export interface PluginAi<D extends PluginDescriptor = PluginDescriptor> {
   isLocal(id: ProviderId): boolean;
   /** Supplies a provider this plugin declares, until the plugin turns off. */
   registerProvider(id: ProviderIds<D>, impl: ProviderImpl): void;
-  /** The owner's stored key for a provider declared with `apiKey`; null when absent or unloaded. Read per request. */
-  apiKey(id: ProviderIds<D>): string | null;
+  /** Legacy key reader; the ProviderAccount passed to create/status supplies its own apiKey(). */
+  apiKey(id: ProviderId): string | null;
   /** A call's cost at the model's API list rates (OpenRouter id), for plan-paid providers; undefined when unknown or off. */
   apiCost: PriceAtApiRates;
   /** The host's OpenRouter keys, for a provider declared as paid through them. */
@@ -82,7 +84,7 @@ export function pluginAi<D extends PluginDescriptor>(
     unavailable: (id) => unavailable(id),
     isLocal: (id) => providers.isLocal(id),
     apiKey: (id) => {
-      const declared = plugin.providers?.find((p) => p.id === id);
+      const declared = plugin.providers?.find((p) => p.id === accountProvider(id));
       if (!declared) throw new Error(`${plugin.manifest.id} reads AI provider ${id} but declares none`);
       if (!declared.apiKey) throw new Error(`${plugin.manifest.id} reads API key for ${id} but declares no apiKey`);
       return live() ? providers.apiKey(id) : null;
@@ -93,11 +95,14 @@ export function pluginAi<D extends PluginDescriptor>(
       reg.registered.add(registration('AI provider', id));
       reg.disposers.push(
         providers.register(id, {
-          create: (choice) => impl.create(choice),
+          create: (choice, account) => impl.create(choice, account),
           // A throwing report is recorded on the plugin; Settings → AI shows its message as the reason.
-          status: (choice, refresh) => checked(() => impl.status(choice, refresh), providers.apiKey(id)),
+          status: (choice, refresh, account) => checked(() => impl.status(choice, refresh, account), account.apiKey()),
           ...(impl.checkApiKey ? { checkApiKey: (key: string) => checked(() => impl.checkApiKey!(key), key) } : {}),
-        }),
+          ...(impl.linkAccount ? { linkAccount: (account, io) => checked(() => impl.linkAccount!(account, io), account.apiKey()) } : {}),
+          ...(impl.removeAccount ? { removeAccount: (account) => checked(() => impl.removeAccount!(account), account.apiKey()) } : {}),
+          ...(impl.dispose ? { dispose: () => impl.dispose!() } : {}),
+        }, bundled.pluginData.unmoved[plugin.manifest.id] ?? join(bundled.pluginData.root, plugin.manifest.id)),
       );
     },
     apiCost: (model, usage) => (live() ? apiCost(model, usage) : Promise.resolve(undefined)),

@@ -1,3 +1,4 @@
+import type { ProviderAccountSettings } from '@plugin-sdk/shared';
 // The core testing harness's public types (docs/plugin-architecture.md §15): SDK types only, so a plugin's tests never
 // see a host internal (tests/pluginTesting.test.ts checks the import graph).
 export type { CoreLink } from '@plugin-sdk/shared/testing';
@@ -30,6 +31,10 @@ export interface ScriptedProvider {
   local?: boolean;
   /** Declared to read images (ProviderDecl.images). */
   images?: boolean;
+  /** Account capabilities of a scripted provider; linkAccount drives its test sign-in. */
+  accounts?: import('@plugin-sdk/shared').ProviderAccountsDecl;
+  apiKey?: import('@plugin-sdk/shared').ProviderApiKeyDecl;
+  linkAccount?: import('@plugin-sdk/core').ProviderImpl['linkAccount'];
   /** Answers each completion; revoked, like any provider, when the plugin that holds it turns off. */
   provider: LlmProvider;
 }
@@ -102,6 +107,7 @@ export interface TestOptions<D extends PluginDescriptor> {
   preferences?: { [N in PreferenceNames<D>]?: PreferenceValue<D, N> };
   ai?: {
     providers?: readonly ScriptedProvider[];
+    accounts?: readonly ProviderAccountSettings[];
     /** Stored owner API keys, held in memory before activation. */
     apiKeys?: Readonly<Record<string, string>>;
     /** Jev, asked only for switches that are on. */
@@ -155,6 +161,10 @@ export interface TestPlugin<D extends PluginDescriptor> {
     unavailable(section: RuleSection, type: string): string | null;
   };
   ai: {
+    linkAccount(id: string): void;
+    submitLinkCode(id: string, code: string): void;
+    cancelLink(id: string): void;
+    linkEvents(): { id: string; state: 'waiting' | 'done' | 'failed'; url: string | null; error: string | null }[];
     /** Why an AI provider can't run now, as Settings → AI says; null while one is registered for it. */
     unavailable(id: string): string | null;
   };

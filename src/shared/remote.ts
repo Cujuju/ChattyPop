@@ -43,7 +43,8 @@ export type RemoteDiscordMethod = (typeof REMOTE_DISCORD_METHODS)[number];
 const discordMethods = new Set<string>(REMOTE_DISCORD_METHODS);
 export const remoteMayCallDiscord = (method: string): method is RemoteDiscordMethod => discordMethods.has(method);
 
-const coreMethods = new Set<string>(RENDERER_CORE_METHODS);
+export const SERVER_SCREEN_CORE_METHODS = ['linkProviderAccount', 'submitAccountLinkCode', 'cancelAccountLink'] as const;
+const coreMethods = new Set<string>(RENDERER_CORE_METHODS.filter((method) => !(SERVER_SCREEN_CORE_METHODS as readonly string[]).includes(method)));
 /** A core call a remote desktop may make: every one the window may (RENDERER_CORE_METHODS). */
 export const remoteMayCallCore = (method: string): boolean => coreMethods.has(method);
 
@@ -54,6 +55,7 @@ export { REMOTE_DEVICE_SETTINGS, isRemoteDeviceSetting } from './remoteDevice';
  * renderer), except changes to settings the desktop keeps for itself, which its transport sends.
  */
 export function remoteAppEvent(e: AppEvent): AppEvent | null {
+  if (e.type === 'account-link') return null;
   if (e.type === 'plugin-event') return rendererGetsEvent(e.pluginId, e.name) ? e : null;
   if (e.type === 'setting-changed' && isRemoteDeviceSetting(e.key)) return null;
   return e;

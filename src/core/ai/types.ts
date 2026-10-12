@@ -2,6 +2,7 @@
 import type { ModelOption, PlanUsageWindow, ProviderStatus, TokenUsage } from '@shared/contract';
 import type { ProviderDecl } from '@shared/descriptorParts';
 import type { ProviderId, ProviderSettings } from '@shared/settings';
+import type { ProviderAuth } from '@shared/providerAccounts';
 export type { ModelOption, PlanUsageWindow, ProviderId, TokenUsage };
 
 /** An image sent with a prompt, as base64 (RFC 4648) of the file's bytes. */
@@ -60,16 +61,36 @@ export class ProviderUnavailableError extends Error {}
 export type ProviderChoice = Pick<ProviderSettings, 'model' | 'effort'>;
 
 /** A provider's Settings → AI state: whether it can run, why in one line, and its models (null: not listed). */
-export type ProviderReport = Omit<ProviderStatus, 'id' | 'apiKeyHint'>;
+export type ProviderReport = Omit<ProviderStatus, 'id' | 'apiKeyHint' | 'auth'>;
+
+/** The account a provider runs under; secrets are read per request. */
+export interface ProviderAccount {
+  id: ProviderId;
+  auth: ProviderAuth;
+  apiKey(): string | null;
+  dir: string | null;
+}
+
+/** A provider-driven sign-in, cancelled by its owner or plugin lifetime. */
+export interface AccountLinkIo {
+  /** Publishes a sign-in URL; alreadyOpened prevents reopening a CLI's browser. */
+  open(url: string, alreadyOpened?: boolean): void;
+  code(): Promise<string>;
+  signal: AbortSignal;
+}
 
 /** What a plugin registers for a declared provider (ctx.ai.registerProvider). */
 export interface ProviderImpl {
   /** The provider for this choice; called per request, so it may hand back one kept instance. */
-  create(choice: ProviderChoice): LlmProvider;
+  create(choice: ProviderChoice, account: ProviderAccount): LlmProvider;
   /** Its Settings → AI state; `refresh` re-lists what it keeps for the session (model lists). */
-  status(choice: ProviderChoice, refresh: boolean): Promise<ProviderReport>;
+  status(choice: ProviderChoice, refresh: boolean, account: ProviderAccount): Promise<ProviderReport>;
   /** Rejects a key its vendor doesn't accept before storage. Required when the declaration has `apiKey`. */
   checkApiKey?(key: string): Promise<void>;
+  linkAccount?(account: ProviderAccount, io: AccountLinkIo): Promise<void>;
+  removeAccount?(account: ProviderAccount): Promise<void>;
+  /** Stops retained providers when the registration ends, preserving their sign-ins. */
+  dispose?(): void;
 }
 
 /** A provider whose plugin runs but whose Use switch in Settings → AI is off. */

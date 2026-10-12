@@ -215,6 +215,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   allMuted: (channelIds) => allMuted(ready().db, channelIds),
   setSetting: (key, value) => {
     setSetting(ready().db, key, value);
+    if (key === SETTINGS_KEYS.ai) void providers.accountsChanged(aiSettings());
     emit({ type: 'setting-changed', key, value });
     if (key === SETTINGS_KEYS.jevQueries) setJevQueryOverrides(value);
     plugins?.settingChanged(key);

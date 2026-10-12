@@ -6,6 +6,7 @@ import type { DesktopShell } from '@shared/desktopShell';
 import { attachmentUrl, setMediaRoot } from '@shared/media';
 import { targetEvent, type DeliveredNotification } from '@shared/notifications';
 import type { PluginCallResult } from '@shared/pluginCall';
+import { SERVER_SCREEN_CORE_METHODS } from '@shared/remote';
 import { installApi } from '@/api';
 import { setPageOpener } from '@/ui/exportPage';
 import type { ExportFormat, HtmlPage, PdfPage } from '@shared/htmlPage';
@@ -49,7 +50,7 @@ function download(href: string, fileName: string): void {
 export function createRemoteRendererApi(transport: RemoteTransport, shell: DesktopShell | null): RemoteRendererApi {
   const call = (group: 'core' | 'discord' | 'plugins' | 'main', method: string, params: unknown[]): Promise<unknown> =>
     transport.call({ group, method, params });
-  const core = new Proxy({} as RendererApi['core'], { get: (_t, method: string) => (...params: unknown[]) => call('core', method, params) });
+  const core = new Proxy({} as RendererApi['core'], { get: (_t, method: string) => (...params: unknown[]) => (SERVER_SCREEN_CORE_METHODS as readonly string[]).includes(method) ? serverOnly('Account sign-in')() : call('core', method, params) });
   type Group = 'openRouter' | 'typeSafe' | 'providerKeys' | 'storage' | 'desktop' | 'marketplace';
   /** A group's main calls, each by its channel. */
   const viaMain = <G extends Group>(group: G): RendererApi[G] =>

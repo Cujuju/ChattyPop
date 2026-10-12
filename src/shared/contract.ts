@@ -50,6 +50,10 @@ export interface CoreMethods {
   /** `refresh` re-lists models instead of using this session's cache. */
   aiStatus(refresh?: boolean): Promise<ProviderStatus[]>;
   aiPlanUsage(id: ProviderId): Promise<PlanUsageWindow[] | null>;
+  /** Starts a linked sign-in; progress arrives as account-link events. */
+  linkProviderAccount(id: ProviderId): void;
+  submitAccountLinkCode(id: ProviderId, code: string): void;
+  cancelAccountLink(id: ProviderId): void;
   /** ChattyPop's AI runs with a provider since a time, and their tokens (cache hits cost nothing and aren't counted). */
   aiUsageSince(id: ProviderId, sinceTs: number): AppUsage;
   /** Main hands core every OpenRouter key (with secrets) at startup and after each change. Never exposed to the renderer. */

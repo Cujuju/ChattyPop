@@ -88,5 +88,5 @@ export const testWindow: TestWindowFn = (o) => {
       }),
     );
   }
-  return { audience: o.audience, received: () => [...received] };
+  return { audience: o.audience, received: () => [...received], linkEvents: () => received.filter((e): e is Extract<AppEvent, { type: 'account-link' }> => e.type === 'account-link') };
 };

@@ -126,6 +126,6 @@ export { ChatEmoji, DoubleTapEmojiPicker } from '@/views/settings/DoubleTapEmoji
 export { lastPlanUsageOf, planUsageFailureOf, planUsageLoadingOf, planUsageOf, refetchPlanUsage, usageReporters } from '@/state/providerUsage';
 // AI providers (docs/plugin-architecture.md §3, AI providers).
 export { availableProviders as aiProviders, localProviderNames, providerRuns } from '@/state/aiProviders';
-export { providerLabel } from '@shared/aiProviders';
+export { providerLabel } from '@/state/preferences';
 /** ChattyPop's AI-run vocabulary as the active owner declares it, else generic. */
 export { aiText } from '@/plugins/presentation';

@@ -61,16 +61,16 @@ describe('remote desktop calls', () => {
     await api.core.setSetting('k', 1);
     await api.discord.setOptIn('c', true);
     await api.plugins.callCore('relay', 'go', [1]);
-    await api.providerKeys.setKey('probe', 'test-key');
-    await api.providerKeys.removeKey('probe');
+    await api.providerKeys.setKey('probe@api', 'test-key');
+    await api.providerKeys.removeKey('probe@api');
     await api.storage.info();
     await api.restartApp();
     expect(t.calls).toEqual([
       { group: 'core', method: 'setSetting', params: ['k', 1] },
       { group: 'discord', method: 'setOptIn', params: ['c', true] },
       { group: 'plugins', method: 'callCore', params: ['relay', 'go', [1]] },
-      { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe', 'test-key'] },
-      { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe'] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe@api', 'test-key'] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe@api'] },
       { group: 'main', method: MAIN_INVOKE.storage.info, params: [] },
       { group: 'main', method: APP_RESTART_CHANNEL, params: [] },
     ]);
@@ -84,6 +84,9 @@ describe('remote desktop calls', () => {
     await expect(api.storage.move()).rejects.toThrow(/only on the server/);
     await expect(api.rules.pickFile('jsonl')).rejects.toThrow(/only on the server/);
     await expect(api.openRouter.signIn()).rejects.toThrow(/only on the server/);
+    await expect(api.core.linkProviderAccount('probe@work')).rejects.toThrow(/only on the server/);
+    await expect(api.core.submitAccountLinkCode('probe@work', 'test-code')).rejects.toThrow(/only on the server/);
+    await expect(api.core.cancelAccountLink('probe@work')).rejects.toThrow(/only on the server/);
     expect(t.calls).toEqual([]);
   });
 });

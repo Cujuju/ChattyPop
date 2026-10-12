@@ -12,16 +12,23 @@ describe('provider key transport boundary', () => {
     }
     const calls: unknown[] = [];
     const api = createPhoneRendererApi({ call: async (request) => { calls.push(request); }, listen: () => () => undefined });
-    await api.providerKeys.setKey('probe', 'test-key');
-    await api.providerKeys.removeKey('probe');
+    await api.providerKeys.setKey('probe@api', 'test-key');
+    await api.providerKeys.removeKey('probe@api');
     expect(calls).toEqual([
-      { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe', 'test-key'] },
-      { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe'] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe@api', 'test-key'] },
+      { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe@api'] },
     ]);
   });
   it.each(['setProviderApiKeys', 'checkProviderApiKey', 'setTypeSafeKey'])('%s stays main-only', (method) => {
     expect(RENDERER_CORE_METHODS as readonly string[]).not.toContain(method);
     expect(remoteMayCallCore(method)).toBe(false);
     expect(phoneMayCallCore(method)).toBe(false);
+  });
+  it('refuses account link controls before the phone sends a call', async () => {
+    const call = async (): Promise<never> => { throw new Error('Transport should not run.'); };
+    const api = createPhoneRendererApi({ call, listen: () => () => undefined });
+    await expect(api.core.linkProviderAccount('probe@work')).rejects.toThrow('only on the desktop');
+    await expect(api.core.submitAccountLinkCode('probe@work', 'test-code')).rejects.toThrow('only on the desktop');
+    await expect(api.core.cancelAccountLink('probe@work')).rejects.toThrow('only on the desktop');
   });
 });

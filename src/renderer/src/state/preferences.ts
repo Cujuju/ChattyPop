@@ -2,7 +2,7 @@
 import { api } from '@/api';
 import { createEffect, createResource, createSignal } from 'solid-js';
 import type { ProviderStatus } from '@shared/contract';
-import { aiSettingsFrom, declaredProvider, providerDisplayName } from '@shared/aiProviders';
+import { aiSettingsFrom, declaredProvider, providerDisplayName, providerLabel as fullProviderLabel } from '@shared/aiProviders';
 import {
   DEFAULT_APPEARANCE_SETTINGS,
   builtInTheme,
@@ -34,6 +34,7 @@ export const aiSettings = (): AiSettings => storedAi();
 export { patchAiSettings };
 /** Makes provider `id` the default. */
 /** A provider's short name: the owner's, else its declared one. Reactive. */
+export const providerLabel = (id: ProviderId): string => fullProviderLabel(id, storedAi());
 export const providerName = (id: ProviderId): string => providerDisplayName(storedAi(), id);
 /** Provider `id`'s stored settings, else a profile's that never set them. Reactive. */
 export const providerSettingsOf = (id: ProviderId): ProviderSettings =>

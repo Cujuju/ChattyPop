@@ -4,20 +4,21 @@ import { aiText } from '@/plugins/presentation';
 import { For, Show, createSignal } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { HostProviderRowId } from '@shared/anchors';
-import { declaredProvider, providerLabel, type DeclaredProvider } from '@shared/aiProviders';
+import { declaredProvider, type DeclaredProvider } from '@shared/aiProviders';
 import type { PlanUsageWindow } from '@shared/contract';
 import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders } from '@/state/aiProviders';
-import { providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
+import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
 import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
-import { StoredKeyRow } from './StoredKeyRow';
+import { AccountRow, EarlierKeyRow, RemoveAccountRow } from './AccountRows';
+import { AddAccount } from './AddAccount';
 import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import styles from './Settings.module.css';
 
@@ -54,9 +55,12 @@ export function AiSection() {
     ...settingsSections('ai'),
   ];
   const refresh = (
+    <div class={c.buttons}>
+    <AddAccount />
     <button type="button" class={`cp-button ${styles.button}`} disabled={providerStatusLoading()} onClick={() => void refreshProviderStatus()}>
       {providerStatusLoading() ? 'Loading models…' : 'Refresh model lists'}
     </button>
+    </div>
   );
   return (
     <Show
@@ -95,27 +99,14 @@ function EnabledRow(props: { provider: ProviderId }) {
 /** The host's rows of a provider's card, in HOST_PROVIDER_ROWS order; plugins place theirs among them. */
 const HOST_ROWS: readonly (ProviderRow & { id: HostProviderRowId })[] = [
   { id: 'enabled', Component: EnabledRow },
-  { id: 'api-key', Component: ProviderApiKeyRow },
+  { id: 'account', Component: AccountRow },
+  { id: 'api-key', Component: EarlierKeyRow },
+  { id: 'remove-account', Component: RemoveAccountRow },
   { id: 'model', Component: (p) => <ProviderModels provider={p.provider} /> },
   { id: 'effort', Component: (p) => <EffortRow fieldId={`ai-effort-${p.provider}`} provider={p.provider} value={providerSettingsOf(p.provider)} onChange={(v) => updateProvider(p.provider, v)} /> },
   { id: 'plan-usage', Component: (p) => <Show when={declaredProvider(p.provider)?.planUsage && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },
   { id: 'rows', Component: (p) => <Show when={providerView(p.provider)?.rows}>{(Rows) => <Dynamic component={Rows()} />}</Show> },
 ];
-
-function ProviderApiKeyRow(props: { provider: ProviderId }) {
-  const declaration = () => declaredProvider(props.provider);
-  const hint = () => statusOf(props.provider)?.apiKeyHint ?? null;
-  return <Show when={declaration()?.apiKey}>{(key) => <StoredKeyRow
-    label="API key"
-    fieldId={`ai-key-${props.provider}`}
-    placeholder={key().placeholder}
-    hint={hint()}
-    storedHint={hint() ? `Stored, ending ${hint()}. Requests are billed to this key.` : undefined}
-    onSave={async (value) => { await api.providerKeys.setKey(props.provider, value); await refetchProviderStatus(); }}
-    onRemove={async () => { await api.providerKeys.removeKey(props.provider); await refetchProviderStatus(); }}
-    removeMessage={`Remove the ${declaration()?.displayName} API key from ChattyPop? It stays valid with its provider.`}
-  />}</Show>;
-}
 
 /** The provider's models, one picked for its requests; its plugin's action (Delete) beside each. */
 function ProviderModels(props: { provider: ProviderId }) {
@@ -141,14 +132,14 @@ function ProviderModels(props: { provider: ProviderId }) {
 }
 
 function ProviderBody(props: { provider: DeclaredProvider }) {
-  const d = props.provider;
+  const d = () => props.provider;
   return (
     <>
       <Card>
-        <For each={providerRows(HOST_ROWS)}>{(row) => <row.Component provider={d.id} />}</For>
+        <For each={providerRows(HOST_ROWS)}>{(row) => <row.Component provider={d().id} />}</For>
       </Card>
-      <Show when={d.openRouterKeys}>
-        <OpenRouterKeys models={statusOf(d.id)?.models ?? null} />
+      <Show when={d().openRouterKeys}>
+        <OpenRouterKeys models={statusOf(d().id)?.models ?? null} />
       </Show>
     </>
   );

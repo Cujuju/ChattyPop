@@ -40,33 +40,33 @@ describe('main owns provider credentials', () => {
     const check = vi.fn(async (_id: string, _key: string) => undefined);
     const call = start(check);
     expect(call).not.toHaveBeenCalled();
-    await invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', ' test-key ');
+    await invoke(MAIN_INVOKE.providerKeys.setKey, 'probe@api', ' test-key ');
     expect(steps).toEqual(['encryption', 'check', 'store', 'deliver']);
-    expect(check).toHaveBeenCalledWith('probe', 'test-key');
-    expect(call).toHaveBeenLastCalledWith('setProviderApiKeys', { probe: 'test-key', other: 'test-other' });
-    expect(JSON.parse(files.get(PROVIDER_KEYS_FILE)!)).toEqual({ probe: 'test-key', other: 'test-other' });
-    await invoke(MAIN_INVOKE.providerKeys.removeKey, 'probe');
+    expect(check).toHaveBeenCalledWith('probe@api', 'test-key');
+    expect(call).toHaveBeenLastCalledWith('setProviderApiKeys', { 'probe@api': 'test-key', other: 'test-other' });
+    expect(JSON.parse(files.get(PROVIDER_KEYS_FILE)!)).toEqual({ 'probe@api': 'test-key', other: 'test-other' });
+    await invoke(MAIN_INVOKE.providerKeys.removeKey, 'probe@api');
     expect(call).toHaveBeenLastCalledWith('setProviderApiKeys', { other: 'test-other' });
   });
   it('unavailable OS encryption stops before a vendor request', async () => {
     const check = vi.fn(async () => undefined);
     start(check);
     requireSecretStorage.mockImplementation(() => { throw new Error('OS encryption unavailable'); });
-    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', 'test-key')).rejects.toThrow('OS encryption unavailable');
+    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe@api', 'test-key')).rejects.toThrow('OS encryption unavailable');
     expect(check).not.toHaveBeenCalled();
     expect(files.size).toBe(0);
   });
   it('a rejected key preserves the encrypted copy and core state', async () => {
-    files.set(PROVIDER_KEYS_FILE, '{"probe":"test-existing"}');
+    files.set(PROVIDER_KEYS_FILE, '{"probe@api":"test-existing"}');
     const call = start(async () => { throw new Error('rejected'); });
-    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', 'test-key')).rejects.toThrow('rejected');
+    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe@api', 'test-key')).rejects.toThrow('rejected');
     expect(steps).toEqual(['encryption', 'check']);
     expect(call).toHaveBeenCalledTimes(1);
-    expect(files.get(PROVIDER_KEYS_FILE)).toBe('{"probe":"test-existing"}');
+    expect(files.get(PROVIDER_KEYS_FILE)).toBe('{"probe@api":"test-existing"}');
   });
   it('rejects blank keys before checking or storage', async () => {
     start();
-    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', ' ')).rejects.toThrow('Paste an API key');
+    await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe@api', ' ')).rejects.toThrow('Paste an API key');
     expect(steps).toEqual([]);
   });
 });

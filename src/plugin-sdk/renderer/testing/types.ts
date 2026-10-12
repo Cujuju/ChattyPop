@@ -19,6 +19,7 @@ export interface TestWindow {
   readonly audience: WindowAudience;
   /** App events this window received so far, as its transport delivered them. */
   received(): AppEvent[];
+  linkEvents(): Extract<AppEvent, { type: 'account-link' }>[];
 }
 
 /** Installs the window's API over an in-memory transport; once per test file, since the renderer SDK's state is the window's. */
