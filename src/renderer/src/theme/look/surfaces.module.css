@@ -1,5 +1,5 @@
 /* Look vocabulary: grounds, cards, rules between regions, and dialog surfaces (docs/plugin-architecture.md §14). Look only.
-   Hooks: .ruleBelow[data-rule='subtle'], .fadeBelow::after, .fadeAbove::before. */
+   Hooks: .ruleBelow / .ruleAbove [data-rule='subtle' | 'strong'], .fadeBelow::after, .fadeAbove::before. */
 
 /* The window ground behind everything. */
 .ground {
@@ -42,7 +42,8 @@
   background: color-mix(in srgb, var(--cp-section) var(--cp-section-wash-mix), transparent);
 }
 
-/* A rule under a region (a filter bar, a chart's baseline); subtle between list rows. */
+/* A rule under a region (a filter bar, a chart's baseline); subtle between list rows; strong where the rule itself
+   divides running text (an inset divider between sections). */
 .ruleBelow {
   border-bottom: var(--cp-border-w) solid var(--cp-border);
 }
@@ -51,13 +52,21 @@
   border-bottom: var(--cp-border-w) solid var(--cp-border-subtle);
 }
 
-/* A rule over a region stacked under another; subtle within a popover. */
+.ruleBelow[data-rule='strong'] {
+  border-bottom: var(--cp-border-w) solid var(--cp-border-strong);
+}
+
+/* A rule over a region stacked under another; subtle within a popover; strong as ruleBelow's. */
 .ruleAbove {
   border-top: var(--cp-border-w) solid var(--cp-border);
 }
 
 .ruleAbove[data-rule='subtle'] {
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.ruleAbove[data-rule='strong'] {
+  border-top: var(--cp-border-w) solid var(--cp-border-strong);
 }
 
 /* Chrome edge pseudo-elements fade over adjacent content. Components position boxes using --cp-edge-fade-h. */
