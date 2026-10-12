@@ -1,5 +1,5 @@
 // Timed rules run daily, periodically or on app return, acting over configured channel/time windows.
-import { MS_PER_DAY, MS_PER_HOUR } from './units';
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from './units';
 
 /**
  * Due times that passed while the rule could not run (the app was closed). Set: each runs over its own stretch, those
@@ -25,6 +25,12 @@ export const TIMED_HOURS_MIN = 1;
 export const TIMED_HOURS_MAX = 168;
 /** A run owed for days (the app was closed) covers at most a week, the catch-up horizon. */
 export const TIMED_MAX_LOOKBACK_MS = 7 * MS_PER_DAY;
+/** Waits before each further attempt at a timed window that failed or was cut off: a blip, a short outage, a long one. */
+export const TIMED_RETRY_DELAYS_MS: readonly number[] = [5 * MS_PER_MIN, 30 * MS_PER_MIN, 2 * MS_PER_HOUR];
+/** Attempts one action gets at one window: the first and one per delay. */
+export const TIMED_ATTEMPTS_MAX = TIMED_RETRY_DELAYS_MS.length + 1;
+/** How long after attempt `attempt` (1-based) the next may begin; null when it was the last. */
+export const timedRetryDelayMs = (attempt: number): number | null => TIMED_RETRY_DELAYS_MS[attempt - 1] ?? null;
 /** A new daily rule: the start of a working day. */
 export const DEFAULT_DAILY_AT = '08:00';
 /** A new "every" rule: a few times a day. */

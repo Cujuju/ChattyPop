@@ -49,7 +49,7 @@ describe('rule store', () => {
     expect(claimRun(db, id, 'msg:m1', m, true, clock)).toBeNull();
     recordOutcome(db, run, 'x', 'notify', 'done', null, clock);
     expect(rules.list()[0]!.fired).toBe(1);
-    expect(rules.runs(id, 5)[0]!.actions).toEqual([{ actionId: 'x', kind: 'notify', outcome: 'done', detail: null }]);
+    expect(rules.runs(id, 5)[0]!.actions).toEqual([{ actionId: 'x', kind: 'notify', outcome: 'done', detail: null, retryAt: null }]);
     rules.remove(id);
     expect(db.prepare('SELECT COUNT(*) AS n FROM rule_runs').get()).toEqual({ n: 0 });
   });

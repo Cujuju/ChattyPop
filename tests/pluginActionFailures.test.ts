@@ -21,7 +21,7 @@ const ACTION = 'ruleprobe.window';
 const run: ActionRun = {
   rule: { id: 1, name: 'Digest', managed: null, armedAt: 0, discordSend: false },
   actionId: 'summary', runId: 1, history: false,
-  event: { kind: 'window', timing: 'daily', range: { sinceTs: 0, untilTs: 100, channelIds: null }, owedAfter: 0 },
+  event: { kind: 'window', timing: 'daily', range: { sinceTs: 0, untilTs: 100, channelIds: null }, owedAfter: 0, retriesLeft: 0 },
 };
 
 it('records an operational failure as a failed run without a sticky plugin fault', async () => {

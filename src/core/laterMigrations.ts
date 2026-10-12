@@ -196,6 +196,10 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   'ALTER TABLE rules ADD COLUMN list_group TEXT;',
   // Where a timed run's window ended (ms): its due time when each missed time runs, else when it ran. NULL: at.
   'ALTER TABLE rule_runs ADD COLUMN window_until INTEGER;',
+  // Each timed action's unsettled window, attempts begun and next retry time.
+  `CREATE TABLE rule_run_debts (run_id INTEGER NOT NULL REFERENCES rule_runs(id) ON DELETE CASCADE,
+    action_id TEXT NOT NULL, since_ts INTEGER NOT NULL, timing TEXT NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER NOT NULL, PRIMARY KEY (run_id, action_id));`,
 ];
 
 /** Keep bot identity after retention drops payloads; decode old payloads once during upgrade, never while counting. */

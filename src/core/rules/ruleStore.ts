@@ -4,7 +4,7 @@ import { newRuleInput, parseRuleSpec, upgradeRuleSpec, validateRuleInput } from 
 import { ruleUnavailable, switchState } from '@shared/ruleAvailability';
 import { getSetting } from '../db';
 import { ruleKind } from '@shared/ruleKinds';
-import { TIMED_CATCH_UP_PREFIX, TIMED_RUN_ACTION_MARK, TIMED_RUN_PREFIX } from '@shared/ruleTime';
+import { TIMED_ATTEMPTS_MAX, TIMED_CATCH_UP_PREFIX, TIMED_RUN_ACTION_MARK, TIMED_RUN_PREFIX } from '@shared/ruleTime';
 import { textOrNull } from '@shared/normalize';
 import { snippet } from '../queries/snippet';
 import type { Db } from '../db';
@@ -196,15 +196,13 @@ export function claimRun(
   return info.changes ? Number(info.lastInsertRowid) : null;
 }
 
-/**
- * Drops timed runs claimed with no action outcome: the app quit while their first action ran. Their windows are owed
- * again. Call before a session claims any, since a run in progress has none either. Returns how many.
- */
+/** Releases older builds' timed claims with no outcomes or debts; call before this session claims any. Returns how many. */
 export function releaseInterruptedTimedRuns(db: Db): number {
   return db
     .prepare(
       `DELETE FROM rule_runs WHERE substr(event_key, 1, length(@prefix)) = @prefix
-         AND NOT EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id)`,
+         AND NOT EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id)
+         AND NOT EXISTS (SELECT 1 FROM rule_run_debts d WHERE d.run_id = rule_runs.id)`,
     )
     .run({ prefix: TIMED_RUN_PREFIX }).changes;
 }
@@ -230,14 +228,17 @@ export function recordOutcome(
 const SAT_OUT = `EXISTS (SELECT 1 FROM rule_action_runs a WHERE a.run_id = rule_runs.id AND a.action_id = @actionId AND a.sat_out = 1)`;
 
 /** A timed run's window end; runs stored before it was kept ended when they ran. */
-const WINDOW_END = 'COALESCE(window_until, at)';
+export const WINDOW_END = 'COALESCE(window_until, at)';
+
+/** Timed claims applicable to action `@actionId`, excluding windows its plugin sat out. */
+export const TIMED_ACTION_RUN = `rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
+  AND (instr(event_key, @mark) = 0 OR substr(event_key, instr(event_key, @mark) + 1) = @actionId) AND NOT ${SAT_OUT}`;
 
 /** Where a timed action’s latest applicable window ended. Excludes pre-trigger-change message runs and runs skipped while its plugin was disabled. */
 export function lastTimedRun(db: Db, ruleId: number, actionId: string): number | null {
   const r = db
     .prepare(
-      `SELECT MAX(${WINDOW_END}) AS at FROM rule_runs WHERE rule_id = @ruleId AND substr(event_key, 1, length(@prefix)) = @prefix
-         AND (instr(event_key, @mark) = 0 OR substr(event_key, instr(event_key, @mark) + 1) = @actionId) AND NOT ${SAT_OUT}`,
+      `SELECT MAX(${WINDOW_END}) AS at FROM rule_runs WHERE ${TIMED_ACTION_RUN}`,
     )
     .get({ ruleId, prefix: TIMED_RUN_PREFIX, mark: TIMED_RUN_ACTION_MARK, actionId }) as { at: number | null };
   return r.at;
@@ -299,7 +300,10 @@ export function ruleRuns(db: Db, ruleId: number, limit: number): RuleRun[] {
   })[];
   // First-recorded order determines runs. Millisecond timestamps can tie and change after later outcomes.
   const actions = db.prepare(
-    'SELECT action_id AS actionId, kind, outcome, detail FROM rule_action_runs WHERE run_id = ? ORDER BY rowid',
+    `SELECT a.action_id AS actionId, a.kind, a.outcome, a.detail,
+            CASE WHEN d.attempts < ${TIMED_ATTEMPTS_MAX} THEN d.retry_at ELSE NULL END AS retryAt
+     FROM rule_action_runs a LEFT JOIN rule_run_debts d ON d.run_id = a.run_id AND d.action_id = a.action_id
+     WHERE a.run_id = ? ORDER BY a.rowid`,
   );
   return runs.map(({ content, mentionsJson, ...r }) => ({
     ...r,

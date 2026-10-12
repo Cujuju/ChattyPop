@@ -43,6 +43,8 @@ export interface WindowEvent {
   timing: TimedTriggerKind;
   /** Windows this action still owes after this one (missed due times caught up oldest first); 0 for the newest. */
   owedAfter: number;
+  /** Attempts the schedule still makes at this window if this one fails; 0 on the last. */
+  retriesLeft: number;
 }
 
 /** One action invocation; history has no run id and produces no recorded outcome. */

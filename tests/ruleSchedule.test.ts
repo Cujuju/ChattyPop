@@ -406,7 +406,7 @@ describe('a timed rule set to run each missed time', () => {
     expect(spans(h).at(-1)).toEqual([at(10), at(13)]);
   });
 
-  it('leaves the rest owed when the app quits mid-way, and runs again a window the quit interrupted', async () => {
+  it('releases an older build’s outcome-less claim and reruns its interrupted window', async () => {
     let now = at(22, 0, 24);
     const h = ruleHarness(() => now);
     const id = h.rules.create(ruleInput([command()], { trigger: every3 }));
@@ -422,7 +422,7 @@ describe('a timed rule set to run each missed time', () => {
     expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome))).toEqual(Array(4).fill(['done']));
   });
 
-  it('keeps a failed window claimed: reported once, and the later ones still run', async () => {
+  it('keeps a failed window claimed for retry while later windows still run', async () => {
     let now = at(22, 0, 24);
     const h = ruleHarness(() => now);
     const id = h.rules.create(ruleInput([command()], { trigger: every3 }));
@@ -433,6 +433,10 @@ describe('a timed rule set to run each missed time', () => {
     await schedule.tick();
     expect(commandSpans(h)).toEqual([[at(22, 0, 24), at(1)], [at(1), at(4)]]);
     expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome)).sort()).toEqual([['done'], ['failed']]);
+    now = at(4, 35);
+    await schedule.tick();
+    expect(commandSpans(h)).toEqual([[at(22, 0, 24), at(1)], [at(1), at(4)], [at(22, 0, 24), at(1)]]);
+    expect(h.rules.runs(id, 10).map((r) => r.actions.map((a) => a.outcome))).toEqual([['done'], ['done']]);
   });
 
   it('counts a run stored before window ends were kept as ending when it ran', async () => {

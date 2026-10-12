@@ -91,7 +91,14 @@ export interface RuleRun {
   live: boolean;
   at: number;
   /** `kind`: recordedKind of the action (a plugin action's type). */
-  actions: { actionId: string; kind: string; outcome: RuleOutcome; detail: string | null }[];
+  actions: {
+    actionId: string;
+    kind: string;
+    outcome: RuleOutcome;
+    detail: string | null;
+    /** When an unsettled timed action may retry; null when settled or attempts are spent. */
+    retryAt: number | null;
+  }[];
 }
 
 /** Whether an action may act on a fetched message when the rule accepts missed messages. */

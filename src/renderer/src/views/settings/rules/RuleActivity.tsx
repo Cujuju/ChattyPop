@@ -10,6 +10,11 @@ import { Step } from './fields';
 import styles from './Rules.module.css';
 
 const OUTCOME_MARK = { done: '✓', skipped: 'skipped', failed: 'failed' } as const;
+type RunAction = RuleRun['actions'][number];
+/** A failed timed action the schedule will try again. A core from before retries sends no `retryAt`. */
+const retrying = (a: RunAction): boolean => a.outcome === 'failed' && a.retryAt != null;
+const outcomeTitle = (a: RunAction): string | undefined =>
+  [a.detail, retrying(a) ? `Retries after ${shortDateTime(a.retryAt!)}` : null].filter(Boolean).join(' · ') || undefined;
 
 /** The run's channel with its kind's sigil; `#` when the channel left the directory. */
 function runChannel(r: RuleRun): string | null {
@@ -78,8 +83,8 @@ export function RuleActivity(props: { rule: Rule }) {
                     <td class={styles.runOutcomes}>
                       <For each={r.actions}>
                         {(a) => (
-                          <span class={styles.outcome} data-outcome={a.outcome} title={a.detail ?? undefined}>
-                            {actionInfo(a.kind).label} {OUTCOME_MARK[a.outcome]}
+                          <span class={styles.outcome} data-outcome={a.outcome} title={outcomeTitle(a)}>
+                            {actionInfo(a.kind).label} {retrying(a) ? 'failed · retrying' : OUTCOME_MARK[a.outcome]}
                           </span>
                         )}
                       </For>
