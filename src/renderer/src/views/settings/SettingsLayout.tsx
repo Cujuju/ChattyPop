@@ -227,7 +227,7 @@ export interface ChoiceText {
 export const choiceOptions = (table: Record<string, ChoiceText>): SelectOption[] => Object.entries(table).map(([value, t]) => ({ value, label: t.option }));
 
 /** A number input and its unit ("30 days"). `label` names it when no row label is tied to `id`. */
-export function NumberField(props: { id?: string; label?: string; min: number; max: number; step?: number; value: number; unit: string; onChange: (n: number) => void }) {
+export function NumberField(props: { id?: string; label?: string; min: number; max: number; step?: number; value: number; unit?: string; onChange: (n: number) => void }) {
   return (
     <>
       <input
@@ -241,7 +241,7 @@ export function NumberField(props: { id?: string; label?: string; min: number; m
         value={props.value}
         onChange={(e) => props.onChange(e.currentTarget.valueAsNumber)}
       />
-      <span class={card.unit}>{props.unit}</span>
+      <Show when={props.unit}><span class={card.unit}>{props.unit}</span></Show>
     </>
   );
 }

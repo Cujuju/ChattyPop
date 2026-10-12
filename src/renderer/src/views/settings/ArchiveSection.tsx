@@ -6,13 +6,14 @@ import {
   AUTOMATIC_POST_PAUSE_MIN_S,
   ATTACHMENT_CAP_MAX_GB,
   ATTACHMENT_CAP_MIN_GB,
-  BACKFILL_AMOUNT_MAX,
-  BACKFILL_AMOUNT_MIN,
+  TEXT_TIER_AFTER_DAYS_MAX,
+  TEXT_TIER_AFTER_DAYS_MIN,
   TEXT_CAP_MAX_GB,
   TEXT_CAP_MIN_GB,
   WAIT_JITTER,
   automaticPostPauseRange,
   type BackfillHistory,
+  type BackfillUnit,
   type SyncPace,
   type TextTier,
 } from '@shared/settings';
@@ -59,8 +60,9 @@ const PACES: Record<SyncPace, ChoiceText> = {
   normal: { option: 'Normal', meta: 'normal pace' },
 };
 
+const HISTORY_WORDS: Record<BackfillUnit, string> = { days: 'day', months: 'month', years: 'year' };
 const historyText = (history: BackfillHistory): string =>
-  history === 'complete' ? 'complete history' : countText(history.amount, history.unit.slice(0, -1));
+  history === 'complete' ? 'complete history' : countText(history.amount, HISTORY_WORDS[history.unit]);
 
 /** Settings → Archive: where messages are kept, how much space they take, and what gets synced. */
 export function ArchiveSection() {
@@ -184,8 +186,8 @@ function StorageBody() {
               control={
                 <NumberField
                   id="text-tier-days"
-                  min={BACKFILL_AMOUNT_MIN}
-                  max={BACKFILL_AMOUNT_MAX.days}
+                  min={TEXT_TIER_AFTER_DAYS_MIN}
+                  max={TEXT_TIER_AFTER_DAYS_MAX}
                   value={s().textTierAfterDays}
                   unit="days"
                   onChange={(n) => update({ textTierAfterDays: n })}

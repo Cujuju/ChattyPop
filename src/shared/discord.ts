@@ -217,15 +217,14 @@ export const THREAD_NAME_MAX = 100;
 export const CATEGORY_CHANNEL_TYPE = 4;
 
 /** Discord epoch (2015-01-01T00:00:00Z) in ms; snowflake ids encode ms since it in bits 22+. */
-const DISCORD_EPOCH = 1420070400000n;
-export const DISCORD_EPOCH_MS = Number(DISCORD_EPOCH);
+const DISCORD_EPOCH_MS = 1420070400000n;
 export const SNOWFLAKE_TIMESTAMP_SHIFT = 22n;
 
-export const snowflakeToMs = (id: string): number => Number((BigInt(id) >> SNOWFLAKE_TIMESTAMP_SHIFT) + DISCORD_EPOCH);
+export const snowflakeToMs = (id: string): number => Number((BigInt(id) >> SNOWFLAKE_TIMESTAMP_SHIFT) + DISCORD_EPOCH_MS);
 /** Values the low (non-time) bits of a snowflake can hold. */
 export const SNOWFLAKE_LOW_BITS_RANGE = 2 ** Number(SNOWFLAKE_TIMESTAMP_SHIFT);
 /** A snowflake for a time; `low` (below SNOWFLAKE_LOW_BITS_RANGE) separates ids of the same millisecond. */
-export const snowflakeFromMs = (ms: number, low = 0): string => (((BigInt(ms) - DISCORD_EPOCH) << SNOWFLAKE_TIMESTAMP_SHIFT) + BigInt(low)).toString();
+export const snowflakeFromMs = (ms: number, low = 0): string => (((BigInt(ms) - DISCORD_EPOCH_MS) << SNOWFLAKE_TIMESTAMP_SHIFT) + BigInt(low)).toString();
 
 /** Generates client-style snowflake nonces from current time and random low bits. */
 export const newNonce = (): string => snowflakeFromMs(Date.now(), Math.floor(Math.random() * SNOWFLAKE_LOW_BITS_RANGE));

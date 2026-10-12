@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BACKFILL_MAX_YEARS, DEFAULT_BACKFILL_HISTORY, backfillCutoffMs, clampBackfillAmount, normalizeArchiveSettings, type BackfillHistory, type BackfillUnit } from '@shared/archiveSettings';
+import { BACKFILL_MAX_YEARS, DEFAULT_BACKFILL_HISTORY, EARLIEST_MESSAGE_MS, backfillCutoffMs, clampBackfillAmount, normalizeArchiveSettings, type BackfillHistory, type BackfillUnit } from '@shared/archiveSettings';
 import { backfillFraction } from '@shared/backfillProgress';
-import { DISCORD_EPOCH_MS, snowflakeFromMs, snowflakeToMs } from '@shared/discord';
+import { snowflakeFromMs, snowflakeToMs } from '@shared/discord';
 import { MS_PER_DAY } from '@shared/units';
 
 const CHOICES: BackfillHistory[] = [{ unit: 'days', amount: 30 }, { unit: 'months', amount: 6 }, { unit: 'years', amount: 1 }, 'complete'];
@@ -81,7 +81,7 @@ describe('archive history cutoff', () => {
 
   it('complete history starts at the finite numeric Discord epoch', () => {
     const cutoff = backfillCutoffMs('complete', Date.parse('2026-03-31T00:00:00Z'));
-    expect(cutoff).toBe(DISCORD_EPOCH_MS);
+    expect(cutoff).toBe(EARLIEST_MESSAGE_MS);
     expect(cutoff).toBe(Date.parse('2015-01-01T00:00:00Z'));
     expect(cutoff).toBe(snowflakeToMs('0'));
     expect(Number.isFinite(cutoff)).toBe(true);
@@ -102,7 +102,7 @@ describe('backfill progress window', () => {
   it.each(['days', 'months', 'years'] satisfies BackfillUnit[])('uses the cutoff for an older channel with %s', (unit) => {
     const cutoff = backfillCutoffMs({ unit, amount: 1 }, now);
     const reached = now - (now - cutoff) / 2;
-    expect(backfillFraction(now, cutoff, DISCORD_EPOCH_MS, reached)).toBe(0.5);
+    expect(backfillFraction(now, cutoff, EARLIEST_MESSAGE_MS, reached)).toBe(0.5);
   });
 
   it('measures complete history across the channel lifetime', () => {
@@ -113,10 +113,10 @@ describe('backfill progress window', () => {
 
   it('clamps progress and guards empty or future windows', () => {
     const cutoff = now - MS_PER_DAY;
-    expect(backfillFraction(now, cutoff, DISCORD_EPOCH_MS, now + MS_PER_DAY)).toBe(0);
-    expect(backfillFraction(now, cutoff, DISCORD_EPOCH_MS, cutoff - MS_PER_DAY)).toBe(1);
+    expect(backfillFraction(now, cutoff, EARLIEST_MESSAGE_MS, now + MS_PER_DAY)).toBe(0);
+    expect(backfillFraction(now, cutoff, EARLIEST_MESSAGE_MS, cutoff - MS_PER_DAY)).toBe(1);
     expect(backfillFraction(now, cutoff, now, now)).toBe(1);
     expect(backfillFraction(now, cutoff, now + MS_PER_DAY, now)).toBe(1);
-    expect(backfillFraction(now, now, DISCORD_EPOCH_MS, now)).toBe(1);
+    expect(backfillFraction(now, now, EARLIEST_MESSAGE_MS, now)).toBe(1);
   });
 });

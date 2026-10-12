@@ -1,11 +1,14 @@
 // Archive settings: sync pace, backfill, retention and caps. Stored JSON is normalized on read (see settings.ts).
 import { bool, clampInt, clampNumber, isObj, oneOf } from './normalize';
-import { DISCORD_EPOCH_MS } from './discord';
+import { snowflakeToMs } from './discord';
 import { MS_PER_DAY } from './units';
 
 export const BACKFILL_UNITS = ['days', 'months', 'years'] as const;
 export type BackfillUnit = (typeof BACKFILL_UNITS)[number];
 export type BackfillHistory = { unit: BackfillUnit; amount: number } | 'complete';
+
+/** The lowest snowflake, 0, encodes the earliest possible message time. */
+export const EARLIEST_MESSAGE_MS = snowflakeToMs('0');
 
 /** Bounded history choices keep the existing ten-year ceiling. Complete history has no depth limit. */
 export const BACKFILL_MAX_YEARS = 10;
@@ -33,7 +36,7 @@ const readBackfillHistory = (v: unknown): BackfillHistory | undefined => {
 
 /** Calendar subtraction uses UTC and clamps missing days to the target month's last day. */
 export function backfillCutoffMs(history: BackfillHistory, now: number): number {
-  if (history === 'complete') return DISCORD_EPOCH_MS;
+  if (history === 'complete') return EARLIEST_MESSAGE_MS;
   if (history.unit === 'days') return now - history.amount * MS_PER_DAY;
   const date = new Date(now);
   const day = date.getUTCDate();
@@ -111,6 +114,10 @@ export const TEXT_TIERS = ['full', 'compressed', 'summary-only'] as const;
 export type TextTier = (typeof TEXT_TIERS)[number];
 /** A quarter: recent history keeps its full payload. */
 const DEFAULT_TEXT_TIER_AFTER_DAYS = 90;
+/** Keep full payloads for at least a day before applying their storage tier. */
+export const TEXT_TIER_AFTER_DAYS_MIN = 1;
+/** Ten years bounds the retention input while allowing long-lived full payloads. */
+export const TEXT_TIER_AFTER_DAYS_MAX = 3650;
 /** Smallest and largest database caps Settings accepts. */
 export const TEXT_CAP_MIN_GB = 0.1;
 export const TEXT_CAP_MAX_GB = 10_000;
@@ -150,7 +157,7 @@ export function normalizeArchiveSettings(v: unknown): ArchiveSettings {
     syncEnabled: bool(src['syncEnabled'], d.syncEnabled),
     attachmentCapGb: normalizeCap(src['attachmentCapGb'], ATTACHMENT_CAP_MIN_GB, ATTACHMENT_CAP_MAX_GB),
     textTier: oneOf(TEXT_TIERS, src['textTier'], d.textTier),
-    textTierAfterDays: clampInt(src['textTierAfterDays'], BACKFILL_AMOUNT_MIN, BACKFILL_AMOUNT_MAX.days, DEFAULT_TEXT_TIER_AFTER_DAYS),
+    textTierAfterDays: clampInt(src['textTierAfterDays'], TEXT_TIER_AFTER_DAYS_MIN, TEXT_TIER_AFTER_DAYS_MAX, DEFAULT_TEXT_TIER_AFTER_DAYS),
     textCapGb: normalizeCap(src['textCapGb'], TEXT_CAP_MIN_GB, TEXT_CAP_MAX_GB),
     reverifyChannelIds: Array.isArray(src['reverifyChannelIds']) ? src['reverifyChannelIds'].filter((x): x is string => typeof x === 'string') : [],
     reverifyDays: clampInt(src['reverifyDays'], REVERIFY_DAYS_MIN, REVERIFY_DAYS_MAX, DEFAULT_REVERIFY_DAYS),

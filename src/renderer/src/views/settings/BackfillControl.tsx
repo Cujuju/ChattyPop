@@ -24,7 +24,6 @@ export function BackfillControl(props: { value: BackfillHistory; onChange: (hist
             min={BACKFILL_AMOUNT_MIN}
             max={BACKFILL_AMOUNT_MAX[history().unit]}
             value={history().amount}
-            unit=""
             onChange={(amount) => props.onChange({ unit: history().unit, amount: clampBackfillAmount(history().unit, amount) })}
           />
         )}
