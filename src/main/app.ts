@@ -50,6 +50,9 @@ import { normalizeRelayInput } from '@shared/discordLogin';
 import { DISCORD_PARTITION, type DiscordView } from './discordView';
 import { registerDiscordHandlers } from './ipc/discord';
 import { registerKeyHandlers } from './ipc/keys';
+import { loadOpenRouterKeys } from './openrouterKeys';
+import { loadTypeSafeKey } from './typesafeKey';
+import { loadProviderKeys } from './providerKeys';
 import { registerRuleHandlers } from './ipc/rules';
 import { registerMediaHandlers } from './ipc/media';
 import { htmlToPdf } from './pdf';
@@ -126,7 +129,10 @@ void app.whenReady().then(() => {
     // Another Windows account, or a damaged key file: the archive can't be opened, and core reports why.
     diag('archive-key-unreadable', { message: errorMessage(err) });
   }
-  const core = new CoreClient(join(here, 'core.js'), { archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), key });
+  const core = new CoreClient(join(here, 'core.js'), {
+    archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), key,
+    openRouterKeys: loadOpenRouterKeys(), typeSafeKey: loadTypeSafeKey(), providerApiKeys: loadProviderKeys(SECRET_FILES),
+  });
   registerKeyHandlers(core);
 
   // Capture must be installed before the Discord view loads, or its first API requests are missed.

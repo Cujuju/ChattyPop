@@ -287,6 +287,9 @@ const initStep = (step: CoreInitStep): void => process.parentPort.postMessage({ 
 process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest }) => {
   if ('kind' in data) {
     // Main posts init at fork: it arrives once this module has loaded.
+    providers.setOpenRouterKeys(data.openRouterKeys);
+    providers.setTypeSafeKey(data.typeSafeKey);
+    providers.setProviderApiKeys(data.providerApiKeys);
     initStep('loaded');
     dbPath = join(data.archiveDir, ARCHIVE_DB_FILE);
     mediaSize = new DirSize(join(data.archiveDir, ARCHIVE_MEDIA_DIR));

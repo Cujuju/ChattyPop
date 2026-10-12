@@ -19,6 +19,8 @@ type Handlers = Pick<
   | 'aiUsageSince'
   | 'setOpenRouterKeys'
   | 'setTypeSafeKey'
+  | 'setProviderApiKeys'
+  | 'checkProviderApiKey'
   | 'openRouterKeys'
   | 'openRouterBalances'
   | 'jevStatus'
@@ -47,6 +49,8 @@ export function aiHandlers(o: {
     openRouterKeys: () => providers.keyInfos(),
     openRouterBalances: () => providers.keyBalances(),
     setTypeSafeKey: (key) => providers.setTypeSafeKey(key),
+    setProviderApiKeys: (keys) => providers.setProviderApiKeys(keys),
+    checkProviderApiKey: (id, key) => providers.checkApiKey(id, key),
     jevStatus: () => providers.jevStatus(o.aiSettings()),
     jevCheckMessage: (messageId, ask) => {
       const jev = o.requireDecider('messageCheck', MESSAGE_CHECK_HINT);

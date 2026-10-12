@@ -60,6 +60,10 @@ export interface CoreMethods {
   openRouterBalances(): Promise<Record<string, OpenRouterKeyBalance | { error: string }>>;
   /** Main hands core the TypeSafe key (direct Jev) at startup and after each change; null = none. Never exposed to the renderer. */
   setTypeSafeKey(key: string | null): void;
+  /** Main hands core stored provider API keys at startup and after changes. Never exposed to the renderer. */
+  setProviderApiKeys(keys: Record<ProviderId, string>): void;
+  /** Main asks the provider to check a pasted key before storage. Never exposed to the renderer. */
+  checkProviderApiKey(id: ProviderId, key: string): Promise<void>;
   jevStatus(): JevStatus;
   /** What Jev has cost, and the measured rate projections use. */
   jevSpend(): JevSpend;

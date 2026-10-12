@@ -6,6 +6,7 @@ import type { JevSpend } from '../jevSpend';
 import type { ReadStateCount } from './archive';
 import type { StorageMovePhase } from './storage';
 import type { DiscordSessionState, LoginFrame } from '../discordLogin';
+import type { OpenRouterKeyEntry } from '../openrouter';
 
 /** What the Archive does with a message it shows for another window: open the composer on it (reply) or edit it in place. */
 export const COMPOSE_INTENTS = ['reply', 'edit'] as const;
@@ -113,6 +114,10 @@ export interface CoreInit {
   pluginData: PluginDataDirs;
   /** Database key when the archive is encrypted (Settings → Archive); null otherwise. */
   key: string | null;
+  /** Host secrets supplied before plugin activation; held only in core memory. */
+  openRouterKeys: OpenRouterKeyEntry[];
+  typeSafeKey: string | null;
+  providerApiKeys: Record<string, string>;
 }
 
 /** Where the renderer wants the live Discord view drawn, in window CSS pixels. */
@@ -153,6 +158,7 @@ export const MAIN_INVOKE = {
     updateKey: 'openrouter:update-key',
     removeKey: 'openrouter:remove-key',
   },
+  providerKeys: { setKey: 'provider-keys:set-key', removeKey: 'provider-keys:remove-key' },
   typeSafe: {
     setKey: 'typesafe:set-key',
     removeKey: 'typesafe:remove-key',

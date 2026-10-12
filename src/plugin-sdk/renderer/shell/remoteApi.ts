@@ -50,7 +50,7 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
   const call = (group: 'core' | 'discord' | 'plugins' | 'main', method: string, params: unknown[]): Promise<unknown> =>
     transport.call({ group, method, params });
   const core = new Proxy({} as RendererApi['core'], { get: (_t, method: string) => (...params: unknown[]) => call('core', method, params) });
-  type Group = 'openRouter' | 'typeSafe' | 'storage' | 'desktop' | 'marketplace';
+  type Group = 'openRouter' | 'typeSafe' | 'providerKeys' | 'storage' | 'desktop' | 'marketplace';
   /** A group's main calls, each by its channel. */
   const viaMain = <G extends Group>(group: G): RendererApi[G] =>
     Object.fromEntries(Object.entries<string>(MAIN_INVOKE[group]).map(([name, channel]) => [name, (...params: unknown[]) => call('main', channel, params)])) as unknown as RendererApi[G];
@@ -68,6 +68,7 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
     core,
     openRouter: { ...viaMain('openRouter'), signIn: serverOnly('Signing in to OpenRouter') },
     typeSafe: viaMain('typeSafe'),
+    providerKeys: viaMain('providerKeys'),
     discord: {
       ...(discordCalls as Omit<RendererApi['discord'], 'setSlot' | 'setSidebar' | 'openChannel'>),
       // The live client is on the server's screen only.

@@ -39,6 +39,7 @@ const api: RendererApi = {
   core,
   openRouter: invokers('openRouter'),
   typeSafe: invokers('typeSafe'),
+  providerKeys: invokers('providerKeys'),
   discord: {
     ...invokers('discord'),
     setSlot: (slot: DiscordSlot) => ipcRenderer.send(DISCORD_SLOT_CHANNEL, slot),

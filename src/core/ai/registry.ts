@@ -9,6 +9,7 @@ import type { DecisionProvider } from './decisions';
 import { JevProvider, openRouterJevRoute, typeSafeJevRoute, type JevRoute, type JevSpent } from './jev';
 import { openRouterKeyBalance } from './openRouterKeys';
 import { revocable } from './revocable';
+import { keyError, keyedProvider, redactKey } from './keyError';
 import {
   ProviderUnavailableError,
   chosenModel,
@@ -59,6 +60,7 @@ export class ProviderRegistry {
   private openRouterKeyList: OpenRouterKeyEntry[] = [];
   /** For connecting to Jev directly; held in memory only, like the OpenRouter keys. */
   private typeSafeKey: string | null = null;
+  private providerApiKeys: Readonly<Record<ProviderId, string>> = {};
   /** One instance: its in-flight cap covers every Jev caller, and every request it answers reaches `jevSpent`. Jev bills to the key that lists it. */
   private readonly jev: JevProvider;
 
@@ -73,6 +75,7 @@ export class ProviderRegistry {
   /** Adds a declared provider until the returned disposer runs (its plugin turns off), which revokes what it handed out. */
   register(id: ProviderId, impl: ProviderImpl): () => void {
     if (!declaredProvider(id, this.declared)) throw new Error(`No AI provider ${id} is declared in this build.`);
+    if (declaredProvider(id, this.declared)?.apiKey && !impl.checkApiKey) throw new Error(`AI provider ${id} declares apiKey but supplies no checkApiKey.`);
     if (this.registered.has(id)) throw new Error(`AI provider ${id} is already registered.`);
     const registration: Registration = { impl, revoked: new AbortController() };
     this.registered.set(id, registration);
@@ -116,7 +119,7 @@ export class ProviderRegistry {
   get(id: ProviderId, settings: AiSettings): LlmProvider {
     const registration = this.registered.get(id);
     if (!registration) throw new ProviderUnavailableError(this.unavailable(id)!);
-    const provider = revocable(registration.impl.create(settings.providers[id] ?? NO_CHOICE), registration.revoked.signal);
+    const provider = keyedProvider(revocable(registration.impl.create(settings.providers[id] ?? NO_CHOICE), registration.revoked.signal), () => this.apiKey(id));
     const d = declaredProvider(id, this.declared)!;
     return d.images ? provider : withoutImages(provider, d.label);
   }
@@ -129,10 +132,13 @@ export class ProviderRegistry {
     });
     return Promise.all(
       running.map(async ({ id, impl }): Promise<ProviderStatus> => {
+        const key = this.apiKey(id);
+        const apiKeyHint = key ? keyHint(key) : null;
         try {
-          return { id, ...(await impl.status(settings.providers[id] ?? NO_CHOICE, refresh)) };
+          const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh);
+          return { id, apiKeyHint, available: report.available, detail: redactKey(report.detail, key), models: report.models };
         } catch (err) {
-          return { id, available: false, detail: errorMessage(err), models: null };
+          return { id, apiKeyHint, available: false, detail: keyError(err, key).message, models: null };
         }
       }),
     );
@@ -148,6 +154,29 @@ export class ProviderRegistry {
 
   setTypeSafeKey(key: string | null): void {
     this.typeSafeKey = key;
+  }
+
+  /** Held in memory only; main owns the encrypted copy on disk. Keyed by provider id. */
+  setProviderApiKeys(keys: Readonly<Record<ProviderId, string>>): void {
+    this.providerApiKeys = { ...keys };
+  }
+
+  /** The stored key of a provider declared with `apiKey`; null when none. */
+  apiKey(id: ProviderId): string | null {
+    return declaredProvider(id, this.declared)?.apiKey && Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null;
+  }
+
+  /** Checks a key with its declared, running provider before main stores it. */
+  async checkApiKey(id: ProviderId, key: string): Promise<void> {
+    if (!declaredProvider(id, this.declared)?.apiKey) throw new Error(`AI provider ${id} is not declared for API keys.`);
+    const impl = this.registered.get(id)?.impl;
+    if (!impl) throw new ProviderUnavailableError(this.unavailable(id)!);
+    if (!impl.checkApiKey) throw new Error(`AI provider ${id} supplies no checkApiKey.`);
+    try {
+      await impl.checkApiKey(key);
+    } catch (err) {
+      throw keyError(err, key);
+    }
   }
 
   /** The stored OpenRouter keys, for a provider paid through them. */

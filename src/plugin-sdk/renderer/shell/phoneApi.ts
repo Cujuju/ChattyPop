@@ -71,7 +71,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
   const viaMain =
     <F extends (...args: never[]) => Promise<unknown>>(channel: string): F =>
       ((...params: unknown[]) => transport.call({ group: 'main', method: channel, params })) as unknown as F;
-  const { openRouter, typeSafe, storage, desktop, marketplace } = MAIN_INVOKE;
+  const { openRouter, typeSafe, providerKeys, storage, desktop, marketplace } = MAIN_INVOKE;
 
   const listeners = new Set<(e: AppEvent) => void>();
   let listening = false;
@@ -81,6 +81,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     // Sign-in opens the PC's browser; keys typed here travel to the desktop, which encrypts and keeps them.
     openRouter: { signIn: unavailable('OpenRouter sign-in'), addKey: viaMain(openRouter.addKey), updateKey: viaMain(openRouter.updateKey), removeKey: viaMain(openRouter.removeKey) },
     typeSafe: { setKey: viaMain(typeSafe.setKey), removeKey: viaMain(typeSafe.removeKey) },
+    providerKeys: { setKey: viaMain(providerKeys.setKey), removeKey: viaMain(providerKeys.removeKey) },
     discord: {
       setSlot: ignored,
       setSidebar: ignored,

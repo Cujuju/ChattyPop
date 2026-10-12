@@ -260,6 +260,8 @@ export function checkBundled(list: readonly PluginDescriptor[], catalog: AnchorC
     for (const provider of p.providers ?? []) {
       if (!PROVIDER_ID.test(provider.id) || (provider.id !== id && !provider.id.startsWith(`${id}.`)))
         throw new Error(`AI provider ${provider.id} must be ${id} or ${id}.<name>.`);
+      if (provider.apiKey !== undefined && (!provider.apiKey || typeof provider.apiKey.placeholder !== 'string' || !provider.apiKey.placeholder.trim()))
+        throw new Error(`AI provider ${provider.id} apiKey needs a non-empty placeholder.`);
       once('AI provider', provider.id);
     }
     for (const q of p.jev?.queries ?? []) once('Jev query', q.id);

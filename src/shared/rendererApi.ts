@@ -7,7 +7,7 @@ import type { OwnerPollVote } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
-import type { CustomTheme, DiscordSidebar } from './settings';
+import type { CustomTheme, DiscordSidebar, ProviderId } from './settings';
 import type { SyncedChatSettings } from './chatSettings';
 import type { AppEvent, ComposeIntent, DiscordProbe, DiscordSlot } from './types/ipc';
 import type { ChannelSuggestion, StorageInfo } from './types/storage';
@@ -37,6 +37,12 @@ export interface RendererApi {
     /** Checks a pasted key with TypeSafe, then stores it encrypted, replacing any earlier one. */
     setKey(key: string): Promise<void>;
     removeKey(): Promise<void>;
+  };
+  /** A provider's own API key, paying instead of its sign-in. */
+  providerKeys: {
+    /** Checks a pasted key with its vendor, then stores it encrypted, replacing any earlier one. */
+    setKey(id: ProviderId, key: string): Promise<void>;
+    removeKey(id: ProviderId): Promise<void>;
   };
   discord: {
     savedMessages(refresh?: boolean): Promise<SavedIndex>;
