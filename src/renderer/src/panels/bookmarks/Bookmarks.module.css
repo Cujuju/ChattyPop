@@ -172,6 +172,11 @@
   padding: var(--cp-space-7);
 }
 
+.preview {
+  min-width: 0;
+  padding-bottom: var(--cp-space-7);
+}
+
 .avatar {
   display: grid;
   place-items: center;

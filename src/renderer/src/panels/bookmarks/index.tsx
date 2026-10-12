@@ -3,6 +3,7 @@ import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
 import { editReminder, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedMessages, savedTab, setSavedTab } from '@/state/savedMessages';
 import { postingUnlocked } from '@/state/posting';
 import { closePanelDialog } from '@/state/ui';
+import { createSavedMessagePreview } from '@/state/savedMessagePreviews';
 import { now } from '@/state/clock';
 import { failureNotice } from '@/state/dialogs';
 import { HeaderButton } from '@/ui/PanelHeader';
@@ -13,6 +14,7 @@ import type { SavedMessage } from '@shared/savedMessages';
 import { channelById, channelSigil, directory } from '@/state/directory';
 import { Markdown } from '@/ui/Markdown';
 import { GuildIcon } from '@/ui/GuildIcon';
+import { MessageRow } from '@/ui/MessageRow';
 import { clockTime } from '@/ui/format';
 import { look } from '@/theme/look';
 import styles from './Bookmarks.module.css';
@@ -60,6 +62,7 @@ function RemoveBookmarkButton(props: { row: SavedMessage; disabled: boolean }) {
 /** Discord-style saved card: destination and controls above a separate chat post. */
 function SavedPost(props: { row: SavedMessage }) {
   const row = () => props.row;
+  const preview = createSavedMessagePreview(row);
   const channel = () => channelById(row().channelId);
   const channelName = () => channel() ? `${channelSigil(channel()!)}${channel()!.name}` : row().channelName || 'Channel unavailable';
   const guild = () => directory().find((guild) => guild.id === (channel()?.guildId ?? row().guildId));
@@ -99,7 +102,7 @@ function SavedPost(props: { row: SavedMessage }) {
         </Show>
       </div>
     </header>
-    <div class={styles.message}>
+    <Show when={preview()} fallback={<div class={styles.message}>
       <div class={`${styles.avatar} ${look.avatar}`} aria-hidden="true">
         <Show when={row().author} fallback={<Icon name="person" />}>
           {(author) => <img data-avatar src={avatarUrl(author().id, author().avatar)} alt="" loading="lazy" />}
@@ -111,11 +114,24 @@ function SavedPost(props: { row: SavedMessage }) {
           <time class={styles.savedTime} dateTime={new Date(postedAt()).toISOString()} title={`${new Date(postedAt()).toLocaleString()} · Saved ${new Date(row().savedAt).toLocaleString()}`}>{clockTime(postedAt())}</time>
         </div>
         <div class={styles.summary}><Markdown text={row().summary || 'Message unavailable'} /></div>
-        <Show when={!row().available}><p class={styles.unavailable}>Original message unavailable. Its saved summary is kept by Discord.</p></Show>
-        <Show when={row().dueAt}><time class={styles.due} dateTime={row().dueAt!} data-overdue={Date.parse(row().dueAt!) <= now()}>{Date.parse(row().dueAt!) <= now() ? 'Overdue · ' : 'Due · '}{new Date(row().dueAt!).toLocaleString()}</time></Show>
+        <SavedDetails row={row()} />
       </div>
-    </div>
+    </div>}>
+      {(message) => <div class={styles.preview}>
+        <MessageRow message={message()} density="cozy" grouped={false} focused={false}>
+          <SavedDetails row={row()} />
+        </MessageRow>
+      </div>}
+    </Show>
   </article>;
+}
+
+function SavedDetails(props: { row: SavedMessage }) {
+  const row = () => props.row;
+  return <>
+    <Show when={!row().available}><p class={styles.unavailable}>Original message unavailable. Its saved summary is kept by Discord.</p></Show>
+    <Show when={row().dueAt}><time class={styles.due} dateTime={row().dueAt!} data-overdue={Date.parse(row().dueAt!) <= now()}>{Date.parse(row().dueAt!) <= now() ? 'Overdue · ' : 'Due · '}{new Date(row().dueAt!).toLocaleString()}</time></Show>
+  </>;
 }
 
 export function BookmarksPanel() {

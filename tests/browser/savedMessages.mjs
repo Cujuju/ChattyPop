@@ -6,7 +6,8 @@ import '../../src/renderer/src/theme/index.css';
 
 // Local illustration: the browser fixture does not have Electron's cached-media protocol.
 const avatar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#384966"/><circle cx="20" cy="15" r="8" fill="#b8d6ea"/><path d="M5 40v-5a15 15 0 0 1 30 0v5" fill="#b8d6ea"/></svg>';
-setMediaRoot('/unused-fixture-media/', { avatar: `data:image/svg+xml,${encodeURIComponent(avatar)}#` });
+const picture = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="#384966"/><path d="M0 180 90 70 150 130 230 40 320 180" fill="#b8d6ea"/></svg>';
+setMediaRoot('/unused-fixture-media/', { avatar: `data:image/svg+xml,${encodeURIComponent(avatar)}#`, attachment: `data:image/svg+xml,${encodeURIComponent(picture)}#` });
 
 window.reviewErrors = [];
 window.addEventListener('error', (e) => window.reviewErrors.push(e.message));
@@ -21,6 +22,21 @@ let session = 'fixture', revision = 1, locked = false, failRead = false, indexRe
 const row = (messageId, dueAt, summary) => ({ channelId: CHANNEL, messageId, guildId: GUILD, savedAt: '2026-10-01T12:00:00Z', dueAt,
   authorName: 'Sample author', author: { id: AUTHOR, avatar: 'a'.repeat(32) }, channelName: '#planning', summary, available: messageId === BOOKMARK });
 let records = [row(BOOKMARK, null, 'Keep the project checklist handy.'), row(REMINDER, '2090-10-12T16:00:00Z', 'Review the launch checklist.')];
+const archived = {
+  id: BOOKMARK, channelId: CHANNEL, ts: Date.now(), editedTs: null, deletedAt: null, prunedAt: null,
+  content: '**Keep the project checklist handy.**\n\n> Review with <@300000000000000001>.\n\n||Surprise details||\n\n`plan.md`',
+  author: { id: AUTHOR, name: 'Sample author', username: 'sample', avatar: 'a'.repeat(32), color: 0xf0b132, gradient: null, font: null, decoration: null, roleIcon: null, tag: null, app: null },
+  replyToId: null, reply: null, reactions: [], mentions: { [AUTHOR]: 'Sample author' }, mentionIds: [], mentionsEveryone: false,
+  embeds: [{ type: 'rich', url: 'https://example.com/checklist', title: 'Delivery checklist', description: '**Link preview** with the launch details.', color: null,
+    provider: 'Example', author: null, thumbnailUrl: null, thumbnailSize: null, imageUrl: null, imageSize: null, videoUrl: null, videoSize: null, footer: null, fields: [], notes: [] }],
+  attachments: [
+    { id: '500000000000000001', filename: 'checklist.png', contentType: 'image/png', size: 1200, width: 320, height: 180, sha256: 'b'.repeat(64), status: 'stored', description: 'Checklist picture', spoiler: true, animated: false, removed: false, notes: [] },
+    { id: '500000000000000002', filename: 'draft.md', contentType: 'text/markdown', size: 600, width: null, height: null, sha256: null, status: 'pending', description: null, spoiler: false, animated: false, removed: false, notes: [] },
+  ],
+  stickers: [], revisions: [], notes: [], annotations: [], labels: [], flags: 0, applicationId: null, components: [], interaction: null, poll: null,
+};
+let previewMode = 'rich', holdPreviews = false;
+const pendingPreviews = [];
 const emit = (e) => listeners.forEach((fn) => fn(e));
 const changed = (reset = false) => emit({ type: 'saved-messages-changed', session, revision: ++revision, pageEpoch: 0, reset });
 const defaultCall = async () => [];
@@ -31,7 +47,16 @@ window.chattypop = {
     directory: async () => [{ id: GUILD, name: 'Project team', icon: null, channels: [
       { id: CATEGORY, guildId: GUILD, name: 'Text Channels', kind: 4, parentId: null, optedIn: false, position: 0, messageCount: 0 },
       { id: CHANNEL, guildId: GUILD, name: 'planning', kind: 0, parentId: CATEGORY, optedIn: true, position: 1, messageCount: 2 },
-    ] }], messageById: async () => null }),
+    ] }],
+    messageById: async (id) => {
+      calls.push(['messageById', id]);
+      const message = id === BOOKMARK && previewMode !== 'missing'
+        ? { ...archived, ...(previewMode === 'wrong-channel' ? { channelId: CATEGORY } : {}) } : null;
+      if (holdPreviews) await new Promise((resolve) => pendingPreviews.push(resolve));
+      return message;
+    },
+    messageWindow: async (request) => { calls.push(['messageWindow', request]); return { items: [archived], reachesNewest: true }; },
+  }),
   discord: group({
     savedMessages: async (refresh) => {
       calls.push(['index', refresh]); if (failRead) throw new Error('Discord returned 404 while loading saved messages. The cause is not confirmed. Use Refresh to retry.');
@@ -61,10 +86,15 @@ const [{ BookmarksPanel }, { ReminderDialog }, saved, { postingUnlocked }, { fir
   import('../../src/plugin-sdk/renderer/firstPaint.ts'),
 ]);
 await firstPaintReady();
+const { installRendererPlugins } = await import('../../src/renderer/src/plugins/installed.ts');
+installRendererPlugins([]);
 document.documentElement.dataset.theme = 'spotlight';
 render(() => [createComponent(BookmarksPanel, {}), createComponent(ReminderDialog, {})], document.getElementById('root'));
 window.savedFixture = {
   saved, calls, postingUnlocked,
+  preview: (mode) => { previewMode = mode; emit({ type: 'attachment-notes-changed', messageIds: [BOOKMARK] }); },
+  holdPreviews: (value) => { holdPreviews = value; },
+  releasePreviews: () => pendingPreviews.splice(0).forEach((resolve) => resolve()),
   lock: (value) => { locked = value; emit({ type: 'plugins-changed' }); },
   failure: (value) => { failRead = value; return saved.refreshSavedMessages(); },
   readFailure: (value) => { indexReadFailed = value; return saved.refreshSavedMessages(); },

@@ -40,7 +40,7 @@ export { createVirtualLog } from '@/ui/virtualLog';
 export { VirtualRows } from '@/ui/VirtualRows';
 export { createPagedList, keyedById } from '@/state/paged';
 // Messages drawn as the Archive draws them.
-export { Avatar, MessageRow } from '@/panels/chat/MessageRow';
+export { Avatar, MessageRow } from '@/ui/MessageRow';
 export { AuthorName } from '@/panels/chat/AuthorName';
 export { Embeds, isMediaOnly } from '@/panels/chat/MessageExtras';
 // A person named in a plugin's text: their name as Discord draws it in a place, kept current, opening their profile.
