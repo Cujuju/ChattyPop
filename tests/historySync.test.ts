@@ -18,6 +18,8 @@ const OTHER_THREAD = '300000000000000002';
 const SELF = '900000000000000001';
 /** Enough history to require multiple Discord message pages. */
 const HISTORY_MESSAGES = 120;
+/** The sync's page size: a first sync stores the latest page whole, whatever the cutoff. */
+const FIRST_PAGE = 50;
 afterEach(() => vi.restoreAllMocks());
 
 function harness(choice: ChannelBackfillHistory) {
@@ -76,7 +78,7 @@ describe('history depth through sync', () => {
     const native = Array.from({ length: HISTORY_MESSAGES }, (_, i) => rawMessage(CHANNEL, NOW - (i + 1) * MS_PER_DAY, `message ${i}`));
     h.messages.set(CHANNEL, native);
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 3, backfillComplete: false });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE, backfillComplete: false });
     h.choose(CHANNEL, 'complete');
     await h.run();
     expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: HISTORY_MESSAGES, oldestId: native.at(-1)!.id, backfillComplete: true });
@@ -89,30 +91,33 @@ describe('history depth through sync', () => {
     expect(h.requests.filter((r) => r.query['before'])).toHaveLength(beforeRequests);
   });
 
-  it('no earlier history excludes an initial older page and later catches messages after the fixed time', async () => {
+  it('no earlier history stores the latest page only, then catches messages after the fixed time', async () => {
     const h = harness({ sinceMs: NOW });
-    h.messages.set(CHANNEL, [rawMessage(CHANNEL, NOW - MS_PER_DAY, 'earlier')]);
+    const native = Array.from({ length: HISTORY_MESSAGES }, (_, i) => rawMessage(CHANNEL, NOW - (i + 1) * MS_PER_DAY, `message ${i}`));
+    h.messages.set(CHANNEL, native);
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 0, backfillComplete: false });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE, backfillComplete: false });
+    expect(h.requests.filter((r) => r.query['before'])).toEqual([]);
     vi.spyOn(Date, 'now').mockReturnValue(NOW + 10 * MS_PER_DAY);
-    h.messages.get(CHANNEL)!.push(rawMessage(CHANNEL, NOW + MS_PER_MIN, 'after the choice'));
+    native.push(rawMessage(CHANNEL, NOW + MS_PER_MIN, 'after the choice'));
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 1, backfillComplete: false });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE + 1, backfillComplete: false });
+    expect(h.requests.filter((r) => r.query['before'])).toEqual([]);
     h.choose(CHANNEL, 'complete');
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 2, backfillComplete: true });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: HISTORY_MESSAGES + 1, backfillComplete: true });
   });
 
   it('a DM uses its own history choice and still extends later', async () => {
     const h = harness({ sinceMs: NOW });
     h.archive.upsertPrivateChannel(SELF, { id: CHANNEL, type: DM_CHANNEL_TYPE, recipients: [{ id: OTHER, username: 'friend' }] }, true);
     h.archive.setOptIn(CHANNEL, true);
-    h.messages.set(CHANNEL, [rawMessage(CHANNEL, NOW - MS_PER_DAY, 'earlier'), rawMessage(CHANNEL, NOW + MS_PER_MIN, 'later')]);
+    h.messages.set(CHANNEL, Array.from({ length: HISTORY_MESSAGES }, (_, i) => rawMessage(CHANNEL, NOW - (i + 1) * MS_PER_DAY, `message ${i}`)));
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 1, backfillComplete: false });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE, backfillComplete: false });
     h.choose(CHANNEL, 'complete');
     await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 2, backfillComplete: true });
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: HISTORY_MESSAGES, backfillComplete: true });
   });
 
   it.each([0, FORUM_CHANNEL_TYPE])('discovers and fully backfills threads with their parent choice (kind %i)', async (kind) => {

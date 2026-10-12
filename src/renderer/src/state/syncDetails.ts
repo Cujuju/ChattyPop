@@ -5,7 +5,7 @@ import { resolveBackfillCutoffMs } from '@shared/archiveSettings';
 import { backfillFraction } from '@shared/backfillProgress';
 import { onAppEvent } from './events';
 import { archiveSettings } from './preferences';
-import { channelById, refetchDirectory } from './directory';
+import { channelById } from './directory';
 
 /** Backfill reports a page every few seconds; re-read a channel's reach at most this often. */
 const REFRESH_MS = 5000;
@@ -31,8 +31,8 @@ const lastRead = new Map<string, number>();
 async function refresh(channelId: string): Promise<void> {
   const state = await api.core.syncState(channelId);
   if (!state.oldestId) return;
-  if (!channelById(channelId)) await refetchDirectory();
   const now = Date.now();
+  // A thread the directory doesn't list yet is measured against the default depth until it does.
   const cutoffMs = resolveBackfillCutoffMs(archiveSettings(), channelId, now, channelById(channelId));
   const reachedTs = snowflakeToMs(state.oldestId);
   const fraction = state.backfillComplete ? 1 : backfillFraction(now, cutoffMs, snowflakeToMs(channelId), reachedTs);

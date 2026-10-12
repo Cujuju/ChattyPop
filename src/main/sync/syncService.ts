@@ -236,21 +236,20 @@ export class SyncService {
     for (let after = state.newestId; ;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, after: after ?? undefined });
       const reachedEnd = page.length < CLIENT_PAGE_SIZE;
-      const kept = after ? page : page.filter((m) => snowflakeToMs(m.id) >= cutoffMs);
-      await this.core.call('ingestSyncPage', channelId, kept, after ? 'newer' : 'older', !after && reachedEnd && kept.length === page.length);
+      await this.core.call('ingestSyncPage', channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'catch-up', fetched });
       if (!after || reachedEnd) break;
       after = maxId(page);
     }
 
+    // The cutoff bounds how far back pages are fetched; a fetched page is stored whole.
     const synced = await this.core.call('syncState', channelId);
     if (synced.backfillComplete) return;
     for (let before = synced.oldestId; before && snowflakeToMs(before) > cutoffMs;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, before });
       const reachedEnd = page.length < CLIENT_PAGE_SIZE;
-      const kept = page.filter((m) => snowflakeToMs(m.id) >= cutoffMs);
-      await this.core.call('ingestSyncPage', channelId, kept, 'older', reachedEnd && kept.length === page.length);
+      await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'backfill', fetched });
       if (reachedEnd) return;
