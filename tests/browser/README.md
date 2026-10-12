@@ -1,5 +1,13 @@
 # Browser checks
 
+## Saved message cards
+
+With the normal Vite server running, open `http://localhost:5173/@fs/E:/Development/Projects/ChattyPop/tests/browser/savedMessages.html`. This fixture renders the real Bookmarks panel and reminder dialog with synthetic records, a local avatar illustration, and mocked Saved writes. It never contacts Discord.
+
+Check the server icon, channel/category header, separate avatar/author/time/message row, and two raised controls at desktop and narrow widths. A quick trash click or a hold released before one second must keep the bookmark. During a hold, an SVG outline must advance **outside** the button, then remove the card exactly once at one second, without a confirmation. Space or Enter supports the same hold behavior while the trash button has keyboard focus.
+
+Pointer leave/cancel, focus loss, a changed account, posting lock, and a fresh read must cancel pending removal. Fixture controls are available as `window.savedFixture`: `lock(true)`, `newSession()`, `remoteChange()`, and `saved.refreshSavedMessages()`. Inspect `calls.filter(([method]) => method === 'remove')` for mocked writes and `window.reviewErrors` for errors. Reload to restore the sample records. The Reminders tab retains its separate **Mark complete** action.
+
 ## Summary controls
 
 Run against the normal Vite dev server, with the summaries plugin checkout next to the host checkout:

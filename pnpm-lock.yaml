@@ -172,6 +172,9 @@ importers:
       '@cujuju/solidjs-color-picker':
         specifier: 0.3.0
         version: 0.3.0(solid-js@1.9.15)
+      '@cujuju/solidjs-hold-action':
+        specifier: 0.1.0
+        version: 0.1.0(solid-js@1.9.15)
       '@cujuju/solidjs-pill-number-picker':
         specifier: 0.5.1
         version: 0.5.1(@cujuju/solidjs-hooks@2.1.0(solid-js@1.9.15))(solid-js@1.9.15)
@@ -389,6 +392,11 @@ packages:
 
   '@cujuju/solidjs-color-picker@0.3.0':
     resolution: {integrity: sha512-ETPit9BjLft6QkiKyx1DERheAJylpaF0cjgbE6/OwTmzxZHUrKfEYFGLO55u9EQGLUISinKVbu/GfecdHUcnpw==}
+    peerDependencies:
+      solid-js: '>=1.7.0'
+
+  '@cujuju/solidjs-hold-action@0.1.0':
+    resolution: {integrity: sha512-rYBrqjeHk5puTbd55xRKDLe0BCUkufFl1xl6Y8ubiPINpGEMTSnnP22OF5bYRLMoFUgWPX7C98PWM3ayqrXd3g==}
     peerDependencies:
       solid-js: '>=1.7.0'
 
@@ -2906,6 +2914,10 @@ snapshots:
       solid-js: 1.9.15
 
   '@cujuju/solidjs-color-picker@0.3.0(solid-js@1.9.15)':
+    dependencies:
+      solid-js: 1.9.15
+
+  '@cujuju/solidjs-hold-action@0.1.0(solid-js@1.9.15)':
     dependencies:
       solid-js: 1.9.15
 

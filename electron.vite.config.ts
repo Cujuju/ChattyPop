@@ -58,7 +58,7 @@ export default defineConfig(({ command }) => {
         // Linked @cujuju packages carry their own solid-js; a second runtime can't track this app's signals.
         dedupe: ['solid-js'],
       },
-      // This toolkit dependency lives in a plugin, outside the host's dependency crawl. Its Solid JSX needs the Solid transform.
+      // The host and plugins share this toolkit; its Solid JSX needs the Solid transform rather than dependency prebundling.
       optimizeDeps: { exclude: ['@cujuju/solidjs-hold-action'] },
       plugins: [solid(), bundledPlugins(import.meta.dirname, 'browser', plugins), pagesPlugin(rendererRoot, plugins)],
       define: versionDefine,

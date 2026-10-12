@@ -1,15 +1,18 @@
-import { For, Show, onCleanup, onMount } from 'solid-js';
+import { For, Show, createEffect, on, onCleanup, onMount } from 'solid-js';
+import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
 import { editReminder, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedMessages, savedTab, setSavedTab } from '@/state/savedMessages';
 import { postingUnlocked } from '@/state/posting';
-import { now, today } from '@/state/clock';
+import { now } from '@/state/clock';
 import { failureNotice } from '@/state/dialogs';
 import { HeaderButton } from '@/ui/PanelHeader';
 import { Icon } from '@/ui/icons';
 import { avatarUrl } from '@shared/media';
+import { DM_GUILD_ID, snowflakeToMs } from '@shared/discord';
 import type { SavedMessage } from '@shared/savedMessages';
 import { channelById, channelSigil, directory } from '@/state/directory';
 import { Markdown } from '@/ui/Markdown';
-import { messageTime } from '@/ui/format';
+import { GuildIcon } from '@/ui/GuildIcon';
+import { clockTime } from '@/ui/format';
 import { look } from '@/theme/look';
 import styles from './Bookmarks.module.css';
 
@@ -17,45 +20,96 @@ import styles from './Bookmarks.module.css';
 const ACCESSIBLE_SUMMARY_LENGTH = 80;
 const actionSubject = (row: SavedMessage): string => `${row.authorName || 'unknown author'}: ${row.summary.slice(0, ACCESSIBLE_SUMMARY_LENGTH)}`;
 
-/** A saved post keeps its channel context visible, with the same avatar gutter and compact actions as chat. */
+/** A short click is inert; a full hold removes the bookmark without a confirmation dialog. */
+function RemoveBookmarkButton(props: { row: SavedMessage; disabled: boolean }) {
+  let button: HTMLButtonElement | undefined;
+  let holdSession: string | null = null;
+  const hold = useHoldAction({
+    durationMs: 1_000,
+    enabled: () => !props.disabled && postingUnlocked(),
+    onComplete: () => {
+      if (!props.disabled && postingUnlocked() && holdSession && holdSession === savedMessages().session)
+        void removeSavedMessage(props.row, holdSession).catch(failureNotice("Couldn't remove the saved message"));
+    },
+  });
+  // The toolkit gates starting a hold; account/read changes also cancel one already in progress.
+  createEffect(on([() => props.disabled, () => savedMessages().session, () => savedMessages().revision], () => hold.cancel()));
+  const start = (event: PointerEvent) => {
+    holdSession = savedMessages().session;
+    hold.handlers.onPointerDown(event);
+  };
+  const label = () => `Hold for 1 second to remove bookmark by ${actionSubject(props.row)}`;
+  return <button ref={button} type="button" class={`${styles.action} ${look.button} ${look.text}`} data-variant="raised"
+    data-holding={hold.holding()} data-remove="true" disabled={props.disabled} title="Hold for 1 second to remove bookmark" aria-label={label()}
+    {...hold.handlers} onPointerDown={start} onPointerCancel={hold.cancel} onBlur={hold.cancel}
+    onContextMenu={(event) => event.preventDefault()}
+    onClick={(event) => { hold.shouldSuppressClick(); event.preventDefault(); }}
+    onKeyDown={(event) => {
+      if (event.key === 'Escape') hold.cancel();
+      if (event.key !== ' ' && event.key !== 'Enter') return;
+      event.preventDefault();
+      if (!event.repeat) start(new PointerEvent('pointerdown', { button: 0 }));
+    }}
+    onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); hold.cancel(); } }}>
+    <Icon name="trash" class={styles.actionIcon} />
+    <Show when={hold.holding()}><HoldIndicator progress={hold.progress} shape="rect" strokePlacement="outside" radius={parseFloat(getComputedStyle(button!).borderTopLeftRadius)} /></Show>
+  </button>;
+}
+
+/** Discord-style saved card: destination and controls above a separate chat post. */
 function SavedPost(props: { row: SavedMessage }) {
   const row = () => props.row;
   const channel = () => channelById(row().channelId);
   const channelName = () => channel() ? `${channelSigil(channel()!)}${channel()!.name}` : row().channelName || 'Channel unavailable';
-  const guildName = () => directory().find((guild) => guild.id === (channel()?.guildId ?? row().guildId))?.name;
-  const disabled = () => savedBusy() || savedMessages().stale;
+  const guild = () => directory().find((guild) => guild.id === (channel()?.guildId ?? row().guildId));
+  const place = () => {
+    const parent = guild()?.channels.find((candidate) => candidate.id === channel()?.parentId);
+    return [guild()?.name || (row().guildId ? 'Server unavailable' : 'Direct Messages'), parent?.name].filter(Boolean).join(' › ');
+  };
+  const postedAt = () => snowflakeToMs(row().messageId);
+  const disabled = () => savedBusy() || savedMessages().loading || savedMessages().stale;
   const remindLabel = () => row().dueAt ? 'Edit reminder' : 'Remind me';
-  const removeLabel = () => row().dueAt ? 'Mark complete' : 'Remove bookmark';
-  return <article class={styles.row} aria-label={`Saved message by ${actionSubject(row())}`}>
-    <header class={styles.context}>
-      <div class={styles.destination} title={`${channelName()}${guildName() ? ` · ${guildName()}` : ''}`}>
-        <span class={styles.channel}>{channelName()}</span>
-        <Show when={guildName()}>{(name) => <span class={styles.guild}>{name()}</span>}</Show>
-      </div>
+  return <article class={`${styles.row} ${look.card}`} aria-label={`Saved message by ${actionSubject(row())}`}>
+    <header class={`${styles.context} ${look.ruleBelow}`} data-rule="subtle">
+      <button type="button" class={styles.destination} title={`Open message in ${channelName()} · ${place()}`} aria-label={`Open message by ${actionSubject(row())}`}
+        onClick={() => void openSavedMessage(row()).catch(failureNotice("Couldn't open the message"))}>
+        <span class={styles.channelIcon} aria-hidden="true">
+          <Show when={guild()?.id !== DM_GUILD_ID && guild()} fallback={<Icon name="conversation" />}>
+            {(server) => <GuildIcon id={server().id} name={server().name} icon={server().icon} />}
+          </Show>
+        </span>
+        <Icon name="chevronRight" class={styles.chevron} />
+        <span class={styles.destinationText}>
+          <span class={styles.channel}>{channelName()}</span>
+          <span class={styles.guild}>{place()}</span>
+        </span>
+      </button>
       <div class={styles.actions}>
-        <button type="button" class={`${styles.action} ${look.iconButton}`} data-variant="window" title="Open message" aria-label={`Open message by ${actionSubject(row())}`}
-          onClick={() => void openSavedMessage(row()).catch(failureNotice("Couldn't open the message"))}><Icon name="external" /></button>
         <Show when={postingUnlocked()}>
-          <button type="button" class={`${styles.action} ${look.iconButton}`} data-variant="window" title={remindLabel()} aria-label={`${remindLabel()} for ${actionSubject(row())}`} disabled={disabled()}
-            onClick={() => editReminder(row())}><Icon name="clock" /></button>
-          <button type="button" class={`${styles.action} ${look.iconButton}`} data-variant="window" title={removeLabel()} aria-label={`${removeLabel()} for ${actionSubject(row())}`} disabled={disabled()} data-remove={!row().dueAt}
-            onClick={() => { const session = savedMessages().session; if (session) void removeSavedMessage(row(), session).catch(failureNotice("Couldn't remove the saved message")); }}><Icon name={row().dueAt ? 'check' : 'trash'} /></button>
+          <button type="button" class={`${styles.action} ${look.button} ${look.text}`} data-variant="raised" title={remindLabel()} aria-label={`${remindLabel()} for ${actionSubject(row())}`} disabled={disabled()}
+            onClick={() => editReminder(row())}><Icon name="bell" class={styles.actionIcon} /></button>
+          <Show when={row().dueAt} fallback={<RemoveBookmarkButton row={row()} disabled={disabled()} />}>
+            <button type="button" class={`${styles.action} ${look.button} ${look.text}`} data-variant="raised" title="Mark complete" aria-label={`Mark complete for ${actionSubject(row())}`} disabled={disabled()}
+              onClick={() => { const session = savedMessages().session; if (session) void removeSavedMessage(row(), session).catch(failureNotice("Couldn't remove the saved message")); }}><Icon name="check" class={styles.actionIcon} /></button>
+          </Show>
         </Show>
       </div>
     </header>
-    <div class={`${styles.avatar} ${look.avatar}`} aria-hidden="true">
-      <Show when={row().author} fallback={<Icon name="person" />}>
-        {(author) => <img data-avatar src={avatarUrl(author().id, author().avatar)} alt="" loading="lazy" />}
-      </Show>
-    </div>
-    <div class={styles.post}>
-      <div class={styles.meta}>
-        <span class={styles.author}>{row().authorName || 'Unknown author'}</span>
-        <time class={styles.savedTime} dateTime={row().savedAt} title={`Saved ${new Date(row().savedAt).toLocaleString()}`}>Saved {messageTime(Date.parse(row().savedAt), today())}</time>
+    <div class={styles.message}>
+      <div class={`${styles.avatar} ${look.avatar}`} aria-hidden="true">
+        <Show when={row().author} fallback={<Icon name="person" />}>
+          {(author) => <img data-avatar src={avatarUrl(author().id, author().avatar)} alt="" loading="lazy" />}
+        </Show>
       </div>
-      <div class={styles.summary}><Markdown text={row().summary || 'Message unavailable'} /></div>
-      <Show when={!row().available}><p class={styles.unavailable}>Original message unavailable. Its saved summary is kept by Discord.</p></Show>
-      <Show when={row().dueAt}><time class={styles.due} dateTime={row().dueAt!} data-overdue={Date.parse(row().dueAt!) <= now()}>{Date.parse(row().dueAt!) <= now() ? 'Overdue · ' : 'Due · '}{new Date(row().dueAt!).toLocaleString()}</time></Show>
+      <div class={styles.post}>
+        <div class={styles.meta}>
+          <span class={styles.author}>{row().authorName || 'Unknown author'}</span>
+          <time class={styles.savedTime} dateTime={new Date(postedAt()).toISOString()} title={`${new Date(postedAt()).toLocaleString()} · Saved ${new Date(row().savedAt).toLocaleString()}`}>{clockTime(postedAt())}</time>
+        </div>
+        <div class={styles.summary}><Markdown text={row().summary || 'Message unavailable'} /></div>
+        <Show when={!row().available}><p class={styles.unavailable}>Original message unavailable. Its saved summary is kept by Discord.</p></Show>
+        <Show when={row().dueAt}><time class={styles.due} dateTime={row().dueAt!} data-overdue={Date.parse(row().dueAt!) <= now()}>{Date.parse(row().dueAt!) <= now() ? 'Overdue · ' : 'Due · '}{new Date(row().dueAt!).toLocaleString()}</time></Show>
+      </div>
     </div>
   </article>;
 }

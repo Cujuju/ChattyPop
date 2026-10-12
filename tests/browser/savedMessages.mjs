@@ -1,7 +1,12 @@
 // Real components with synthetic account data; this fixture never contacts Discord.
 import { createComponent } from 'solid-js';
 import { render } from 'solid-js/web';
+import { setMediaRoot } from '../../src/shared/media';
 import '../../src/renderer/src/theme/index.css';
+
+// Local illustration: the browser fixture does not have Electron's cached-media protocol.
+const avatar = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#384966"/><circle cx="20" cy="15" r="8" fill="#b8d6ea"/><path d="M5 40v-5a15 15 0 0 1 30 0v5" fill="#b8d6ea"/></svg>';
+setMediaRoot('/unused-fixture-media/', { avatar: `data:image/svg+xml,${encodeURIComponent(avatar)}#` });
 
 window.reviewErrors = [];
 window.addEventListener('error', (e) => window.reviewErrors.push(e.message));
@@ -11,7 +16,7 @@ window.fetch = (url, options) => String(url) === 'chattypop-installed://index.js
   ? Promise.resolve(new Response('[]', { headers: { 'Content-Type': 'application/json' } }))
   : originalFetch(url, options);
 const listeners = [], calls = [];
-const CHANNEL = '100000000000000001', BOOKMARK = '200000000000000001', REMINDER = '200000000000000002', AUTHOR = '300000000000000001', GUILD = '400000000000000001';
+const CHANNEL = '100000000000000001', BOOKMARK = '200000000000000001', REMINDER = '200000000000000002', AUTHOR = '300000000000000001', GUILD = '400000000000000001', CATEGORY = '100000000000000002';
 let session = 'fixture', revision = 1, locked = false, failRead = false, indexReadFailed = false;
 const row = (messageId, dueAt, summary) => ({ channelId: CHANNEL, messageId, guildId: GUILD, savedAt: '2026-10-01T12:00:00Z', dueAt,
   authorName: 'Sample author', author: { id: AUTHOR, avatar: 'a'.repeat(32) }, channelName: '#planning', summary, available: messageId === BOOKMARK });
@@ -23,7 +28,10 @@ const group = (methods) => new Proxy(methods, { get: (target, key) => target[key
 const plugins = () => [{ id: 'discord-client', key: 'discord-client', name: 'Discord client', bundled: true, status: locked ? 'disabled' : 'active', commands: [] }];
 window.chattypop = {
   core: group({ plugins: async () => plugins(), getSetting: async () => undefined,
-    directory: async () => [{ id: GUILD, name: 'Project team', icon: null, channels: [{ id: CHANNEL, guildId: GUILD, name: 'planning', kind: 0, parentId: null, optedIn: true, position: 0, messageCount: 2 }] }], messageById: async () => null }),
+    directory: async () => [{ id: GUILD, name: 'Project team', icon: null, channels: [
+      { id: CATEGORY, guildId: GUILD, name: 'Text Channels', kind: 4, parentId: null, optedIn: false, position: 0, messageCount: 0 },
+      { id: CHANNEL, guildId: GUILD, name: 'planning', kind: 0, parentId: CATEGORY, optedIn: true, position: 1, messageCount: 2 },
+    ] }], messageById: async () => null }),
   discord: group({
     savedMessages: async (refresh) => {
       calls.push(['index', refresh]); if (failRead) throw new Error('Discord returned 404 while loading saved messages. The cause is not confirmed. Use Refresh to retry.');

@@ -1,3 +1,17 @@
 <!doctype html>
-<html><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Saved-message verification fixture</title></head>
-<body><main id="root"></main><script type="module" src="./savedMessages.mjs"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saved message cards fixture</title>
+    <style>
+      html, body { margin: 0; height: 100%; }
+      body { background: var(--cp-ground); color: var(--cp-text-1); font-family: var(--cp-font-sans); }
+      #root { display: flex; flex-direction: column; width: min(100%, 560px); height: 100%; margin: auto; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./savedMessages.mjs"></script>
+  </body>
+</html>
