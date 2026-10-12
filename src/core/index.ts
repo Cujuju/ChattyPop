@@ -323,6 +323,8 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       const linkedText = (m: TextMessage, arrived: Arrived): void => watcher.check(m, arrived);
       const bundled: BundledDeps = {
         rules: rules.kinds,
+        // The schedule is made below, once plugins have registered their actions.
+        retryTimedRun: async (type, runId, actionId) => (await ruleSchedule?.retry(type, runId, actionId)) ?? false,
         ready: () => ready().db,
         archive: () => ready().archive,
         mediaDir: join(data.archiveDir, ARCHIVE_MEDIA_DIR),

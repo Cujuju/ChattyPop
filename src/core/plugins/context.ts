@@ -124,7 +124,7 @@ export function createCoreContext<D extends PluginDescriptor>(
   const send = (e: AppEvent): void => void (live() && emit(e));
   // Main fans it out to the event's declared audiences (windows, the phone, main).
   const event = (name: string, payload: unknown): AppEvent => ({ type: 'plugin-event', pluginId: id, name, payload });
-  const runs = pluginRuleRuns(deps.db, emit, bundled.now);
+  const runs = pluginRuleRuns(deps.db, emit, bundled.now, bundled.retryTimedRun);
   const db = pluginDb(bundled.ready, lifetime.live, id);
   return {
     plugin,

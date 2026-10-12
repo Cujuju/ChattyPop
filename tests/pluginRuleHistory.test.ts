@@ -40,6 +40,8 @@ describe('plugin rule history and arrival contracts', () => {
       lastDone: () => null,
       attemptsSince: () => 0,
       update: () => undefined,
+      failedWindows: () => [],
+      retryWindow: async () => false,
     }, (fn) => {
       try {
         fn();

@@ -11,7 +11,7 @@ import type { CompiledRule } from './compile';
 import type { RuleEngine } from './engine';
 import type { WindowDue } from './kinds';
 import { lastScheduledRun, lastTimedRun, releaseInterruptedTimedRuns } from './ruleStore';
-import { beginAttempt, claimTimedRun, forgiveDebts, laterTimedRuns, oldestOwedRun, settleAttempt } from './runDebts';
+import { beginAttempt, claimTimedRun, forgiveDebts, laterTimedRuns, oldestOwedRun, retryDebtNow, settleAttempt } from './runDebts';
 
 /** How often due rules are checked; a daily rule starts within this of its time. */
 const TICK_MS = MS_PER_MIN;
@@ -72,6 +72,33 @@ export class RuleSchedule {
     setInterval(() => void this.tick(), TICK_MS);
   }
 
+  /**
+   * Retries a failed `type` action's window at the owner's request; false when its rule owes none. Pays debts only:
+   * new windows wait for the archive to be current. Resolves once tried, or at once while a tick runs, which pays it.
+   */
+  async retry(type: string, runId: number, actionId: string): Promise<boolean> {
+    if (!this.db.open) return false;
+    const ruleId = retryDebtNow(this.db, type, runId, actionId, this.now());
+    const r = this.engine.timedRules().find((x) => x.id === ruleId);
+    const kind = r && this.engine.kinds.windows.get(r.spec.trigger.type);
+    if (!r || !kind) return false;
+    if (this.busy) return true;
+    this.busy = true;
+    try {
+      const once = kind.oncePerSession(r.spec.trigger.config);
+      while (this.db.open && (await this.payOldestDebt(r, this.now(), this.debtCutoff(r), scopeChannels(this.db, r), once)));
+      this.emit({ type: 'rules-changed' });
+    } finally {
+      this.busy = false;
+    }
+    return true;
+  }
+
+  /** Debts for windows ended by then are forgiven: a rule covers nothing before it was turned on, or over a week back. */
+  private debtCutoff(r: CompiledRule): number {
+    return Math.max(r.armedAt, this.now() - TIMED_MAX_LOOKBACK_MS);
+  }
+
   /** Runs each due timed rule, one after another. */
   async tick(): Promise<void> {
     if (this.busy || !this.db.open) return; // the database closes while the archive is moved
@@ -109,7 +136,7 @@ export class RuleSchedule {
 
   /** Runs what a rule owes, oldest window first, until nothing is due: several when due times were missed. */
   private async runIfDue(r: CompiledRule): Promise<void> {
-    const cutoff = Math.max(r.armedAt, this.now() - TIMED_MAX_LOOKBACK_MS);
+    const cutoff = this.debtCutoff(r);
     forgiveDebts(this.db, r.id, cutoff, r.spec.actions.map((a) => a.id));
     let ran = false;
     // Each pass reads claims and debts again, so an interrupted action keeps its window.

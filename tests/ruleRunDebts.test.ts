@@ -7,7 +7,7 @@ import {
 import { MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
 import { newRuleAction } from '@shared/ruleSpec';
 import { RuleSchedule } from '../src/core/rules/schedule';
-import { beginAttempt, claimTimedRun, forgiveDebts, oldestOwedRun, settleAttempt } from '../src/core/rules/runDebts';
+import { beginAttempt, claimTimedRun, failedWindows, forgiveDebts, oldestOwedRun, settleAttempt } from '../src/core/rules/runDebts';
 import { releaseInterruptedTimedRuns } from '../src/core/rules/ruleStore';
 import { probeAction, ruleHarness, ruleInput, type Harness } from './ruleHarness';
 
@@ -265,6 +265,78 @@ describe('a timed run still owes each unsettled action', () => {
       await h.probe.host.setEnabled('ruleprobe', true);
       await next.tick();
       expect(spans(h)).toEqual([[at(0), at(21)]]);
+    });
+  });
+
+  describe('a failed window the owner can see and retry', () => {
+    const TYPE = 'ruleprobe.window';
+    /** A schedule over `h` whose action fails until `mend()`. */
+    async function failing(spent: boolean) {
+      const h = setup();
+      let broken = true;
+      h.probe.context().rules.action(TYPE, (_, r) => { h.probe.runs.push(r); return broken ? failed : done; });
+      let now = at(24);
+      h.setNow(now);
+      const schedule = h.session();
+      await schedule.tick();
+      for (const delay of spent ? TIMED_RETRY_DELAYS_MS : []) {
+        h.setNow((now += delay));
+        await schedule.tick();
+      }
+      return { h, schedule, mend: () => { broken = false; } };
+    }
+
+    it('lists it with its window, its rule, why it failed and when it retries by itself', async () => {
+      const { h } = await failing(false);
+      const run = h.rules.runs(h.id, 1)[0]!;
+      expect(failedWindows(h.db, TYPE)).toEqual([{
+        runId: run.id, ruleId: h.id, ruleName: h.input.name, actionId: run.actions[0]!.actionId, sinceTs: at(0), untilTs: at(24),
+        timing: 'every', claimedAt: at(24), detail: 'provider down', failedAt: at(24), retryAt: at(24, 5),
+      }]);
+      expect(failedWindows(h.db, 'command')).toEqual([]);
+    });
+
+    it('retries it at once on request, in the same run, and lists it no more once it is done', async () => {
+      const { h, schedule, mend } = await failing(false);
+      const [f] = failedWindows(h.db, TYPE);
+      mend();
+      expect(await schedule.retry('command', f!.runId, f!.actionId)).toBe(false); // another kind's action can't retry it
+      expect(await schedule.retry(TYPE, f!.runId, f!.actionId)).toBe(true);
+      expect(spans(h)).toEqual([[at(0), at(24)], [at(0), at(24)]]);
+      expect(h.rules.runs(h.id, 10).map((r) => r.actions.map((x) => x.outcome))).toEqual([['done']]);
+      expect(failedWindows(h.db, TYPE)).toEqual([]);
+      expect(await schedule.retry(TYPE, f!.runId, f!.actionId)).toBe(false);
+    });
+
+    it('gives a window whose attempts are spent one more, as its last', async () => {
+      const { h, schedule } = await failing(true);
+      const [f] = failedWindows(h.db, TYPE);
+      expect(f!.retryAt).toBeNull();
+      expect(await schedule.retry(TYPE, f!.runId, f!.actionId)).toBe(true);
+      expect(windows(h)).toHaveLength(TIMED_ATTEMPTS_MAX + 1);
+      expect(windows(h).at(-1)!.retriesLeft).toBe(0);
+      expect(failedWindows(h.db, TYPE)[0]!.retryAt).toBeNull();
+    });
+
+    it('pays the debt only: a window due by then waits for the schedule', async () => {
+      const { h, schedule, mend } = await failing(false);
+      const [f] = failedWindows(h.db, TYPE);
+      mend();
+      h.setNow(at(48, 1));
+      expect(await schedule.retry(TYPE, f!.runId, f!.actionId)).toBe(true);
+      expect(spans(h)).toEqual([[at(0), at(24)], [at(0), at(24)]]);
+      expect(windows(h).at(-1)!.owedAfter).toBe(1);
+      await schedule.tick();
+      expect(spans(h).at(-1)).toEqual([at(24), at(48, 1)]);
+    });
+
+    it('lists and retries no failure of a rule that is off', async () => {
+      const { h, schedule } = await failing(false);
+      const [f] = failedWindows(h.db, TYPE);
+      h.rules.update(h.id, { ...h.input, enabled: false });
+      expect(failedWindows(h.db, TYPE)).toEqual([]);
+      expect(await schedule.retry(TYPE, f!.runId, f!.actionId)).toBe(false);
+      expect(windows(h)).toHaveLength(1);
     });
   });
 

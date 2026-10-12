@@ -123,6 +123,15 @@ export function pluginRules<D extends PluginDescriptor>(
     update: (...args) => {
       if (live()) runs.update(...args);
     },
+    failedWindows: (type) => safe(() => {
+      declared('actions', type);
+      return runs.failedWindows(type);
+    }, []),
+    retryWindow: async (type, runId, actionId) => {
+      if (!live()) return false;
+      declared('actions', type);
+      return runs.retryWindow(type, runId, actionId);
+    },
     action: (type, run) => {
       declared('actions', type);
       if (!live()) return;

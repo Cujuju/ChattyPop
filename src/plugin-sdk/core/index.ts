@@ -21,6 +21,7 @@ export type { Answers, Fresh } from '@core/jev/messageJudge';
 export type { MessageFacts } from '@core/rules/compile';
 export type { PluginMatchImpl, PluginRuleQuestion, PluginRules, RuleSnapshot } from '@core/plugins/rules';
 export type { RuleRuns } from '@core/plugins/bundled';
+export type { FailedWindow } from '@core/rules/runDebts';
 export type { ManagedRule } from '@core/rules/managed';
 export type { QuestionContext } from '@core/jev/messageQuestions';
 export type { CoreContext, CorePlugin } from '@core/plugins/context';

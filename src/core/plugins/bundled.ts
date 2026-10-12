@@ -8,6 +8,7 @@ import type { Archive } from '../archive';
 import type { Db } from '../db';
 import type { LinkImage } from '../messageImages';
 import { countAttemptsSince, lastDone, recordOutcome } from '../rules/ruleStore';
+import { failedWindows, type FailedWindow } from '../rules/runDebts';
 import type { RuleKinds } from '../rules/kinds';
 import type { ActionResult } from '../rules/actions';
 import type { NetworkSend } from './net';
@@ -66,6 +67,8 @@ export interface BundledDeps {
   /** The network ctx.net.fetch sends through once its policy allows a request; the global fetch when unset. */
   send?: NetworkSend;
   lastSeenAt?(): number;
+  /** The rule schedule's retry of a failed timed window (RuleSchedule.retry); unset before the schedule exists. */
+  retryTimedRun?(type: string, runId: number, actionId: string): Promise<boolean>;
   readerNames?(): string[] | null;
 }
 
@@ -80,11 +83,17 @@ export interface RuleRuns {
   attemptsSince(type: string, sinceTs: number): number;
   /** Rewrites an action's recorded outcome after its run recorded one (a late report); no-op once the rule is deleted. */
   update(runId: number, actionId: string, type: string, r: ActionResult): void;
+  /** Timed windows whose `type` action failed and is still owed, oldest first. */
+  failedWindows(type: string): FailedWindow[];
+  /** Retries a failed window of a `type` action now, at the owner's request; false when it owes none. */
+  retryWindow(type: string, runId: number, actionId: string): Promise<boolean>;
 }
 
 /** Rule runs over the core's rule store. */
-export function pluginRuleRuns(db: Db, emit: (e: AppEvent) => void, now: () => number): RuleRuns {
+export function pluginRuleRuns(db: Db, emit: (e: AppEvent) => void, now: () => number, retry: BundledDeps['retryTimedRun']): RuleRuns {
   return {
+    failedWindows: (type) => failedWindows(db, type),
+    retryWindow: async (type, runId, actionId) => (await retry?.(type, runId, actionId)) ?? false,
     lastDone: (ruleId, actionId) => lastDone(db, ruleId, actionId),
     attemptsSince: (type, sinceTs) => countAttemptsSince(db, type, sinceTs),
     update: (runId, actionId, type, r) => {

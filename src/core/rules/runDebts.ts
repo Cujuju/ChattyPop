@@ -81,3 +81,48 @@ export function laterTimedRuns(db: Db, ruleId: number, actionId: string, untilTs
   return (db.prepare(`SELECT COUNT(*) AS n FROM rule_runs WHERE ${TIMED_ACTION_RUN} AND ${WINDOW_END} > @untilTs`)
     .get({ ruleId, actionId, untilTs, prefix: TIMED_RUN_PREFIX, mark: TIMED_RUN_ACTION_MARK }) as { n: number }).n;
 }
+
+/** A timed window an action failed and still owes: what the owner can see and retry. */
+export interface FailedWindow {
+  runId: number;
+  ruleId: number;
+  ruleName: string;
+  actionId: string;
+  sinceTs: number;
+  untilTs: number;
+  timing: TimedTriggerKind;
+  /** When the run was claimed: where its result would have appeared among others. */
+  claimedAt: number;
+  /** Why the last attempt failed. */
+  detail: string | null;
+  failedAt: number;
+  /** When the schedule tries again by itself; null once its attempts are spent. */
+  retryAt: number | null;
+}
+
+/** Enabled rules' timed windows whose `type` action last failed and is still owed, oldest first. */
+export function failedWindows(db: Db, type: string): FailedWindow[] {
+  return db.prepare(
+    `SELECT r.id AS runId, r.rule_id AS ruleId, rules.name AS ruleName, d.action_id AS actionId, d.since_ts AS sinceTs,
+            COALESCE(r.window_until, r.at) AS untilTs, d.timing, r.at AS claimedAt, a.detail, a.at AS failedAt,
+            CASE WHEN d.attempts < @max THEN d.retry_at END AS retryAt
+     FROM rule_run_debts d JOIN rule_runs r ON r.id = d.run_id JOIN rules ON rules.id = r.rule_id AND rules.enabled = 1
+       JOIN rule_action_runs a ON a.run_id = d.run_id AND a.action_id = d.action_id AND a.outcome = 'failed' AND a.kind = @type
+     ORDER BY untilTs, r.id`,
+  ).all({ type, max: TIMED_ATTEMPTS_MAX }) as FailedWindow[];
+}
+
+/**
+ * Makes a failed `type` action's window payable now, with one more attempt when its own are spent: the owner asked.
+ * The run's other waiting debts become payable too, since a run is paid whole. Returns the run's rule, or null when
+ * it owes no such failure.
+ */
+export function retryDebtNow(db: Db, type: string, runId: number, actionId: string, now: number): number | null {
+  const changed = db.prepare(
+    `UPDATE rule_run_debts SET retry_at = @now, attempts = MIN(attempts, @max - 1)
+     WHERE run_id = @runId AND (action_id = @actionId OR attempts < @max)
+       AND EXISTS (SELECT 1 FROM rule_run_debts d JOIN rule_action_runs a ON a.run_id = d.run_id AND a.action_id = d.action_id
+                   WHERE d.run_id = @runId AND d.action_id = @actionId AND a.kind = @type AND a.outcome = 'failed')`,
+  ).run({ type, runId, actionId, now, max: TIMED_ATTEMPTS_MAX }).changes > 0;
+  return changed ? (db.prepare('SELECT rule_id FROM rule_runs WHERE id = ?').pluck().get(runId) as number) : null;
+}

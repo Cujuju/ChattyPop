@@ -28,7 +28,7 @@ it('records an operational failure as a failed run without a sticky plugin fault
   const kinds = new RuleKinds();
   const faults: unknown[] = [];
   const rules = pluginRules(ruleProbe, kinds, emptyRegistrations(), {
-    lastDone: () => null, attemptsSince: () => 0, update: () => undefined,
+    lastDone: () => null, attemptsSince: () => 0, update: () => undefined, failedWindows: () => [], retryWindow: async () => false,
   }, (fn) => { try { fn(); } catch (error) { faults.push(error); } }, () => []);
   rules.action(ACTION, async () => ({ outcome: 'failed', detail: 'Provider quota exceeded' }));
   expect(await kinds.run(ACTION, null, run)).toEqual({ outcome: 'failed', detail: 'Provider quota exceeded' });
@@ -40,7 +40,7 @@ it('does not report a rejection from an unloaded action as a plugin fault', asyn
   const reg = emptyRegistrations();
   const guard = vi.fn();
   const rules = pluginRules(ruleProbe, kinds, reg, {
-    lastDone: () => null, attemptsSince: () => 0, update: () => undefined,
+    lastDone: () => null, attemptsSince: () => 0, update: () => undefined, failedWindows: () => [], retryWindow: async () => false,
   }, guard, () => []);
   let reject!: (reason: Error) => void;
   rules.action(ACTION, () => new Promise((_, fail) => { reject = fail; }));

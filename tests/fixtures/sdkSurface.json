@@ -1,5 +1,5 @@
 {
-  "version": "2.41.0",
+  "version": "2.42.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -770,6 +770,7 @@
       "CoverageSpan",
       "DecisionProvider",
       "DerivedText",
+      "FailedWindow",
       "FilterContext",
       "FilterImpl",
       "Fresh",
