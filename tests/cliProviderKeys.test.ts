@@ -13,6 +13,7 @@ describe('CLI payment mode and model cache', () => {
     const provider: LlmProvider = { id: 'probe', maxInputChars: 1, listModels, complete: async () => ({ text: '' }) };
     const check = vi.fn(async (_value: string) => undefined);
     const impl = signedInCli(CLI, provider, { apiKey: () => key, check });
+    expect(impl.create(CHOICE)).toBe(provider);
     expect((await impl.status(CHOICE, false)).detail).toBe('Uses your Test CLI sign-in');
     await impl.status(CHOICE, false);
     expect(listModels).toHaveBeenCalledTimes(1);

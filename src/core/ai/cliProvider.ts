@@ -20,7 +20,10 @@ export interface CliKeyAuth {
 }
 
 /** Registers a CLI provider, retaining its model list until refresh or a change of payment key. */
-export function signedInCli(cli: CliSpec, provider: LlmProvider, auth?: CliKeyAuth): ProviderImpl & { status(choice: ProviderChoice, refresh: boolean): Promise<ProviderReport> } {
+export function signedInCli(cli: CliSpec, provider: LlmProvider, auth?: CliKeyAuth): ProviderImpl & {
+  create(choice: ProviderChoice): LlmProvider;
+  status(choice: ProviderChoice, refresh: boolean): Promise<ProviderReport>;
+} {
   let models = sessionModels(() => provider.listModels());
   let listedKey: string | null = null;
   return {
