@@ -10,14 +10,15 @@ import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders, providerReportsPlanUsage } from '@/state/aiProviders';
-import { aiSettings, providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
+import { accountKey } from '@shared/providerAccounts';
+import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, updateProvider } from '@/state/preferences';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
 import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
-import { AccountRow, EarlierKeyRow, RemoveAccountButton } from './AccountRows';
+import { AccountRow, EarlierKeyRow, RemoveProviderButton } from './AccountRows';
 import { AddAccountDialog, canAddAccount, openAddAccount } from './AddAccount';
 import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import styles from './Settings.module.css';
@@ -50,39 +51,47 @@ export function AiSection() {
       meta: () => providerMeta(d),
       muted: () => !providerSettingsOf(d.id).enabled,
       link: siteLink(d.site),
-      actions: aiSettings().accounts.some((a) => a.id === d.id) ? () => <RemoveAccountButton provider={d.id} /> : undefined,
+      actions: () => <RemoveProviderButton provider={d.id} />,
       body: () => <ProviderBody provider={d} />,
     })),
     ...settingsSections('ai'),
   ];
+  /** Nothing is listed: the owner adds each provider, or no provider plugin is on to add from. */
+  const empty = () => (
+    <Page id="ai" title="AI providers" lede={aiText().overview}>
+      <Show when={canAddAccount()} fallback={<Note>No AI provider plugin is on. Turn one on in Settings → Plugins.</Note>}>
+        <Note>No AI provider yet. Add each one you want ChattyPop to use.</Note>
+        <div class={c.buttons}>
+          <button type="button" class="cp-primary" onClick={openAddAccount}>
+            Add account
+          </button>
+        </div>
+      </Show>
+    </Page>
+  );
   const refresh = (
     <button type="button" class={`cp-button ${styles.button}`} disabled={providerStatusLoading()} onClick={() => void refreshProviderStatus()}>
       {providerStatusLoading() ? 'Loading models…' : 'Refresh model lists'}
     </button>
   );
   return (
-    <Show
-      when={sections().length > 0}
-      fallback={
-        <Page id="ai" title="AI providers" lede={aiText().overview}>
-          <Note>No AI provider plugin is on. Turn one on in Settings → Plugins.</Note>
-        </Page>
-      }
-    >
-      <SectionsPage
-        id="ai"
-        title="AI providers"
-        lede={aiText().overview}
-        right={refresh}
-        railAdd={canAddAccount() ? { label: 'Add account', onClick: openAddAccount } : undefined}
-        sections={sections()}
-      />
+    <>
+      <Show when={sections().length > 0} fallback={empty()}>
+        <SectionsPage
+          id="ai"
+          title="AI providers"
+          lede={aiText().overview}
+          right={refresh}
+          railAdd={canAddAccount() ? { label: 'Add account', onClick: openAddAccount } : undefined}
+          sections={sections()}
+        />
+      </Show>
       <AddAccountDialog />
-    </Show>
+    </>
   );
 }
 
-/** A provider's switch, its availability line and the note its plugin adds. */
+/** A provider's availability line and the note its plugin adds; an account's switch too, which pauses it and keeps its sign-in or key. */
 function EnabledRow(props: { provider: ProviderId }) {
   const id = props.provider;
   const enabled = () => providerSettingsOf(id).enabled;
@@ -93,12 +102,15 @@ function EnabledRow(props: { provider: ProviderId }) {
     return failed ? `Couldn't check: ${failed}` : 'Checking…';
   };
   return (
-    <Row
-      label={`Use ${providerLabel(id)}`}
-      for={`ai-enabled-${id}`}
-      hint={hint()}
-      control={<Switch id={`ai-enabled-${id}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />}
-    />
+    // A declared provider is listed only while on, so removing it is its switch.
+    <Show when={accountKey(id)} fallback={<Row label="Status" hint={hint()} />}>
+      <Row
+        label={`Use ${providerLabel(id)}`}
+        for={`ai-enabled-${id}`}
+        hint={hint()}
+        control={<Switch id={`ai-enabled-${id}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />}
+      />
+    </Show>
   );
 }
 

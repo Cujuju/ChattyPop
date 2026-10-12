@@ -1,11 +1,11 @@
 import { createSignal } from 'solid-js';
 import { api } from '@/api';
 import type { AppEvent } from '@shared/contract';
-import { newAccountId, type AccountAuth } from '@shared/providerAccounts';
+import { accountKey, newAccountId, type AccountAuth } from '@shared/providerAccounts';
 import { declaredProvider } from '@shared/aiProviders';
 import { normalizeDisplayName, type ProviderId } from '@shared/settings';
 import { onAppEvent } from './events';
-import { aiSettings, patchAiSettings, refetchProviderStatus } from './preferences';
+import { aiSettings, patchAiSettings, providerSettingsOf, refetchProviderStatus } from './preferences';
 import { onServerScreen, setSettingsSections, settingsSections } from './ui';
 
 type Link = Extract<AppEvent, { type: 'account-link' }>;
@@ -23,6 +23,24 @@ onAppEvent('account-link', (event) => {
   if (event.state === 'done') void refetchProviderStatus();
 });
 
+/** A declared provider's stored choices with its switch set. */
+const switched = (id: ProviderId, enabled: boolean) => ({ providers: { ...aiSettings().providers, [id]: { ...providerSettingsOf(id), enabled } } });
+
+/** Adds a declared provider itself (its own sign-in or server), with the choices it last had. */
+export async function addProvider(id: ProviderId): Promise<void> {
+  if (accountKey(id) || !declaredProvider(id)) throw new Error('This provider cannot be added here.');
+  await patchAiSettings(switched(id, true));
+  await setSettingsSections({ ...settingsSections(), ai: id });
+  await refetchProviderStatus();
+}
+
+/** Removes what the owner added: an account with its sign-in or key, or a declared provider, whose choices are kept. */
+export async function removeProvider(id: ProviderId): Promise<void> {
+  if (accountKey(id)) return removeProviderAccount(id);
+  await patchAiSettings(switched(id, false));
+  await refetchProviderStatus();
+}
+
 export async function addProviderAccount(provider: ProviderId, auth: AccountAuth, name: string): Promise<void> {
   const declared = declaredProvider(provider);
   if (!declared?.accounts || (auth === 'signIn' ? !declared.accounts.signIn || !onServerScreen : auth !== 'apiKey' || !declared.apiKey))
@@ -36,7 +54,7 @@ export async function addProviderAccount(provider: ProviderId, auth: AccountAuth
   await refetchProviderStatus();
 }
 
-export async function removeProviderAccount(id: ProviderId): Promise<void> {
+async function removeProviderAccount(id: ProviderId): Promise<void> {
   const account = aiSettings().accounts.find((a) => a.id === id);
   if (!account) return;
   if (account.auth === 'apiKey') await api.providerKeys.removeKey(id);

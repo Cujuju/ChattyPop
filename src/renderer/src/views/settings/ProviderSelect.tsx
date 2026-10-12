@@ -1,7 +1,7 @@
 // Features choose running providers, marking disabled AI settings. Model/effort follow each provider’s AI settings.
 import { Select } from '@/ui/Select';
 import type { ProviderId } from '@shared/settings';
-import { availableProviders } from '@/state/aiProviders';
+import { availableProviders, providerRuns } from '@/state/aiProviders';
 import { providerLabel, providerName, providerSettingsOf } from '@/state/preferences';
 import { settingsControl as c } from './SettingsLayout';
 
@@ -18,8 +18,10 @@ export function ProviderSelect(props: { id?: string; class?: string; label?: str
     props.short ? providerName(id) : state ? `${label} (${state})` : label;
   const options = () => [
     ...(props.unsetLabel ? [{ value: NONE, label: props.unsetLabel }] : props.value ? [] : [{ value: NONE, label: 'Pick a provider…' }]),
-    // A chosen provider whose plugin isn't running keeps its row, so the choice stays visible.
-    ...(props.value && !availableProviders().some((d) => d.id === props.value) ? [{ value: props.value, label: named(props.value, providerLabel(props.value), 'not running') }] : []),
+    // A chosen provider that was removed, or whose plugin isn't running, keeps its row, so the choice stays visible.
+    ...(props.value && !availableProviders().some((d) => d.id === props.value)
+      ? [{ value: props.value, label: named(props.value, providerLabel(props.value), providerRuns(props.value) ? 'not added in Settings → AI providers' : 'not running') }]
+      : []),
     ...availableProviders().map((d) => ({
       value: d.id,
       label: named(d.id, d.label, providerSettingsOf(d.id).enabled ? null : 'turned off in Settings → AI providers'),

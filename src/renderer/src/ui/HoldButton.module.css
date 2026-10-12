@@ -15,8 +15,8 @@
 }
 
 .icon {
-  width: var(--cp-icon-lg);
-  height: var(--cp-icon-lg);
+  width: var(--cp-hold-icon);
+  height: var(--cp-hold-icon);
 }
 
 /* What a hold does is destructive: the icon and the traced line (currentColor) say so. */

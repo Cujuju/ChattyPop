@@ -4,7 +4,7 @@ import { declaredProvider } from '@shared/aiProviders';
 import { accountKey } from '@shared/providerAccounts';
 import type { ProviderId } from '@shared/settings';
 import { aiSettings, providerLabel, refetchProviderStatus } from '@/state/preferences';
-import { accountLink, removeProviderAccount } from '@/state/providerAccounts';
+import { accountLink, removeProvider } from '@/state/providerAccounts';
 import { failureNotice } from '@/state/dialogs';
 import { onServerScreen } from '@/state/ui';
 import { createAction } from '@/ui/action';
@@ -52,15 +52,18 @@ function SignInRow(props: Props) {
   </Row>;
 }
 
-/** In the account's section title: a full hold removes it and its sign-in or API key, without a confirmation dialog. */
-export function RemoveAccountButton(props: Props) {
+/** In the section's title: a full hold removes the provider, an account with its sign-in or API key, without a confirmation dialog. */
+export function RemoveProviderButton(props: Props) {
   const [busy, setBusy] = createSignal(false);
-  const credential = (): string => (aiSettings().accounts.find((a) => a.id === props.provider)?.auth === 'signIn' ? 'sign-in' : 'API key');
+  const what = (): string => {
+    const account = aiSettings().accounts.find((a) => a.id === props.provider);
+    return account ? `this account and its ${account.auth === 'signIn' ? 'sign-in' : 'API key'}` : providerLabel(props.provider);
+  };
   const remove = (): void => {
     setBusy(true);
-    void removeProviderAccount(props.provider).catch(failureNotice("Couldn't remove the account")).finally(() => setBusy(false));
+    void removeProvider(props.provider).catch(failureNotice(`Couldn't remove ${providerLabel(props.provider)}`)).finally(() => setBusy(false));
   };
-  return <HoldButton icon="trash" action={`remove this account and its ${credential()}`} disabled={busy()} onComplete={remove} />;
+  return <HoldButton icon="trash" action={`remove ${what()}`} disabled={busy()} onComplete={remove} />;
 }
 
 export function EarlierKeyRow(props: Props) {

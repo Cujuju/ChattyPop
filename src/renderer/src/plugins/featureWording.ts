@@ -37,7 +37,7 @@ export function aiRunWording(runs?: PluginDescriptor['aiRuns']) {
     provider: runs ? `${runs.active} provider` : 'AI provider',
     title: `Only ChattyPop's own ${plural} in this window. The percentage is your whole plan, including other apps.`,
     empty: `No ${plural} yet`,
-    overview: 'Turn providers on and pick the model each one uses. Each feature chooses its provider in its own settings.',
+    overview: 'Add each provider you use and pick its model. Each feature chooses its provider in its own settings.',
     /** What ChattyPop's AI calls are, in a sentence about their cost. */
     requests: runs?.plural ?? 'requests',
   };
