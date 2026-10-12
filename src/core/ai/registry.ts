@@ -77,14 +77,16 @@ export class ProviderRegistry {
 
   /** Adds a declared provider until the returned disposer runs (its plugin turns off), which revokes what it handed out. */
   register(id: ProviderId, impl: ProviderImpl, dataDir?: string): () => void {
-    if (accountKey(id) || !declaredProvider(id, this.declared)) throw new Error(`No AI provider ${id} is declared in this build.`);
-    if (declaredProvider(id, this.declared)?.apiKey && !impl.checkApiKey) throw new Error(`AI provider ${id} declares apiKey but supplies no checkApiKey.`);
-    if (declaredProvider(id, this.declared)?.accounts?.signIn && !impl.linkAccount) throw new Error(`AI provider ${id} declares signIn accounts but supplies no linkAccount.`);
-    if (declaredProvider(id, this.declared)?.accounts && !dataDir) throw new Error(`AI provider ${id} accounts require plugin storage.`);
+    const declared = accountKey(id) ? null : declaredProvider(id, this.declared);
+    if (!declared) throw new Error(`No AI provider ${id} is declared in this build.`);
+    if (declared.apiKey && !impl.checkApiKey) throw new Error(`AI provider ${id} declares apiKey but supplies no checkApiKey.`);
+    if (declared.accounts?.signIn && !impl.linkAccount) throw new Error(`AI provider ${id} declares signIn accounts but supplies no linkAccount.`);
+    if (declared.accounts && !dataDir) throw new Error(`AI provider ${id} accounts require plugin storage.`);
     if (this.registered.has(id)) throw new Error(`AI provider ${id} is already registered.`);
     const registration: Registration = { impl, revoked: new AbortController() };
     this.registered.set(id, registration);
-    if (dataDir) this.accounts.activate(id, impl, dataDir);
+    // Only a provider declaring accounts owns account folders in its plugin's data folder.
+    if (declared.accounts && dataDir) this.accounts.activate(id, impl, dataDir);
     return () => {
       if (this.registered.get(id) !== registration) return;
       this.registered.delete(id);
@@ -143,13 +145,14 @@ export class ProviderRegistry {
   /** Settings → AI: each running provider's state, in declared order. A failing report is shown as the reason. */
   async status(settings: AiSettings, refresh = false): Promise<ProviderStatus[]> {
     this.accounts.sync(settings);
-    const running = providersOf(settings, this.declared).filter((d) => this.registered.has(accountProvider(d.id)));
+    const stored = this.accounts.current();
+    const running = providersOf(stored, this.declared).filter((d) => this.registered.has(accountProvider(d.id)));
     return Promise.all(running.map(async ({ id }): Promise<ProviderStatus> => {
       const impl = this.registered.get(accountProvider(id))!.impl;
       const account = this.accounts.get(id).account;
       const storedKey = declaredProvider(id, this.declared)?.apiKey ? Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null : null;
       const apiKeyHint = storedKey ? keyHint(storedKey) : null;
-      const accountReason = accountUnavailable(id, settings, this.declared);
+      const accountReason = accountUnavailable(id, stored, this.declared);
       if (accountReason) return { id, auth: account.auth, apiKeyHint, available: false, detail: accountReason, models: null };
       try {
         const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh, account);

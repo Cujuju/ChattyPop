@@ -21,9 +21,12 @@ export class ProviderAccounts {
 
   constructor(private readonly readKey: (id: string) => string | null) {}
   bind(settings: () => AiSettings, emit: (event: AppEvent) => void): void { this.readSettings = settings; this.emit = emit; }
-  current(): AiSettings { if (this.readSettings) this.sync(this.readSettings()); return this.settings; }
+  current(): AiSettings { if (this.readSettings) this.apply(this.readSettings()); return this.settings; }
 
-  sync(settings: AiSettings): void {
+  /** Stored settings name the accounts once bound; a caller's copy counts only before, so a stale one removes nothing. */
+  sync(settings: AiSettings): void { this.apply(this.readSettings?.() ?? settings); }
+
+  private apply(settings: AiSettings): void {
     this.settings = settings;
     for (const [id, held] of this.held) {
       if (!accountKey(id) || settings.accounts.some((a) => a.id === id && a.auth === held.account.auth)) continue;
@@ -44,7 +47,8 @@ export class ProviderAccounts {
     this.current();
     for (const a of this.settings.accounts.filter((a) => accountProvider(a.id) === id)) this.get(a.id);
     this.queue(async () => {
-      if (this.owners.get(id) !== owner) return;
+      // Unbound, nothing says which folders are kept.
+      if (!this.readSettings || this.owners.get(id) !== owner) return;
       const kept = this.current().accounts.map((a) => a.id);
       for (const orphan of await orphanAccountIds(dataDir, id, kept)) {
         if (this.owners.get(id) !== owner) return;

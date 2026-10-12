@@ -84,6 +84,27 @@ describe('account routing and storage', () => {
     await expect(p.complete({ system: '', prompt: '' })).rejects.toThrow(REMOVED_ACCOUNT);
     expect(h.settings().providers['probe@work']).toBeDefined();
   });
+  it('keeps an account that a caller’s stale settings omit', async () => {
+    const h = start();
+    const dir = accountDir(h.dataDir, 'probe@work'); mkdirSync(dir, { recursive: true });
+    const p = h.registry.get('probe@work', h.settings());
+    const stale = normalizeAiSettings({}, declared);
+    h.registry.get('probe', stale);
+    expect((await h.registry.status(stale)).map((s) => s.id)).toEqual(['probe', 'probe@work', 'probe@api']);
+    await h.registry.accountsChanged(stale);
+    expect(h.impl.removeAccount).not.toHaveBeenCalled(); expect(existsSync(dir)).toBe(true);
+    expect(await p.complete({ system: '', prompt: '' })).toEqual({ text: 'probe@work:null' });
+  });
+  it('leaves the accounts folder of a provider that declares no accounts', async () => {
+    const plain = declared.map((d) => ({ ...d, accounts: undefined }));
+    const registry = new ProviderRegistry(() => undefined, plain);
+    const dataDir = tempDir(); const own = join(dataDir, ACCOUNTS_DIR, 'cache'); mkdirSync(own, { recursive: true });
+    const settings = normalizeAiSettings({}, plain);
+    registry.bindAccounts(() => settings, () => undefined);
+    registry.register('probe', start().impl, dataDir);
+    await registry.accountsChanged(settings);
+    expect(existsSync(own)).toBe(true);
+  });
   it('sweeps orphan folders on activation, keeps accounts, and rejects escaping ids', async () => {
     const h = start(); await h.registry.accountsChanged(h.settings()); h.off();
     const orphan = accountDir(h.dataDir, 'probe@orphan'); const kept = accountDir(h.dataDir, 'probe@work');
