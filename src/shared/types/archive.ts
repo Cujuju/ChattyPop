@@ -84,6 +84,7 @@ export interface PrivacyScope {
 export interface ChannelInfo {
   kind: number;
   guildId: string | null;
+  parentId: string | null;
 }
 
 export interface DirectoryGuild {

@@ -1,10 +1,11 @@
 import { api } from '@/api';
 import { createStore } from 'solid-js/store';
 import { snowflakeToMs } from '@shared/discord';
-import { backfillCutoffMs } from '@shared/archiveSettings';
+import { resolveBackfillCutoffMs } from '@shared/archiveSettings';
 import { backfillFraction } from '@shared/backfillProgress';
 import { onAppEvent } from './events';
 import { archiveSettings } from './preferences';
+import { channelById, refetchDirectory } from './directory';
 
 /** Backfill reports a page every few seconds; re-read a channel's reach at most this often. */
 const REFRESH_MS = 5000;
@@ -30,8 +31,9 @@ const lastRead = new Map<string, number>();
 async function refresh(channelId: string): Promise<void> {
   const state = await api.core.syncState(channelId);
   if (!state.oldestId) return;
+  if (!channelById(channelId)) await refetchDirectory();
   const now = Date.now();
-  const cutoffMs = backfillCutoffMs(archiveSettings().backfillHistory, now);
+  const cutoffMs = resolveBackfillCutoffMs(archiveSettings(), channelId, now, channelById(channelId));
   const reachedTs = snowflakeToMs(state.oldestId);
   const fraction = state.backfillComplete ? 1 : backfillFraction(now, cutoffMs, snowflakeToMs(channelId), reachedTs);
   const first = started.get(channelId) ?? { at: now, fraction };

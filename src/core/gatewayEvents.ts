@@ -9,7 +9,7 @@ export interface GatewayDeps {
   /** A channel's archived messages changed ('' = no one channel). */
   changed(channelId: string, insertOnly?: boolean, insertedId?: string): void;
   /** Start of the history window sync fills; older threads aren't archived. */
-  backfillFromMs(): number;
+  backfillFromMs(channelId: string): number;
   /** The signed-in user; null until main has said. */
   selfId(): string | null;
   /** A DM's newest message id rose (dm-activity): one row changed, not the list. */
@@ -100,10 +100,10 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
     }
     case 'THREAD_CREATE':
     case 'THREAD_UPDATE':
-      a.upsertThreads([d as RawThread], deps.backfillFromMs());
+      a.upsertThreads([d as RawThread], deps.backfillFromMs);
       return;
     case 'THREAD_LIST_SYNC':
-      a.upsertThreads((d as { threads?: RawThread[] }).threads ?? [], deps.backfillFromMs());
+      a.upsertThreads((d as { threads?: RawThread[] }).threads ?? [], deps.backfillFromMs);
       return;
     // Server nicknames: the name Discord shows for a person. Chunks answer the client's requests for the authors it renders.
     // Name writes report themselves (nameWrites.ts).

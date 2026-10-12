@@ -125,7 +125,7 @@ export class Archive {
   }
 
   /** Archives threads with archived parents. Returns threads needing activity sync or unfinished backfill within the requested window. */
-  upsertThreads(threads: RawThread[], backfillFromMs: number): string[] {
+  upsertThreads(threads: RawThread[], backfillFromMs: number | ((channelId: string) => number)): string[] {
     const stmt = this.db.prepare(
       `INSERT INTO channels (id, guild_id, name, kind, parent_id, opted_in)
        SELECT ?, p.guild_id, ?, ?, p.id, 1 FROM channels p WHERE p.id = ? AND p.opted_in = 1
@@ -136,9 +136,10 @@ export class Archive {
       for (const t of threads) {
         if (!stmt.run(t.id, t.name, t.type, t.parent_id).changes) continue;
         this.optedIn.add(t.id);
+        const cutoffMs = typeof backfillFromMs === 'number' ? backfillFromMs : backfillFromMs(t.id);
         const s = this.syncState(t.id);
         const newer = t.last_message_id && (!s.newestId || compareSnowflakes(t.last_message_id, s.newestId) > 0);
-        const backfillLeft = !s.backfillComplete && (!s.oldestId || snowflakeToMs(s.oldestId) > backfillFromMs);
+        const backfillLeft = !s.backfillComplete && (!s.oldestId || snowflakeToMs(s.oldestId) > cutoffMs);
         if (newer || (backfillLeft && t.last_message_id)) stale.push(t.id);
       }
     })();
@@ -146,7 +147,7 @@ export class Archive {
   }
 
   channelInfo(channelId: string): ChannelInfo | null {
-    const r = this.db.prepare('SELECT kind, guild_id AS guildId FROM channels WHERE id = ?').get(channelId) as ChannelInfo | undefined;
+    const r = this.db.prepare('SELECT kind, guild_id AS guildId, parent_id AS parentId FROM channels WHERE id = ?').get(channelId) as ChannelInfo | undefined;
     return r ?? null;
   }
 

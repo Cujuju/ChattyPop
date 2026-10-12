@@ -12,8 +12,6 @@ import {
   TEXT_CAP_MIN_GB,
   WAIT_JITTER,
   automaticPostPauseRange,
-  type BackfillHistory,
-  type BackfillUnit,
   type SyncPace,
   type TextTier,
 } from '@shared/settings';
@@ -26,7 +24,8 @@ import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
 import { EncryptionControl } from './EncryptionControl';
 import { BotCounts } from './BotCounts';
-import { BackfillControl } from './BackfillControl';
+import { BackfillControl, historyText } from './BackfillControl';
+import { ChannelHistoryControls, channelHistoryMeta } from './ChannelHistoryControls';
 import { ReverifyControls } from './ReverifyControls';
 import { StorageLocation } from './StorageLocation';
 import { Card, Note, NumberField, Row, SectionsPage, Stat, Stats, choiceOptions, settingsControl as c, type ChoiceText } from './SettingsLayout';
@@ -60,10 +59,6 @@ const PACES: Record<SyncPace, ChoiceText> = {
   normal: { option: 'Normal', meta: 'normal pace' },
 };
 
-const HISTORY_WORDS: Record<BackfillUnit, string> = { days: 'day', months: 'month', years: 'year' };
-const historyText = (history: BackfillHistory): string =>
-  history === 'complete' ? 'complete history' : countText(history.amount, HISTORY_WORDS[history.unit]);
-
 /** Settings → Archive: where messages are kept, how much space they take, and what gets synced. */
 export function ArchiveSection() {
   const s = archiveSettings;
@@ -86,6 +81,7 @@ export function ArchiveSection() {
             `${historyText(s().backfillHistory)} · ${s().syncEnabled ? PACES[s().syncPace].meta : 'background sync off'}${s().autoArchiveSinceMs !== null ? ' · DMs archived automatically' : ''}`,
           body: SyncBody,
         },
+        { id: 'channel-history', label: 'History by channel', meta: channelHistoryMeta, body: ChannelHistoryControls },
         { id: 'posting', label: 'Automatic posts', meta: () => `pause ${pauseRangeText(s().automaticPostPauseS)}`, body: PostingBody },
         { id: 'new-counts', label: 'New-message counts', meta: () => 'Choose which bots count', body: BotCounts },
         {

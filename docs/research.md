@@ -10,7 +10,7 @@ Researched 2026-09-24. Versions are from npm, nodejs.org and releases.electronjs
 | AI | Claude and ChatGPT via their **CLIs / subscription** (like T3 Code). Local AI also supported. |
 | Stack | Latest Electron (and the Node it bundles). **SolidJS 1.9** (latest stable). |
 | Attachments | Download and archive. |
-| Retention | User-set history depth and disk cap. Evict older content for newer. Compress history but keep summaries. |
+| Retention | Settings → Archive sets default history in days, months, years or complete history. History by channel overrides it per archived channel or DM; threads follow their parent. No earlier history fixes the cutoff when chosen. Deeper choices extend the next sync; shallower choices keep stored messages. Disk caps and older-message compression remain separate. |
 | Rules | Created in the UI; topics merged into them: an Alert action lists matches in Alerts with an optional toast. Edited in Settings → Rules (the Rules panel is retired), where the built-in rules' switches live too. No background running: closed means closed, except a server (`--server`, `docs/remote.md`), which runs until Quit. |
 | Summaries | Link back to source messages. |
 | Plugins | **Full trust** (the plugin author is the user). |

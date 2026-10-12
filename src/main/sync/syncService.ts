@@ -1,6 +1,6 @@
 import type { AppEvent } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
-import { backfillCutoffMs } from '@shared/archiveSettings';
+import { resolveBackfillCutoffMs } from '@shared/archiveSettings';
 import { MS_PER_DAY } from '@shared/units';
 import {
   CATEGORY_CHANNEL_TYPE,
@@ -177,8 +177,8 @@ export class SyncService {
 
   /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync. */
   private async discoverThreads(channelId: string): Promise<string[]> {
-    const { backfillHistory } = await readArchiveSettings(this.core);
-    const cutoffMs = backfillCutoffMs(backfillHistory, Date.now());
+    const settings = await readArchiveSettings(this.core);
+    const cutoffMs = resolveBackfillCutoffMs(settings, channelId, Date.now());
     const stale: string[] = [];
     for (const archived of [false, true]) {
       try {
@@ -226,6 +226,9 @@ export class SyncService {
   }
 
   private async syncRange(channelId: string, path: string): Promise<void> {
+    const settings = await readArchiveSettings(this.core);
+    const channel = await this.core.call('channelInfo', channelId);
+    const cutoffMs = resolveBackfillCutoffMs(settings, channelId, Date.now(), channel);
     const state = await this.core.call('syncState', channelId);
     let fetched = 0;
 
@@ -233,21 +236,21 @@ export class SyncService {
     for (let after = state.newestId; ;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, after: after ?? undefined });
       const reachedEnd = page.length < CLIENT_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
+      const kept = after ? page : page.filter((m) => snowflakeToMs(m.id) >= cutoffMs);
+      await this.core.call('ingestSyncPage', channelId, kept, after ? 'newer' : 'older', !after && reachedEnd && kept.length === page.length);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'catch-up', fetched });
       if (!after || reachedEnd) break;
       after = maxId(page);
     }
 
-    const { backfillHistory } = await readArchiveSettings(this.core);
-    const cutoffMs = backfillCutoffMs(backfillHistory, Date.now());
     const synced = await this.core.call('syncState', channelId);
     if (synced.backfillComplete) return;
     for (let before = synced.oldestId; before && snowflakeToMs(before) > cutoffMs;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, before });
       const reachedEnd = page.length < CLIENT_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
+      const kept = page.filter((m) => snowflakeToMs(m.id) >= cutoffMs);
+      await this.core.call('ingestSyncPage', channelId, kept, 'older', reachedEnd && kept.length === page.length);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'backfill', fetched });
       if (reachedEnd) return;

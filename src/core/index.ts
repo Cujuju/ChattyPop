@@ -17,7 +17,7 @@ import {
 } from '@shared/contract';
 import { userNames, type RawUser } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
-import { SETTINGS_KEYS, backfillCutoffMs, normalizeArchiveSettings } from '@shared/settings';
+import { SETTINGS_KEYS, resolveBackfillCutoffMs, normalizeArchiveSettings } from '@shared/settings';
 import { aiSettingsFrom } from '@shared/aiProviders';
 import { MS_PER_HOUR } from '@shared/units';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
@@ -149,7 +149,8 @@ const rulesOf = (): RuleService => need(ruleService);
 
 const archiveSettings = () => normalizeArchiveSettings(getSetting(ready().db, SETTINGS_KEYS.archive));
 /** Start of the history window sync fills (Settings → Archive → History and sync). */
-const backfillFromMs = (): number => backfillCutoffMs(archiveSettings().backfillHistory, Date.now());
+const backfillFromMs = (channelId: string): number =>
+  resolveBackfillCutoffMs(archiveSettings(), channelId, Date.now(), ready().archive.channelInfo(channelId));
 
 /** Enforces Settings → Archive → attachment cap (oldest files pruned first); a no-op when the cap is off. */
 function applyAttachmentCap(): void {

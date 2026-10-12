@@ -1,11 +1,15 @@
 // Archive settings: sync pace, backfill, retention and caps. Stored JSON is normalized on read (see settings.ts).
 import { bool, clampInt, clampNumber, isObj, oneOf } from './normalize';
-import { snowflakeToMs } from './discord';
+import { THREAD_CHANNEL_TYPES, snowflakeToMs } from './discord';
 import { MS_PER_DAY } from './units';
+import type { ChannelInfo } from './types/archive';
 
 export const BACKFILL_UNITS = ['days', 'months', 'years'] as const;
 export type BackfillUnit = (typeof BACKFILL_UNITS)[number];
 export type BackfillHistory = { unit: BackfillUnit; amount: number } | 'complete';
+/** A channel's fixed starting time, captured when no earlier history is chosen. */
+export type BackfillSince = { sinceMs: number };
+export type ChannelBackfillHistory = BackfillHistory | BackfillSince;
 
 /** The lowest snowflake, 0, encodes the earliest possible message time. */
 export const EARLIEST_MESSAGE_MS = snowflakeToMs('0');
@@ -35,8 +39,9 @@ const readBackfillHistory = (v: unknown): BackfillHistory | undefined => {
 };
 
 /** Calendar subtraction uses UTC and clamps missing days to the target month's last day. */
-export function backfillCutoffMs(history: BackfillHistory, now: number): number {
+export function backfillCutoffMs(history: ChannelBackfillHistory, now: number): number {
   if (history === 'complete') return EARLIEST_MESSAGE_MS;
+  if ('sinceMs' in history) return history.sinceMs;
   if (history.unit === 'days') return now - history.amount * MS_PER_DAY;
   const date = new Date(now);
   const day = date.getUTCDate();
@@ -47,6 +52,13 @@ export function backfillCutoffMs(history: BackfillHistory, now: number): number 
   lastDay.setUTCMonth(lastDay.getUTCMonth() + 1, 0);
   date.setUTCDate(Math.min(day, lastDay.getUTCDate()));
   return date.getTime();
+}
+
+/** Threads and forum posts use their parent; other channels, including DMs, use their own choice. */
+export function resolveBackfillCutoffMs(settings: ArchiveSettings, channelId: string, now: number, channel?: Pick<ChannelInfo, 'kind' | 'parentId'> | null): number {
+  const ownerId = channel && THREAD_CHANNEL_TYPES.has(channel.kind) ? channel.parentId ?? channelId : channelId;
+  const history = Object.hasOwn(settings.channelBackfillHistory, ownerId) ? settings.channelBackfillHistory[ownerId] : undefined;
+  return backfillCutoffMs(history ?? settings.backfillHistory, now);
 }
 
 export const SYNC_PACES = ['gentle', 'normal'] as const;
@@ -83,6 +95,8 @@ export const automaticPostPauseRange = (s: number): { min: number; max: number }
 export interface ArchiveSettings {
   /** How far back a newly opted-in channel is backfilled. */
   backfillHistory: BackfillHistory;
+  /** Per-channel overrides; absent entries follow backfillHistory. Threads follow their parent. */
+  channelBackfillHistory: Record<string, ChannelBackfillHistory>;
   syncPace: SyncPace;
   /** Background catch-up and backfill. Live capture from the open client is passive and unaffected. */
   syncEnabled: boolean;
@@ -128,6 +142,7 @@ export const ATTACHMENT_CAP_MAX_GB = 100_000;
 
 export const DEFAULT_ARCHIVE_SETTINGS: ArchiveSettings = {
   backfillHistory: DEFAULT_BACKFILL_HISTORY,
+  channelBackfillHistory: {},
   syncPace: 'gentle',
   syncEnabled: true,
   attachmentCapGb: null,
@@ -148,11 +163,33 @@ const normalizeCap = (v: unknown, min: number, max: number): number | null => {
 /** A stored time (ms): finite and positive, else null. */
 const normalizeTime = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
 
+const readChannelBackfillHistory = (v: unknown): ChannelBackfillHistory | undefined => {
+  if (v === 'complete') return v;
+  if (!isObj(v) || Array.isArray(v)) return undefined;
+  if ('sinceMs' in v) {
+    const sinceMs = normalizeTime(v['sinceMs']);
+    return sinceMs === null ? undefined : { sinceMs };
+  }
+  const unit = oneOf(BACKFILL_UNITS, v['unit'], null);
+  const amount = v['amount'];
+  return unit && typeof amount === 'number' && Number.isInteger(amount) && amount >= BACKFILL_AMOUNT_MIN && amount <= BACKFILL_AMOUNT_MAX[unit]
+    ? { unit, amount } : undefined;
+};
+
+const normalizeChannelBackfillHistory = (v: unknown): Record<string, ChannelBackfillHistory> => {
+  if (!isObj(v) || Array.isArray(v)) return {};
+  return Object.fromEntries(Object.entries(v).flatMap(([id, value]) => {
+    const history = readChannelBackfillHistory(value);
+    return id && history !== undefined ? [[id, history]] : [];
+  }));
+};
+
 export function normalizeArchiveSettings(v: unknown): ArchiveSettings {
   const src = isObj(v) ? v : {};
   const d = DEFAULT_ARCHIVE_SETTINGS;
   return {
     backfillHistory: readBackfillHistory(src['backfillHistory']) ?? readBackfillHistory({ unit: 'days', amount: src['backfillDays'] }) ?? DEFAULT_BACKFILL_HISTORY,
+    channelBackfillHistory: normalizeChannelBackfillHistory(src['channelBackfillHistory']),
     syncPace: oneOf(SYNC_PACES, src['syncPace'], d.syncPace),
     syncEnabled: bool(src['syncEnabled'], d.syncEnabled),
     attachmentCapGb: normalizeCap(src['attachmentCapGb'], ATTACHMENT_CAP_MIN_GB, ATTACHMENT_CAP_MAX_GB),

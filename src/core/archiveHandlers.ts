@@ -64,7 +64,7 @@ export function archiveHandlers(o: {
   /** An archive write touched this channel ('' = none in particular); coalesced into one UI refresh. */
   noteChanged: (channelId: string, insertOnly?: boolean) => void;
   /** Start of the history window sync fills. */
-  backfillFromMs: () => number;
+  backfillFromMs: (channelId: string) => number;
   /** The signed-in user; null until main has said. */
   selfId: () => string | null;
   /** End of the previous app session. */
@@ -135,7 +135,7 @@ export function archiveHandlers(o: {
     optedInDms: () => archive().optedInChannels(o.selfId(), true),
     syncable: (channelId) => archive().syncable(channelId, o.selfId()),
     upsertThreads: (threads) => {
-      const stale = archive().upsertThreads(threads, o.backfillFromMs());
+      const stale = archive().upsertThreads(threads, o.backfillFromMs);
       if (threads.length) o.noteChanged('');
       return stale;
     },
