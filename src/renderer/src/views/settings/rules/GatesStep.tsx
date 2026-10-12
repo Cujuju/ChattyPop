@@ -158,7 +158,7 @@ export function GatesStep(props: {
               <For each={actsAsYouNotes()}>{(Note) => <Note />}</For>
             </div>
             <p class={styles.warn} role="note">
-              Live messages from others only. Automated posting from a user account can get it banned.
+              Automated posting from a user account can get it banned.
             </p>
           </Field>
         </Show>
