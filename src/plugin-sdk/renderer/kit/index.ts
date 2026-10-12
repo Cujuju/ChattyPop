@@ -46,6 +46,8 @@ export { Embeds, isMediaOnly } from '@/panels/chat/MessageExtras';
 // A person named in a plugin's text: their name as Discord draws it in a place, kept current, opening their profile.
 export { PersonName } from '@/panels/chat/PersonName';
 export { Card, choiceOptions, ErrorNote, Note, Page, Row, SectionsPage, SettingsButton, type ChoiceText } from '@/views/settings/SettingsLayout';
+// Sections beside a rail or picker, with selection owned by the caller.
+export { SectionSplit, type SectionDef } from '@/views/settings/SettingsLayout';
 export { EffortRow, ModelRow } from '@/views/settings/ModelRows';
 export { ModelList, modelTraits } from '@/views/settings/ModelList';
 export { ProviderSelect } from '@/views/settings/ProviderSelect';

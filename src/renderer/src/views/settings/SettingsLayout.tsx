@@ -8,8 +8,8 @@ import card from './SettingsCard.module.css';
 import styles from './SettingsLayout.module.css';
 import settings from './Settings.module.css';
 
-/** One section of a Settings page: its rail entry and what opens beside it. */
-export interface SettingsSectionDef {
+/** One section: its rail entry and what opens beside it. */
+export interface SectionDef {
   id: string;
   label: string;
   /** Rail group heading this entry sits under (entries of a group are adjacent). */
@@ -30,6 +30,8 @@ export interface SettingsSectionDef {
   actions?: () => JSX.Element;
   body: () => JSX.Element;
 }
+
+export type SettingsSectionDef = SectionDef;
 
 
 /** Opens a page's section from elsewhere (e.g. a link between Settings pages). */
@@ -93,91 +95,59 @@ export interface RailAdd {
   onClick: () => void;
 }
 
-/** Settings sections show current summaries beside one editor; narrow windows use pickers. notice sits between page heading and sections. */
+/** Sections beside a rail or narrow-window picker; the caller owns the open id. */
+export function SectionSplit(props: { title: string; sections: SectionDef[]; openId: string; onOpen: (id: string) => void; railAdd?: RailAdd }) {
+  const open = createMemo(() => props.sections.find((s) => s.id === props.openId) ?? props.sections[0]!);
+  const groupStart = (i: number): string | undefined =>
+    props.sections[i]!.group !== props.sections[i - 1]?.group ? props.sections[i]!.group : undefined;
+  return (
+    <div class="cp-settings-split">
+      <nav class="cp-settings-rail" aria-label={`${props.title} sections`}>
+        <For each={props.sections}>{(s, i) => (
+          <>
+            <Show when={s.divider && i() > 0}><hr class={styles.railDivider} /></Show>
+            <Show when={groupStart(i())}>{(g) => <h3 class={styles.railGroup} data-group={g()}><span class="cp-group-swatch" />{g()}</h3>}</Show>
+            <RailItem label={s.label} meta={s.meta?.()} aside={s.aside} current={open().id === s.id} muted={s.muted?.() ?? false} onClick={() => props.onOpen(s.id)} />
+          </>
+        )}</For>
+        <Show when={props.railAdd}>{(add) => (
+          <div class={styles.railFoot}>
+            <hr class={styles.railDivider} />
+            <div class="cp-rail-item">
+              <button type="button" class={`cp-rail-button ${styles.railAdd}`} onClick={() => add().onClick()}><Icon name="plus" class={styles.railAddIcon} /><span class="cp-rail-label">{add().label}</span></button>
+            </div>
+          </div>
+        )}</Show>
+      </nav>
+      <div class={styles.picker}>
+        <Select value={open().id} label="Section" onChange={(id) => props.onOpen(id)}
+          options={props.sections.map((s) => ({ value: s.id, label: s.group ? `${s.group} · ${s.label}` : s.label }))} />
+        <Show when={props.railAdd}>{(add) => <SettingsButton onClick={() => add().onClick()}>+ {add().label}</SettingsButton>}</Show>
+      </div>
+      <div class={styles.detail} data-group={open().group}>
+        <div class={styles.detailHead}>
+          <h3 class={styles.detailTitle}>{open().title ?? open().label}</h3>
+          <Show when={open().link}>{(link) => <a class={`${look.link} ${look.text}`} data-size="sm" data-weight="medium" href={link().href} target="_blank" rel="noreferrer" title={link().href}>{link().label}</a>}</Show>
+          {/* Each section's actions start with their own state. */}
+          <Show when={open().actions && open().id} keyed>{(_id) => <div class={styles.detailActions}>{open().actions!()}</div>}</Show>
+        </div>
+        {/* A component keeps body signals from remounting the whole section. */}
+        <Dynamic component={open().body} />
+      </div>
+    </div>
+  );
+}
+
+/** Settings supplies the page head and persisted selection to the shared split. */
 export function SectionsPage(props: { id: string; title: string; lede?: JSX.Element; right?: JSX.Element; notice?: JSX.Element; railAdd?: RailAdd; sections: SettingsSectionDef[] }) {
-  /** The page's stored section while it still has it, else its first. */
   const openId = () => {
     const stored = settingsSections()[props.id];
     return props.sections.some((s) => s.id === stored) ? stored! : props.sections[0]!.id;
   };
-  const open = createMemo(() => props.sections.find((s) => s.id === openId()) ?? props.sections[0]!);
-  const groupStart = (i: number): string | undefined => {
-    const g = props.sections[i]!.group;
-    return g && g !== props.sections[i - 1]?.group ? g : undefined;
-  };
   return (
     <section class="cp-settings-page" aria-labelledby={`${props.id}-heading`}>
       <PageHead id={props.id} title={props.title} lede={props.lede} right={props.right} />
-      {props.notice}
-      <div class="cp-settings-split">
-        <nav class="cp-settings-rail" aria-label={`${props.title} sections`}>
-          <For each={props.sections}>
-            {(s, i) => (
-              <>
-                <Show when={s.divider && i() > 0}>
-                  <hr class={styles.railDivider} />
-                </Show>
-                <Show when={groupStart(i())}>
-                  {(g) => (
-                    <h3 class={styles.railGroup} data-group={g()}>
-                      <span class="cp-group-swatch" />
-                      {g()}
-                    </h3>
-                  )}
-                </Show>
-                <RailItem
-                  label={s.label}
-                  meta={s.meta?.()}
-                  aside={s.aside}
-                  current={openId() === s.id}
-                  muted={s.muted?.() ?? false}
-                  onClick={() => openSettingsSection(props.id, s.id)}
-                />
-              </>
-            )}
-          </For>
-          <Show when={props.railAdd}>
-            {(add) => (
-              <div class={styles.railFoot}>
-                <hr class={styles.railDivider} />
-                <div class="cp-rail-item">
-                  <button type="button" class={`cp-rail-button ${styles.railAdd}`} onClick={() => add().onClick()}>
-                    <Icon name="plus" class={styles.railAddIcon} />
-                    <span class="cp-rail-label">{add().label}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </Show>
-        </nav>
-        <div class={styles.picker}>
-          <Select
-            value={open().id}
-            options={props.sections.map((s) => ({ value: s.id, label: s.group ? `${s.group} · ${s.label}` : s.label }))}
-            label="Section"
-            onChange={(v) => openSettingsSection(props.id, v)}
-          />
-          <Show when={props.railAdd}>{(add) => <SettingsButton onClick={() => add().onClick()}>+ {add().label}</SettingsButton>}</Show>
-        </div>
-        <div class={styles.detail} data-group={open().group}>
-          <div class={styles.detailHead}>
-            <h3 class={styles.detailTitle}>{open().title ?? open().label}</h3>
-            <Show when={open().link}>
-              {(l) => (
-                <a class={`${look.link} ${look.text}`} data-size="sm" data-weight="medium" href={l().href} target="_blank" rel="noreferrer" title={l().href}>
-                  {l().label}
-                </a>
-              )}
-            </Show>
-            {/* Keyed by the section: its actions keep no state from the one open before. */}
-            <Show when={open().actions && open().id} keyed>
-              {(_id) => <div class={styles.detailActions}>{open().actions!()}</div>}
-            </Show>
-          </div>
-          {/* A component, not a call: a signal a body reads must not re-run the whole body and reset its state. */}
-          <Dynamic component={open().body} />
-        </div>
-      </div>
+      {props.notice}<SectionSplit title={props.title} sections={props.sections} openId={openId()} onOpen={(id) => openSettingsSection(props.id, id)} railAdd={props.railAdd} />
     </section>
   );
 }
