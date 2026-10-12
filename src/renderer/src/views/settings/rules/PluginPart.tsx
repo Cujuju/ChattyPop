@@ -11,12 +11,14 @@ export function PluginPart(props: {
   section: 'match' | 'filters';
   kind: RuleKind;
   part: RulePart | undefined;
+  /** The checkbox's words where the kind's label already heads its own field; the kind's label otherwise. */
+  choice?: string;
   onChange(config: unknown): void;
 }) {
   return <>
     <label class={styles.checkChip}>
       <input type="checkbox" checked={!!props.part} onChange={(e) => props.onChange(e.currentTarget.checked ? props.kind.create() : undefined)} />
-      {props.kind.label}
+      {props.choice ?? props.kind.label}
     </label>
     <Show when={props.part}>
       {(part) => <Dynamic

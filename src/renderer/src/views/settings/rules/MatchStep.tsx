@@ -12,6 +12,9 @@ import { ChipRow } from './pickers';
 import { kindView, filterView } from './kinds';
 import styles from './Rules.module.css';
 
+/** A plugin match's checkbox: its field is already headed by the kind's label. */
+const USE_CONDITION = 'Use this condition';
+
 /** If: any match part suffices, then every narrowing filter must hold. */
 export function MatchStep(props: { input: RuleInput; rule: Rule | null; onSpec: (patch: Partial<RuleSpec>) => void }) {
   const spec = () => props.input.spec;
@@ -83,6 +86,7 @@ export function MatchStep(props: { input: RuleInput; rule: Rule | null; onSpec: 
                     <PluginPart
                       section="match"
                       kind={k}
+                      choice={USE_CONDITION}
                       part={spec().match.find((p) => p.type === k.type)}
                       onChange={(c) => setPart('match', k.type, c)}
                     />
