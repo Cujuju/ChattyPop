@@ -19,6 +19,8 @@ export interface SearchOption extends SelectOption {
   lead?: () => JSX.Element;
   /** A quiet line under the label in the list (a model's traits); filtering reads it too. */
   note?: string;
+  /** A price, on its own line under the note. */
+  price?: string;
 }
 
 /** Desktop floating picker; companion full-screen picker. Both use the same searchable list. */

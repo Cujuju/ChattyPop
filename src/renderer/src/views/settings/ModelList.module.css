@@ -1,0 +1,7 @@
+/* A model's hint (ModelList): its line, then its price on a line of its own. Structure only; the row's hint sets the
+   type, the theme's text role the price's tone. */
+.hint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+}

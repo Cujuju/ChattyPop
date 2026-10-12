@@ -1,9 +1,11 @@
 // A provider's models as one picker row: each option names what the model can do. Shared by AI and feature settings.
 import { For, Show, createMemo, createSignal, type JSX } from 'solid-js';
 import type { ModelOption } from '@shared/contract';
+import { look } from '@/theme/look';
 import { SearchSelect } from '@/ui/SearchSelect';
 import { formatBytes } from '@/ui/format';
 import { Row, SettingsButton, settingsControl as c } from './SettingsLayout';
+import styles from './ModelList.module.css';
 
 /** The picker's value while no listed model is picked. */
 const NONE = '';
@@ -14,6 +16,21 @@ export const modelTraits = (m: ModelOption): string =>
 
 /** A model's line under its name: the provider's own description, then its traits. */
 const modelNote = (m: ModelOption): string | undefined => [m.description, modelTraits(m)].filter(Boolean).join(' · ') || undefined;
+
+/** A row's hint for a model: its line, then its price on a line of its own. */
+const modelHint = (m: ModelOption | undefined): JSX.Element =>
+  m && (modelNote(m) || m.price) ? (
+    <span class={styles.hint}>
+      <Show when={modelNote(m)}>{(note) => <span>{note()}</span>}</Show>
+      <Show when={m.price}>
+        {(price) => (
+          <span class={look.text} data-tone="success">
+            {price()}
+          </span>
+        )}
+      </Show>
+    </span>
+  ) : undefined;
 
 export interface ModelListProps {
   /** The picker's element id: unique per page. */
@@ -43,7 +60,7 @@ export function ModelList(props: ModelListProps) {
       <Row
         label="Model"
         for={props.id}
-        hint={picked() && modelNote(picked()!)}
+        hint={modelHint(picked())}
         control={
           <SearchSelect
             id={props.id}
@@ -53,7 +70,7 @@ export function ModelList(props: ModelListProps) {
             value={picked()?.id ?? NONE}
             placeholder={placeholder()}
             disabled={!rows().length}
-            options={rows().map((m) => ({ value: m.id, label: m.label, note: modelNote(m) }))}
+            options={rows().map((m) => ({ value: m.id, label: m.label, note: modelNote(m), price: m.price }))}
             onChange={(id) => props.onChange(id)}
           />
         }
@@ -70,7 +87,7 @@ export function ModelList(props: ModelListProps) {
               }
             />
             <Show when={managing()}>
-              <For each={props.models}>{(m) => <Row label={m.label} hint={modelNote(m)} control={action()(m)} />}</For>
+              <For each={props.models}>{(m) => <Row label={m.label} hint={modelHint(m)} control={action()(m)} />}</For>
             </Show>
           </>
         )}

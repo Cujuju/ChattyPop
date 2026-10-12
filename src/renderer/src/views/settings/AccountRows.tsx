@@ -5,9 +5,10 @@ import { accountKey } from '@shared/providerAccounts';
 import type { ProviderId } from '@shared/settings';
 import { aiSettings, providerLabel, refetchProviderStatus } from '@/state/preferences';
 import { accountLink, removeProviderAccount } from '@/state/providerAccounts';
-import { confirmDialog } from '@/state/dialogs';
+import { failureNotice } from '@/state/dialogs';
 import { onServerScreen } from '@/state/ui';
 import { createAction } from '@/ui/action';
+import { HoldButton } from '@/ui/HoldButton';
 import { statusOf } from './ModelRows';
 import { StoredKeyRow } from './StoredKeyRow';
 import { ErrorNote, Note, Row, SettingsButton, settingsControl as c } from './SettingsLayout';
@@ -51,17 +52,15 @@ function SignInRow(props: Props) {
   </Row>;
 }
 
-export function RemoveAccountRow(props: Props) {
-  const account = () => aiSettings().accounts.find((a) => a.id === props.provider);
-  const action = createAction();
-  const remove = async (): Promise<void> => {
-    const credential = account()?.auth === 'signIn' ? 'sign-in' : 'API key';
-    if (await confirmDialog({ title: 'Remove account', message: `Remove ${providerLabel(props.provider)}? Its ${credential} is deleted from ChattyPop.`, confirmLabel: 'Remove', danger: true }))
-      await action.run(() => removeProviderAccount(props.provider));
+/** In the account's section title: a full hold removes it and its sign-in or API key, without a confirmation dialog. */
+export function RemoveAccountButton(props: Props) {
+  const [busy, setBusy] = createSignal(false);
+  const credential = (): string => (aiSettings().accounts.find((a) => a.id === props.provider)?.auth === 'signIn' ? 'sign-in' : 'API key');
+  const remove = (): void => {
+    setBusy(true);
+    void removeProviderAccount(props.provider).catch(failureNotice("Couldn't remove the account")).finally(() => setBusy(false));
   };
-  return <Show when={account()}><Row label="Remove account" control={<SettingsButton tone="danger" disabled={action.busy()} onClick={() => void remove()}>Remove account</SettingsButton>}>
-    <ErrorNote error={action.error()} />
-  </Row></Show>;
+  return <HoldButton icon="trash" action={`remove this account and its ${credential()}`} disabled={busy()} onComplete={remove} />;
 }
 
 export function EarlierKeyRow(props: Props) {

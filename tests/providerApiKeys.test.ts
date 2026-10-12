@@ -138,6 +138,6 @@ describe('API key descriptors and placement', () => {
   });
   it('accepts a key declaration and places its row after enabled', () => {
     expect(() => checkBundled([plugin])).not.toThrow();
-    expect(HOST_PROVIDER_ROWS).toEqual(['enabled', 'account', 'api-key', 'remove-account', 'model', 'effort', 'plan-usage', 'rows']);
+    expect(HOST_PROVIDER_ROWS).toEqual(['enabled', 'account', 'api-key', 'model', 'effort', 'plan-usage', 'rows']);
   });
 });

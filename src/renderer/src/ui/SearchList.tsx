@@ -1,4 +1,5 @@
 import { For, Match, Show, Switch, createEffect, createMemo, createSignal, onMount, type JSX } from 'solid-js';
+import { look } from '@/theme/look';
 import { Icon } from './icons';
 import { createListNav } from './listNav';
 import type { SearchOption } from './SearchSelect';
@@ -181,7 +182,8 @@ export function SearchList(props: {
                         {lead(o())}
                         <span class={styles.text}>
                           <span class={styles.label}>{o().label}</span>
-                          <Show when={o().note}>{(note) => <span class={styles.note}>{note()}</span>}</Show>
+                          <Show when={o().note}>{(note) => <span class={`${styles.note} ${look.text}`} data-size="xs" data-tone="muted">{note()}</span>}</Show>
+                          <Show when={o().price}>{(price) => <span class={`${styles.note} ${look.text}`} data-size="xs" data-tone="success">{price()}</span>}</Show>
                         </span>
                         <Show when={o().value === props.value}>
                           <Icon name="check" class={styles.check} />

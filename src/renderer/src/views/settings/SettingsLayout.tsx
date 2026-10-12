@@ -26,6 +26,8 @@ export interface SettingsSectionDef {
   title?: string;
   /** An outside page linked beside the open section's title (a provider's site). */
   link?: { href: string; label: string };
+  /** At the end of the open section's title line: what acts on the section itself (removing an account). */
+  actions?: () => JSX.Element;
   body: () => JSX.Element;
 }
 
@@ -166,6 +168,10 @@ export function SectionsPage(props: { id: string; title: string; lede?: JSX.Elem
                   {l().label}
                 </a>
               )}
+            </Show>
+            {/* Keyed by the section: its actions keep no state from the one open before. */}
+            <Show when={open().actions && open().id} keyed>
+              {(_id) => <div class={styles.detailActions}>{open().actions!()}</div>}
             </Show>
           </div>
           {/* A component, not a call: a signal a body reads must not re-run the whole body and reset its state. */}

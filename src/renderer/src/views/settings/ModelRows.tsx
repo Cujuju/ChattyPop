@@ -67,7 +67,7 @@ export function EffortRow(props: RowProps) {
       <Row
         label="Thinking"
         for={props.fieldId}
-        hint="How much the model reasons before answering. Higher is slower and uses more of your plan or credits."
+        hint="Higher is slower and costs more."
         control={<EffortSelect id={props.fieldId} model={model()} value={props.value.effort} onChange={(effort) => props.onChange({ effort })} />}
       />
     </Show>

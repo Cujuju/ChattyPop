@@ -10,14 +10,14 @@ import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders, providerReportsPlanUsage } from '@/state/aiProviders';
-import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
+import { aiSettings, providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
 import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
-import { AccountRow, EarlierKeyRow, RemoveAccountRow } from './AccountRows';
+import { AccountRow, EarlierKeyRow, RemoveAccountButton } from './AccountRows';
 import { AddAccountDialog, canAddAccount, openAddAccount } from './AddAccount';
 import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import styles from './Settings.module.css';
@@ -50,6 +50,7 @@ export function AiSection() {
       meta: () => providerMeta(d),
       muted: () => !providerSettingsOf(d.id).enabled,
       link: siteLink(d.site),
+      actions: aiSettings().accounts.some((a) => a.id === d.id) ? () => <RemoveAccountButton provider={d.id} /> : undefined,
       body: () => <ProviderBody provider={d} />,
     })),
     ...settingsSections('ai'),
@@ -106,7 +107,6 @@ const HOST_ROWS: readonly (ProviderRow & { id: HostProviderRowId })[] = [
   { id: 'enabled', Component: EnabledRow },
   { id: 'account', Component: AccountRow },
   { id: 'api-key', Component: EarlierKeyRow },
-  { id: 'remove-account', Component: RemoveAccountRow },
   { id: 'model', Component: (p) => <ProviderModels provider={p.provider} /> },
   { id: 'effort', Component: (p) => <EffortRow fieldId={`ai-effort-${p.provider}`} provider={p.provider} value={providerSettingsOf(p.provider)} onChange={(v) => updateProvider(p.provider, v)} /> },
   { id: 'plan-usage', Component: (p) => <Show when={providerReportsPlanUsage(p.provider) && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },
@@ -157,7 +157,6 @@ function PlanUsage(props: { id: ProviderId }) {
   return (
     <Row
       label="Plan usage"
-      hint="How much of your plan's limits you've used, as the provider reports it."
       control={
         <button type="button" class={`cp-button ${styles.button}`} onClick={() => void check()}>
           Check plan usage

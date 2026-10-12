@@ -124,7 +124,7 @@
   text-overflow: ellipsis;
 }
 
-/* An option's label over its note: the label cuts off, a long note (a model's description) wraps. */
+/* An option's label over its note and price: the label cuts off, a long note (a model's description) wraps. */
 .text {
   display: flex;
   flex: 1 1 auto;
@@ -133,9 +133,8 @@
   min-width: 0;
 }
 
+/* A line under the label; its size and tone are the theme's text role. */
 .note {
-  color: var(--cp-text-muted);
-  font-size: var(--cp-text-xs);
   font-weight: var(--cp-weight-regular);
   line-height: var(--cp-leading-normal);
   white-space: normal;

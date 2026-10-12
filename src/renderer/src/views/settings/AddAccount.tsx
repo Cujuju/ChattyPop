@@ -112,7 +112,7 @@ function AddAccountForm() {
         <div class="cp-actions">
           <SettingsButton onClick={close}>Cancel</SettingsButton>
           <button class="cp-primary" type="submit" disabled={action.busy() || !name().trim() || !auth()}>
-            Add account
+            {action.busy() ? 'Adding…' : 'Add account'}
           </button>
         </div>
       </form>

@@ -98,16 +98,24 @@
   overflow-y: auto;
 }
 
-/* The open section's title, and its outside link (a provider's site) at the row's right end. */
+/* The open section's title; its outside link (a provider's site) and its actions sit at the row's right end. */
 .detailHead {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--cp-space-4);
+  gap: var(--cp-space-6);
+  min-height: var(--cp-btn-h); /* a title with actions stands as tall as one without */
+}
+
+/* Icon buttons centre on the title's line rather than sit on its baseline. */
+.detailActions {
+  display: flex;
+  align-self: center;
+  align-items: center;
+  gap: var(--cp-space-3);
 }
 
 .detailTitle {
-  margin: 0;
+  margin: 0 auto 0 0;
   color: var(--cp-text-1);
   font-size: var(--cp-text-lg);
   font-weight: var(--cp-weight-semibold);
