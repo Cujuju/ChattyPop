@@ -25,7 +25,7 @@ describe('account ids and normalized settings', () => {
     expect(normalizeProviderId(id)).toBe(id);
     expect(() => newAccountId(id, [])).toThrow();
   });
-  it.each(['probe@', 'probe@UPPER', 'probe@../a', 'probe@a@b', 'probe@a-b', 'probe@a.b'])('refuses malformed %s', (id) => {
+  it.each(['probe@', 'probe@UPPER', 'probe@../a', 'probe@a@b', 'probe@a-b', 'probe@a.b', 'probe@con', 'probe@prn', 'probe@aux', 'probe@nul', 'probe@com1', 'probe@lpt9'])('refuses malformed %s', (id) => {
     expect(normalizeProviderId(id)).toBeNull();
     expect(() => accountProvider(id)).toThrow();
     expect(() => accountKey(id)).toThrow();

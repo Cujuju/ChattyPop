@@ -10,7 +10,8 @@ export interface ProviderAccountSettings { id: ProviderId; auth: AccountAuth }
 export const isAccountAuth = (value: unknown): value is AccountAuth => (ACCOUNT_AUTHS as readonly unknown[]).includes(value);
 
 /** Account keys are safe folder names, DOM ids and preference keys. */
-export const ACCOUNT_KEY_SOURCE = '[a-z0-9]+';
+const WINDOWS_DEVICE_KEY_SOURCE = '(?:con|prn|aux|nul|com[1-9]|lpt[1-9])';
+export const ACCOUNT_KEY_SOURCE = `(?!${WINDOWS_DEVICE_KEY_SOURCE}$)[a-z0-9]+`;
 export const ACCOUNT_KEY = new RegExp(`^${ACCOUNT_KEY_SOURCE}$`);
 export const DECLARED_PROVIDER_SOURCE = `${PLUGIN_ID_SOURCE}(\\.[a-zA-Z][a-zA-Z0-9_]*)?`;
 export const DECLARED_PROVIDER_ID = new RegExp(`^${DECLARED_PROVIDER_SOURCE}$`);
