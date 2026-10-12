@@ -241,8 +241,11 @@ type DmRanked = { id: string; dm?: { lastMessageId: string | null } };
 /** Discord's DM order: newest message first; a DM without one ranks by its own id (when it was made). */
 export const byDmActivity = (a: DmRanked, b: DmRanked): number => compareSnowflakes(b.dm?.lastMessageId ?? b.id, a.dm?.lastMessageId ?? a.id);
 
-/** The emoji as Discord's reaction URL takes it: the unicode emoji, or name:id for a custom one, URL-encoded. */
-export const reactionPathPart = (e: ArchiveEmoji): string => encodeURIComponent(e.id ? `${e.name}:${e.id}` : e.name);
+/** Drops redundant emoji selectors (emojibase's ⭐️ → ⭐), preserving selectors after text-default characters. */
+export const normalizeUnicodeReaction = (name: string): string => name.replace(/(\p{Emoji_Presentation})\uFE0F/gu, '$1');
+
+/** The emoji as Discord's reaction URL takes it: canonical Unicode, or name:id for a custom one, URL-encoded. */
+export const reactionPathPart = (e: ArchiveEmoji): string => encodeURIComponent(e.id ? `${e.name}:${e.id}` : normalizeUnicodeReaction(e.name));
 
 /** `v` is an emoji a reaction can use (it comes from a renderer or a stored rule). */
 export const isReactionEmoji = (v: unknown): v is ArchiveEmoji => {

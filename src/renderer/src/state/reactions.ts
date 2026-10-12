@@ -3,12 +3,13 @@ import { api } from '@/api';
 import { createResource, createSignal, untrack } from 'solid-js';
 import type { UsedEmoji } from '@shared/compose';
 import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
+import { normalizeUnicodeReaction } from '@shared/discord';
 import { failureNotice } from './dialogs';
 import { refreshLoaded } from './archive';
 import { onAppEvent } from './events';
 
 /** A picked or often-used emoji as a reaction (id null: Unicode, its text the name). */
-export const asReaction = (e: UsedEmoji): ArchiveEmoji => ('unicode' in e ? { id: null, name: e.unicode, animated: false } : { id: e.custom.id, name: e.custom.name, animated: e.custom.animated });
+export const asReaction = (e: UsedEmoji): ArchiveEmoji => ('unicode' in e ? { id: null, name: normalizeUnicodeReaction(e.unicode), animated: false } : { id: e.custom.id, name: e.custom.name, animated: e.custom.animated });
 
 /** The owner's most-used reactions fetched: enough to fill a quick-reaction row after dropping ones unusable in a channel. */
 const OWN_REACTIONS_MAX = 24;
@@ -30,7 +31,7 @@ onAppEvent('privacy-changed', refreshOwnReactions);
 
 /** Whether `m` carries the owner's reaction with `emoji`. */
 export const reactedWith = (m: ArchiveMessage, emoji: ArchiveEmoji): boolean =>
-  m.reactions.some((r) => r.me && (emoji.id ? r.emoji.id === emoji.id : !r.emoji.id && r.emoji.name === emoji.name));
+  m.reactions.some((r) => r.me && (emoji.id ? r.emoji.id === emoji.id : !r.emoji.id && normalizeUnicodeReaction(r.emoji.name) === normalizeUnicodeReaction(emoji.name)));
 
 /** Discord takes no reactions on a deleted message. */
 export const canReact = (m: ArchiveMessage): boolean => m.deletedAt === null;

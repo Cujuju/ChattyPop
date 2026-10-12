@@ -10,6 +10,7 @@ import {
   PUBLIC_THREAD_TYPE,
   THREAD_NAME_MAX,
   isReactionEmoji,
+  normalizeUnicodeReaction,
   reactionPathPart,
   snowflakeArg,
   newNonce,
@@ -255,7 +256,7 @@ export async function deleteOwnerMessage(api: DiscordWriter, v: unknown): Promis
 export function checkOwnerReaction(v: unknown): OwnerReaction {
   const r = v as Partial<OwnerReaction> | null;
   if (!r || typeof r.add !== 'boolean' || !isReactionEmoji(r.emoji)) throw new Error('Not a reaction.');
-  return { ...checkMessageRef(r), emoji: { id: r.emoji.id, name: r.emoji.name, animated: r.emoji.animated }, add: r.add };
+  return { ...checkMessageRef(r), emoji: { id: r.emoji.id, name: r.emoji.id ? r.emoji.name : normalizeUnicodeReaction(r.emoji.name), animated: r.emoji.animated }, add: r.add };
 }
 
 /** Adds (PUT) or takes back (DELETE) the owner's reaction, as the web client does; resolves with what was applied. */

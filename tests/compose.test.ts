@@ -1,11 +1,13 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
+import unicodeEmoji from 'emojibase-data/en/compact.json';
 import { ALT_TEXT_MAX, canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, pickedMentionNames, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX, DISCORD_UPLOAD_BYTES_MAX } from '@shared/discord';
 import type { CustomEmoji, GuildEmoji } from '@shared/emoji';
 import { OwnerAccount } from '../src/main/discord/account';
 import type { DiscordApi } from '../src/main/discord/api';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
+import { fetchReactors } from '../src/main/discord/profiles';
 import { deleteOwnerMessage, editOwnerMessage, forwardAsOwner, reactAsOwner, sendOwnerMessage } from '../src/main/discord/send';
 import { GuildStickerIndex } from '../src/main/discord/stickers';
 import { ownEmoji, ownReactions } from '../src/core/queries/ownEmoji';
@@ -193,6 +195,13 @@ describe('owner forwards', () => {
 });
 
 describe('owner reactions', () => {
+  it('uses the same canonical star when fetching its reactors', async () => {
+    const calls: string[] = [];
+    const api = { get: async (p: string) => { calls.push(p); return []; } } as unknown as DiscordApi;
+    await fetchReactors(api, CHANNEL, MESSAGE, { id: null, name: '⭐\uFE0F', animated: false });
+    expect(calls).toEqual([`channels/${CHANNEL}/messages/${MESSAGE}/reactions/%E2%AD%90`]);
+  });
+
   it('PUTs a reaction and DELETEs it back, with a custom emoji as name:id', async () => {
     const calls: string[] = [];
     const api = { put: async (p: string) => void calls.push(`PUT ${p}`), delete: async (p: string) => void calls.push(`DELETE ${p}`) } as unknown as DiscordApi;
@@ -203,6 +212,27 @@ describe('owner reactions', () => {
     await expect(reactAsOwner(api, { channelId: CHANNEL, messageId: MESSAGE, emoji: { id: 'x', name: 'pog', animated: false }, add: true })).rejects.toThrow(/Not a reaction/);
     await expect(reactAsOwner(api, { channelId: CHANNEL, messageId: MESSAGE, emoji: { id: null, name: '👍', animated: false } })).rejects.toThrow(/Not a reaction/);
     expect(calls).toHaveLength(2);
+  });
+
+  it.each([
+    ['star from the picker', unicodeEmoji.find((e) => e.hexcode === '2B50')!.unicode, '⭐'],
+    ['thumbs up', '👍\uFE0F', '👍'],
+    ['heart', '❤️', '❤️'],
+    ['keycap', '1️⃣', '1️⃣'],
+    ['skin tone', '👍🏽', '👍🏽'],
+    ['rainbow flag', '🏳️‍🌈', '🏳️‍🌈'],
+    ['gendered emoji', '🏃\uFE0F‍♀️', '🏃‍♀️'],
+  ] satisfies [string, string, string][])('uses the canonical %s for adding, removing and the archive copy', async (_label, picked, sent) => {
+    const calls: string[] = [];
+    const api = { put: async (p: string) => void calls.push(`PUT ${p}`), delete: async (p: string) => void calls.push(`DELETE ${p}`) } as unknown as DiscordApi;
+    const request = { channelId: CHANNEL, messageId: MESSAGE, emoji: { id: null, name: picked, animated: false }, add: true };
+    const added = await reactAsOwner(api, request);
+    const removed = await reactAsOwner(api, { ...request, add: false });
+    const path = `channels/${CHANNEL}/messages/${MESSAGE}/reactions/${encodeURIComponent(sent)}/@me`;
+    expect(calls).toEqual([`PUT ${path}`, `DELETE ${path}`]);
+    expect(added.emoji.name).toBe(sent);
+    expect(removed.emoji.name).toBe(sent);
+    expect(request.emoji.name).toBe(picked);
   });
 });
 
