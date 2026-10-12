@@ -35,11 +35,11 @@ function start(check: (id: string, key: string) => Promise<void> = async () => u
 const invoke = (channel: string, ...args: unknown[]) => handlers.get(channel)!(...args);
 
 describe('main owns provider credentials', () => {
-  it('sends stored keys at startup and checks trimmed keys before persistence and core delivery', async () => {
+  it('leaves startup delivery to CoreInit and checks trimmed keys before persistence and core delivery', async () => {
     files.set(PROVIDER_KEYS_FILE, '{"other":"test-other"}');
     const check = vi.fn(async (_id: string, _key: string) => undefined);
     const call = start(check);
-    expect(call).toHaveBeenCalledWith('setProviderApiKeys', { other: 'test-other' });
+    expect(call).not.toHaveBeenCalled();
     await invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', ' test-key ');
     expect(steps).toEqual(['encryption', 'check', 'store', 'deliver']);
     expect(check).toHaveBeenCalledWith('probe', 'test-key');
@@ -59,7 +59,6 @@ describe('main owns provider credentials', () => {
   it('a rejected key preserves the encrypted copy and core state', async () => {
     files.set(PROVIDER_KEYS_FILE, '{"probe":"test-existing"}');
     const call = start(async () => { throw new Error('rejected'); });
-    call.mockClear();
     await expect(invoke(MAIN_INVOKE.providerKeys.setKey, 'probe', 'test-key')).rejects.toThrow('rejected');
     expect(steps).toEqual(['encryption', 'check']);
     expect(call).toHaveBeenCalledTimes(1);
