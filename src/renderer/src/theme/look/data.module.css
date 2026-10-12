@@ -61,3 +61,29 @@ button.shareBar:focus-visible {
   border-radius: var(--cp-radius-pill);
   background: var(--cp-accent);
 }
+
+/* A word in a drawn word cloud: --v (0–1) lifts the commonest from muted text toward the section colour. */
+.chartWord {
+  fill: color-mix(in srgb, var(--cp-section) calc(var(--v) * 100%), var(--cp-text-muted));
+}
+
+/* A person in a drawn graph (drawn about a thousand units across, so a border width stays hairline): a dot in the section colour, ringed by the ground. */
+.graphNode {
+  fill: var(--cp-section);
+  stroke: var(--cp-surface-1);
+  stroke-width: var(--cp-border-w);
+  cursor: pointer;
+}
+
+/* A tie between two people: thicker and stronger as its share (--v) of the busiest pair grows. */
+.graphEdge {
+  fill: none;
+  stroke: var(--cp-text-muted);
+  stroke-width: calc(var(--cp-border-w) * (1 + var(--v) * 4));
+  opacity: calc(0.25 + var(--v) * 0.75);
+}
+
+/* A person's name beside their dot. */
+.graphLabel {
+  fill: var(--cp-text-1);
+}
