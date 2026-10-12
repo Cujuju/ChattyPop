@@ -1,5 +1,6 @@
 import { For, Match, Switch, createSignal, useContext, type JSX } from 'solid-js';
 import { EmojiImage } from '@/ui/AnimatedImage';
+import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { clockTime } from './format';
@@ -18,13 +19,13 @@ function formatTime(unix: number, style: string): string {
     case 't':
       return clockTime(d.getTime());
     case 'T':
-      return d.toLocaleTimeString();
+      return timeFormat({ timeStyle: 'medium' }).format(d);
     case 'd':
       return d.toLocaleDateString();
     case 'D':
       return d.toLocaleDateString([], { dateStyle: 'long' });
     case 'F':
-      return d.toLocaleString([], { dateStyle: 'full', timeStyle: 'short' });
+      return timeFormat({ dateStyle: 'full', timeStyle: 'short' }).format(d);
     case 'R': {
       const rtf = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
       const mins = Math.round((d.getTime() - Date.now()) / MS_PER_MIN);
@@ -35,7 +36,7 @@ function formatTime(unix: number, style: string): string {
           : rtf.format(Math.round(mins / MIN_PER_DAY), 'day');
     }
     default:
-      return d.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' });
+      return timeFormat({ dateStyle: 'long', timeStyle: 'short' }).format(d);
   }
 }
 

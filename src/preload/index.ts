@@ -18,6 +18,7 @@ import {
   type MainInvokeGroup,
   type RendererApi,
 } from '@shared/contract';
+import { HOUR_CYCLE_GLOBAL, hourCycleFromArgs } from '@shared/hourCycle';
 import { exposeShell, shellServer } from './client';
 import { exposeConnect, isConnectPage } from './connect';
 
@@ -64,6 +65,10 @@ const api: RendererApi = {
     return () => ipcRenderer.off(APP_EVENT_CHANNEL, handler);
   },
 };
+
+// Every page: the owner's clock, which Chromium's Intl doesn't take from the OS (src/shared/hourCycle.ts).
+const cycle = hourCycleFromArgs(process.argv);
+if (cycle) contextBridge.exposeInMainWorld(HOUR_CYCLE_GLOBAL, cycle);
 
 // One preload for every window, by its role: a client's server window gets the desktop shell, its connect page the
 // server list, and the app's own windows the renderer API.

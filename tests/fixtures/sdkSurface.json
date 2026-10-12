@@ -1,5 +1,5 @@
 {
-  "version": "2.42.0",
+  "version": "2.43.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -130,6 +130,7 @@
       "normalizeDisplayName",
       "normalizePhoneLook",
       "normalizeProviderId",
+      "normalizeUnicodeReaction",
       "oneOf",
       "orList",
       "pageSectionKey",
@@ -153,6 +154,7 @@
       "snowflakeToMs",
       "stringsOr",
       "textOrNull",
+      "timeFormat",
       "timedTriggerError",
       "timedTriggerText",
       "typedMentions",
@@ -267,6 +269,7 @@
       "AnimatedImage",
       "AuthorName",
       "Avatar",
+      "BrandIcon",
       "Card",
       "ChatEmoji",
       "Checks",
@@ -309,6 +312,7 @@
       "SearchSelect",
       "SectionGlyph",
       "SectionIcon",
+      "SectionSplit",
       "SectionsPage",
       "SegButton",
       "SegGroup",
@@ -939,7 +943,8 @@
       "PhotoAsset",
       "PhotoPage",
       "ProviderModels",
-      "SearchOption"
+      "SearchOption",
+      "SectionDef"
     ],
     "@plugin-sdk/renderer/posting": [
       "CommandMenuItem",

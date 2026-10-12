@@ -1,5 +1,6 @@
 // Server mode's pairing: the tray's "Pair a device…" and --pair. The phone transport makes the code; the tray opens its
 // Settings section on the server's screen (the app's own themed window), and --pair prints it to the terminal.
+import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_S } from '@shared/units';
 import type { PairingPrompt } from './phone/hub';
 
@@ -10,7 +11,7 @@ const PAIR_WAIT_MS = 60 * MS_PER_S;
 
 /** What a device needs to pair: the code, where to type it, and until when. */
 export function pairingText(prompt: PairingPrompt): string {
-  const until = new Date(prompt.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const until = timeFormat({ hour: '2-digit', minute: '2-digit' }).format(prompt.expiresAt);
   const origin = prompt.url ? new URL(prompt.url).origin : null;
   const where = origin
     ? [`On another computer, connect the ChattyPop app to ${origin} (or open ${origin}/desktop in a browser) and type the code.`, `On a phone, open ${prompt.url}.`]

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { BrowserWindow, session, type Session, type WebContents } from 'electron';
 import { APP_EVENT_CHANNEL, type AppEvent } from '@shared/contract';
 import { SHELL_ORIGIN_ARG } from '@shared/desktopShell';
+import { hourCycleArgs } from '@shared/hourCycle';
 import { guardNavigation } from '../externalLinks';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from '../unsavedChanges';
 import { WindowStateFile, raiseWindow } from '../windowState';
@@ -92,7 +93,7 @@ export class ServerWindows {
         session: ses,
         preload: PRELOAD,
         // The only origin its preload gives the shell to.
-        additionalArguments: [`${SHELL_ORIGIN_ARG}${origin}`],
+        additionalArguments: [`${SHELL_ORIGIN_ARG}${origin}`, ...hourCycleArgs()],
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,

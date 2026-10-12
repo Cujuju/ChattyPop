@@ -5,7 +5,7 @@ import { SHARED_ENTRY } from '../../src/main/pluginBuild/descriptor';
 import { manifestVersion } from './manifest';
 import { allReadersFor } from './allReaders';
 import { archiveViolations } from './sql';
-import { PAGE_DIR, SHELL_TIER, TESTS_DIR, TEST_FILE, globalViolations, importViolations, importsOf, loopingMediaViolations, networkWarnings, tablePrefixViolations, userSelectViolations } from './rules';
+import { PAGE_DIR, SHELL_TIER, TESTS_DIR, TEST_FILE, clockViolations, globalViolations, importViolations, importsOf, loopingMediaViolations, networkWarnings, tablePrefixViolations, userSelectViolations } from './rules';
 import { violation, type SourceFile } from './source';
 
 /** Static page files copy without compilation. */
@@ -68,9 +68,9 @@ export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions):
   return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir))];
 }
 
-/** What the scan warns of without failing (rules.ts networkWarnings), as file:line: message. */
+/** What the scan warns of without failing (rules.ts networkWarnings, clockViolations), as file:line: message. */
 export function scanWarnings(dirIn: string): string[] {
   return sourceFiles(resolve(dirIn))
     .filter((f) => SCRIPT.test(f.rel))
-    .flatMap(networkWarnings);
+    .flatMap((f) => [...networkWarnings(f), ...clockViolations(f)]);
 }

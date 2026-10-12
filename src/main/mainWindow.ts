@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, powerMonitor, session, type BrowserWindowConstructorOptions } from 'electron';
 import { DISCORD_OPEN_CHANNEL, DISCORD_SIDEBAR_CHANNEL, DISCORD_SLOT_CHANNEL, type DiscordSlot } from '@shared/contract';
+import { hourCycleArgs } from '@shared/hourCycle';
 import { normalizeDiscordSidebar } from '@shared/settings';
 import { diag } from './diagnostics';
 import { DISCORD_PARTITION, DiscordView } from './discordView';
@@ -51,6 +52,7 @@ export function rendererWindowOptions(): BrowserWindowConstructorOptions {
     autoHideMenuBar: true,
     webPreferences: {
       preload: PRELOAD,
+      additionalArguments: hourCycleArgs(),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,

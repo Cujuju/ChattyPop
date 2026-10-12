@@ -6,6 +6,8 @@ import { pluginSettingKey, pluginTableName } from '@shared/bundledTypes';
 
 export type * from '@shared/ruleKinds/types';
 export { AFTER_MESSAGE } from '@shared/ruleKinds/types';
+/** A formatter of local date and time text in the owner's locale and clock (12- or 24-hour); build every text showing an hour with it. */
+export { timeFormat } from '@shared/hourCycle';
 export type {
   RuleInput,
   RuleSpec,

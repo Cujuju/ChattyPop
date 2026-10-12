@@ -1,4 +1,5 @@
 // GitHub tokens reach api.github.com only on initial hops. Redirects omit tokens; anonymous public files bypass REST’s hourly quota.
+import { timeFormat } from '@shared/hourCycle';
 import { COMMIT_PATTERN } from '@shared/installedPlugins';
 import { MARKETPLACE_INDEX_FILE, parseMarketplaceIndex, type MarketplaceIndex } from '@shared/marketplace';
 import { BYTES_PER_MB, MS_PER_MIN, MS_PER_S } from '@shared/units';
@@ -53,7 +54,7 @@ function refusal(res: Response, what: string, hasToken: boolean): Error {
   const remaining = res.headers.get('x-ratelimit-remaining');
   if ((res.status === 403 || res.status === 429) && remaining === '0') {
     const reset = Number(res.headers.get('x-ratelimit-reset'));
-    const at = Number.isFinite(reset) && reset > 0 ? ` until ${new Date(reset * MS_PER_S).toLocaleTimeString()}` : '';
+    const at = Number.isFinite(reset) && reset > 0 ? ` until ${timeFormat({ timeStyle: 'medium' }).format(reset * MS_PER_S)}` : '';
     return new Error(`${what}: GitHub's rate limit is used up${at}.${hasToken ? '' : ' A token raises it.'}`);
   }
   if (res.status === 404) return new Error(`${what}: not found, or ${hasToken ? 'the token' : 'GitHub without a token'} can't read it.`);

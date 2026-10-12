@@ -1,13 +1,14 @@
 // Local-time labels, DOM-free (tests import them); ui/format.ts re-exports them.
+import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
 
-// Undefined locale = the user's.
-const CLOCK = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
-const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' });
-const YEAR_DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-const SHORT_DATE_TIME = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const WEEKDAY_DATE_TIME = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-const WEEKDAY_DATE = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+// The owner's locale and clock (12- or 24-hour).
+const CLOCK = timeFormat({ hour: '2-digit', minute: '2-digit' });
+const SHORT_DATE = timeFormat({ day: 'numeric', month: 'short' });
+const YEAR_DATE = timeFormat({ day: 'numeric', month: 'short', year: 'numeric' });
+const SHORT_DATE_TIME = timeFormat({ day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const WEEKDAY_DATE_TIME = timeFormat({ weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const WEEKDAY_DATE = timeFormat({ weekday: 'short', day: 'numeric', month: 'short' });
 
 /** "14:05". */
 export const clockTime = (ms: number): string => CLOCK.format(ms);
@@ -22,7 +23,7 @@ export const weekdayDateTime = (ms: number): string => WEEKDAY_DATE_TIME.format(
 /** "Tue 3 Mar". */
 export const weekdayDate = (ms: number): string => WEEKDAY_DATE.format(ms);
 
-const MESSAGE_DATE_TIME = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const MESSAGE_DATE_TIME = timeFormat({ day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 /** A message's time as Discord's header shows it: "14:05" today, "Yesterday at 14:05", else "26/09/2026, 14:05". `today`: local midnight. */
 export function messageTime(ms: number, today: number): string {
   if (ms >= today) return clockTime(ms);
@@ -31,7 +32,7 @@ export function messageTime(ms: number, today: number): string {
   return ms >= yesterday.getTime() ? `Yesterday at ${clockTime(ms)}` : MESSAGE_DATE_TIME.format(ms);
 }
 
-const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+const WEEKDAY = timeFormat({ weekday: 'short' });
 /** Weekday-age window excludes repeated current weekdays. */
 const WEEKDAY_SPAN_DAYS = 6;
 

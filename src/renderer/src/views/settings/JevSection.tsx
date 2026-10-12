@@ -16,6 +16,7 @@ import { OpenRouterKeys } from './OpenRouterKeys';
 import { StoredKeyRow } from './StoredKeyRow';
 import { createAction } from '@/ui/action';
 import { percentText, usdText } from '@/ui/format';
+import { timeFormat } from '@shared/hourCycle';
 import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
 import { orderJevFeatures } from '@/plugins/featureWording';
@@ -98,7 +99,7 @@ function JevFeatures() {
         <Show when={status()?.lastError}>
           {(e) => (
             <Note kind="error">
-              Last Jev error ({new Date(e().at).toLocaleTimeString()}): {e().message}
+              Last Jev error ({timeFormat({ timeStyle: 'medium' }).format(e().at)}): {e().message}
             </Note>
           )}
         </Show>

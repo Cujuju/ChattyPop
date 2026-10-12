@@ -182,6 +182,20 @@ export function loopingMediaViolations(file: SourceFile): string[] {
   });
 }
 
+/** A locale call that names an hour or a time style; its own default clock is the UI language's, not the owner's. */
+const HOUR_FORMAT_CALL = /\b(?:DateTimeFormat|toLocale(?:Date)?String)\(([^()]*)\)/g;
+const HOUR_OPTION = /\b(?:hour|timeStyle)\b/;
+const TIME_STRING_CALL = /\btoLocaleTimeString\(/g;
+
+/** Text showing an hour follows the owner's 12- or 24-hour clock only through timeFormat (src/shared/hourCycle.ts). */
+export function clockViolations(file: SourceFile): string[] {
+  const calls = [...file.text.matchAll(HOUR_FORMAT_CALL)].filter((m) => HOUR_OPTION.test(m[1]!));
+  return [...calls, ...file.text.matchAll(TIME_STRING_CALL)]
+    .map((m) => lineAt(file.text, m.index))
+    .sort((a, b) => a - b)
+    .map((line) => violation(file.rel, line, "an hour is formatted with timeFormat, which follows the owner's 12- or 24-hour clock"));
+}
+
 /** Requires matching -webkit-user-select beside user-select for Safari. */
 export function userSelectViolations(file: SourceFile): string[] {
   return [...file.text.matchAll(/\{([^{}]*)\}/g)].flatMap((rule) => {

@@ -8,6 +8,7 @@ import { applyAppIdentity } from './appIdentity';
 import { applyClientProfile } from './client/profile';
 import { launchMode } from './launchMode';
 import { diag } from './diagnostics';
+import { applyOsHourCycle } from './osClock';
 import { registerMediaScheme } from './media/mediaProtocol';
 import { prepareInstalled } from './plugins/installed/boot';
 import { encodeInstalledStart } from './plugins/installed/runtime';
@@ -21,6 +22,7 @@ const SCHEME_PRIVILEGES = [PLUGIN_SCHEME_PRIVILEGES, INSTALLED_SCHEME_PRIVILEGES
 const HTTP_CACHE_MAX_BYTES = 64 * BYTES_PER_MB;
 
 applyAppIdentity();
+applyOsHourCycle();
 app.commandLine.appendSwitch('disk-cache-size', String(HTTP_CACHE_MAX_BYTES));
 const client = launchMode(process.argv, process.env).kind === 'client';
 if (client) applyClientProfile();

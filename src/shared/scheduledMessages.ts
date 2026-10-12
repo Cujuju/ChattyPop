@@ -1,5 +1,6 @@
 // Discord's server-side scheduled sends; times are local in pickers and ISO on the wire.
 import type { OwnerMessage } from './compose';
+import { timeFormat } from './hourCycle';
 import { snowflakeToMs, type RawMessage } from './discord';
 import { MS_PER_DAY, MS_PER_MIN } from './units';
 
@@ -81,7 +82,7 @@ export function defaultScheduleTime(now = Date.now()): string {
 /** When a scheduled send goes, as Discord words it: "Today at 9:00 AM", "Tomorrow at 1:00 PM", "Mon, Oct 12 at 9:00 AM". */
 export function scheduleTimeLabel(timestamp: string, now = Date.now()): string {
   const at = new Date(timestamp);
-  const time = at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const time = timeFormat({ hour: 'numeric', minute: '2-digit' }).format(at);
   const startOfDay = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((startOfDay(at) - startOfDay(new Date(now))) / MS_PER_DAY);
   if (days === 0) return `Today at ${time}`;
