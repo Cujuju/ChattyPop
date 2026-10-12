@@ -203,3 +203,12 @@ export function Icon(props: { name: IconName; class?: string }) {
     </svg>
   );
 }
+
+/** A decorative line globe; its caller supplies the size and line-icon look. */
+export function GlobeIcon(props: { class?: string }) {
+  return (
+    <svg class={props.class} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM2 12h20M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    </svg>
+  );
+}

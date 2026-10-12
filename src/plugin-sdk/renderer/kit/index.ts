@@ -73,6 +73,8 @@ export { GuildIcon } from '@/ui/GuildIcon';
 export { EffortSelect, effortLabel, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
+// A site's brand mark in text colour, with a globe for unknown hosts.
+export { BrandIcon } from '@/ui/BrandIcon';
 export { QrCode } from '@/ui/QrCode';
 export { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 // Drag to reorder a list; the theme styles its rows (theme/bridge/reorder-list.css).
