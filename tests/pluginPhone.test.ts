@@ -73,7 +73,7 @@ describe('phone settings', () => {
     savedSearches: ['from:ann'],
     discordSidebar: { serversHidden: true, channelsCollapsed: false },
     'archive.density': 'compact',
-    archive: { backfillDays: 7, reverifyChannelIds: ['c1'], attachmentCapGb: 5 },
+    archive: { backfillHistory: { unit: 'days', amount: 7 }, reverifyChannelIds: ['c1'], attachmentCapGb: 5 },
     ai: { defaultProvider: 'claude', providers: { claude: { enabled: true } }, jev: { catchUpBadges: true }, ollamaUrl: 'http://pc:11434', jevConnection: 'typesafe' },
     'layout.preset': 'reading',
     'layout.custom': { mine: { name: 'Mine' } },

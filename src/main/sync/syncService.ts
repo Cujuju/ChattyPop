@@ -1,5 +1,6 @@
 import type { AppEvent } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
+import { backfillCutoffMs } from '@shared/archiveSettings';
 import { MS_PER_DAY } from '@shared/units';
 import {
   CATEGORY_CHANNEL_TYPE,
@@ -176,8 +177,8 @@ export class SyncService {
 
   /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync. */
   private async discoverThreads(channelId: string): Promise<string[]> {
-    const { backfillDays } = await readArchiveSettings(this.core);
-    const cutoffMs = Date.now() - backfillDays * MS_PER_DAY;
+    const { backfillHistory } = await readArchiveSettings(this.core);
+    const cutoffMs = backfillCutoffMs(backfillHistory, Date.now());
     const stale: string[] = [];
     for (const archived of [false, true]) {
       try {
@@ -239,8 +240,8 @@ export class SyncService {
       after = maxId(page);
     }
 
-    const { backfillDays } = await readArchiveSettings(this.core);
-    const cutoffMs = Date.now() - backfillDays * MS_PER_DAY;
+    const { backfillHistory } = await readArchiveSettings(this.core);
+    const cutoffMs = backfillCutoffMs(backfillHistory, Date.now());
     const synced = await this.core.call('syncState', channelId);
     if (synced.backfillComplete) return;
     for (let before = synced.oldestId; before && snowflakeToMs(before) > cutoffMs;) {

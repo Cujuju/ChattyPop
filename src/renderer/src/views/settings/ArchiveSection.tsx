@@ -6,12 +6,13 @@ import {
   AUTOMATIC_POST_PAUSE_MIN_S,
   ATTACHMENT_CAP_MAX_GB,
   ATTACHMENT_CAP_MIN_GB,
-  BACKFILL_DAYS_MAX,
-  BACKFILL_DAYS_MIN,
+  BACKFILL_AMOUNT_MAX,
+  BACKFILL_AMOUNT_MIN,
   TEXT_CAP_MAX_GB,
   TEXT_CAP_MIN_GB,
   WAIT_JITTER,
   automaticPostPauseRange,
+  type BackfillHistory,
   type SyncPace,
   type TextTier,
 } from '@shared/settings';
@@ -24,6 +25,7 @@ import { Select } from '@/ui/Select';
 import { Switch } from '@/ui/Switch';
 import { EncryptionControl } from './EncryptionControl';
 import { BotCounts } from './BotCounts';
+import { BackfillControl } from './BackfillControl';
 import { ReverifyControls } from './ReverifyControls';
 import { StorageLocation } from './StorageLocation';
 import { Card, Note, NumberField, Row, SectionsPage, Stat, Stats, choiceOptions, settingsControl as c, type ChoiceText } from './SettingsLayout';
@@ -57,6 +59,9 @@ const PACES: Record<SyncPace, ChoiceText> = {
   normal: { option: 'Normal', meta: 'normal pace' },
 };
 
+const historyText = (history: BackfillHistory): string =>
+  history === 'complete' ? 'complete history' : countText(history.amount, history.unit.slice(0, -1));
+
 /** Settings → Archive: where messages are kept, how much space they take, and what gets synced. */
 export function ArchiveSection() {
   const s = archiveSettings;
@@ -76,7 +81,7 @@ export function ArchiveSection() {
           id: 'sync',
           label: 'History and sync',
           meta: () =>
-            `${s().backfillDays} days · ${s().syncEnabled ? PACES[s().syncPace].meta : 'background sync off'}${s().autoArchiveSinceMs !== null ? ' · DMs archived automatically' : ''}`,
+            `${historyText(s().backfillHistory)} · ${s().syncEnabled ? PACES[s().syncPace].meta : 'background sync off'}${s().autoArchiveSinceMs !== null ? ' · DMs archived automatically' : ''}`,
           body: SyncBody,
         },
         { id: 'posting', label: 'Automatic posts', meta: () => `pause ${pauseRangeText(s().automaticPostPauseS)}`, body: PostingBody },
@@ -179,8 +184,8 @@ function StorageBody() {
               control={
                 <NumberField
                   id="text-tier-days"
-                  min={BACKFILL_DAYS_MIN}
-                  max={BACKFILL_DAYS_MAX}
+                  min={BACKFILL_AMOUNT_MIN}
+                  max={BACKFILL_AMOUNT_MAX.days}
                   value={s().textTierAfterDays}
                   unit="days"
                   onChange={(n) => update({ textTierAfterDays: n })}
@@ -225,11 +230,9 @@ function SyncBody() {
     <Card>
       <Row
         label="History when a channel is opted in"
-        for="backfill-days"
-        hint="Raising it extends channels on their next sync; lowering it keeps what is already stored."
-        control={
-          <NumberField id="backfill-days" min={BACKFILL_DAYS_MIN} max={BACKFILL_DAYS_MAX} value={s().backfillDays} unit="days" onChange={(n) => update({ backfillDays: n })} />
-        }
+        for="backfill-unit"
+        hint="Raising it extends channels on their next sync; lowering it keeps what is already stored. Complete history fetches every message of every archived channel and thread, which can take hours for a busy server."
+        control={<BackfillControl value={s().backfillHistory} onChange={(backfillHistory) => update({ backfillHistory })} />}
       />
       <Row
         label="Background sync"

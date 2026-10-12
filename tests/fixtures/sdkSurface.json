@@ -1,5 +1,5 @@
 {
-  "version": "2.43.0",
+  "version": "2.44.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -21,6 +21,7 @@
       "DEFAULT_DEVICE_CHAT_SETTINGS",
       "DEFAULT_DISCORD_CHAT_SETTINGS",
       "DEFAULT_PHONE_LOOK",
+      "DISCORD_EPOCH_MS",
       "DISCORD_FILES_PER_MESSAGE_MAX",
       "DISCORD_TEXT_MAX",
       "DISCORD_UPLOAD_BYTES_MAX",

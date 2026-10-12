@@ -1,5 +1,50 @@
 // Archive settings: sync pace, backfill, retention and caps. Stored JSON is normalized on read (see settings.ts).
 import { bool, clampInt, clampNumber, isObj, oneOf } from './normalize';
+import { DISCORD_EPOCH_MS } from './discord';
+import { MS_PER_DAY } from './units';
+
+export const BACKFILL_UNITS = ['days', 'months', 'years'] as const;
+export type BackfillUnit = (typeof BACKFILL_UNITS)[number];
+export type BackfillHistory = { unit: BackfillUnit; amount: number } | 'complete';
+
+/** Bounded history choices keep the existing ten-year ceiling. Complete history has no depth limit. */
+export const BACKFILL_MAX_YEARS = 10;
+const DAYS_PER_COMMON_YEAR = 365;
+const MONTHS_PER_YEAR = 12;
+export const BACKFILL_AMOUNT_MIN = 1;
+export const BACKFILL_AMOUNT_MAX: Record<BackfillUnit, number> = {
+  days: BACKFILL_MAX_YEARS * DAYS_PER_COMMON_YEAR,
+  months: BACKFILL_MAX_YEARS * MONTHS_PER_YEAR,
+  years: BACKFILL_MAX_YEARS,
+};
+/** Initial backfill depth; user-adjustable in Settings. */
+export const DEFAULT_BACKFILL_HISTORY = { unit: 'days', amount: 30 } as const satisfies BackfillHistory;
+
+export const clampBackfillAmount = (unit: BackfillUnit, amount: unknown): number =>
+  clampInt(amount, BACKFILL_AMOUNT_MIN, BACKFILL_AMOUNT_MAX[unit], Math.min(DEFAULT_BACKFILL_HISTORY.amount, BACKFILL_AMOUNT_MAX[unit]));
+
+const readBackfillHistory = (v: unknown): BackfillHistory | undefined => {
+  if (v === 'complete') return v;
+  if (!isObj(v)) return undefined;
+  const unit = oneOf(BACKFILL_UNITS, v['unit'], null);
+  if (!unit || !Number.isFinite(Number(v['amount']))) return undefined;
+  return { unit, amount: clampBackfillAmount(unit, v['amount']) };
+};
+
+/** Calendar subtraction uses UTC and clamps missing days to the target month's last day. */
+export function backfillCutoffMs(history: BackfillHistory, now: number): number {
+  if (history === 'complete') return DISCORD_EPOCH_MS;
+  if (history.unit === 'days') return now - history.amount * MS_PER_DAY;
+  const date = new Date(now);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  if (history.unit === 'months') date.setUTCMonth(date.getUTCMonth() - history.amount);
+  else date.setUTCFullYear(date.getUTCFullYear() - history.amount);
+  const lastDay = new Date(date.getTime());
+  lastDay.setUTCMonth(lastDay.getUTCMonth() + 1, 0);
+  date.setUTCDate(Math.min(day, lastDay.getUTCDate()));
+  return date.getTime();
+}
 
 export const SYNC_PACES = ['gentle', 'normal'] as const;
 export type SyncPace = (typeof SYNC_PACES)[number];
@@ -34,7 +79,7 @@ export const automaticPostPauseRange = (s: number): { min: number; max: number }
 
 export interface ArchiveSettings {
   /** How far back a newly opted-in channel is backfilled. */
-  backfillDays: number;
+  backfillHistory: BackfillHistory;
   syncPace: SyncPace;
   /** Background catch-up and backfill. Live capture from the open client is passive and unaffected. */
   syncEnabled: boolean;
@@ -74,14 +119,8 @@ export const TEXT_CAP_MAX_GB = 10_000;
 export const ATTACHMENT_CAP_MIN_GB = 1;
 export const ATTACHMENT_CAP_MAX_GB = 100_000;
 
-/** Initial backfill depth; user-adjustable in Settings. */
-const DEFAULT_BACKFILL_DAYS = 30;
-export const BACKFILL_DAYS_MIN = 1;
-/** Ten years: far beyond any server's useful history, bounds the input. */
-export const BACKFILL_DAYS_MAX = 3650;
-
 export const DEFAULT_ARCHIVE_SETTINGS: ArchiveSettings = {
-  backfillDays: DEFAULT_BACKFILL_DAYS,
+  backfillHistory: DEFAULT_BACKFILL_HISTORY,
   syncPace: 'gentle',
   syncEnabled: true,
   attachmentCapGb: null,
@@ -101,18 +140,17 @@ const normalizeCap = (v: unknown, min: number, max: number): number | null => {
 };
 /** A stored time (ms): finite and positive, else null. */
 const normalizeTime = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
-const normalizeDays = (v: unknown, fallback: number): number => clampInt(v, BACKFILL_DAYS_MIN, BACKFILL_DAYS_MAX, fallback);
 
 export function normalizeArchiveSettings(v: unknown): ArchiveSettings {
   const src = isObj(v) ? v : {};
   const d = DEFAULT_ARCHIVE_SETTINGS;
   return {
-    backfillDays: normalizeDays(src['backfillDays'], DEFAULT_BACKFILL_DAYS),
+    backfillHistory: readBackfillHistory(src['backfillHistory']) ?? readBackfillHistory({ unit: 'days', amount: src['backfillDays'] }) ?? DEFAULT_BACKFILL_HISTORY,
     syncPace: oneOf(SYNC_PACES, src['syncPace'], d.syncPace),
     syncEnabled: bool(src['syncEnabled'], d.syncEnabled),
     attachmentCapGb: normalizeCap(src['attachmentCapGb'], ATTACHMENT_CAP_MIN_GB, ATTACHMENT_CAP_MAX_GB),
     textTier: oneOf(TEXT_TIERS, src['textTier'], d.textTier),
-    textTierAfterDays: normalizeDays(src['textTierAfterDays'], DEFAULT_TEXT_TIER_AFTER_DAYS),
+    textTierAfterDays: clampInt(src['textTierAfterDays'], BACKFILL_AMOUNT_MIN, BACKFILL_AMOUNT_MAX.days, DEFAULT_TEXT_TIER_AFTER_DAYS),
     textCapGb: normalizeCap(src['textCapGb'], TEXT_CAP_MIN_GB, TEXT_CAP_MAX_GB),
     reverifyChannelIds: Array.isArray(src['reverifyChannelIds']) ? src['reverifyChannelIds'].filter((x): x is string => typeof x === 'string') : [],
     reverifyDays: clampInt(src['reverifyDays'], REVERIFY_DAYS_MIN, REVERIFY_DAYS_MAX, DEFAULT_REVERIFY_DAYS),

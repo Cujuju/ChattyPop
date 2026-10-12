@@ -17,9 +17,9 @@ import {
 } from '@shared/contract';
 import { userNames, type RawUser } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
-import { SETTINGS_KEYS, normalizeArchiveSettings } from '@shared/settings';
+import { SETTINGS_KEYS, backfillCutoffMs, normalizeArchiveSettings } from '@shared/settings';
 import { aiSettingsFrom } from '@shared/aiProviders';
-import { MS_PER_DAY, MS_PER_HOUR } from '@shared/units';
+import { MS_PER_HOUR } from '@shared/units';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { installedStart } from '@main/plugins/installed/runtime';
 import type { DecisionProvider } from './ai/decisions';
@@ -148,8 +148,8 @@ const matcher = (): RuleMatcher => need(ruleMatcher);
 const rulesOf = (): RuleService => need(ruleService);
 
 const archiveSettings = () => normalizeArchiveSettings(getSetting(ready().db, SETTINGS_KEYS.archive));
-/** Start of the history window sync fills (Settings → Archive → days of history). */
-const backfillFromMs = (): number => Date.now() - archiveSettings().backfillDays * MS_PER_DAY;
+/** Start of the history window sync fills (Settings → Archive → History and sync). */
+const backfillFromMs = (): number => backfillCutoffMs(archiveSettings().backfillHistory, Date.now());
 
 /** Enforces Settings → Archive → attachment cap (oldest files pruned first); a no-op when the cap is off. */
 function applyAttachmentCap(): void {
