@@ -126,6 +126,12 @@
   stroke: var(--cp-accent);
 }
 
+/* A 24-unit brand mark filled in the text colour: a site's logo is a solid shape, not a line drawing. */
+.brandMark {
+  fill: currentColor;
+  stroke: none;
+}
+
 /* Pull to refresh: a floating disc, accent once letting go reloads (armed). */
 .pullDisc {
   border-radius: var(--cp-radius-full);

@@ -1,0 +1,6 @@
+/* A site's mark beside its name in a row: the size of the row's other icons, never squeezed by a long name. */
+.mark {
+  flex: none;
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
