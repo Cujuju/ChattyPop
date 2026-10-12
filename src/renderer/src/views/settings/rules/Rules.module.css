@@ -1,5 +1,5 @@
 /* Settings → Rules: the rule list beside the open rule (When, If, Then, Recent runs). Hooks:
-   .item[data-current|off|error], .headSwitch[data-draft], .field[data-tone], .action[data-open], .iconButton[data-tone],
+   .item[data-current|off|error], .headSwitch[data-draft], .field[data-tone], .action[data-open],
    .outcome[data-outcome], .pill[data-kind]. */
 
 /* Fills the page body, so the list and the open rule scroll on their own; the narrow query below measures it. */
@@ -28,6 +28,7 @@
   flex: none;
   flex-direction: column;
   width: var(--cp-rules-rail-w);
+  padding-bottom: var(--cp-space-4); /* under New rule at its foot, as the settings rail has */
   border-inline-end: var(--cp-border-w) solid var(--cp-border);
   background: var(--cp-surface-2);
 }
@@ -593,22 +594,6 @@
   height: var(--cp-icon-lg);
 }
 
-/* The rule's Save: the accent, so it reads as the way out of unsaved edits. */
-.iconButton[data-tone='primary'] {
-  background: var(--cp-accent);
-  color: var(--cp-text-on-accent);
-}
-
-.iconButton[data-tone='primary']:hover:not(:disabled) {
-  background: var(--cp-accent-hover);
-  color: var(--cp-text-on-accent);
-}
-
-.iconButton[data-tone='danger']:hover:not(:disabled) {
-  background: var(--cp-danger-bg);
-  color: var(--cp-danger);
-}
-
 /* Its rows carry their own inset; the kind's hint lines up with their labels. */
 .actionBody {
   display: flex;
@@ -786,8 +771,12 @@
     display: none;
   }
 
+  /* The picker, then New rule beside it (below it where the picker takes the row). */
   .picker {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cp-space-4);
   }
 
   .headSwitch {

@@ -59,6 +59,30 @@
     background: var(--cp-accent-hover);
   }
 
+  /* With .cp-button or .cp-primary: a square around one icon, for an action its icon names alone (delete, revert, save). */
+  .cp-icon-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: var(--cp-btn-h);
+    height: var(--cp-btn-h);
+    padding: 0;
+  }
+
+  .cp-icon-button > svg.cp-icon {
+    width: var(--cp-icon-md);
+    height: var(--cp-icon-md);
+  }
+
+  /* A destructive one says so when pointed at, and while held (ui/HoldButton). */
+  .cp-icon-button[data-tone='danger']:hover:not(:disabled),
+  .cp-icon-button[data-tone='danger'][data-holding='true'] {
+    border-color: var(--cp-danger-border);
+    background: var(--cp-danger-bg);
+    color: var(--cp-danger);
+  }
+
   .cp-button:disabled,
   .cp-danger:disabled,
   .cp-primary:disabled {

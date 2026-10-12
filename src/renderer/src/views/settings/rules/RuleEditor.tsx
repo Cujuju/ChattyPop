@@ -129,15 +129,15 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
             {(r) => (
               <>
                 <Show when={dirty()}>
-                  <button type="button" class={styles.iconButton} aria-label="Revert changes" title="Revert changes" disabled={busy()} onClick={revert}>
+                  <button type="button" class="cp-button cp-icon-button" aria-label="Revert changes" title="Revert changes" disabled={busy()} onClick={revert}>
                     <Icon name="undo" />
                   </button>
-                  <button type="submit" class={styles.iconButton} data-tone="primary" aria-label="Save" title="Save" disabled={busy()}>
+                  <button type="submit" class="cp-primary cp-icon-button" aria-label="Save" title="Save" disabled={busy()}>
                     <Icon name="check" />
                   </button>
                 </Show>
                 <Show when={!r().builtin}>
-                  <button type="button" class={styles.iconButton} data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => remove(r())}>
+                  <button type="button" class="cp-button cp-icon-button" data-tone="danger" aria-label="Delete rule" title="Delete rule" disabled={busy()} onClick={() => remove(r())}>
                     <Icon name="trash" />
                   </button>
                 </Show>

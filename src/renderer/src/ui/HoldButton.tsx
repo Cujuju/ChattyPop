@@ -23,7 +23,8 @@ export function HoldButton(props: {
     <button
       ref={button}
       type="button"
-      class={`cp-button ${styles.button}`}
+      class={`cp-button cp-icon-button ${styles.button}`}
+      data-tone="danger"
       data-holding={hold.holding()}
       disabled={props.disabled}
       title={label()}
@@ -48,7 +49,7 @@ export function HoldButton(props: {
         hold.cancel();
       }}
     >
-      <Icon name={props.icon} class={styles.icon} />
+      <Icon name={props.icon} />
       <Show when={hold.holding()}>
         <HoldIndicator progress={hold.progress} shape="rect" strokePlacement="outside" radius={parseFloat(getComputedStyle(button!).borderTopLeftRadius)} />
       </Show>
