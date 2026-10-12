@@ -19,6 +19,7 @@ describe('link-domain brand marks', () => {
     expect(brandPath('music.apple.com')).toBe(BRAND_PATHS['music.apple.com']);
     expect(brandPath('a.music.apple.com')).toBe(BRAND_PATHS['music.apple.com']);
     expect(brandPath('youtu.be')).toBe(BRAND_PATHS['youtube.com']);
+    expect(brandPath('stackexchange.com')).not.toBe(BRAND_PATHS['stackoverflow.com']);
   });
 
   it('leaves unknown hosts and lookalike suffixes unresolved', () => {
@@ -26,6 +27,7 @@ describe('link-domain brand marks', () => {
     expect(brandPath('notyoutube.com')).toBeUndefined();
     expect(brandPath('youtube.com.example')).toBeUndefined();
     expect(brandPath('apple.com')).toBeUndefined();
+    expect(brandPath('wikimedia.org')).toBeUndefined();
     expect(brandPath('toString')).toBeUndefined();
     expect(brandPath('')).toBeUndefined();
   });

@@ -10,6 +10,7 @@ import github from 'simple-icons/icons/github.svg?raw';
 import gitlab from 'simple-icons/icons/gitlab.svg?raw';
 import bitbucket from 'simple-icons/icons/bitbucket.svg?raw';
 import stackoverflow from 'simple-icons/icons/stackoverflow.svg?raw';
+import stackexchange from 'simple-icons/icons/stackexchange.svg?raw';
 import npm from 'simple-icons/icons/npm.svg?raw';
 import huggingface from 'simple-icons/icons/huggingface.svg?raw';
 import imgur from 'simple-icons/icons/imgur.svg?raw';
@@ -76,7 +77,7 @@ export const BRAND_PATHS: Readonly<Record<string, string>> = {
   'gitlab.com': pathOf(gitlab),
   'bitbucket.org': pathOf(bitbucket),
   'stackoverflow.com': pathOf(stackoverflow),
-  'stackexchange.com': pathOf(stackoverflow),
+  'stackexchange.com': pathOf(stackexchange),
   'npmjs.com': pathOf(npm),
   'huggingface.co': pathOf(huggingface),
   'imgur.com': pathOf(imgur),
@@ -114,7 +115,6 @@ export const BRAND_PATHS: Readonly<Record<string, string>> = {
   't.me': pathOf(telegram),
   'medium.com': pathOf(medium),
   'wikipedia.org': pathOf(wikipedia),
-  'wikimedia.org': pathOf(wikipedia),
   'imdb.com': pathOf(imdb),
   'goodreads.com': pathOf(goodreads),
   'drive.google.com': pathOf(googledrive),
