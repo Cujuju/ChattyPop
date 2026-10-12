@@ -7,6 +7,9 @@ import { definePlugin } from '@plugin-sdk/shared';
 import { MAIN_INVOKE, RENDERER_CORE_METHODS } from '@shared/contract';
 import { remoteAppEvent, remoteMayCallCore, remoteMayCallMain } from '@shared/remote';
 import { phoneMayCallCore, phoneMayCallMain, phoneAppEvent } from '@shared/phone';
+import { getSetting, setSetting } from '../src/core/db';
+import { keepDefaultProviders } from '../src/core/laterMigrations';
+import { tempDb } from './helpers';
 
 const plugin = definePlugin({ manifest: { id: 'probe', name: 'Probe', version: '1', description: '' }, providers: [
   { id: 'probe', label: 'Probe · CLI', displayName: 'Probe', enabledByDefault: false, accounts: { signIn: true }, apiKey: { placeholder: 'test-key' }, planUsage: true, images: true },
@@ -39,6 +42,30 @@ describe('account ids and normalized settings', () => {
     expect(ai.providers['probe@a']).toMatchObject({ enabled: true, displayName: 'Work' });
     expect(ai.providers['missing@b']?.enabled).toBe(false);
     expect(ai.providers['probe@orphan']?.model).toBe('kept');
+  });
+});
+
+describe('providers the owner adds', () => {
+  it('leaves every declared provider off until it is stored on, whatever it declares', () => {
+    expect(normalizeAiSettings(undefined, declared).providers).toMatchObject({ probe: { enabled: false }, 'probe.other': { enabled: false } });
+    expect(normalizeAiSettings({ providers: { probe: { enabled: true } } }, declared).providers['probe']?.enabled).toBe(true);
+  });
+  it('starts a new profile with no provider', () => {
+    const db = tempDb();
+    keepDefaultProviders(db, declared);
+    expect(getSetting(db, 'ai')).toBeUndefined();
+  });
+  it('keeps on what a profile in use had on by default, and nothing it switched', () => {
+    const db = tempDb();
+    setSetting(db, 'layout', {});
+    keepDefaultProviders(db, declared);
+    expect(getSetting(db, 'ai')).toEqual({ providers: { 'probe.other': { enabled: true } } });
+    setSetting(db, 'ai', { jevConnection: 'typesafe', providers: { 'probe.other': { enabled: false, model: 'kept' } } });
+    keepDefaultProviders(db, declared);
+    expect(getSetting(db, 'ai')).toEqual({ jevConnection: 'typesafe', providers: { 'probe.other': { enabled: false, model: 'kept' } } });
+    setSetting(db, 'ai', { providers: { 'probe.other': { model: 'kept' } } });
+    keepDefaultProviders(db, declared);
+    expect(normalizeAiSettings(getSetting(db, 'ai'), declared).providers).toMatchObject({ probe: { enabled: false }, 'probe.other': { enabled: true, model: 'kept' } });
   });
 });
 

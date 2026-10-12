@@ -12,7 +12,7 @@ export interface ProviderAccountsDecl {
   signIn?: boolean;
 }
 
-/** Registered AI providers appear in settings/choices, store ai.providers settings by id and receive requests while enabled. */
+/** Registered AI providers are offered in Settings → AI, store ai.providers settings by id, and receive requests once the owner adds them. */
 export interface ProviderDecl {
   /** Its plugin's id, or `<plugin id>.<name>`; stored choices name it, so it never changes. */
   id: string;
@@ -20,8 +20,8 @@ export interface ProviderDecl {
   label: string;
   /** Short brand name (Plan usage); the owner may rename it. */
   displayName: string;
-  /** On in a profile that never turned it on or off. */
-  enabledByDefault: boolean;
+  /** @deprecated Ignored: a provider is off until the owner adds it. Only the upgrade of an older profile reads it. */
+  enabledByDefault?: boolean;
   /** Runs on this PC: channels set to local AI only use it and no other. */
   local?: boolean;
   /** Reports plan limits, so Settings → AI offers to check them. */

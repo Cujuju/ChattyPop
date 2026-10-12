@@ -10,10 +10,9 @@ export const PROVIDER_ID = new RegExp(`^${DECLARED_PROVIDER_SOURCE}(${ACCOUNT_SE
 /** A stored provider choice: an id of provider shape, else null. */
 export const normalizeProviderId = (v: unknown): ProviderId | null => (typeof v === 'string' && PROVIDER_ID.test(v) ? v : null);
 
-/** What normalizing needs of a declared provider: its id and whether a profile that never set it has it on. */
+/** What normalizing needs of a declared provider: its id. It is off until the owner adds it. */
 export interface ProviderDefaults {
   id: ProviderId;
-  enabledByDefault: boolean;
 }
 
 /** Names for effort levels providers report; an unknown level shows as reported. */
@@ -113,11 +112,11 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 /** Trimmed and capped at PROVIDER_DISPLAY_NAME_MAX; blank = null (use the default). */
 export const normalizeDisplayName = (v: unknown): string | null => textOrNull(v)?.slice(0, PROVIDER_DISPLAY_NAME_MAX) ?? null;
 
-/** One stored provider's settings; `enabled` falls back to `enabledByDefault`. */
-function providerSettings(v: unknown, enabledByDefault: boolean): ProviderSettings {
+/** One stored provider's settings; `enabled` falls back to `unsetEnabled`. */
+function providerSettings(v: unknown, unsetEnabled: boolean): ProviderSettings {
   const p = isObj(v) ? v : {};
   return {
-    enabled: bool(p['enabled'], enabledByDefault),
+    enabled: bool(p['enabled'], unsetEnabled),
     model: textOrNull(p['model'], false),
     effort: textOrNull(p['effort']),
     // 'shortName': this field's first stored key.
@@ -125,13 +124,13 @@ function providerSettings(v: unknown, enabledByDefault: boolean): ProviderSettin
   };
 }
 
-/** Preserves stored providers/switches across absent-plugin builds. Declared entries fill defaults; features retain independent provider choices. */
+/** Preserves stored providers/switches across absent-plugin builds. A declared provider is off until the owner adds it; an account is on unless paused. */
 export function normalizeAiSettings(v: unknown, declared: readonly ProviderDefaults[] = [], features: readonly JevFeatureDefaults[] = []): AiSettings {
   const src = isObj(v) ? v : {};
   const stored = isObj(src['providers']) ? src['providers'] : {};
   const providers: Record<ProviderId, ProviderSettings> = {};
   for (const [id, p] of Object.entries(stored)) if (PROVIDER_ID.test(id) && isObj(p)) providers[id] = providerSettings(p, false);
-  for (const d of declared) providers[d.id] = providerSettings(stored[d.id], d.enabledByDefault);
+  for (const d of declared) providers[d.id] = providerSettings(stored[d.id], false);
   const accounts: ProviderAccountSettings[] = [];
   for (const a of Array.isArray(src['accounts']) ? src['accounts'] : []) {
     if (!isObj(a) || typeof a['id'] !== 'string' || !ACCOUNT_ID.test(a['id']) || !isAccountAuth(a['auth'])) continue;

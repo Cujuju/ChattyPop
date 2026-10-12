@@ -1,8 +1,8 @@
 // Provider contracts: a completion provider (LlmProvider) and what a plugin registers to supply one (ProviderImpl).
 import type { ModelOption, PlanUsageWindow, ProviderStatus, TokenUsage } from '@shared/contract';
 import type { ProviderDecl } from '@shared/descriptorParts';
-import type { ProviderId, ProviderSettings } from '@shared/settings';
-import type { ProviderAuth } from '@shared/providerAccounts';
+import type { AiSettings, ProviderId, ProviderSettings } from '@shared/settings';
+import { accountKey, type ProviderAuth } from '@shared/providerAccounts';
 export type { ModelOption, PlanUsageWindow, ProviderId, TokenUsage };
 
 /** An image sent with a prompt, as base64 (RFC 4648) of the file's bytes. */
@@ -93,8 +93,13 @@ export interface ProviderImpl {
   dispose?(): void;
 }
 
-/** A provider whose plugin runs but whose Use switch in Settings → AI is off. */
+/** An account whose plugin runs but whose Use switch in Settings → AI is off. */
 export const TURNED_OFF = 'Turned off in Settings → AI providers.';
+/** A declared provider whose plugin runs but which the owner has not added, or removed. */
+export const NOT_ADDED = 'Not added in Settings → AI providers.';
+/** Why a provider that can run takes no requests; null while it is on. */
+export const offReason = (id: ProviderId, settings: AiSettings): string | null =>
+  settings.providers[id]?.enabled ? null : accountKey(id) ? TURNED_OFF : NOT_ADDED;
 
 /** A declared provider and why it can't run now (its plugin is off or absent); null while it can. */
 export interface ProviderInfo extends ProviderDecl {

@@ -5,7 +5,7 @@ import type { Db } from '../db';
 import { hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, DecisionRequest, DecisionResult, Question } from './decisions';
 import type { ProviderRegistry } from './registry';
-import { ProviderUnavailableError, TURNED_OFF, chosenModel, type CompletionRequest, type CompletionResult, type LlmProvider } from './types';
+import { ProviderUnavailableError, chosenModel, offReason, type CompletionRequest, type CompletionResult, type LlmProvider } from './types';
 
 export type { ReadScope };
 /** A request's declared read scope. */
@@ -149,7 +149,7 @@ export function scopedCompletion(db: () => Db, registry: ProviderFacts & Pick<Pr
     declared(reads);
     const s = settings();
     const choice = s.providers[provider];
-    const why = registry.unavailable(provider) ?? (choice?.enabled ? null : TURNED_OFF);
+    const why = registry.unavailable(provider) ?? offReason(provider, s);
     if (why) throw new ProviderUnavailableError(why);
     assertProviderMayRead(db(), registry, provider, reads);
     const r = await registry.get(provider, s).complete({ ...req, ...chosenModel(choice!) });

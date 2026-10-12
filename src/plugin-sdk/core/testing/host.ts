@@ -47,7 +47,6 @@ const scriptedDeclaration = (id: string, local: boolean, images: boolean): Decla
   id,
   label: id,
   displayName: id,
-  enabledByDefault: true,
   local,
   images,
   plugin: { id: providerPlugin(id), name: id },

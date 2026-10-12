@@ -1,4 +1,6 @@
 // Later archive schema migrations.
+import { declaredProviders } from '@shared/aiProviders';
+import { isObj } from '@shared/normalize';
 import { upgradeRuleSpec } from '@shared/ruleUpgrade';
 import type { Db } from './db';
 import { createMessagePings } from './derive/pings';
@@ -200,7 +202,24 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `CREATE TABLE rule_run_debts (run_id INTEGER NOT NULL REFERENCES rule_runs(id) ON DELETE CASCADE,
     action_id TEXT NOT NULL, since_ts INTEGER NOT NULL, timing TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER NOT NULL, PRIMARY KEY (run_id, action_id));`,
+  // A provider is off until the owner adds it; a profile already in use keeps the ones that were on by default.
+  keepDefaultProviders,
 ];
+
+/** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */
+export function keepDefaultProviders(db: Db, declared: readonly { id: string }[] = declaredProviders()): void {
+  if (!db.prepare('SELECT 1 FROM settings LIMIT 1').get()) return;
+  const row = db.prepare("SELECT value FROM settings WHERE key = 'ai'").get() as { value: string } | undefined;
+  const stored: unknown = row ? JSON.parse(row.value) : {};
+  const ai = isObj(stored) ? stored : {};
+  const providers = isObj(ai['providers']) ? { ...ai['providers'] } : {};
+  // Read as the declarations carried it then: the field decides nothing else now.
+  const onByDefault = declared.filter((d) => (d as { enabledByDefault?: unknown }).enabledByDefault === true);
+  const unset = onByDefault.filter(({ id }) => !isObj(providers[id]) || typeof providers[id]['enabled'] !== 'boolean');
+  if (!unset.length) return;
+  for (const { id } of unset) providers[id] = { ...(isObj(providers[id]) ? providers[id] : {}), enabled: true };
+  db.prepare("INSERT INTO settings (key, value) VALUES ('ai', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(JSON.stringify({ ...ai, providers }));
+}
 
 /** Keep bot identity after retention drops payloads; decode old payloads once during upgrade, never while counting. */
 export function storedBotAuthors(db: Db): void {

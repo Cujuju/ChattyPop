@@ -10,8 +10,8 @@ import { checkBundled } from '@shared/bundledCheck';
 import { normalizeAiSettings } from '@shared/settings';
 import { ProviderRegistry } from '../src/core/ai/registry';
 import type { CoreContext, CorePlugin } from '../src/core/plugins/context';
-import { TURNED_OFF } from '../src/core/ai/types';
-import { setSetting } from '../src/core/db';
+import { NOT_ADDED, TURNED_OFF, offReason } from '../src/core/ai/types';
+import { getSetting, setSetting } from '../src/core/db';
 import { tempDb } from './helpers';
 import { startProviders } from './providerHost';
 
@@ -110,20 +110,24 @@ describe('registered providers', () => {
   });
 });
 
-describe('a provider turned off in Settings → AI', () => {
-  it("is unavailable to plugins' own picks, naming why, while its plugin runs; on again, it answers", async () => {
+describe('a provider the owner has not added in Settings → AI', () => {
+  it("is unavailable to plugins' own picks, naming why, while its plugin runs; added, it answers", async () => {
     let ai: CoreContext['ai'] | undefined;
     const picker = definePlugin({ manifest: { id: 'picker', name: 'Picker', version: '1', description: '' } });
-    const { db, registry } = start({}, undefined, [defineCorePlugin(picker, (ctx) => void (ai = ctx.ai))]);
-    // Probe · local is off by default (enabledByDefault: false); its plugin runs.
+    const { db, registry } = start({ providers: { probe: { enabled: true } } }, undefined, [defineCorePlugin(picker, (ctx) => void (ai = ctx.ai))]);
+    // Probe · local was never added; its plugin runs.
     expect(registry.unavailable('probe.local')).toBeNull();
-    expect(ai!.unavailable('probe.local')).toBe(TURNED_OFF);
-    expect(ai!.providers().find((p) => p.id === 'probe.local')?.unavailable).toBe(TURNED_OFF);
-    expect(() => ai!.provider('probe.local')).toThrow(TURNED_OFF);
+    expect(ai!.unavailable('probe.local')).toBe(NOT_ADDED);
+    expect(ai!.providers().find((p) => p.id === 'probe.local')?.unavailable).toBe(NOT_ADDED);
+    expect(() => ai!.provider('probe.local')).toThrow(NOT_ADDED);
     expect(ai!.unavailable('probe')).toBeNull();
     setSetting(db, 'ai', { providers: { 'probe.local': { enabled: true } } });
     expect(ai!.unavailable('probe.local')).toBeNull();
     expect(await ai!.provider('probe.local').complete({ system: '', prompt: '', reads: [] })).toEqual({ text: 'probe.local:default' });
+    // A declared provider that is on by declaration is still off until added; an account switched off says so.
+    expect(ai!.unavailable('probe')).toBe(NOT_ADDED);
+    setSetting(db, 'ai', { accounts: [{ id: 'probe@work', auth: 'apiKey' }], providers: { 'probe@work': { enabled: false } } });
+    expect(offReason('probe@work', normalizeAiSettings(getSetting(db, 'ai'), DECLARED))).toBe(TURNED_OFF);
   });
 });
 
@@ -242,9 +246,9 @@ describe('stored AI settings (adoption with values intact)', () => {
     for (const [id, entry] of Object.entries(PRE_EXTRACTION.providers)) expect(ai.providers[id]).toEqual(entry);
   });
 
-  it('fill declared providers a profile never set from their declaration', () => {
+  it('fill declared providers a profile never set, off until the owner adds them', () => {
     const fresh = normalizeAiSettings({}, providerDeclarations([probe]));
-    expect(fresh.providers['probe']).toEqual({ enabled: true, model: null, effort: null, displayName: null });
+    expect(fresh.providers['probe']).toEqual({ enabled: false, model: null, effort: null, displayName: null });
     expect(fresh.providers['probe.local']?.enabled).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import { MS_PER_MIN } from '@shared/units';
 import { PluginInactiveError } from '@shared/pluginCall';
 import { localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, Question, Structured } from '../ai/decisions';
-import { TURNED_OFF } from '../ai/types';
+import { offReason } from '../ai/types';
 import { assertJevMayRead, scopedDecider, type ScopedCompletion } from '../ai/readScope';
 import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting, type Db } from '../db';
@@ -172,7 +172,7 @@ export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, 
           id: p.id,
           label: p.label,
           local: p.local ?? false,
-          unavailable: p.unavailable ?? (ai.providers[p.id]?.enabled ? null : TURNED_OFF),
+          unavailable: p.unavailable ?? offReason(p.id, ai),
         }));
       },
       decide: async (req) => {

@@ -7,7 +7,7 @@ import { SETTINGS_KEYS, type AiSettings, type ProviderId } from '@shared/setting
 import { apiCost, type PriceAtApiRates } from '../ai/apiRates';
 import type { OpenRouterKeyReader } from '../ai/registry';
 import { aiSources, assertProviderMayRead, scopedProvider, type AiSources, type PluginProvider } from '../ai/readScope';
-import { ProviderUnavailableError, TURNED_OFF, type ProviderImpl, type ProviderInfo } from '../ai/types';
+import { ProviderUnavailableError, offReason, type ProviderImpl, type ProviderInfo } from '../ai/types';
 import { registerUsage, type UsageReader } from '../ai/usage';
 import { servicesLive, type Registrations } from './api';
 import { revocable } from '../ai/revocable';
@@ -69,9 +69,9 @@ export function pluginAi<D extends PluginDescriptor>(
       throw safe;
     }
   };
-  /** Why `id` can't run for this plugin: its plugin can't, or the owner turned it off in Settings → AI. */
+  /** Why `id` can't run for this plugin: its plugin can't, or the owner hasn't added it or turned its account off in Settings → AI. */
   const unavailable = (id: ProviderId, settings: AiSettings = bundled.aiSettings()): string | null =>
-    providers.unavailable(id) ?? (settings.providers[id]?.enabled ? null : TURNED_OFF);
+    providers.unavailable(id) ?? offReason(id, settings);
   return {
     settings: bundled.aiSettings,
     provider: (id, settings = bundled.aiSettings()) => {

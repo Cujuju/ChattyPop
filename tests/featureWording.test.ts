@@ -68,7 +68,7 @@ describe('AI run wording', () => {
       provider: 'Summarizing provider',
       title: "Only ChattyPop's own summaries in this window. The percentage is your whole plan, including other apps.",
       empty: 'No summaries yet',
-      overview: 'Turn providers on and pick the model each one uses. Each feature chooses its provider in its own settings.',
+      overview: 'Add each provider you use and pick its model. Each feature chooses its provider in its own settings.',
       requests: 'summaries',
     });
   });
@@ -80,7 +80,7 @@ describe('AI run wording', () => {
       provider: 'AI provider',
       title: "Only ChattyPop's own AI runs in this window. The percentage is your whole plan, including other apps.",
       empty: 'No AI runs yet',
-      overview: 'Turn providers on and pick the model each one uses. Each feature chooses its provider in its own settings.',
+      overview: 'Add each provider you use and pick its model. Each feature chooses its provider in its own settings.',
       requests: 'requests',
     });
   });
