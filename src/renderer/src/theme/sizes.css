@@ -119,7 +119,6 @@
   --cp-icon-md: 14px;
   --cp-icon-lg: 16px;
   --cp-jump-icon: 20px; /* the arrow of a jump button that is an icon alone (back to top, jump to newest): reads at a glance */
-  --cp-hold-icon: 20px; /* the icon of a hold-to-confirm button (ui/HoldButton): an icon alone, read across a section's title line */
   --cp-icon-line: 1px; /* a line icon's stroke on screen, at every icon size (base.css) */
   --cp-section-tile: 22px; /* icon tile heading a panel */
   --cp-header-title-line-h: 20px; /* panel title line; the meta beside it wraps below this and is hidden */

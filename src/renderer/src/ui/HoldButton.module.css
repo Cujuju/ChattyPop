@@ -18,8 +18,8 @@
 }
 
 .icon {
-  width: var(--cp-hold-icon);
-  height: var(--cp-hold-icon);
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
 }
 
 /* What a hold does is destructive: the button and the traced line (currentColor) say so, as cp-danger does. */
