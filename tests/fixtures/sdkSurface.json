@@ -1,7 +1,9 @@
 {
-  "version": "2.40.0",
+  "version": "2.41.0",
   "modules": {
     "@plugin-sdk/shared": [
+      "ACCOUNT_AUTHS",
+      "ACCOUNT_SEPARATOR",
       "ACTION_LOOKBACKS",
       "AFTER_MESSAGE",
       "ALL_DAYS",
@@ -81,6 +83,8 @@
       "VOICE_MESSAGE_FLAG",
       "WEEKDAY_LABELS",
       "X_STATUS_PATH",
+      "accountKey",
+      "accountProvider",
       "andList",
       "attachmentFileName",
       "avatarUrl",
@@ -116,6 +120,7 @@
       "lastDailyDue",
       "mediaKind",
       "mediaSize",
+      "newAccountId",
       "newGates",
       "newNonce",
       "newPluginAction",
@@ -175,6 +180,7 @@
       "carriedQuestion",
       "chosenModel",
       "clampCount",
+      "cliAccounts",
       "clipMessage",
       "customQuestion",
       "deadline",
@@ -593,6 +599,7 @@
   "types": {
     "@plugin-sdk/shared": [
       "AFTER_MESSAGE",
+      "AccountAuth",
       "Adoption",
       "AiSettings",
       "AllowedMentions",
@@ -665,7 +672,10 @@
       "PreferenceField",
       "PreferenceNames",
       "PreferenceValue",
+      "ProviderAccountSettings",
+      "ProviderAccountsDecl",
       "ProviderApiKeyDecl",
+      "ProviderAuth",
       "ProviderDecl",
       "ProviderId",
       "ProviderIds",
@@ -733,6 +743,7 @@
       "WireValue"
     ],
     "@plugin-sdk/core": [
+      "AccountLinkIo",
       "ActionResult",
       "ActionRun",
       "AiReader",
@@ -746,6 +757,7 @@
       "ArchiveReplyTargets",
       "Arrived",
       "AttachmentNoteProvider",
+      "CliAccountsSpec",
       "CliKeyAuth",
       "CliSpec",
       "CompletionImage",
@@ -805,6 +817,7 @@
       "PriceAtApiRates",
       "PricedUsage",
       "Privacy",
+      "ProviderAccount",
       "ProviderChoice",
       "ProviderImpl",
       "ProviderInfo",

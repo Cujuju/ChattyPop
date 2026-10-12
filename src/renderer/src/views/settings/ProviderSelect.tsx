@@ -2,7 +2,7 @@
 import { Select } from '@/ui/Select';
 import type { ProviderId } from '@shared/settings';
 import { availableProviders } from '@/state/aiProviders';
-import { providerName, providerSettingsOf } from '@/state/preferences';
+import { providerLabel, providerName, providerSettingsOf } from '@/state/preferences';
 import { settingsControl as c } from './SettingsLayout';
 
 /** The select's value while no provider is chosen. */
@@ -19,7 +19,7 @@ export function ProviderSelect(props: { id?: string; class?: string; label?: str
   const options = () => [
     ...(props.unsetLabel ? [{ value: NONE, label: props.unsetLabel }] : props.value ? [] : [{ value: NONE, label: 'Pick a provider…' }]),
     // A chosen provider whose plugin isn't running keeps its row, so the choice stays visible.
-    ...(props.value && !availableProviders().some((d) => d.id === props.value) ? [{ value: props.value, label: named(props.value, props.value, 'not running') }] : []),
+    ...(props.value && !availableProviders().some((d) => d.id === props.value) ? [{ value: props.value, label: named(props.value, providerLabel(props.value), 'not running') }] : []),
     ...availableProviders().map((d) => ({
       value: d.id,
       label: named(d.id, d.label, providerSettingsOf(d.id).enabled ? null : 'turned off in Settings → AI providers'),

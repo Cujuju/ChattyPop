@@ -35,7 +35,7 @@ describe('remote desktop calls', () => {
   });
 
   it('lets a remote desktop make every core call the window makes, and only those', () => {
-    for (const m of RENDERER_CORE_METHODS) expect(remote.remoteMayCallCore(m)).toBe(true);
+    for (const m of RENDERER_CORE_METHODS) expect(remote.remoteMayCallCore(m)).toBe(!(remote.SERVER_SCREEN_CORE_METHODS as readonly string[]).includes(m));
     expect(remote.remoteMayCallCore('pluginCall')).toBe(false);
     expect(remote.remoteMayCallCore('closeArchive')).toBe(false);
   });

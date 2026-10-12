@@ -3,6 +3,7 @@ import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } fro
 import type { PluginCallResult } from '@shared/pluginCall';
 import type { ExportFormat, HtmlPage, PdfPage } from '@shared/htmlPage';
 import { DesktopUnreachableError, isPhoneDeviceSetting, phoneMayCallPlugin, phoneMayWriteSetting, type PhoneCall, type PhoneDiscordMethod } from '@shared/phone';
+import { SERVER_SCREEN_CORE_METHODS } from '@shared/remote';
 import { SCHEDULE_UNCONFIRMED } from '@shared/scheduledMessages';
 
 /** How a phone page reaches the desktop. */
@@ -40,7 +41,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
   const core = new Proxy({} as RendererApi['core'], {
     get: (_t, method: string) =>
       // Its own settings (PHONE_DEVICE_SETTINGS) and the PC's it may write reach its transport; view choices (density, filters) last this visit.
-      method === 'setSetting'
+      (SERVER_SCREEN_CORE_METHODS as readonly string[]).includes(method) ? unavailable('Account sign-in') : method === 'setSetting'
         ? (key: string, value: unknown) =>
             isPhoneDeviceSetting(key) || phoneMayWriteSetting(key) ? transport.call({ group: 'core', method, params: [key, value] }) : Promise.resolve()
         : (...params: unknown[]) => transport.call({ group: 'core', method, params }),

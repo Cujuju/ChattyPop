@@ -1,3 +1,4 @@
+import { accountProvider } from '@shared/providerAccounts';
 // Joins installed renderer contributions with descriptors for active slots. Views access entries without importing plugin source or registry.
 import type { Component } from 'solid-js';
 import { placeByAnchor } from '@shared/anchors';
@@ -56,7 +57,7 @@ export const actsAsYouNotes = (): Component[] => active().flatMap((p) => contrib
 export const composerCommands = (): ComposerCommand[] => active().flatMap((p) => contributions(p).composer?.commands() ?? []);
 
 /** Provider `id`'s own Settings → AI rows and note, while its plugin is on. Reactive. */
-export const providerView = (id: string): ProviderView | undefined => active().flatMap((p) => contributions(p).providers?.[id] ?? [])[0];
+export const providerView = (id: string): ProviderView | undefined => active().flatMap((p) => contributions(p).providers?.[accountProvider(id)] ?? [])[0];
 
 /** Plugins' sections on a host settings page. Reactive. */
 export const settingsSections = (page: SettingsPageId): SettingsSectionDef[] =>
