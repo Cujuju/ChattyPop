@@ -48,6 +48,7 @@ describe('account routing and storage', () => {
     for (const id of ['probe', 'probe@work', 'probe@orphan']) expect(h.registry.apiKey(id)).toBeNull();
     expect((await h.registry.status(h.settings())).map((s) => [s.id, s.auth])).toEqual([['probe', 'cli'], ['probe@work', 'signIn'], ['probe@api', 'apiKey']]);
     expect(await h.registry.planUsage('probe@work', h.settings())).toEqual([WINDOW]);
+    expect(await h.registry.planUsage('probe@api', h.settings())).toBeNull();
     expect(h.registry.providers().map((p) => p.id)).toEqual(['probe', 'probe@work', 'probe@api']);
     expect(h.registry.unavailable('probe@gone')).toBe(REMOVED_ACCOUNT);
     expect(() => h.registry.get('probe@gone', h.settings())).toThrow(REMOVED_ACCOUNT);

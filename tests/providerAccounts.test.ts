@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { accountKey, accountProvider, newAccountId, ACCOUNT_ID, REMOVED_ACCOUNT } from '@shared/providerAccounts';
 import { normalizeAiSettings, normalizeProviderId } from '@shared/aiSettings';
-import { accountUnavailable, declaredProvider, providerDeclarations, providerPlugin, providersOf, providerUnavailable } from '@shared/aiProviders';
+import { accountUnavailable, declaredProvider, providerDeclarations, providerPlugin, providersOf, providerUnavailable, reportsPlanUsage } from '@shared/aiProviders';
 import { checkBundled } from '@shared/bundledCheck';
 import { definePlugin } from '@plugin-sdk/shared';
 import { MAIN_INVOKE, RENDERER_CORE_METHODS } from '@shared/contract';
@@ -48,6 +48,9 @@ describe('provider list and descriptors', () => {
     const list = providersOf(ai, declared);
     expect(list.map((p) => p.id)).toEqual(['probe', 'probe@work', 'probe@api', 'probe.other']);
     expect(list[1]).toMatchObject({ label: 'Probe · Work', displayName: 'Work', account: { auth: 'signIn' }, planUsage: true, images: true });
+    // An API key has no plan, so its account offers no plan usage.
+    expect(list[2]).toMatchObject({ account: { auth: 'apiKey' }, planUsage: false, images: true });
+    expect(['probe', 'probe@work', 'probe@api', 'probe.other'].map((id) => reportsPlanUsage(id, ai, declared))).toEqual([true, true, false, false]);
     expect(declaredProvider('probe@api', declared)).toBe(declared[0]);
     expect(providerUnavailable('probe@gone', () => ({ status: 'active', error: null }), declared, ai)).toBe(REMOVED_ACCOUNT);
   });

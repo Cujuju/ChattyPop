@@ -35,9 +35,13 @@ export function providersOf(ai: AiSettings, declared: readonly DeclaredProvider[
     const name = providerDisplayName(ai, a.id, declared);
     const suffix = d.label.lastIndexOf(LABEL_SEPARATOR);
     const brand = suffix < 0 ? d.displayName : d.label.slice(0, suffix);
-    return { ...d, id: a.id, label: `${brand}${LABEL_SEPARATOR}${name}`, displayName: name, account: { auth: a.auth } };
+    return { ...d, id: a.id, label: `${brand}${LABEL_SEPARATOR}${name}`, displayName: name, account: { auth: a.auth }, planUsage: reportsPlanUsage(a.id, ai, declared) };
   })]);
 }
+
+/** Whether provider `id` reports plan limits: declared so, and not an account paid by an API key, which has no plan. */
+export const reportsPlanUsage = (id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[] = DECLARED): boolean =>
+  (declaredProvider(id, declared)?.planUsage ?? false) && ai.accounts.find((a) => a.id === id)?.auth !== 'apiKey';
 
 /** Stored accounts survive plugin changes, but unsupported auth never falls back to the machine's sign-in. */
 export function accountUnavailable(id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[] = DECLARED): string | null {

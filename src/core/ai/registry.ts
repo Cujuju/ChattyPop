@@ -168,7 +168,10 @@ export class ProviderRegistry {
   }
 
   planUsage(id: ProviderId, settings: AiSettings): Promise<PlanUsageWindow[] | null> {
-    return this.get(id, settings).planUsage?.() ?? Promise.resolve(null);
+    const provider = this.get(id, settings);
+    // An API key has no plan, whatever its provider answers.
+    if (!provider.planUsage || this.accounts.get(id).account.auth === 'apiKey') return Promise.resolve(null);
+    return provider.planUsage();
   }
 
   setOpenRouterKeys(keys: OpenRouterKeyEntry[]): void {

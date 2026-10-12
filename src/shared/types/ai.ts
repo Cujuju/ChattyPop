@@ -18,6 +18,8 @@ export interface AppUsage extends TokenUsage {
 export interface ModelOption {
   id: string;
   label: string;
+  /** The provider's own line about the model (the version an alias resolves to, its price). */
+  description?: string;
   /** Thinking/effort levels the model accepts, in the provider's own names; absent = none to choose. */
   efforts?: string[];
   /** The model a null model setting resolves to. */
