@@ -16,13 +16,15 @@ export function startProviders(
   plugins: readonly CorePlugin[],
   declared: readonly PluginDescriptor[] = plugins.map((p) => p.plugin),
   db: Db = tempDb(),
-  options: { jev?: DecisionProvider; pluginsDir?: string; apiKeys?: Record<string, string> } = {},
+  options: { jev?: DecisionProvider; pluginsDir?: string; apiKeys?: Record<string, string>; accounts?: import('@shared/providerAccounts').ProviderAccountSettings[] } = {},
 ) {
+  if (options.accounts) setSetting(db, 'ai', { ...(getSetting(db, 'ai') as object ?? {}), accounts: options.accounts });
   const decls = providerDeclarations(declared);
   const registry = new ProviderRegistry(() => undefined, decls);
   registry.setProviderApiKeys(options.apiKeys ?? {});
   const rules = new RuleKinds();
   const ai = (): AiSettings => normalizeAiSettings(getSetting(db, 'ai'), decls);
+  registry.bindAccounts(ai, () => undefined);
   const jev = (): DecisionProvider | null => options.jev ?? null;
   const host = new PluginHost(
     options.pluginsDir ?? tempDir(),

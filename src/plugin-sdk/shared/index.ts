@@ -51,7 +51,7 @@ export type {
 } from '@shared/bundledTypes';
 export type { SlotDecl, SlotDecls, SlotKind } from '@shared/slots';
 export type { Placement } from '@shared/anchors';
-export type { OwnerUrl, ProviderDecl, ProviderApiKeyDecl } from '@shared/descriptorParts';
+export type { OwnerUrl, ProviderDecl, ProviderApiKeyDecl, ProviderAccountsDecl } from '@shared/descriptorParts';
 export { definePreference, type CorePreferences, type FieldPath, type MainPreferences, type PhoneView, type Preference, type PreferenceField, type PreferenceNames, type PreferenceValue } from '@shared/preferences';
 export { newPluginAction } from '@shared/bundledTypes';
 export type { RuleTemplate } from '@shared/ruleTemplates';
@@ -205,3 +205,5 @@ export { PHONE_DEVICE_SETTINGS, isPhoneDeviceSetting } from '@shared/phoneDevice
 export { REMOTE_DEVICE_SETTINGS, isRemoteDeviceSetting } from '@shared/remoteDevice';
 export { ALT_TEXT_MAX, type FileOptions, type OwnerMessage } from '@shared/compose';
 export type { DirectoryGuild } from '@shared/contract';
+
+export { ACCOUNT_SEPARATOR, ACCOUNT_AUTHS, accountProvider, accountKey, newAccountId, type AccountAuth, type ProviderAuth, type ProviderAccountSettings } from '@shared/providerAccounts';

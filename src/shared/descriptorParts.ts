@@ -1,9 +1,15 @@
 // Plugin descriptor parts for AI providers and owner-set network addresses (docs/plugin-architecture.md §3, §4).
 
-/** A provider that takes the owner's own API key in place of its sign-in. */
+/** The key shape of a provider's API-key accounts. */
 export interface ProviderApiKeyDecl {
   /** The key's shape, shown in the empty field (`sk-ant-…`). */
   placeholder: string;
+}
+
+/** The owner may add accounts of this provider in Settings → AI. */
+export interface ProviderAccountsDecl {
+  /** A CLI sign-in linked in ChattyPop, apart from this computer's own. */
+  signIn?: boolean;
 }
 
 /** Registered AI providers appear in settings/choices, store ai.providers settings by id and receive requests while enabled. */
@@ -24,7 +30,8 @@ export interface ProviderDecl {
   logoPath?: string;
   /** Paid through the host's OpenRouter keys, which Settings → AI lists under it. */
   openRouterKeys?: boolean;
-  /** Settings → AI offers the owner's API key, paying instead of the sign-in while stored. */
+  accounts?: ProviderAccountsDecl;
+  /** API-key accounts use this key shape. */
   apiKey?: ProviderApiKeyDecl;
   /** Some of its models read images sent with a prompt (CompletionRequest.images; ModelOption.images says which). */
   images?: boolean;

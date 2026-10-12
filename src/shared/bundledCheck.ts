@@ -1,7 +1,8 @@
 // Pure descriptor checks validate ids, namespaces, duplicates and anchors identically across builds/catalogs and runtime installs.
 import { checkArchiveRefs } from './archiveRefs';
 import { HOST_SEARCH_KEYS } from './searchTokens';
-import { HOST_JEV_FEATURES, PROVIDER_ID, isHostJevFeature } from './aiSettings';
+import { HOST_JEV_FEATURES, isHostJevFeature } from './aiSettings';
+import { DECLARED_PROVIDER_ID } from './providerAccounts';
 import { HOST_NOTICE_KINDS } from './notices';
 import { JEV_QUERY_GROUPS } from './jevQueries/groups';
 import { HOST_JEV_QUERIES } from './jevQueries/host';
@@ -258,10 +259,12 @@ export function checkBundled(list: readonly PluginDescriptor[], catalog: AnchorC
       once('search token', token.key);
     }
     for (const provider of p.providers ?? []) {
-      if (!PROVIDER_ID.test(provider.id) || (provider.id !== id && !provider.id.startsWith(`${id}.`)))
+      if (!DECLARED_PROVIDER_ID.test(provider.id) || (provider.id !== id && !provider.id.startsWith(`${id}.`)))
         throw new Error(`AI provider ${provider.id} must be ${id} or ${id}.<name>.`);
       if (provider.apiKey !== undefined && (!provider.apiKey || typeof provider.apiKey.placeholder !== 'string' || !provider.apiKey.placeholder.trim()))
         throw new Error(`AI provider ${provider.id} apiKey needs a non-empty placeholder.`);
+      if (provider.accounts !== undefined && (!provider.accounts || typeof provider.accounts !== 'object' || Array.isArray(provider.accounts) || (provider.accounts.signIn !== undefined && typeof provider.accounts.signIn !== 'boolean') || (!provider.accounts.signIn && !provider.apiKey)))
+        throw new Error(`AI provider ${provider.id} accounts must allow signIn or apiKey.`);
       once('AI provider', provider.id);
     }
     for (const q of p.jev?.queries ?? []) once('Jev query', q.id);

@@ -98,7 +98,7 @@ describe('registered providers', () => {
     });
     const status = await registry.status(ai());
     expect(status.map((s) => s.id)).toEqual(['probe', 'probe.local', 'other']);
-    expect(status[0]).toEqual({ id: 'probe', apiKeyHint: null, available: false, detail: 'probe CLI crashed', models: null });
+    expect(status[0]).toEqual({ id: 'probe', auth: 'cli', apiKeyHint: null, available: false, detail: 'probe CLI crashed', models: null });
     expect(host.list().find((p) => p.id === 'probe')?.error).toBe('probe CLI crashed');
   });
 

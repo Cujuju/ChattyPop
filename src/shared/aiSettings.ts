@@ -1,11 +1,12 @@
 // AI settings: providers, Jev features and routing. Stored JSON is normalized on read (see settings.ts).
 import { bool, isObj, oneOf, textOrNull } from './normalize';
 import { PLUGIN_ID_SOURCE } from './plugins';
+import { ACCOUNT_ID, ACCOUNT_KEY_SOURCE, ACCOUNT_SEPARATOR, DECLARED_PROVIDER_SOURCE, accountKey, accountProvider, isAccountAuth, type ProviderAccountSettings } from './providerAccounts';
 
-/** A registered AI provider's id (docs/plugin-architecture.md §3, AI providers): its plugin's id, or `<plugin id>.<name>`. */
+/** A declared provider id or an owner-added account id (docs/plugin-architecture.md §3). */
 export type ProviderId = string;
 /** The shape of a provider id; stored choices keep any id of this shape, whether or not this build has its plugin. */
-export const PROVIDER_ID = new RegExp(`^${PLUGIN_ID_SOURCE}(\\.[a-zA-Z][a-zA-Z0-9_]*)?$`);
+export const PROVIDER_ID = new RegExp(`^${DECLARED_PROVIDER_SOURCE}(${ACCOUNT_SEPARATOR}${ACCOUNT_KEY_SOURCE})?$`);
 /** A stored provider choice: an id of provider shape, else null. */
 export const normalizeProviderId = (v: unknown): ProviderId | null => (typeof v === 'string' && PROVIDER_ID.test(v) ? v : null);
 
@@ -88,6 +89,8 @@ const RETIRED_JEV_FEATURES: Readonly<Record<string, HostJevFeature>> = {
 export const jevFeatureOn = (jev: JevSettings, f: JevFeature): boolean => jev[f] ?? false;
 
 export interface AiSettings {
+  /** Owner-added accounts in Settings order; their choices and names are in providers[id]. */
+  accounts: ProviderAccountSettings[];
   /** Every stored provider's settings, kept whether or not its plugin is in this build, plus declared defaults. */
   providers: Record<ProviderId, ProviderSettings>;
   /** Commands the owner types in Discord, answered there. */
@@ -97,6 +100,7 @@ export interface AiSettings {
 
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
+  accounts: [],
   // No provider is known without the build's declarations (normalizeAiSettings adds them).
   providers: {},
 
@@ -128,7 +132,17 @@ export function normalizeAiSettings(v: unknown, declared: readonly ProviderDefau
   const providers: Record<ProviderId, ProviderSettings> = {};
   for (const [id, p] of Object.entries(stored)) if (PROVIDER_ID.test(id) && isObj(p)) providers[id] = providerSettings(p, false);
   for (const d of declared) providers[d.id] = providerSettings(stored[d.id], d.enabledByDefault);
+  const accounts: ProviderAccountSettings[] = [];
+  for (const a of Array.isArray(src['accounts']) ? src['accounts'] : []) {
+    if (!isObj(a) || typeof a['id'] !== 'string' || !ACCOUNT_ID.test(a['id']) || !isAccountAuth(a['auth'])) continue;
+    const id = a['id'];
+    const plugin = accountProvider(id).split('.')[0];
+    if (accounts.some((p) => accountProvider(p.id).split('.')[0] === plugin && accountKey(p.id) === accountKey(id))) continue;
+    accounts.push({ id, auth: a['auth'] });
+    providers[id] = providerSettings(stored[id], true);
+  }
   const out: AiSettings = {
+    accounts,
     providers,
     jevConnection: oneOf(JEV_CONNECTIONS, src['jevConnection'], DEFAULT_AI_SETTINGS.jevConnection),
     jev: { ...DEFAULT_AI_SETTINGS.jev },

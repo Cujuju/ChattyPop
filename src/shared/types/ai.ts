@@ -1,6 +1,7 @@
 // AI results and status: provider and plan usage, Jev answers.
 import type { JevConnection, ProviderId } from '../settings';
 import type { JevQuestionSpec } from '../jevQuestion';
+import type { ProviderAuth } from '../providerAccounts';
 
 /** Tokens a provider reported for AI calls. Input includes cached input. */
 export interface TokenUsage {
@@ -29,6 +30,9 @@ export interface ModelOption {
 
 export interface ProviderStatus {
   id: ProviderId;
+  auth: ProviderAuth;
+  /** Whether a linked account's CLI holds its sign-in; absent for other auth kinds. */
+  signedIn?: boolean;
   /** Last characters of the stored API key; null when none is stored or the provider takes none. */
   apiKeyHint: string | null;
   available: boolean;

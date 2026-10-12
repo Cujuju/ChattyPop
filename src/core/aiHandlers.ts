@@ -14,6 +14,9 @@ import type { JevSpendLedger } from './jevSpend';
 type Handlers = Pick<
   CoreMethods,
   | 'aiStatus'
+  | 'linkProviderAccount'
+  | 'submitAccountLinkCode'
+  | 'cancelAccountLink'
   | 'aiPlanUsage'
   | 'jevSpend'
   | 'aiUsageSince'
@@ -40,7 +43,11 @@ export function aiHandlers(o: {
   emit: (e: AppEvent) => void;
 }): Handlers {
   const { providers } = o;
+  providers.bindAccounts(o.aiSettings, o.emit);
   return {
+    linkProviderAccount: (id) => providers.linkAccount(id),
+    submitAccountLinkCode: (id, code) => providers.submitLinkCode(id, code),
+    cancelAccountLink: (id) => providers.cancelLink(id),
     aiStatus: (refresh) => providers.status(o.aiSettings(), refresh),
     aiPlanUsage: (id) => providers.planUsage(id, o.aiSettings()),
     jevSpend: () => o.jevLedger.spend(o.db()),

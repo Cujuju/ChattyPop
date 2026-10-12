@@ -1,10 +1,12 @@
 // Registers plugin AI providers by declared id; host Jev uses its OpenRouter or TypeSafe keys.
-import type { JevStatus, ProviderStatus } from '@shared/contract';
-import { declaredProvider, declaredProviders, providerUnavailable, type DeclaredProvider } from '@shared/aiProviders';
+import type { AppEvent, JevStatus, ProviderStatus } from '@shared/contract';
+import { accountUnavailable, declaredProvider, declaredProviders, providersOf, providerUnavailable, type DeclaredProvider } from '@shared/aiProviders';
 import { errorMessage } from '@shared/errors';
 import { NONE_STARTED, type PluginStates } from '@shared/ruleAvailability';
 import { JEV_OPENROUTER_MODEL, keyForModel, keyHint, type OpenRouterKeyBalance, type OpenRouterKeyEntry, type OpenRouterKeyInfo } from '@shared/openrouter';
 import { jevFeatureOn, type AiSettings, type JevFeature, type ProviderId } from '@shared/settings';
+import { accountKey, accountProvider } from '@shared/providerAccounts';
+import { ProviderAccounts } from './accounts';
 import type { DecisionProvider } from './decisions';
 import { JevProvider, openRouterJevRoute, typeSafeJevRoute, type JevRoute, type JevSpent } from './jev';
 import { openRouterKeyBalance } from './openRouterKeys';
@@ -54,6 +56,7 @@ interface Registration {
 }
 
 export class ProviderRegistry {
+  private readonly accounts = new ProviderAccounts((id) => this.apiKey(id));
   private readonly registered = new Map<ProviderId, Registration>();
   private pluginStates: PluginStates = NONE_STARTED;
   /** Held in memory only; main owns the encrypted copy on disk. */
@@ -73,22 +76,27 @@ export class ProviderRegistry {
   }
 
   /** Adds a declared provider until the returned disposer runs (its plugin turns off), which revokes what it handed out. */
-  register(id: ProviderId, impl: ProviderImpl): () => void {
-    if (!declaredProvider(id, this.declared)) throw new Error(`No AI provider ${id} is declared in this build.`);
+  register(id: ProviderId, impl: ProviderImpl, dataDir?: string): () => void {
+    if (accountKey(id) || !declaredProvider(id, this.declared)) throw new Error(`No AI provider ${id} is declared in this build.`);
     if (declaredProvider(id, this.declared)?.apiKey && !impl.checkApiKey) throw new Error(`AI provider ${id} declares apiKey but supplies no checkApiKey.`);
+    if (declaredProvider(id, this.declared)?.accounts?.signIn && !impl.linkAccount) throw new Error(`AI provider ${id} declares signIn accounts but supplies no linkAccount.`);
+    if (declaredProvider(id, this.declared)?.accounts && !dataDir) throw new Error(`AI provider ${id} accounts require plugin storage.`);
     if (this.registered.has(id)) throw new Error(`AI provider ${id} is already registered.`);
     const registration: Registration = { impl, revoked: new AbortController() };
     this.registered.set(id, registration);
+    if (dataDir) this.accounts.activate(id, impl, dataDir);
     return () => {
       if (this.registered.get(id) !== registration) return;
       this.registered.delete(id);
+      this.accounts.deactivate(id);
+      impl.dispose?.();
       registration.revoked.abort(new ProviderUnavailableError(this.unavailable(id)!));
     };
   }
 
   /** Whether provider `id` can take requests now. */
   runs(id: ProviderId): boolean {
-    return this.registered.has(id);
+    return !accountUnavailable(id, this.accounts.current(), this.declared) && this.registered.has(accountProvider(id));
   }
 
   /** Settings → Plugins' states, so a reason tells an off plugin from one that failed to start. The plugin host binds it. */
@@ -98,16 +106,18 @@ export class ProviderRegistry {
 
   /** Why provider `id` can't take requests now; null while it can. */
   unavailable(id: ProviderId): string | null {
+    const accountReason = accountUnavailable(id, this.accounts.current(), this.declared);
+    if (accountReason) return accountReason;
     if (this.runs(id)) return null;
     const declared = declaredProvider(id, this.declared);
-    const reason = providerUnavailable(id, this.pluginStates, this.declared);
+    const reason = providerUnavailable(id, this.pluginStates, this.declared, this.accounts.current());
     // Null only for a declared provider whose plugin runs.
     return reason ?? notRegistered(declared!.label, declared!.plugin.name);
   }
 
-  /** Every declared provider, with why each can't run now. */
+  /** Every declaration and account, with why each cannot run. */
   providers(): ProviderInfo[] {
-    return this.declared.map(({ plugin: _owner, ...d }) => ({ ...d, unavailable: this.unavailable(d.id) }));
+    return providersOf(this.accounts.current(), this.declared).map(({ plugin: _owner, ...d }) => ({ ...d, unavailable: this.unavailable(d.id) }));
   }
 
   /** Whether provider `id` runs on this PC (local AI only channels may use it). */
@@ -117,31 +127,41 @@ export class ProviderRegistry {
 
   /** The provider for `settings`' choice; throws ProviderUnavailableError, naming why, while it can't run. */
   get(id: ProviderId, settings: AiSettings): LlmProvider {
-    const registration = this.registered.get(id);
+    this.accounts.sync(settings);
+    const why = this.unavailable(id);
+    if (why) throw new ProviderUnavailableError(why);
+    const registration = this.registered.get(accountProvider(id));
     if (!registration) throw new ProviderUnavailableError(this.unavailable(id)!);
-    const provider = keyedProvider(revocable(registration.impl.create(settings.providers[id] ?? NO_CHOICE), registration.revoked.signal), () => this.apiKey(id));
+    const held = this.accounts.get(id);
+    const raw = registration.impl.create(settings.providers[id] ?? NO_CHOICE, held.account);
+    const named: LlmProvider = { id, maxInputChars: raw.maxInputChars, complete: (req) => raw.complete(req), listModels: () => raw.listModels(), ...(raw.planUsage ? { planUsage: () => raw.planUsage!() } : {}) };
+    const provider = keyedProvider(revocable(revocable(named, held.revoked.signal), registration.revoked.signal), () => this.apiKey(id));
     const d = declaredProvider(id, this.declared)!;
     return d.images ? provider : withoutImages(provider, d.label);
   }
 
   /** Settings → AI: each running provider's state, in declared order. A failing report is shown as the reason. */
   async status(settings: AiSettings, refresh = false): Promise<ProviderStatus[]> {
-    const running = this.declared.flatMap((d) => {
-      const impl = this.registered.get(d.id)?.impl;
-      return impl ? [{ id: d.id, impl }] : [];
-    });
-    return Promise.all(
-      running.map(async ({ id, impl }): Promise<ProviderStatus> => {
-        const key = this.apiKey(id);
-        const apiKeyHint = key ? keyHint(key) : null;
-        try {
-          const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh);
-          return { id, apiKeyHint, available: report.available, detail: redactKey(report.detail, key), models: report.models };
-        } catch (err) {
-          return { id, apiKeyHint, available: false, detail: keyError(err, key).message, models: null };
-        }
-      }),
-    );
+    this.accounts.sync(settings);
+    const running = providersOf(settings, this.declared).filter((d) => this.registered.has(accountProvider(d.id)));
+    return Promise.all(running.map(async ({ id }): Promise<ProviderStatus> => {
+      const impl = this.registered.get(accountProvider(id))!.impl;
+      const account = this.accounts.get(id).account;
+      const storedKey = declaredProvider(id, this.declared)?.apiKey ? Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null : null;
+      const apiKeyHint = storedKey ? keyHint(storedKey) : null;
+      const accountReason = accountUnavailable(id, settings, this.declared);
+      if (accountReason) return { id, auth: account.auth, apiKeyHint, available: false, detail: accountReason, models: null };
+      try {
+        const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh, account);
+        return {
+          id, auth: account.auth, apiKeyHint, available: report.available,
+          detail: redactKey(report.detail, storedKey), models: report.models,
+          ...(account.auth === 'signIn' && report.signedIn !== undefined ? { signedIn: report.signedIn } : {}),
+        };
+      } catch (err) {
+        return { id, auth: account.auth, apiKeyHint, available: false, detail: keyError(err, storedKey).message, models: null };
+      }
+    }));
   }
 
   planUsage(id: ProviderId, settings: AiSettings): Promise<PlanUsageWindow[] | null> {
@@ -161,15 +181,16 @@ export class ProviderRegistry {
     this.providerApiKeys = { ...keys };
   }
 
-  /** The stored key of a provider declared with `apiKey`; null when none. */
+  /** An existing API-key account's current key; declarations and orphan keys are unused. */
   apiKey(id: ProviderId): string | null {
-    return declaredProvider(id, this.declared)?.apiKey && Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null;
+    const stored = this.accounts.current().accounts.find((a) => a.id === id);
+    return stored?.auth === 'apiKey' && !accountUnavailable(id, this.accounts.current(), this.declared) && declaredProvider(id, this.declared)?.apiKey && Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null;
   }
 
   /** Checks a key with its declared, running provider before main stores it. */
   async checkApiKey(id: ProviderId, key: string): Promise<void> {
-    if (!declaredProvider(id, this.declared)?.apiKey) throw new Error(`AI provider ${id} is not declared for API keys.`);
-    const impl = this.registered.get(id)?.impl;
+    if (!this.accounts.current().accounts.some((a) => a.id === id && a.auth === 'apiKey') || accountUnavailable(id, this.accounts.current(), this.declared) || !declaredProvider(id, this.declared)?.apiKey) throw new Error(`AI provider ${id} is not an existing API-key account.`);
+    const impl = this.registered.get(accountProvider(id))?.impl;
     if (!impl) throw new ProviderUnavailableError(this.unavailable(id)!);
     if (!impl.checkApiKey) throw new Error(`AI provider ${id} supplies no checkApiKey.`);
     try {
@@ -178,6 +199,16 @@ export class ProviderRegistry {
       throw keyError(err, key);
     }
   }
+
+  bindAccounts(settings: () => AiSettings, emit: (event: AppEvent) => void): void { this.accounts.bind(settings, emit); }
+  accountsChanged(settings: AiSettings): Promise<void> { this.accounts.sync(settings); return this.accounts.settled(); }
+  linkAccount(id: ProviderId): void {
+    const why = this.unavailable(id);
+    if (why) throw new ProviderUnavailableError(why);
+    this.accounts.links.start(this.accounts.get(id).account, this.registered.get(accountProvider(id))!.impl);
+  }
+  submitLinkCode(id: ProviderId, code: string): void { this.accounts.get(id); this.accounts.links.submit(id, code); }
+  cancelLink(id: ProviderId): void { this.accounts.get(id); this.accounts.links.cancel(id); }
 
   /** The stored OpenRouter keys, for a provider paid through them. */
   readonly openRouterKeys: OpenRouterKeyReader = {

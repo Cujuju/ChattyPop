@@ -56,7 +56,7 @@ const scriptedDeclaration = (id: string, local: boolean, images: boolean): Decla
 /** Settings → AI as `ai` sets them: the scripted providers on, and the switches stamped. */
 function aiSeed<D extends PluginDescriptor>(plugin: D, ai: NonNullable<TestOptions<D>['ai']>, scripted: readonly string[]): unknown {
   const jev = Object.fromEntries(Object.entries(ai.switches ?? {}).map(([key, on]) => [pluginJevFeature(plugin, key), on]));
-  return { providers: Object.fromEntries(scripted.map((p) => [p, { enabled: true }])), jev };
+  return { accounts: ai.accounts ?? [], providers: Object.fromEntries(scripted.map((p) => [p, { enabled: true }])), jev };
 }
 
 export const testPlugin: TestPluginFn = (definition, options = {}) => start(definition, options, mkdtempSync(join(tmpdir(), 'chattypop-plugin-test-')), true);
@@ -77,18 +77,20 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     listeners.forEach((fn) => fn(structuredClone(e)));
   };
   const scripted = o.ai?.providers ?? [];
-  const decls = [...providerDeclarations(installed), ...scripted.map((p) => scriptedDeclaration(p.id, p.local ?? false, p.images ?? false))];
+  const decls = [...providerDeclarations(installed), ...scripted.map((p) => ({ ...scriptedDeclaration(p.id, p.local ?? false, p.images ?? false), accounts: p.accounts, apiKey: p.apiKey }))];
   const features = installed.flatMap((p) => (p.jev?.features ?? []).map((f) => ({ key: stampedName(p.manifest.id, f.key), default: f.default })));
   const registry = new ProviderRegistry(() => undefined, decls);
   registry.setProviderApiKeys(o.ai?.apiKeys ?? {});
-  for (const p of scripted) registry.register(p.id, { create: () => p.provider, status: async () => SCRIPTED_STATUS });
+  for (const p of scripted) registry.register(p.id, { create: () => p.provider, status: async () => SCRIPTED_STATUS, linkAccount: p.linkAccount, ...(p.apiKey ? { checkApiKey: async () => undefined } : {}) }, join(dir, 'plugin-data', providerPlugin(p.id)));
   const ai = (): AiSettings => normalizeAiSettings(getSetting(db, SETTINGS_KEYS.ai), decls, features);
+  registry.bindAccounts(ai, emit);
   // Jev for a switch that is on: the registry's check, with the scripted Jev in place of a keyed connection.
   const jevFor = (feature: JevFeature) => (o.ai?.jev && jevFeatureOn(ai().jev, feature) ? o.ai.jev : null);
   let host!: PluginHost;
   const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id));
   const saveSetting = (key: string, value: unknown): void => {
     setSetting(db, key, value);
+    if (key === SETTINGS_KEYS.ai) void registry.accountsChanged(ai());
     emit({ type: 'setting-changed', key, value });
     host.settingChanged(key);
     if (key === SETTINGS_KEYS.privacyMode) emit({ type: 'privacy-changed' });
@@ -152,7 +154,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     applyTextTier: async () => undefined,
     autoArchiveSinceMs: () => normalizeArchiveSettings(getSetting(db, SETTINGS_KEYS.archive)).autoArchiveSinceMs,
   });
-  const service = { ...pluginHandlers(() => host), ...archiveService, getSetting: (key: string) => getSetting(db, key), setSetting: saveSetting, allMuted: (channelIds: readonly string[]) => allMuted(db, channelIds), lastSeenAt: () => lastSeen } as Record<string, (...params: unknown[]) => unknown>;
+  const service = { aiStatus: () => registry.status(ai()), linkProviderAccount: (id: string) => registry.linkAccount(id), submitAccountLinkCode: (id: string, code: string) => registry.submitLinkCode(id, code), cancelAccountLink: (id: string) => registry.cancelLink(id), ...pluginHandlers(() => host), ...archiveService, getSetting: (key: string) => getSetting(db, key), setSetting: saveSetting, allMuted: (channelIds: readonly string[]) => allMuted(db, channelIds), lastSeenAt: () => lastSeen } as Record<string, (...params: unknown[]) => unknown>;
   // The phone's calls go through the host's phone gateway, as a transport plugin's server hands them over.
   let phone!: PhoneGateway;
   const port: CorePort = {
@@ -217,7 +219,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
       set: (name, value) => saveSetting(pluginSettingKey(id, name), value),
     },
     rules: { run: (type, config, run) => kinds.run(type, config, run), unavailable: (section, type) => kinds.unavailable(section, type) },
-    ai: { unavailable: (providerId) => registry.unavailable(providerId) },
+    ai: { linkAccount: (id) => registry.linkAccount(id), submitLinkCode: (id, code) => registry.submitLinkCode(id, code), cancelLink: (id) => registry.cancelLink(id), linkEvents: () => events.filter((e): e is Extract<AppEvent, { type: 'account-link' }> => e.type === 'account-link'), unavailable: (providerId) => registry.unavailable(providerId) },
     signIn: (userId) => {
       self = userId;
       host.setSelf(userId);
