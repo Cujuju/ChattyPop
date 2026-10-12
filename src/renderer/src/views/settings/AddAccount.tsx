@@ -1,4 +1,7 @@
-import { For, Show, createSignal } from 'solid-js';
+// Settings → AI's Add account: another sign-in or API key of a provider, opened from the rail's foot.
+import { Show, createSignal } from 'solid-js';
+import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
+import type { DeclaredProvider } from '@shared/aiProviders';
 import { accountProvider, type AccountAuth } from '@shared/providerAccounts';
 import { PROVIDER_DISPLAY_NAME_MAX } from '@shared/settings';
 import { availableProviders } from '@/state/aiProviders';
@@ -7,59 +10,112 @@ import { addProviderAccount } from '@/state/providerAccounts';
 import { onServerScreen } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { ModalDialog } from '@/ui/ModalDialog';
-import { ErrorNote, Note, SettingsButton, settingsControl as c } from './SettingsLayout';
+import { Select } from '@/ui/Select';
+import { ErrorNote, SettingsButton } from './SettingsLayout';
+import styles from './AddAccount.module.css';
 
 const FIRST_ACCOUNT_NUMBER = 1;
+/** Why a sign-in can't be added from another computer: its browser sign-in runs on the server. */
+const SIGN_IN_ELSEWHERE = 'A sign-in can be added only on the server’s own screen.';
 
-/** Adds an account using the existing modal and form controls. */
-export function AddAccount() {
-  const providers = () => availableProviders().filter((p) => !p.account && p.accounts);
-  const [open, setOpen] = createSignal(false);
-  const [provider, setProvider] = createSignal('');
-  const [auth, setAuth] = createSignal<AccountAuth>('signIn');
-  const [name, setName] = createSignal('');
-  const declaration = () => providers().find((p) => p.id === provider());
+/** What each kind is, and what is left to do in the account's section once it is added. */
+const KIND_HINT: Record<AccountAuth, string> = {
+  signIn: 'Uses your plan through the provider’s own sign-in. After adding, press Sign in in the account’s section.',
+  apiKey: 'Pays per use with a key. After adding, paste it in the account’s section.',
+};
+
+const [adding, setAdding] = createSignal(false);
+
+/** Providers that take another account. */
+const accountProviders = (): DeclaredProvider[] => availableProviders().filter((p) => !p.account && p.accounts);
+export const canAddAccount = (): boolean => accountProviders().length > 0;
+export const openAddAccount = (): void => void setAdding(true);
+
+/** The kinds a provider offers that can be added on this screen. */
+const addableKinds = (d: DeclaredProvider | undefined): AccountAuth[] => [...(d?.accounts?.signIn && onServerScreen ? ['signIn' as const] : []), ...(d?.apiKey ? ['apiKey' as const] : [])];
+
+/** The first unused "<provider> <n>". */
+function nextAccountName(d: DeclaredProvider): string {
+  const names = aiSettings().accounts.filter((a) => accountProvider(a.id) === d.id).map((a) => aiSettings().providers[a.id]?.displayName);
+  const name = (n: number): string => `${(d.displayName ?? d.id).slice(0, PROVIDER_DISPLAY_NAME_MAX - String(n).length - ' '.length)} ${n}`;
+  let number = FIRST_ACCOUNT_NUMBER;
+  while (names.includes(name(number))) number++;
+  return name(number);
+}
+
+/** Mounted once on the page; each opening starts a fresh form. */
+export function AddAccountDialog() {
+  return (
+    <Show when={adding() && canAddAccount()}>
+      <AddAccountForm />
+    </Show>
+  );
+}
+
+function AddAccountForm() {
+  const close = (): void => void setAdding(false);
+  const first = accountProviders()[0]!;
+  const [provider, setProvider] = createSignal(first.id);
+  const [auth, setAuth] = createSignal<AccountAuth | undefined>(addableKinds(first)[0]);
+  const [name, setName] = createSignal(nextAccountName(first));
+  const declaration = () => accountProviders().find((p) => p.id === provider());
   const action = createAction();
   const choose = (id: string): void => {
+    const d = accountProviders().find((p) => p.id === id);
+    if (!d) return;
     setProvider(id);
-    const d = providers().find((p) => p.id === id);
-    setAuth(d?.accounts?.signIn ? 'signIn' : 'apiKey');
-    let number = FIRST_ACCOUNT_NUMBER;
-    const names = aiSettings().accounts.filter((a) => accountProvider(a.id) === id).map((a) => aiSettings().providers[a.id]?.displayName);
-    const nextName = (): string => `${(d?.displayName ?? id).slice(0, PROVIDER_DISPLAY_NAME_MAX - String(number).length - ' '.length)} ${number}`;
-    while (names.includes(nextName())) number++;
-    setName(nextName());
+    setAuth(addableKinds(d)[0]);
+    setName(nextAccountName(d));
   };
-  return <Show when={providers().length}>
-    <SettingsButton onClick={() => { choose(providers()[0]!.id); setOpen(true); }}>+ Add account</SettingsButton>
-    <Show when={open()}>
-      <ModalDialog id="add-provider-account" open title="Add account" onClose={() => setOpen(false)}>
-        <form onSubmit={(e) => { e.preventDefault(); void action.run(async () => {
-          if (auth() === 'signIn' && !onServerScreen) throw new Error('Add a sign-in account on the server’s own screen.');
-          await addProviderAccount(provider(), auth(), name()); setOpen(false);
-        }); }}>
-          <label class="cp-field"><span class="cp-label">Provider</span>
-            <select class={c.select} value={provider()} onChange={(e) => choose(e.currentTarget.value)}>
-              <For each={providers()}>{(p) => <option value={p.id}>{p.label}</option>}</For>
-            </select>
-          </label>
-          <label class="cp-field"><span class="cp-label">Kind</span>
-            <select class={c.select} value={auth()} onChange={(e) => setAuth(e.currentTarget.value as AccountAuth)}>
-              <Show when={declaration()?.accounts?.signIn}><option value="signIn">Sign in</option></Show>
-              <Show when={declaration()?.apiKey}><option value="apiKey">API key</option></Show>
-            </select>
-          </label>
-          <label class="cp-field"><span class="cp-label">Name</span>
-            <input class={c.select} required maxlength={PROVIDER_DISPLAY_NAME_MAX} value={name()} onInput={(e) => setName(e.currentTarget.value)} />
-          </label>
-          <Show when={!onServerScreen}><Note>Sign-in accounts must be added on the server’s own screen. API keys can be added here.</Note></Show>
-          <ErrorNote error={action.error()} />
-          <div class="cp-actions">
-            <SettingsButton onClick={() => setOpen(false)}>Cancel</SettingsButton>
-            <button class="cp-primary" type="submit" disabled={action.busy() || !name().trim() || (auth() === 'signIn' && !onServerScreen)}>Add account</button>
-          </div>
-        </form>
-      </ModalDialog>
-    </Show>
-  </Show>;
+  const submit = (): void =>
+    void action.run(async () => {
+      const kind = auth();
+      if (!kind) return;
+      await addProviderAccount(provider(), kind, name());
+      close();
+    });
+  return (
+    <ModalDialog id="add-provider-account" open title="Add account" onClose={close}>
+      <form
+        class={styles.form}
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit();
+        }}
+      >
+        <p class={styles.lede}>Another sign-in or API key for a provider. Each account gets its own section here, with its own model and usage.</p>
+        <label class="cp-field">
+          <span class="cp-label">Provider</span>
+          <Select value={provider()} options={accountProviders().map((p) => ({ value: p.id, label: p.label }))} onChange={choose} />
+        </label>
+        <div class="cp-field">
+          <span class="cp-label">Connect with</span>
+          <SegGroup role="radiogroup" ariaLabel="Connect with" class={styles.kinds} value={auth()} onChange={(v: AccountAuth) => setAuth(v)}>
+            <Show when={declaration()?.accounts?.signIn}>
+              <SegButton value="signIn" label="Sign in" size="md" disabled={!onServerScreen} />
+            </Show>
+            <Show when={declaration()?.apiKey}>
+              <SegButton value="apiKey" label="API key" size="md" />
+            </Show>
+          </SegGroup>
+          <Show when={auth()}>{(kind) => <span class={styles.hint}>{KIND_HINT[kind()]}</span>}</Show>
+          <Show when={declaration()?.accounts?.signIn && !onServerScreen}>
+            <span class={styles.hint}>{SIGN_IN_ELSEWHERE}</span>
+          </Show>
+        </div>
+        <label class="cp-field">
+          <span class="cp-label">Name</span>
+          <input type="text" required autofocus maxlength={PROVIDER_DISPLAY_NAME_MAX} value={name()} onInput={(e) => setName(e.currentTarget.value)} />
+          <span class={styles.hint}>Names its section and its line in Plan usage.</span>
+        </label>
+        <ErrorNote error={action.error()} />
+        <div class="cp-actions">
+          <SettingsButton onClick={close}>Cancel</SettingsButton>
+          <button class="cp-primary" type="submit" disabled={action.busy() || !name().trim() || !auth()}>
+            Add account
+          </button>
+        </div>
+      </form>
+    </ModalDialog>
+  );
 }

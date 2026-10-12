@@ -1,0 +1,40 @@
+/* Add account (AddAccount.tsx): a line of purpose, then full-width fields with their hints, and the shared footer
+   actions. The dialog body supplies padding and scrolling. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-7);
+  min-width: 0;
+}
+
+.lede {
+  margin: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  text-wrap: pretty;
+}
+
+/* The two kinds share the field's width evenly. */
+.kinds {
+  display: flex;
+}
+
+.kinds > * {
+  flex: 1 1 0;
+}
+
+/* Under a field: what the choice means, or what the name is for. */
+.hint {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+  text-wrap: pretty;
+}
+
+/* The answers, at the foot on the right; they wrap rather than overflow a narrow dialog. */
+.form > :global(.cp-actions) {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}

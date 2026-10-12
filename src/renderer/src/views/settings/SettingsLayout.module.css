@@ -43,6 +43,31 @@
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
 }
 
+/* The list's add action (SectionsPage railAdd): at the rail's foot while its entries leave room, under a rule. */
+.railFoot {
+  margin-top: auto;
+  padding-top: var(--cp-space-4);
+}
+
+.railFoot > .railDivider {
+  margin-top: 0;
+}
+
+/* Reads as a quiet entry: its plus, then its name on one line. */
+.railAdd {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--cp-space-3);
+  color: var(--cp-text-2);
+}
+
+.railAddIcon {
+  flex: 0 0 auto;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  color: var(--cp-text-muted);
+}
+
 /* Narrow windows: a picker replaces the rail. */
 .picker {
   display: none;
@@ -51,7 +76,10 @@
 /* Below this the rail plus a usable section column don't fit (rail 240 + section ~400); cp-settings-rail hides there. */
 @container (width < 640px) {
   .picker {
-    display: block;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--cp-space-4);
     padding: var(--cp-space-5) var(--cp-space-7);
     border-bottom: var(--cp-border-w) solid var(--cp-border);
     background: var(--cp-surface-2);

@@ -79,7 +79,7 @@ export function ModelRows(props: ModelRowsProps) {
                 </Show>
               }
             >
-              <ModelList name={`${props.id}-model`} models={p().models} value={props.modelId} unset="none" onChange={(model) => props.onChange(p().id, model)} />
+              <ModelList id={`${props.id}-model`} models={p().models} value={props.modelId} unset="none" onChange={(model) => props.onChange(p().id, model)} />
               <Show when={props.modelHint}>
                 <Note>{props.modelHint}</Note>
               </Show>

@@ -1,5 +1,6 @@
 import { For, Show, createMemo, splitProps, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
+import { Icon } from '@/ui/icons';
 import { Select, type SelectOption } from '@/ui/Select';
 import { setSettingsSections, settingsSections } from '@/state/ui';
 import { look } from '@/theme/look';
@@ -84,8 +85,14 @@ export function RailItem(props: {
   );
 }
 
+/** Adds an entry to a page's section list (Add account): at the rail's foot, and beside the picker in a narrow window. */
+export interface RailAdd {
+  label: string;
+  onClick: () => void;
+}
+
 /** Settings sections show current summaries beside one editor; narrow windows use pickers. notice sits between page heading and sections. */
-export function SectionsPage(props: { id: string; title: string; lede?: JSX.Element; right?: JSX.Element; notice?: JSX.Element; sections: SettingsSectionDef[] }) {
+export function SectionsPage(props: { id: string; title: string; lede?: JSX.Element; right?: JSX.Element; notice?: JSX.Element; railAdd?: RailAdd; sections: SettingsSectionDef[] }) {
   /** The page's stored section while it still has it, else its first. */
   const openId = () => {
     const stored = settingsSections()[props.id];
@@ -127,6 +134,19 @@ export function SectionsPage(props: { id: string; title: string; lede?: JSX.Elem
               </>
             )}
           </For>
+          <Show when={props.railAdd}>
+            {(add) => (
+              <div class={styles.railFoot}>
+                <hr class={styles.railDivider} />
+                <div class="cp-rail-item">
+                  <button type="button" class={`cp-rail-button ${styles.railAdd}`} onClick={() => add().onClick()}>
+                    <Icon name="plus" class={styles.railAddIcon} />
+                    <span class="cp-rail-label">{add().label}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </Show>
         </nav>
         <div class={styles.picker}>
           <Select
@@ -135,6 +155,7 @@ export function SectionsPage(props: { id: string; title: string; lede?: JSX.Elem
             label="Section"
             onChange={(v) => openSettingsSection(props.id, v)}
           />
+          <Show when={props.railAdd}>{(add) => <SettingsButton onClick={() => add().onClick()}>+ {add().label}</SettingsButton>}</Show>
         </div>
         <div class={styles.detail} data-group={open().group}>
           <div class={styles.detailHead}>

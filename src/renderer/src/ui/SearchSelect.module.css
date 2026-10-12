@@ -124,6 +124,24 @@
   text-overflow: ellipsis;
 }
 
+/* An option's label over its note: the label cuts off, a long note (a model's description) wraps. */
+.text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.note {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  font-weight: var(--cp-weight-regular);
+  line-height: var(--cp-leading-normal);
+  white-space: normal;
+  text-wrap: pretty;
+}
+
 /* An option's picture or glyph, centred in a fixed column so labels line up. */
 .lead {
   --guild-icon-size: var(--cp-search-lead);

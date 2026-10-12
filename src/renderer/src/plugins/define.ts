@@ -42,7 +42,7 @@ export interface ProviderView {
   rows?: Component;
   /** Appended to its availability line (a cost note); none when undefined. */
   note?(status: ProviderStatus): string | undefined;
-  /** Beside each listed model's Use choice (Ollama's Delete). */
+  /** Beside each model in the list its Manage button opens (Ollama's Delete). */
   modelAction?: Component<{ model: ModelOption }>;
 }
 

@@ -64,10 +64,10 @@ export function SearchList(props: {
     const out: Row[] = [];
     let aboveHasRows = false;
     for (const { head, kids } of groups()) {
-      const headHit = hits(head.label, head.value);
+      const headHit = hits(head.label, head.value, head.note ?? '');
       // The current choice stays listed, even from a hidden tail.
       const shown = words.length
-        ? kids.filter((k) => hits(head.label, k.label, k.value))
+        ? kids.filter((k) => hits(head.label, k.label, k.value, k.note ?? ''))
         : kids.filter((k) => !k.searchOnly || k.value === props.value || opened().has(head.value));
       if (!headHit && !shown.length) continue;
       const hidden = words.length ? 0 : kids.length - shown.length;
@@ -179,7 +179,10 @@ export function SearchList(props: {
                         onClick={() => pick(r as PickRow)}
                       >
                         {lead(o())}
-                        <span class={styles.label}>{o().label}</span>
+                        <span class={styles.text}>
+                          <span class={styles.label}>{o().label}</span>
+                          <Show when={o().note}>{(note) => <span class={styles.note}>{note()}</span>}</Show>
+                        </span>
                         <Show when={o().value === props.value}>
                           <Icon name="check" class={styles.check} />
                         </Show>

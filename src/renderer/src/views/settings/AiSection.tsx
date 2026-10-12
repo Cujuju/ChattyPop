@@ -4,12 +4,12 @@ import { aiText } from '@/plugins/presentation';
 import { For, Show, createSignal } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { HostProviderRowId } from '@shared/anchors';
-import { declaredProvider, type DeclaredProvider } from '@shared/aiProviders';
+import type { DeclaredProvider } from '@shared/aiProviders';
 import type { PlanUsageWindow } from '@shared/contract';
 import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
-import { availableProviders } from '@/state/aiProviders';
+import { availableProviders, providerReportsPlanUsage } from '@/state/aiProviders';
 import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, refetchProviderStatus, updateProvider } from '@/state/preferences';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
@@ -18,7 +18,7 @@ import { ModelList } from './ModelList';
 import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
 import { AccountRow, EarlierKeyRow, RemoveAccountRow } from './AccountRows';
-import { AddAccount } from './AddAccount';
+import { AddAccountDialog, canAddAccount, openAddAccount } from './AddAccount';
 import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import styles from './Settings.module.css';
 
@@ -55,12 +55,9 @@ export function AiSection() {
     ...settingsSections('ai'),
   ];
   const refresh = (
-    <div class={c.buttons}>
-    <AddAccount />
     <button type="button" class={`cp-button ${styles.button}`} disabled={providerStatusLoading()} onClick={() => void refreshProviderStatus()}>
       {providerStatusLoading() ? 'Loading models…' : 'Refresh model lists'}
     </button>
-    </div>
   );
   return (
     <Show
@@ -71,7 +68,15 @@ export function AiSection() {
         </Page>
       }
     >
-      <SectionsPage id="ai" title="AI providers" lede={aiText().overview} right={refresh} sections={sections()} />
+      <SectionsPage
+        id="ai"
+        title="AI providers"
+        lede={aiText().overview}
+        right={refresh}
+        railAdd={canAddAccount() ? { label: 'Add account', onClick: openAddAccount } : undefined}
+        sections={sections()}
+      />
+      <AddAccountDialog />
     </Show>
   );
 }
@@ -104,30 +109,27 @@ const HOST_ROWS: readonly (ProviderRow & { id: HostProviderRowId })[] = [
   { id: 'remove-account', Component: RemoveAccountRow },
   { id: 'model', Component: (p) => <ProviderModels provider={p.provider} /> },
   { id: 'effort', Component: (p) => <EffortRow fieldId={`ai-effort-${p.provider}`} provider={p.provider} value={providerSettingsOf(p.provider)} onChange={(v) => updateProvider(p.provider, v)} /> },
-  { id: 'plan-usage', Component: (p) => <Show when={declaredProvider(p.provider)?.planUsage && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },
+  { id: 'plan-usage', Component: (p) => <Show when={providerReportsPlanUsage(p.provider) && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },
   { id: 'rows', Component: (p) => <Show when={providerView(p.provider)?.rows}>{(Rows) => <Dynamic component={Rows()} />}</Show> },
 ];
 
-/** The provider's models, one picked for its requests; its plugin's action (Delete) beside each. */
+/** The model the provider's requests use, picked from its list; its plugin's action (Delete) on each when managed. */
 function ProviderModels(props: { provider: ProviderId }) {
   const id = props.provider;
   const choice = () => providerSettingsOf(id);
   const action = () => providerView(id)?.modelAction;
   return (
-    <>
-      <Row label="Models" hint={statusOf(id)?.models ? 'What each can do. Requests use the one picked.' : statusOf(id) ? 'None listed: see above.' : 'Loading models…'} />
-      <Show when={statusOf(id)?.models}>
-        {(models) => (
-          <ModelList
-            name={`ai-model-${id}`}
-            models={models()}
-            value={choice().model}
-            action={action() ? (m) => <Dynamic component={action()!} model={m} /> : undefined}
-            onChange={(model) => updateProvider(id, { model, effort: keptEffort(choice().effort, modelOption(id, model)) })}
-          />
-        )}
-      </Show>
-    </>
+    <Show when={statusOf(id)?.models} fallback={<Row label="Model" hint={statusOf(id) ? 'None listed: see above.' : 'Loading models…'} />}>
+      {(models) => (
+        <ModelList
+          id={`ai-model-${id}`}
+          models={models()}
+          value={choice().model}
+          action={action() ? (m) => <Dynamic component={action()!} model={m} /> : undefined}
+          onChange={(model) => updateProvider(id, { model, effort: keptEffort(choice().effort, modelOption(id, model)) })}
+        />
+      )}
+    </Show>
   );
 }
 
