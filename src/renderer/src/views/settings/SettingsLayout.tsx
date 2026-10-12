@@ -1,12 +1,14 @@
 import { For, Show, createMemo, splitProps, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import { Icon } from '@/ui/icons';
 import { Select, type SelectOption } from '@/ui/Select';
 import { setSettingsSections, settingsSections } from '@/state/ui';
 import { look } from '@/theme/look';
 import card from './SettingsCard.module.css';
 import styles from './SettingsLayout.module.css';
 import settings from './Settings.module.css';
+import { RailAddFoot, railAddText, type RailAdd } from './RailAdd';
+
+export type { RailAdd };
 
 /** One section: its rail entry and what opens beside it. */
 export interface SectionDef {
@@ -89,12 +91,6 @@ export function RailItem(props: {
   );
 }
 
-/** Adds an entry to a page's section list (Add account): at the rail's foot, and beside the picker in a narrow window. */
-export interface RailAdd {
-  label: string;
-  onClick: () => void;
-}
-
 /** Sections beside a rail or narrow-window picker; the caller owns the open id. */
 export function SectionSplit(props: { title: string; sections: SectionDef[]; openId: string; onOpen: (id: string) => void; railAdd?: RailAdd }) {
   const open = createMemo(() => props.sections.find((s) => s.id === props.openId) ?? props.sections[0]!);
@@ -110,19 +106,12 @@ export function SectionSplit(props: { title: string; sections: SectionDef[]; ope
             <RailItem label={s.label} meta={s.meta?.()} aside={s.aside} current={open().id === s.id} muted={s.muted?.() ?? false} onClick={() => props.onOpen(s.id)} />
           </>
         )}</For>
-        <Show when={props.railAdd}>{(add) => (
-          <div class={styles.railFoot}>
-            <hr class={styles.railDivider} />
-            <div class="cp-rail-item">
-              <button type="button" class={`cp-rail-button ${styles.railAdd}`} onClick={() => add().onClick()}><Icon name="plus" class={styles.railAddIcon} /><span class="cp-rail-label">{add().label}</span></button>
-            </div>
-          </div>
-        )}</Show>
+        <Show when={props.railAdd}>{(add) => <RailAddFoot add={add()} />}</Show>
       </nav>
       <div class={styles.picker}>
         <Select value={open().id} label="Section" onChange={(id) => props.onOpen(id)}
           options={props.sections.map((s) => ({ value: s.id, label: s.group ? `${s.group} · ${s.label}` : s.label }))} />
-        <Show when={props.railAdd}>{(add) => <SettingsButton onClick={() => add().onClick()}>+ {add().label}</SettingsButton>}</Show>
+        <Show when={props.railAdd}>{(add) => <SettingsButton onClick={() => add().onClick()}>{railAddText(add())}</SettingsButton>}</Show>
       </div>
       <div class={styles.detail} data-group={open().group}>
         <div class={styles.detailHead}>

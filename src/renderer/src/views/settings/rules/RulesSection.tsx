@@ -7,7 +7,8 @@ import { openContextMenu } from '@/state/ui';
 import { createAction } from '@/ui/action';
 import { countText } from '@/ui/format';
 import { Select } from '@/ui/Select';
-import { Page } from '../SettingsLayout';
+import { RailAddFoot, railAddText, type RailAdd } from '../RailAdd';
+import { Page, SettingsButton } from '../SettingsLayout';
 import { RuleSwitch } from './fields';
 import { NewRule } from './NewRule';
 import { RuleEditor } from './RuleEditor';
@@ -18,6 +19,8 @@ import styles from './Rules.module.css';
 /** Picker values for the new-rule pages (narrow windows). */
 const NEW = 'new';
 const DRAFT = 'draft';
+/** Starts a rule from the list's foot, or beside the picker in a narrow window. */
+const NEW_RULE: RailAdd = { label: 'New rule', onClick: () => startNewRule() };
 const byName = (a: string, b: string): number => a.localeCompare(b, undefined, { sensitivity: 'base' });
 
 /** One rule in the list: name, what it matches → does, unread alerts, and its switch. */
@@ -76,11 +79,6 @@ export function RulesSection() {
       id="rules"
       title="Rules"
       lede={[countText(rules().length, 'rule'), builtins() ? `${builtins()} built in` : null].filter(Boolean).join(' · ')}
-      right={
-        <button type="button" class="cp-primary" disabled={current() === NEW} onClick={() => startNewRule()}>
-          + New rule
-        </button>
-      }
     >
       <div class={styles.body} data-section="rules">
         <div class={styles.layout}>
@@ -111,6 +109,7 @@ export function RulesSection() {
                 {toggling.error()}
               </p>
             </Show>
+            <RailAddFoot add={NEW_RULE} />
           </nav>
           <div class={styles.picker}>
             <Select
@@ -123,6 +122,7 @@ export function RulesSection() {
               ]}
               onChange={(v) => setOpenRuleId(v === NEW || v === DRAFT ? v : v ? Number(v) : null)}
             />
+            <SettingsButton onClick={NEW_RULE.onClick}>{railAddText(NEW_RULE)}</SettingsButton>
           </div>
           {/* Keyed on the rule: refreshed run counts must not remount the page and drop unsaved edits. */}
           <Branch fallback={<p class={styles.empty}>{rules().length ? 'Pick a rule to edit it, or add one.' : 'Add a rule to act on messages: alert, tag, post and more.'}</p>}>
