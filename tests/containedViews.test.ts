@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vite
 import { buildContainment } from './containmentBuild';
 import { VIEWS_SOURCE, WRITES_STUB } from './containedViewsFixture';
 import type { TestNode } from './sectionSplitHarness';
+import { SNAPSHOT_ADAPTER, SNAPSHOT_SOURCE } from './containmentSnapshotFixture';
 
 interface View {
   root: TestNode;
@@ -20,6 +21,15 @@ interface Client {
   finishWrite(): void;
 }
 let client: Client;
+interface SnapshotCase {
+  environment: Record<string, unknown>;
+  stages: { live: boolean }[];
+  counts: { cleanups: number; frames: number; removed: number };
+  failure: Error;
+  cleanupFailure: Error;
+  run(): Promise<string>;
+}
+let snapshots: { makeSnapshot(kind: string): SnapshotCase };
 const reports = vi.fn();
 const disposers: (() => void)[] = [];
 const nodes = (n: TestNode): TestNode[] => [n, ...n.children.flatMap(nodes)];
@@ -35,6 +45,11 @@ const open = (options: Parameters<Client['mount']>[0] = {}): View => {
 
 beforeAll(async () => {
   client = await buildContainment<Client>(VIEWS_SOURCE, { '@/ui/idbStore': WRITES_STUB });
+  snapshots = await buildContainment(SNAPSHOT_SOURCE, {
+    'solid-js/web': SNAPSHOT_ADAPTER,
+    '@/theme/snapshot.css?raw': `export default 'Snapshot styles';`,
+    './Snapshot.module.css': `export default { stage: 'probe-stage' };`,
+  });
 });
 beforeEach(() => { reports.mockClear(); vi.stubGlobal('reportError', reports); });
 afterEach(() => { disposers.splice(0).forEach((dispose) => dispose()); });
@@ -140,4 +155,23 @@ it('15: contained mounts the body untracked and keeps getter, split, children an
   expect(text(p())).toBe('secondsecond');
   expect(p().props.title).toBe('Title second');
   expect(p().props['data-probe']).toBe('second');
+});
+
+it('16: snapshot rejects initial and later failures and removes the stage even when disposal or setup throws', async () => {
+  for (const kind of ['initial', 'later', 'dispose', 'layout']) {
+    const snapshot = snapshots.makeSnapshot(kind);
+    for (const [key, value] of Object.entries(snapshot.environment)) vi.stubGlobal(key, value);
+    await expect(snapshot.run()).rejects.toBe(kind === 'dispose' ? snapshot.cleanupFailure : snapshot.failure);
+    expect(snapshot.stages).toHaveLength(1);
+    expect(snapshot.stages[0]!.live).toBe(false);
+    expect(snapshot.counts.removed).toBe(1);
+    expect(snapshot.counts.cleanups).toBe(kind === 'layout' ? 0 : 1);
+    if (kind === 'initial') expect(snapshot.counts.frames).toBe(0);
+    if (kind === 'later') expect(snapshot.counts.frames).toBeGreaterThan(0);
+  }
+  expect(reports).not.toHaveBeenCalled();
+  const clean = snapshots.makeSnapshot('clean');
+  for (const [key, value] of Object.entries(clean.environment)) vi.stubGlobal(key, value);
+  await expect(clean.run()).resolves.toContain('<body><p>Probe</p></body>');
+  expect(clean.counts.removed).toBe(1);
 });

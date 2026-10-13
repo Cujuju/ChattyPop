@@ -1,5 +1,5 @@
 // A view as a self-contained HTML page that looks as the app draws it: the app's own styles and theme, fonts embedded, nothing to load.
-import type { JSX } from 'solid-js';
+import { catchError, type JSX } from 'solid-js';
 import { render } from 'solid-js/web';
 import SNAPSHOT_CSS from '@/theme/snapshot.css?raw';
 import styles from './Snapshot.module.css';
@@ -67,20 +67,28 @@ export async function snapshotPage(view: () => JSX.Element, opts: { title: strin
   stage.className = styles.stage!;
   stage.setAttribute('aria-hidden', 'true');
   document.body.append(stage);
-  // The stage lays the view out at the page's width less its margin, as the snapshot's body will.
-  const margin = parseFloat(getComputedStyle(stage).getPropertyValue('--cp-snapshot-margin')) || 0;
-  stage.style.width = `${Math.max(0, opts.width - 2 * margin)}px`;
-  const dispose = render(view, stage);
+  let dispose: (() => void) | undefined;
+  let failure: { error: unknown } | undefined;
+  const raiseFailure = (): void => { if (failure) throw failure.error; };
   try {
+    // The stage lays the view out at the page's width less its margin, as the snapshot's body will.
+    const margin = parseFloat(getComputedStyle(stage).getPropertyValue('--cp-snapshot-margin')) || 0;
+    stage.style.width = `${Math.max(0, opts.width - 2 * margin)}px`;
+    dispose = render(() => catchError(view, (error) => { failure ??= { error }; }), stage);
+    raiseFailure();
     for (let i = 0; i < SETTLE_FRAMES; i++) await nextFrame();
     await document.fonts.ready;
     const root = document.documentElement;
     const attrs = [...root.attributes].map((a) => ` ${a.name}="${esc(a.value)}"`).join('');
     const css = await pageCss();
+    raiseFailure();
     return `<!doctype html>\n<html${attrs}><head><meta charset="utf-8"><meta name="viewport" content="width=${opts.width}"><title>${esc(opts.title)}</title>
 <style>${css}</style><style>${SNAPSHOT_CSS}</style></head><body>${stage.innerHTML}</body></html>\n`;
   } finally {
-    dispose();
-    stage.remove();
+    try {
+      dispose?.();
+    } finally {
+      stage.remove();
+    }
   }
 }
