@@ -61,7 +61,7 @@ export const STRUCTURE_PROPERTIES = [
   'field-sizing', 'resize',
   // Multi-column flow: how many columns, and which boxes a column break may not split.
   'columns', 'column-count', 'column-width', 'break-inside',
-  'overflow', 'overflow-x', 'overflow-y', 'object-fit', 'object-position',
+  'overflow', 'overflow-x', 'overflow-y', 'overflow-anchor', 'object-fit', 'object-position',
   'text-align', 'white-space', 'text-overflow', 'word-break', 'overflow-wrap', 'hyphens', 'text-wrap', 'vertical-align',
   'line-clamp', '-webkit-line-clamp', '-webkit-box-orient',
   'visibility', 'pointer-events', 'touch-action', 'user-select', '-webkit-user-select', '-webkit-touch-callout',
