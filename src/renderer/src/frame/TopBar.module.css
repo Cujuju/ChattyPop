@@ -106,6 +106,16 @@
   color: var(--cp-text-1);
 }
 
+/* A toggle that is on (privacy mode): a filled accent tile, so it can't be missed. */
+.iconButton[aria-pressed='true'] {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
+.iconButton[aria-pressed='true']:hover {
+  background: var(--cp-accent-hover);
+}
+
 /* Unread dot on the bell: accent, ringed with the bar's ground so it reads on the icon. */
 .badgeDot {
   position: absolute;
