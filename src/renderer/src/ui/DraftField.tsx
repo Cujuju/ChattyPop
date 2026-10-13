@@ -41,7 +41,6 @@ export function DraftField(props: {
   onDrop?: (event: DragEvent) => void;
 }) {
   let field!: HTMLDivElement;
-  let composing = false;
   let replacing = false;
   let caret = { start: 0, end: 0 };
   let beforeEdit: FieldSelection = caret;
@@ -82,17 +81,23 @@ export function DraftField(props: {
     }
     return container;
   };
+  /** Writes the draft, then tells the owner. A listener's throw is reported, not raised: raised, it aborts the update and the draft's readers never run. */
+  const commit = (text: string): void => batch(() => {
+    setDraftText(props.channelId, text);
+    try { props.onInput?.(); } catch (error) { reportError(error); }
+  });
   const show = (text: string, selection: FieldSelection): void => {
     field.replaceChildren(...fragment(text).childNodes);
     select(Math.min(selection.start, text.length), Math.min(selection.end, text.length));
-    field.dataset['empty'] = String(!text);
-    batch(() => { setDraftText(props.channelId, text); props.onInput?.(); });
+    commit(text);
   };
-  const publish = (typing = false): void => {
+  /** Every edit reaches the draft. `composing`: the input method owns the DOM, so only the text is copied; the composition's end rewrites the field. */
+  const publish = (typing = false, composing = false): void => {
     remember();
     const text = readDraftField(field);
     // Composition/autocorrect can edit without a cancellable beforeinput. Keep the textarea's original limit.
-    if (text.length > DISCORD_TEXT_MAX) { show(draftText(props.channelId), beforeEdit); return; }
+    if (text.length > DISCORD_TEXT_MAX) { if (!composing) show(draftText(props.channelId), beforeEdit); return; }
+    if (composing) return commit(text);
     history.record(text, beforeEdit, caret, typing);
     show(text, caret);
   };
@@ -128,9 +133,10 @@ export function DraftField(props: {
       else if (refocus && !focused) props.onFocus?.();
     },
   };
+  // The draft changed elsewhere (sent, restored, another channel): the field shows it, ending a composition under way.
   createEffect(() => {
     const text = draftText(props.channelId);
-    if (!field || composing) return;
+    if (!field) return;
     const changedChannel = currentChannel !== props.channelId;
     if (changedChannel) { currentChannel = props.channelId; caret = { start: text.length, end: text.length }; }
     if (!changedChannel && readDraftField(field) === text) return;
@@ -153,13 +159,13 @@ export function DraftField(props: {
     role="textbox" aria-label={props.label} aria-multiline="true" aria-disabled={props.disabled || undefined}
     contentEditable={!props.disabled} tabIndex={props.disabled ? -1 : 0} enterkeyhint={props.enterkeyhint}
     data-placeholder={props.placeholder} data-empty={!draftText(props.channelId)} spellcheck="true"
-    onInput={(event) => { if (!composing) publish(event.inputType === 'insertText'); }}
-    onCompositionStart={() => { remember(); beforeEdit = { ...caret }; composing = true; }}
-    onCompositionEnd={() => { composing = false; publish(); }}
+    onInput={(event) => publish(event.inputType === 'insertText', event.isComposing)}
+    onCompositionStart={() => { remember(); beforeEdit = { ...caret }; }}
+    onCompositionEnd={() => publish()}
     onBeforeInput={(event) => {
-      if (composing || event.isComposing) return;
+      if (event.isComposing) return;
       props.onBeforeInput?.(event);
-      if (event.defaultPrevented || composing || replacing) return;
+      if (event.defaultPrevented || replacing) return;
       remember(); beforeEdit = { ...caret };
       if (event.inputType === 'historyUndo' || event.inputType === 'historyRedo') { event.preventDefault(); travel(event.inputType === 'historyRedo'); return; }
       if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') { event.preventDefault(); handle.replaceText('\n'); return; }
