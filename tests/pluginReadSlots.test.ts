@@ -98,7 +98,7 @@ it("offers a plugin's menu actions only in windows that may make their core call
     channels: defineChannels<{ core: { status(): string; request(id: string): void } }>()({
       core: { status: { audiences: ['renderer', 'phone'], writes: false }, request: ['renderer'] },
     }),
-    slots: { messageMenu: [{ id: 'transcribe' }], attachmentMenu: [{ id: 'transcribe' }] },
+    slots: { messageMenu: [{ id: 'transcribe' }], attachmentMenu: [{ id: 'transcribe' }], selectionMenu: [{ id: 'transcribe' }] },
   });
   const menuItem = { label: 'Transcribe', icon: 'waveform' as const, run: () => undefined };
   const entry = {
@@ -106,6 +106,7 @@ it("offers a plugin's menu actions only in windows that may make their core call
     contributions: {
       messageMenu: { transcribe: { calls: ['request'], menu: () => [menuItem] } },
       attachmentMenu: { transcribe: { calls: ['request'], item: () => menuItem } },
+      selectionMenu: { transcribe: { calls: ['request'], item: (messages: readonly ArchiveMessage[]) => (messages.length ? menuItem : null) } },
       channels: { calls: ['request'], jevItems: () => [menuItem] },
     },
   } as unknown as ReadSlotEntry;
@@ -119,8 +120,14 @@ it("offers a plugin's menu actions only in windows that may make their core call
   expect(desktop.messages(message, { drawsAttachments: true }).flatMap((g) => g.items)).toEqual([menuItem]);
   expect(desktop.channels(channel)).toEqual([menuItem]);
   expect(desktop.attachments(message, attachment, [])).toEqual([menuItem]);
+  // The host's Copy keeps its place before a plugin's action; an action that doesn't apply to the selection is left out.
+  const copy = { label: 'Copy text', icon: 'copy' as const, run: () => undefined };
+  const hostSelection = [{ id: 'copy' as const, item: () => copy }];
+  expect(desktop.selection([message], hostSelection)).toEqual([copy, menuItem]);
+  expect(desktop.selection([], hostSelection)).toEqual([copy]);
   const phone = slotsOf([entry], () => true, mayCallFrom('phone'));
   expect(phone.messages(message, { drawsAttachments: true })).toEqual([]);
   expect(phone.channels(channel)).toEqual([]);
   expect(phone.attachments(message, attachment, [])).toEqual([]);
+  expect(phone.selection([message], hostSelection)).toEqual([copy]);
 });

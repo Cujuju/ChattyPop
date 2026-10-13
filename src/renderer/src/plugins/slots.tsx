@@ -119,6 +119,8 @@ const reads = readSlots(() => rendererPlugins().map((p) => ({ plugin: p.plugin, 
 export const messageMenuGroups = reads.messages;
 /** A pressed attachment's menu items: the host's with active plugins' placed among them. */
 export const attachmentMenuItems = reads.attachments;
+/** The selection bar's actions: the host's with active plugins' placed among them. */
+export const selectionMenuItems = reads.selection;
 /** Active sections rendered after a person's channels. */
 export const personSections = reads.people;
 /** The active view of a person's links, or null: the Person window then lists them plainly. */

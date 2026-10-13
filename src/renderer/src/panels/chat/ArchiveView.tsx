@@ -19,6 +19,7 @@ import {
   readArchivePlaceWith,
 } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
+import { clearSelection, isSelected, selectThrough, selecting, toggleSelected } from '@/state/messageSelection';
 import { preloadExpressions } from '@/state/expressions';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
@@ -44,6 +45,7 @@ import { HOST_FOOTER } from './archiveFooter';
 import { NotArchived, NotArchivingBar } from './DmState';
 import { MessageRow } from './MessageRow';
 import { PendingRow } from './PendingRow';
+import { SelectionBar } from './SelectionBar';
 import { TypingLine } from './TypingLine';
 import { createFollowBottom } from '@/ui/followBottom';
 import { createVirtualLog } from '@/ui/virtualLog';
@@ -146,6 +148,21 @@ export function ArchiveView() {
   const [dropping, setDropping] = createSignal(false);
   const dropTarget = () => (postingUnlocked() ? postable() : undefined);
   const hasFiles = (e: DragEvent): boolean => e.dataTransfer?.types.includes('Files') === true;
+
+  // A selection belongs to the channel shown.
+  createEffect(on(archiveChannelId, clearSelection, { defer: true }));
+  onCleanup(clearSelection);
+  /** While selecting, a click on a message ticks it (Shift: through to it) instead of reaching what it holds. */
+  const tickRow = (e: MouseEvent): void => {
+    if (!selecting()) return;
+    const key = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-row-key]')?.dataset.rowKey : undefined;
+    const message = archiveState.items.find((m) => m.id === key);
+    if (!message) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.shiftKey) selectThrough(message, archiveState.items);
+    else toggleSelected(message);
+  };
 
   // Nothing selected yet: reopen the last channel shown, else the first archived one.
   createEffect(() => openRestoredArchive(channels()));
@@ -297,6 +314,8 @@ export function ArchiveView() {
               vlog.ref(el);
               log.ref(el);
               onUserScrollNewer(el, dismissUnreadBanner);
+              // Before any handler in a row.
+              listen(el, 'click', tickRow, true);
             }}
             onScroll={() => void vlog.onScroll()}
             style={{ flex: '1 1 0', 'min-height': 0, 'overflow-y': 'auto' }}
@@ -322,6 +341,7 @@ export function ArchiveView() {
                       grouped={(row() as Extract<Row, { kind: 'msg' }>).grouped}
                       density={archiveDensity()}
                       focused={focusMessageId() === row().key}
+                      selected={isSelected(row().key)}
                       editing={editingId() === row().key}
                     />
                   }
@@ -332,7 +352,10 @@ export function ArchiveView() {
               )}
             </VirtualRows>
           </div>
-          <Show when={unreadBanner()}>
+          <Show when={selecting()}>
+            <SelectionBar />
+          </Show>
+          <Show when={!selecting() && unreadBanner()}>
             {(mark) => <UnreadBanner count={mark().count} sinceTs={mark().firstTs} onJump={() => jumpToUnread(mark())} onDismiss={dismissUnreadBanner} />}
           </Show>
           <Show when={!log.following()}>

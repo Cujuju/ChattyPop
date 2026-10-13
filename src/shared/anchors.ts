@@ -54,6 +54,10 @@ export type HostAttachmentActionId = (typeof HOST_ATTACHMENT_ACTIONS)[number];
 export const HOST_ATTACHMENT_MENU_ITEMS = ['speed', 'download', 'modify', 'delete'] as const;
 export type HostAttachmentMenuItemId = (typeof HOST_ATTACHMENT_MENU_ITEMS)[number];
 
+/** The Archive's selection bar: Copy text, before plugins' actions on the selected messages. */
+export const HOST_SELECTION_MENU_ITEMS = ['copy'] as const;
+export type HostSelectionMenuItemId = (typeof HOST_SELECTION_MENU_ITEMS)[number];
+
 /** Fixed items in the top bar's end group. */
 export const HOST_TOP_BAR_ITEMS = ['layout', 'privacy', 'settings'] as const;
 export type HostTopBarItemId = (typeof HOST_TOP_BAR_ITEMS)[number];

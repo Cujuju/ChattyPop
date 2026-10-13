@@ -1,5 +1,5 @@
 {
-  "version": "2.43.0",
+  "version": "2.44.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -240,6 +240,7 @@
       "HOST_PHONE_DRAWER_ITEMS",
       "HOST_PHONE_SECTIONS",
       "HOST_PROVIDER_ROWS",
+      "HOST_SELECTION_MENU_ITEMS",
       "HOST_STATUS_BAR_ITEMS",
       "HOST_TOP_BAR_ITEMS",
       "PluginInactiveError",
@@ -914,6 +915,7 @@
       "RendererContributions",
       "RendererPlugin",
       "RuleTemplate",
+      "SelectionMenuView",
       "SettingExtras",
       "SettingOptions",
       "SettingsView",

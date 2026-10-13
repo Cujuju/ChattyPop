@@ -71,7 +71,8 @@
 }
 
 .unreadJump,
-.unreadDismiss {
+.unreadDismiss,
+.selectionAction {
   height: var(--cp-btn-h-sm);
   border: 0;
   background: transparent;
@@ -108,11 +109,33 @@
 }
 
 .unreadJump:hover,
-.unreadDismiss:hover {
+.unreadDismiss:hover,
+.selectionAction:hover {
   background: var(--cp-accent-hover);
 }
 
 .unreadJump:focus-visible,
 .unreadDismiss:focus-visible {
   outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+/* 'N messages selected' strip, in the unread strip's place: the count, then each action on the selection. */
+.selectionCount {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  padding: 0 var(--cp-space-6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectionAction {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: 0 var(--cp-space-4);
+  white-space: nowrap;
 }

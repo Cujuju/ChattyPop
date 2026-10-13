@@ -29,6 +29,11 @@
   background: var(--cp-surface-hover);
 }
 
+/* Ticked in the Archive's selection: the pressed ground, held. */
+.row[data-selected='true'] {
+  background: var(--cp-surface-active);
+}
+
 /* It pings the owner (@mention, pinging reply, @everyone / @here): Discord's wash and leading bar. */
 .row[data-mention='true'] {
   background: var(--cp-mention-bg);

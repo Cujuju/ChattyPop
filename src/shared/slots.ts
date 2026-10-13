@@ -10,6 +10,7 @@ import {
   HOST_PHONE_SECTIONS,
   HOST_PROVIDER_ROWS,
   HOST_RULE_TEMPLATES,
+  HOST_SELECTION_MENU_ITEMS,
   HOST_STATUS_BAR_ITEMS,
   HOST_TOP_BAR_ITEMS,
   type Placement,
@@ -29,6 +30,7 @@ export const HOST_SLOT_ITEMS = {
   /** Deprecated (SDK 2.34; removed at 3): still declarable, drawn nowhere. */
   attachmentActions: HOST_ATTACHMENT_ACTIONS,
   attachmentMenu: HOST_ATTACHMENT_MENU_ITEMS,
+  selectionMenu: HOST_SELECTION_MENU_ITEMS,
   ruleTemplates: HOST_RULE_TEMPLATES,
   personSections: [],
   personLinks: [],

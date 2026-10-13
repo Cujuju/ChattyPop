@@ -1,5 +1,5 @@
 // Read-only contribution slots independent of renderer startup, for contract testing and reactive host reads.
-import { type HostAttachmentMenuItemId, type HostMessageMenuGroupId } from '@shared/anchors';
+import { type HostAttachmentMenuItemId, type HostMessageMenuGroupId, type HostSelectionMenuItemId } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage, DirectoryChannel } from '@shared/contract';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { Component } from 'solid-js';
@@ -9,6 +9,8 @@ import { declaredItems, placeSlot, type SlotAnchorOf } from './slotItems';
 /** Parts of a message drawn by the row opening its menu. */
 export interface MessageMenuScope {
   drawsAttachments: boolean;
+  /** The row is one of the Archive view's, where messages can be selected to act on together. */
+  selectable?: boolean;
 }
 
 /** Menu actions of a plugin: shown only in windows that may make every core call they make (a phone may not). */
@@ -34,6 +36,17 @@ export interface HostAttachmentMenuItem {
   item(message: ArchiveMessage, attachment: ArchiveAttachment): MenuItem | null;
 }
 
+/** An action on the messages selected in the Archive, oldest first; null for a selection it doesn't apply to. */
+export type SelectionMenuView = MenuActions & {
+  item(messages: readonly ArchiveMessage[]): MenuItem | null;
+};
+
+/** A host action of the selection bar, at its anchor. */
+export interface HostSelectionMenuItem {
+  id: HostSelectionMenuItemId;
+  item(messages: readonly ArchiveMessage[]): MenuItem | null;
+}
+
 /** A section after a person's channels. */
 export interface PersonSectionView {
   Component: Component<{ userId: string }>;
@@ -51,6 +64,7 @@ export interface ReadContributions {
   channels?: MenuActions & { jevItems(channel: DirectoryChannel): MenuItem[] };
   messageMenu?: Readonly<Record<string, MessageMenuView>>;
   attachmentMenu?: Readonly<Record<string, AttachmentMenuView>>;
+  selectionMenu?: Readonly<Record<string, SelectionMenuView>>;
 }
 
 /** A fixed host group, retained as an anchor even when empty. */
@@ -97,6 +111,11 @@ export function readSlots(
     attachments: (message: ArchiveMessage, attachment: ArchiveAttachment, host: readonly HostAttachmentMenuItem[]): MenuItem[] => {
       const extra = declaredItems(active(), 'attachmentMenu', (entry) => offered(entry, entry.contributions.attachmentMenu));
       return placeSlot<{ id: string; item: HostAttachmentMenuItem['item'] }>('attachmentMenu', host, extra, anchorOf).flatMap((i) => i.item(message, attachment) ?? []);
+    },
+    /** The selection bar's actions for `messages`: the host's with plugins' placed among them, those that apply. */
+    selection: (messages: readonly ArchiveMessage[], host: readonly HostSelectionMenuItem[]): MenuItem[] => {
+      const extra = declaredItems(active(), 'selectionMenu', (entry) => offered(entry, entry.contributions.selectionMenu));
+      return placeSlot<{ id: string; item: HostSelectionMenuItem['item'] }>('selectionMenu', host, extra, anchorOf).flatMap((i) => i.item(messages) ?? []);
     },
   };
 }

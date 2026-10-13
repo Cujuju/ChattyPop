@@ -5,7 +5,7 @@ import { For, Show, children, createMemo, createSignal, type JSX } from 'solid-j
 import type { ArchiveMessage } from '@shared/contract';
 import { avatarUrl, decorationUrl } from '@shared/media';
 import type { ArchiveDensity } from '@/state/archive';
-import { messageLink, openMessageMenu } from '@/state/messageActions';
+import { ARCHIVE_ROW, messageLink, openMessageMenu, type MessageMenuScope } from '@/state/messageActions';
 import { mentionsMe } from '@/state/ownMessages';
 import { openPerson } from '@/state/person';
 import { pluginPresents } from '@/state/plugins';
@@ -39,6 +39,8 @@ const MAX_JUMBO_EMOJI = 27;
 export interface MessageRowProps {
   message: ArchiveMessage;
   focused: boolean;
+  /** Ticked in the Archive's selection (state/messageSelection.ts). Given only by the Archive view: its rows alone can be selected. */
+  selected?: boolean;
   /** The owner is editing it here (the Archive's editor, state/edit.ts): the editor replaces its text. */
   editing?: boolean;
   density: ArchiveDensity;
@@ -51,6 +53,9 @@ export interface MessageRowProps {
   /** After the message body (a shared link's extra card and Jev's reading of it). */
   children?: JSX.Element;
 }
+
+/** The scope of a row's menu: the Archive view's rows offer selection. */
+const menuScope = (props: MessageRowProps): MessageMenuScope | undefined => (props.selected === undefined ? undefined : ARCHIVE_ROW);
 
 /** One archived message, in the cozy (avatar, grouped) or compact (F2 time | author | body log) layout. */
 export function MessageRow(props: MessageRowProps) {
@@ -71,11 +76,12 @@ function CompactRow(props: MessageRowProps) {
       data-deleted={m().deletedAt !== null}
       data-edited={m().revisions.length > 0}
       data-focused={props.focused}
+      data-selected={props.selected === true}
       data-mention={mentionsMe(m())}
       data-menu={contextMenu()?.messageId === m().id}
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
-      onContextMenu={(e) => openMessageMenu(e, m())}
+      onContextMenu={(e) => openMessageMenu(e, m(), menuScope(props))}
       onTouchStart={gestures.onTouchStart}
       onTouchMove={gestures.onTouchMove}
       onTouchEnd={gestures.onTouchEnd}
@@ -114,12 +120,13 @@ function CozyRow(props: MessageRowProps) {
       data-deleted={m().deletedAt !== null}
       data-edited={m().revisions.length > 0}
       data-focused={props.focused}
+      data-selected={props.selected === true}
       data-mention={mentionsMe(m())}
       data-menu={contextMenu()?.messageId === m().id}
       data-grouped={props.grouped}
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
-      onContextMenu={(e) => openMessageMenu(e, m())}
+      onContextMenu={(e) => openMessageMenu(e, m(), menuScope(props))}
       onTouchStart={gestures.onTouchStart}
       onTouchMove={gestures.onTouchMove}
       onTouchEnd={gestures.onTouchEnd}

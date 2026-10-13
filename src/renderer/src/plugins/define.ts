@@ -1,5 +1,5 @@
 // Leaf renderer definitions provide declared panel/settings/action views and host slot items with reactive callbacks.
-import type { AttachmentMenuView, MessageMenuView, PersonLinksView, PersonSectionView, ReadContributions } from './readSlots';
+import type { AttachmentMenuView, MessageMenuView, PersonLinksView, PersonSectionView, ReadContributions, SelectionMenuView } from './readSlots';
 import type { FrameContributions, NotificationKindView, PhoneDrawerView, PhoneSectionView, ProviderRowView, StatusBarView, TopBarView } from './frameSlots';
 import type { AttachmentBarView, ChatFooterView, HoverBarView, MessageContributions } from './messageSlots';
 import type { JevFeatureView } from '../views/settings/jevFeatures';
@@ -98,6 +98,7 @@ type SlotViewTypes<D> = {
   /** Deprecated (SDK 2.34; removed at 3): drawn nowhere; attachmentMenu replaces it. */
   attachmentActions: AttachmentBarView;
   attachmentMenu: AttachmentMenuView & WindowCalls<D>;
+  selectionMenu: SelectionMenuView & WindowCalls<D>;
   ruleTemplates: RuleTemplate;
   personSections: PersonSectionView;
   personLinks: PersonLinksView;
