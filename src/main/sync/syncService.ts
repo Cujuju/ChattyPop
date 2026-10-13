@@ -1,6 +1,7 @@
 import type { AppEvent } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
-import { resolveBackfillCutoffMs } from '@shared/archiveSettings';
+import { resolveBackfillCutoffMs, type ArchiveSettings } from '@shared/archiveSettings';
+import { HISTORY_PAGE_SIZE } from '@shared/backfillProgress';
 import { MS_PER_DAY } from '@shared/units';
 import {
   CATEGORY_CHANNEL_TYPE,
@@ -13,16 +14,15 @@ import {
   type RawMessage,
   type RawThread,
 } from '@shared/discord';
-import type { ChannelSample } from '@shared/contract';
+import type { ChannelInfo, ChannelSample } from '@shared/contract';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import type { DiscordApi } from '../discord/api';
 import type { DiscordQuery } from '../discord/client';
 import type { GatewayDirectory } from '../discord/directory';
+import { HistoryReaches, shortOf, type HistoryResult } from './historyReach';
 import { readArchiveSettings } from './pace';
 
-/** History page size observed from the Discord web client. */
-const CLIENT_PAGE_SIZE = 50;
 /** Messages sampled per channel for a suggestion: enough to see what a channel is about, one request each. */
 const SAMPLE_MESSAGES = 25;
 /** Channels sampled per suggestion run: bounds the requests a click makes (at the sync pace, about a minute). */
@@ -56,6 +56,8 @@ export class SyncService {
   private started = false;
   /** The account READY last named; its DMs are queued when it changes. */
   private account: string | null = null;
+  /** History someone waits for beyond a channel's depth setting (historyTo). */
+  private readonly reaches = new HistoryReaches();
   /** Called each time the queue drains: every queued channel is as current as sync can make it. */
   onSettled: () => void = () => undefined;
 
@@ -120,6 +122,16 @@ export class SyncService {
   halt(): void {
     this.halted = true;
     this.queue.length = 0;
+    this.reaches.stopAll();
+  }
+
+  /** Fetches each channel's history back to `sinceMs` (its threads' too), past a shallower depth setting, and answers once each has ended. Settings are untouched. */
+  historyTo(channelIds: readonly string[], sinceMs: number): Promise<HistoryResult[]> {
+    const ids = [...new Set(channelIds)];
+    if (this.halted) return Promise.resolve(ids.map((channelId) => ({ channelId, outcome: 'stopped' as const })));
+    const waits = ids.map((id) => this.reaches.ask(id, sinceMs));
+    ids.forEach((id) => this.enqueue(id));
+    return Promise.all(waits);
   }
 
   enqueue(channelId: string): void {
@@ -133,16 +145,37 @@ export class SyncService {
     this.running = true;
     try {
       for (let ch = this.queue.shift(); ch; ch = this.queue.shift()) {
+        let failure: string | undefined;
         try {
           await this.syncChannel(ch);
         } catch (err) {
-          this.emit({ type: 'sync-progress', channelId: ch, phase: 'error', fetched: 0, message: errorMessage(err) });
+          failure = errorMessage(err);
+          this.emit({ type: 'sync-progress', channelId: ch, phase: 'error', fetched: 0, message: failure });
         }
+        await this.settleReach(ch, failure).catch((err: unknown) => this.reaches.done(ch, 'failed', errorMessage(err)));
       }
     } finally {
       this.running = false;
     }
     if (!this.halted) this.onSettled();
+  }
+
+  /** Ends `channelId`'s part of a wait for history once its sync has, unless it is queued again. */
+  private async settleReach(channelId: string, failure: string | undefined): Promise<void> {
+    if (this.reaches.sinceMs(channelId) === undefined) return;
+    const state = await this.core.call('syncState', channelId);
+    const kind = (await this.core.call('channelInfo', channelId))?.kind;
+    // Read after the awaits: a second ask may have deepened the wait or queued the channel meanwhile.
+    const sinceMs = this.reaches.sinceMs(channelId);
+    if (sinceMs === undefined || this.queue.includes(channelId)) return;
+    if (failure !== undefined) return this.reaches.done(channelId, 'failed', failure);
+    // A forum holds no messages of its own: its posts are the threads this wait covers.
+    this.reaches.done(channelId, kind === FORUM_CHANNEL_TYPE || !shortOf(state, sinceMs) ? 'reached' : 'stopped');
+  }
+
+  /** How far back `channelId` is fetched: its depth setting, or further while someone waits for more. */
+  private cutoffMs(settings: ArchiveSettings, channelId: string, channel?: Pick<ChannelInfo, 'kind' | 'parentId'> | null): number {
+    return Math.min(resolveBackfillCutoffMs(settings, channelId, Date.now(), channel), this.reaches.sinceMs(channelId) ?? Infinity);
   }
 
   private async syncChannel(channelId: string): Promise<void> {
@@ -175,10 +208,11 @@ export class SyncService {
     return this.api.get<T>(path, query, { guard });
   }
 
-  /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync. */
+  /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync, which a wait for the channel covers. */
   private async discoverThreads(channelId: string): Promise<string[]> {
     const settings = await readArchiveSettings(this.core);
-    const cutoffMs = resolveBackfillCutoffMs(settings, channelId, Date.now());
+    const cutoffMs = this.cutoffMs(settings, channelId);
+    const waitedMs = this.reaches.sinceMs(channelId);
     const stale: string[] = [];
     for (const archived of [false, true]) {
       try {
@@ -192,6 +226,12 @@ export class SyncService {
           });
           const recent = page.threads.filter((t) => lastActivityMs(t) >= cutoffMs);
           stale.push(...(await this.core.call('upsertThreads', recent)));
+          // Core answers by the depth setting; a wait reaching past it needs the threads short of its own time too.
+          if (waitedMs !== undefined) {
+            for (const t of recent) {
+              if (t.last_message_id && !stale.includes(t.id) && shortOf(await this.core.call('syncState', t.id), waitedMs)) stale.push(t.id);
+            }
+          }
           if (!page.has_more || recent.length < page.threads.length) break;
         }
       } catch (err) {
@@ -200,6 +240,7 @@ export class SyncService {
         diag('thread-discovery-failed', { archived, message: errorMessage(err) });
       }
     }
+    this.reaches.include(channelId, stale);
     return stale;
   }
 
@@ -211,14 +252,14 @@ export class SyncService {
     let oldest: string | null = null;
     let newest: string | null = null;
     for (let before: string | undefined; ;) {
-      const page = await this.page<RawMessage[]>(channelId, `channels/${channelId}/messages`, { limit: CLIENT_PAGE_SIZE, before });
+      const page = await this.page<RawMessage[]>(channelId, `channels/${channelId}/messages`, { limit: HISTORY_PAGE_SIZE, before });
       if (!page.length) break;
       await this.core.call('ingestMessages', page);
       seen.push(...page.map((m) => m.id));
       newest ??= maxId(page);
       oldest = minId(page);
       this.emit({ type: 'sync-progress', channelId, phase: 'reverify', fetched: seen.length });
-      if (page.length < CLIENT_PAGE_SIZE || snowflakeToMs(oldest) < cutoffMs) break;
+      if (page.length < HISTORY_PAGE_SIZE || snowflakeToMs(oldest) < cutoffMs) break;
       before = oldest;
     }
     // Only the window the pages covered without gaps: from the oldest fetched message to the newest.
@@ -228,14 +269,14 @@ export class SyncService {
   private async syncRange(channelId: string, path: string): Promise<void> {
     const settings = await readArchiveSettings(this.core);
     const channel = await this.core.call('channelInfo', channelId);
-    const cutoffMs = resolveBackfillCutoffMs(settings, channelId, Date.now(), channel);
+    const cutoffMs = this.cutoffMs(settings, channelId, channel);
     const state = await this.core.call('syncState', channelId);
     let fetched = 0;
 
     // Catch up: everything newer than the synced range (or the latest page for a never-synced channel).
     for (let after = state.newestId; ;) {
-      const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, after: after ?? undefined });
-      const reachedEnd = page.length < CLIENT_PAGE_SIZE;
+      const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, after: after ?? undefined });
+      const reachedEnd = page.length < HISTORY_PAGE_SIZE;
       await this.core.call('ingestSyncPage', channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'catch-up', fetched });
@@ -247,8 +288,8 @@ export class SyncService {
     const synced = await this.core.call('syncState', channelId);
     if (synced.backfillComplete) return;
     for (let before = synced.oldestId; before && snowflakeToMs(before) > cutoffMs;) {
-      const page = await this.page<RawMessage[]>(channelId, path, { limit: CLIENT_PAGE_SIZE, before });
-      const reachedEnd = page.length < CLIENT_PAGE_SIZE;
+      const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, before });
+      const reachedEnd = page.length < HISTORY_PAGE_SIZE;
       await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'backfill', fetched });

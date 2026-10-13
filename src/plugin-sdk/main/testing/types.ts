@@ -17,6 +17,8 @@ export interface MainTestOptions {
   network?: (url: URL, init: RequestInit) => Promise<Response>;
   /** Custom emojis the gateway reported, by server id. */
   emojis?: Readonly<Record<string, readonly GuildEmoji[]>>;
+  /** ctx.syncBackTo's answer; unset, every channel reaches the time. */
+  history?: MainContext['syncBackTo'];
   /** Downloads for ctx.attachments.fetchTo; unset, each fails. */
   attachments?: (r: AttachmentFetch) => Promise<string | null>;
   /** Downloads for ctx.media.fetchImageTo; unset, each fails. */

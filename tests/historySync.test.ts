@@ -1,7 +1,8 @@
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';
-import { normalizeArchiveSettings, resolveBackfillCutoffMs, type ChannelBackfillHistory } from '@shared/archiveSettings';
+import { normalizeArchiveSettings, resolveBackfillCutoffMs, type ArchiveSettings, type ChannelBackfillHistory } from '@shared/archiveSettings';
+import { HISTORY_PAGE_SIZE, estimateBackfillPages } from '@shared/backfillProgress';
 import { DM_CHANNEL_TYPE, FORUM_CHANNEL_TYPE, compareSnowflakes, snowflakeFromMs, type RawMessage, type RawThread } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_MIN } from '@shared/units';
 import { archiveHandlers } from '../src/core/archiveHandlers';
@@ -9,6 +10,7 @@ import { seedArchive, tempDb, rawMessage } from './helpers';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
 const { SyncService } = await import('../src/main/sync/syncService');
+const { deepenedChannels } = await import('../src/main/sync/depthChange');
 
 const NOW = Date.parse('2026-10-12T12:00:00Z');
 const CHANNEL = '200000000000000001';
@@ -18,8 +20,8 @@ const OTHER_THREAD = '300000000000000002';
 const SELF = '900000000000000001';
 /** Enough history to require multiple Discord message pages. */
 const HISTORY_MESSAGES = 120;
-/** The sync's page size: a first sync stores the latest page whole, whatever the cutoff. */
-const FIRST_PAGE = 50;
+/** A first sync stores the latest page whole, whatever the cutoff. */
+const FIRST_PAGE = HISTORY_PAGE_SIZE;
 afterEach(() => vi.restoreAllMocks());
 
 function harness(choice: ChannelBackfillHistory) {
@@ -31,6 +33,8 @@ function harness(choice: ChannelBackfillHistory) {
   const threads = new Map<string, RawThread[]>();
   const events: AppEvent[] = [];
   const requests: { path: string; query: Record<string, unknown> }[] = [];
+  /** Why every Discord request fails, while set. */
+  const discord: { failure: string | null } = { failure: null };
   const handlers = archiveHandlers({
     ready: () => ({ db, archive }), emit: (e) => void events.push(e), noteChanged: () => undefined,
     backfillFromMs: (id) => resolveBackfillCutoffMs(settings, id, Date.now(), archive.channelInfo(id)),
@@ -43,6 +47,7 @@ function harness(choice: ChannelBackfillHistory) {
   const api = {
     get: async (path: string, query: Record<string, unknown>, opts?: { guard?: () => Promise<void> }) => {
       await opts?.guard?.();
+      if (discord.failure) throw new Error(discord.failure);
       requests.push({ path, query });
       const id = path.split('/')[1]!;
       const limit = Number(query['limit']);
@@ -66,10 +71,11 @@ function harness(choice: ChannelBackfillHistory) {
     await done;
     expect(events.filter((e) => e.type === 'sync-progress' && e.phase === 'error')).toEqual([]);
   };
-  const choose = (id: string, history: ChannelBackfillHistory) => {
-    settings = normalizeArchiveSettings({ ...settings, channelBackfillHistory: { ...settings.channelBackfillHistory, [id]: history } });
+  const set = (patch: Partial<ArchiveSettings>) => {
+    settings = normalizeArchiveSettings({ ...settings, ...patch });
   };
-  return { db, archive, messages, threads, requests, run, choose };
+  const choose = (id: string, history: ChannelBackfillHistory) => set({ channelBackfillHistory: { ...settings.channelBackfillHistory, [id]: history } });
+  return { db, archive, messages, threads, requests, discord, sync, run, set, choose, settings: () => settings };
 }
 
 describe('history depth through sync', () => {
@@ -140,5 +146,75 @@ describe('history depth through sync', () => {
     h.messages.set(THREAD, [rawMessage(THREAD, later, 'later activity')]);
     await h.run();
     expect(h.archive.syncState(THREAD)).toMatchObject({ count: 1, backfillComplete: true });
+  });
+});
+
+/** One message a day back from NOW, newest first: message i is i + `firstDay` days old. */
+const daily = (channelId: string, firstDay = 1): RawMessage[] =>
+  Array.from({ length: HISTORY_MESSAGES }, (_, i) => rawMessage(channelId, NOW - (i + firstDay) * MS_PER_DAY, `message ${i}`));
+
+describe('history asked for past the depth setting', () => {
+  it('fetches back to the time, answers when it is reached and leaves the setting alone', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.messages.set(CHANNEL, daily(CHANNEL));
+    const before = h.settings();
+    expect(await h.sync.historyTo([CHANNEL], NOW - 80 * MS_PER_DAY)).toEqual([{ channelId: CHANNEL, outcome: 'reached' }]);
+    // Whole pages: the second one ends past the time asked for.
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 2 * HISTORY_PAGE_SIZE, backfillComplete: false });
+    expect(h.settings()).toBe(before);
+    const older = h.requests.filter((r) => r.query['before']).length;
+    await h.run();
+    expect(h.requests.filter((r) => r.query['before'])).toHaveLength(older);
+  });
+
+  it("covers the channel's threads, those the setting calls done too, before it answers", async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.archive.upsertChannels('g1', [{ id: CHANNEL, name: 'parent', type: 0 }]);
+    h.threads.set(CHANNEL, [{ id: THREAD, parent_id: CHANNEL, name: 'thread', type: 11, last_message_id: snowflakeFromMs(NOW - 2 * MS_PER_DAY) }]);
+    h.messages.set(THREAD, daily(THREAD, 2));
+    await h.run();
+    expect(h.archive.syncState(THREAD)).toMatchObject({ count: FIRST_PAGE });
+    expect(await h.sync.historyTo([CHANNEL], NOW - 100 * MS_PER_DAY)).toEqual([{ channelId: CHANNEL, outcome: 'reached' }]);
+    expect(h.archive.syncState(THREAD)).toMatchObject({ count: 2 * HISTORY_PAGE_SIZE });
+  });
+
+  it('answers stopped when sync is paused or dropped, and failed with the reason when a request fails', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.messages.set(CHANNEL, daily(CHANNEL));
+    h.set({ syncEnabled: false });
+    expect(await h.sync.historyTo([CHANNEL], NOW - 80 * MS_PER_DAY)).toEqual([{ channelId: CHANNEL, outcome: 'stopped' }]);
+    h.set({ syncEnabled: true });
+    h.discord.failure = 'Discord said no';
+    expect(await h.sync.historyTo([CHANNEL, CHANNEL], NOW - 80 * MS_PER_DAY)).toEqual([{ channelId: CHANNEL, outcome: 'failed', message: 'Discord said no' }]);
+    h.discord.failure = null;
+    const waiting = h.sync.historyTo([CHANNEL, OTHER], NOW - 80 * MS_PER_DAY);
+    h.sync.halt();
+    expect((await waiting).map((r) => r.outcome)).toEqual(['stopped', 'stopped']);
+    expect(await h.sync.historyTo([CHANNEL], NOW)).toEqual([{ channelId: CHANNEL, outcome: 'stopped' }]);
+  });
+});
+
+describe('a changed depth setting', () => {
+  it('names the channels it deepens, by their own choice or the default', () => {
+    const base = normalizeArchiveSettings({ backfillHistory: { unit: 'days', amount: 30 }, channelBackfillHistory: { [CHANNEL]: { unit: 'days', amount: 7 } } });
+    const ids = [CHANNEL, OTHER];
+    const own = normalizeArchiveSettings({ ...base, channelBackfillHistory: { [CHANNEL]: 'complete' } });
+    expect(deepenedChannels(base, own, ids, NOW)).toEqual([CHANNEL]);
+    expect(deepenedChannels(base, normalizeArchiveSettings({ ...base, backfillHistory: { unit: 'years', amount: 1 } }), ids, NOW)).toEqual([OTHER]);
+    expect(deepenedChannels(own, base, ids, NOW)).toEqual([]);
+    expect(deepenedChannels(base, normalizeArchiveSettings({ ...base, syncPace: 'normal' }), ids, NOW)).toEqual([]);
+  });
+
+  it('is costed from how busy the stored range is', () => {
+    const CREATED = NOW - 1000 * MS_PER_DAY;
+    // 100 messages over 10 days, 20 more days asked for: 200 messages.
+    const stored = { count: 100, oldestMs: NOW - 10 * MS_PER_DAY, newestMs: NOW, backfillComplete: false };
+    expect(estimateBackfillPages(stored, NOW - 30 * MS_PER_DAY, CREATED)).toBe(200 / HISTORY_PAGE_SIZE);
+    expect(estimateBackfillPages(stored, NOW - 5 * MS_PER_DAY, CREATED)).toBe(0);
+    expect(estimateBackfillPages({ ...stored, backfillComplete: true }, NOW - 30 * MS_PER_DAY, CREATED)).toBe(0);
+    // A channel can't hold messages older than itself.
+    expect(estimateBackfillPages(stored, NOW - 30 * MS_PER_DAY, NOW - 15 * MS_PER_DAY)).toBe(1);
+    expect(estimateBackfillPages({ count: 0, oldestMs: null, newestMs: null, backfillComplete: false }, NOW - 30 * MS_PER_DAY, CREATED)).toBeNull();
+    expect(estimateBackfillPages({ ...stored, count: 1, oldestMs: NOW }, NOW - 30 * MS_PER_DAY, CREATED)).toBeNull();
   });
 });

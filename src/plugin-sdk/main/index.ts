@@ -29,6 +29,8 @@ export type { PdfSource } from '@shared/htmlPage';
 export type { LoopbackHandler, LoopbackServer } from '@main/plugins/loopback';
 export { TailnetError } from '@main/tailnet';
 export type { ActiveResource, ResourceRun } from '@main/plugins/context';
+// How ctx.syncBackTo's wait for a channel's history ended.
+export type { HistoryOutcome, HistoryResult } from '@main/sync/historyReach';
 export type { Dispose, StopReason } from '@main/plugins/states';
 export type { IncomingMessage, RequestListener, ServerResponse } from 'node:http';
 export type { DeliveredNotification } from '@shared/notifications';

@@ -17,6 +17,7 @@ import type { GuildEmojiIndex } from '../discord/guildEmojis';
 import { guildEmojis, pluginDiscord, type GuildEmojis, type PluginDiscord, type PluginDiscordDeps } from './discordContext';
 import type { AttachmentDownloader, AttachmentFetch } from '../media/attachmentDownloader';
 import type { PhoneHub, PhoneLink, PhoneRoute, PhoneTransport } from '../phone/hub';
+import type { HistoryResult } from '../sync/historyReach';
 import type { SyncService } from '../sync/syncService';
 import type { TailnetServe } from '../tailnet';
 import { listenLoopback, type LoopbackHandler, type LoopbackServer } from './loopback';
@@ -77,6 +78,11 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
   };
   /** Brings these archived channels up to date (e.g. after an import). */
   sync(channelIds: string[]): void;
+  /**
+   * Fetches these archived channels' history back to `sinceMs` (their threads' too) on the paced sync queue, past a shallower
+   * depth setting, and answers once each has ended. Settings are untouched; what is fetched stays.
+   */
+  syncBackTo(channelIds: string[], sinceMs: number): Promise<HistoryResult[]>;
   /** Writes `<plugin id>-<event>` to the diagnostics log; never tokens or message content. */
   diag(event: string, detail?: Record<string, unknown>): void;
   /** Serializes start/dispose transitions while enabled. Disposes after ending each run on disablement or quit; governs listening servers and external configuration. */
@@ -146,7 +152,7 @@ export interface MainPluginDeps {
   discord: PluginDiscordDeps;
   emojiIndex: Pick<GuildEmojiIndex, 'all' | 'forGuild'>;
   mediaDir: string;
-  sync: Pick<SyncService, 'enqueue'>;
+  sync: Pick<SyncService, 'enqueue' | 'historyTo'>;
   downloader: Pick<AttachmentDownloader, 'fetchTo'>;
   media: MainContext['media'];
   states: PluginStates;
@@ -212,6 +218,7 @@ export function createMainContext<D extends PluginDescriptor>(plugin: D, d: Main
     media: { fetchImageTo: (url, path) => d.media.fetchImageTo(url, path), fetchVideoTo: (url, path) => d.media.fetchVideoTo(url, path) },
     dialogs: { pickFiles: (title, filters) => d.dialogs.pickFiles(title, filters), pickFolder: (title) => d.dialogs.pickFolder(title) },
     sync: (channelIds) => channelIds.forEach((c) => d.sync.enqueue(c)),
+    syncBackTo: (channelIds, sinceMs) => d.sync.historyTo(channelIds, sinceMs),
     diag: (event, detail) => d.diag(`${id}-${event}`, detail),
     whileActive: (start) => reg.whileActive((life) => start(resourceRun(ctx, life))),
     secrets: {

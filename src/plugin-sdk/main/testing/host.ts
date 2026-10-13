@@ -80,7 +80,10 @@ export const testMainPlugin: TestMainPluginFn = async (main, core, o = {}) => {
     discord: { paced: o.discord ?? NO_DISCORD, prompt: o.discord ?? NO_DISCORD, humanPause: async () => undefined, posting: { unlocked: async () => true }, spacer: new ActionSpacer(async () => 0) },
     emojiIndex: { all: () => Object.values(emojis).flat(), forGuild: async (_api, guildId) => [...(emojis[guildId] ?? [])] },
     mediaDir: side.mediaDir,
-    sync: { enqueue: (channelId) => void synced.push(channelId) },
+    sync: {
+      enqueue: (channelId) => void synced.push(channelId),
+      historyTo: async (ids, sinceMs) => o.history?.([...ids], sinceMs) ?? ids.map((channelId) => ({ channelId, outcome: 'reached' as const })),
+    },
     downloader: { fetchTo: o.attachments ?? refuse('attachment downloads') },
     media: { fetchImageTo: o.images ?? refuse('image downloads'), fetchVideoTo: o.videos ?? refuse('video downloads') },
     pdf: o.pdf ?? refuse('PDF drawing'),

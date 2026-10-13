@@ -1,5 +1,5 @@
 {
-  "version": "2.44.0",
+  "version": "2.45.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -858,6 +858,8 @@
       "DiscordWriter",
       "Dispose",
       "GuildEmojis",
+      "HistoryOutcome",
+      "HistoryResult",
       "IncomingMessage",
       "LoopbackHandler",
       "LoopbackServer",
