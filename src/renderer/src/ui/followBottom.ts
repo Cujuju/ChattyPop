@@ -7,7 +7,7 @@ import { virtualScroller } from './virtualScrollers';
 const NEAR_BOTTOM_PX = 132;
 
 export interface FollowBottom {
-  /** Ref for the scroll container. Its children are watched, so rows added or growing (an image loading) keep the newest in view. */
+  /** Ref for the scroll container. Its children are watched, so rows added or growing (an image loading) keep the newest in view; a row the reader's click resized holds the view still. */
   ref: (el: HTMLElement) => void;
   /** True while the view stays on the newest row. */
   following: Accessor<boolean>;
@@ -61,9 +61,23 @@ export function createFollowBottom(pinned: () => boolean = () => false): FollowB
         else if (el.scrollTop < lastTop) setAway(true);
         lastTop = el.scrollTop;
       };
+      // A click that resizes a row (one unfolding) is the reader's: what they clicked stays where it is, growing downwards.
+      let readerClicked = false;
+      listen(
+        el,
+        'click',
+        () => {
+          readerClicked = true;
+          // Resizes are told after a frame's animation callbacks: the second frame's follows this click's.
+          requestAnimationFrame(() => requestAnimationFrame(() => (readerClicked = false)));
+        },
+        { capture: true, passive: true },
+      );
       // Observing the container too: a resized panel keeps the newest in view.
       const sizes = new ResizeObserver(() => {
-        if (following()) toEnd();
+        if (!following()) return;
+        if (readerClicked) setAway(!nearBottom(el));
+        else toEnd();
       });
       sizes.observe(el);
       for (const child of el.children) sizes.observe(child);
