@@ -7,6 +7,7 @@ import { lookupPanel } from '@/panels/registry';
 import { panelIdentity, panelImportance } from '@/panels/titles';
 import { markSeenWhileShown } from '@/ui/seen';
 import { Overlays } from './Overlays';
+import { Contained } from '@/ui/contained';
 
 /** A panel in its own window: just the panel, filling the window, with the overlays panels open (menus, image viewer, Jev). */
 export function PanelWindow(props: { id: string }) {
@@ -19,7 +20,7 @@ export function PanelWindow(props: { id: string }) {
     // data-section/-importance: the same theme scope the panel gets in a layout slot.
     <div ref={frame} class={styles.frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, width: '100%', height: '100%' }}>
       <Dynamic component={def()?.component ?? (() => <p>Panel unavailable: {props.id}</p>)} />
-      <Overlays />
+      <Contained name="Menus and viewers" shows="note"><Overlays /></Contained>
     </div>
   );
 }

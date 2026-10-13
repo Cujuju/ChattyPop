@@ -12,6 +12,7 @@ import { SyncStatusPanel } from './sync-status';
 import { ChatPanel } from './chat';
 import { BookmarksPanel } from './bookmarks';
 import { StatusBarPanel } from './status-bar';
+import { contained } from '@/ui/contained';
 
 export interface PanelDef {
   title: string;
@@ -27,13 +28,15 @@ const COMPONENTS: Record<PanelId, Component> = {
 };
 
 /** Every named section of the UI. Layouts refer to panels only by these ids. */
-export const PANELS = Object.fromEntries(Object.entries(COMPONENTS).map(([id, component]) => [id, { title: PANEL_TITLES[id as PanelId], component }])) as Record<PanelId, PanelDef>;
+export const PANELS = Object.fromEntries(Object.entries(COMPONENTS).map(([id, component]) => [id, { title: PANEL_TITLES[id as PanelId], component: contained(PANEL_TITLES[id as PanelId], component, 'note') }])) as Record<PanelId, PanelDef>;
+
+const ContainedPluginPanel = contained('Plugin panel', PluginPanelSlot, 'note');
 
 export type { PanelId };
 
 /** Resolves built-in/plugin panel ids reactively. Enabled plugin panels mount through slots; toggling on makes them available. */
 export function lookupPanel(id: string): PanelDef | undefined {
-  if (isPluginPanelId(id)) return { title: findPluginPanel(id)?.title ?? id, component: () => createComponent(PluginPanelSlot, { id }) };
+  if (isPluginPanelId(id)) return { title: findPluginPanel(id)?.title ?? id, component: () => createComponent(ContainedPluginPanel, { id }) };
   const bundled = bundledPanel(id);
   const component = bundled && panelComponent(id);
   if (bundled) return component ? { title: bundled.title, component } : undefined;

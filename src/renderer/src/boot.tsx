@@ -11,6 +11,12 @@ import { revealPanel } from './state/layout';
 import { PANEL_WINDOW_ID, openSettingsAt } from './state/ui';
 import { promptRestoreAtStart } from './state/pluginRestore';
 import { trackPopoverCovers } from './ui/popoverCover';
+import { Contained } from './ui/contained';
+
+function Root() {
+  applyTheme();
+  return PANEL_WINDOW_ID ? <PanelWindow id={PANEL_WINDOW_ID} /> : <App />;
+}
 
 export function startApp(): void {
   onAppEvent('open-panel', (e) => revealPanel(e.panelId));
@@ -22,9 +28,6 @@ export function startApp(): void {
 
   // Waits for stored settings and the plugin list: rendering on fallbacks would flash the default layout and theme.
   void firstPaintReady().then(() =>
-    render(() => {
-      applyTheme();
-      return PANEL_WINDOW_ID ? <PanelWindow id={PANEL_WINDOW_ID} /> : <App />;
-    }, document.getElementById('root')!),
+    render(() => <Contained name="ChattyPop" shows="reload"><Root /></Contained>, document.getElementById('root')!),
   );
 }

@@ -4,6 +4,7 @@ import { render } from 'solid-js/web';
 import { rendererPluginsInstalled } from '@/plugins/installed';
 import { applyTheme } from '@/state/preferences';
 import type { PhoneTextSize } from '@shared/phoneLook';
+import { Contained } from '@/ui/contained';
 
 /** Wears the phone's text size (its Settings): theme/phone.css keys its type ramp on html data-text-size. */
 export function showPhoneTextSize(size: PhoneTextSize): void {
@@ -12,10 +13,11 @@ export function showPhoneTextSize(size: PhoneTextSize): void {
 
 /** Renders a plugin page's view into #root, wearing the owner's theme, once the plugin registry is installed. */
 export function startPage(view: () => JSX.Element): void {
+  function Page() {
+    applyTheme();
+    return view();
+  }
   void rendererPluginsInstalled().then(() =>
-    render(() => {
-      applyTheme();
-      return view();
-    }, document.getElementById('root')!),
+    render(() => <Contained name="ChattyPop" shows="reload"><Page /></Contained>, document.getElementById('root')!),
   );
 }

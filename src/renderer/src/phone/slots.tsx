@@ -10,6 +10,7 @@ import { adoptedPhoneSection } from '@shared/bundledPlugins';
 import { phoneOverview } from '@/plugins/featureWording';
 import { notificationKinds, phoneDrawerItems, phoneSections } from '@/plugins/slots';
 import { phoneSectionOf, type NotificationKind, type PhoneDrawerItem, type PhoneSection } from '@/plugins/frameSlots';
+import { contained } from '@/ui/contained';
 
 /** The Archive on its own: the desktop's Chat panel without the live Discord client; its header names the open channel. */
 const ArchivePane = () => {
@@ -32,7 +33,7 @@ const HOST_SECTIONS: readonly (PhoneSection & { id: HostPhoneSectionId })[] = [
     id: 'archive',
     label: 'Archive',
     section: 'chat',
-    Component: ArchivePane,
+    Component: contained('Archive', ArchivePane, 'note'),
   },
 ];
 
@@ -41,7 +42,7 @@ const CHANNEL_ROW = 'section[aria-label="Channels"] button[aria-current]';
 
 /** The host's drawer panes. */
 const HOST_DRAWER_ITEMS: readonly (PhoneDrawerItem & { id: HostPhoneDrawerItemId })[] = [
-  { id: 'channels', label: 'channels', section: 'channels', Component: ChannelsPanel, opensArchive: CHANNEL_ROW },
+  { id: 'channels', label: 'channels', section: 'channels', Component: contained('Channels', ChannelsPanel, 'note'), opensArchive: CHANNEL_ROW },
 ];
 
 /** The phone's sections: the Archive and active plugins' sections, in placement order. Reactive. */
