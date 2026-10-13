@@ -1,7 +1,7 @@
 // Host saved-message state owns RPCs. Panels and dialogs consume it; no saved content is persisted locally.
 import { createSignal } from 'solid-js';
 import { api } from '@/api';
-import { REMINDER_PRESETS, reminderPreset, savedKey, type ReminderPreset, type SavedMessage, type SavedRemove, type SavedSource, type SavedTarget } from '@shared/savedMessages';
+import { savedKey, type ReminderPreset, type SavedMessage, type SavedRemove, type SavedSource, type SavedTarget } from '@shared/savedMessages';
 import type { MenuItem } from '@/ui/menuTypes';
 import { failureNotice } from './dialogs';
 import { onAppEvent } from './events';
@@ -73,18 +73,16 @@ export const reminderPresetLabel = (preset: ReminderPreset): string => ({ '10m':
 /** Callbacks capture their original session, so a stale menu cannot write against a newly signed-in account. */
 export function savedMenuItems(target: SavedTarget & { summary: string }): MenuItem[] {
   const state = savedMessages(), session = state.session;
-  const open: MenuItem = { label: 'Bookmarks and reminders…', icon: 'archive', run: () => openPanel('bookmarks') };
-  if (!session || state.stale || !postingUnlocked() || savedBusy()) return [open];
+  const open: MenuItem = { label: 'View bookmarks and reminders…', icon: 'archive', run: () => openPanel('bookmarks') };
+  const submenu = (items: MenuItem[]): MenuItem[] => [{ label: 'Bookmarks and reminders', icon: 'archive', submenu: [...(items.length ? [{ items }] : []), { items: [open] }] }];
+  if (!session || state.stale || !postingUnlocked() || savedBusy()) return submenu([]);
   const reminder = state.reminders.find((m) => savedKey(m) === savedKey(target));
-  if (!reminder && !state.bookmarkIds.includes(target.messageId) && !state.writableChannelIds.includes(target.channelId)) return [open];
+  if (!reminder && !state.bookmarkIds.includes(target.messageId) && !state.writableChannelIds.includes(target.channelId)) return submenu([]);
   const draft: ReminderDraft = { ...targetAt(target, session), source: 'context_menu', summary: target.summary, dueAt: reminder?.dueAt ?? null };
   const run = (fn: () => Promise<void>): (() => Promise<void>) => () => fn().catch(failureNotice("Couldn't change saved messages"));
   const items: MenuItem[] = reminder ? [
     { label: 'Mark reminder complete', icon: 'check', run: run(() => removeSavedMessage(target, session, state.revision)) },
   ] : [{ label: state.bookmarkIds.includes(target.messageId) ? 'Remove bookmark' : 'Bookmark', icon: 'archive', run: run(() => state.bookmarkIds.includes(target.messageId) ? removeSavedMessage(target, session, state.revision) : bookmarkMessage(target, session, 'context_menu', state.revision)) }];
-  items.push({ label: reminder ? 'Edit reminder' : 'Remind me', icon: 'clock', submenu: [{ items: [
-    ...REMINDER_PRESETS.map((preset): MenuItem => ({ label: reminderPresetLabel(preset), icon: 'clock', run: run(() => saveReminder(draft, reminderPreset(preset).toISOString())) })),
-    { label: 'Choose date and time…', icon: 'clock', run: () => { if (savedMessages().session === session && savedMessages().revision === state.revision && postingUnlocked()) setReminderDraft(draft); } },
-  ] }] });
-  return [open, ...items];
+  items.push({ label: reminder ? 'Edit reminder…' : 'Remind me…', icon: 'clock', run: () => { if (savedMessages().session === session && savedMessages().revision === state.revision && postingUnlocked()) setReminderDraft(draft); } });
+  return submenu(items);
 }

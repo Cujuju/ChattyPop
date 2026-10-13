@@ -12,6 +12,7 @@ vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cj
 
 const SELF = 'me';
 const menus = vi.hoisted(() => [] as { label: string }[][][]);
+const savedMenu = vi.hoisted(() => ({ items: [] as { label: string }[] }));
 const localSpoilers = vi.hoisted(() => new Set<string>());
 vi.mock('../src/renderer/src/state/localSpoilers', () => ({
   isLocalSpoiler: (key: string) => localSpoilers.has(key),
@@ -40,7 +41,7 @@ vi.mock('../src/renderer/src/state/ui', () => ({
   setJevCheckFor: () => undefined,
 }));
 
-vi.mock('../src/renderer/src/state/savedMessages', () => ({ savedMenuItems: () => [], prepareSavedMenu: () => undefined }));
+vi.mock('../src/renderer/src/state/savedMessages', () => ({ savedMenuItems: () => savedMenu.items, prepareSavedMenu: () => undefined }));
 
 // Renderer modules: imported by path so the node type-check doesn't follow them (they name DOM types).
 const slotsPath = '../src/renderer/src/plugins/messageSlots';
@@ -119,12 +120,12 @@ describe('posting actions', () => {
     return menus.at(-1)!.map((items) => items.map((i) => i.label));
   };
   const item = (label: string) => ({ label, icon: 'text' as const, run: () => undefined });
-  /** A posting plugin declaring what discord-client declares: each button before its host anchor, Delete after `delete`. */
+  /** A posting plugin declaring what discord-client declares: Reply/Forward before `saved`, Delete after `delete`. */
   const poster = definePlugin({
     manifest: { id: 'poster', name: 'poster', version: '1', description: '' },
     slots: {
       hoverActions: [{ id: 'edit', before: 'edit' }, { id: 'reply', before: 'reply' }, { id: 'forward', before: 'forward' }],
-      messageMenu: [{ id: 'lead', before: 'views' }, { id: 'delete', after: 'delete' }],
+      messageMenu: [{ id: 'lead', before: 'saved' }, { id: 'delete', after: 'delete' }],
     },
   });
 
@@ -135,7 +136,7 @@ describe('posting actions', () => {
     expect(menuOf(message(), [])).toEqual([['View conversation', 'View A'], ['Text', 'Message link', 'Message ID']]);
   });
 
-  it("put a pressed attachment's Download, then Modify and Delete at their anchors, after what was pressed", () => {
+  it("put a pressed attachment's Download, then Edit and Delete at their anchors, after what was pressed", () => {
     const attachments = [{ id: 'a1', status: 'stored', sha256: 'h' }, { id: 'a2', status: 'pending', sha256: null }];
     const m = message({ attachments } as unknown as Partial<ArchiveMessage>);
     const changer = definePlugin({
@@ -144,13 +145,13 @@ describe('posting actions', () => {
     });
     const menu: ReadSlotEntry = {
       plugin: changer,
-      contributions: { attachmentMenu: { modify: { calls: [], item: () => item('Modify attachment') }, delete: { calls: [], item: () => item('Delete attachment') } } },
+      contributions: { attachmentMenu: { modify: { calls: [], item: () => item('Edit attachment') }, delete: { calls: [], item: () => item('Delete attachment') } } },
     };
     const views = ['View conversation', 'View A'];
     const copies = ['Text', 'Message link', 'Message ID'];
-    expect(menuOf(m, [menu], 'a1')).toEqual([['Download', 'Modify attachment', 'Delete attachment', 'Mark as spoiler locally'], views, copies]);
+    expect(menuOf(m, [menu], 'a1')).toEqual([['Download', 'Edit attachment', 'Mark as spoiler locally', 'Delete attachment'], views, copies]);
     // Not held here: no Download.
-    expect(menuOf(m, [menu], 'a2')).toEqual([['Modify attachment', 'Delete attachment', 'Mark as spoiler locally'], views, copies]);
+    expect(menuOf(m, [menu], 'a2')).toEqual([['Edit attachment', 'Mark as spoiler locally', 'Delete attachment'], views, copies]);
     // Pressed elsewhere: no attachment's items.
     expect(menuOf(m, [menu])).toEqual([views, copies]);
   });
@@ -195,16 +196,22 @@ describe('posting actions', () => {
     localSpoilers.clear();
   });
 
-  it("land at the host's anchors in today's order: Edit, Reply, Forward on the bar; Reply, Forward lead the menu, Delete last", () => {
+  it("land at the host's anchors: Edit, Reply, Forward on the bar; Reply, Forward before bookmarks and reminders, Delete last", () => {
     const bar = slotsOf([entry('poster', poster.slots!, { hoverActions: { edit: view, reply: view, forward: view } })], () => true);
     expect(ids(bar.hoverActions(HOST_HOVER_ACTION_ANCHORS))).toEqual(['poster.edit', 'edit', 'poster.reply', 'reply', 'poster.forward', 'forward']);
     const menu: ReadSlotEntry = {
       plugin: poster,
       contributions: {
-        messageMenu: { lead: { calls: [], menu: () => [item('Reply'), item('Forward')] }, delete: { calls: [], menu: () => [item('Delete')] } },
+        messageMenu: { lead: { calls: [], menu: () => [item('Edit'), item('Reply'), item('Forward')] }, delete: { calls: [], menu: () => [item('Delete')] } },
       },
     };
-    expect(menuOf(message(), [menu])).toEqual([['Reply', 'Forward'], ['View conversation', 'View A'], ['Text', 'Message link', 'Message ID'], ['Delete']]);
+    savedMenu.items = [item('Bookmarks and reminders')];
+    expect(menuOf(message(), [menu])).toEqual([['Edit', 'Reply', 'Forward'], ['Bookmarks and reminders'], ['View conversation', 'View A'], ['Text', 'Message link', 'Message ID'], ['Delete']]);
+    const withAttachment = message({ attachments: [{ id: 'a1', spoiler: false }] } as unknown as Partial<ArchiveMessage>);
+    expect(menuOf(withAttachment, [menu], 'a1')[0]).toEqual(['Mark as spoiler locally']);
+    expect(menuOf(withAttachment, [menu], 'a1').at(-1)).toEqual(['Delete']);
+    expect(menuOf(message(), [menu], undefined, null, { localSpoilerKey: 'link:m:one' })[0]).toEqual(['Mark as spoiler locally']);
+    savedMenu.items = [];
   });
 });
 

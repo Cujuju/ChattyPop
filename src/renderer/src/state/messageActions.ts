@@ -82,12 +82,13 @@ const speedItem = (player: HTMLMediaElement): MenuItem => ({
   }],
 });
 
-/** The host's items for a pressed attachment: its player's speed, Download while its file is held here; modify and delete are anchors. */
-const hostAttachmentItems = (player: HTMLMediaElement | null): HostAttachmentMenuItem[] =>
+/** The host's attachment items: speed, Download and the local spoiler toggle between plugins' Edit and Delete. */
+const hostAttachmentItems = (player: HTMLMediaElement | null, spoiler: MenuItem | null): HostAttachmentMenuItem[] =>
   HOST_ATTACHMENT_MENU_ITEMS.map((id) => ({
     id,
     item: (_m, a) => {
       if (id === 'speed') return player && speedItem(player);
+      if (id === 'modify') return spoiler;
       return id === 'download' && canSave(a) ? { label: 'Download', icon: 'download', run: () => saveAttachment(a) } : null;
     },
   }));
@@ -97,8 +98,8 @@ const FULL_ROW: MessageMenuScope = { drawsAttachments: true };
 
 /**
  * Opens a message's right-click menu: what was right-clicked (selection, a note's text), the pressed attachment's items,
- * quick reactions, views, copies (the pressed image's too), plugins' groups and Jev. A posting plugin adds Reply and Forward before the views, Delete last,
- * and an attachment's Modify and Delete.
+ * quick reactions, views, copies (the pressed image's too), plugins' groups and Jev. A posting plugin adds Edit, Reply and Forward before bookmarks and reminders, Delete last,
+ * and an attachment's Edit and Delete around its local spoiler toggle.
  */
 export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: MessageMenuScope = FULL_ROW): void {
   const target: MenuItem[] = [];
@@ -109,17 +110,18 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
   if (note) target.push({ label: 'Copy text', icon: 'copy', run: () => navigator.clipboard.writeText(note.text) });
 
   const pressed = pressedAttachment(e.target, m);
-  const attachment = pressed ? attachmentMenuItems(m, pressed.attachment, hostAttachmentItems(pressed.player)) : [];
   const part = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-local-spoiler-key]') : null;
   const spoilerKey = pressed ? attachmentSpoilerKey(pressed.attachment.id) : part?.dataset.localSpoilerKey;
+  const spoilers: MenuItem[] = [];
   if (spoilerKey) {
     const marked = isLocalSpoiler(spoilerKey);
-    attachment.push({
+    spoilers.push({
       label: marked ? 'Remove local spoiler' : 'Mark as spoiler locally',
       icon: marked ? 'eye' : 'eyeOff',
       run: () => setLocalSpoiler(spoilerKey, !marked).catch(failureNotice("Couldn't save the local spoiler")),
     });
   }
+  const attachment = pressed ? attachmentMenuItems(m, pressed.attachment, hostAttachmentItems(pressed.player, spoilers[0] ?? null)) : spoilers;
 
   const copy: MenuItem[] = m.content ? [{ label: 'Text', icon: 'text', run: () => navigator.clipboard.writeText(m.content) }] : [];
   // The pressed image, an attachment's or an embed's; not an avatar.
@@ -141,7 +143,7 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
     { id: 'saved', items: savedMenuItems({ channelId: m.channelId, messageId: m.id, summary: m.content }) },
     { id: 'views', items: views },
     { id: 'copy', heading: 'Copy', items: copy },
-    { id: 'jev', heading: 'Jev', items: jev },
+    { id: 'jev', items: jev.length ? [{ label: 'Jev', icon: 'jev', submenu: [{ items: jev }] }] : [] },
     { id: 'delete', items: [] },
   ]), { reactTo: canReact(m) ? m : undefined, messageId: m.id });
   prepareSavedMenu();

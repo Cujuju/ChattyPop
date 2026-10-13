@@ -69,7 +69,7 @@ export function ModifyAttachmentDialog() {
   };
 
   return (
-    <ModalDialog id="modify-attachment" open={modifyingAttachment() !== null} title="Modify attachment" onClose={closeModifyAttachment}>
+    <ModalDialog id="modify-attachment" open={modifyingAttachment() !== null} title="Edit attachment" onClose={closeModifyAttachment}>
       <Show when={modifyingAttachment()}>
         {(t) => (
           <form

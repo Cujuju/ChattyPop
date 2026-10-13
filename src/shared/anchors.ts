@@ -48,8 +48,8 @@ export type HostHoverActionId = (typeof HOST_HOVER_ACTIONS)[number];
 export const HOST_ATTACHMENT_ACTIONS = ['modify', 'delete', 'download'] as const;
 export type HostAttachmentActionId = (typeof HOST_ATTACHMENT_ACTIONS)[number];
 /**
- * A pressed attachment's menu items, in order: its player's speed, Download, then anchors modify and delete (the host draws
- * nothing at them).
+ * A pressed attachment's menu items: speed, Download, then modify (the local spoiler action, after plugins' Edit),
+ * and the empty delete anchor (plugins' Delete goes before it).
  */
 export const HOST_ATTACHMENT_MENU_ITEMS = ['speed', 'download', 'modify', 'delete'] as const;
 export type HostAttachmentMenuItemId = (typeof HOST_ATTACHMENT_MENU_ITEMS)[number];
