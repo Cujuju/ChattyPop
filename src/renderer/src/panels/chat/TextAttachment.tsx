@@ -74,7 +74,7 @@ export function TextAttachment(props: { attachment: ArchiveAttachment; onUnreada
   const markdown = () => isMarkdownFile(a().filename);
   const formatted = () => markdown() && mode() === 'formatted';
   const [preview] = createResource(
-    () => a().sha256 && attachmentUrl(a().sha256!, a().filename),
+    () => a().sha256 && attachmentUrl({ ...a(), sha256: a().sha256! }),
     async (url) => {
       try {
         return await readPreview(url);

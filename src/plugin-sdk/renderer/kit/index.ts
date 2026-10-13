@@ -6,6 +6,7 @@ import { setSettingsOpen } from '@/state/ui';
 export { TopBarButton } from '@/frame/TopBarButton';
 export { StatusBarItem } from '@/panels/status-bar/StatusBarItem';
 export { HoverBarButton } from '@/panels/chat/HoverBarButton';
+export { FileIcon } from '@/panels/chat/FileIcon';
 export { Select } from '@/ui/Select';
 export { Switch } from '@/ui/Switch';
 export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type HeaderButtonVariant } from '@/ui/PanelHeader';
@@ -66,7 +67,9 @@ export { listen, onPointerDownOutside } from '@/ui/listen';
 export { pullToClose } from '@/ui/pullToClose';
 export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 // Image previews use the host's cached media routes and embedded Discord session.
-export { attachmentUrl, proxiedUrl, thumbUrl } from '@shared/media';
+export { attachmentUrl, attachmentThumbUrl, attachmentPosterUrl, mediaKind, mediaType, proxiedUrl, thumbUrl } from '@shared/media';
+export { canSave as canSaveAttachment, saveAttachment as saveAttachmentFile } from '@/state/savedFiles';
+export { compressStored, compressibleAs, canCompressHere, freeStored, type StoredAttachmentRef, type CompressOutcome, type CompressAs } from '@/state/storedAttachments';
 export { setLightbox } from '@/state/ui';
 export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect, type SearchOption } from '@/ui/SearchSelect';

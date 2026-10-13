@@ -8,6 +8,7 @@ import { DEFAULT_AVATAR, GENERIC_CONTENT_TYPE, MEDIA_SCHEME, STORED_MEDIA_MIME, 
 import { isNameFontFamily } from '@shared/nameFonts';
 import { MS_PER_DAY, MS_PER_S } from '@shared/units';
 import { DISCORD_CDN, ensureEmoji, fetchOnceToFile } from './cdnCache';
+import { attachmentThumb } from './attachmentThumbs';
 import type { MediaDirs } from './mediaDirs';
 import { rangedResponse } from './ranges';
 import { attachmentPoster, gifPreview, proxiedMedia, thumb, type Media, type MediaSessions, type PosterSource } from './thumbStore';
@@ -73,6 +74,13 @@ export function mediaHandler(
     if (url.host === 'badge') return serveBadge(dirs.icons, discordSession, parts[0]);
     if (url.host === 'name-font') return serveNameFont(dirs.nameFonts, page, decodeURIComponent(parts[0] ?? ''));
     if (url.host === 'attachment') return serveAttachment(dirs.attachments, parts[0], range);
+    if (url.host === 'attachment-thumb') {
+      const match = parts.length === 1 ? ATTACHMENT_FILE.exec(parts[0]!) : null;
+      if (!match) return notFound();
+      const response = serveMedia(await attachmentThumb(dirs.attachments, dirs.previews, match[1]!, parts[0]!), range);
+      if (response.ok) for (const [key, value] of Object.entries(KEPT)) response.headers.set(key, value);
+      return response;
+    }
     if (url.host === 'emoji') return serveEmoji(dirs.emojis, discordSession, parts[0]);
     if (url.host === 'poster') return serveMedia(await servePoster(dirs.previews, sessions, posterSource, parts[0]).catch(() => null), range);
     if (url.host === 'proxied') return serveMedia(await proxiedMedia(sessions, dirs.proxied, url.searchParams.get('u') ?? '').catch(() => null), range);

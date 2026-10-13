@@ -12,8 +12,10 @@ import type { Conversion, ConversionAudioOptions, Input, InputAudioTrack } from 
 import type { VideoQuality } from '@shared/chatSettings';
 import {
   AUDIO_BITRATE,
+  ARCHIVE_VIDEO_QUALITY,
   ENCODE_PRESETS,
   MAX_AUDIO_CHANNELS,
+  NO_UPLOAD_LIMIT,
   displaySize,
   effectiveVideoQualityFor,
   expectedEncodedBytes,
@@ -38,6 +40,19 @@ export const effectiveVideoQuality = (): VideoQuality => effectiveVideoQualityFo
 
 export const prepareUpload = (file: File, quality: VideoQuality, opts: PrepareUploadOptions): Promise<File> =>
   prepareVideoUpload(file, quality, opts, encodeWithMediabunny);
+
+/** Encodes archived video at standard quality when its estimate saves MIN_SAVINGS. */
+export const encodeForArchive = async (file: File, opts: Omit<PrepareUploadOptions, 'limitBytes'>): Promise<EncodeAttempt> => {
+  opts.signal?.throwIfAborted();
+  try {
+    const attempt = await encodeWithMediabunny(file, ARCHIVE_VIDEO_QUALITY, { ...opts, limitBytes: NO_UPLOAD_LIMIT });
+    opts.signal?.throwIfAborted();
+    return attempt;
+  } catch {
+    opts.signal?.throwIfAborted();
+    return UNSUPPORTED;
+  }
+};
 
 const VIDEO_CODEC = 'avc';
 const AUDIO_CODEC = 'aac';

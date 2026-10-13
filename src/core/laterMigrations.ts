@@ -204,6 +204,15 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
     attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER NOT NULL, PRIMARY KEY (run_id, action_id));`,
   // A provider is off until the owner adds it; a profile already in use keeps the ones that were on by default.
   keepDefaultProviders,
+  'ALTER TABLE attachments ADD COLUMN stored_ext TEXT;',
+  'ALTER TABLE attachments ADD COLUMN compressed_at INTEGER;',
+  `
+  ALTER TABLE attachments ADD COLUMN ts INTEGER;
+  -- SNOWFLAKE_TIMESTAMP_SHIFT and DISCORD_EPOCH_MS from shared/discord.
+  UPDATE attachments SET ts = COALESCE((SELECT m.ts FROM messages m WHERE m.id = attachments.message_id),
+    (CAST(id AS INTEGER) >> 22) + 1420070400000);
+  CREATE INDEX attachments_ts ON attachments(ts, id);
+  `,
 ];
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */

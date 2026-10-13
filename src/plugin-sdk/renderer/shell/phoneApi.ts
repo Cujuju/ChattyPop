@@ -157,7 +157,13 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     rules: { pickFile: unavailable('Rule files') },
     // The phone's page saves through its browser: the media route is its own origin, so a download link works there.
     // A PDF opens through the transport's openPage instead (exportPdfPage).
-    media: { saveAttachment: unavailable('Saving files'), savePdf: unavailable('Saving a PDF') },
+    media: {
+      saveAttachment: unavailable('Saving files'), savePdf: unavailable('Saving a PDF'),
+      beginReplacement: unavailable('Compressing stored attachments'),
+      replacementChunk: unavailable('Compressing stored attachments'),
+      finishReplacement: unavailable('Compressing stored attachments'),
+      abortReplacement: unavailable('Compressing stored attachments'),
+    },
     desktop: {
       state: viaMain(desktop.state),
       set: viaMain(desktop.set),

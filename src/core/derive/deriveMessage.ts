@@ -54,12 +54,13 @@ export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
 /** Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and repeated MESSAGE_UPDATE events. */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
-    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags, ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags`,
   );
+  const ts = m.attachments?.length ? db.prepare('SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
   for (const a of m.attachments ?? []) {
-    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null, a.flags ?? null);
+    addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null, a.flags ?? null, ts ?? snowflakeToMs(m.id));
   }
   // Only a payload that lists attachments says which remain; a partial update without the field says nothing.
   if (Array.isArray(m.attachments)) {

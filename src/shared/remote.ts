@@ -16,6 +16,10 @@ export const REMOTE_LOCAL_MAIN_CALLS: readonly string[] = [
 
 /** Main calls that act on the server's screen or disk; a remote desktop is refused them. */
 export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
+  MAIN_INVOKE.media.beginReplacement,
+  MAIN_INVOKE.media.replacementChunk,
+  MAIN_INVOKE.media.finishReplacement,
+  MAIN_INVOKE.media.abortReplacement,
   // Opens the server's browser for OAuth.
   MAIN_INVOKE.openRouter.signIn,
   // Pick a folder or a file on the server's screen; a typed path (a rule file, a local plugin) still crosses.

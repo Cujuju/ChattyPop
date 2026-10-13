@@ -173,7 +173,7 @@ export class AttachmentDownloader {
     await pipeline(source, createWriteStream(tmp));
     const sha = hash.digest('hex');
     const shardDir = join(this.dir, attachmentShard(sha));
-    const dest = join(shardDir, attachmentFileName(sha, filename));
+    const dest = join(shardDir, attachmentFileName({ sha256: sha, filename, storedExt: null }));
     await mkdir(shardDir, { recursive: true });
     if (existsSync(dest)) await rm(tmp);
     else await rename(tmp, dest);

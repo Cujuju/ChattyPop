@@ -1,5 +1,6 @@
 // The renderer's API (`window.chattypop`) and the core methods it may call; re-exported by './contract'.
 import type { PluginCallResult } from './pluginCall';
+import type { StoredFile } from './media';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
 import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
@@ -17,6 +18,7 @@ import type { DmOutcome, Friend, MuteWindow } from './dms';
 import type { UnreadTotals } from './unread';
 import type { MarketplaceApi } from './marketplace';
 import type { PdfPage } from './htmlPage';
+import type { ReplacementExt } from './attachmentReplacement';
 import type { ScheduledAvailability, ScheduledDraft, ScheduledMessage, ScheduledUpdate } from './scheduledMessages';
 import type { DiscordSessionState, LoginRelayState, RelayInput } from './discordLogin';
 import type { SavedBookmarkPage, SavedIndex, SavedPageRequest, SavedRemove, SavedWrite } from './savedMessages';
@@ -174,9 +176,13 @@ export interface RendererApi {
   };
   media: {
     /** Asks where to save an archived attachment (its own name offered), then copies it there. Resolves when done or cancelled. */
-    saveAttachment(sha256: string, filename: string): Promise<void>;
+    saveAttachment(file: StoredFile): Promise<void>;
     /** Draws an export as a one-page PDF (main/pdf.ts) and asks where to save it. Resolves when done or cancelled. */
     savePdf(page: PdfPage): Promise<void>;
+    beginReplacement(attachmentId: string, ext: ReplacementExt): Promise<{ token: string }>;
+    replacementChunk(token: string, offset: number, bytes: Uint8Array): Promise<void>;
+    finishReplacement(token: string): Promise<{ savedBytes: number }>;
+    abortReplacement(token: string): Promise<void>;
   };
   /** Desktop settings; changes emit desktop-changed to main window. */
   desktop: {
@@ -210,6 +216,8 @@ export interface RendererApi {
 
 /** Core methods the renderer may call directly. Ingest/sync methods stay main-only. */
 export const RENDERER_CORE_METHODS = [
+  'freeAttachments',
+  'storedFile',
   'status',
   'getSetting',
   'setSetting',

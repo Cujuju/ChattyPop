@@ -97,8 +97,8 @@ describe('the client app shell', () => {
     const t = transport();
     const s = shell();
     const api = createRemoteRendererApi(t, s);
-    await api.media.saveAttachment('a'.repeat(64), 'cat.png');
-    expect(s.saveMedia).toHaveBeenCalledWith(expect.stringMatching(/^\/media\/attachment\//), 'cat.png');
+    await api.media.saveAttachment({ sha256: 'a'.repeat(64), filename: 'cat.png', storedExt: 'webp' });
+    expect(s.saveMedia).toHaveBeenCalledWith(`/media/attachment/${'a'.repeat(64)}.webp`, 'cat.webp');
     await api.media.savePdf({ html: '<p>', fileName: 'x.pdf', width: 800 });
     expect(s.savePdf).toHaveBeenCalledOnce();
     await api.desktop.setBadge({ mentions: 1, unread: 2 } as never);

@@ -57,7 +57,7 @@ export function attachmentSource(db: Db, id: string): PendingAttachment | null {
 }
 
 export function attachmentStored(db: Db, id: string, sha256: string, bytes: number): void {
-  db.prepare("UPDATE attachments SET status = 'stored', sha256 = ?, stored_bytes = ?, error = NULL WHERE id = ?").run(sha256, bytes, id);
+  db.prepare("UPDATE attachments SET status = 'stored', sha256 = ?, stored_ext = NULL, compressed_at = NULL, stored_bytes = ?, error = NULL WHERE id = ?").run(sha256, bytes, id);
 }
 
 export function pendingEmojis(db: Db, limit: number): PendingEmoji[] {

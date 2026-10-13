@@ -3,7 +3,7 @@
 // app's shell (src/shared/desktopShell.ts), or the browser when there is none.
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, type AppEvent, type RendererApi } from '@shared/contract';
 import type { DesktopShell } from '@shared/desktopShell';
-import { attachmentUrl, setMediaRoot } from '@shared/media';
+import { attachmentUrl, savedFileName, setMediaRoot } from '@shared/media';
 import { targetEvent, type DeliveredNotification } from '@shared/notifications';
 import type { PluginCallResult } from '@shared/pluginCall';
 import { SERVER_SCREEN_CORE_METHODS } from '@shared/remote';
@@ -85,8 +85,13 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
     marketplace: viaMain('marketplace'),
     rules: { pickFile: serverOnly('Choosing a rule file') },
     media: {
-      saveAttachment: (sha256, filename) => {
-        const path = attachmentUrl(sha256, filename);
+      beginReplacement: serverOnly('Compressing stored attachments'),
+      replacementChunk: serverOnly('Compressing stored attachments'),
+      finishReplacement: serverOnly('Compressing stored attachments'),
+      abortReplacement: serverOnly('Compressing stored attachments'),
+      saveAttachment: (file) => {
+        const path = attachmentUrl(file);
+        const filename = savedFileName(file);
         if (shell) return shell.saveMedia(path, filename);
         download(path, filename);
         return Promise.resolve();

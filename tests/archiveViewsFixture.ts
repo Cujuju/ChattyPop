@@ -7,7 +7,7 @@ export const VIEW_COLUMNS: Record<string, string> = {
   channels: 'id, guild_id, name, kind, parent_id, opted_in, is_thread',
   guilds: 'id, name, icon',
   users: 'id, username, global_name, avatar, display_name',
-  attachments: 'id, message_id, channel_id, filename, content_type, size, width, height, url, sha256, status, error, stored_bytes',
+  attachments: 'id, message_id, channel_id, filename, content_type, size, width, height, url, sha256, status, error, stored_bytes, stored_ext, compressed_at, removed_at, ts, kind',
   rules: 'id, name, managed_key',
   links: 'id, url, platform, title, description, thumbnail_url, site, first_message_id, first_channel_id, first_author_id, first_ts, author_name',
   message_links: 'message_id, link_id',

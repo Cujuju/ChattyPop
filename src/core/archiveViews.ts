@@ -3,6 +3,7 @@ import { THREAD_CHANNEL_TYPES } from '@shared/discord';
 import type { Db } from './db';
 import { MESSAGE_TEXT_SQL, LINKED_TEXT_SQL } from './queries/messageText';
 import { displayNameSql, plainNameSql } from './queries/names';
+import { attachmentKindSql } from './queries/attachmentKind';
 import { NOTHING_HIDDEN_SQL, noHiddenRefSql, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from './queries/privacy';
 
 const messages = `SELECT m.id, m.seq, m.channel_id, m.author_id, m.ts, m.edited_ts, m.deleted_at, m.pruned_at,
@@ -16,7 +17,8 @@ const channels = `SELECT c.id, c.guild_id, c.name, c.kind, c.parent_id, c.opted_
 const guilds = 'SELECT id, name, icon FROM guilds';
 const users = 'SELECT id, username, global_name, avatar, COALESCE(global_name, username, id) AS display_name FROM users';
 const attachments = `SELECT id, message_id, channel_id, filename, content_type, size, width, height,
-  url, sha256, status, error, stored_bytes FROM attachments`;
+  url, sha256, status, error, stored_bytes, stored_ext, compressed_at, removed_at, ts,
+  ${attachmentKindSql('content_type', 'filename')} AS kind FROM attachments`;
 const rules = 'SELECT id, name, builtin AS managed_key FROM rules';
 const links = `SELECT l.id, l.url, l.platform, l.title, l.description, l.thumbnail_url, l.site,
   l.first_message_id, l.first_channel_id, l.first_author_id, l.first_ts,

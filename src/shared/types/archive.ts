@@ -120,6 +120,10 @@ export interface ArchiveAttachment {
   height: number | null;
   /** Set once stored locally. */
   sha256: string | null;
+  storedExt: string | null;
+  storedBytes: number | null;
+  /** Re-encoded smaller at the owner's request. */
+  compressed: boolean;
   /** evicted: file pruned by the attachment cap (Settings → Archive); the row and its metadata remain. */
   status: 'pending' | 'stored' | 'failed' | 'evicted';
   /** Alt text. */

@@ -5,6 +5,11 @@ import { BYTES_PER_MB } from './units';
 
 export type EncodeQuality = Exclude<VideoQuality, 'best'>;
 
+/** Archives use the standard preset independent of upload preferences. */
+export const ARCHIVE_VIDEO_QUALITY: EncodeQuality = 'standard';
+/** Archive encodes have no Discord upload limit; savings alone decide whether to encode. */
+export const NO_UPLOAD_LIMIT = Number.POSITIVE_INFINITY;
+
 export interface EncodePreset {
   /** The output's shorter side, px. Smaller sources keep their size. */
   shortSide: number;
@@ -111,7 +116,8 @@ export function frameRateCap(): (frame: FrameTiming) => FrameTiming | null {
 export const expectedEncodedBytes = (durationS: number, videoBitrate: number, hasAudio: boolean): number =>
   (durationS * (videoBitrate + (hasAudio ? AUDIO_BITRATE : 0))) / BITS_PER_BYTE;
 
-const savesEnough = (originalBytes: number, bytes: number): boolean => bytes <= originalBytes * (1 - MIN_SAVINGS);
+/** An archive replacement must save at least MIN_SAVINGS. */
+export const savesEnough = (originalBytes: number, bytes: number): boolean => bytes <= originalBytes * (1 - MIN_SAVINGS);
 
 /** Whether to re-encode: always over the limit; within it, only when the estimate saves at least MIN_SAVINGS. */
 export const worthEncoding = (originalBytes: number, expectedBytes: number, limitBytes: number): boolean =>

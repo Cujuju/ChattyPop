@@ -21,7 +21,7 @@ import styles from './AttachmentDialogs.module.css';
 /** The attachment as the dialog shows it: its picture or first frame when stored, else its name. */
 function Preview(props: { attachment: ArchiveAttachment }) {
   const a = () => props.attachment;
-  const src = () => (a().sha256 ? attachmentUrl(a().sha256!, a().filename) : '');
+  const src = () => (a().sha256 ? attachmentUrl({ ...a(), sha256: a().sha256! }) : '');
   return (
     <div class={`${styles.preview} ${look.card}`}>
       <Show when={attachmentView(a()) === 'image'}>

@@ -174,10 +174,11 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
   const attachments = db
     .prepare(
       `SELECT id, message_id AS messageId, filename, content_type AS contentType, size, width, height, sha256, status,
+       stored_ext AS storedExt, stored_bytes AS storedBytes, compressed_at IS NOT NULL AS compressed,
        description, flags, removed_at IS NOT NULL AS removed
        FROM attachments WHERE message_id IN (${marks}) ORDER BY rowid`,
     )
-    .all(...ids) as (Omit<ArchiveAttachment, 'notes' | 'removed' | 'spoiler'> & { messageId: string; removed: 0 | 1; flags: number | null })[];
+    .all(...ids) as (Omit<ArchiveAttachment, 'notes' | 'removed' | 'spoiler' | 'compressed'> & { messageId: string; removed: 0 | 1; compressed: 0 | 1; flags: number | null })[];
   const notes = partNotes(ids.map((id) => ({ id, attachmentIds: attachments.filter((a) => a.messageId === id).map((a) => a.id) })));
   const annotations = db
     .prepare(`SELECT message_id AS messageId, plugin_id AS pluginId, label, text FROM plugin_annotations WHERE message_id IN (${marks}) ORDER BY created_at`)
@@ -247,6 +248,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
           spoiler: isSpoiler({ filename: a.filename, flags }),
           animated: isAnimatedImage({ ...a, flags }),
           removed: a.removed === 1,
+          compressed: a.compressed === 1,
           notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [],
         })),
       notes: linkTextNotes(notes.get(r.id)),

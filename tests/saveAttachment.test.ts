@@ -26,12 +26,14 @@ const { registerMediaHandlers } = await import('../src/main/ipc/media');
 const { MAIN_INVOKE } = await import('../src/shared/contract');
 
 const HASH = 'a'.repeat(64);
+const FILE = { sha256: HASH, filename: 'clip.mov', storedExt: null };
 const dir = mkdtempSync(join(tmpdir(), 'cp-save-'));
 const out = mkdtempSync(join(tmpdir(), 'cp-saved-'));
 mkdirSync(join(dir, attachmentShard(HASH)), { recursive: true });
-writeFileSync(join(dir, attachmentShard(HASH), attachmentFileName(HASH, 'clip.mov')), 'bytes');
+writeFileSync(join(dir, attachmentShard(HASH), attachmentFileName(FILE)), 'bytes');
+writeFileSync(join(dir, attachmentShard(HASH), attachmentFileName({ ...FILE, storedExt: 'mp4' })), 'smaller');
 registerMediaHandlers(dir);
-const save = (sha256: unknown, filename: unknown) => env.handlers.get(MAIN_INVOKE.media.saveAttachment)!({ sender: {} }, sha256, filename);
+const save = (file: unknown) => env.handlers.get(MAIN_INVOKE.media.saveAttachment)!({ sender: {} }, file);
 
 beforeEach(() => {
   env.asked = [];
@@ -40,17 +42,27 @@ beforeEach(() => {
 describe('saving an attachment', () => {
   it('copies the stored file to the picked path, offering its name in Downloads', async () => {
     env.pick = { canceled: false, filePath: join(out, 'mine.mov') };
-    await save(HASH, 'clip.mov');
+    await save(FILE);
     expect(env.asked[0]!.defaultPath).toBe(join('C:/Downloads', 'clip.mov'));
     expect(readFileSync(join(out, 'mine.mov'), 'utf8')).toBe('bytes');
   });
 
   it('refuses a bad hash or name before any dialog, and writes nothing when cancelled', async () => {
-    await expect(save('../x', 'clip.mov')).rejects.toThrow(/Not an archived attachment/);
-    await expect(save(HASH, '')).rejects.toThrow(/Not an archived attachment/);
+    await expect(save({ ...FILE, sha256: '../x' })).rejects.toThrow(/Not an archived attachment/);
+    await expect(save({ ...FILE, filename: '' })).rejects.toThrow(/Not an archived attachment/);
+    for (const storedExt of [undefined, '../mp4', 'MP4', '', '123456789', 1])
+      await expect(save({ ...FILE, storedExt })).rejects.toThrow(/Not an archived attachment/);
+    await expect(save(null)).rejects.toThrow(/Not an archived attachment/);
     expect(env.asked).toHaveLength(0);
     env.pick = { canceled: true, filePath: join(out, 'never.mov') };
-    await save(HASH, 'clip.mov');
+    await save(FILE);
     expect(existsSync(join(out, 'never.mov'))).toBe(false);
+  });
+
+  it('copies a re-encoded file and offers the stored extension in Downloads', async () => {
+    env.pick = { canceled: false, filePath: join(out, 'mine.mp4') };
+    await save({ ...FILE, storedExt: 'mp4' });
+    expect(env.asked[0]!.defaultPath).toBe(join('C:/Downloads', 'clip.mp4'));
+    expect(readFileSync(join(out, 'mine.mp4'), 'utf8')).toBe('smaller');
   });
 });

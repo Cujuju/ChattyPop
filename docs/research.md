@@ -9,7 +9,7 @@ Researched 2026-09-24. Versions are from npm, nodejs.org and releases.electronjs
 | Discord access | **User account (not bot)**. Ban risk accepted. Keep request volume modest. |
 | AI | Claude and ChatGPT via their **CLIs / subscription** (like T3 Code). Local AI also supported. |
 | Stack | Latest Electron (and the Node it bundles). **SolidJS 1.9** (latest stable). |
-| Attachments | Download and archive. |
+| Attachments | Download and archive as received; the owner can delete a stored file or compress it from the Attachments panel. |
 | Retention | User-set history depth (days, months, years or complete; a default, and per archived channel or DM, threads following their parent) and disk cap. Evict older content for newer. Compress history but keep summaries. |
 | Rules | Created in the UI; topics merged into them: an Alert action lists matches in Alerts with an optional toast. Edited in Settings → Rules (the Rules panel is retired), where the built-in rules' switches live too. No background running: closed means closed, except a server (`--server`, `docs/remote.md`), which runs until Quit. |
 | Summaries | Link back to source messages. |
@@ -20,7 +20,7 @@ Researched 2026-09-24. Versions are from npm, nodejs.org and releases.electronjs
 | Direct messages | The signed-in account's DMs and groups are listed from the live client's gateway, at no extra requests. Archiving stays **opt-in per DM**; an optional setting (**off by default**) archives a DM when it gets a message after the setting was turned on, skipping requests and DMs the owner declined. Starting a DM or group, adding friends, renaming, muting, marking read, closing and leaving happen in the app, each in the live client's own request shape. Removing people and group icons stay in the live client (`docs/dms.md`). |
 | Providers | Claude (Agent SDK → Claude Code), ChatGPT (Codex app-server), **Ollama**, **OpenRouter**. Claude and Codex keep the machine CLI sign-in and allow separate linked sign-ins and API-key accounts; keys stay OS-encrypted in main, in core memory, and reach CLIs through child environments. |
 | Alerts | In-app inbox + Windows notifications. |
-| Attachments retention | Kept at full fidelity. Eviction is a **separate, independent** option; text compression never touches attachments. |
+| Attachments retention | Kept as downloaded unless the owner deletes or compresses one from the Attachments panel. Cap eviction is unchanged; text compression never touches attachments. |
 | X links | Posts Discord never previewed are fetched from **FxTwitter** (`api.fxtwitter.com`, unofficial), on view in the Links views, and cached. Images load from `pbs.twimg.com` in a cookie-less session. |
 | Transcription | Voice messages → text **locally** (whisper.cpp + ffmpeg); audio never leaves the machine. New voice messages automatically, older ones on request. Transcripts outlive pruned audio and feed search, rules and summaries. Programs and models download on request from pinned GitHub / Hugging Face URLs, SHA-256 verified, into the app profile (`plugin-data/transcription`). Each model shows measured accuracy and speed (method: the `transcription` plugin's `core/catalog.ts`); Turbo (quantized) is the recommended pick. With FxTwitter and Klipy, the only third-party fetches besides AI providers. |
 | Archive composer | The Archive has Discord's message bar: post, reply, attach files, and GIF / sticker / emoji pickers. GIF search goes through Discord's own `/gifs/*` endpoints (Klipy behind them, as in the live client); result previews load from **Klipy** (`static.klipy.com`) in the cookie-less session, on picker open only, not stored. Server emoji and stickers come from the gateway; Unicode emoji from emojibase-data; Lottie stickers draw with lottie-web (light build, no expressions). Items the plan can't send (Nitro) show disabled. |
@@ -114,7 +114,7 @@ Topics are UI-created: name, keywords/regex, optional natural-language descripti
   2. *Compressed*: raw JSON zstd-compressed with `node:zlib` (experimental in Node 24; `dictionary` option since 24.20; no dictionary *training* API). Normalized columns and FTS remain.
   3. *Summary-only*: message rows deleted; **summaries and tombstones** (id, channel, author, ts) kept so citations still resolve to Discord permalinks.
   Invariant: a range can only become Summary-only after a summary covers it.
-- **Attachment retention** (separate option): keep all at full fidelity (default), or evict oldest-first under a cap. Never re-encoded. An evicted attachment keeps its metadata row and a Discord permalink.
+- **Attachment retention** (separate option): keep all as downloaded (default), or evict oldest-first under a cap. The owner can delete or compress a stored file from the Attachments panel; cap eviction is unchanged. An evicted attachment keeps its metadata row and a Discord permalink.
 - Disk cap = DB size (`page_count × page_size`) + attachment store. Create the DB with `auto_vacuum=INCREMENTAL` (it can't be switched on later without a full VACUUM) and reclaim with `incremental_vacuum`. Eviction runs oldest-first per channel; pinned/starred messages are exempt.
 
 ## 5. DCE reference notes (Tyrrrz/DiscordChatExporter @3a8ef99, 2026-09-01, MIT)

@@ -29,7 +29,7 @@ export function postedArchiveMessage(m: RawMessage, nonce: string): ArchiveMessa
   const attachments: ArchiveAttachment[] = ((m.attachments ?? []) as PostedAttachment[]).map((a) => ({
     id: a.id, filename: a.filename, contentType: a.content_type ?? null, size: a.size ?? null,
     width: a.width ?? null, height: a.height ?? null, description: a.description ?? null,
-    sha256: null, status: 'pending', removed: false, notes: [],
+    sha256: null, storedExt: null, storedBytes: null, compressed: false, status: 'pending', removed: false, notes: [],
     spoiler: isSpoiler({ ...a, flags: a.flags ?? null }),
     animated: isAnimatedImage({ ...a, flags: a.flags ?? null, contentType: a.content_type ?? null }),
   }));

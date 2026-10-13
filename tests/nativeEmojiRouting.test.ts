@@ -37,7 +37,7 @@ describe('native emoji routing', () => {
     expect(emojiUrl({ id: EMOJI_ID, animated: false })).toBe(`chattypop-asset://emoji/v1/${EMOJI_ID}.webp`);
     expect(emojiUrl({ id: EMOJI_ID, animated: true })).toBe(`chattypop-asset://emoji/v1/${EMOJI_ID}.gif`);
     expect(avatarUrl(EMOJI_ID, null)).toBe(`/media/avatar/${EMOJI_ID}/default`);
-    expect(attachmentUrl('a'.repeat(64), 'image.png')).toBe(`/media/attachment/${'a'.repeat(64)}.png`);
+    expect(attachmentUrl({ sha256: 'a'.repeat(64), filename: 'image.png', storedExt: null })).toBe(`/media/attachment/${'a'.repeat(64)}.png`);
     expect(lottieStickerUrl(EMOJI_ID)).toBe(`/media/sticker/${EMOJI_ID}.json`);
   });
 

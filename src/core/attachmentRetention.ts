@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { attachmentFileName, attachmentShard } from '@shared/media';
+import { attachmentFileName, attachmentShard, type StoredFile } from '@shared/media';
 import { BYTES_PER_GB } from '@shared/units';
 import { getSetting, setSetting, type Db } from './db';
 
@@ -25,8 +25,8 @@ export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: numb
   let prunedBefore = Number(getSetting(db, PRUNED_BEFORE_KEY)) || 0;
   for (const f of files) {
     if (total <= cap) break;
-    removeStoredFiles(attachmentsDir, f.sha);
     evict.run(f.sha);
+    removeStoredFiles(attachmentsDir, f.sha);
     total -= f.bytes ?? 0;
     freed += f.bytes ?? 0;
     prunedBefore = Math.max(prunedBefore, f.newest);
@@ -46,12 +46,20 @@ export function skipPrunedPending(db: Db): void {
 }
 
 /** Where an archived attachment is stored: <shard>/<sha>.<ext> under the attachments folder. */
-export const storedAttachmentPath = (attachmentsDir: string, sha256: string, filename: string): string =>
-  join(attachmentsDir, attachmentShard(sha256), attachmentFileName(sha256, filename));
+export const storedAttachmentPath = (attachmentsDir: string, f: StoredFile): string =>
+  join(attachmentsDir, attachmentShard(f.sha256), attachmentFileName(f));
 
 /** The same content may exist under more than one extension, so every stored copy of `sha` is removed. */
-function removeStoredFiles(attachmentsDir: string, sha: string): void {
+export function removeStoredFiles(attachmentsDir: string, sha: string): number {
   const shard = join(attachmentsDir, attachmentShard(sha));
-  if (!existsSync(shard)) return;
-  for (const name of readdirSync(shard)) if (name.startsWith(`${sha}.`)) rmSync(join(shard, name), { force: true });
+  if (!existsSync(shard)) return 0;
+  let bytes = 0;
+  for (const name of readdirSync(shard)) {
+    if (!name.startsWith(`${sha}.`)) continue;
+    const path = join(shard, name);
+    const size = statSync(path).size;
+    rmSync(path, { force: true });
+    bytes += size;
+  }
+  return bytes;
 }

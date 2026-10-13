@@ -55,6 +55,7 @@ import { loadTypeSafeKey } from './typesafeKey';
 import { loadProviderKeys } from './providerKeys';
 import { registerRuleHandlers } from './ipc/rules';
 import { registerMediaHandlers } from './ipc/media';
+import { registerAttachmentStoreHandlers } from './ipc/attachmentStore';
 import { htmlToPdf } from './pdf';
 import { registerStorageHandlers } from './ipc/storage';
 import { restartApp } from './restart';
@@ -352,6 +353,7 @@ void app.whenReady().then(() => {
   });
   registerRuleHandlers(win);
   registerMediaHandlers(media.attachments);
+  registerAttachmentStoreHandlers(media.attachments, core);
 
   app.on('window-all-closed', () => {
     discordSession.flushStorageData();

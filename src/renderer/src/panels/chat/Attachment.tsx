@@ -26,7 +26,7 @@ const STATUS_LABEL: Readonly<Record<Exclude<ArchiveAttachment['status'], 'stored
   evicted: 'pruned by storage limit',
 };
 
-const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl(a.sha256, a.filename) : undefined);
+const src = (a: ArchiveAttachment): string | undefined => (a.sha256 ? attachmentUrl({ ...a, sha256: a.sha256 }) : undefined);
 /** An animated image's still while the owner can't look: Discord's proxy's first frame, kept once fetched. */
 const still = (a: ArchiveAttachment): string | undefined => (a.animated ? attachmentPosterUrl(a.id) : undefined);
 const kilobytes = (a: ArchiveAttachment): string => kilobytesText(a.size);

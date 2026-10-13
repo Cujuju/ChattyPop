@@ -37,6 +37,7 @@ import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
 import { localOnlyChannelIds } from './channelPolicy';
 import { mediaQueueHandlers } from './mediaQueue';
+import { attachmentStoreHandlers } from './attachmentStoreHandlers';
 import { aiHandlers } from './aiHandlers';
 import { registerClasses } from './jev/classes';
 import { registerNotable } from './jev/notable';
@@ -278,6 +279,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
       noteChanged(''); // disk usage changed; channel-less change refreshes status only
     },
   ),
+  ...attachmentStoreHandlers(() => ready().db, () => attachmentsDir, noteChanged),
 };
 
 function reply(msg: CoreResponse): void {

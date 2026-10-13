@@ -38,7 +38,7 @@ export const decorationUrl = (asset: string, animated: boolean, large = false): 
 /** The badge of a server tag, drawn beside the name of a user who shows it. */
 export const tagBadgeUrl = (guildId: string, badgeHash: string): string => mediaUrl('tag-badge', `${guildId}/${badgeHash}`);
 
-const SAFE_EXT = /^[a-z0-9]{1,8}$/;
+export const SAFE_EXT = /^[a-z0-9]{1,8}$/;
 
 /** Lower-case extension of a filename, or 'bin' when missing/unsafe. */
 export function fileExt(filename: string): string {
@@ -72,10 +72,18 @@ export const STORED_MEDIA_MIME: Readonly<Record<string, string>> = {
   txt: 'text/plain; charset=utf-8',
 };
 
-/** Stored name of an archived attachment: content hash plus the original extension (drives the served MIME type). */
-export const attachmentFileName = (sha256: string, filename: string): string => `${sha256}.${fileExt(filename)}`;
-
-export const attachmentUrl = (sha256: string, filename: string): string => mediaUrl('attachment', attachmentFileName(sha256, filename));
+/** A stored attachment's file: its content hash, and the extension it is stored under (null: the filename's). */
+export interface StoredFile { sha256: string; filename: string; storedExt: string | null }
+export const storedExtOf = (f: Pick<StoredFile, 'filename' | 'storedExt'>): string => f.storedExt ?? fileExt(f.filename);
+export const attachmentFileName = (f: StoredFile): string => `${f.sha256}.${storedExtOf(f)}`;
+export const attachmentUrl = (f: StoredFile): string => mediaUrl('attachment', attachmentFileName(f));
+export const attachmentThumbUrl = (f: StoredFile): string => mediaUrl('attachment-thumb', attachmentFileName(f));
+/** The name a stored file is saved under: the original, with the stored extension when it differs. */
+export const savedFileName = (f: Pick<StoredFile, 'filename' | 'storedExt'>): string => {
+  if (f.storedExt === null || f.storedExt === fileExt(f.filename)) return f.filename;
+  const dot = f.filename.lastIndexOf('.');
+  return `${dot >= 0 ? f.filename.slice(0, dot) : f.filename}.${f.storedExt}`;
+};
 /** A video attachment's still from Discord's media proxy, fetched once; 404 when it has none. */
 export const attachmentPosterUrl = (attachmentId: string): string => mediaUrl('poster', attachmentId);
 

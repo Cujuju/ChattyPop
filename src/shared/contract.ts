@@ -1,5 +1,7 @@
 // Typed renderer/main/core API contracts re-export shared data types and renderer interfaces from one import.
 import type { PluginCallResult } from './pluginCall';
+import type { FreeResult, ReplaceStored, StoredAttachmentFile } from './types/attachmentStore';
+export * from './types/attachmentStore';
 import type { SavedMessage, SavedTarget, SavedVisible, SavedChannelAccess } from './savedMessages';
 import type { Audience } from './pluginChannels';
 import type { UsedCommand } from './commands';
@@ -242,6 +244,9 @@ export interface CoreMethods {
   /** Where an attachment is fetched from (a video's poster); null once it or its message left Discord. */
   attachmentSource(id: string): PendingAttachment | null;
   attachmentStored(id: string, sha256: string, bytes: number): void;
+  freeAttachments(ids: string[]): FreeResult;
+  attachmentRecompressed(r: ReplaceStored): { savedBytes: number };
+  storedFile(id: string): StoredAttachmentFile | null;
   attachmentFailed(id: string, error: string): void;
   pendingEmojis(limit: number): PendingEmoji[];
   /** `error` null = stored. */

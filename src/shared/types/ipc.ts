@@ -247,6 +247,10 @@ export const MAIN_INVOKE = {
   media: {
     saveAttachment: 'media:save-attachment',
     savePdf: 'media:save-pdf',
+    beginReplacement: 'media:begin-replacement',
+    replacementChunk: 'media:replacement-chunk',
+    finishReplacement: 'media:finish-replacement',
+    abortReplacement: 'media:abort-replacement',
   },
   desktop: {
     state: 'desktop:state',
