@@ -2,7 +2,8 @@
 // Each goes in three phases: its videos shrunk, its files uploaded in pieces, then the post. Files stay by reference.
 // Saved on every change and loaded after a reload. A send that couldn't reach the desktop retries by itself while
 // Discord still dedupes its nonce. DOM-free (the app is injected), so it is tested directly; state/outbox.ts wires it.
-import { batch, createSignal } from 'solid-js';
+import { batchWrites } from '@plugin-sdk/renderer/containment';
+import { createSignal } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
@@ -257,7 +258,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
           patch(channelId, id, { phase: 'posting', progress: null });
           deps.mark?.('rpc-start', e.job.message.nonce, id);
           const sent = deps.send({ ...e.job.message, uploads: e.uploads ?? [], ...(postWithinMs === undefined ? {} : { postWithinMs }) }).then((posted) => {
-            batch(() => {
+            batchWrites(() => {
               deps.accept?.(posted);
               finish(channelId, id);
             });

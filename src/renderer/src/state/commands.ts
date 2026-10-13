@@ -1,4 +1,5 @@
 // Slash commands in the Archive composer: the `/` menu, the command being filled in, bot forms, and bot message buttons and menus.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource, createSignal } from 'solid-js';
 import { BUILTIN_COMMANDS, type BuiltinCommand } from '@shared/compose';
@@ -26,14 +27,14 @@ export type MenuItem =
 
 const [indexKey, setIndexKey] = createSignal<{ channelId: string; guildId: string } | null>(null);
 // Tagged with its channel: while another channel's list loads, `latest` still holds the last one.
-const [commandIndex, { refetch: refetchIndex }] = createResource(indexKey, async (k) => ({
+const [commandIndex, { refetch: refetchIndex }] = containedRoot(() => createResource(indexKey, async (k) => ({
   channelId: k.channelId,
   ...(await api.discord.commands(k.channelId, interactionGuild(k.guildId))),
-}));
+})));
 
 /** Frequently used commands shown atop the menu, as many as Discord's own menu shows. */
 const FREQUENT_COMMANDS_MAX = 5;
-const [frequent, { refetch: refetchFrequent }] = createResource(() => api.core.ownCommands(FREQUENT_COMMANDS_MAX), { initialValue: [] });
+const [frequent, { refetch: refetchFrequent }] = containedRoot(() => createResource(() => api.core.ownCommands(FREQUENT_COMMANDS_MAX), { initialValue: [] }));
 
 /** Loads the channel's commands for the menu; asks again each time, so apps added since show up. */
 export function openCommandMenu(channelId: string, guildId: string): void {

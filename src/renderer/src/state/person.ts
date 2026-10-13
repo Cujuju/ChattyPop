@@ -1,5 +1,6 @@
 // Person view: whose profile the Person window shows, that profile from core, and their Discord profile as
 // seen in the server of the channel shown when it opened.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource, createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
@@ -18,7 +19,7 @@ const [target, setTarget] = createSignal<PersonTarget | null>(null);
 export const personId = (): string | null => target()?.userId ?? null;
 export const personGuildId = (): string | null => target()?.guildId ?? null;
 
-export const [person, { refetch: refetchPerson }] = createResource(personId, (id) => api.core.personProfile(id));
+export const [person, { refetch: refetchPerson }] = containedRoot(() => createResource(personId, (id) => api.core.personProfile(id)));
 
 /** Their Discord profile: the cached copy at once, then Discord's answer; stale when Discord can't be reached. */
 export const discordProfile = cachedThenLive(

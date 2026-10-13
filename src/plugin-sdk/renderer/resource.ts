@@ -1,5 +1,6 @@
 // Plugin SDK, renderer: a plugin core call as a Solid resource (docs/plugin-architecture.md §5), settled against the
 // window's audience, the plugin's switch and the deactivation race.
+import { ownedOrContained } from './containment';
 import { createResource, untrack, type ResourceOptions } from 'solid-js';
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import type { MembersFor } from '@shared/pluginChannels';
@@ -35,35 +36,37 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
   fallback: F,
   options: Pick<ResourceOptions<ResultOf<D, K> | F>, 'storage'> = {},
 ): PluginResource<ResultOf<D, K> | F> {
-  type T = ResultOf<D, K> | F;
-  const client = coreClient(plugin) as Record<string, ((...a: unknown[]) => Promise<unknown>) | undefined>;
-  const on = (): boolean => callable(plugin, member);
-  const read = async (a: unknown[]): Promise<T> => {
-    const call = client[member];
-    return (call ? call(...a) : fallback) as Promise<T> | T;
-  };
-  const current = (): unknown[] | null => (on() && args()) || null;
-  // Solid's refetch reuses the source's last value; a refetch passes fresh arguments (a `Date.now()` window) as `refetching`.
-  const [resource, { mutate, refetch }] = createResource<T, unknown[], unknown[]>(
-    current,
-    (a, { refetching }) => pluginData(() => read(Array.isArray(refetching) ? refetching : a), fallback),
-    { initialValue: fallback, ...options },
-  );
-  const value = (): T => {
-    // Solid keeps a resource's last value while its source is null; no arguments asks for nothing, so nothing shows.
-    if (!current()) return fallback;
-    const v = settled(resource);
-    return v === undefined ? fallback : v;
-  };
-  return Object.defineProperties(value, {
-    loading: { get: () => resource.loading },
-    failure: { get: () => failure(resource) },
-    refetch: {
-      value: async (): Promise<void> => {
-        const fresh = untrack(current);
-        if (fresh) await refetch(fresh);
+  return ownedOrContained(() => {
+    type T = ResultOf<D, K> | F;
+    const client = coreClient(plugin) as Record<string, ((...a: unknown[]) => Promise<unknown>) | undefined>;
+    const on = (): boolean => callable(plugin, member);
+    const read = async (a: unknown[]): Promise<T> => {
+      const call = client[member];
+      return (call ? call(...a) : fallback) as Promise<T> | T;
+    };
+    const current = (): unknown[] | null => (on() && args()) || null;
+    // Solid's refetch reuses the source's last value; a refetch passes fresh arguments (a `Date.now()` window) as `refetching`.
+    const [resource, { mutate, refetch }] = createResource<T, unknown[], unknown[]>(
+      current,
+      (a, { refetching }) => pluginData(() => read(Array.isArray(refetching) ? refetching : a), fallback),
+      { initialValue: fallback, ...options },
+    );
+    const value = (): T => {
+      // Solid keeps a resource's last value while its source is null; no arguments asks for nothing, so nothing shows.
+      if (!current()) return fallback;
+      const v = settled(resource);
+      return v === undefined ? fallback : v;
+    };
+    return Object.defineProperties(value, {
+      loading: { get: () => resource.loading },
+      failure: { get: () => failure(resource) },
+      refetch: {
+        value: async (): Promise<void> => {
+          const fresh = untrack(current);
+          if (fresh) await refetch(fresh);
+        },
       },
-    },
-    mutate: { value: (v: T): void => void mutate(() => v) },
-  }) as PluginResource<T>;
+      mutate: { value: (v: T): void => void mutate(() => v) },
+    }) as PluginResource<T>;
+  });
 }

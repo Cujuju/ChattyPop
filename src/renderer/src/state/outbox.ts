@@ -1,5 +1,6 @@
 // Each page persists its outbox in IndexedDB. On unlock, adopts queues from departed pages, including pre-reload owners.
-import { createEffect, createRoot } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { createEffect } from 'solid-js';
 import { api } from '@/api';
 import { POST_WINDOW_PASSED, UPLOAD_CHUNK_BYTES, UPLOAD_GONE } from '@shared/compose';
 import { newNonce } from '@shared/discord';
@@ -142,7 +143,7 @@ async function adoptLeftovers(): Promise<void> {
 }
 // Posting locks suspend sends. First unlock adopts abandoned queues once per page; relocking suspends until another unlock.
 let adopted = false;
-createRoot(() =>
+containedRoot(() =>
   createEffect(() => {
     if (!postingUnlocked()) return box.suspend();
     if (!adopted) {

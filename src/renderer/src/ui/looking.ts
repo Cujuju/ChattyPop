@@ -1,12 +1,13 @@
 // Whether the owner can look at an element: what looping media (GIFs, gifv videos, Lottie) plays by.
-import { createEffect, createRoot, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
 import { inCompanion } from '@/state/ui';
 import { windowCovered } from '@/state/windows';
 
 /** The window has focus; always true on the phone, whose page is hidden while it isn't. One shared signal. */
 export const windowFocused: Accessor<boolean> = inCompanion
   ? () => true
-  : createRoot(() => {
+  : containedRoot(() => {
       const [focused, setFocused] = createSignal(document.hasFocus());
       window.addEventListener('focus', () => setFocused(true));
       window.addEventListener('blur', () => setFocused(false));
@@ -14,7 +15,7 @@ export const windowFocused: Accessor<boolean> = inCompanion
     });
 
 /** The page is visible: not minimized, in the tray, or in the background (phone). */
-export const pageVisible: Accessor<boolean> = createRoot(() => {
+export const pageVisible: Accessor<boolean> = containedRoot(() => {
   const [visible, setVisible] = createSignal(document.visibilityState === 'visible');
   document.addEventListener('visibilitychange', () => setVisible(document.visibilityState === 'visible'));
   return visible;

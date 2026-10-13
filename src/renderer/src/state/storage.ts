@@ -1,3 +1,4 @@
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createResource, createSignal } from 'solid-js';
 import type { AppEvent } from '@shared/contract';
@@ -6,7 +7,7 @@ import { confirmDialog, noticeDialog } from './dialogs';
 import { onAppEvent } from './events';
 
 /** Archive folder, and the pre-move copy while it is still on disk. */
-export const [storageInfo, { refetch: refetchStorageInfo }] = createResource(() => api.storage.info());
+export const [storageInfo, { refetch: refetchStorageInfo }] = containedRoot(() => createResource(() => api.storage.info()));
 
 type MoveProgress = Extract<AppEvent, { type: 'storage-move' }>;
 /** Progress of an archive move in flight; null when none. */

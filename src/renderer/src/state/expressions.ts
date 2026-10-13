@@ -1,5 +1,6 @@
 // What the composer's pickers offer: every server's emoji and stickers and Discord's sticker packs (main, from the live
 // client), Unicode emoji (emojibase, loaded on first use) and GIF search.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createResource, createSignal, untrack, type ResourceFetcherInfo } from 'solid-js';
 import { canUseEmoji, type ExpressionCatalog, type Gif } from '@shared/compose';
@@ -29,15 +30,15 @@ const refreshed = (prev: ExpressionCatalog | undefined, next: ExpressionCatalog)
   stickers: keepUnchanged(prev?.stickers, next.stickers),
   packs: keepUnchanged(prev?.packs, next.packs),
 });
-export const [expressionCatalog] = createResource(catalogRequest, async (r, info: ResourceFetcherInfo<ExpressionCatalog>) =>
+export const [expressionCatalog] = containedRoot(() => createResource(catalogRequest, async (r, info: ResourceFetcherInfo<ExpressionCatalog>) =>
   refreshed(info.value, await api.discord.expressions(r.guildId)),
-);
+));
 /** Emoji in the "Frequently used" row: two picker rows' worth, as Discord shows. */
 const FREQUENT_EMOJI_MAX = 22;
 /** Refreshes frequently used emoji with catalog reloads, including just-sent messages. Excludes Unicode glyphs unavailable on this machine. */
-export const [frequentEmoji, { refetch: refetchFrequentEmoji }] = createResource(catalogRequest, async () =>
+export const [frequentEmoji, { refetch: refetchFrequentEmoji }] = containedRoot(() => createResource(catalogRequest, async () =>
   (await api.core.ownEmoji(FREQUENT_EMOJI_MAX)).filter((e) => !('unicode' in e) || canDraw(e.unicode)),
-);
+));
 // Counted over visible messages only: a server hidden since must not keep its emoji in the row.
 onAppEvent('privacy-changed', () => void (untrack(catalogRequest) && refetchFrequentEmoji()));
 /** Returns undefined for failed resources to avoid Solid latest rethrowing across sibling sections. Each section displays its own error. */
@@ -132,7 +133,7 @@ async function loadUnicodeEmoji(): Promise<UnicodeGroup[]> {
 
 const [unicodeWanted, setUnicodeWanted] = createSignal(false);
 /** Unicode emoji by group, loaded the first time the emoji picker opens. */
-export const [unicodeEmoji] = createResource(unicodeWanted, loadUnicodeEmoji);
+export const [unicodeEmoji] = containedRoot(() => createResource(unicodeWanted, loadUnicodeEmoji));
 export const loadUnicodeEmojiData = (): void => void setUnicodeWanted(true);
 
 /** Loads the pickers' emoji for the open channel's server (`guildId`) ahead of any picker, which then opens with them ready. Owner-scoped. */

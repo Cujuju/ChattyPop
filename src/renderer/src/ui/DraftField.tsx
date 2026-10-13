@@ -1,5 +1,6 @@
 // A draft remains plain text plus picked emoji IDs. Only its editing surface has atomic inline emoji images.
-import { batch, createEffect, onCleanup } from 'solid-js';
+import { batchWrites } from '@plugin-sdk/renderer/containment';
+import { createEffect, onCleanup } from 'solid-js';
 import { DISCORD_TEXT_MAX } from '@shared/discord';
 import { expandEmojiTokens } from '@shared/compose';
 import { emojiUrl } from '@shared/emoji';
@@ -82,7 +83,7 @@ export function DraftField(props: {
     return container;
   };
   /** Writes the draft, then tells the owner. A listener's throw is reported, not raised: raised, it aborts the update and the draft's readers never run. */
-  const commit = (text: string): void => batch(() => {
+  const commit = (text: string): void => batchWrites(() => {
     setDraftText(props.channelId, text);
     try { props.onInput?.(); } catch (error) { reportError(error); }
   });

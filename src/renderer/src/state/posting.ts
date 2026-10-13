@@ -1,5 +1,6 @@
 // Renderer posting state follows enabled unlocking plugins. Governs visible/startable UI; main independently enforces writes.
-import { createEffect, createRoot } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { createEffect } from 'solid-js';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { postingUnlockedIn } from '@shared/posting';
 import { plugins, pluginsLoaded } from './plugins';
@@ -12,7 +13,7 @@ export const postingUnlocked = (): boolean => pluginsLoaded() && postingUnlocked
 
 /** Calls `close` whenever `isOpen()` while posting is locked: a posting window or dialog never stays open locked. */
 export function closeWhenLocked(isOpen: () => boolean, close: () => void): void {
-  createRoot(() =>
+  containedRoot(() =>
     createEffect(() => {
       if (isOpen() && !postingUnlocked()) close();
     }),

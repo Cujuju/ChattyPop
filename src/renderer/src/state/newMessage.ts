@@ -1,5 +1,6 @@
 // Starting conversations (docs/dms.md §4.3, §3.6): the New message window, who it offers, and opening what was started.
 // The same window adds friends to a conversation (§4.4).
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource, createSignal } from 'solid-js';
 import { DM_CHANNEL_TYPE, DM_GUILD_ID } from '@shared/discord';
@@ -61,9 +62,9 @@ export const memberIds = (c: DmChannel): string[] => {
 export const makesGroup = (c: DmChannel): boolean => c.kind === DM_CHANNEL_TYPE;
 
 /** The owner's friends, read each time the window opens (main keeps them current from the gateway). */
-const [friends, { mutate: setFriends, refetch: refetchFriends }] = createResource(() => open() || undefined, () => api.discord.friends(), {
+const [friends, { mutate: setFriends, refetch: refetchFriends }] = containedRoot(() => createResource(() => open() || undefined, () => api.discord.friends(), {
   initialValue: [],
-});
+}));
 // Another account's friends never show: dropped at once, then read again if the window is open.
 onAppEvent('self-changed', () => {
   setFriends([]);

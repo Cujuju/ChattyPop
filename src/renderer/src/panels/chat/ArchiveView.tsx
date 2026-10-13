@@ -1,4 +1,5 @@
-import { For, Show, batch, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
+import { batchWrites } from '@plugin-sdk/renderer/containment';
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from 'solid-js';
 import type { ArchiveMessage, UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import { MS_PER_MIN } from '@shared/units';
@@ -243,7 +244,7 @@ export function ArchiveView() {
           if (!now) return void setOffScreen(true);
           if (!offScreen()) return;
           // Back on screen: follow again only from the bottom, before following resumes and scrolls there.
-          batch(() => {
+          batchWrites(() => {
             log.detach();
             setOffScreen(false);
           });

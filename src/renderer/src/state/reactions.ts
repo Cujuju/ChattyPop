@@ -1,4 +1,5 @@
 // The owner's reactions: joining in on (or taking back) a message's reaction, and the picker that adds a new one.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource, createSignal, untrack } from 'solid-js';
 import type { UsedEmoji } from '@shared/compose';
@@ -15,10 +16,10 @@ export const asReaction = (e: UsedEmoji): ArchiveEmoji => ('unicode' in e ? { id
 const OWN_REACTIONS_MAX = 24;
 /** Fetched once first wanted (wantOwnReactions), then again after each reaction the owner adds. */
 const [ownReactionsWanted, setOwnReactionsWanted] = createSignal(0);
-export const [ownReactions] = createResource(
+export const [ownReactions] = containedRoot(() => createResource(
   () => ownReactionsWanted() || null,
   () => api.core.ownReactions(OWN_REACTIONS_MAX),
-);
+));
 export const wantOwnReactions = (): void => {
   if (!untrack(ownReactionsWanted)) setOwnReactionsWanted(1);
 };

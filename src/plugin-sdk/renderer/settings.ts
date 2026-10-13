@@ -1,4 +1,5 @@
 // Plugin SDK, renderer: settings persisted in the archive's settings table, one factory for plugins and host stores alike.
+import { ownedOrContained } from './containment';
 import { api } from '@/api';
 import { createEffect, createSignal, on, type Accessor } from 'solid-js';
 import { onAppEvent } from './appEvents';
@@ -25,48 +26,50 @@ export function createSetting<T>(
   normalize: (v: unknown) => T,
   opts: SettingOptions<T> = {},
 ): [Accessor<T>, (v: T) => Promise<void>, SettingExtras<T>] {
-  const [value, setValue] = createSignal<T>(fallback);
-  /** Nothing valid is stored and no write has filled it since load: a seed may fill it. */
-  let unseeded = false;
-  let seeding = false;
-  /** Shows `v` at once; the returned promise settles with the stored write (callers that must know it landed await it). */
-  const set = (v: T): Promise<void> => {
-    unseeded = false;
-    const next = normalize(v);
-    setValue(() => next);
-    return Promise.resolve(api.core.setSetting(key, next));
-  };
-  const { seed, seedWhen = () => true } = opts;
-  const trySeed = async (): Promise<void> => {
-    if (!seed || !unseeded || seeding || !seedWhen()) return;
-    seeding = true;
-    try {
-      const seeded = await seed();
-      if (unseeded) await set(seeded);
-    } catch {
-      // Nothing stored; seedWhen turning true again retries.
-    } finally {
-      seeding = false;
-    }
-  };
-  const adopted = api.core.getSetting(key).then((stored) => {
-    const next = stored === undefined ? fallback : normalize(stored);
-    if (stored !== undefined) setValue(() => next);
-    unseeded = next === fallback;
+  return ownedOrContained(() => {
+    const [value, setValue] = createSignal<T>(fallback);
+    /** Nothing valid is stored and no write has filled it since load: a seed may fill it. */
+    let unseeded = false;
+    let seeding = false;
+    /** Shows `v` at once; the returned promise settles with the stored write (callers that must know it landed await it). */
+    const set = (v: T): Promise<void> => {
+      unseeded = false;
+      const next = normalize(v);
+      setValue(() => next);
+      return Promise.resolve(api.core.setSetting(key, next));
+    };
+    const { seed, seedWhen = () => true } = opts;
+    const trySeed = async (): Promise<void> => {
+      if (!seed || !unseeded || seeding || !seedWhen()) return;
+      seeding = true;
+      try {
+        const seeded = await seed();
+        if (unseeded) await set(seeded);
+      } catch {
+        // Nothing stored; seedWhen turning true again retries.
+      } finally {
+        seeding = false;
+      }
+    };
+    const adopted = api.core.getSetting(key).then((stored) => {
+      const next = stored === undefined ? fallback : normalize(stored);
+      if (stored !== undefined) setValue(() => next);
+      unseeded = next === fallback;
+    });
+    // The window's first paint shows the stored value, not the fallback (the default layout before the saved one).
+    holdFirstPaint(adopted);
+    const loaded = adopted.then(trySeed);
+    if (seed && opts.seedWhen) createEffect(on(opts.seedWhen, (ready) => ready && void trySeed(), { defer: true }));
+    // Another window (a panel window, or the main one) changed it.
+    onAppEvent('setting-changed', (e) => {
+      if (e.key !== key) return;
+      const next = normalize(e.value);
+      if (next !== fallback) unseeded = false;
+      setValue(() => next);
+    });
+    const patch = (p: Partial<T>): Promise<void> => set({ ...value(), ...p });
+    return [value, set, { patch, loaded }];
   });
-  // The window's first paint shows the stored value, not the fallback (the default layout before the saved one).
-  holdFirstPaint(adopted);
-  const loaded = adopted.then(trySeed);
-  if (seed && opts.seedWhen) createEffect(on(opts.seedWhen, (ready) => ready && void trySeed(), { defer: true }));
-  // Another window (a panel window, or the main one) changed it.
-  onAppEvent('setting-changed', (e) => {
-    if (e.key !== key) return;
-    const next = normalize(e.value);
-    if (next !== fallback) unseeded = false;
-    setValue(() => next);
-  });
-  const patch = (p: Partial<T>): Promise<void> => set({ ...value(), ...p });
-  return [value, set, { patch, loaded }];
 }
 
 /** Memo equality for id-list settings: same ids in the same order. */

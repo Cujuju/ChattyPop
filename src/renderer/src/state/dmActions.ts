@@ -1,6 +1,7 @@
 // DM menus/flyouts/dialogs send writes through main’s DM service. Failures appear inline at the requesting control.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createRoot, createSignal } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import {
   GROUP_DM_MAX_MEMBERS,
@@ -76,7 +77,7 @@ export const dmDialogChannel = (): DmChannel | undefined => {
   return c && isDmChannel(c) && manageable(c) ? c : undefined;
 };
 // Its conversation gone from the list (privacy mode, closed, another account) closes the dialog, so no name of it stays.
-createRoot(() =>
+containedRoot(() =>
   createEffect(() => {
     if (dialog() && !dmDialogChannel()) setDialog(null);
   }),

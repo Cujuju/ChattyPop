@@ -1,4 +1,5 @@
 // Rule editing, run history and managed switches supplied by active plugins.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import type { ContentKind } from '@shared/messageContent';
 import type { PatternPreview } from '@shared/keywordPattern';
@@ -27,10 +28,10 @@ const RUN_PAGE_SIZE = 50;
 export const RULES_SECTION = 'rules';
 const core = api.core;
 
-export const [rules, { refetch: refetchRules }] = createResource<Rule[]>(() => core.rules(), {
+export const [rules, { refetch: refetchRules }] = containedRoot(() => createResource<Rule[]>(() => core.rules(), {
   initialValue: [],
   storage: keyedById,
-});
+}));
 
 /** The Rules page's open page: a rule id, 'new' (picking what a new rule starts as), 'draft' (editing it), or null for none. */
 export type RulePage = number | 'new' | 'draft' | null;
@@ -69,14 +70,14 @@ export async function setOpenRuleId(page: RulePage): Promise<boolean> {
 /** What a new rule starts as (the template picked). */
 export const [newRuleDraft, setNewRuleDraft] = createSignal<RuleInput>(newRuleInput());
 
-export const [ruleRuns, { refetch: refetchRuns }] = createResource(
+export const [ruleRuns, { refetch: refetchRuns }] = containedRoot(() => createResource(
   () => {
     const id = openRuleId();
     return typeof id === 'number' ? id : null;
   },
   (id): Promise<RuleRun[]> => core.ruleRuns(id, RUN_PAGE_SIZE),
   { initialValue: [] },
-);
+));
 
 const refetchAll = (): void => {
   void refetchRules();

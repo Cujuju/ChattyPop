@@ -1,10 +1,11 @@
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource } from 'solid-js';
 import { jevFeatureOn, type JevFeature } from '@shared/settings';
 import { aiSettings, providerStatus, setJevFeature } from './preferences';
 
 // Re-read whenever provider status refreshes (e.g. OpenRouter sign-in or sign-out).
-const [statusResource, { refetch }] = createResource(providerStatus, () => api.core.jevStatus());
+const [statusResource, { refetch }] = containedRoot(() => createResource(providerStatus, () => api.core.jevStatus()));
 
 /** Jev's connection status; undefined while loading or failed (reading a failed resource throws). */
 export const jevStatus = () => (statusResource.error ? undefined : statusResource());

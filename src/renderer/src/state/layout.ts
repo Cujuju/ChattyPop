@@ -1,3 +1,4 @@
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { createMemo, createSignal } from 'solid-js';
 import { bundledPanel } from '@shared/bundledPlugins';
 import { SETTINGS_KEYS } from '@shared/settings';
@@ -120,11 +121,11 @@ const normalizeSizes = (v: unknown): SizeOverrides => {
 /** User-dragged split fractions per layout; they replace the preset's numeric sizes at that path. */
 const [sizeOverrides, setSizeOverrides, { loaded: sizeOverridesLoaded }] = createSetting<SizeOverrides>(LAYOUT_SIZES_KEY, {}, normalizeSizes);
 /** Panels hidden now; unchanged by a plugin-list refresh that hides nothing new, so the projection isn't rebuilt. */
-const hiddenIds = createMemo(() => panelIds(storedLayout().root).filter(hiddenPanel), [], { equals: sameIds });
-const projection = createMemo(() => {
+const hiddenIds = containedRoot(() => createMemo(() => panelIds(storedLayout().root).filter(hiddenPanel), [], { equals: sameIds }));
+const projection = containedRoot(() => createMemo(() => {
   const hidden = new Set(hiddenIds());
   return projectLayout(storedLayout().root, (id) => hidden.has(id));
-});
+}));
 
 /** Persists retired-panel removals once and clears dragged sizes because split paths shift. */
 void Promise.all([customLayoutsLoaded, sizeOverridesLoaded]).then(() => {

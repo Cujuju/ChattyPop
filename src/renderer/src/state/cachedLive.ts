@@ -1,4 +1,5 @@
 // Shows cached Discord answers immediately, replaces with live responses and retains stale cached values on failure.
+import { ownedOrContained } from '@plugin-sdk/renderer/containment';
 import { createResource } from 'solid-js';
 
 export interface CachedLive<T> {
@@ -23,18 +24,20 @@ export function cachedThenLive<S, T>(
   live: (s: S) => Promise<T>,
   wantLive: (cachedCopy: T | null, s: S) => boolean = () => true,
 ): CachedLive<T> {
-  const [copy] = createResource(source, async (s): Promise<Answer<S, T>> => ({ s, v: await cached(s).catch(() => null) }));
-  // Waits for this request's cached copy, so wantLive can judge it.
-  const liveSource = (): S | false => {
-    const s = source();
-    const c = copy.state === 'ready' ? copy() : undefined;
-    return !!s && c?.s === s && wantLive(c.v, s) && s;
-  };
-  const [fresh] = createResource(liveSource, async (s): Promise<Answer<S, T>> => ({ s, v: await live(s) }));
-  const current = (a: Answer<S, T> | undefined): T | null => (a && a.s === source() ? a.v : null);
-  return {
-    value: () => current(fresh.state === 'ready' ? fresh() : undefined) ?? current(copy.state === 'ready' ? copy() : undefined),
-    stale: () => fresh.state === 'errored' && liveSource() !== false,
-    loading: () => fresh.loading,
-  };
+  return ownedOrContained(() => {
+    const [copy] = createResource(source, async (s): Promise<Answer<S, T>> => ({ s, v: await cached(s).catch(() => null) }));
+    // Waits for this request's cached copy, so wantLive can judge it.
+    const liveSource = (): S | false => {
+      const s = source();
+      const c = copy.state === 'ready' ? copy() : undefined;
+      return !!s && c?.s === s && wantLive(c.v, s) && s;
+    };
+    const [fresh] = createResource(liveSource, async (s): Promise<Answer<S, T>> => ({ s, v: await live(s) }));
+    const current = (a: Answer<S, T> | undefined): T | null => (a && a.s === source() ? a.v : null);
+    return {
+      value: () => current(fresh.state === 'ready' ? fresh() : undefined) ?? current(copy.state === 'ready' ? copy() : undefined),
+      stale: () => fresh.state === 'errored' && liveSource() !== false,
+      loading: () => fresh.loading,
+    };
+  });
 }

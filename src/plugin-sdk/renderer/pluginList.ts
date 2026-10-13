@@ -1,4 +1,5 @@
 // Owns the window’s single plugin-list fetch. SDK activity/callability and host state re-exports share it through the API leaf.
+import { containedRoot } from './containment';
 import { api, windowAudience } from '@/api';
 import { createResource, createSignal } from 'solid-js';
 import { BUNDLED_PLUGINS, channelAudiences } from '@shared/bundledPlugins';
@@ -12,7 +13,7 @@ const [loaded, setLoaded] = createSignal(false);
 export const pluginsLoaded = loaded;
 
 /** Bundled plugins and those found in the plugins folder, with status and commands. */
-const [list, { refetch }] = createResource(
+const [list, { refetch }] = containedRoot(() => createResource(
   () => {
     const fetched = api.core.plugins().then((all) => {
       setLoaded(true);
@@ -23,7 +24,7 @@ const [list, { refetch }] = createResource(
     return fetched;
   },
   { initialValue: [] },
-);
+));
 export const plugins = list;
 onAppEvent('plugins-changed', () => void refetch());
 

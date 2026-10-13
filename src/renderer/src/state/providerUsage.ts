@@ -1,6 +1,7 @@
 // Each AI provider's plan limits: read when first asked for, re-read after completed work.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, createRoot, createSignal, type Accessor, type Resource } from 'solid-js';
+import { createResource, createSignal, type Accessor, type Resource } from 'solid-js';
 import type { PlanUsageWindow } from '@shared/contract';
 import type { ProviderId } from '@shared/settings';
 import { onAppEvent } from './events';
@@ -22,7 +23,7 @@ const reads = new Map<ProviderId, PlanRead>();
 function readOf(id: ProviderId): PlanRead {
   let r = reads.get(id);
   if (!r) {
-    r = createRoot(() => {
+    r = containedRoot(() => {
       const [last, setLast] = createSignal<Windows>();
       const [read, { refetch }] = createResource(async (): Promise<Windows> => {
         const windows = await api.core.aiPlanUsage(id);

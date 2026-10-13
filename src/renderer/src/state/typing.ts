@@ -1,7 +1,8 @@
 // Who is typing in the Archive's open channel, from main's 'typing' events: each typist lasts TYPING_TTL_MS past their
 // last event, and their message arriving ends them, as Discord's client does.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createMemo, createRoot, on } from 'solid-js';
+import { createEffect, createMemo, on } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
 import { compareSnowflakes } from '@shared/discord';
 import { TYPING_TTL_MS, type Typist } from '@shared/typing';
@@ -50,7 +51,7 @@ async function nameOf(userId: string): Promise<void> {
 // Privacy mode changed: whatever showed may now be hidden (the Archive reopens or closes its channel on its own).
 onAppEvent('privacy-changed', dropAll);
 
-createRoot(() => {
+containedRoot(() => {
   // Another channel opened: its typists are its own.
   createEffect(on(archiveChannelId, dropAll, { defer: true }));
   // A typist's message arrived: they are done. Every message newer than the last seen counts (a refresh brings several).
@@ -73,4 +74,4 @@ createRoot(() => {
 
 /** Who is typing in the open channel, in the order they began; those core hasn't named yet, and the owner (whose id
  * may arrive after their event), are left out. */
-export const typing = createMemo<Typist[]>(() => Object.entries(typists).flatMap(([id, t]) => (t.name && !isSelf(id) ? [t] : [])));
+export const typing = containedRoot(() => createMemo<Typist[]>(() => Object.entries(typists).flatMap(([id, t]) => (t.name && !isSelf(id) ? [t] : []))));

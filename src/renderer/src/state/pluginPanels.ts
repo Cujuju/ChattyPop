@@ -1,3 +1,4 @@
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { unwrapPluginCall } from '@shared/pluginCall';
 import { createResource } from 'solid-js';
@@ -35,7 +36,7 @@ async function loadPanels(list: PluginInfo[]): Promise<LoadedPanel[]> {
 }
 
 /** Panels from active plugins' renderer entries (API 1.1); reloaded when plugins change. */
-export const [pluginPanels] = createResource(plugins, loadPanels, { initialValue: [] });
+export const [pluginPanels] = containedRoot(() => createResource(plugins, loadPanels, { initialValue: [] }));
 
 export const findPluginPanel = (id: string): LoadedPanel | undefined => pluginPanels().find((p) => p.layoutId === id);
 

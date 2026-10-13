@@ -1,5 +1,6 @@
 // Channels the Chat area showed, most recent first: the channel switcher's order and the back shortcut's target.
-import { createEffect, createRoot, on } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { createEffect, on } from 'solid-js';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { openArchive, openChannel, shownChannelId } from './archive';
@@ -13,7 +14,7 @@ export const [recentChannels, setRecentChannels, { loaded }] = createSetting<str
 // Main-window recents wait for stored-list load before recording, avoiding overwrites.
 if (!outsideLayout) {
   void loaded.then(() =>
-    createRoot(() =>
+    containedRoot(() =>
       createEffect(
         on(shownChannelId, (id) => {
           if (id && recentChannels()[0] !== id) void setRecentChannels(withRecent(recentChannels(), id));

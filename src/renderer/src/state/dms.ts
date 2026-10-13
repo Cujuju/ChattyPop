@@ -1,5 +1,6 @@
 // The sidebar's DM list (docs/dms.md §4.1): the current account's DMs from the directory, searched, filtered and folded.
-import { createMemo, createRoot, createSignal } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { createMemo, createSignal } from 'solid-js';
 import { DM_GUILD_ID, snowflakeToMs } from '@shared/discord';
 import { listAge } from '@/ui/dates';
 import { createSetting } from '@plugin-sdk/renderer/settings';
@@ -17,10 +18,10 @@ export const [dmSearch, setDmSearch] = createSignal('');
 export const [dmFilter, setDmFilter] = createSetting<DmFilter>(SETTINGS_KEYS.dmFilter, DM_FILTERS[0], (v) => oneOf(DM_FILTERS, v, DM_FILTERS[0]));
 
 /** Every DM of the account signed in (core lists only its own), newest activity first. */
-export const allDms = createRoot(() => createMemo(() => directory().find((g) => g.id === DM_GUILD_ID)?.channels.filter(isDmChannel) ?? []));
+export const allDms = containedRoot(() => createMemo(() => directory().find((g) => g.id === DM_GUILD_ID)?.channels.filter(isDmChannel) ?? []));
 
 /** The list as searched and filtered, with its Requests and Closed folds. */
-export const dmList = createRoot(() => createMemo((): DmSections => dmSections(allDms(), dmSearch(), dmFilter())));
+export const dmList = containedRoot(() => createMemo((): DmSections => dmSections(allDms(), dmSearch(), dmFilter())));
 
 /** Conversations neither closed nor a request: the ones the list shows unfolded. */
 export const openDms = (): DmChannel[] => allDms().filter((c) => !c.dm.closed && !c.dm.request);

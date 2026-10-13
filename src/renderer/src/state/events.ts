@@ -1,4 +1,5 @@
 // App events for host stores: the SDK's single hub (@plugin-sdk/renderer/appEvents), and values core pushes.
+import { ownedOrContained } from '@plugin-sdk/renderer/containment';
 import { createResource } from 'solid-js';
 import type { AppEvent } from '@shared/contract';
 import { onAppEvent } from '@plugin-sdk/renderer/appEvents';
@@ -13,7 +14,9 @@ export function createPushedValue<T, K extends AppEvent['type']>(
   type: K,
   pick: (e: EventOf<K>) => T,
 ): { value: () => T | null; refetch: () => unknown } {
-  const [value, { mutate, refetch }] = createResource<T | null>(() => load().catch(() => null));
-  onAppEvent(type, (e) => mutate(() => pick(e)));
-  return { value: () => value() ?? null, refetch };
+  return ownedOrContained(() => {
+    const [value, { mutate, refetch }] = createResource<T | null>(() => load().catch(() => null));
+    onAppEvent(type, (e) => mutate(() => pick(e)));
+    return { value: () => value() ?? null, refetch };
+  });
 }

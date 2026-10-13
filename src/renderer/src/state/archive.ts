@@ -1,6 +1,7 @@
 // Loaded archive windows and in-place refreshes after content or label changes.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createRoot, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
 import { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 import type { ArchiveMessage } from '@shared/contract';
 import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type ArchiveDensity } from '@shared/settings';
@@ -67,7 +68,7 @@ export const archiveState = {
   get loading() { return list.state.loading; },
   get reachedStart() { return list.state.reachedStart; },
 };
-createRoot(() => createEffect(() => sentRows.reconcile(list.state.items)));
+containedRoot(() => createEffect(() => sentRows.reconcile(list.state.items)));
 /** Prepends the previous page; returns how many messages were added (the view keeps its scroll anchor). */
 export const loadOlder = list.loadOlder;
 

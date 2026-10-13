@@ -1,4 +1,5 @@
 // Host preferences.
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createResource, createSignal } from 'solid-js';
 import type { ProviderStatus } from '@shared/contract';
@@ -110,11 +111,11 @@ export function applyTheme(): void {
  * Availability and model lists per provider. Loaded only while Settings is open (listing Claude/Codex
  * models spawns their CLIs). `refreshProviderStatus` re-lists models past the session cache.
  */
-const [providerStatusRead, { refetch: refetchProviderStatus }] = createResource<ProviderStatus[], true, boolean>(
+const [providerStatusRead, { refetch: refetchProviderStatus }] = containedRoot(() => createResource<ProviderStatus[], true, boolean>(
   () => settingsOpen() || undefined,
   (_open, info) => api.core.aiStatus(info.refetching === true),
   { initialValue: [] },
-);
+));
 export { refetchProviderStatus };
 /** The providers' states; none while unread or after a failed read (providerStatusFailure says why). Never throws. Reactive. */
 export const providerStatus = (): ProviderStatus[] => settled(providerStatusRead) ?? [];

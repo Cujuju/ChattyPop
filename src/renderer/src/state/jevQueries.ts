@@ -1,3 +1,4 @@
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource } from 'solid-js';
 import type { JevQueryOverrides, JevRerunRequest, JevRerunResult } from '@shared/jevQueries';
@@ -8,7 +9,7 @@ import { onAppEvent } from './events';
 const core = api.core;
 
 /** The owner's edits to built-in Jev queries (Settings → Jev → Queries), by query id. */
-export const [jevQueryOverrides, { refetch: refetchJevQueryOverrides }] = createResource((): Promise<JevQueryOverrides> => core.jevQueryOverrides(), { initialValue: {} });
+export const [jevQueryOverrides, { refetch: refetchJevQueryOverrides }] = containedRoot(() => createResource((): Promise<JevQueryOverrides> => core.jevQueryOverrides(), { initialValue: {} }));
 
 onAppEvent('setting-changed', (e) => {
   if (e.key === SETTINGS_KEYS.jevQueries) void refetchJevQueryOverrides();
