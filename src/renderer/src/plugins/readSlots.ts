@@ -1,10 +1,10 @@
 // Read-only contribution slots independent of renderer startup, for contract testing and reactive host reads.
-import { type HostAttachmentMenuItemId, type HostMessageMenuGroupId, type HostSelectionMenuItemId } from '@shared/anchors';
+import { type HostAttachmentMenuItemId, type HostMessageMenuGroupId, type HostPersonTabId, type HostSelectionMenuItemId } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage, DirectoryChannel } from '@shared/contract';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { Component } from 'solid-js';
 import type { MenuGroup, MenuItem } from '../ui/menuTypes';
-import { declaredItems, placeSlot, type SlotAnchorOf } from './slotItems';
+import { declaredItems, placeSlot, type SlotAnchorOf, type SlotItem } from './slotItems';
 
 /** Parts of a message drawn by the row opening its menu. */
 export interface MessageMenuScope {
@@ -57,10 +57,17 @@ export interface PersonLinksView {
   Component: Component<{ userId: string }>;
 }
 
+/** A tab of the Person window's tab bar, after the host's. */
+export interface PersonTabView {
+  label: string;
+  Component: Component<{ userId: string }>;
+}
+
 /** Read contributions consumed by archive, person and search slots; slot views keyed by their declared local ids. */
 export interface ReadContributions {
   personSections?: Readonly<Record<string, PersonSectionView>>;
   personLinks?: Readonly<Record<string, PersonLinksView>>;
+  personTabs?: Readonly<Record<string, PersonTabView>>;
   channels?: MenuActions & { jevItems(channel: DirectoryChannel): MenuItem[] };
   messageMenu?: Readonly<Record<string, MessageMenuView>>;
   attachmentMenu?: Readonly<Record<string, AttachmentMenuView>>;
@@ -94,6 +101,8 @@ export function readSlots(
     /** The view of a person's links: the first placed item of an active plugin; null when none (the host lists them plainly). */
     personLinks: (): PersonLinksView | null =>
       placeSlot('personLinks', [], declaredItems(active(), 'personLinks', (entry) => entry.contributions.personLinks), anchorOf)[0] ?? null,
+    personTabs: <T extends { id: HostPersonTabId }>(host: readonly T[]): (T | SlotItem<PersonTabView>)[] =>
+      placeSlot<T | SlotItem<PersonTabView>>('personTabs', host, declaredItems(active(), 'personTabs', (entry) => entry.contributions.personTabs), anchorOf),
     search: () => active().flatMap((entry) => entry.plugin.search?.tokens ?? []),
     channels: (channel: DirectoryChannel) => active().flatMap((entry) => {
       const channels = entry.contributions.channels;

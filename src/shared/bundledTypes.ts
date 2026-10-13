@@ -152,7 +152,7 @@ export interface PluginDescriptor {
   /** Host-owned visibility views for archive references in local plugin tables. */
   archiveRefs?: Readonly<Record<string, ArchiveRef>>;
   shortcuts?: readonly ShortcutDecl[];
-  /** Its items in host slots (top bar, status bar, phone, menus, templates), stamped `<plugin id>.<local id>` by the host. */
+  /** Its items in host slots (top bar, status bar, phone, menus, templates, person), stamped `<plugin id>.<local id>` by the host. */
   slots?: SlotDecls;
   /** Where its core and main sides may fetch (ctx.net.fetch); never Discord, which only the embedded session reaches. */
   network?: {

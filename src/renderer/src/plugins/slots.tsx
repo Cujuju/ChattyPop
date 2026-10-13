@@ -125,6 +125,8 @@ export const selectionMenuItems = reads.selection;
 export const personSections = reads.people;
 /** The active view of a person's links, or null: the Person window then lists them plainly. */
 export const personLinks = reads.personLinks;
+/** Host Person tabs with active plugins' tabs placed among them. */
+export const personTabs = reads.personTabs;
 /** Active Jev actions for a channel the host permits Jev to read. */
 export const channelJevContributions = reads.channels;
 /** Active parser token declarations and search hints. */

@@ -6,6 +6,7 @@ import {
   HOST_HOVER_ACTIONS,
   HOST_HOVER_EMOJI_ITEMS,
   HOST_MESSAGE_MENU_GROUPS,
+  HOST_PERSON_TABS,
   HOST_PHONE_DRAWER_ITEMS,
   HOST_PHONE_SECTIONS,
   HOST_PROVIDER_ROWS,
@@ -34,6 +35,7 @@ export const HOST_SLOT_ITEMS = {
   ruleTemplates: HOST_RULE_TEMPLATES,
   personSections: [],
   personLinks: [],
+  personTabs: HOST_PERSON_TABS,
 } as const satisfies Record<string, readonly string[]>;
 export type SlotKind = keyof typeof HOST_SLOT_ITEMS;
 export const SLOT_KINDS = Object.keys(HOST_SLOT_ITEMS) as readonly SlotKind[];

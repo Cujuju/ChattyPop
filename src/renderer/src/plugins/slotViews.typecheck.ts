@@ -28,6 +28,16 @@ export function checkSlotViews(): void {
   defineRendererPlugin(hover, { hoverActions: { pin: { Component } }, chatFooter: { box: { Component } } });
   // @ts-expect-error A declared hover action and footer item each need their view.
   defineRendererPlugin(hover, { hoverActions: { pin: { Component } } });
+  const person = definePlugin({ manifest: { id: 'person', name: 'Person', version: '1', description: '' }, slots: { personTabs: [{ id: 'files', after: 'links' }] } });
+  defineRendererPlugin(person, { personTabs: { files: { label: 'Files', Component: (props) => props.userId } } });
+  // @ts-expect-error A declared Person tab needs its view.
+  defineRendererPlugin(person, {});
+  // @ts-expect-error A tab view needs a label.
+  defineRendererPlugin(person, { personTabs: { files: { Component } } });
+  // @ts-expect-error A tab view needs a component.
+  defineRendererPlugin(person, { personTabs: { files: { label: 'Files' } } });
+  // @ts-expect-error A Person tab view needs its own declaration.
+  defineRendererPlugin(bare, { personTabs: { files: { label: 'Files', Component } } });
   // @ts-expect-error One placement direction per item.
   definePlugin({ manifest: { id: 'two', name: 'Two', version: '1', description: '' }, slots: { topBar: [{ id: 'x', after: 'layout', before: 'settings' }] } });
 }

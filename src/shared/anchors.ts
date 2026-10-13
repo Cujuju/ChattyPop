@@ -8,6 +8,10 @@ export type HostPanelId = (typeof HOST_PANELS)[number];
 export const HOST_SETTINGS_TABS = ['rules', 'plugins', 'ai', 'jev', 'archive', 'chat', 'notifications', 'desktop', 'appearance'] as const;
 export type HostSettingsTabId = (typeof HOST_SETTINGS_TABS)[number];
 
+/** The Person window's tabs, including conditional Discord tabs. */
+export const HOST_PERSON_TABS = ['channels', 'links', 'servers', 'friends'] as const;
+export type HostPersonTabId = (typeof HOST_PERSON_TABS)[number];
+
 /** Settings tabs whose page takes plugin sections. */
 export const HOST_SETTINGS_PAGES = ['ai', 'archive'] as const satisfies readonly HostSettingsTabId[];
 export type SettingsPageId = (typeof HOST_SETTINGS_PAGES)[number];

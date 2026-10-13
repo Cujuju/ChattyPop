@@ -2,10 +2,12 @@
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { PersonProfile } from '@shared/contract';
+import { HOST_PERSON_TABS } from '@shared/anchors';
 import { fromUserQuery } from '@shared/searchQuery';
 import { avatarUrl } from '@shared/media';
 import { PersonName } from '@/panels/chat/PersonName';
-import { personLinks, personSections } from '@/plugins/slots';
+import { personLinks, personSections, personTabs } from '@/plugins/slots';
+import type { PersonTabView } from '@/plugins/readSlots';
 import { openArchive } from '@/state/archive';
 import { now, today } from '@/state/clock';
 import { discordProfile, mutualFriends, openPerson, showMutualFriends } from '@/state/person';
@@ -18,7 +20,7 @@ import { scrolledFromTop } from '@/ui/scrollEdges';
 import { look } from '@/theme/look';
 import styles from './PersonTabs.module.css';
 
-type TabId = 'channels' | 'links' | 'servers' | 'friends';
+type TabId = (typeof HOST_PERSON_TABS)[number];
 
 /** A tab; `count` only where the list is whole (channels and links show the top few). */
 interface Tab {
@@ -27,6 +29,8 @@ interface Tab {
   count?: number;
   title?: string;
 }
+
+type PlacedTab = Omit<Tab, 'id'> & { id: string; Component?: PersonTabView['Component'] };
 
 /** A count as read, grouped by thousands. */
 const figure = (n: number): string => n.toLocaleString();
@@ -39,7 +43,7 @@ function search(query: string): void {
 }
 
 export function PersonTabs(props: { p: PersonProfile }) {
-  const [tab, setTab] = createSignal<TabId>('channels');
+  const [tab, setTab] = createSignal('channels');
   // Another person (a mutual friend picked) starts on where they post.
   createEffect(on(() => props.p.id, () => setTab('channels'), { defer: true }));
   const byThem = (): string => fromUserQuery(props.p.id);
@@ -53,13 +57,19 @@ export function PersonTabs(props: { p: PersonProfile }) {
     { label: 'Links', value: props.p.totals.links },
     { label: 'Files', value: props.p.totals.attachments },
   ];
-  const tabs = (): Tab[] => [
+  const hostTabs = (): Tab[] => [
     { id: 'channels', label: 'Where they post' },
     { id: 'links', label: 'Links' },
-    ...(d() ? [{ id: 'servers' as const, label: 'Servers', count: d()!.mutualGuilds.length, title: 'Mutual servers' }] : []),
-    ...(d()?.mutualFriendsCount ? [{ id: 'friends' as const, label: 'Friends', count: d()!.mutualFriendsCount, title: 'Mutual friends' }] : []),
+    { id: 'servers', label: 'Servers', count: d()?.mutualGuilds.length, title: 'Mutual servers' },
+    { id: 'friends', label: 'Friends', count: d()?.mutualFriendsCount, title: 'Mutual friends' },
   ];
-  const pick = (id: TabId): void => {
+  const tabs = (): PlacedTab[] => personTabs(hostTabs()).filter((t) => t.id !== 'servers' || !!d()).filter((t) => t.id !== 'friends' || !!d()?.mutualFriendsCount);
+  createEffect(() => {
+    const selected = tab();
+    if (!HOST_PERSON_TABS.some((id) => id === selected) && !tabs().some((t) => t.id === selected)) setTab('channels');
+  });
+  const selectedComponent = () => tabs().find((t) => t.id === tab())?.Component;
+  const pick = (id: string): void => {
     setTab(id);
     if (id === 'friends') showMutualFriends();
   };
@@ -261,6 +271,9 @@ export function PersonTabs(props: { p: PersonProfile }) {
               (mutualFriends.value()?.people.length ?? 0) > 0,
               styles.people,
             )}
+          </Match>
+          <Match when={selectedComponent()}>
+            {(Component) => <Dynamic component={Component()} userId={props.p.id} />}
           </Match>
         </Switch>
       </div>

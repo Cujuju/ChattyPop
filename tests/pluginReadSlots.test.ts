@@ -2,7 +2,9 @@
 import { expect, it } from 'vitest';
 import { readSlots, type ReadSlotEntry } from '../src/renderer/src/plugins/readSlots';
 import type { ArchiveAttachment, ArchiveMessage, DirectoryChannel } from '@shared/contract';
-import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
+import { anchorCatalog, catalogSlotAnchor, checkBundled } from '@shared/bundledCheck';
+import { HOST_PERSON_TABS } from '@shared/anchors';
+import { checkSlotViews, SLOT_KINDS } from '@shared/slots';
 import { audiencesOf } from '@shared/pluginChannels';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
 
@@ -90,6 +92,63 @@ it("gives a person's links to the first active plugin view, and to the host's pl
   // None on, or none built in: null, and the Person window lists the links plainly.
   expect(slotsOf([entry('first')], () => false, () => true).personLinks()).toBeNull();
   expect(slotsOf([], () => true, () => true).personLinks()).toBeNull();
+});
+
+it('places a Person tab after Links and removes it when its plugin is off or absent', () => {
+  let enabled = true;
+  const seen: string[] = [];
+  const Component = (props: { userId: string }) => { seen.push(props.userId); return null; };
+  const entry: ReadSlotEntry = {
+    plugin: definePlugin({
+      manifest: { id: 'probe', name: 'Probe', version: '1', description: '' },
+      slots: { personTabs: [{ id: 'files', after: 'links' }] },
+    }),
+    contributions: { personTabs: { files: { label: 'Files', Component } } },
+  };
+  const host = HOST_PERSON_TABS.map((id) => ({ id, label: id }));
+  const slots = slotsOf([entry], () => enabled, () => true);
+  expect(slots.personTabs(host).map((t) => t.id)).toEqual(['channels', 'links', 'probe.files', 'servers', 'friends']);
+  const placed = slots.personTabs(host).find((t) => t.id === 'probe.files')!;
+  expect(placed).toEqual({ id: 'probe.files', label: 'Files', Component });
+  expect(slots.personTabs(host).find((t) => t.id === placed.id)).toBe(placed);
+  Component({ userId: 'person' });
+  expect(seen).toEqual(['person']);
+  enabled = false;
+  expect(slots.personTabs(host)).toEqual(host);
+  expect(slotsOf([], () => true, () => true).personTabs(host)).toEqual(host);
+});
+
+it('retains conditional Person tabs as anchors until placement finishes, including absent plugin anchors', () => {
+  const Component = () => null;
+  const entry = (id: string, after: string): ReadSlotEntry => ({
+    plugin: definePlugin({ manifest: { id, name: id, version: '1', description: '' }, slots: { personTabs: [{ id: 'tab', after }] } }),
+    contributions: { personTabs: { tab: { label: id, Component } } },
+  });
+  const entries = [entry('server', 'servers'), entry('friend', 'friends'), entry('next', 'server.tab')];
+  const host = HOST_PERSON_TABS.map((id) => ({ id, label: id }));
+  const slots = slotsOf(entries, (id) => id !== 'server', () => true);
+  const visible = slots.personTabs(host).filter((t) => t.id !== 'servers' && t.id !== 'friends');
+  expect(visible.map((t) => t.id)).toEqual(['channels', 'links', 'next.tab', 'friend.tab']);
+  const absent = readSlots(() => [entries[2]!], () => true, () => true, catalogSlotAnchor(anchorCatalog(entries.map((e) => e.plugin))));
+  expect(absent.personTabs(host).map((t) => t.id)).toEqual(['channels', 'links', 'servers', 'next.tab', 'friends']);
+});
+
+it.each(SLOT_KINDS)('refuses missing and undeclared views in %s', (kind) => {
+  const slots = { [kind]: [{ id: 'probe' }] };
+  expect(() => checkSlotViews('probe', slots, { [kind]: { probe: {} } })).not.toThrow();
+  expect(() => checkSlotViews('probe', slots, {})).toThrow(`declares ${kind} probe`);
+  expect(() => checkSlotViews('probe', undefined, { [kind]: { probe: {} } })).toThrow(`renders ${kind} probe`);
+});
+
+it('checks Person tab anchors against host tabs and their own slot catalog', () => {
+  const plugin = (after: string) => definePlugin({
+    manifest: { id: 'probe', name: 'Probe', version: '1', description: '' },
+    slots: { personTabs: [{ id: 'files', after }] },
+  });
+  for (const anchor of HOST_PERSON_TABS) expect(() => checkBundled([plugin(anchor)])).not.toThrow();
+  expect(() => checkBundled([plugin('lnks')])).toThrow('personTabs item probe.files follows lnks, which no plugin provides');
+  expect(() => checkBundled([plugin('privacy')])).toThrow('follows privacy');
+  expect(catalogSlotAnchor(anchorCatalog([plugin('links')]))('personTabs', 'probe.files')).toBe('links');
 });
 
 it("offers a plugin's menu actions only in windows that may make their core calls", () => {
