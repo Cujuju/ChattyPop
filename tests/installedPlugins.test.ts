@@ -7,7 +7,7 @@ import build from 'virtual:bundled-plugins/shared';
 import hostExports from 'virtual:installed-plugins/host-exports';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { hostModules } from '@shared/hostModules';
-import { HELD_DIR, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
+import { HELD_DIR, PLUGIN_SDK_VERSION, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
 import { prepareInstalled } from '../src/main/plugins/installed/boot';
 import { applyStaged } from '../src/main/plugins/installed/staged';
 import { host, installedRoot, sharedModule, writePlugin } from './installedFixtures';
@@ -15,6 +15,11 @@ import { ROOT, closure, importsOf } from './rendererGraph';
 
 // @plugin-sdk/main's modules reach Electron when they load; these tests only read its export names.
 vi.mock('electron', () => ({ app: { getPath: () => '' }, dialog: {}, ipcMain: { handle: () => undefined } }));
+
+/** SDK versions this host refuses, derived from its own: the next major and a newer minor. */
+const [HOST_MAJOR, HOST_MINOR] = PLUGIN_SDK_VERSION.split('.').map(Number) as [number, number];
+const NEXT_MAJOR_SDK = `${HOST_MAJOR + 1}.0.0`;
+const NEWER_MINOR_SDK = `${HOST_MAJOR}.${HOST_MINOR + 1}.0`;
 
 const versionOf = (dir: string): string => (JSON.parse(readFileSync(join(dir, 'plugin.json'), 'utf8')) as { version: string }).version;
 const noErrors = (id: string, err: unknown): never => {
@@ -144,8 +149,8 @@ describe('accepting installed plugins', () => {
     writePlugin(root, 'oldformat', { manifest: { format: 2 }, shared: ran('oldformat') });
     writePlugin(root, 'elsewhere', { manifest: { id: 'other' }, shared: ran('elsewhere') });
     writePlugin(root, BUILT.manifest.id, { shared: ran(BUILT.manifest.id) });
-    writePlugin(root, 'nextmajor', { manifest: { sdk: '3.0.0' }, shared: ran('nextmajor') });
-    writePlugin(root, 'newerminor', { manifest: { sdk: '2.99.0' }, shared: ran('newerminor') });
+    writePlugin(root, 'nextmajor', { manifest: { sdk: NEXT_MAJOR_SDK }, shared: ran('nextmajor') });
+    writePlugin(root, 'newerminor', { manifest: { sdk: NEWER_MINOR_SDK }, shared: ran('newerminor') });
     const imports = { '@plugin-sdk/shared': ['definePlugin', 'gone'], '@plugin-sdk/core': ['defineCorePlugin', 'removed'], '@plugin-sdk/main': ['defineMainPlugin'], '@plugin-sdk/renderer': ['browserOnly'] };
     writePlugin(root, 'missing', { manifest: { hostImports: imports }, shared: ran('missing') });
     const { accepted, refused, log } = withBuilt(() => start(root));
@@ -154,7 +159,7 @@ describe('accepting installed plugins', () => {
     expect(refused['oldformat']).toMatch(/format 2 is not 1/);
     expect(refused['elsewhere']).toBe('plugin.json names other, but its folder is elsewhere.');
     expect(refused[BUILT.manifest.id]).toBe(`ChattyPop already includes plugin ${BUILT.manifest.id}.`);
-    expect(refused['nextmajor']).toMatch(/Rebuild it for SDK 2/);
+    expect(refused['nextmajor']).toContain(`Rebuild it for SDK ${HOST_MAJOR}`);
     expect(refused['newerminor']).toMatch(/Update ChattyPop/);
     // Node modules only: the browser tiers are the windows' to check.
     expect(refused['missing']).toBe("imports what this ChattyPop doesn't provide (@plugin-sdk/shared: gone, @plugin-sdk/core: removed). Update ChattyPop or the plugin.");

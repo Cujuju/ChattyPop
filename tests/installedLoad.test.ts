@@ -1,7 +1,7 @@
 // With INSTALLED_ENV set before registry imports, accepted installed plugins follow bundled entries. Core and main load their sides; refusals appear in the plugin list.
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { INSTALLED_ENV, type InstalledStart } from '@shared/installedPlugins';
+import { INSTALLED_ENV, PLUGIN_SDK_VERSION, type InstalledStart } from '@shared/installedPlugins';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { host, installedRoot, sharedModule, writePlugin } from './installedFixtures';
 
@@ -11,6 +11,9 @@ const zetaShared = sharedModule('zeta', "channels: defineChannels()({ core: { pi
 const zetaCore = `import plugin from './shared.js';\nexport default ${host('@plugin-sdk/core')}.defineCorePlugin(plugin, (ctx) => ctx.channels.serve({ ping: () => 'pong' }));\n`;
 const zetaMain = `import plugin from './shared.js';\nexport default ${host('@plugin-sdk/main')}.defineMainPlugin(plugin, () => undefined);\n`;
 const zetaImports = { '@plugin-sdk/shared': ['definePlugin', 'defineChannels'], '@plugin-sdk/core': ['defineCorePlugin'], '@plugin-sdk/main': ['defineMainPlugin'] };
+
+/** An SDK major this host refuses: the one after its own. */
+const NEXT_MAJOR_SDK = `${Number(PLUGIN_SDK_VERSION.split('.')[0]) + 1}.0.0`;
 
 let root: string;
 let start: InstalledStart;
@@ -22,7 +25,7 @@ beforeAll(async () => {
   root = installedRoot();
   writePlugin(root, 'zeta', { manifest: { hostImports: zetaImports }, shared: zetaShared, core: zetaCore, main: zetaMain });
   writePlugin(root, 'broken', { core: "throw new Error('broken core');" });
-  writePlugin(root, 'refused', { manifest: { sdk: '3.0.0' } });
+  writePlugin(root, 'refused', { manifest: { sdk: NEXT_MAJOR_SDK } });
   const { prepareInstalled } = await import('../src/main/plugins/installed/boot');
   const { encodeInstalledStart } = await import('../src/main/plugins/installed/runtime');
   const { readInstalledPlugin } = await import('../src/main/plugins/installed/read');
