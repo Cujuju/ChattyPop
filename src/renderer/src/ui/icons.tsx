@@ -142,6 +142,8 @@ export const ICON_SHAPES = {
       <path d="M4 21a8 8 0 0 1 16 0" />
     </>
   ),
+  // A play triangle: video.
+  play: () => <path d="M7 4.5v15l12-7.5z" />,
   plus: () => <path d="M12 5v14M5 12h14" />,
   // Answers' bars of differing length: a poll.
   poll: () => <path d="M4 6h10M4 12h16M4 18h7" />,
