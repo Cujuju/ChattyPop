@@ -1,8 +1,8 @@
 import { api } from '@/api';
 import { createStore } from 'solid-js/store';
 import { snowflakeToMs } from '@shared/discord';
-import { resolveBackfillCutoffMs } from '@shared/archiveSettings';
-import { backfillFraction } from '@shared/backfillProgress';
+import { PACE_TIMING, backfillCutoffMs, resolveBackfillCutoffMs, type ChannelBackfillHistory } from '@shared/archiveSettings';
+import { backfillFraction, estimateBackfillPages } from '@shared/backfillProgress';
 import { onAppEvent } from './events';
 import { archiveSettings } from './preferences';
 import { channelById } from './directory';
@@ -50,3 +50,29 @@ onAppEvent('sync-progress', (e) => {
   lastRead.set(e.channelId, now);
   void refresh(e.channelId);
 });
+
+/** What bringing channels to a depth costs: history requests in all, and the channels too little is stored of to tell. */
+export interface BackfillCost {
+  pages: number;
+  unknown: number;
+  /** Time the requests take at the owner's sync pace, ms. */
+  durationMs: number;
+}
+
+const timeOf = (id: string | null): number | null => (id === null ? null : snowflakeToMs(id));
+
+/** The cost of fetching each of `channelIds` back to `history` (undefined: the default depth). Threads aren't counted. */
+export async function backfillCost(channelIds: readonly string[], history: ChannelBackfillHistory | undefined): Promise<BackfillCost> {
+  const settings = archiveSettings();
+  const now = Date.now();
+  const cutoffMs = backfillCutoffMs(history ?? settings.backfillHistory, now);
+  const cost: BackfillCost = { pages: 0, unknown: 0, durationMs: 0 };
+  for (const state of await Promise.all(channelIds.map((id) => api.core.syncState(id)))) {
+    const stored = { count: state.count, oldestMs: timeOf(state.oldestId), newestMs: timeOf(state.newestId), backfillComplete: state.backfillComplete };
+    const pages = estimateBackfillPages(stored, cutoffMs, snowflakeToMs(state.channelId));
+    if (pages === null) cost.unknown++;
+    else cost.pages += pages;
+  }
+  cost.durationMs = cost.pages * PACE_TIMING[settings.syncPace].apiMs;
+  return cost;
+}
