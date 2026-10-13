@@ -584,7 +584,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `pullDisc`, `pullArrow` | Pull-to-refresh disc and its winding arrow (reads `--pull-progress`, 0–1) | `data-state="armed"` |
 | `numbered` | A numbered point's `::before` in the section colour | — |
 | `labelledRule` | `::before` and `::after` hairlines through a centred label | — |
-| `chartBar`, `heatCell`, `shareBar` | Chart bar, heatmap cell and ranked-share row (read `--v`, 0–1) | — |
+| `chartBar`, `heatCell`, `shareBar` | Chart bar, heatmap cell and ranked-share row (read `--v`, 0–1) | `chartBar`: `data-tone` (success, danger), `data-direction="down"` (hangs under its baseline), `data-fill="part"` (reads `--fill`, 0–1: that share from the baseline at full strength, the rest faint) |
 | `meter` | A `<meter>`: track, section-colour fill, accent from `high` | — |
 | `frost` | Frosted glass: its `::before` blurs what scrolls under it (the component places the box) | — |
 | `messageBox`, `messageField` | The message box (with `cp-stroke`), glowing while focused; its bare text field | — |

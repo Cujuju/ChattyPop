@@ -150,6 +150,7 @@
   --cp-section-wash-stop: 65%; /* where that wash has faded to the plain band */
   --cp-section-tile-mix: 20%; /* section colour share in the icon tile */
   --cp-section-stripe-h: 2px; /* coloured rule along a header's top edge */
+  --cp-chart-bar-rest-mix: 30%; /* a part-filled chart bar's colour share past its filled part: faint, still its tone */
 
   /* File-type icons on attachment cards (FileIcon.module.css): one section hue per kind, so every theme tints them. */
   --cp-file-kind-image: var(--cp-section-links);

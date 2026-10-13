@@ -1,14 +1,40 @@
 /* Look vocabulary: charts and meters (docs/plugin-architecture.md §14). Look only. Bars, cells and share rows read --v
    (0–1, the value's share of the largest), set on the element by the component. */
 
-/* A chart bar in the nearest [data-section]'s colour, rounded at the top; the text colour under the pointer. */
+/* A chart bar in the nearest [data-section]'s colour, or a tone's (data-tone), rounded at the top; the text colour under
+   the pointer. */
 .chartBar {
+  --cp-chart-bar: var(--cp-section);
+  --cp-chart-bar-grows: to top;
   border-radius: var(--cp-radius-xs) var(--cp-radius-xs) 0 0;
-  background: var(--cp-section);
+  background: var(--cp-chart-bar);
+}
+
+.chartBar[data-tone='success'] {
+  --cp-chart-bar: var(--cp-success);
+}
+
+.chartBar[data-tone='danger'] {
+  --cp-chart-bar: var(--cp-danger);
+}
+
+/* A bar hanging under its baseline: rounded at the bottom. */
+.chartBar[data-direction='down'] {
+  --cp-chart-bar-grows: to bottom;
+  border-radius: 0 0 var(--cp-radius-xs) var(--cp-radius-xs);
+}
+
+/* A part-filled bar: --fill (0–1) of its length from the baseline at full strength, the rest faint. */
+.chartBar[data-fill='part'] {
+  background: linear-gradient(
+    var(--cp-chart-bar-grows),
+    var(--cp-chart-bar) calc(var(--fill) * 100%),
+    color-mix(in srgb, var(--cp-chart-bar) var(--cp-chart-bar-rest-mix), transparent) 0
+  );
 }
 
 .chartBar:hover {
-  background: var(--cp-text-1);
+  --cp-chart-bar: var(--cp-text-1);
 }
 
 /* A heatmap cell: the section colour's share follows --v. */
