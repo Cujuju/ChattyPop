@@ -52,7 +52,7 @@ describe('renderer initialization', () => {
 });
 
 describe('the plugin registry', () => {
-  it('installs the renderer plugins once; a slot read before then fails loudly', async () => {
+  it('18: installs guarded renderer plugins once; a slot read before then fails loudly', async () => {
     // A renderer module: imported by path so the node type-check doesn't follow it.
     const installedPath = '../src/renderer/src/plugins/installed';
     const { installRendererPlugins, rendererPlugins, rendererPluginsInstalled } = (await import(installedPath)) as {
@@ -69,11 +69,17 @@ describe('the plugin registry', () => {
     expect(() => installRendererPlugins([{ plugin, contributions: {} }])).toThrow(/declares topBar bell/);
     expect(() => installRendererPlugins([{ plugin, contributions: { topBar: { bell: {}, extra: {} } } }])).toThrow(/renders topBar extra/);
     expect(() => rendererPlugins()).toThrow(/before the plugin registry installed/);
-    const entries = [{ plugin, contributions: { topBar: { bell: {} } } }];
+    const Component = () => null;
+    const entries = [{ plugin, contributions: { topBar: { bell: { Component } } } }];
     await Promise.resolve();
     expect(installed).toBe(false);
     installRendererPlugins(entries);
-    expect(rendererPlugins()).toBe(entries);
+    const guarded = rendererPlugins() as typeof entries;
+    expect(guarded).not.toBe(entries);
+    expect(guarded[0]!.plugin).toBe(plugin);
+    expect(guarded[0]!.contributions.topBar.bell.Component).not.toBe(Component);
+    expect(entries[0]!.contributions.topBar.bell.Component).toBe(Component);
+    expect(rendererPlugins()).toBe(guarded);
     await rendererPluginsInstalled();
     expect(installed).toBe(true);
     expect(() => installRendererPlugins([])).toThrow(/already installed/);

@@ -1,6 +1,7 @@
 // Late-bound renderer registry access avoids host/SDK dependency cycles. Bundled registry installs entries without host modules importing plugin definitions.
 import { checkSlotViews, type SlotViewsOf } from '@shared/slots';
 import type { RendererPlugin } from './define';
+import { guardContributions } from './guardViews';
 
 let installed: readonly RendererPlugin[] | null = null;
 let markInstalled: () => void = () => undefined;
@@ -10,7 +11,7 @@ const installing = new Promise<void>((resolve) => (markInstalled = resolve));
 export function installRendererPlugins(entries: readonly RendererPlugin[]): void {
   if (installed) throw new Error('The renderer plugins are already installed.');
   for (const entry of entries) checkSlotViews(entry.plugin.manifest.id, entry.plugin.slots, entry.contributions as SlotViewsOf);
-  installed = entries;
+  installed = entries.map((entry) => ({ plugin: entry.plugin, contributions: guardContributions(entry.plugin.manifest.name, entry.contributions) }));
   markInstalled();
 }
 
