@@ -52,6 +52,7 @@ export function Contained(props: ContainedProps): JSX.Element {
     refocus = focused;
     setShows?.(true);
     setFailure(undefined);
+    if (!untrack(failure)) refocus = false;
   };
   return createMemo(() => failure() ? untrack(() => fallback(props, failure()!.error, failures > 1, refocus, retry)) : catchError(() =>
     createComponent(ViewShownContext.Provider, { value: undefined, get children() { return props.children; } }), fail)) as unknown as JSX.Element;

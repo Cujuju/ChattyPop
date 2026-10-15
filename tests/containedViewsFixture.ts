@@ -50,7 +50,7 @@ export function mount(opts = {}) {
       <span data-sibling>{value()}</span>
     </>;
   }, root);
-  return { root, dispose, set: setValue, healthy: () => setFailing(false), seen, counts };
+  return { root, dispose, set: setValue, healthy: () => setFailing(false), unhealthy: () => setFailing(true), seen, counts };
 }
 
 export function mountProps() {

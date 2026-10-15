@@ -10,6 +10,7 @@ interface View {
   dispose(): void;
   set(value: number): void;
   healthy(): void;
+  unhealthy(): void;
   seen: number[];
   counts: { mounts: number; cleanups: number; runs: number };
 }
@@ -201,6 +202,11 @@ it('a retry failure repeats the copy and restores focus only from inside the fal
   press(oldButton);
   expect(buttons(view)[0]).not.toBe(oldButton);
   expect(pageDocument.activeElement).toBe(buttons(view)[0]);
+  view.healthy();
+  press(buttons(view)[0]!);
+  Object.defineProperty(pageDocument, 'activeElement', { configurable: true, value: composer });
+  view.unhealthy();
+  expect(pageDocument.activeElement).toBe(composer);
   const fresh = open();
   fresh.set(1);
   expect(text(alerts(fresh)[0]!)).toBe('Probe view stopped working.Try again');
