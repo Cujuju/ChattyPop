@@ -53,6 +53,7 @@ type Handlers = Pick<
   | 'messagePage'
   | 'messageWindow'
   | 'messageById'
+  | 'messagesByIds'
   | 'applyOwnReaction'
   | 'applyOwnPollVote'
   | 'ingestSyncPage'
@@ -213,6 +214,7 @@ export function archiveHandlers(o: {
     messagePage: (q) => messagePage(o.ready().db, q),
     messageWindow: (q) => messageWindow(o.ready().db, q),
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
+    messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
       const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd);
       if (page.length) o.noteChanged(channelId);

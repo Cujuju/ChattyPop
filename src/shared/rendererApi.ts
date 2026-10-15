@@ -248,6 +248,7 @@ export const RENDERER_CORE_METHODS = [
   'messagePage',
   'messageWindow',
   'messageById',
+  'messagesByIds',
   'searchMessages',
   'personProfile',
   'discordProfile',

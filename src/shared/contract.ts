@@ -191,6 +191,8 @@ export interface CoreMethods {
   messageWindow(q: MessagePageQuery): MessageWindow;
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */
   messageById(messageId: string): ArchiveMessage | null;
+  /** Archived messages by id, as the Archive shows them, in no set order; ids not archived or hidden by privacy mode are left out. */
+  messagesByIds(messageIds: string[]): ArchiveMessage[];
   /** The first `limit` matches in `sort` order. */
   searchMessages(text: string, limit: number, sort: SearchSort): SearchHit[];
   /** One person's footprint in the archive; null when the archive has never seen them. */

@@ -21,7 +21,7 @@ export const [archiveDensity, setArchiveDensity] = createSetting<ArchiveDensity>
 
 /** Messages fetched per request when opening or scrolling the Archive view. */
 const PAGE_SIZE = 100;
-/** Pages a catch-up reads at most in one go (100 pages: 10,000 messages); the next change picks up the rest. */
+/** Pages a catch-up reads at most in one go (100 pages: 10,000 messages); past it the window detaches and the view pages on. */
 const MAX_CATCH_UP_PAGES = 100;
 
 export const [archiveChannelId, setArchiveChannelId] = createSignal<string | null>(null);
@@ -175,47 +175,82 @@ onAppEvent('privacy-changed', async () => {
   await loadWindow(channelId, focusMessageId());
 });
 
-const arrivalReads = new Map<string, Promise<void>>();
+/** Each channel's row reads (catch-up, refreshes), queued so each applies after those begun before it: none restores an older snapshot. */
+const rowReads = new Map<string, Promise<void>>();
 
-/** Refreshes newest pages for open-channel message changes. Name/role changes reload current rows to update styling and marks. */
+/** Runs `read` after the channel's earlier row reads and any window load, if the channel is still open. */
+async function inTurn(channelId: string, read: () => Promise<void>): Promise<void> {
+  const work = (rowReads.get(channelId) ?? Promise.resolve())
+    .catch(() => undefined) // A failed read doesn't hold back later ones.
+    .then(async () => {
+      await windowReads.get(channelId);
+      if (archiveChannelId() === channelId) await read();
+    });
+  rowReads.set(channelId, work);
+  try {
+    await work;
+  } finally {
+    if (rowReads.get(channelId) === work) rowReads.delete(channelId);
+  }
+}
+
+/** Open-channel changes: a window at the newest catches up on arrivals; other changes (and name/role changes) re-read loaded rows in place. */
 onAppEvent('archive-changed', async (e) => {
   const channelId = archiveChannelId();
-  if (channelId && e.channelIds.includes(channelId) && (atNewest() || archiveOpening())) {
-    // Serialize reads so an event arriving during catch-up gets a read begun after its write.
-    const work = (arrivalReads.get(channelId) ?? Promise.resolve()).then(async () => {
-      await windowReads.get(channelId);
-      if (archiveChannelId() !== channelId || !atNewest()) return;
-      const covered = await catchUp(channelId);
-      if (!covered || !e.insertOnlyChannelIds?.includes(channelId)) await refreshNewest(channelId);
-    });
-    arrivalReads.set(channelId, work);
-    try {
-      await work;
-    } finally {
-      if (arrivalReads.get(channelId) === work) arrivalReads.delete(channelId);
+  const changed = channelId !== null && e.channelIds.includes(channelId);
+  if (!channelId || (!changed && !e.namesChanged)) return;
+  const insertOnly = e.insertOnlyChannelIds?.includes(channelId) === true;
+  await inTurn(channelId, async () => {
+    // Rows appended after this one, and the newest page, are read after the change: already current.
+    const last = list.state.items.at(-1);
+    let fresh: ArchiveMessage | null = null;
+    if (changed && atNewest()) {
+      const reached = await catchUp(channelId);
+      if (!reached || !insertOnly) fresh = await refreshNewest(channelId);
     }
-  }
-  if (e.namesChanged) await refreshLoaded(null);
+    if (e.namesChanged || (changed && !insertOnly)) {
+      await rereadRows(channelId, (m) => (!last || !messageBefore(last, m)) && (!fresh || messageBefore(m, fresh)));
+    }
+  });
 });
 
-/** Appends all newer messages page by page without gaps. Row refreshes cannot supersede arrival pagination. */
+/** Appends newer pages without gaps; true once it read the newest. Past its budget the window detaches, and the view pages on from there. */
 async function catchUp(channelId: string): Promise<boolean> {
   if (!list.state.items.length) return false;
-  for (let pages = 0; pages < MAX_CATCH_UP_PAGES && archiveChannelId() === channelId; pages++) {
+  for (let pages = 0; pages < MAX_CATCH_UP_PAGES; pages++) {
+    if (archiveChannelId() !== channelId) return false;
     const added = await list.loadNewer();
     // Null: another read is appending already (it carries on), or a reload superseded this one.
     if (added === null) return false;
     if (added < PAGE_SIZE) return true;
   }
-  return true;
+  setAtNewest(false);
+  return false;
 }
 
-/** Re-reads the newest page in place (edits, deletions), keeping every older loaded message. */
-async function refreshNewest(channelId: string): Promise<void> {
+/** Re-reads the newest page in place (edits, deletions, rows inserted among them); resolves with its oldest row once applied, else null. */
+async function refreshNewest(channelId: string): Promise<ArchiveMessage | null> {
+  let oldest: ArchiveMessage | null = null;
   await list.update(() => query({ channelId, limit: PAGE_SIZE }), (latest, loaded) => {
-    if (archiveChannelId() !== channelId || !atNewest()) return [...loaded];
-    const firstLatest = latest[0];
-    return [...(firstLatest ? loaded.filter((m) => messageBefore(m, firstLatest)) : loaded), ...latest];
+    const first = latest[0];
+    const last = loaded.at(-1);
+    // A page starting past the last loaded row would leave out the rows between them.
+    if (archiveChannelId() !== channelId || !atNewest() || !first || (last && messageBefore(last, first))) return [...loaded];
+    oldest = first;
+    return [...loaded.filter((m) => messageBefore(m, first)), ...latest];
+  });
+  return oldest;
+}
+
+/** Re-reads the loaded rows `pick` takes, by id and in place, PAGE_SIZE ids per read; a row the archive no longer shows stays as it was. */
+async function rereadRows(channelId: string, pick: (m: ArchiveMessage) => boolean): Promise<void> {
+  const ids = list.state.items.filter(pick).map((m) => m.id);
+  if (!ids.length) return;
+  const chunks = Array.from({ length: Math.ceil(ids.length / PAGE_SIZE) }, (_, i) => ids.slice(i * PAGE_SIZE, (i + 1) * PAGE_SIZE));
+  await list.update(async () => (await Promise.all(chunks.map((c) => api.core.messagesByIds(c)))).flat(), (rows, items) => {
+    if (archiveChannelId() !== channelId) return [...items];
+    const byId = new Map(rows.map((m) => [m.id, m]));
+    return items.map((m) => byId.get(m.id) ?? m);
   });
 }
 
@@ -227,21 +262,19 @@ export async function loadNewer(): Promise<void> {
   if (added === null || added >= PAGE_SIZE || archiveChannelId() !== channelId) return;
   // New posts are now this window's to show; any that arrived since that read are appended next.
   setAtNewest(true);
-  await catchUp(channelId);
-  await refreshNewest(channelId);
+  await inTurn(channelId, async () => {
+    if (!atNewest()) return;
+    await catchUp(channelId);
+    await refreshNewest(channelId);
+  });
 }
 
-/** Reloads changed tag chips within the current newest/focused window. More distant loaded rows retain chips until reopen; null targets all. */
+/** Re-reads loaded messages in place (chips, reactions, polls), wherever they are in the window; null re-reads them all. */
 export async function refreshLoaded(ids: string[] | null): Promise<void> {
   const channelId = archiveChannelId();
-  const loaded = list.state.items;
-  if (!channelId || !loaded.length || (ids && !loaded.some((m) => ids.includes(m.id)))) return;
-  const focus = focusMessageId();
-  await list.update(() => query({ channelId, limit: loaded.length, ...(focus ? { around: focus } : {}) }), (page, items) => {
-    if (archiveChannelId() !== channelId) return [...items];
-    const byId = new Map(page.map((m) => [m.id, m]));
-    return items.map((m) => byId.get(m.id) ?? m);
-  });
+  if (!channelId) return;
+  const wanted = ids && new Set(ids);
+  await inTurn(channelId, () => rereadRows(channelId, (m) => !wanted || wanted.has(m.id)));
 }
 
 /** The channel the live Discord client last showed. */
