@@ -30,6 +30,10 @@ describe('plugin archive boundary', () => {
   it('accepts owned constants, CTEs, subqueries and json_each; never exempts archive writes', () => {
     const fixture = 'db.prepare(`WITH picked AS (SELECT id FROM archive_messages) SELECT * FROM picked JOIN (SELECT value FROM json_each(\'[]\')) j ON 1; UPDATE ${OWN} SET value = 1`)';
     expect(sqlViolations(sqlLiterals(fixture)[0]!.sql, new Set(['OWN']), false)).toEqual([]);
+    for (const hint of ['MATERIALIZED', 'NOT MATERIALIZED']) {
+      expect(sqlViolations(`WITH a AS ${hint} (SELECT id FROM archive_messages), b AS ${hint} (SELECT id FROM a) SELECT * FROM b`, new Set(), false)).toEqual([]);
+    }
+    expect(sqlViolations('WITH users AS MATERIALIZED (SELECT 1) SELECT * FROM main.users', new Set(), false).length).toBeGreaterThan(0);
     expect(sqlViolations('DELETE FROM archive_all_messages', new Set(), true)).toEqual(['write to archive view: archive_all_messages']);
     expect(tableConstants("const OWN = pluginTable(plugin, 'rows'); const BAD = 'messages';")).toEqual(['OWN']);
   });

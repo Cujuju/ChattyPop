@@ -88,7 +88,12 @@ export function sqlViolations(sql: string, own: ReadonlySet<string>, allowAll: b
       while (at < tokens.length && tokens[at] !== ')') at++;
       at++;
     }
-    if (name && tokens[at] === 'as' && tokens[at + 1] === '(') ctes.add(name);
+    if (tokens[at] !== 'as') continue;
+    // SQLite's `AS [NOT] MATERIALIZED (`.
+    at++;
+    if (tokens[at] === 'not' && tokens[at + 1] === 'materialized') at++;
+    if (tokens[at] === 'materialized') at++;
+    if (name && tokens[at] === '(') ctes.add(name);
   }
   const errors: string[] = [];
   const target = (at: number, write: boolean): void => {
