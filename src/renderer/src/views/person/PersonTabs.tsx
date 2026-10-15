@@ -257,7 +257,8 @@ export function PersonTabs(props: { p: PersonProfile }) {
               <For each={mutualFriends.value()?.people ?? []}>
                 {(f) => (
                   <li>
-                    <button type="button" class={`${styles.row} ${styles.person} ${look.row}`} onClick={() => openPerson(f.id)}>
+                    {/* A friend is no server's: their profile opens with none, as Discord's does. */}
+                    <button type="button" class={`${styles.row} ${styles.person} ${look.row}`} onClick={() => openPerson(f.id, null)}>
                       <img class={`${styles.friendAvatar} ${look.avatar}`} src={avatarUrl(f.id, f.avatar)} alt="" loading="lazy" />
                       <span class={styles.personText}>
                         <span class={styles.rowMain}>{f.name}</span>

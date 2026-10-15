@@ -134,7 +134,7 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
 
   const views: MenuItem[] = [
     { label: 'View conversation', icon: 'conversation', run: () => openConversation(m.id) },
-    { label: `View ${m.author.name}`, icon: 'person', run: () => openPerson(m.author.id) },
+    { label: `View ${m.author.name}`, icon: 'person', run: () => openPerson(m.author.id, m.channelId) },
   ];
 
   openContextMenu(e, messageMenuGroups(m, scope, [

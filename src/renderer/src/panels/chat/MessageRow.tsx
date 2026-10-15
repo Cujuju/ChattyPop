@@ -7,7 +7,7 @@ import { avatarUrl, decorationUrl } from '@shared/media';
 import type { ArchiveDensity } from '@/state/archive';
 import { messageLink, openMessageMenu } from '@/state/messageActions';
 import { mentionsMe } from '@/state/ownMessages';
-import { openPerson } from '@/state/person';
+import { openPerson, openPersonFromPlugin } from '@/state/person';
 import { pluginPresents } from '@/state/plugins';
 import { contextMenu, inCompanion } from '@/state/ui';
 import { SolidIcon } from '@/ui/solidIcons';
@@ -93,7 +93,7 @@ function CompactRow(props: MessageRowProps) {
       <time class={styles.time} dateTime={new Date(m().ts).toISOString()}>
         {time(m().ts)}
       </time>
-      <AuthorName author={m().author} class={styles.author} title={accountName(m()) ?? undefined} onClick={() => openPerson(m().author.id)} />
+      <AuthorName author={m().author} class={styles.author} title={accountName(m()) ?? undefined} onClick={() => openPerson(m().author.id, m().channelId)} />
       <div class={styles.compactMain}>
         <Show when={m().reply}>{(r) => <ReplyLine reply={r()} channelId={m().channelId} pinged={m().mentionIds.includes(r().authorId)} />}</Show>
         <Show when={m().interaction}>{(i) => <InteractionLine interaction={i()} />}</Show>
@@ -143,9 +143,9 @@ function CozyRow(props: MessageRowProps) {
           </time>
         }
       >
-        <Show when={gutter()} fallback={<Avatar author={m().author} />}>
+        <Show when={gutter()} fallback={<Avatar author={m().author} channelId={m().channelId} />}>
           <div class={cozy.gutter}>
-            <Avatar author={m().author} />
+            <Avatar author={m().author} channelId={m().channelId} />
             {gutter()}
           </div>
         </Show>
@@ -155,7 +155,7 @@ function CozyRow(props: MessageRowProps) {
         <Show when={m().interaction}>{(i) => <InteractionLine interaction={i()} />}</Show>
         <Show when={!props.grouped}>
           <div class={cozy.head}>
-            <AuthorName author={m().author} class={cozy.name} onClick={() => openPerson(m().author.id)} />
+            <AuthorName author={m().author} class={cozy.name} onClick={() => openPerson(m().author.id, m().channelId)} />
             <time class={cozy.time} dateTime={new Date(m().ts).toISOString()}>
               {messageTime(m().ts, today())}
             </time>
@@ -197,9 +197,10 @@ function accountName(m: ArchiveMessage): string | null {
   return u && u.toLowerCase() !== m.author.name.toLowerCase() ? u : null;
 }
 
-export function Avatar(props: { author: ArchiveMessage['author'] }) {
+/** `channelId`: the message's, whose server the profile opens in; plugins built before it omit it (openPersonFromPlugin). */
+export function Avatar(props: { author: ArchiveMessage['author']; channelId?: string | null }) {
   const a = () => props.author;
-  const img = () => <img data-avatar class={`${cozy.avatar} ${look.avatar}`} src={avatarUrl(a().id, a().avatar)} alt="" loading="lazy" onClick={() => openPerson(a().id)} />;
+  const img = () => <img data-avatar class={`${cozy.avatar} ${look.avatar}`} src={avatarUrl(a().id, a().avatar)} alt="" loading="lazy" onClick={() => openPersonFromPlugin(a().id, props.channelId)} />;
   // The decoration frames the avatar, as in Discord: still, animated while the message is hovered.
   return (
     <Show when={a().decoration} fallback={img()}>

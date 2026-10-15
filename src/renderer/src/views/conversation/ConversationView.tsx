@@ -35,7 +35,7 @@ export function ConversationView() {
                       <button type="button" class={styles.time} title="Open in the Archive" onClick={() => void openArchive(m.channelId, m.id)}>
                         {clockTime(m.ts)}
                       </button>
-                      <button type="button" class={styles.author} onClick={() => openPerson(m.author.id)}>
+                      <button type="button" class={styles.author} onClick={() => openPerson(m.author.id, m.channelId)}>
                         {m.author.name}
                       </button>
                       <div class={styles.text}>

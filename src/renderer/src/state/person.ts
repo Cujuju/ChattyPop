@@ -45,8 +45,11 @@ const guildOf = (channelId: string | null): string | null => {
   return guild === DM_GUILD_ID ? null : guild;
 };
 
-/** Opens `userId`'s profile as seen in the server of `channelId` (default: the channel the Archive shows). */
-export const openPerson = (userId: string, channelId: string | null = shownChannelId()): void => {
+/**
+ * Opens `userId`'s profile as seen in the server of `channelId`, the place it was opened from (null: none). Required: the
+ * Archive's channel is no context for a message shown elsewhere (Bookmarks, Conversation).
+ */
+export const openPerson = (userId: string, channelId: string | null): void => {
   const same = personId() === userId;
   setFriendsOpen(false);
   // A new target object refetches their Discord profile, also for the same person.
@@ -54,6 +57,9 @@ export const openPerson = (userId: string, channelId: string | null = shownChann
   // Re-opening the same person refreshes the archive part too: it may have grown since.
   if (same) person.refetch();
 };
+
+/** The SDK's `openPerson`: a plugin's call without a place opens from the Archive's shown channel, as it always did. */
+export const openPersonFromPlugin = (userId: string, channelId: string | null = shownChannelId()): void => openPerson(userId, channelId);
 
 export const closePerson = (): void => {
   setTarget(null);
