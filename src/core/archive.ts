@@ -369,6 +369,7 @@ export class Archive {
     applyRoleChange(this.db, c);
   }
 
+  /** Keeps the prior text as a revision. seen_at, its key, rises per message: edits within one millisecond each get their own. */
   private reviseContent(
     id: string,
     prior: { content: string; edited_ts: number | null },
@@ -378,8 +379,11 @@ export class Archive {
     now: number,
   ): void {
     this.db
-      .prepare('INSERT OR IGNORE INTO message_revisions (message_id, seen_at, edited_ts, content) VALUES (?, ?, ?, ?)')
-      .run(id, now, prior.edited_ts, prior.content);
+      .prepare(
+        `INSERT INTO message_revisions (message_id, seen_at, edited_ts, content)
+         VALUES (@id, MAX(@now, COALESCE((SELECT MAX(seen_at) + 1 FROM message_revisions WHERE message_id = @id), @now)), @editedTs, @content)`,
+      )
+      .run({ id, now, editedTs: prior.edited_ts, content: prior.content });
     this.db.prepare('UPDATE messages SET content = ?, edited_ts = ?, raw_json = ? WHERE id = ?').run(content, editedTs, raw, id);
   }
 }
