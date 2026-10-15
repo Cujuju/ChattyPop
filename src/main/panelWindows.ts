@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { BrowserWindow, app, type BrowserWindowConstructorOptions } from 'electron';
+import { BrowserWindow, app, type BrowserWindowConstructorOptions, type WebContents } from 'electron';
 import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
 import { profilePath } from './storageLocation';
@@ -87,6 +87,12 @@ export class PanelWindows {
     } catch (err) {
       diag('panel-windows-open-save-failed', { message: errorMessage(err) });
     }
+  }
+
+  /** The panel owned by this sender, for diagnostics. */
+  panelId(sender: WebContents): string | undefined {
+    for (const [id, win] of this.open) if (!win.isDestroyed() && win.webContents === sender) return id;
+    return undefined;
   }
 
   /** Every open panel window, for pushing app events to them too. */

@@ -284,6 +284,8 @@ export const PANEL_WINDOW_CHANNEL = 'window:open-panel';
 export const SHOW_IN_MAIN_CHANNEL = 'window:show-in-main';
 /** Window → main: whether it holds unsaved edits, so main asks before closing or reloading it. */
 export const UNSAVED_CHANNEL = 'window:unsaved';
+/** Window → main: a bounded page error for diagnostics. */
+export const PAGE_ERROR_CHANNEL = 'window:page-error';
 /** Window → main: the owner discarded its unsaved edits; main goes on with the close or reload it held. */
 export const DISCARD_UNSAVED_CHANNEL = 'window:discard-unsaved';
 

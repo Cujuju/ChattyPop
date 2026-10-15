@@ -13,6 +13,7 @@ import {
   SHOW_IN_MAIN_CHANNEL,
   DISCARD_UNSAVED_CHANNEL,
   UNSAVED_CHANNEL,
+  PAGE_ERROR_CHANNEL,
   type AppEvent,
   type DiscordSlot,
   type MainInvokeGroup,
@@ -37,6 +38,7 @@ function invokers<G extends MainInvokeGroup>(group: G): Pick<RendererApi[G], Ext
 }
 
 const api: RendererApi = {
+  reportPageError: (report) => ipcRenderer.send(PAGE_ERROR_CHANNEL, report),
   core,
   openRouter: invokers('openRouter'),
   typeSafe: invokers('typeSafe'),

@@ -93,6 +93,7 @@ function onEvent(listener: Parameters<RendererApi['onEvent']>[0]): () => void {
 
 /** The renderer API. Host code reaches it only here, never through `window.chattypop`. */
 export const api: RendererApi = {
+  reportPageError: method(null, 'reportPageError') as RendererApi['reportPageError'],
   core: group('core'),
   openRouter: group('openRouter'),
   typeSafe: group('typeSafe'),

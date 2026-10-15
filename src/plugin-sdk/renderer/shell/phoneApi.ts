@@ -78,6 +78,8 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
   let listening = false;
 
   const api: RendererApi = {
+    // The phone page reports through its transport's own route, installed before the API.
+    reportPageError: ignored,
     core,
     // Sign-in opens the PC's browser; keys typed here travel to the desktop, which encrypts and keeps them.
     openRouter: { signIn: unavailable('OpenRouter sign-in'), addKey: viaMain(openRouter.addKey), updateKey: viaMain(openRouter.updateKey), removeKey: viaMain(openRouter.removeKey) },

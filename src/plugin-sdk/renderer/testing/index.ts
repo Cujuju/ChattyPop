@@ -46,6 +46,7 @@ function desktopApi(core: CorePort, main: MainPort | null, deliver: (fn: (e: App
     restartApp: absent('app restart'),
     openPanelWindow: absent('panel windows'),
     showInMainWindow: () => undefined,
+    reportPageError: () => undefined,
     setUnsaved: () => undefined,
     discardUnsaved: () => undefined,
     onEvent: (listener) => {

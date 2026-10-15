@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('virtual:bundled-plugins/shared', async () => ({ default: (await import('./aRemoteEvents')).REMOTE_EVENTS, catalog: null }));
 
-const { APP_RESTART_CHANNEL, MAIN_INVOKE, RENDERER_CORE_METHODS } = await import('@shared/contract');
+const { APP_RESTART_CHANNEL, MAIN_INVOKE, PAGE_ERROR_CHANNEL, RENDERER_CORE_METHODS } = await import('@shared/contract');
 const { SETTINGS_KEYS } = await import('@shared/settings');
 const { PHONE_HOST_SETTINGS, PHONE_UNSHARED_SETTINGS } = await import('@shared/phone');
 const remote = await import('@shared/remote');
@@ -26,6 +26,7 @@ describe('remote desktop calls', () => {
 
   it('lets a remote desktop restart the server but not reach its screen or disk', () => {
     expect(remote.remoteMayCallMain(APP_RESTART_CHANNEL)).toBe(true);
+    expect(remote.remoteMayCallMain(PAGE_ERROR_CHANNEL)).toBe(true);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.storage.move)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.rules.pickFile)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.marketplace.installLocal)).toBe(true);

@@ -74,6 +74,7 @@ import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
 import { attachmentPoster, fetchImageTo, fetchVideoTo, posterKept, type PosterSource } from './media/thumbStore';
 import { PanelWindows } from './panelWindows';
+import { registerPageErrors } from './pageErrors';
 import { PhoneHub, type DiscordCalls } from './phone/hub';
 import bundledMain, { failed as failedMain } from 'virtual:bundled-plugins/main';
 import { startMainPlugins } from './plugins/bundled';
@@ -230,6 +231,11 @@ void app.whenReady().then(() => {
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
   const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
+  registerPageErrors((sender) => {
+    if (sender === win.webContents) return 'main';
+    const id = panelWindows.panelId(sender);
+    return id === undefined ? undefined : `panel:${id}`;
+  });
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);
   });

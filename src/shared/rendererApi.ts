@@ -1,5 +1,6 @@
 // The renderer's API (`window.chattypop`) and the core methods it may call; re-exported by './contract'.
 import type { PluginCallResult } from './pluginCall';
+import type { PageError } from './pageErrors';
 import type { StoredFile } from './media';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
@@ -25,6 +26,8 @@ import type { SavedBookmarkPage, SavedIndex, SavedPageRequest, SavedRemove, Save
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
+  /** Reports a bounded page error to diagnostics. */
+  reportPageError(report: PageError): void;
   core: { [M in RendererCoreMethod]: (...params: Parameters<CoreMethods[M]>) => Promise<CoreResult<M>> };
   openRouter: {
     /** Opens OpenRouter sign-in in the browser; resolves once the new key is stored (any model if no key pays for that yet). */

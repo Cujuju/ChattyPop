@@ -4,7 +4,7 @@
 import { rendererGetsEvent } from './bundledPlugins';
 import { RENDERER_CORE_METHODS } from './rendererApi';
 import { isRemoteDeviceSetting } from './remoteDevice';
-import { APP_RESTART_CHANNEL, MAIN_INVOKE, PLUGINS_OPEN_FOLDER_CHANNEL, type AppEvent } from './types/ipc';
+import { APP_RESTART_CHANNEL, MAIN_INVOKE, PAGE_ERROR_CHANNEL, PLUGINS_OPEN_FOLDER_CHANNEL, type AppEvent } from './types/ipc';
 
 /** Main calls a remote desktop answers itself (its shell or page): they never reach the server. */
 export const REMOTE_LOCAL_MAIN_CALLS: readonly string[] = [
@@ -36,6 +36,7 @@ const notCrossing = new Set([...REMOTE_LOCAL_MAIN_CALLS, ...REMOTE_REFUSED_MAIN_
 export const REMOTE_MAIN_CALLS: readonly string[] = [
   ...MAIN_GROUPS.flatMap((g) => Object.values<string>(MAIN_INVOKE[g])).filter((channel) => !notCrossing.has(channel)),
   APP_RESTART_CHANNEL,
+  PAGE_ERROR_CHANNEL,
 ];
 const mainCalls = new Set(REMOTE_MAIN_CALLS);
 /** Whether a remote desktop may make main call `channel` (REMOTE_MAIN_CALLS). */
