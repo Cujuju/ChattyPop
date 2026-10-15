@@ -2,7 +2,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_ARCHIVE_SETTINGS, type ArchiveSettings } from '@shared/settings';
 import { MS_PER_DAY } from '@shared/units';
-import type { Db } from '../src/core/db';
+import { setSetting, type Db } from '../src/core/db';
+import { DERIVE_VERSION_KEY, rederiveIfStale } from '../src/core/derive/rederive';
 import { messagePage } from '../src/core/queries/messages';
 import { TextRetentionRunner, applyTextRetention } from '../src/core/textRetention';
 import { registerTextCoverage } from '../src/core/textCoverage';
@@ -84,6 +85,25 @@ describe('text retention keeps important messages', () => {
     const covered = db.prepare("SELECT id FROM messages WHERE content = 'old covered'").pluck().get() as string;
     db.prepare("INSERT INTO jev_judgments (message_id, subject, value, model, judged_at) VALUES (?, 'notable', 0.9, 'fake', 0)").run(covered);
     expect((await applyTextRetention(db, settings({ textTier: 'summary-only' }), NOW)).pruned).toBe(1);
+  });
+});
+
+describe('summary-only messages after retention', () => {
+  const shares = () =>
+    db.prepare('SELECT m.content, l.url, l.first_message_id = m.id AS first FROM message_links ml JOIN messages m ON m.id = ml.message_id JOIN links l ON l.id = ml.link_id ORDER BY m.ts, l.url').all();
+
+  it('keep their link shares through a derivation rebuild, which re-derives the rest', async () => {
+    seedArchive(db, [{ id: CH }]).ingestMessages([rawMessage(CH, RECENT + 1, 'again https://example.com and https://example.com/b')], ARRIVAL.gateway);
+    await applyTextRetention(db, settings({ textTier: 'summary-only' }), NOW);
+    const before = shares();
+    expect(before).toEqual([
+      { content: '', url: 'https://example.com', first: 1 },
+      { content: 'again https://example.com and https://example.com/b', url: 'https://example.com', first: 0 },
+      { content: 'again https://example.com and https://example.com/b', url: 'https://example.com/b', first: 1 },
+    ]);
+    setSetting(db, DERIVE_VERSION_KEY, 0);
+    expect(rederiveIfStale(db, () => undefined)).toBe(3); // the messages with payloads
+    expect(shares()).toEqual(before);
   });
 });
 
