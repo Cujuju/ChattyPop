@@ -90,6 +90,7 @@ import { type Publication, TailnetServe, runTailscale } from './tailnet';
 import { followDepthChanges } from './sync/depthChange';
 import { Pace } from './sync/pace';
 import { SyncService } from './sync/syncService';
+import { shutdownSequence } from './shutdown';
 import { raiseWindow } from './windowState';
 
 /** In-memory session for third-party media (X images): no Discord cookies, nothing persisted. */
@@ -362,12 +363,22 @@ void app.whenReady().then(() => {
   registerMediaHandlers(media.attachments);
   registerAttachmentStoreHandlers(media.attachments, core);
 
-  app.on('window-all-closed', () => {
-    discordSession.flushStorageData();
-    shapes.flush();
+  const shutdown = shutdownSequence({
+    flush: () => {
+      discordSession.flushStorageData();
+      shapes.flush();
+    },
     // Main sides' switch-governed resources (a phone transport's server) stop; external config they made stays.
-    void mainPlugins.stop();
-    core.dispose();
-    app.quit();
+    stopPlugins: () => mainPlugins.stop(),
+    disposeCore: () => core.dispose(),
+    quit: () => app.quit(),
+    diag,
+  });
+  app.on('window-all-closed', () => void shutdown.run());
+  // A quit that skips window-all-closed (macOS Cmd+Q, an update's install) waits for the same sequence, which quits again.
+  app.on('will-quit', (e) => {
+    if (shutdown.done()) return;
+    e.preventDefault();
+    void shutdown.run();
   });
 });
