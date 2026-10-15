@@ -238,6 +238,15 @@ export type ChannelsOf<D> = D extends { channels: infer C } ? C : never;
 export const TABLE_NAME = /^[a-z0-9_]{1,40}$/;
 /** The namespace every table of `pluginId` starts with. */
 export const pluginTablePrefix = (pluginId: string): string => `p_${pluginId.replaceAll('-', '_')}_`;
+/**
+ * Whether two plugins' table names can coincide: one namespace starts with the other (foo, foo-bar), so `p_foo_bar_x` is
+ * foo's `bar_x` and foo-bar's `x`. Plugins loaded together never nest, which keeps each pair's table its own.
+ */
+export const tableNamespacesNest = (a: string, b: string): boolean =>
+  a !== b && (pluginTablePrefix(a).startsWith(pluginTablePrefix(b)) || pluginTablePrefix(b).startsWith(pluginTablePrefix(a)));
+/** Why plugin `id` can't load beside `other` (tableNamespacesNest). */
+export const nestedTablesError = (id: string, other: string): Error =>
+  new Error(`Plugin ${id}'s tables (${pluginTablePrefix(id)}…) would share names with plugin ${other}'s (${pluginTablePrefix(other)}…): one id can't be the other's followed by a dash.`);
 /** Validates a local table name and prefixes it with the plugin namespace. */
 export function pluginTableName(pluginId: string, name: string): string {
   if (!TABLE_NAME.test(name)) throw new Error(`Table name must match ${TABLE_NAME}: ${name}`);

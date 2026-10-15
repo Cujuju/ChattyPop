@@ -26,7 +26,7 @@ import { getSetting, setSetting } from '../db';
 import { createPluginApi, emptyRegistrations, type HostDeps, type Registrations } from './api';
 import { unregisterMessageQuestion } from '../jev/messageQuestions';
 import { audiencesOf, completionOf, type Audience } from '@shared/pluginChannels';
-import type { PluginDescriptor } from '@shared/bundledTypes';
+import { nestedTablesError, tableNamespacesNest, type PluginDescriptor } from '@shared/bundledTypes';
 import type { HostPlugins, TextSource } from './bundled';
 import { CompletionLedger } from './completions';
 import { createCoreContext, type CorePlugin } from './context';
@@ -416,6 +416,12 @@ export class PluginHost {
       return;
     }
     this.plugins.set(manifest.id, p);
+    const nesting = [...this.plugins.values()].find((other) => tableNamespacesNest(manifest.id, other.manifest.id));
+    if (nesting) {
+      p.status = 'error';
+      p.error = nestedTablesError(manifest.id, nesting.manifest.id).message;
+      return;
+    }
     if (disabled.has(manifest.id)) return;
     const entry = resolve(dir, manifest.main);
     if (!insideFolder(dir, manifest.main)) {

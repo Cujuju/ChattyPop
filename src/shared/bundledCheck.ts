@@ -12,7 +12,7 @@ import { isObj } from './normalize';
 import { SECTION_AUDIENCES, type AnyChannels, type CallMember, type CompletionMember } from './pluginChannels';
 import { HOST } from './ruleKinds/catalog';
 import { HOST_SLOT_ITEMS, SLOT_KINDS, SLOT_LOCAL_ID, slotId, type SlotKind } from './slots';
-import { TABLE_NAME, isDiscordHost, managedRuleKey, pluginTableName, stampedName, type PluginDescriptor } from './bundledTypes';
+import { TABLE_NAME, isDiscordHost, managedRuleKey, nestedTablesError, pluginTableName, stampedName, tableNamespacesNest, type PluginDescriptor } from './bundledTypes';
 
 /** A managed rule's local key (before `<plugin id>.`): an identifier, so the namespaced key stays unambiguous. */
 const MANAGED_RULE_KEY = /^[a-zA-Z][a-zA-Z0-9_]*$/;
@@ -250,6 +250,8 @@ export function checkBundled(list: readonly PluginDescriptor[], catalog: AnchorC
     checkArchiveRefs(p);
     if (!PLUGIN_ID_PATTERN.test(id)) throw new Error(`Bundled plugin id must match ${PLUGIN_ID_PATTERN}: ${id}`);
     once('plugin', id);
+    const nesting = list.find((other) => other !== p && tableNamespacesNest(id, other.manifest.id));
+    if (nesting) throw nestedTablesError(id, nesting.manifest.id);
     if (p.coverage) once('coverage provider', 'coverage');
     if (p.aiRuns) once('AI run provider', 'aiRuns');
     for (const token of p.search?.tokens ?? []) {
