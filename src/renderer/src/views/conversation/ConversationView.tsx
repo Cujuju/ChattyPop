@@ -15,7 +15,7 @@ export function ConversationView() {
     <FloatingWindow id="conversation" open={conversationFor() !== null} class={chrome.dialog} aria-label="Conversation" onClose={closeConversation}>
       <WindowHeader title="Conversation" classes={chrome} closeLabel="Close" onClose={closeConversation} />
       <div class={chrome.body}>
-        <Show when={conversation.error}>
+        <Show when={conversation.failure}>
           <p class="cp-error" role="alert">
             Couldn't load this conversation.
           </p>

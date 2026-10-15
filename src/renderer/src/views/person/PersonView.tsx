@@ -13,12 +13,12 @@ export function PersonView() {
     <FloatingWindow id="person" open={personId() !== null} class={chrome.dialog} aria-label="Person" onClose={closePerson}>
       <WindowHeader title="Person" classes={chrome} closeLabel="Close" onClose={closePerson} />
       <div class={`${chrome.body} ${styles.body}`}>
-        <Show when={person.error}>
+        <Show when={person.failure}>
           <p class={`cp-error ${styles.notice}`} role="alert">
             Couldn't load this person.
           </p>
         </Show>
-        <Show when={!person.loading && person() === null}>
+        <Show when={person() === null}>
           <p class={`cp-hint ${styles.notice}`}>This person isn't in the archive.</p>
         </Show>
         <Show when={person()}>

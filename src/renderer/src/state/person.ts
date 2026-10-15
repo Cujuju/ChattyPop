@@ -1,12 +1,12 @@
 // Person view: whose profile the Person window shows, that profile from core, and their Discord profile as
 // seen in the server of the channel shown when it opened.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelById } from './directory';
 import { shownChannelId } from './archive';
 import { cachedThenLive } from './cachedLive';
+import { keyedResource } from './keyedResource';
 import { onAppEvent } from './events';
 
 interface PersonTarget {
@@ -19,7 +19,8 @@ const [target, setTarget] = createSignal<PersonTarget | null>(null);
 export const personId = (): string | null => target()?.userId ?? null;
 export const personGuildId = (): string | null => target()?.guildId ?? null;
 
-export const [person, { refetch: refetchPerson }] = containedRoot(() => createResource(personId, (id) => api.core.personProfile(id)));
+/** The archive's profile of the person shown; null when the archive never saw them. */
+export const person = keyedResource(personId, (id) => api.core.personProfile(id));
 
 /** Their Discord profile: the cached copy at once, then Discord's answer; stale when Discord can't be reached. */
 export const discordProfile = cachedThenLive(
@@ -51,7 +52,7 @@ export const openPerson = (userId: string, channelId: string | null = shownChann
   // A new target object refetches their Discord profile, also for the same person.
   setTarget({ userId, guildId: guildOf(channelId) });
   // Re-opening the same person refreshes the archive part too: it may have grown since.
-  if (same) void refetchPerson();
+  if (same) person.refetch();
 };
 
 export const closePerson = (): void => {
@@ -60,5 +61,5 @@ export const closePerson = (): void => {
 
 // Privacy mode changed: hidden servers and channels leave or rejoin the profile.
 onAppEvent('privacy-changed', () => {
-  if (personId()) void refetchPerson();
+  if (personId()) person.refetch();
 });
