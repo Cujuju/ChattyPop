@@ -1,9 +1,11 @@
 // SDK initialization precedes plugins across entry orders; host slots become available after registry installation.
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PAGE_BOOTSTRAP } from '../bundledPlugins';
 import { PLUGINS_DIR, ROOT, evaluate, importsOf, pluginRenderers } from './rendererGraph';
+
+vi.mock('../src/renderer/src/ui/ViewFailure', () => ({ ViewFailure: () => null }));
 
 const SDK_DIR = join(ROOT, 'src/plugin-sdk/renderer');
 const TIERS = [join(SDK_DIR, 'index.ts'), join(SDK_DIR, 'kit/index.ts'), join(SDK_DIR, 'shell/index.ts')];
