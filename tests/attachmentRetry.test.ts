@@ -1,15 +1,17 @@
 // A failed attachment download: a transient failure is retried on a bounded backoff (also across restarts, since the
 // schedule is stored), a final answer fails at once, and a refetch carrying a new signed URL queues a failed one again.
+import { join } from 'node:path';
+import Database from 'better-sqlite3-multiple-ciphers';
 import type { Session } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiscordHttpError } from '@shared/discord';
 import type { CoreClient } from '../src/main/coreClient';
 import type { DiscordApi } from '../src/main/discord/api';
 import { AttachmentDownloader } from '../src/main/media/attachmentDownloader';
-import type { Db } from '../src/core/db';
+import { openDb, type Db } from '../src/core/db';
 import { deriveMessage } from '../src/core/derive/deriveMessage';
 import { DOWNLOAD_RETRIES_MAX, attachmentFailed, downloadRetryDelayMs, mediaQueueHandlers, nextAttachmentRetry, pendingAttachments } from '../src/core/mediaQueue';
-import { rawMessage, seedArchive, tempDb, tempDir } from './helpers';
+import { applyMigrations, migrationIndex, rawMessage, seedArchive, tempDb, tempDir } from './helpers';
 
 const TS = Date.parse('2026-01-01T00:00:00Z');
 const URL_A = 'https://cdn.example/a.png?hm=1';
@@ -96,5 +98,38 @@ describe('attachment download retries', () => {
     downloader(async () => new Response(null, { status: HTTP_NOT_FOUND }), api).kick();
     await vi.waitFor(() => expect(state()).toMatchObject({ status: 'failed', retryAt: null }));
     expect(state().error).toBe(new DiscordHttpError(`HTTP ${HTTP_NOT_FOUND}`, HTTP_NOT_FOUND).message);
+  });
+});
+
+describe('download failures stored before retries existed', () => {
+  it('go back in the queue when a retry may pass; final answers and failures since stay failed', () => {
+    const path = join(tempDir(), 'old.db');
+    const old = new Database(path);
+    // The profile as it stood once downloads counted attempts, before legacy failures were sorted.
+    applyMigrations(old, 0, migrationIndex('ADD COLUMN retry_at') + 1);
+    const add = old.prepare("INSERT INTO attachments (id, message_id, channel_id, filename, url, status, error, attempts) VALUES (?, 'm', 'c', 'a.png', 'u', 'failed', ?, ?)");
+    const rows = [
+      ['reset', 'read ECONNRESET', 0],
+      ['server', 'HTTP 503', 0],
+      ['limited', 'HTTP 429', 0],
+      ['gone', 'HTTP 404', 0],
+      ['refused', 'HTTP 403', 0],
+      ['final-since', 'HTTP 404', 1],
+      ['exhausted-since', 'fetch failed', DOWNLOAD_RETRIES_MAX + 1],
+    ] as const;
+    for (const [rowId, error, attempts] of rows) add.run(rowId, error, attempts);
+    old.close();
+    const upgraded = openDb(path);
+    const statuses = upgraded.prepare('SELECT id, status, attempts, retry_at AS retryAt FROM attachments ORDER BY id').all();
+    upgraded.close();
+    expect(statuses).toEqual([
+      { id: 'exhausted-since', status: 'failed', attempts: DOWNLOAD_RETRIES_MAX + 1, retryAt: null },
+      { id: 'final-since', status: 'failed', attempts: 1, retryAt: null },
+      { id: 'gone', status: 'failed', attempts: 0, retryAt: null },
+      { id: 'limited', status: 'pending', attempts: 0, retryAt: null },
+      { id: 'refused', status: 'failed', attempts: 0, retryAt: null },
+      { id: 'reset', status: 'pending', attempts: 0, retryAt: null },
+      { id: 'server', status: 'pending', attempts: 0, retryAt: null },
+    ]);
   });
 });

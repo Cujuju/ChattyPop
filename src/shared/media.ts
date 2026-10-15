@@ -181,3 +181,22 @@ export const thumbUrl = (proxyUrl: string): string => mediaUrl('thumb', `?u=${en
 
 /** Media at full size from the same hosts, cached as-is (GIF-style videos, full-resolution preview images). */
 export const proxiedUrl = (proxyUrl: string): string => mediaUrl('proxied', `?u=${encodeURIComponent(proxyUrl)}`);
+
+/** HTTP client-error statuses: the request itself was refused. */
+const HTTP_CLIENT_ERROR_MIN = 400;
+const HTTP_SERVER_ERROR_MIN = 500;
+/** Client errors a later download can get past: request timeout and rate limit. */
+const TRANSIENT_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
+/** A download's HTTP failure as its attachment row stores it (error text). */
+export const downloadHttpFailure = (status: number): string => `HTTP ${status}`;
+const STORED_HTTP_FAILURE = /^HTTP (\d{3})$/;
+
+/** Discord or its CDN refused or no longer has the file (`status`), so retrying can't help. Network, server and disk errors may pass. */
+export const finalDownloadStatus = (status: number): boolean =>
+  status >= HTTP_CLIENT_ERROR_MIN && status < HTTP_SERVER_ERROR_MIN && !TRANSIENT_CLIENT_STATUSES.has(status);
+
+/** Whether a stored download error is final by the same rule: only an HTTP failure (downloadHttpFailure) can be. */
+export function finalDownloadError(error: string | null): boolean {
+  const status = STORED_HTTP_FAILURE.exec(error ?? '')?.[1];
+  return status !== undefined && finalDownloadStatus(Number(status));
+}

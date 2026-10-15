@@ -1,5 +1,6 @@
 // Later archive schema migrations.
 import { declaredProviders } from '@shared/aiProviders';
+import { finalDownloadError } from '@shared/media';
 import { isObj } from '@shared/normalize';
 import { upgradeRuleSpec } from '@shared/ruleUpgrade';
 import type { Db } from './db';
@@ -220,7 +221,18 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   ALTER TABLE attachments ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE attachments ADD COLUMN retry_at INTEGER;
   `,
+  requeueLegacyDownloadFailures,
 ];
+
+/**
+ * Download failures stored before attempts were counted (attempts 0) that a retry may pass go back in the queue, once;
+ * DOWNLOAD_RETRIES_MAX bounds their retries. Failures since count attempts, so stay as they are.
+ */
+export function requeueLegacyDownloadFailures(db: Db): void {
+  const failed = db.prepare("SELECT id, error FROM attachments WHERE status = 'failed' AND attempts = 0").all() as { id: string; error: string | null }[];
+  const requeue = db.prepare("UPDATE attachments SET status = 'pending', retry_at = NULL WHERE id = ?");
+  for (const f of failed) if (!finalDownloadError(f.error)) requeue.run(f.id);
+}
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */
 export function keepDefaultProviders(db: Db, declared: readonly { id: string }[] = declaredProviders()): void {

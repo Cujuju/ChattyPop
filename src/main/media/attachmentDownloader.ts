@@ -10,7 +10,7 @@ import type { PendingAttachment } from '@shared/contract';
 import { DiscordHttpError } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
 import type { PaceTiming } from '@shared/settings';
-import { SAFE_EXT, attachmentFileName, attachmentShard, fileExt, mediaKind } from '@shared/media';
+import { SAFE_EXT, attachmentFileName, attachmentShard, downloadHttpFailure, fileExt, finalDownloadStatus, mediaKind } from '@shared/media';
 import type { CoreClient } from '../coreClient';
 import type { DiscordApi } from '../discord/api';
 import { jittered } from '../sync/pace';
@@ -18,14 +18,11 @@ import { EXPIRED_STATUSES, ensureEmoji } from './cdnCache';
 
 /** Rows claimed per pass; downloads run one at a time. */
 const BATCH_SIZE = 20;
-/** 4xx answers a later request can get past: request timeout and rate limit. */
-const TRANSIENT_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
 /** setTimeout's ceiling (a signed 32-bit ms count); a longer wait would fire at once. */
 const TIMER_MAX_MS = 2 ** 31 - 1;
 
-/** Discord or its CDN refused or no longer has the file, so retrying can't help. Network, server and disk errors may pass. */
-const isFinalFailure = (err: unknown): boolean =>
-  err instanceof DiscordHttpError && err.status >= 400 && err.status < 500 && !TRANSIENT_CLIENT_STATUSES.has(err.status);
+/** Discord or its CDN refused or no longer has the file (finalDownloadStatus); any other failure may pass. */
+const isFinalFailure = (err: unknown): boolean => err instanceof DiscordHttpError && finalDownloadStatus(err.status);
 
 /** Downloads in flight are written under this prefix and renamed into place; never part of the archive (an archive move skips them). */
 export const PARTIAL_DOWNLOAD_PREFIX = '.part-';
@@ -177,7 +174,7 @@ export class AttachmentDownloader {
       const fresh = await freshAttachmentUrl(this.api, a);
       if (fresh) res = await this.ses.fetch(fresh);
     }
-    if (!res.ok || !res.body) throw new DiscordHttpError(`HTTP ${res.status}`, res.status);
+    if (!res.ok || !res.body) throw new DiscordHttpError(downloadHttpFailure(res.status), res.status);
     return res.body;
   }
 
