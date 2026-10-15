@@ -1,4 +1,5 @@
-import { createSignal, onCleanup, type Accessor } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createSignal, type Accessor } from 'solid-js';
 import { listen } from './listen';
 import { scrolledFromBottom } from './scrollEdges';
 import { virtualScroller } from './virtualScrollers';

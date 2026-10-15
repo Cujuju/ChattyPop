@@ -1,9 +1,9 @@
 // Who is typing in the Archive's open channel, from main's 'typing' events: each typist lasts TYPING_TTL_MS past their
 // last event, and their message arriving ends them, as Discord's client does.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { containedRoot, createStore } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createMemo, on } from 'solid-js';
-import { createStore, produce } from 'solid-js/store';
+import { produce } from 'solid-js/store';
 import { compareSnowflakes } from '@shared/discord';
 import { TYPING_TTL_MS, type Typist } from '@shared/typing';
 import { archiveChannelId, archiveState } from './archive';

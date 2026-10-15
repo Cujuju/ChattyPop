@@ -17,8 +17,8 @@ function restricted(names: string[], allowed: string[]): string[] {
   return inventory.flatMap(({ file, imports }) => imports.filter((site) => names.includes(site.name) && !allowed.includes(file)).map((site) => `${file}:${site.line}: ${site.name}`));
 }
 
-it('19: only the SDK containment leaf imports createRoot and batch', () => {
-  expect(restricted(['createRoot', 'batch'], [LEAF])).toEqual([]);
+it('19: only the SDK containment leaf imports raw roots, batches, cleanups and stores', () => {
+  expect(restricted(['createRoot', 'batch', 'onCleanup', 'createStore', 'createMutable'], [LEAF])).toEqual([]);
 });
 it('20: only containment and snapshot leaves import catchError or ErrorBoundary', () => {
   expect(restricted(['catchError', 'ErrorBoundary'], [LEAF, CONTAINED, SNAPSHOT])).toEqual([]);
@@ -71,4 +71,18 @@ it('23: parameters, destructuring, lexical declarations and hoisted vars shadow 
     createMemo(() => 1); effect(() => 1); Solid.createDeferred(() => 1);
   `);
   expect(names(scan.initial)).toEqual(['createMemo', 'createEffect', 'createDeferred']);
+});
+
+it('finds raw cleanup and store aliases, namespace members and re-exports, excluding types', () => {
+  const scan = scanSolid(`
+    import { onCleanup as cleanup, type Owner } from 'solid-js';
+    import { createStore as store } from 'solid-js/store';
+    import * as Store from 'solid-js/store';
+    Store.createMutable({});
+    export { onCleanup as cleanup } from 'solid-js';
+    export { createStore as store, type Store } from 'solid-js/store';
+    export * from 'solid-js/store';
+    export type * from 'solid-js';
+  `);
+  expect(names(scan.imports)).toEqual(['onCleanup', 'createStore', 'onCleanup', 'createStore', 'createStore', 'createMutable', 'createMutable']);
 });

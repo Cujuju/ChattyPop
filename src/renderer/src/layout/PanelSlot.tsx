@@ -1,4 +1,5 @@
-import { Show, createEffect, createSignal, on, onCleanup, onMount, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createEffect, createSignal, on, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import { lookupPanel } from '@/panels/registry';
 import { panelIdentity, panelImportance } from '@/panels/titles';

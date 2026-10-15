@@ -1,7 +1,7 @@
 // Loaded archive windows and in-place refreshes after content or label changes.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { containedRoot, onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { createEffect, createSignal, type Accessor } from 'solid-js';
 import { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 import type { ArchiveMessage } from '@shared/contract';
 import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type ArchiveDensity } from '@shared/settings';

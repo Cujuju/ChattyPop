@@ -10,7 +10,9 @@ interface Scope { parent?: Scope; bindings: Map<string, Binding | null> }
 export interface SolidSite extends Binding { line: number }
 export interface SolidScan { imports: SolidSite[]; initial: SolidSite[] }
 const COMPUTATIONS = new Set(['createMemo', 'createEffect', 'createComputed', 'createRenderEffect', 'createResource', 'createReaction', 'createDeferred', 'createSelector']);
-const SOURCES = new Set(['solid-js', 'solid-js/web']);
+const SOURCES = new Set(['solid-js', 'solid-js/web', 'solid-js/store']);
+const GUARDED = ['createRoot', 'batch', 'onCleanup', 'catchError', 'ErrorBoundary'];
+const STORE_GUARDED = ['createStore', 'createMutable'];
 const FUNCTION = /^(?:FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod|ClassPrivateMethod)$/;
 const node = (v: unknown): Ast | undefined => v !== null && typeof v === 'object' && typeof (v as Ast).type === 'string' ? v as Ast : undefined;
 const child = (n: Ast, key: string): Ast | undefined => node(n[key]);
@@ -75,6 +77,19 @@ export function scanSolid(source: string): SolidScan {
   statements(list(program, 'body'), module);
   hoisted(program, module);
   for (const n of list(program, 'body')) {
+    const exportedFrom = name(child(n, 'source'));
+    if (exportedFrom && SOURCES.has(exportedFrom) && n.exportKind !== 'type') {
+      if (n.type === 'ExportNamedDeclaration') {
+        for (const specifier of list(n, 'specifiers')) {
+          const imported = name(child(specifier, 'local'));
+          if (imported && specifier.exportKind !== 'type') result.imports.push({ source: exportedFrom, name: imported, line: specifier.loc?.start.line ?? 1 });
+        }
+      }
+      if (n.type === 'ExportAllDeclaration' || list(n, 'specifiers').some((s) => s.type === 'ExportNamespaceSpecifier')) {
+        const names = exportedFrom === 'solid-js' ? GUARDED : exportedFrom === 'solid-js/store' ? STORE_GUARDED : ['render'];
+        for (const name of names) result.imports.push({ source: exportedFrom, name, line: n.loc?.start.line ?? 1 });
+      }
+    }
     if (n.type !== 'ImportDeclaration' || n.importKind === 'type') continue;
     const from = name(child(n, 'source'));
     for (const specifier of list(n, 'specifiers')) {

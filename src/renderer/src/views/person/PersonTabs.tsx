@@ -1,5 +1,6 @@
 // Person Archive summaries remain above tabs for posting locations, links and Discord mutual servers/friends.
-import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { For, Match, Show, Switch, createEffect, createSignal, on, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { PersonProfile } from '@shared/contract';
 import { HOST_PERSON_TABS } from '@shared/anchors';

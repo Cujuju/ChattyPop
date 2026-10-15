@@ -1,5 +1,6 @@
 // The shared emoji list in an anchored picker, for choosing emoji outside a message box.
-import { createUniqueId, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createUniqueId, onMount } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { loadExpressions } from '@/state/expressions';
 import { coverOf, setOverlayCover } from '@/state/windows';

@@ -1,4 +1,5 @@
-import { For, createEffect, on, onCleanup, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { For, createEffect, on, type JSX } from 'solid-js';
 import { saveWindow, savedWindows, trackWindow, untrackWindow, windowAt, windowRank, type WindowRect } from '@/state/windows';
 import { listen } from './listen';
 import { WINDOW_EDGES, resizeRect, type WindowEdge } from './windowResize';

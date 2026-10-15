@@ -1,5 +1,5 @@
+import { createStore } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createStore } from 'solid-js/store';
 import { snowflakeToMs } from '@shared/discord';
 import { PACE_TIMING, backfillCutoffMs, resolveBackfillCutoffMs, type ArchiveSettings, type ChannelBackfillHistory } from '@shared/archiveSettings';
 import { backfillFraction, estimateBackfillPages } from '@shared/backfillProgress';

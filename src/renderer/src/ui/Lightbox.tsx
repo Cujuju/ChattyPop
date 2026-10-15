@@ -1,4 +1,5 @@
-import { Show, createEffect, on, onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createEffect, on } from 'solid-js';
 import { lightbox, setLightbox } from '@/state/ui';
 import { setOverlayCover } from '@/state/windows';
 import { AnimatedImage } from './AnimatedImage';

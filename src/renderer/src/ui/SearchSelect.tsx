@@ -1,4 +1,5 @@
-import { Show, createMemo, createSignal, createUniqueId, onCleanup, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createMemo, createSignal, createUniqueId, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import { inCompanion } from '@/state/ui';
 import { look } from '@/theme/look';

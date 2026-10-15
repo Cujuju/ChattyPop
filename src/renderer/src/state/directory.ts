@@ -1,7 +1,6 @@
-import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { containedRoot, createStore } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createResource, createSignal } from 'solid-js';
-import { createStore } from 'solid-js/store';
 import type { AppEvent, DirectoryChannel, DirectoryGuild, ReadStateCount } from '@shared/contract';
 import { DM_CHANNEL_TYPES, DM_GUILD_ID, THREAD_CHANNEL_TYPES, byDmActivity, compareSnowflakes } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';

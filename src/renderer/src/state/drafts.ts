@@ -1,5 +1,5 @@
 // Per-channel text/files/entity selections persist in IndexedDB on changes and survive reloads/quits. composer.ts sends drafts.
-import { createStore } from 'solid-js/store';
+import { createStore } from '@plugin-sdk/renderer/containment';
 import { UPLOAD_BYTES_CEILING, emojiToken, mentionToken, type FileOptions, type MentionPick } from '@shared/compose';
 import type { ArchiveMessage, MentionCandidate } from '@shared/contract';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX } from '@shared/discord';

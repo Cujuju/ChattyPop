@@ -2,6 +2,8 @@ import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { buildContainment } from './containmentBuild';
 
 type Client = typeof import('solid-js') & typeof import('solid-js/store') & {
+  solidOnCleanup: typeof import('solid-js').onCleanup;
+  solidCreateStore: typeof import('solid-js/store').createStore;
   containedRoot<T>(make: () => T): T;
   ownedOrContained<T>(make: () => T): T;
   batchWrites<T>(write: () => T): T;
@@ -17,7 +19,9 @@ beforeAll(async () => {
   s = await buildContainment<Client>(`
     export * from 'solid-js';
     export * from 'solid-js/store';
-    export * from '@plugin-sdk/renderer/containment';
+    export { onCleanup as solidOnCleanup } from 'solid-js';
+    export { createStore as solidCreateStore } from 'solid-js/store';
+    export { containedRoot, ownedOrContained, batchWrites, reportFailure, onCleanup, createStore } from '@plugin-sdk/renderer/containment';
   `);
 });
 beforeEach(() => { reports.mockClear(); vi.stubGlobal('reportError', reports); });
@@ -25,7 +29,7 @@ afterEach(() => { disposers.splice(0).forEach((dispose) => dispose()); vi.unstub
 
 it('1: an uncontained memo aborts a store update and leaves its sibling stale on two more writes', () => {
   const [turn, setTurn] = s.createSignal(0);
-  const [store, setStore] = s.createStore({ value: 0 });
+  const [store, setStore] = s.solidCreateStore({ value: 0 });
   const seen: number[] = [];
   s.createRoot((dispose) => {
     disposers.push(dispose);
@@ -187,4 +191,63 @@ it('reportFailure contains throwing reporters and does not track their reactive 
   s.containedRoot(() => s.createEffect(() => { runs(); s.reportFailure(failure); }));
   setValue(1);
   expect(runs).toHaveBeenCalledTimes(1);
+});
+
+it.each(['raw', 'guarded'] as const)('%s cleanup during a re-run preserves updates only when guarded', (kind) => {
+  const cleanup = kind === 'guarded' ? s.onCleanup : s.solidOnCleanup;
+  const [turn, setTurn] = s.createSignal(0);
+  const seen: number[] = [];
+  let throwing = true;
+  s.createRoot((dispose) => {
+    disposers.push(dispose);
+    s.catchError(() => {
+      s.createEffect(() => {
+        turn();
+        cleanup(() => { if (throwing) throw failure; });
+      });
+      s.createEffect(() => { seen.push(turn()); });
+    }, reports);
+  });
+  if (kind === 'guarded') expect(() => setTurn(1)).not.toThrow();
+  else expect(() => setTurn(1)).toThrow(failure);
+  throwing = false;
+  setTurn(2);
+  setTurn(3);
+  expect(seen).toEqual(kind === 'guarded' ? [0, 1, 2, 3] : [0]);
+  expect(reports).toHaveBeenCalledTimes(kind === 'guarded' ? 1 : 0);
+});
+
+it.each(['raw', 'guarded'] as const)('%s cleanup during disposal runs remaining cleanups only when guarded', (kind) => {
+  const cleanup = kind === 'guarded' ? s.onCleanup : s.solidOnCleanup;
+  const remaining = vi.fn();
+  const throwing = (): never => { throw failure; };
+  let dispose!: () => void;
+  s.createRoot((d) => {
+    dispose = d;
+    cleanup(remaining);
+    expect(cleanup(throwing)).toBe(throwing);
+  });
+  if (kind === 'guarded') expect(dispose).not.toThrow();
+  else expect(dispose).toThrow(failure);
+  expect(remaining).toHaveBeenCalledTimes(kind === 'guarded' ? 1 : 0);
+  expect(reports).toHaveBeenCalledTimes(kind === 'guarded' ? 1 : 0);
+});
+
+it.each(['raw', 'guarded'] as const)('%s store updater flushes earlier writes before throwing only when guarded', (kind) => {
+  const createStore = kind === 'guarded' ? s.createStore : s.solidCreateStore;
+  const [store, setStore] = createStore({ value: 0 });
+  const seen: number[] = [];
+  s.createRoot((dispose) => {
+    disposers.push(dispose);
+    s.createEffect(() => { seen.push(store.value); });
+  });
+  expect(() => setStore('value', () => {
+    setStore('value', 1);
+    throw failure;
+  })).toThrow(failure);
+  expect(seen).toEqual(kind === 'guarded' ? [0, 1] : [0]);
+  setStore('value', 2);
+  setStore('value', 3);
+  expect(seen).toEqual(kind === 'guarded' ? [0, 1, 2, 3] : [0]);
+  expect(reports).not.toHaveBeenCalled();
 });

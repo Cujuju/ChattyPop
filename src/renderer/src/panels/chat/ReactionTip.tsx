@@ -1,5 +1,6 @@
 // Reaction tooltips show emoji and reactor names after pointer rests or touch holds. Long presses suppress reaction toggles.
-import { Show, createMemo, createSignal, onCleanup, onMount, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createMemo, createSignal, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import type { ArchiveMessage, ArchiveReaction, PersonMatch } from '@shared/contract';
 import { EmojiImage } from '@/ui/AnimatedImage';

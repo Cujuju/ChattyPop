@@ -1,4 +1,5 @@
-import { For, Show, createEffect, on, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { For, Show, createEffect, on, onMount } from 'solid-js';
 import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
 import { editReminder, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedMessages, savedTab, setSavedTab } from '@/state/savedMessages';
 import { postingUnlocked } from '@/state/posting';

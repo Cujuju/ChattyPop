@@ -1,9 +1,9 @@
 // Rule editing, run history and managed switches supplied by active plugins.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { containedRoot, onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import type { ContentKind } from '@shared/messageContent';
 import type { PatternPreview } from '@shared/keywordPattern';
-import { createResource, createSignal, onCleanup } from 'solid-js';
+import { createResource, createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { PersonMatch } from '@shared/contract';
 import { type Rule, type RuleInput, type RuleRun } from '@shared/rules';

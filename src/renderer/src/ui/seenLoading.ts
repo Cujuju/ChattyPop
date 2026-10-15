@@ -1,5 +1,6 @@
 // Pictures in a long scrolling list, asked for only while they can be seen: in view, with the list not flying past.
-import { onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { onMount } from 'solid-js';
 import { MS_PER_S } from '@shared/units';
 import { listen } from './listen';
 

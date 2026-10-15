@@ -1,6 +1,7 @@
 // Per-channel slash drafts retain required/added optional pills with typed text and resolved values.
+import { createStore } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createStore, produce } from 'solid-js/store';
+import { produce } from 'solid-js/store';
 import { OPTION, type CommandChoice, type CommandEntry, type CommandOption, type CommandRun } from '@shared/commands';
 import { followOutcome, interactionGuild } from './commands';
 import { typedValue, type FilledOption } from './commandOptions';

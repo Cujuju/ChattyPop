@@ -1,5 +1,6 @@
 // Native showModal confirmations size to content and close via Escape/backdrop/button. Persistent adjacent tools use FloatingWindows.
-import { createEffect, onCleanup, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createEffect, type JSX } from 'solid-js';
 import { setOverlayCover } from '@/state/windows';
 import { WindowHeader } from './FloatingWindow';
 import chrome from './WindowChrome.module.css';

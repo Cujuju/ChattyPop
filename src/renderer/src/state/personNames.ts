@@ -1,5 +1,6 @@
 // Batches name reads per place/person. Name events refresh cached values; privacy changes clear them.
-import { createStore, reconcile } from 'solid-js/store';
+import { createStore } from '@plugin-sdk/renderer/containment';
+import { reconcile } from 'solid-js/store';
 import type { PersonName } from '@shared/contract';
 import { api } from '@/api';
 import { onAppEvent } from './events';

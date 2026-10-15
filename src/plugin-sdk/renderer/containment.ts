@@ -1,6 +1,6 @@
-// Store updaters and cleanup callbacks can still abort updates when they throw.
 // An ownerless event-handler or async-continuation call creates a root that lives as long as the window.
-import { batch, catchError, createRoot, getOwner, untrack } from 'solid-js';
+import { batch, catchError, createRoot, getOwner, onCleanup as solidOnCleanup, untrack } from 'solid-js';
+import { createStore as solidCreateStore, type SetStoreFunction } from 'solid-js/store';
 
 /** Reports to the page's error handlers without throwing or tracking. */
 export function reportFailure(error: unknown): void {
@@ -73,4 +73,24 @@ export function batchWrites<T>(write: () => T): T {
   });
   if ('error' in outcome) throw outcome.error;
   return outcome.value;
+}
+
+/** Registers with the current owner; a failure is reported without interrupting the remaining cleanups. */
+export function onCleanup<T extends () => unknown>(fn: T): T {
+  solidOnCleanup(() => {
+    try {
+      fn();
+    } catch (error) {
+      reportFailure(error);
+    }
+  });
+  return fn;
+}
+
+/** Flushes an updater's earlier writes before raising its failure. */
+export function createStore<T extends object = {}>(...args: Parameters<typeof solidCreateStore<T>>): ReturnType<typeof solidCreateStore<T>> {
+  const [store, set] = solidCreateStore<T>(...args);
+  const write = set as (...args: unknown[]) => void;
+  const guarded = ((...args: unknown[]) => batchWrites(() => write(...args))) as SetStoreFunction<T>;
+  return [store, guarded];
 }

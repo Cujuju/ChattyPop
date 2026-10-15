@@ -1,5 +1,6 @@
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, onCleanup } from 'solid-js';
+import { createResource } from 'solid-js';
 import { SETTINGS_KEYS, normalizeCountedBots } from '@shared/settings';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onAppEventDebounced } from './events';

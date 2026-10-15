@@ -1,4 +1,5 @@
-import { For, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { For, onMount } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { hoverActionItems, hoverEmojiItems } from '@/plugins/slots';
 import { HOST_HOVER_ACTION_ANCHORS, type HostHoverEmojiItem } from '@/plugins/messageSlots';

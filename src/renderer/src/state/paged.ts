@@ -1,5 +1,6 @@
+import { createStore } from '@plugin-sdk/renderer/containment';
 import type { Accessor, Setter } from 'solid-js';
-import { createStore, reconcile, unwrap } from 'solid-js/store';
+import { reconcile, unwrap } from 'solid-js/store';
 
 /** Matches refetched list items by id to retain objects and For rows, preserving focus/scroll position. */
 export function keyedById<T extends { id: string | number }>(init: T[] | undefined): [Accessor<T[]>, Setter<T[] | undefined>] {

@@ -1,4 +1,5 @@
-import { Show, createEffect, createSignal, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createEffect, createSignal, onMount } from 'solid-js';
 import type { AnimationItem } from 'lottie-web';
 import { STICKER_FORMAT, type Sticker } from '@shared/compose';
 import { lottieStickerUrl, stickerArtUrl, stickerStillUrl } from '@shared/media';

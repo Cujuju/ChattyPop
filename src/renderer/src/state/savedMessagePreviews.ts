@@ -1,5 +1,6 @@
 // Saved previews read only the existing, privacy-filtered local Archive API.
-import { createMemo, createResource, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createMemo, createResource, createSignal, type Accessor } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import type { SavedTarget } from '@shared/savedMessages';
 import { api } from '@/api';

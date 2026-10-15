@@ -1,6 +1,6 @@
 // Whether the owner can look at an element: what looping media (GIFs, gifv videos, Lottie) plays by.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
-import { createEffect, createSignal, onCleanup, type Accessor } from 'solid-js';
+import { containedRoot, onCleanup } from '@plugin-sdk/renderer/containment';
+import { createEffect, createSignal, type Accessor } from 'solid-js';
 import { inCompanion } from '@/state/ui';
 import { windowCovered } from '@/state/windows';
 

@@ -1,6 +1,7 @@
 // The Archive's last-read marks: moved to the newest message the owner sees, and the "new messages since" banner.
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createSignal, on, onCleanup, untrack, type Accessor } from 'solid-js';
+import { createEffect, createSignal, on, untrack, type Accessor } from 'solid-js';
 import type { UnreadBoundary, UnreadMark } from '@shared/contract';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { compareSnowflakes } from '@shared/discord';

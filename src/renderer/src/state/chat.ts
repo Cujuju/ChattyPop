@@ -1,5 +1,6 @@
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createSignal, onCleanup, createEffect, type Accessor } from 'solid-js';
+import { createSignal, createEffect, type Accessor } from 'solid-js';
 import {
   DEFAULT_CHAT_SOURCE,
   DEFAULT_DISCORD_SIDEBAR,

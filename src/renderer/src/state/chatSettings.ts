@@ -1,7 +1,8 @@
 // The account's and this device's chat settings (shared/chatSettings.ts): the account's as main last read them from
 // Discord, this device's as stored (a phone's by its transport). Consumers read only these accessors and change functions.
+import { createStore } from '@plugin-sdk/renderer/containment';
 import { createSignal } from 'solid-js';
-import { createStore, reconcile } from 'solid-js/store';
+import { reconcile } from 'solid-js/store';
 import { api } from '@/api';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import {

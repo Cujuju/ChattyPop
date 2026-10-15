@@ -1,6 +1,7 @@
 // The hover bar's reaction group, the host's hoverEmoji item: the owner's most-used reactions, Add reaction and the
 // divider before the actions.
-import { Index, Show, createEffect, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Index, Show, createEffect, onMount } from 'solid-js';
 import type { ArchiveEmoji, ArchiveMessage } from '@shared/contract';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { prepareQuickReactions, quickReactions } from '@/state/quickReactions';

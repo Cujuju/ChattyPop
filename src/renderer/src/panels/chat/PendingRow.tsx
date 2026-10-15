@@ -1,6 +1,7 @@
 // A message on its way, at the log's end as Discord shows one: dimmed while sending, its pictures with an upload ring,
 // and "Failed to send" under it when it didn't go.
-import { For, Show, onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { For, Show } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { mediaKind } from '@shared/media';
 import { BYTES_PER_KB } from '@shared/units';

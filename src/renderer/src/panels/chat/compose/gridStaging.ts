@@ -1,5 +1,6 @@
 // Staged grids: a long list of emoji grids builds the cells its view shows first, then the rest as scrolling nears them.
-import { createSignal, onCleanup, onMount, type Accessor } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createSignal, onMount, type Accessor } from 'solid-js';
 import { tokenPx } from '@/ui/format';
 import { listen } from '@/ui/listen';
 

@@ -1,6 +1,6 @@
 // What the composer's `@` lists: the archive's answer, kept fresh by identity facts Discord already sends.
+import { createStore } from '@plugin-sdk/renderer/containment';
 import { createSignal } from 'solid-js';
-import { createStore } from 'solid-js/store';
 import type { MentionCandidate } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import { api } from '@/api';

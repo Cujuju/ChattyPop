@@ -1,5 +1,6 @@
 // The tallest of several observed boxes, for a parent keeping clear of elements that lie over its content.
-import { createSignal, onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createSignal } from 'solid-js';
 
 /** Observes document-resident border-box heights, including padding changes. Returns tallest height or zero; call inside a component. */
 export function createTallestBox(): { height: () => number; observe: (el: Element) => void } {

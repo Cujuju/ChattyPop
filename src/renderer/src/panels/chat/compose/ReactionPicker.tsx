@@ -1,4 +1,5 @@
-import { Show, createSignal, onCleanup, onMount } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createSignal, onMount } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelById } from '@/state/directory';
 import { loadExpressions } from '@/state/expressions';

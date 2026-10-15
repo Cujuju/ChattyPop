@@ -1,6 +1,7 @@
 // Host shortcuts, every one behind the leader key: press the leader, then one key (leaderRules.ts), bound per
 // shortcutBindings.ts to its declared key or the owner's override (Settings → Desktop).
-import { createSignal, onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createSignal } from 'solid-js';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { bundledShortcuts } from '@shared/bundledPlugins';
 import { createSetting } from '@plugin-sdk/renderer/settings';

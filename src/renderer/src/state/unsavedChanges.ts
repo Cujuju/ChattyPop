@@ -1,6 +1,7 @@
 // This window's unsaved edits (a rule's editor). Main holds the window's close or reload while it reports some and
 // asks here (main/unsavedChanges), so the question is the app's own dialog.
-import { createEffect, onCleanup, type Accessor } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { createEffect, type Accessor } from 'solid-js';
 import { api } from '@/api';
 import { listen } from '@/ui/listen';
 import { onAppEvent } from './events';

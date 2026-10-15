@@ -1,4 +1,5 @@
-import { Show, createEffect, onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createEffect } from 'solid-js';
 import type { PluginPanelId } from '@shared/plugins';
 import { openArchive } from '@/state/archive';
 import { isPanelCollapsed } from '@/state/layout';

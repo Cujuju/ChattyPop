@@ -1,4 +1,4 @@
-import { onCleanup } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 
 type Target = Window | Document | HTMLElement;
 type EventMap<T extends Target> = T extends Window ? WindowEventMap : T extends Document ? DocumentEventMap : HTMLElementEventMap;
