@@ -26,13 +26,11 @@ export function markSeenWhileShown(el: Element, id: () => string, view?: ViewSho
   const afterUpdate = queueMicrotask;
   const mark = (): void => {
     if (disposed || !eligible()) return;
-    runWithOwner(owner, () => {
-      if (pendingShown) {
-        pendingShown = false;
-        untrack(() => panelShown(id()));
-      }
-      if (!disposed && eligible()) track(() => markPanelSeen(id()));
-    });
+    if (pendingShown) {
+      pendingShown = false;
+      runWithOwner(owner, () => untrack(() => panelShown(id())));
+    }
+    if (!disposed && eligible()) track(() => markPanelSeen(id()));
   };
   const track = createReaction(() => afterUpdate(mark));
   createEffect(() => {

@@ -38,6 +38,7 @@ interface SeenView {
   shownWatermarks: (number | null)[];
 }
 let seenClient: { mountSeen(kind: string, nested?: boolean, watched?: boolean): SeenView };
+let onShownWritesClient: typeof seenClient;
 interface SnapshotCase {
   environment: Record<string, unknown>;
   stages: { live: boolean }[];
@@ -62,12 +63,17 @@ const open = (options: Parameters<Client['mount']>[0] = {}): View => {
 
 beforeAll(async () => {
   client = await buildContainment<Client>(VIEWS_SOURCE, { ...HEADER_STUBS, './idbStore': WRITES_STUB });
-  seenClient = await buildContainment(SEEN_VIEWS_SOURCE, {
+  const seenStubs = {
     ...HEADER_STUBS,
     './idbStore': WRITES_STUB,
     'test:seen-state': SEEN_STATE,
     './looking': `export { createOnScreen, pageVisible, windowFocused } from 'test:seen-state';`,
     '@/state/unread': `export { markPanelSeen, panelShown } from 'test:seen-state';`,
+  };
+  seenClient = await buildContainment(SEEN_VIEWS_SOURCE, seenStubs);
+  onShownWritesClient = await buildContainment(SEEN_VIEWS_SOURCE, {
+    ...seenStubs,
+    'test:seen-state': SEEN_STATE.replace('shown.push(id);', 'shown.push(id); setItems(1);'),
   });
   snapshots = await buildContainment(SNAPSHOT_SOURCE, {
     'solid-js/web': SNAPSHOT_ADAPTER,
@@ -307,6 +313,16 @@ it.each(['memo', 'render', 'effect'])('%s failure blocks the same update and lat
   view.set(3);
   await Promise.resolve();
   expect(view.marked).toEqual([0, 2, 3]);
+});
+
+it.each(['memo', 'render', 'effect'])('an onShown write that fails a %s view does not mark the new item', async (kind) => {
+  const view = onShownWritesClient.mountSeen(kind);
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  expect(view.shown).toEqual(['probe']);
+  expect(view.shows()).toBe(false);
+  expect(reports).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'View failure' }));
+  expect(view.marked).toEqual([]);
 });
 
 it('an inner failed boundary leaves the panel eligible', async () => {
