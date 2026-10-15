@@ -245,7 +245,8 @@ export interface CoreMethods {
   archivedVideos(): PendingAttachment[];
   /** Where an attachment is fetched from (a video's poster); null once it or its message left Discord. */
   attachmentSource(id: string): PendingAttachment | null;
-  attachmentStored(id: string, sha256: string, bytes: number): void;
+  /** `storedExt`: the extension of the store's one file for this content when it differs from the filename's, else null. */
+  attachmentStored(id: string, sha256: string, bytes: number, storedExt: string | null): void;
   freeAttachments(ids: string[]): FreeResult;
   attachmentRecompressed(r: ReplaceStored): { savedBytes: number };
   storedFile(id: string): StoredAttachmentFile | null;

@@ -125,6 +125,20 @@ describe('stored attachment replacements', () => {
     expect(readFileSync(f.dest)).toEqual(BODY);
   });
 
+  it('adopts content already stored under another extension instead of adding a second copy', async () => {
+    const f = fixture();
+    const held = join(dirname(f.dest), `${NEW_SHA}.png`);
+    mkdirSync(dirname(held), { recursive: true });
+    writeFileSync(held, BODY);
+    const token = await f.begin();
+    await f.store.chunk(token, 0, BODY);
+    await f.store.finish(token);
+    expect(readdirSync(dirname(held))).toEqual([`${NEW_SHA}.png`]);
+    expect(f.call).toHaveBeenLastCalledWith('attachmentRecompressed', {
+      sha256: OLD_SHA, newSha256: NEW_SHA, storedExt: 'png', bytes: BODY.length,
+    });
+  });
+
   it('drops an idle partial and permits a new writer for its hash', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const f = fixture();

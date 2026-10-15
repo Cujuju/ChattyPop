@@ -1,6 +1,6 @@
 // Download queues for attachments and custom emoji; main's downloader drains them.
 import type { CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
-import { GENERIC_CONTENT_TYPE } from '@shared/media';
+import { GENERIC_CONTENT_TYPE, SAFE_EXT } from '@shared/media';
 import { skipPrunedPending } from './attachmentRetention';
 import type { Db } from './db';
 
@@ -15,8 +15,8 @@ export const mediaQueueHandlers = (
   },
   archivedVideos: () => archivedVideos(db()),
   attachmentSource: (id) => attachmentSource(db(), id),
-  attachmentStored: (id, sha256, bytes) => {
-    attachmentStored(db(), id, sha256, bytes);
+  attachmentStored: (id, sha256, bytes, storedExt) => {
+    attachmentStored(db(), id, sha256, bytes, storedExt);
     onStored(id);
   },
   attachmentFailed: (id, error) => attachmentFailed(db(), id, error),
@@ -56,8 +56,10 @@ export function attachmentSource(db: Db, id: string): PendingAttachment | null {
   return row ?? null;
 }
 
-export function attachmentStored(db: Db, id: string, sha256: string, bytes: number): void {
-  db.prepare("UPDATE attachments SET status = 'stored', sha256 = ?, stored_ext = NULL, compressed_at = NULL, stored_bytes = ?, error = NULL WHERE id = ?").run(sha256, bytes, id);
+export function attachmentStored(db: Db, id: string, sha256: string, bytes: number, storedExt: string | null = null): void {
+  if (storedExt !== null && (typeof storedExt !== 'string' || !SAFE_EXT.test(storedExt))) throw new Error('Not a stored file extension.');
+  db.prepare("UPDATE attachments SET status = 'stored', sha256 = ?, stored_ext = ?, compressed_at = NULL, stored_bytes = ?, error = NULL WHERE id = ?")
+    .run(sha256, storedExt, bytes, id);
 }
 
 export function pendingEmojis(db: Db, limit: number): PendingEmoji[] {

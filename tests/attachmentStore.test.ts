@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3-multiple-ciphers';
 import { snowflakeFromMs } from '@shared/discord';
+import { BYTES_PER_GB } from '@shared/units';
 import { FREE_ATTACHMENTS_MAX, type ReplaceStored } from '@shared/contract';
 import { attachmentStoreHandlers } from '../src/core/attachmentStoreHandlers';
 import { freeAttachments, replaceStoredFile, storedFileOf } from '../src/core/attachmentStore';
@@ -85,6 +86,29 @@ describe('owner attachment store operations', () => {
       .toEqual({ stored_ext: 'webp', compressed_at: TS, kind: 'image', ts: TS });
     expect(enforceAttachmentCap(db, dir, 0)).toBe(NEW_BYTES);
     expect(existsSync(next)).toBe(false);
+  });
+
+  // Archives written before the store kept one file per hash may hold the same content under several extensions.
+  it('counts and removes every extension copy of shared content when enforcing the cap', () => {
+    db.prepare("UPDATE attachments SET filename = 'picture.jpg' WHERE id = ?").run(IDS[1]);
+    const jpg = put(OLD_SHA, OLD_BYTES, 'jpg');
+    expect(enforceAttachmentCap(db, dir, (OLD_BYTES + 1) / BYTES_PER_GB)).toBe(2 * OLD_BYTES);
+    expect(existsSync(storedAttachmentPath(dir, file()))).toBe(false);
+    expect(existsSync(jpg)).toBe(false);
+  });
+
+  it('removes an extension copy once no stored row names it, keeping the copies still named', () => {
+    db.prepare("UPDATE attachments SET filename = 'picture.jpg' WHERE id = ?").run(IDS[1]);
+    const jpg = put(OLD_SHA, OLD_BYTES, 'jpg');
+    expect(freeAttachments(db, dir, [IDS[0]!])).toEqual({ freed: 1, bytes: OLD_BYTES, channelIds: ['c1'] });
+    expect(existsSync(storedAttachmentPath(dir, file()))).toBe(false);
+    expect(existsSync(jpg)).toBe(true);
+  });
+
+  it('records the stored file a download shares under another extension', () => {
+    attachmentStored(db, IDS[1]!, OLD_SHA, OLD_BYTES, 'png');
+    expect(storedFileOf(db, IDS[1]!)).toMatchObject({ sha256: OLD_SHA, storedExt: 'png' });
+    expect(() => attachmentStored(db, IDS[1]!, OLD_SHA, OLD_BYTES, '../png')).toThrow(/extension/);
   });
 
   it('refuses a missing, equal-sized, larger, or unknown-size re-encode without changing rows or files', () => {

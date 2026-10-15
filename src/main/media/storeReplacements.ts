@@ -1,14 +1,13 @@
 import { createHash, randomUUID, type Hash } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { mkdir, open, rename, rm, type FileHandle } from 'node:fs/promises';
+import { mkdir, open, rm, type FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
 import { UPLOAD_CHUNK_BYTES } from '@shared/compose';
 import { snowflakeArg } from '@shared/discord';
 import { isReplacementExt, type ReplacementExt } from '@shared/attachmentReplacement';
-import { SHA256_HEX, attachmentFileName, attachmentShard } from '@shared/media';
+import { SHA256_HEX } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
 import type { MainCore } from '../coreClient';
-import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX, publishStored } from './attachmentDownloader';
 
 /** Inactive senders release their partial file and hash reservation after ten minutes. */
 export const REPLACEMENT_IDLE_MS = 10 * MS_PER_MIN;
@@ -111,16 +110,11 @@ export class StoreReplacements {
   private async publish(r: Replacement): Promise<{ savedBytes: number }> {
     await r.file.close();
     const newSha256 = r.hash.digest('hex');
-    const shard = join(this.dir, attachmentShard(newSha256));
-    const dest = join(shard, attachmentFileName({ sha256: newSha256, filename: '', storedExt: r.ext }));
-    await mkdir(shard, { recursive: true });
-    const existed = existsSync(dest);
-    if (existed) await rm(r.partial);
-    else await rename(r.partial, dest);
+    const { ext, path, existed } = await publishStored(this.dir, r.partial, newSha256, r.ext);
     try {
-      return await this.core.call('attachmentRecompressed', { sha256: r.sha256, newSha256, storedExt: r.ext, bytes: r.bytes });
+      return await this.core.call('attachmentRecompressed', { sha256: r.sha256, newSha256, storedExt: ext, bytes: r.bytes });
     } catch (err) {
-      if (!existed) await rm(dest, { force: true });
+      if (!existed) await rm(path, { force: true });
       throw err;
     }
   }

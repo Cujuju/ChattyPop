@@ -145,7 +145,8 @@ describe('the downloader keeps a still for each video it archives', () => {
         return [];
       },
     } as unknown as CoreClient;
-    const ses = { fetch: async () => new Response(new TextEncoder().encode('file')) } as unknown as Session;
+    // Distinct bytes per attachment: identical ones share one stored file.
+    const ses = { fetch: async (url: string) => new Response(new TextEncoder().encode(url)) } as unknown as Session;
     const posters = {
       kept: (id: string) => already.includes(id) || kept.includes(id),
       keep: async (a: PendingAttachment) => {

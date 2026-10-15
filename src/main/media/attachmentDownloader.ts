@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createWriteStream, existsSync } from 'node:fs';
-import { mkdir, rename, rm } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir, readdir, rename, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -9,7 +9,7 @@ import { sleep } from '@shared/async';
 import type { PendingAttachment } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import type { PaceTiming } from '@shared/settings';
-import { attachmentFileName, attachmentShard, mediaKind } from '@shared/media';
+import { SAFE_EXT, attachmentFileName, attachmentShard, fileExt, mediaKind } from '@shared/media';
 import type { CoreClient } from '../coreClient';
 import type { DiscordApi } from '../discord/api';
 import { jittered } from '../sync/pace';
@@ -120,8 +120,8 @@ export class AttachmentDownloader {
   private async downloadOne(a: PendingAttachment): Promise<void> {
     try {
       const body = await this.fetchBody(a);
-      const { sha, bytes, name } = await this.store(body, a.filename);
-      await this.core.call('attachmentStored', a.id, sha, bytes);
+      const { sha, bytes, storedExt, name } = await this.store(body, a.filename);
+      await this.core.call('attachmentStored', a.id, sha, bytes, storedExt);
       await this.keepThumb(name);
     } catch (err) {
       await this.core.call('attachmentFailed', a.id, errorMessage(err));
@@ -163,7 +163,7 @@ export class AttachmentDownloader {
   }
 
   /** Streams to a temp file while hashing, then moves it to its content address (dedupes identical files). The temp file never outlives the call. */
-  private async store(body: ReadableStream<Uint8Array>, filename: string): Promise<{ sha: string; bytes: number; name: string }> {
+  private async store(body: ReadableStream<Uint8Array>, filename: string): Promise<{ sha: string; bytes: number; storedExt: string | null; name: string }> {
     await mkdir(this.dir, { recursive: true });
     const tmp = join(this.dir, `${PARTIAL_DOWNLOAD_PREFIX}${randomUUID()}`);
     try {
@@ -176,16 +176,31 @@ export class AttachmentDownloader {
       });
       await pipeline(source, createWriteStream(tmp));
       const sha = hash.digest('hex');
-      const shardDir = join(this.dir, attachmentShard(sha));
-      const name = attachmentFileName({ sha256: sha, filename, storedExt: null });
-      const dest = join(shardDir, name);
-      await mkdir(shardDir, { recursive: true });
-      if (!existsSync(dest)) await rename(tmp, dest);
-      return { sha, bytes, name };
+      const { ext } = await publishStored(this.dir, tmp, sha, fileExt(filename));
+      const storedExt = ext === fileExt(filename) ? null : ext;
+      return { sha, bytes, storedExt, name: attachmentFileName({ sha256: sha, filename, storedExt }) };
     } finally {
       await rm(tmp, { force: true });
     }
   }
+}
+
+/**
+ * Moves a hashed partial into the store, which keeps one file per content hash: content already stored under any
+ * extension is kept and the partial dropped. Returns the stored file's extension and path, and whether it existed.
+ */
+export async function publishStored(dir: string, partial: string, sha256: string, ext: string): Promise<{ ext: string; path: string; existed: boolean }> {
+  const shard = join(dir, attachmentShard(sha256));
+  await mkdir(shard, { recursive: true });
+  const prefix = `${sha256}.`;
+  const held = (await readdir(shard)).find((name) => name.startsWith(prefix) && SAFE_EXT.test(name.slice(prefix.length)));
+  if (held) {
+    await rm(partial, { force: true });
+    return { ext: held.slice(prefix.length), path: join(shard, held), existed: true };
+  }
+  const path = join(shard, attachmentFileName({ sha256, filename: '', storedExt: ext }));
+  await rename(partial, path);
+  return { ext, path, existed: false };
 }
 
 /** A fresh signed CDN URL for an attachment whose stored one expired, read from its message; undefined once it's gone. */

@@ -1,12 +1,12 @@
 import { statSync } from 'node:fs';
-import { SHA256_HEX, SAFE_EXT } from '@shared/media';
+import { SHA256_HEX, SAFE_EXT, attachmentFileName, type StoredFile } from '@shared/media';
 import type { FreeResult, ReplaceStored, StoredAttachmentFile } from '@shared/types/attachmentStore';
 import { removeStoredFiles, storedAttachmentPath } from './attachmentRetention';
 import type { Db } from './db';
 
 export type { FreeResult, ReplaceStored } from '@shared/types/attachmentStore';
 
-/** Marks stored attachments evicted, then removes files without stored references. Unknown or unstored ids are skipped. */
+/** Marks stored attachments evicted, then removes their content's files no stored row names. Unknown or unstored ids are skipped. */
 export function freeAttachments(db: Db, attachmentsDir: string, ids: readonly string[]): FreeResult & { channelIds: string[] } {
   const rows = db.transaction(() => {
     const stored = db.prepare(`SELECT id, sha256, channel_id AS channelId FROM attachments
@@ -16,10 +16,11 @@ export function freeAttachments(db: Db, attachmentsDir: string, ids: readonly st
     for (const row of stored) evict.run(row.id);
     return stored;
   })();
-  const referenced = db.prepare("SELECT 1 FROM attachments WHERE sha256 = ? AND status = 'stored' LIMIT 1");
+  const stillStored = db.prepare("SELECT sha256, filename, stored_ext AS storedExt FROM attachments WHERE sha256 = ? AND status = 'stored'");
   let bytes = 0;
   for (const sha of new Set(rows.map((row) => row.sha256))) {
-    if (!referenced.get(sha)) bytes += removeStoredFiles(attachmentsDir, sha);
+    const named = new Set((stillStored.all(sha) as StoredFile[]).map(attachmentFileName));
+    bytes += removeStoredFiles(attachmentsDir, sha, named);
   }
   return { freed: rows.length, bytes, channelIds: [...new Set(rows.map((row) => row.channelId))] };
 }

@@ -1,10 +1,12 @@
 // The attachment downloader's store: a download that fails leaves nothing behind, and partial files a crashed run
 // left are removed at the next start, before anything writes.
+import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Session } from 'electron';
 import { describe, expect, it } from 'vitest';
 import type { PendingAttachment } from '@shared/contract';
+import { attachmentShard } from '@shared/media';
 import type { CoreClient } from '../src/main/coreClient';
 import type { DiscordApi } from '../src/main/discord/api';
 import { AttachmentDownloader, PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentDownloader';
@@ -53,6 +55,18 @@ describe('attachment store downloads', () => {
     await d.done;
     expect(d.calls.find(([method]) => method === 'attachmentFailed')).toBeTruthy();
     expect(partials(d.dir)).toEqual([]);
+  });
+
+  it('keeps one file per content hash, recording the extension it is stored under', async () => {
+    const d = download([pending('a1', 'same.png'), pending('a2', 'same.jpg'), pending('a3', 'same.PNG')], () => new Response('same bytes'));
+    await d.done;
+    const sha = createHash('sha256').update('same bytes').digest('hex');
+    expect(readdirSync(join(d.dir, attachmentShard(sha)))).toEqual([`${sha}.png`]);
+    expect(d.calls.filter(([method]) => method === 'attachmentStored')).toEqual([
+      ['attachmentStored', 'a1', sha, 'same bytes'.length, null],
+      ['attachmentStored', 'a2', sha, 'same bytes'.length, 'png'],
+      ['attachmentStored', 'a3', sha, 'same bytes'.length, null],
+    ]);
   });
 
   it('removes partial files a crashed run left in the store and previews, keeping everything else', () => {
