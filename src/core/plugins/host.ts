@@ -33,7 +33,7 @@ import { CompletionLedger } from './completions';
 import { createCoreContext, type CorePlugin } from './context';
 import { assertRegistered } from './registrationCheck';
 import { ActivationContinuity } from './continuity';
-import { claimTables } from './tableOwners';
+import { reservePluginId } from './tableOwners';
 
 /** Ids of plugins the user turned off (Settings → Plugins). */
 export const PLUGINS_DISABLED_KEY = 'plugins.disabled';
@@ -140,6 +140,11 @@ export class PluginHost {
     this.bundled = descriptors.map((plugin) => ({ plugin, core: byId.get(plugin.manifest.id) ?? null }));
     const unlisted = core.filter((c) => !descriptors.some((d) => d.manifest.id === c.plugin.manifest.id));
     if (unlisted.length) throw new Error(`Core entries without a bundled descriptor: ${unlisted.map((c) => c.plugin.manifest.id).join(', ')}`);
+    // checkBundled and acceptInstalled keep nesting ids out of a build's descriptors; a host given them otherwise refuses.
+    for (const d of descriptors) {
+      const nesting = descriptors.find((other) => tableNamespacesNest(d.manifest.id, other.manifest.id));
+      if (nesting) throw nestedTablesError(d.manifest.id, nesting.manifest.id);
+    }
     this.continuity = new ActivationContinuity(() => deps.db);
     deps.bundled?.providers.bindPlugins((id) => this.state(id));
     deps.bundled?.rules.bindPlugins((id) => this.state(id));
@@ -398,7 +403,7 @@ export class PluginHost {
     try {
       const { bundled } = this.deps;
       if (!bundled) throw new Error('This core provides no bundled-plugin host.');
-      claimTables(bundled.ready(), manifest.id);
+      reservePluginId(bundled.ready(), manifest.id);
       const guard = (fn: () => unknown): void => this.guard(p, fn);
       const plugins: HostPlugins = { self: () => this.self, textPending: (id) => this.textPending(id), textSettled: (id) => this.textSettled(id), resumed };
       const ctx = createCoreContext(core.plugin, this.bundled.indexOf(entry), { ...this.deps, bundled }, p.reg, plugins, guard, this.ledger(manifest.id));
@@ -450,7 +455,7 @@ export class PluginHost {
       return;
     }
     try {
-      claimTables(this.deps.db, manifest.id);
+      reservePluginId(this.deps.db, manifest.id);
     } catch (err) {
       p.status = 'error';
       p.error = errorMessage(err);

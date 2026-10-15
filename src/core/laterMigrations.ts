@@ -225,6 +225,7 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   requeueLegacyDownloadFailures,
   pluginTableOwners,
   pluginNamespaces,
+  reserveTableOwners,
 ];
 
 /**
@@ -241,6 +242,11 @@ export function requeueLegacyDownloadFailures(db: Db): void {
 export function pluginTableOwners(db: Db): void {
   db.exec('CREATE TABLE plugin_tables (name TEXT PRIMARY KEY, plugin_id TEXT NOT NULL) WITHOUT ROWID');
   recordDerivableOwners(db);
+}
+
+/** Reserves each recorded table owner's id (plugins/tableOwners.ts): an id holding data, which plugin_tables no longer guards. */
+export function reserveTableOwners(db: Db): void {
+  db.exec('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) SELECT DISTINCT plugin_id FROM plugin_tables');
 }
 
 /** The plugins that ran (plugins/tableOwners.ts), seeded with those whose data the archive holds. */

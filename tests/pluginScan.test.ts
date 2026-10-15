@@ -2,7 +2,7 @@
 import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { PluginDescriptor } from '@shared/bundledTypes';
+import { nestedTablesError, type PluginDescriptor } from '@shared/bundledTypes';
 import { scanPlugin, scanWarnings } from '../scripts/pluginScan';
 import { REPO_ALL_READERS } from '../scripts/pluginScan/allReaders';
 import { tempDir } from './helpers';
@@ -196,6 +196,13 @@ describe("plugin:check's scan", () => {
       'core/schema.ts:6: host or unknown table: users',
       'core/schema.ts:7: host or unknown table: roles',
     ]);
+  });
+
+  it("names a plugin beside it whose id nests with its own: one profile can't hold both", () => {
+    const plugins = join(tempDir(), 'plugins');
+    for (const id of ['foo', 'foo-bar', 'foobar']) cpSync(CHECK_FIXTURE, join(plugins, id), { recursive: true });
+    expect(scanPlugin({ pluginDir: join(plugins, 'foo'), isPhoneTransport: false })).toEqual([`shared/index.ts: ${nestedTablesError('foo', 'foo-bar').message}`]);
+    expect(scanPlugin({ pluginDir: join(plugins, 'foobar'), isPhoneTransport: false })).toEqual([]);
   });
 
   it("adds a plugin repo's own all-data grants, beside its plugins folder, to the host's", () => {

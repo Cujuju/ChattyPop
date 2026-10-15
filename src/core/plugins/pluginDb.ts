@@ -2,7 +2,6 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
-import { recordTables } from './tableOwners';
 
 type RawStatement = Database.Statement<unknown[], unknown>;
 
@@ -56,12 +55,9 @@ const CONNECTION_STATEMENT = new RegExp(
   'i',
 );
 
-/** A statement that can make a table: CREATE, or ALTER (RENAME TO). EXPLAIN runs neither. */
-const SCHEMA_STATEMENT = new RegExp(String.raw`^${TRIVIA}(?:create|alter)\b`, 'i');
-
 /**
  * `db` (read at each use: the archive can move) for plugin `pluginId`: statements that write throw PluginInactiveError
- * once `writable` is false. A table a statement makes is recorded as the plugin's (tableOwners.ts) as it runs.
+ * once `writable` is false.
  */
 export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string): PluginDb {
   const fence = (): void => {
@@ -73,8 +69,7 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
     },
     prepare: (source) => {
       if (CONNECTION_STATEMENT.test(source)) throw new Error(`${pluginId} may not run statements that change the shared connection`);
-      const record = SCHEMA_STATEMENT.test(source) ? (): void => recordTables(db(), pluginId) : undefined;
-      return fencedStatement(db().prepare(source), fence, record) as never;
+      return fencedStatement(db().prepare(source), fence) as never;
     },
     transaction: (fn) => {
       type Args = TransactionArgs<typeof fn>;
@@ -109,8 +104,8 @@ function fencedIterator<R>(it: IterableIterator<R>, check: () => void): Iterable
   return fenced;
 }
 
-/** Fences writing statement runs; `ran` follows each run. Modifiers return wrappers and retain better-sqlite3’s bare-call behavior. */
-function fencedStatement(stmt: RawStatement, fence: () => void, ran: () => void = () => undefined): PluginStatement {
+/** Fences writing statement runs. Modifiers return wrappers and retain better-sqlite3’s bare-call behavior. */
+function fencedStatement(stmt: RawStatement, fence: () => void): PluginStatement {
   const check = stmt.readonly ? (): void => undefined : fence;
   const wrapper: PluginStatement = {
     source: stmt.source,
@@ -118,9 +113,7 @@ function fencedStatement(stmt: RawStatement, fence: () => void, ran: () => void 
     readonly: stmt.readonly,
     run: (...params) => {
       check();
-      const result = stmt.run(...params);
-      ran();
-      return result;
+      return stmt.run(...params);
     },
     get: (...params) => {
       check();

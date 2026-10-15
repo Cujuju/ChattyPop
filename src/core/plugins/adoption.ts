@@ -4,7 +4,7 @@ import { managedRuleKey, pluginSettingKey, pluginTableName, stampedName, type Pl
 import { SETTINGS_KEYS } from '@shared/settings';
 import { getSetting, setSetting, type Db } from '../db';
 import { isObj } from '@shared/normalize';
-import { recordTable } from './tableOwners';
+import { reserveDataHolder } from './tableOwners';
 
 /** Moves old Jev switches to stamped keys. Old values override defaults already written under the new keys. */
 function adoptJevFeatures(db: Db, pluginId: string, aliases: Readonly<Record<string, string>>): void {
@@ -32,7 +32,7 @@ export function adoptBundledData(db: Db, plugins: readonly PluginDescriptor[]): 
         // Names are checked by checkBundled (TABLE_NAME), so they are safe to splice. Indexes and triggers follow.
         if (tableExists(db, old) && !tableExists(db, table)) {
           db.exec(`ALTER TABLE ${old} RENAME TO ${table}`);
-          recordTable(db, table, id);
+          reserveDataHolder(db, id);
         }
       }
       for (const [old, type] of Object.entries(p.adopts?.actionKinds ?? {})) {

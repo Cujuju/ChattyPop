@@ -16,7 +16,7 @@ plugins/
 `plugin.json`:
 | Field | |
 |---|---|
-| `id` | Lowercase letters, digits and dashes, 2–40 characters. It names the plugin's tables and settings, so it can't be another plugin's id followed by a dash (`foo` beside `foo-bar`): their table names could coincide. Nor can it be while the profile keeps such a plugin's tables after its removal. |
+| `id` | Lowercase letters, digits and dashes, 2–40 characters. It names the plugin's tables and settings, so it can't be another plugin's id followed by a dash (`foo` beside `foo-bar`): their table names could coincide. Nor can it run in a profile where such a plugin ever ran: the profile keeps that plugin's data. |
 | `version` | The plugin's own version. |
 | `apiVersion` | The plugin API it targets (currently `2.0.0`). The plugin loads when the major version matches and its minor isn't newer than the host's. A plugin written for API 1 is refused, and Settings → Plugins says what API 2 changed. |
 | `main` | The ES module inside the folder that exports `activate(api)`. |
