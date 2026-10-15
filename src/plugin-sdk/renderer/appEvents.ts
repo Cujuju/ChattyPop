@@ -2,7 +2,7 @@
 // plugins and host stores (state/events.ts re-exports it) share a single hub over the @/api leaf.
 import { api } from '@/api';
 import type { AppEvent } from '@shared/contract';
-import { runIsolated } from '@shared/errors';
+import { runIsolated } from '@shared/fanOut';
 import { reportFailure } from './containment';
 
 type EventOf<T extends AppEvent['type']> = Extract<AppEvent, { type: T }>;

@@ -2,7 +2,7 @@
 // through its core client, normalized as core does; undeclared names throw.
 import { pluginSettingKey, type PluginDescriptor } from '@shared/bundledTypes';
 import { preferenceOf, readPreference, type MainPreferences, type PreferenceNames, type PreferenceValue } from '@shared/preferences';
-import { runIsolated } from '@shared/errors';
+import { runIsolated } from '@shared/fanOut';
 import type { MainCore } from '../coreClient';
 
 /**
