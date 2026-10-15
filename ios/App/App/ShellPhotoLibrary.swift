@@ -63,8 +63,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     /// The library's photos and videos, newest first, fetched once until it changes. Measured on an iPhone 17 Pro Max with about
     /// 87,000 items: the first fetch takes about 1.7 s while the app is still launching and about 150–190 ms once settled, which
     /// the sheet's first page would wait for; warmed in the background, that page takes about 4 ms.
-    private let fetchLock = NSLock()
-    private var fetched: PHFetchResult<PHAsset>?
+    private let fetched = ShellFetchCache<PHFetchResult<PHAsset>>()
     /// Serial: a page asked for while the library is being warmed waits for that fetch instead of starting another.
     private let fetchQueue = DispatchQueue(label: "com.cujuju.chattypop.photo-fetch", qos: .userInitiated)
 
@@ -193,7 +192,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     }
 
     func photoLibraryDidChange(_ changeInstance: PHChange) {
-        fetchLock.withLock { fetched = nil }
+        fetched.invalidate()
         // A photo just taken or saved shouldn't make the next open pay for the fetch.
         warm()
         thumbnails.reset()
@@ -202,17 +201,16 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     /// The library's photos and videos, newest first: the warmed fetch, else fetched now. Only on `fetchQueue`.
     private func all() -> PHFetchResult<PHAsset> {
-        if let cached = fetchLock.withLock({ fetched }) { return cached }
-        let signpost = ShellThumbnails.signposter.beginInterval("fetch", id: ShellThumbnails.signposter.makeSignpostID())
-        defer { ShellThumbnails.signposter.endInterval("fetch", signpost) }
-        // Fetched outside the lock: PhotoKit may call photoLibraryDidChange, which takes it, on this thread.
-        let options = PHFetchOptions()
-        options.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d", PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        let result = PHAsset.fetchAssets(with: options)
-        // Uncached until observed: without the observer nothing would clear it.
-        if observing { fetchLock.withLock { fetched = result } }
-        return result
+        // Kept only while observed: without the observer nothing would clear it. PhotoKit may call photoLibraryDidChange on
+        // this thread during the fetch.
+        fetched.read(keep: observing) {
+            let signpost = ShellThumbnails.signposter.beginInterval("fetch", id: ShellThumbnails.signposter.makeSignpostID())
+            defer { ShellThumbnails.signposter.endInterval("fetch", signpost) }
+            let options = PHFetchOptions()
+            options.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d", PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            return PHAsset.fetchAssets(with: options)
+        }
     }
 
     private func recent(offset: Int, limit: Int) -> [String: Any] {
