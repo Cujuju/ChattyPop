@@ -201,9 +201,10 @@
     scale var(--cp-duration-fast) var(--cp-ease-out);
 }
 
-/* data-zoom: enlarged while its cell is under the pointer, its shadow hugging the picture over the neighbours. */
+/* data-zoom: enlarged while its cell is under the pointer (by --zoom, the component's, else the theme's), its shadow
+   hugging the picture over the neighbours. */
 :hover > .mediaThumb[data-zoom] {
-  scale: var(--cp-media-hover-zoom);
+  scale: var(--zoom, var(--cp-media-hover-zoom));
   filter: drop-shadow(var(--cp-shadow-popover));
 }
 
@@ -220,10 +221,15 @@
 }
 
 /* A video's length over its picture, on a pill that reads over any picture. */
+/* A label over a picture (a video's length, a file's size): light text on a faint frosted veil, shadowed so it reads
+   over any picture without a slab covering it. */
 .durationBadge {
   border-radius: var(--cp-radius-pill);
-  background: var(--cp-spoiler-pill-bg);
-  color: var(--cp-text-1);
+  background: var(--cp-media-label-veil);
+  -webkit-backdrop-filter: blur(var(--cp-media-label-blur)); /* iOS before 18 knows only the prefixed name */
+  backdrop-filter: blur(var(--cp-media-label-blur));
+  color: var(--cp-media-label-text);
+  text-shadow: var(--cp-media-label-shadow);
   font-size: var(--cp-text-xs);
   font-variant-numeric: tabular-nums;
   line-height: var(--cp-leading-none);

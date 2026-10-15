@@ -231,6 +231,11 @@
   --cp-spoiler-veil: color-mix(in srgb, var(--cp-ground) 30%, transparent);
   --cp-spoiler-pill-bg: color-mix(in srgb, var(--cp-ground) 75%, transparent); /* text-1 reads on it over any media */
   --cp-spoiler-pill-bg-hover: color-mix(in srgb, var(--cp-ground) 90%, transparent);
+  /* A label over media (look.durationBadge): light text, whatever the theme, since pictures don't follow it. */
+  --cp-media-label-text: #fff;
+  --cp-media-label-shadow: 0 1px 2px rgb(0 0 0 / 80%); /* keeps the text readable over a light picture */
+  --cp-media-label-veil: rgb(0 0 0 / 18%); /* a faint tint: the blur does most of the work */
+  --cp-media-label-blur: 4px; /* softens the picture behind the text; still reads as the picture, not a slab */
 
   /* UI uses Segoe UI/Variable where available; mono is code-only. Segoe UI lacks 500 weight, so Windows renders medium as regular. */
   --cp-font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
