@@ -1,6 +1,7 @@
 // Plugin ids a profile reserves. A table name doesn't say where the id ends (p_foo_bar_items is foo's bar_items or
 // foo-bar's items), and a removed plugin's tables stay, so every id that ran is kept, and no id nesting with one runs.
 // plugin_tables (each table's owner) is no longer read: shipped migrations still seed it, and seed ids from it.
+// Unreserved: tables a plugin removed before ids were recorded left, with no stored preference naming it (#237).
 import { pluginTablePrefix, tableNamespacesNest } from '@shared/bundledTypes';
 import { tableIds } from '@shared/pluginRestore';
 import type { Db } from '../db';
@@ -29,10 +30,12 @@ export function reservePluginId(db: Db, id: string): void {
   })();
 }
 
-/** Reserves `id`, which holds data now (an adopted table), unless a nesting id holds it first: that one keeps running. */
-export function reserveDataHolder(db: Db, id: string): void {
+/** Reserves `id` before data moves into its namespace (an adopted table); false, reserving nothing, while a nesting id ran. */
+export function reserveForData(db: Db, id: string): boolean {
   const ran = db.prepare('SELECT plugin_id FROM plugin_namespaces').pluck().all() as string[];
-  if (!ran.some((ranId) => tableNamespacesNest(id, ranId))) db.prepare('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) VALUES (?)').run(id);
+  if (ran.some((ranId) => tableNamespacesNest(id, ranId))) return false;
+  db.prepare('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) VALUES (?)').run(id);
+  return true;
 }
 
 // Seeds for the shipped migrations (pluginTableOwners, pluginNamespaces); nothing else calls them.

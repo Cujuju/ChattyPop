@@ -11,6 +11,7 @@ import { pluginTableName, tableNamespacesNest } from '@shared/bundledTypes';
 import { acceptInstalled } from '@shared/installedCheck';
 import { PLUGIN_API_VERSION } from '@shared/plugins';
 import type { Db } from '../src/core/db';
+import { adoptBundledData } from '../src/core/plugins/adoption';
 import { PluginHost } from '../src/core/plugins/host';
 import { reserveTableOwners } from '../src/core/laterMigrations';
 import { tempDb, tempDir } from './helpers';
@@ -156,6 +157,22 @@ describe('plugin ids that ran', () => {
     expect(db.prepare(`SELECT 1 FROM sqlite_master WHERE name = '${SHARED}'`).get()).toBeUndefined();
     db.exec('DROP TRIGGER no_ids');
     expect(await start(dir, db)).toEqual([['foo-bar', 'active', null]]);
+  });
+
+  it('adopt a legacy table only into an id that may run: while a nesting id ran, it stays where it was', () => {
+    const db = tempDb();
+    db.exec("CREATE TABLE legacy_rows (v TEXT); INSERT INTO legacy_rows VALUES ('kept')");
+    const ids = (): unknown[] => db.prepare('SELECT plugin_id FROM plugin_namespaces').pluck().all();
+    const fooBar = { ...plugin('foo-bar'), adopts: { tables: { legacy_rows: 'items' } } };
+    db.prepare('INSERT INTO plugin_namespaces (plugin_id) VALUES (?)').run('foo');
+    adoptBundledData(db, [fooBar]);
+    expect(rows(db, 'legacy_rows')).toEqual(['kept']);
+    expect(db.prepare(`SELECT 1 FROM sqlite_master WHERE name = '${SHARED}'`).get()).toBeUndefined();
+    expect(ids()).toEqual(['foo']);
+    db.exec('DELETE FROM plugin_namespaces');
+    adoptBundledData(db, [fooBar]);
+    expect(rows(db)).toEqual(['kept']);
+    expect(ids()).toEqual(['foo-bar']);
   });
 
   it('are seeded with the owners of the tables recorded before ids were', () => {
