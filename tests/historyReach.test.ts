@@ -7,8 +7,16 @@ const THREAD = '300000000000000001';
 const SHALLOW = 1000;
 const DEEP = 500;
 
-/** Whether `p` has settled, without waiting for it. */
-const settled = async (p: Promise<unknown>): Promise<boolean> => Promise.race([p.then(() => true), Promise.resolve(false)]);
+/**
+ * Whether `p` has settled, without waiting for it: settlement is recorded, then a macrotask barrier lets every queued promise
+ * reaction run first. (Racing `p` against a resolved promise always answers false.)
+ */
+async function settled(p: Promise<unknown>): Promise<boolean> {
+  let done = false;
+  p.then(() => (done = true), () => (done = true));
+  await new Promise((resolve) => setImmediate(resolve));
+  return done;
+}
 
 describe('overlapping history waits', () => {
   it("answers a thread asked for after its parent's wait included it with its own channel", async () => {
