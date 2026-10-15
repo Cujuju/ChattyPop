@@ -9,7 +9,16 @@ export function whenWritten() { return waiting; }
 
 export const HEADER_STUBS = {
   '@/layout/panelMenu': `export const movable = () => true, panelDragProps = () => ({}), panelMenu = () => [];`,
-  '@/state/layout': `export const isPanelCollapsed = () => false, isPlaced = () => true, setPanelCollapsed = () => {};`,
+  '@/state/layout': `
+    import { createSignal } from 'solid-js';
+    const [collapsed, setCollapsed] = createSignal(new Set());
+    export const isPanelCollapsed = id => collapsed().has(id), isPlaced = () => true;
+    export const setPanelCollapsed = (id, value) => setCollapsed(before => {
+      const next = new Set(before);
+      if (value) next.add(id); else next.delete(id);
+      return next;
+    });
+  `,
   '@/state/ui': `export const outsideLayout = false, openContextMenu = () => {};`,
   '@shared/bundledPlugins': `export const bundledPanel = () => undefined;`,
 };

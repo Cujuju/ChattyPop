@@ -1,4 +1,5 @@
 import { Show, onMount, type ComponentProps, type JSX } from 'solid-js';
+import { isPanelCollapsed } from '@/state/layout';
 import { PanelHeader } from './PanelHeader';
 import { Icon } from './icons';
 import styles from './ViewFailure.module.css';
@@ -34,6 +35,9 @@ export function ViewFailure(props: { name: string; shows: ViewFailureShown; erro
       <button type="button" class="cp-primary" onClick={press}>Reload</button>
     </div>
   );
-  if (typeof props.shows === 'object') return <section ref={(el) => element = el} class={styles.panel}><PanelHeader {...props.shows.header} title={props.name} collapsible />{body()}</section>;
+  if (typeof props.shows === 'object') return <section ref={(el) => element = el} class={styles.panel}>
+    <PanelHeader {...props.shows.header} title={props.name} collapsible />
+    <Show when={typeof props.shows === 'object' && !isPanelCollapsed(props.shows.header.panelId ?? props.shows.header.section)}>{body()}</Show>
+  </section>;
   return body();
 }

@@ -188,6 +188,20 @@ it('panel failures keep the real section header and individual panel id', () => 
   expect(text(alerts(panel)[0]!)).toBe('Probe view stopped working.Probe failureTry again');
 });
 
+it.each([{ section: 'chat' }, { section: 'plugin', panelId: 'plugin:probe:panel' }])('a failed panel folds and unfolds its body using %j', (header) => {
+  const view = open({ shows: { header } });
+  view.set(1);
+  const toggle = (): TestNode => buttons(view).find((button) => 'aria-expanded' in button.props)!;
+  expect(toggle().props['aria-expanded']).toBe(true);
+  press(toggle());
+  expect(toggle().props['aria-expanded']).toBe(false);
+  expect(alerts(view)).toEqual([]);
+  expect(nodes(view.root).some((node) => node.tag === 'header')).toBe(true);
+  press(toggle());
+  expect(toggle().props['aria-expanded']).toBe(true);
+  expect(text(alerts(view)[0]!)).toBe('Probe view stopped working.Probe failureTry again');
+});
+
 it('a retry failure repeats the copy and restores focus only from inside the fallback', () => {
   const composer = { name: 'Composer' };
   const pageDocument: { activeElement: unknown } = { activeElement: composer };
