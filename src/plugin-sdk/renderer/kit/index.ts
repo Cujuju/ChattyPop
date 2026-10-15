@@ -85,6 +85,8 @@ export { Icon } from '@/ui/icons';
 export { BrandIcon } from '@/ui/BrandIcon';
 export { QrCode } from '@/ui/QrCode';
 export { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
+// A compact number stepper; the theme styles it (theme/bridge/pill-number-picker.css).
+export { PillNumberPicker } from '@cujuju/solidjs-pill-number-picker';
 // Drag to reorder a list; the theme styles its rows (theme/bridge/reorder-list.css).
 export { createReorderList } from '@cujuju/solid-reorder-list';
 export { unreadCount, totalUnreadCount } from '@/state/unreadCounts';

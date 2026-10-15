@@ -310,6 +310,7 @@
       "PanelHeader",
       "PersonFace",
       "PersonName",
+      "PillNumberPicker",
       "ProviderSelect",
       "QrCode",
       "RemovableChip",
