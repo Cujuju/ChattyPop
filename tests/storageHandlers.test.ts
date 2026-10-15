@@ -16,14 +16,15 @@ const { callMain } = await import('../src/main/ipc/mainCalls');
 const { MAIN_INVOKE } = await import('../src/shared/contract');
 
 /** Core as the handler reaches it: its encryption state, a rekey that may wait or fail, and the events main sends. */
-function setup(encrypted: boolean, rekey: (key: string | null) => Promise<void> = async () => undefined) {
-  const state = { encrypted };
+function setup(encrypted: boolean, rekey: (key: string | null, state: { encrypted: boolean; reachable: boolean }) => Promise<void> = async () => undefined) {
+  const state = { encrypted, reachable: true };
   const emitted: AppEvent[] = [];
   const core = {
     call: vi.fn(async (method: string, key?: string | null) => {
+      if (!state.reachable) throw new Error('core exited');
       if (method === 'status') return { encrypted: state.encrypted };
       log.push(key ? 'rekey' : 'decrypt');
-      await rekey(key ?? null);
+      await rekey(key ?? null, state);
       state.encrypted = key !== null;
     }),
   };
@@ -47,6 +48,28 @@ describe('archive encryption from main', () => {
     expect(log).toEqual(['decrypt', 'delete', 'create', 'rekey']);
     expect(emitted.filter((e) => e.type === 'status-changed')).toHaveLength(2);
     await expect(set('yes')).rejects.toThrow(TypeError);
+  });
+
+  it('keeps the key when encrypting failed after the file was encrypted', async () => {
+    const { set } = setup(false, async (_key, state) => {
+      state.encrypted = true;
+      throw new Error('journal restore failed');
+    });
+    await expect(set(true)).rejects.toThrow(/journal restore/);
+    expect(log).toEqual(['delete', 'create', 'rekey']); // the first delete: startup drops a key the plaintext file doesn't use
+  });
+
+  it('deletes a saved key only once the core reports the file plaintext', async () => {
+    const failed = setup(false, () => Promise.reject(new Error('rekey failed')));
+    await expect(failed.set(true)).rejects.toThrow(/rekey failed/);
+    expect(log).toEqual(['delete', 'create', 'rekey', 'delete']);
+    log.splice(0);
+    const gone = setup(false, async (_key, state) => {
+      state.reachable = false;
+      throw new Error('core exited');
+    });
+    await expect(gone.set(true)).rejects.toThrow(/core exited/);
+    expect(log).toEqual(['delete', 'create', 'rekey']); // state unknown: kept, and openDb ignores a key the plaintext file doesn't need
   });
 
   it('leaves the key in use alone when asked for the state the archive already has', async () => {

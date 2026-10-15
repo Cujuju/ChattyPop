@@ -56,7 +56,8 @@ const keyLiteral = (key: string): string => {
 
 /**
  * Encrypts (key) or decrypts (null) the open database in place (SQLite3MultipleCiphers, default cipher).
- * Rekeying isn't supported in WAL mode, so the journal switches out and back.
+ * Rekeying isn't supported in WAL mode, so the journal switches out and back. A throw may follow a completed
+ * rekey (the WAL restore failed): read the result from encryptedOnDisk, not from the throw.
  */
 export function rekey(db: Db, key: string | null): void {
   db.pragma('journal_mode = DELETE');
@@ -64,10 +65,35 @@ export function rekey(db: Db, key: string | null): void {
   db.pragma('journal_mode = WAL');
 }
 
-/** Opens (creating if needed) the archive database, with its key when encrypted, and brings its schema up to date. */
+/** SQLite's result code for a file that doesn't read as a database: encrypted, when read without its key. */
+const NOT_A_DATABASE = 'SQLITE_NOTADB';
+
+/** Whether a database file exists with pages written; a new one is made with whatever key it is given. */
+const hasPages = (path: string): boolean => existsSync(path) && statSync(path).size > 0;
+
+/** Whether the file at `path` holds an encrypted database: one a keyless connection can't read. A missing or empty file holds none. */
+export function encryptedOnDisk(path: string): boolean {
+  if (!hasPages(path)) return false;
+  const probe = new Database(path, { fileMustExist: true });
+  try {
+    probe.prepare('SELECT count(*) FROM sqlite_master').get();
+    return false;
+  } catch (err) {
+    if ((err as { code?: string }).code === NOT_A_DATABASE) return true;
+    throw err;
+  } finally {
+    probe.close();
+  }
+}
+
+/**
+ * Opens (creating if needed) the archive database, with its key when encrypted, and brings its schema up to date.
+ * A plaintext file opens without `key`: an encryption change stopped before or undone by its rekey left the key unused.
+ */
 export function openDb(path: string, key: string | null = null): Db {
+  const plaintext = hasPages(path) && !encryptedOnDisk(path);
   const db = new Database(path);
-  if (key !== null) db.pragma(`key = '${keyLiteral(key)}'`);
+  if (key !== null && !plaintext) db.pragma(`key = '${keyLiteral(key)}'`);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   migrate(db);

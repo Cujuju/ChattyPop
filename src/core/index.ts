@@ -32,7 +32,7 @@ import { enforceAttachmentCap } from './attachmentRetention';
 import { archiveHandlers } from './archiveHandlers';
 import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
-import { getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
+import { encryptedOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
 import { mediaQueueHandlers } from './mediaQueue';
@@ -92,7 +92,7 @@ let pluginDataRoot = '';
 /** Media store size measured on disk (media/ holds attachments and cached icons). */
 let mediaSize: DirSize | undefined;
 let attachmentsDir = '';
-/** Whether the database is encrypted (a key was given at init or set since). */
+/** Whether the database file is encrypted, as read from disk at open and after each change. */
 let encrypted = false;
 
 let previousSessionSeenAt = 0;
@@ -253,8 +253,11 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
       samples,
     ),
   setEncryption: (key) => {
-    rekey(ready().db, key);
-    encrypted = key !== null;
+    try {
+      rekey(ready().db, key);
+    } finally {
+      encrypted = encryptedOnDisk(dbPath); // a failed rekey may still have changed the file
+    }
   },
   closeArchive: () => {
     const { db: open } = ready();
@@ -300,7 +303,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       db = openDb(dbPath, data.key);
       initStep('database');
       namesWritten = watchNameWrites(db);
-      encrypted = data.key !== null;
+      encrypted = encryptedOnDisk(dbPath);
       loadJevQueryOverrides(db);
       registerNotable();
       registerClasses();
