@@ -1,5 +1,6 @@
 import type { Accessor, Setter } from 'solid-js';
 import { createStore, reconcile, unwrap } from 'solid-js/store';
+import { batchWrites } from '@plugin-sdk/renderer/containment';
 
 /** Matches refetched list items by id to retain objects and For rows, preserving focus/scroll position. */
 export function keyedById<T extends { id: string | number }>(init: T[] | undefined): [Accessor<T[]>, Setter<T[] | undefined>] {
@@ -19,6 +20,12 @@ export interface PagedState<T> {
   reachedStart: boolean;
 }
 
+/** Rows an update leaves, and whether the oldest of them is the oldest there is. */
+export interface Updated<T> {
+  items: T[];
+  reachedStart: boolean;
+}
+
 export interface PagedList<T> {
   state: PagedState<T>;
   /** Replaces rows from fetch results; superseded reloads return false without changes. */
@@ -27,8 +34,12 @@ export interface PagedList<T> {
   loadOlder(): Promise<number>;
   /** Appends newer pages and returns length; short pages reach newest. Returns null for missing fetchers, active loads or superseded reads. */
   loadNewer(): Promise<number | null>;
-  /** Applies fetched updates against current rows while preserving ids. Newer reloads/applied updates supersede stale results with false. */
-  update<R>(fetch: () => Promise<R>, apply: (result: R, items: readonly T[]) => T[]): Promise<boolean>;
+  /**
+   * Applies fetched updates against current rows while preserving ids. Newer reloads/applied updates supersede stale
+   * results with false. `apply` returns the rows, or the rows and whether they now reach the start (a reread of the
+   * loaded span learns it too).
+   */
+  update<R>(fetch: () => Promise<R>, apply: (result: R, items: readonly T[]) => T[] | Updated<T>): Promise<boolean>;
   /** Replaces the rows in place, keeping row identity by id; only for rows already in hand (no read since). */
   setItems(items: T[]): void;
 }
@@ -117,7 +128,9 @@ export function createPagedList<T extends { id: string | number }>(
     const result = await fetch();
     if (mine !== generation || turn < appliedUpdate) return false;
     appliedUpdate = turn;
-    setItems(apply(result, state.items));
+    const next = apply(result, state.items);
+    if (Array.isArray(next)) setItems(next);
+    else batchWrites(() => { setItems(next.items); setState('reachedStart', next.reachedStart); });
     return true;
   };
 
