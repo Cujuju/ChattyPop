@@ -33,8 +33,8 @@ function harness(choice: ChannelBackfillHistory) {
   const threads = new Map<string, RawThread[]>();
   const events: AppEvent[] = [];
   const requests: { path: string; query: Record<string, unknown> }[] = [];
-  /** Why every Discord request fails, while set. */
-  const discord: { failure: string | null } = { failure: null };
+  /** Why every Discord request fails, or only thread listing, while set. */
+  const discord: { failure: string | null; threadFailure: string | null } = { failure: null, threadFailure: null };
   const handlers = archiveHandlers({
     ready: () => ({ db, archive }), emit: (e) => void events.push(e), noteChanged: () => undefined,
     backfillFromMs: (id) => resolveBackfillCutoffMs(settings, id, Date.now(), archive.channelInfo(id)),
@@ -52,6 +52,7 @@ function harness(choice: ChannelBackfillHistory) {
       const id = path.split('/')[1]!;
       const limit = Number(query['limit']);
       if (path.endsWith('/threads/search')) {
+        if (discord.threadFailure) throw new Error(discord.threadFailure);
         const all = query['archived'] === 'true' ? [] : threads.get(id) ?? [];
         const offset = Number(query['offset']);
         return { threads: all.slice(offset, offset + limit), has_more: offset + limit < all.length };
@@ -191,6 +192,38 @@ describe('history asked for past the depth setting', () => {
     h.sync.halt();
     expect((await waiting).map((r) => r.outcome)).toEqual(['stopped', 'stopped']);
     expect(await h.sync.historyTo([CHANNEL], NOW)).toEqual([{ channelId: CHANNEL, outcome: 'stopped' }]);
+  });
+
+  it("answers a forum stopped when sync is paused, and any parent failed when its threads can't be listed", async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.archive.upsertChannels('g1', [{ id: CHANNEL, name: 'forum', type: FORUM_CHANNEL_TYPE }, { id: OTHER, name: 'text', type: 0 }]);
+    h.set({ syncEnabled: false });
+    expect(await h.sync.historyTo([CHANNEL], NOW - 80 * MS_PER_DAY)).toEqual([{ channelId: CHANNEL, outcome: 'stopped' }]);
+    h.set({ syncEnabled: true });
+    h.discord.threadFailure = 'Missing Access';
+    const failed = (channelId: string) => ({ channelId, outcome: 'failed', message: "Its threads couldn't be listed: Missing Access" });
+    expect(await h.sync.historyTo([CHANNEL, OTHER], NOW - 80 * MS_PER_DAY)).toEqual([failed(CHANNEL), failed(OTHER)]);
+  });
+
+  it("deepens a thread's own shallower wait to its parent's time", async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.archive.upsertChannels('g1', [{ id: CHANNEL, name: 'parent', type: 0 }]);
+    h.threads.set(CHANNEL, [{ id: THREAD, parent_id: CHANNEL, name: 'thread', type: 11, last_message_id: snowflakeFromMs(NOW - 2 * MS_PER_DAY) }]);
+    h.messages.set(THREAD, daily(THREAD, 2));
+    await h.run();
+    const waits = await Promise.all([h.sync.historyTo([CHANNEL], NOW - 100 * MS_PER_DAY), h.sync.historyTo([THREAD], NOW - 3 * MS_PER_DAY)]);
+    expect(waits.flat().map((r) => r.outcome)).toEqual(['reached', 'reached']);
+    expect(h.archive.syncState(THREAD)).toMatchObject({ count: 2 * HISTORY_PAGE_SIZE });
+  });
+
+  it('fetches every message of the millisecond it is asked back to', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    const START = NOW - 60 * MS_PER_DAY;
+    const boundary = [rawMessage(CHANNEL, START, 'later in the start', { id: snowflakeFromMs(START, 1) }), rawMessage(CHANNEL, START, 'first in the start')];
+    // A page of newer messages that ends with the later of the two.
+    h.messages.set(CHANNEL, [...daily(CHANNEL).slice(0, HISTORY_PAGE_SIZE - 1), ...boundary, ...daily(CHANNEL, 61)]);
+    expect(await h.sync.historyTo([CHANNEL], START)).toEqual([{ channelId: CHANNEL, outcome: 'reached' }]);
+    expect(h.archive.syncState(CHANNEL).count).toBeGreaterThan(HISTORY_PAGE_SIZE);
   });
 });
 

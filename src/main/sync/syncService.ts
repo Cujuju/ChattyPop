@@ -41,6 +41,8 @@ const lastActivityMs = (t: RawThread): number => snowflakeToMs(t.last_message_id
 
 /** A channel sync stopped keeping while queued or mid-sync: archiving stopped, another account signed in, or a group left. */
 class SyncStopped extends Error {}
+/** How a channel's sync ended without failing: done, sync paused before it, or the channel no longer kept. */
+type SyncEnd = 'synced' | 'paused' | 'stopped';
 
 const maxId = (ms: RawMessage[]): string => ms.map((m) => m.id).reduce((a, b) => (compareSnowflakes(a, b) >= 0 ? a : b));
 const minId = (ms: RawMessage[]): string => ms.map((m) => m.id).reduce((a, b) => (compareSnowflakes(a, b) <= 0 ? a : b));
@@ -145,14 +147,14 @@ export class SyncService {
     this.running = true;
     try {
       for (let ch = this.queue.shift(); ch; ch = this.queue.shift()) {
-        let failure: string | undefined;
+        let end: SyncEnd | { failure: string };
         try {
-          await this.syncChannel(ch);
+          end = await this.syncChannel(ch);
         } catch (err) {
-          failure = errorMessage(err);
-          this.emit({ type: 'sync-progress', channelId: ch, phase: 'error', fetched: 0, message: failure });
+          end = { failure: errorMessage(err) };
+          this.emit({ type: 'sync-progress', channelId: ch, phase: 'error', fetched: 0, message: end.failure });
         }
-        await this.settleReach(ch, failure).catch((err: unknown) => this.reaches.done(ch, 'failed', errorMessage(err)));
+        await this.settleReach(ch, end).catch((err: unknown) => this.reaches.done(ch, 'failed', errorMessage(err)));
       }
     } finally {
       this.running = false;
@@ -161,16 +163,17 @@ export class SyncService {
   }
 
   /** Ends `channelId`'s part of a wait for history once its sync has, unless it is queued again. */
-  private async settleReach(channelId: string, failure: string | undefined): Promise<void> {
+  private async settleReach(channelId: string, end: SyncEnd | { failure: string }): Promise<void> {
     if (this.reaches.sinceMs(channelId) === undefined) return;
     const state = await this.core.call('syncState', channelId);
     const kind = (await this.core.call('channelInfo', channelId))?.kind;
     // Read after the awaits: a second ask may have deepened the wait or queued the channel meanwhile.
     const sinceMs = this.reaches.sinceMs(channelId);
     if (sinceMs === undefined || this.queue.includes(channelId)) return;
-    if (failure !== undefined) return this.reaches.done(channelId, 'failed', failure);
-    // A forum holds no messages of its own: its posts are the threads this wait covers.
-    this.reaches.done(channelId, kind === FORUM_CHANNEL_TYPE || !shortOf(state, sinceMs) ? 'reached' : 'stopped');
+    if (typeof end === 'object') return this.reaches.done(channelId, 'failed', end.failure);
+    // A forum holds no messages of its own: its posts are the threads this wait covers, listed only by a sync that ran.
+    const reached = kind === FORUM_CHANNEL_TYPE ? end === 'synced' : !shortOf(state, sinceMs);
+    this.reaches.done(channelId, reached ? 'reached' : 'stopped');
   }
 
   /** How far back `channelId` is fetched: its depth setting, or further while someone waits for more. */
@@ -178,11 +181,11 @@ export class SyncService {
     return Math.min(resolveBackfillCutoffMs(settings, channelId, Date.now(), channel), this.reaches.sinceMs(channelId) ?? Infinity);
   }
 
-  private async syncChannel(channelId: string): Promise<void> {
+  private async syncChannel(channelId: string): Promise<SyncEnd> {
     // Read fresh per channel (not Pace's cache), so pausing sync takes effect at the next channel.
     if (!(await readArchiveSettings(this.core)).syncEnabled) {
       this.emit({ type: 'sync-progress', channelId, phase: 'paused', fetched: 0 });
-      return;
+      return 'paused';
     }
     try {
       const kind = (await this.core.call('channelInfo', channelId))?.kind;
@@ -194,9 +197,11 @@ export class SyncService {
       if (kind !== undefined && THREAD_PARENT_TYPES.has(kind)) {
         for (const id of await this.discoverThreads(channelId)) this.enqueue(id);
       }
+      return 'synced';
     } catch (err) {
       if (!(err instanceof SyncStopped)) throw err;
       this.emit({ type: 'sync-progress', channelId, phase: 'idle', fetched: 0 });
+      return 'stopped';
     }
   }
 
@@ -236,8 +241,9 @@ export class SyncService {
         }
       } catch (err) {
         if (err instanceof SyncStopped) throw err;
-        // A channel without thread access (or a changed endpoint) must not stop its messages from syncing.
+        // A channel without thread access (or a changed endpoint) must not stop its messages from syncing; a wait for it hears.
         diag('thread-discovery-failed', { archived, message: errorMessage(err) });
+        this.reaches.note(channelId, 'failed', `Its threads couldn't be listed: ${errorMessage(err)}`);
       }
     }
     this.reaches.include(channelId, stale);
@@ -284,10 +290,10 @@ export class SyncService {
       after = maxId(page);
     }
 
-    // The cutoff bounds how far back pages are fetched; a fetched page is stored whole.
+    // The cutoff bounds how far back pages are fetched (through its own millisecond); a fetched page is stored whole.
     const synced = await this.core.call('syncState', channelId);
     if (synced.backfillComplete) return;
-    for (let before = synced.oldestId; before && snowflakeToMs(before) > cutoffMs;) {
+    for (let before = synced.oldestId; before && snowflakeToMs(before) >= cutoffMs;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, before });
       const reachedEnd = page.length < HISTORY_PAGE_SIZE;
       await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
