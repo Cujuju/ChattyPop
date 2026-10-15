@@ -194,6 +194,16 @@ describe('accepting installed plugins', () => {
     });
   });
 
+  it('refuses a descriptor that cannot be cataloged alone; the others keep their anchors on each other', () => {
+    const root = installedRoot();
+    writePlugin(root, 'broken', { shared: sharedModule('broken', "slots: { statusBar: [{ id: 'same' }, { id: 'same' }] }") });
+    writePlugin(root, 'healthy', { shared: sharedModule('healthy', "slots: { messageMenu: [{ id: 'menu' }] }") });
+    writePlugin(root, 'later', { shared: sharedModule('later', "slots: { messageMenu: [{ id: 'menu', after: 'healthy.menu' }] }") });
+    const { accepted, refused } = start(root);
+    expect(accepted).toEqual(['healthy', 'later']);
+    expect(refused).toEqual({ broken: 'Two statusBar items are broken.same' });
+  });
+
   it("publishes the shared SDK tier before loading plugins; checks core's and main's by their export names", async () => {
     const root = installedRoot();
     writePlugin(root, 'reader', { shared: `export const seen = ${host('@plugin-sdk/shared')}.definePlugin;\n${sharedModule('reader')}` });
