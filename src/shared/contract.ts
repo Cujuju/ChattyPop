@@ -153,6 +153,8 @@ export interface CoreMethods {
   savedWritableChannels(accountId: string): SavedChannelAccess[];
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
+  /** Main-only: reads the database file now; true only when it is verifiably plaintext. Throws when the read fails. */
+  archivePlaintext(): boolean;
   /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */
   closeArchive(): void;
   /** SQLite quick_check: 'ok', or the first problem found. */

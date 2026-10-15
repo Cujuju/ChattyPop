@@ -16,16 +16,23 @@ const { callMain } = await import('../src/main/ipc/mainCalls');
 const { MAIN_INVOKE } = await import('../src/shared/contract');
 
 /** Core as the handler reaches it: its encryption state, a rekey that may wait or fail, and the events main sends. */
-function setup(encrypted: boolean, rekey: (key: string | null, state: { encrypted: boolean; reachable: boolean }) => Promise<void> = async () => undefined) {
-  const state = { encrypted, reachable: true };
+type CoreState = { encrypted: boolean; reachable: boolean; readFails: boolean };
+function setup(encrypted: boolean, rekey: (key: string | null, state: CoreState) => Promise<void> = async () => undefined) {
+  const state: CoreState = { encrypted, reachable: true, readFails: false };
+  let reported = encrypted; // status keeps its last successful read
   const emitted: AppEvent[] = [];
   const core = {
     call: vi.fn(async (method: string, key?: string | null) => {
       if (!state.reachable) throw new Error('core exited');
-      if (method === 'status') return { encrypted: state.encrypted };
+      if (method === 'status') return { encrypted: reported };
+      if (method === 'archivePlaintext') {
+        if (state.readFails) throw new Error('SQLITE_IOERR');
+        return !state.encrypted;
+      }
       log.push(key ? 'rekey' : 'decrypt');
       await rekey(key ?? null, state);
       state.encrypted = key !== null;
+      if (!state.readFails) reported = state.encrypted;
     }),
   };
   registerStorageHandlers({ win: {} as never, core: core as never, emit: (e) => void emitted.push(e), stopArchive: async () => undefined });
@@ -70,6 +77,16 @@ describe('archive encryption from main', () => {
     });
     await expect(gone.set(true)).rejects.toThrow(/core exited/);
     expect(log).toEqual(['delete', 'create', 'rekey']); // state unknown: kept, and openDb ignores a key the plaintext file doesn't need
+  });
+
+  it('keeps the key when the file cannot be read after a change, whatever status last reported', async () => {
+    const { set } = setup(false, async (_key, state) => {
+      state.encrypted = true;
+      state.readFails = true;
+      throw new Error('SQLITE_IOERR');
+    });
+    await expect(set(true)).rejects.toThrow(/SQLITE_IOERR/);
+    expect(log).toEqual(['delete', 'create', 'rekey']);
   });
 
   it('leaves the key in use alone when asked for the state the archive already has', async () => {

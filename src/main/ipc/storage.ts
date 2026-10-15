@@ -20,11 +20,10 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   const restart = (): void => restartApp(win);
   handleMain(storage.info, () => storageInfo());
   // The key is saved before encrypting (a crash between the two leaves a key the plaintext file opens without),
-  // and deleted only once the core reports the file plaintext: a failed change may have encrypted it anyway.
-  // An unreachable core leaves the state unknown, so the key stays.
+  // and deleted only once a fresh read of the file shows it plaintext: a failed change may have encrypted it anyway.
+  // A failed read or an unreachable core leaves the state unknown, so the key stays.
   const settleKey = async (): Promise<void> => {
-    const status = await core.call('status').catch(() => null);
-    if (status && !status.encrypted) deleteArchiveKey();
+    if (await core.call('archivePlaintext').catch(() => false)) deleteArchiveKey();
   };
   // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
   // The first settle drops a key an interrupted change left unused.

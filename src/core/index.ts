@@ -259,6 +259,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
       encrypted = encryptedOnDisk(dbPath); // a failed rekey may still have changed the file
     }
   },
+  archivePlaintext: () => !encryptedOnDisk(dbPath),
   closeArchive: () => {
     const { db: open } = ready();
     plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
