@@ -9,11 +9,12 @@ interface Ast {
 interface Binding { source: string; name: string }
 interface Scope { parent?: Scope; bindings: Map<string, Binding | null> }
 export interface SolidSite extends Binding { line: number }
-export interface SolidScan { imports: SolidSite[]; initial: SolidSite[] }
+export interface SolidScan { imports: SolidSite[]; initial: SolidSite[]; escapes: { line: number; message: string }[] }
 const COMPUTATIONS = new Set(['createMemo', 'createEffect', 'createComputed', 'createRenderEffect', 'createResource', 'createReaction', 'createDeferred', 'createSelector']);
 const SOURCES = new Set(['solid-js', 'solid-js/web', 'solid-js/store']);
 const GUARDED = ['createRoot', 'batch', 'onCleanup', 'catchError', 'ErrorBoundary'];
 const STORE_GUARDED = ['createStore', 'createMutable'];
+const DIRECT_SOURCES = new Set(['solid-js', 'solid-js/store']);
 const SDK_REPLACEMENTS: Record<string, string> = {
   createRoot: 'containedRoot or ownedOrContained',
   batch: 'batchWrites',
@@ -27,6 +28,11 @@ const child = (n: Ast, key: string): Ast | undefined => node(n[key]);
 const list = (n: Ast, key: string): Ast[] => Array.isArray(n[key]) ? n[key].map(node).filter((n): n is Ast => !!n) : [];
 const children = (n: Ast): Ast[] => Object.values(n).flatMap((v) => Array.isArray(v) ? v.map(node).filter((n): n is Ast => !!n) : node(v) ? [node(v)!] : []);
 const name = (n: Ast | undefined): string | undefined => typeof n?.name === 'string' ? n.name : typeof n?.value === 'string' ? n.value : undefined;
+const moduleName = (n: Ast | undefined): string | undefined => n?.type === 'TemplateLiteral' && list(n, 'expressions').length === 0
+  ? (list(n, 'quasis')[0]?.value as { cooked?: string })?.cooked : name(n);
+const directOnly = (binding: Binding): boolean => binding.source === 'solid-js' && (COMPUTATIONS.has(binding.name) || GUARDED.includes(binding.name))
+  || binding.source === 'solid-js/store' && STORE_GUARDED.includes(binding.name)
+  || binding.source === 'solid-js/web' && binding.name === 'render';
 
 function bindPattern(n: Ast | undefined, scope: Scope): void {
   if (!n) return;
@@ -80,7 +86,8 @@ function resolve(n: Ast | undefined, scope: Scope): Binding | undefined {
 /** Resolves Solid bindings and eager computations. Named factory calls require a separate audit. */
 export function scanSolid(source: string): SolidScan {
   const program = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] }).program as unknown as Ast;
-  const result: SolidScan = { imports: [], initial: [] };
+  const result: SolidScan = { imports: [], initial: [], escapes: [] };
+  const escape = (n: Ast, message: string): void => { result.escapes.push({ line: n.loc?.start.line ?? 1, message }); };
   const module: Scope = { bindings: new Map() };
   statements(list(program, 'body'), module);
   hoisted(program, module);
@@ -90,7 +97,11 @@ export function scanSolid(source: string): SolidScan {
       if (n.type === 'ExportNamedDeclaration') {
         for (const specifier of list(n, 'specifiers')) {
           const imported = name(child(specifier, 'local'));
-          if (imported && specifier.exportKind !== 'type') result.imports.push({ source: exportedFrom, name: imported, line: specifier.loc?.start.line ?? 1 });
+          if (imported && specifier.exportKind !== 'type') {
+            const binding = { source: exportedFrom, name: imported };
+            result.imports.push({ ...binding, line: specifier.loc?.start.line ?? 1 });
+            if (directOnly(binding)) escape(specifier, `${imported}: binding may only be used as a direct call's callee`);
+          }
         }
       }
       if (n.type === 'ExportAllDeclaration' || list(n, 'specifiers').some((s) => s.type === 'ExportNamespaceSpecifier')) {
@@ -110,6 +121,7 @@ export function scanSolid(source: string): SolidScan {
       const imported = specifier.type === 'ImportNamespaceSpecifier' ? '*' : name(child(specifier, 'imported'));
       const binding = imported ? { source: from, name: imported } : null;
       module.bindings.set(local, binding);
+      if (imported === '*' && DIRECT_SOURCES.has(from)) escape(specifier, `${from}: namespace imports are forbidden; use named imports and SDK containment`);
       if (binding && imported !== '*') result.imports.push({ ...binding, line: specifier.loc?.start.line ?? 1 });
     }
   }
@@ -125,8 +137,15 @@ export function scanSolid(source: string): SolidScan {
     visit(body, scope, active);
   }
 
-  function visit(n: Ast | undefined, scope: Scope, active: boolean): void {
+  function visit(n: Ast | undefined, scope: Scope, active: boolean, parent?: Ast, key?: string, directCall = false): void {
     if (!n || n.type === 'ImportDeclaration' || n.type.startsWith('TS') && n.type.endsWith('Type')) return;
+    if (n.type === 'Identifier' || n.type === 'JSXIdentifier') {
+      if (key === 'id' || (key === 'key' || key === 'property') && !parent?.computed || key === 'exported') return;
+      const binding = lookup(scope, String(n.name));
+      if (binding && directOnly(binding) && !directCall) escape(n, `${binding.name}: binding may only be used as a direct call's callee`);
+      return;
+    }
+    if (n.type === 'ExportNamedDeclaration' && child(n, 'source')) return;
     if (FUNCTION.test(n.type)) {
       if (n.computed) visit(child(n, 'key'), scope, active);
       visitFunction(n, scope, false);
@@ -173,6 +192,10 @@ export function scanSolid(source: string): SolidScan {
     }
     if (n.type === 'CallExpression' || n.type === 'OptionalCallExpression') {
       const callee = unwrap(child(n, 'callee'));
+      const from = moduleName(list(n, 'arguments')[0]);
+      if (from && DIRECT_SOURCES.has(from) && (callee?.type === 'Import' || callee?.type === 'Identifier' && callee.name === 'require')) {
+        escape(n, `${from}: require and dynamic import are forbidden; use named imports and SDK containment`);
+      }
       const binding = resolve(callee, scope);
       if (active && binding?.source === 'solid-js' && COMPUTATIONS.has(binding.name)) result.initial.push({ ...binding, line: n.loc?.start.line ?? 1 });
       let immediate = callee && FUNCTION.test(callee.type) ? callee : undefined;
@@ -181,11 +204,18 @@ export function scanSolid(source: string): SolidScan {
         if (object && FUNCTION.test(object.type)) immediate = object;
       }
       if (immediate) visitFunction(immediate, scope, active);
-      else visit(callee, scope, active);
+      else visit(callee, scope, active, n, 'callee', true);
       for (const argument of list(n, 'arguments')) visit(argument, scope, active);
       return;
     }
-    for (const c of children(n)) visit(c, scope, active);
+    if (n.type === 'ImportExpression') {
+      const from = moduleName(child(n, 'source'));
+      if (from && DIRECT_SOURCES.has(from)) escape(n, `${from}: dynamic import is forbidden; use named imports and SDK containment`);
+    }
+    for (const [key, value] of Object.entries(n)) {
+      const nested = Array.isArray(value) ? value.map(node).filter((n): n is Ast => !!n) : node(value) ? [node(value)!] : [];
+      for (const c of nested) visit(c, scope, active, n, key);
+    }
   }
   visit(program, module, true);
   return result;
@@ -198,6 +228,7 @@ export function containmentViolations(file: SourceFile): string[] {
   const raw = scan.imports.filter((site) => site.source === 'solid-js' && ['createRoot', 'batch', 'onCleanup'].includes(site.name)
     || site.source === 'solid-js/store' && STORE_GUARDED.includes(site.name));
   return [
+    ...scan.escapes.map((site) => violation(file.rel, site.line, site.message)),
     ...raw.map((site) => violation(file.rel, site.line, `${site.name}: use ${SDK_REPLACEMENTS[site.name]} from @plugin-sdk/renderer`)),
     ...scan.initial.map((site) => violation(file.rel, site.line, `${site.name} at module initialization: use containedRoot or ownedOrContained from @plugin-sdk/renderer`)),
   ];

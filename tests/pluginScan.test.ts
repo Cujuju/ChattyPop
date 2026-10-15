@@ -7,6 +7,7 @@ import { scanPlugin, scanWarnings } from '../scripts/pluginScan';
 import { REPO_ALL_READERS } from '../scripts/pluginScan/allReaders';
 import { tempDir } from './helpers';
 import { PLUGINS_DIR } from './rendererGraph';
+import { CONTAINMENT_EVASIONS } from './containmentEvasions';
 
 const CHECK_FIXTURE = join(import.meta.dirname, 'fixtures/checkprobe');
 
@@ -22,6 +23,11 @@ function pluginFolder(id: string, files: Record<string, string>): string {
 }
 
 describe("plugin:check's scan", () => {
+  it.each(CONTAINMENT_EVASIONS)('rejects %s in renderer and page sources', (_name, source) => {
+    const dir = pluginFolder('probe', { 'renderer/escape.ts': source, 'page/escape.ts': source });
+    const failures = scanPlugin({ pluginDir: dir, isPhoneTransport: true });
+    for (const file of ['renderer/escape.ts', 'page/escape.ts']) expect(failures.some((failure) => failure.startsWith(`${file}:1:`)), file).toBe(true);
+  });
   it('rejects raw roots, batches, cleanups, stores and eager computations in renderers and pages', () => {
     const raw = [
       "import { createRoot as root, batch, onCleanup } from 'solid-js';",
@@ -32,6 +38,7 @@ describe("plugin:check's scan", () => {
     ].join('\n');
     const dir = pluginFolder('probe', { 'renderer/raw.ts': raw, 'page/raw.ts': raw, 'core/raw.ts': raw });
     const replacements = [
+      '2: solid-js/store: namespace imports are forbidden; use named imports and SDK containment',
       '1: createRoot: use containedRoot or ownedOrContained from @plugin-sdk/renderer',
       '1: batch: use batchWrites from @plugin-sdk/renderer',
       '1: onCleanup: use onCleanup from @plugin-sdk/renderer',

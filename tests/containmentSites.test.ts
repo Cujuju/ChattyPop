@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
 import { scanSolid, type SolidSite } from '../scripts/pluginScan/containment';
+import { CONTAINMENT_EVASIONS } from './containmentEvasions';
 
 const ROOT = join(import.meta.dirname, '..');
 const LEAF = 'src/plugin-sdk/renderer/containment.ts';
@@ -30,6 +31,29 @@ it('21: render is imported only by the three page and snapshot entries', () => {
 });
 it('22: no direct Solid computation runs at module initialization', () => {
   expect(inventory.flatMap(({ file, initial }) => initial.map((site) => `${file}:${site.line}: ${site.name}`))).toEqual([]);
+});
+
+it('only the containment leaf may escape direct Solid calls', () => {
+  expect(inventory.filter(({ file }) => file !== LEAF).flatMap(({ file, escapes }) => escapes.map((site) => `${file}:${site.line}: ${site.message}`))).toEqual([]);
+});
+
+it.each(CONTAINMENT_EVASIONS)('rejects %s in host sources', (_name, source) => {
+  expect(scanSolid(source).escapes.length).toBeGreaterThan(0);
+});
+
+it('allows direct imported callees, type imports and shadowed names', () => {
+  const scan = scanSolid(`
+    import { createMemo as memo, createEffect, type Owner } from 'solid-js';
+    import type * as Solid from 'solid-js';
+    function View({ createEffect: effect }) {
+      const record = { createEffect: effect };
+      memo(() => record.createEffect());
+      createEffect(() => 1);
+    }
+    function shadow(memo) { return memo; }
+  `);
+  expect(scan.escapes).toEqual([]);
+  expect(scan.initial).toEqual([]);
 });
 
 const names = (sites: SolidSite[]): string[] => sites.map((s) => s.name);
