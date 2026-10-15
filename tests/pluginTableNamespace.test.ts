@@ -11,7 +11,7 @@ import { acceptInstalled } from '@shared/installedCheck';
 import { PLUGIN_API_VERSION } from '@shared/plugins';
 import { setSetting, type Db } from '../src/core/db';
 import { PluginHost } from '../src/core/plugins/host';
-import { recordDerivableOwners } from '../src/core/plugins/tableOwners';
+import { recordDerivableOwners, recordHolders } from '../src/core/plugins/tableOwners';
 import { tempDb, tempDir } from './helpers';
 
 const plugin = (id: string) => definePlugin({ manifest: { id, name: id, version: '1.0.0', description: '' } });
@@ -88,6 +88,17 @@ describe('plugin table owners', () => {
     expect(rows(db)).toEqual(['foo-bar state']);
   });
 
+  it('refuse it too when the removed plugin made its table outside migrate, and kept no preference', async () => {
+    const dir = tempDir();
+    const db = tempDb();
+    write(dir, 'foo-bar', "export function activate(api) { const t = api.db.table('items'); api.db.prepare(`CREATE TABLE IF NOT EXISTS ${t} (v TEXT)`).run(); api.db.prepare(`INSERT INTO ${t} VALUES ('foo-bar state')`).run(); }");
+    expect(await statuses(dir, db)).toEqual([['foo-bar', 'active', null]]);
+    rmSync(join(dir, 'foo-bar'), { recursive: true });
+    write(dir, 'foo', FOO);
+    expect(await statuses(dir, db)).toEqual([['foo', 'error', expect.stringMatching(`would include ${SHARED}, which may hold plugin foo-bar's data`)]]);
+    expect(rows(db)).toEqual(['foo-bar state']);
+  });
+
   it('refuse, the other way round, a plugin whose namespace holds a shorter id’s table', async () => {
     const dir = tempDir();
     const db = tempDb();
@@ -121,7 +132,7 @@ describe('plugin table owners', () => {
     expect(rows(db)).toEqual(['legacy', 'foo state']);
   });
 
-  it('are seeded from the tables an archive held before them, where the data held shows the owner', () => {
+  it('are seeded from the tables an archive held before them, where the data held shows the owner; so are the plugins that ran', () => {
     const db = tempDb();
     db.exec(`CREATE TABLE ${SHARED} (v TEXT); CREATE TABLE p_solo_rows (v TEXT); CREATE TABLE p_xy_zw_rows (v TEXT)`);
     setSetting(db, 'plugin.foo-bar.$schemaVersion', 1);
@@ -130,5 +141,7 @@ describe('plugin table owners', () => {
       [SHARED, 'foo-bar'],
       ['p_solo_rows', 'solo'],
     ]);
+    recordHolders(db);
+    expect(db.prepare('SELECT plugin_id FROM plugin_namespaces ORDER BY plugin_id').pluck().all()).toEqual(['foo-bar', 'solo']);
   });
 });

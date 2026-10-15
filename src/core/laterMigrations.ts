@@ -9,7 +9,7 @@ import { rawJsonText } from './rawJson';
 import { HIDDEN_SCOPE_RENAMES, HIDDEN_SCOPE_TABLE } from './hiddenScope';
 import { refreshLinkSearch } from './linkSearch';
 import type { Migration } from './migrations';
-import { recordDerivableOwners } from './plugins/tableOwners';
+import { recordDerivableOwners, recordHolders } from './plugins/tableOwners';
 import { topicsIntoRules } from './topicsIntoRules';
 
 /** Frozen snippet repair removes incomplete Discord tokens at truncation edges. Uses independent patterns rather than live rendering patterns. */
@@ -224,6 +224,7 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `,
   requeueLegacyDownloadFailures,
   pluginTableOwners,
+  pluginNamespaces,
 ];
 
 /**
@@ -240,6 +241,12 @@ export function requeueLegacyDownloadFailures(db: Db): void {
 export function pluginTableOwners(db: Db): void {
   db.exec('CREATE TABLE plugin_tables (name TEXT PRIMARY KEY, plugin_id TEXT NOT NULL) WITHOUT ROWID');
   recordDerivableOwners(db);
+}
+
+/** The plugins that ran (plugins/tableOwners.ts), seeded with those whose data the archive holds. */
+export function pluginNamespaces(db: Db): void {
+  db.exec('CREATE TABLE plugin_namespaces (plugin_id TEXT PRIMARY KEY) WITHOUT ROWID');
+  recordHolders(db);
 }
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */

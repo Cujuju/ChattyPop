@@ -1,5 +1,6 @@
-// Which plugin owns each plugin table. A name doesn't say where the id ends (p_foo_bar_items is foo's bar_items or
-// foo-bar's items), and a removed plugin's tables stay, so a plugin runs only while every table in its namespace is its own.
+// Which plugin owns each plugin table, and which plugins have run. A name doesn't say where the id ends (p_foo_bar_items
+// is foo's bar_items or foo-bar's items), and a removed plugin's tables stay, so a plugin runs only while every table in
+// its namespace is its own.
 import { pluginTablePrefix } from '@shared/bundledTypes';
 import { tableIds } from '@shared/pluginRestore';
 import type { Db } from '../db';
@@ -13,14 +14,21 @@ const PLUGIN_TABLE_PREFIX = 'p_';
 const tablesStarting = (db: Db, prefix: string): string[] =>
   db.prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND substr(name, 1, length(@prefix)) = @prefix ORDER BY name`).pluck().all({ prefix }) as string[];
 
-/** Ids whose data this profile holds: a recorded table or a stored preference (its schema version included). */
-function holders(db: Db): Set<string> {
+/** Ids whose data the archive shows: a recorded table's owner, or a stored preference's (its schema version included). */
+function dataHolders(db: Db): Set<string> {
   const ids = new Set(db.prepare('SELECT DISTINCT plugin_id FROM plugin_tables').pluck().all() as string[]);
   const keys = db.prepare(`SELECT key FROM settings WHERE substr(key, 1, length('plugin.')) = 'plugin.'`).pluck().all() as string[];
   for (const key of keys) {
     const id = PREFERENCE_KEY.exec(key)?.[1];
     if (id) ids.add(id);
   }
+  return ids;
+}
+
+/** Ids whose data this profile may hold: dataHolders, and each plugin that ran (tables it made by any means stay with it). */
+function holders(db: Db): Set<string> {
+  const ids = dataHolders(db);
+  for (const id of db.prepare('SELECT plugin_id FROM plugin_namespaces').pluck().all() as string[]) ids.add(id);
   return ids;
 }
 
@@ -42,9 +50,15 @@ export function recordTables(db: Db, id: string): void {
   for (const name of tablesStarting(db, pluginTablePrefix(id))) recordTable(db, name, id);
 }
 
+/** Seeds the plugins that ran with those whose data the archive holds (an archive from before they were recorded). */
+export function recordHolders(db: Db): void {
+  const insert = db.prepare('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) VALUES (?)');
+  for (const id of dataHolders(db)) insert.run(id);
+}
+
 /** Seeds the records with each plugin table whose owner its name and the data held show (an archive before records). */
 export function recordDerivableOwners(db: Db): void {
-  const held = holders(db);
+  const held = dataHolders(db);
   for (const name of tablesStarting(db, PLUGIN_TABLE_PREFIX)) {
     const owner = derivedOwner(name, held);
     if (owner) recordTable(db, name, owner);
@@ -53,7 +67,8 @@ export function recordDerivableOwners(db: Db): void {
 
 /**
  * Claims plugin `id`'s table namespace before it runs: each table there must be recorded as its own, or unrecorded with
- * no other id its name fits holding data; it is recorded so. Throws naming one that is, or may be, another plugin's.
+ * no other id its name fits holding data; it is recorded so, and `id` as having run. Throws naming one that is, or may
+ * be, another plugin's.
  */
 export function claimTables(db: Db, id: string): void {
   const prefix = pluginTablePrefix(id);
@@ -71,5 +86,6 @@ export function claimTables(db: Db, id: string): void {
       }
       recordTable(db, name, id);
     }
+    db.prepare('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) VALUES (?)').run(id);
   })();
 }
