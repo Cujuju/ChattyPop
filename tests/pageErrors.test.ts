@@ -30,34 +30,31 @@ describe('page error contract', () => {
 });
 
 describe('main page diagnostics', () => {
-  it.each(['desktop', 'remote'])('%s rejects noncanonical page ids before logging', (surface) => {
+  it('rejects noncanonical page ids before logging', () => {
     const sender = {};
     registerPageErrors((candidate) => candidate === sender ? 'main' : undefined);
     for (const page of INVALID_PAGES) {
       const report = { ...REPORT, page };
-      if (surface === 'desktop') on.mock.calls[0]![1]({ sender }, report);
-      else handleMain.mock.calls[0]![1](report);
+      on.mock.calls[0]![1]({ sender }, report);
     }
     expect(diag).not.toHaveBeenCalled();
   });
-  it('names local windows from their sender, labels remote calls, redacts ids and drops invalid reports', () => {
+  it('names local windows from their sender, redacts ids and drops invalid reports', () => {
     const main = {}, panel = {}, unknown = {};
     registerPageErrors((sender) => sender === main ? 'main' : sender === panel ? 'panel:probe' : undefined);
     const local = on.mock.calls[0]![1];
-    const remote = handleMain.mock.calls[0]![1];
     expect(on.mock.calls[0]![0]).toBe(PAGE_ERROR_CHANNEL);
-    expect(handleMain.mock.calls[0]![0]).toBe(PAGE_ERROR_CHANNEL);
+    expect(handleMain).not.toHaveBeenCalled();
     const report = { ...REPORT, message: 'Missing 123456789012345678', stack: 'at /channels/987654321098765432', window: 'forged' };
     local({ sender: main }, report);
     local({ sender: panel }, report);
-    remote(report);
-    expect(diag.mock.calls).toEqual(['main', 'panel:probe', 'remote'].map((window) => [
+    expect(diag.mock.calls).toEqual(['main', 'panel:probe'].map((window) => [
       'page-error', { ...REPORT, window, message: 'Missing :id', stack: 'at /channels/:id' },
     ]));
     local({ sender: unknown }, report);
     local({ sender: main }, { ...REPORT, kind: 'other' });
-    remote({ ...REPORT, message: 'm'.repeat(PAGE_ERROR_MESSAGE_CHARACTERS + 1) });
-    expect(diag).toHaveBeenCalledTimes(3);
+    local({ sender: main }, { ...REPORT, message: 'm'.repeat(PAGE_ERROR_MESSAGE_CHARACTERS + 1) });
+    expect(diag).toHaveBeenCalledTimes(2);
   });
 });
 

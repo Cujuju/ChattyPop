@@ -26,7 +26,7 @@ describe('remote desktop calls', () => {
 
   it('lets a remote desktop restart the server but not reach its screen or disk', () => {
     expect(remote.remoteMayCallMain(APP_RESTART_CHANNEL)).toBe(true);
-    expect(remote.remoteMayCallMain(PAGE_ERROR_CHANNEL)).toBe(true);
+    expect(remote.remoteMayCallMain(PAGE_ERROR_CHANNEL)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.storage.move)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.rules.pickFile)).toBe(false);
     expect(remote.remoteMayCallMain(MAIN_INVOKE.marketplace.installLocal)).toBe(true);

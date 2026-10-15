@@ -11,7 +11,7 @@ const remoteApiPath = '../src/plugin-sdk/renderer/shell/remoteApi';
 const { createRemoteRendererApi } = (await import(remoteApiPath)) as {
   createRemoteRendererApi(transport: unknown, shell: DesktopShell | null): RendererApi & { openExport?: unknown };
 };
-const { APP_RESTART_CHANNEL, MAIN_INVOKE, PAGE_ERROR_CHANNEL } = await import('@shared/contract');
+const { APP_RESTART_CHANNEL, MAIN_INVOKE } = await import('@shared/contract');
 const { setMediaRoot } = await import('@shared/media');
 const { DESKTOP_SHELL_API_VERSION, DESKTOP_SHELL_GLOBAL, desktopShell } = await import('@shared/desktopShell');
 
@@ -55,12 +55,12 @@ function shell() {
 const notice: DeliveredNotification = { title: 't', body: 'b', target: { kind: 'message', channelId: 'c', messageId: 'm' }, kind: 'plugin' };
 
 describe('remote desktop calls', () => {
-  it('forwards page errors through the remote main allowlist', () => {
+  it('leaves served page errors to their route without a duplicate main call', () => {
     const t = transport();
     const api = createRemoteRendererApi(t, null);
     const report = { page: '12345678-1234-1234-1234-123456789abc', at: 0, kind: 'error', message: 'boom', stack: '' } as const;
     expect(api.reportPageError(report)).toBeUndefined();
-    expect(t.calls).toEqual([{ group: 'main', method: PAGE_ERROR_CHANNEL, params: [report] }]);
+    expect(t.calls).toEqual([]);
   });
 
   it('sends core, Discord and plugin calls as a window makes them, and main calls by channel', async () => {
