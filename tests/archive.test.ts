@@ -204,13 +204,16 @@ describe('archive: direct messages', () => {
 describe('archive: startup re-check', () => {
   it('marks deleted only the stored messages missing from the re-fetched window', () => {
     const before = rawMessage(GENERAL, T0 - MS_PER_MIN, 'outside, older');
-    const kept = rawMessage(GENERAL, T0, 'kept');
+    // The range's ends share their milliseconds with messages outside it.
+    const sameMsOlder = rawMessage(GENERAL, T0, 'outside, same millisecond');
+    const kept = rawMessage(GENERAL, T0, 'kept', { id: snowflakeFromMs(T0, 1) });
     const gone = rawMessage(GENERAL, T0 + MS_PER_MIN, 'deleted while closed');
     const edge = rawMessage(GENERAL, T0 + 2 * MS_PER_MIN, 'kept too');
+    const sameMsNewer = rawMessage(GENERAL, T0 + 2 * MS_PER_MIN, 'outside, same millisecond', { id: snowflakeFromMs(T0 + 2 * MS_PER_MIN, 1) });
     const after = rawMessage(GENERAL, T0 + 3 * MS_PER_MIN, 'outside, newer');
-    archive.ingestMessages([before, kept, gone, edge, after], ARRIVAL.gateway);
-    expect(archive.reconcileDeletes(GENERAL, [kept.id, edge.id], T0, T0 + 2 * MS_PER_MIN, T0 + 10 * MS_PER_MIN)).toBe(1);
+    archive.ingestMessages([before, sameMsOlder, kept, gone, edge, sameMsNewer, after], ARRIVAL.gateway);
+    expect(archive.reconcileDeletes(GENERAL, [kept.id, edge.id], kept.id, edge.id, T0 + 10 * MS_PER_MIN)).toBe(1);
     expect(row(gone.id).deleted_at).toBe(T0 + 10 * MS_PER_MIN);
-    for (const m of [before, kept, edge, after]) expect(row(m.id).deleted_at).toBeNull();
+    for (const m of [before, sameMsOlder, kept, edge, sameMsNewer, after]) expect(row(m.id).deleted_at).toBeNull();
   });
 });

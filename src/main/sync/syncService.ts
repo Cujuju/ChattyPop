@@ -10,6 +10,7 @@ import {
   TEXT_CHANNEL_TYPES,
   THREAD_PARENT_TYPES,
   compareSnowflakes,
+  snowflakeFromMs,
   snowflakeToMs,
   type RawMessage,
   type RawThread,
@@ -259,22 +260,28 @@ export class SyncService {
   private async reverify(channelId: string): Promise<void> {
     const { reverifyDays } = await readArchiveSettings(this.core);
     const cutoffMs = Date.now() - reverifyDays * MS_PER_DAY;
+    // Stored before the first request, so it existed by then: the scan from the latest page returns it unless it was deleted.
+    // Messages arriving during the scan sort after it and stay out.
+    const throughId = await this.core.call('newestStoredId', channelId);
     const seen: string[] = [];
     let oldest: string | null = null;
-    let newest: string | null = null;
     for (let before: string | undefined; ;) {
       const page = await this.page<RawMessage[]>(channelId, `channels/${channelId}/messages`, { limit: HISTORY_PAGE_SIZE, before });
-      if (!page.length) break;
-      await this.core.call('ingestMessages', page);
-      seen.push(...page.map((m) => m.id));
-      newest ??= maxId(page);
-      oldest = minId(page);
-      this.emit({ type: 'sync-progress', channelId, phase: 'reverify', fetched: seen.length });
-      if (page.length < HISTORY_PAGE_SIZE || snowflakeToMs(oldest) < cutoffMs) break;
-      before = oldest;
+      if (page.length) {
+        await this.core.call('ingestMessages', page);
+        seen.push(...page.map((m) => m.id));
+        oldest = minId(page);
+        this.emit({ type: 'sync-progress', channelId, phase: 'reverify', fetched: seen.length });
+      }
+      if (page.length < HISTORY_PAGE_SIZE) break;
+      before = minId(page);
+      if (snowflakeToMs(before) < cutoffMs) break;
     }
-    // Only the window the pages covered without gaps: from the oldest fetched message to the newest.
-    if (oldest && newest) await this.core.call('reconcileDeletes', channelId, seen, snowflakeToMs(oldest), snowflakeToMs(newest));
+    if (!throughId) return;
+    // Covered without gaps: back to the oldest fetched, or the whole window once a short page showed nothing older exists.
+    const windowStart = snowflakeFromMs(cutoffMs);
+    const fromId = oldest && compareSnowflakes(oldest, windowStart) < 0 ? oldest : windowStart;
+    await this.core.call('reconcileDeletes', channelId, seen, fromId, throughId);
   }
 
   private async syncRange(channelId: string, path: string): Promise<void> {

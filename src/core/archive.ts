@@ -310,16 +310,21 @@ export class Archive {
     return this.optedIn.has(d.channel_id) && applyReactionEvent(this.db, t, d, selfId);
   }
 
-  /** Marks previously fetched messages missing from a contiguous refetch as deleted, including retention-pruned rows. Excludes ephemeral messages, which never appear in history. */
-  reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number, at: number): number {
+  /**
+   * Marks stored messages from `fromId` through `throughId` (ids, both included) that a contiguous refetch of that range didn't return
+   * as deleted, including retention-pruned rows. Excludes ephemeral messages, which never appear in history.
+   */
+  reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string, at: number): number {
     if (!this.optedIn.has(channelId)) return 0;
     const seen = new Set(seenIds);
     // The column survives text retention; the payload also covers rows an older build stored in a shared profile.
     const ephemeral = `(ephemeral = 1 OR COALESCE(${rawJsonSql('$.flags', '')}, 0) & ${MESSAGE_FLAG.ephemeral} != 0)`;
     const stored = this.db
       .prepare(`SELECT id FROM messages WHERE channel_id = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL AND NOT ${ephemeral}`)
-      .all(channelId, sinceTs, untilTs) as { id: string }[];
-    const gone = stored.filter((r) => !seen.has(r.id));
+      .all(channelId, snowflakeToMs(fromId), snowflakeToMs(throughId)) as { id: string }[];
+    // Ids within the bounds' milliseconds: another message of the same millisecond may lie outside the range.
+    const inRange = (id: string): boolean => compareSnowflakes(id, fromId) >= 0 && compareSnowflakes(id, throughId) <= 0;
+    const gone = stored.filter((r) => inRange(r.id) && !seen.has(r.id));
     const mark = this.db.prepare('UPDATE messages SET deleted_at = ? WHERE id = ?');
     this.db.transaction(() => gone.forEach((r) => mark.run(at, r.id)))();
     return gone.length;

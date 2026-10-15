@@ -6,6 +6,7 @@ import { HISTORY_PAGE_SIZE, estimateBackfillPages } from '@shared/backfillProgre
 import { DM_CHANNEL_TYPE, FORUM_CHANNEL_TYPE, compareSnowflakes, snowflakeFromMs, type RawMessage, type RawThread } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_MIN } from '@shared/units';
 import { archiveHandlers } from '../src/core/archiveHandlers';
+import { ARRIVAL } from '../src/core/arrival';
 import { seedArchive, tempDb, rawMessage } from './helpers';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
@@ -34,7 +35,7 @@ function harness(choice: ChannelBackfillHistory) {
   const events: AppEvent[] = [];
   const requests: { path: string; query: Record<string, unknown> }[] = [];
   /** Why every Discord request fails, or only thread listing, while set; `inFlight` runs while a sent request awaits its answer. */
-  const discord: { failure: string | null; threadFailure: string | null; inFlight: (() => void) | null } = { failure: null, threadFailure: null, inFlight: null };
+  const discord: { failure: string | null; threadFailure: string | null; inFlight: ((path: string, query: Record<string, unknown>) => void) | null } = { failure: null, threadFailure: null, inFlight: null };
   const handlers = archiveHandlers({
     ready: () => ({ db, archive }), emit: (e) => void events.push(e), noteChanged: () => undefined,
     backfillFromMs: (id) => resolveBackfillCutoffMs(settings, id, Date.now(), archive.channelInfo(id)),
@@ -47,7 +48,7 @@ function harness(choice: ChannelBackfillHistory) {
   const api = {
     get: async (path: string, query: Record<string, unknown>, opts?: { guard?: () => Promise<void> }) => {
       await opts?.guard?.();
-      discord.inFlight?.();
+      discord.inFlight?.(path, query);
       if (discord.failure) throw new Error(discord.failure);
       requests.push({ path, query });
       const id = path.split('/')[1]!;
@@ -239,6 +240,43 @@ describe('a channel no longer archived while its page is fetched', () => {
     h.archive.setOptIn(CHANNEL, true);
     await h.run();
     expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE });
+  });
+});
+
+describe('the startup re-check', () => {
+  /** Days re-checked: the messages below are inside, ANCIENT outside. */
+  const REVERIFY_DAYS = 7;
+  const NEWEST = rawMessage(CHANNEL, NOW - MS_PER_MIN, 'newest');
+  const OLDER = rawMessage(CHANNEL, NOW - 2 * MS_PER_MIN, 'older');
+  const ANCIENT = rawMessage(CHANNEL, NOW - 4 * REVERIFY_DAYS * MS_PER_DAY, 'before the window');
+  /** Archives the three, leaves `remaining` on Discord, re-checks at the next start (`during` its requests): which three are now deleted. */
+  async function recheck(h: ReturnType<typeof harness>, remaining: RawMessage[], during: typeof h.discord.inFlight = null): Promise<boolean[]> {
+    h.messages.set(CHANNEL, [NEWEST, OLDER, ANCIENT]);
+    await h.run();
+    h.discord.inFlight = during;
+    h.messages.set(CHANNEL, remaining);
+    h.set({ reverifyChannelIds: [CHANNEL], reverifyDays: REVERIFY_DAYS });
+    const done = new Promise<void>((resolve) => { h.sync.onSettled = resolve; });
+    await h.sync.syncAll();
+    await done;
+    const deletedAt = h.db.prepare('SELECT deleted_at AS at FROM messages WHERE id = ?');
+    return [NEWEST, OLDER, ANCIENT].map((m) => (deletedAt.get(m.id) as { at: number | null }).at !== null);
+  }
+
+  it('marks the newest message deleted while closed, but not one that arrives during the scan', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    const live = rawMessage(CHANNEL, NOW, 'sent during the scan');
+    // The scan's first request: the channel's messages, neither after nor before.
+    const arrives = (path: string, query: Record<string, unknown>): void => {
+      if (path === `channels/${CHANNEL}/messages` && !query['after'] && !query['before']) h.archive.ingestMessages([live], ARRIVAL.gateway);
+    };
+    expect(await recheck(h, [OLDER, ANCIENT], arrives)).toEqual([true, false, false]);
+    expect(h.db.prepare('SELECT deleted_at AS at FROM messages WHERE id = ?').get(live.id)).toEqual({ at: null });
+  });
+
+  it('marks the whole window deleted once the channel is empty', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    expect(await recheck(h, [])).toEqual([true, true, false]);
   });
 });
 

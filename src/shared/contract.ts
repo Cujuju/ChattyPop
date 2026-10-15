@@ -185,8 +185,10 @@ export interface CoreMethods {
   /** The owner's poll vote, applied to the archive before the call resolves. */
   applyOwnPollVote(v: OwnerPollVote): void;
   syncState(channelId: string): SyncState;
-  /** Marks deleted every stored message of the channel in [sinceTs, untilTs] that a fresh fetch no longer returned; returns how many. */
-  reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number): number;
+  /** Marks deleted every stored message of the channel from `fromId` through `throughId` that a fresh fetch no longer returned; returns how many. */
+  reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string): number;
+  /** The channel's newest stored message, deleted ones included; null when none is stored. */
+  newestStoredId(channelId: string): string | null;
   messagePage(q: MessagePageQuery): ArchiveMessage[];
   messageWindow(q: MessagePageQuery): MessageWindow;
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */

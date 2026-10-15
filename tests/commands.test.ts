@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import { OPTION, commandEntries, type AppCommand, type CommandRun } from '@shared/commands';
 import { COMPONENT, MESSAGE_FLAG, componentsFrom, modalFieldsFrom, modalSubmission } from '@shared/components';
+import { snowflakeFromMs } from '@shared/discord';
 import { OwnerAccount } from '../src/main/discord/account';
 import type { DiscordApi } from '../src/main/discord/api';
 import { CommandIndexes } from '../src/main/discord/commandIndex';
@@ -228,7 +229,7 @@ describe('bot messages in the archive', () => {
     });
     const plain = rawMessage(CHANNEL, now + 1, 'hello');
     archive.ingestMessages([reply, plain], ARRIVAL.gateway);
-    expect(archive.reconcileDeletes(CHANNEL, [], now - 1, now + 2, now + 3)).toBe(1); // only the plain one
+    expect(archive.reconcileDeletes(CHANNEL, [], snowflakeFromMs(now - 1), snowflakeFromMs(now + 2), now + 3)).toBe(1); // only the plain one
     const [shown] = messagePage(db, { channelId: CHANNEL, limit: 10 });
     expect(shown).toMatchObject({ flags: MESSAGE_FLAG.ephemeral, applicationId: APP, deletedAt: null, interaction: { userName: 'Me', command: 'dice roll' } });
     expect(shown!.components).toHaveLength(1);

@@ -50,6 +50,7 @@ type Handlers = Pick<
   | 'putGuildOrder'
   | 'syncState'
   | 'reconcileDeletes'
+  | 'newestStoredId'
   | 'messagePage'
   | 'messageWindow'
   | 'messageById'
@@ -206,11 +207,12 @@ export function archiveHandlers(o: {
       if (archive().applyOwnPollVote(v)) o.noteChanged(v.channelId);
     },
     syncState: (channelId) => archive().syncState(channelId),
-    reconcileDeletes: (channelId, seenIds, sinceTs, untilTs) => {
-      const n = archive().reconcileDeletes(channelId, seenIds, sinceTs, untilTs, Date.now());
+    reconcileDeletes: (channelId, seenIds, fromId, throughId) => {
+      const n = archive().reconcileDeletes(channelId, seenIds, fromId, throughId, Date.now());
       if (n) o.noteChanged(channelId);
       return n;
     },
+    newestStoredId: (channelId) => newestMessageId(o.ready().db, channelId),
     messagePage: (q) => messagePage(o.ready().db, q),
     messageWindow: (q) => messageWindow(o.ready().db, q),
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
