@@ -1,5 +1,6 @@
 // A folder plugin switched off or reloaded while its asynchronous activate is still running: the retired activation's
-// resource is torn down once it returns, and overlapping reloads leave one listing of each plugin.
+// resource is torn down once it returns, and overlapping reloads leave one listing of each plugin. The archive closing
+// retires it the same way and stops the folder pass.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -31,6 +32,7 @@ export async function activate() {
 
 let dir: string;
 let host: PluginHost;
+let db: ReturnType<typeof tempDb>;
 const hold = globalThis as typeof globalThis & { folderGate?: Gate };
 const until = async (done: () => boolean): Promise<void> => {
   while (!done()) await new Promise((r) => setImmediate(r));
@@ -42,7 +44,8 @@ beforeEach(() => {
   writeFileSync(join(dir, 'slow', 'plugin.json'), JSON.stringify({ id: 'slow', version: '1.0.0', apiVersion: PLUGIN_API_VERSION, main: 'main.mjs' }));
   writeFileSync(join(dir, 'slow', 'main.mjs'), MAIN);
   hold.folderGate = gate();
-  host = new PluginHost(dir, { db: tempDb(), emit: () => undefined, changed: () => undefined, ai: async () => ({ text: '' }), decider: () => null });
+  db = tempDb();
+  host = new PluginHost(dir, { db, emit: () => undefined, changed: () => undefined, ai: async () => ({ text: '' }), decider: () => null });
 });
 afterEach(() => void delete hold.folderGate);
 
@@ -56,6 +59,21 @@ describe('a folder activation still running', () => {
     await loading;
     expect(host.list().map((p) => [p.id, p.status])).toEqual([['slow', 'disabled']]);
     expect([g.live, g.disposals]).toEqual([0, 1]);
+  });
+
+  it('when the archive closes: its resource is torn down once it returns, and no later folder loads', async () => {
+    mkdirSync(join(dir, 'tail'), { recursive: true });
+    writeFileSync(join(dir, 'tail', 'plugin.json'), JSON.stringify({ id: 'tail', version: '1.0.0', apiVersion: PLUGIN_API_VERSION, main: 'main.mjs' }));
+    writeFileSync(join(dir, 'tail', 'main.mjs'), MAIN);
+    const g = hold.folderGate!;
+    const loading = host.loadAll();
+    await until(() => g.started === 1);
+    host.endActivations();
+    db.close();
+    g.release();
+    await loading;
+    expect(host.list().map((p) => [p.id, p.status])).toEqual([['slow', 'disabled']]);
+    expect([g.started, g.live, g.disposals]).toEqual([1, 0, 1]);
   });
 
   it('reloaded twice over: one activation stays live, every retired one is torn down, one listing', async () => {

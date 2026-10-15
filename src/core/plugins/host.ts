@@ -110,6 +110,8 @@ export class PluginHost {
   /** The signed-in Discord user, once main reports it; handed to bundled plugins that load later. */
   private self: string | null = null;
   private bundledStarted = false;
+  /** Set once the archive begins closing: nothing loads after. */
+  private ended = false;
   /** Every bundled plugin, in build order; each has an on/off switch whether or not it has a core side. */
   private readonly bundled: readonly BundledEntry[];
   private readonly continuity: ActivationContinuity;
@@ -206,9 +208,14 @@ export class PluginHost {
     this.deps.emit({ type: 'plugins-changed' });
   }
 
-  /** Ends activations before archive closure without changing switches or continuity. The app restarts afterward. */
+  /**
+   * Ends activations before archive closure without changing switches or continuity, including ones still running (their
+   * result is disposed when they return), and stops the folder pass. The app restarts afterward.
+   */
   endActivations(): void {
-    for (const p of this.plugins.values()) if (p.status === 'active') this.unload(p);
+    this.ended = true;
+    this.generation++;
+    for (const p of this.plugins.values()) if (!p.retired) this.unload(p);
   }
 
   private disabled(): Set<string> {
@@ -218,7 +225,7 @@ export class PluginHost {
   /** Loads the plugins folder; a later pass (a reload) supersedes this one, which then loads nothing more. */
   private async loadFolders(disabled: Set<string>): Promise<void> {
     const generation = ++this.generation;
-    if (!existsSync(this.dir)) return;
+    if (this.ended || !existsSync(this.dir)) return;
     for (const entry of readdirSync(this.dir, { withFileTypes: true })) {
       if (generation !== this.generation) return;
       if (entry.isDirectory()) await this.load(join(this.dir, entry.name), disabled, generation);
@@ -355,7 +362,7 @@ export class PluginHost {
       reg: emptyRegistrations(),
     };
     this.plugins.set(manifest.id, p);
-    if (disabled.has(manifest.id)) return;
+    if (this.ended || disabled.has(manifest.id)) return;
     const loadError = this.failedHere.get(manifest.id);
     if (loadError !== undefined) {
       p.status = 'error';
