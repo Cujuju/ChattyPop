@@ -95,8 +95,26 @@ describe('plugin table owners', () => {
     expect(await statuses(dir, db)).toEqual([['foo-bar', 'active', null]]);
     rmSync(join(dir, 'foo-bar'), { recursive: true });
     write(dir, 'foo', FOO);
-    expect(await statuses(dir, db)).toEqual([['foo', 'error', expect.stringMatching(`would include ${SHARED}, which may hold plugin foo-bar's data`)]]);
+    expect(await statuses(dir, db)).toEqual([['foo', 'error', expect.stringMatching(HELD('foo-bar'))]]);
     expect(rows(db)).toEqual(['foo-bar state']);
+  });
+
+  /** Plugin `id` makes its table `local` with db.prepare (not migrate) and adds a row. */
+  const PREPARED = (local: string, row: string): string =>
+    `export function activate(api) { const t = api.db.table('${local}'); api.db.prepare(\`CREATE TABLE IF NOT EXISTS \${t} (v TEXT)\`).run(); api.db.prepare(\`INSERT INTO \${t} VALUES ('${row}')\`).run(); }`;
+
+  it('run a plugin again over a table it made with db.prepare after a nesting id ran, either way round', async () => {
+    for (const [earlier, later, local] of [['foo', 'foo-bar', 'items'], ['foo-bar', 'foo', 'bar_items']] as const) {
+      const dir = tempDir();
+      const db = tempDb();
+      write(dir, earlier, 'export function activate() {}');
+      expect(await statuses(dir, db)).toEqual([[earlier, 'active', null]]);
+      rmSync(join(dir, earlier), { recursive: true });
+      write(dir, later, PREPARED(local, `${later} state`));
+      expect(await statuses(dir, db), later).toEqual([[later, 'active', null]]);
+      expect(await statuses(dir, db), later).toEqual([[later, 'active', null]]);
+      expect(rows(db)).toEqual([`${later} state`, `${later} state`]);
+    }
   });
 
   it('refuse, the other way round, a plugin whose namespace holds a shorter id’s table', async () => {
