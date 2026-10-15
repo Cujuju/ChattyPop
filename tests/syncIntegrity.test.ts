@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RawMessage } from '@shared/discord';
+import { FORUM_CHANNEL_TYPE, type RawMessage } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_MIN } from '@shared/units';
 import { ARRIVAL } from '../src/core/arrival';
 import { rawMessage } from './helpers';
@@ -78,6 +78,30 @@ describe('a new gateway session', () => {
     await h.sync.sessionReady();
     await done;
     expect(h.db.prepare('SELECT 1 AS stored FROM messages WHERE id = ?').get(missed.id)).toEqual({ stored: 1 });
+  });
+});
+
+describe("a forum's history wait", () => {
+  const SINCE = NOW - 80 * MS_PER_DAY;
+  const forum = () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.archive.upsertChannels('g1', [{ id: CHANNEL, name: 'forum', type: FORUM_CHANNEL_TYPE }]);
+    return h;
+  };
+
+  it("fails when archived posts can't be listed after open ones were", async () => {
+    const h = forum();
+    h.discord.inFlight = (path, query) => {
+      if (path.endsWith('/threads/search') && query['archived'] === 'true') throw new Error('Missing Access');
+    };
+    expect(await h.sync.historyTo([CHANNEL], SINCE)).toEqual([{ channelId: CHANNEL, outcome: 'failed', message: "Its threads couldn't be listed: Missing Access" }]);
+    expect(h.requests.filter((r) => r.path.endsWith('/threads/search'))).toHaveLength(1);
+  });
+
+  it('stops when the forum is no longer archived while its posts are listed', async () => {
+    const h = forum();
+    h.discord.inFlight = () => h.archive.setOptIn(CHANNEL, false);
+    expect(await h.sync.historyTo([CHANNEL], SINCE)).toEqual([{ channelId: CHANNEL, outcome: 'stopped' }]);
   });
 });
 
