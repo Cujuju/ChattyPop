@@ -24,7 +24,7 @@ import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { installedStart } from '@main/plugins/installed/runtime';
 import type { DecisionProvider } from './ai/decisions';
 import { ProviderRegistry } from './ai/registry';
-import { scopedCompletion } from './ai/readScope';
+import { scopedCompletion, scopedDecider } from './ai/readScope';
 import { Archive } from './archive';
 import type { Arrived, TextMessage } from './arrival';
 import { rederiveIfStale } from './derive/rederive';
@@ -35,7 +35,6 @@ import { DirSize } from './diskUsage';
 import { getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
-import { localOnlyChannelIds } from './channelPolicy';
 import { mediaQueueHandlers } from './mediaQueue';
 import { attachmentStoreHandlers } from './attachmentStoreHandlers';
 import { aiHandlers } from './aiHandlers';
@@ -249,10 +248,9 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   },
   suggestChannels: (samples) =>
     suggestChannels(
-      requireDecider('suggestChannels', 'Turn on Settings → Jev → Suggest channels to archive (and set a Jev key).'),
+      scopedDecider(requireDecider('suggestChannels', 'Turn on Settings → Jev → Suggest channels to archive (and set a Jev key).'), () => ready().db),
       rulesOf().list(),
       samples,
-      localOnlyChannelIds(ready().db),
     ),
   setEncryption: (key) => {
     rekey(ready().db, key);

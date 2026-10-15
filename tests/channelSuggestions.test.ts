@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Rule } from '@shared/rules';
 import { newRuleInput } from '@shared/ruleSpec';
+import { scopedDecider } from '../src/core/ai/readScope';
 import { suggestChannels } from '../src/core/channelSuggestions';
 import { FakeJev } from './fakeJev';
+import { seedArchive, tempDb } from './helpers';
+
+/** `jev` as core passes it: each sample's channel checked against local-AI-only (here `private`) as it is sent. */
+function scoped(jev: FakeJev) {
+  const db = tempDb();
+  seedArchive(db, [{ id: 'open' }, { id: 'private' }]).setChannelPolicy('private', { localAiOnly: true, textTier: null });
+  return scopedDecider(jev, () => db);
+}
 
 const rule = (id: number, name: string, extra: Partial<Rule> = {}): Rule => ({
   ...newRuleInput(),
@@ -34,7 +43,7 @@ describe('channel suggestions', () => {
       { channelId: 'c', channelName: 'art', messages: [{ author: 'z', content: 'sketch' }] },
       { channelId: 'd', channelName: 'empty', messages: [] },
     ];
-    const out = await suggestChannels(jev, rules, samples, new Set());
+    const out = await suggestChannels(scoped(jev), rules, samples);
     expect(out).toEqual([
       { channelId: 'b', score: 0.9, rules: ['gaming'] },
       { channelId: 'a', score: 0.65, rules: ['gaming'] },
@@ -48,12 +57,12 @@ describe('channel suggestions', () => {
       { channelId: 'open', channelName: 'games', messages: [{ author: 'x', content: 'new patch' }] },
       { channelId: 'private', channelName: 'family', messages: [{ author: 'y', content: 'private plans' }] },
     ];
-    const out = await suggestChannels(jev, [rule(1, 'gaming')], samples, new Set(['private']));
+    const out = await suggestChannels(scoped(jev), [rule(1, 'gaming')], samples);
     expect(out.map((s) => s.channelId)).toEqual(['open']);
     expect(JSON.stringify(jev.requests)).not.toContain('private plans');
   });
 
   it('asks for a rule first when the owner has none', async () => {
-    await expect(suggestChannels(new FakeJev(), [], [], new Set())).rejects.toThrow(/Add a rule first/);
+    await expect(suggestChannels(scoped(new FakeJev()), [], [])).rejects.toThrow(/Add a rule first/);
   });
 });

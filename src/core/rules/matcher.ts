@@ -34,6 +34,8 @@ interface Request {
   extras: MessageQuestion[];
   /** A subject is fresh while any of its askers still asks it unchanged. */
   fresh: Fresh;
+  /** How the message arrived: a rule's gates are checked against it again when the answers come. */
+  ctx: QuestionContext;
 }
 
 /** How catch-up and re-asks judge a message: as a missed one. */
@@ -158,7 +160,7 @@ export class RuleMatcher {
       rules.some(({ r, q, signature }) => q.subject === subject && this.current(r.id, signature) !== undefined) ||
       extras.some((q) => q.subject === subject && isRegistered(q));
     return jev && Object.keys({ ...questions, ...certain }).length
-      ? { eventId, jev, questions, certain, rules, extras, fresh }
+      ? { eventId, jev, questions, certain, rules, extras, fresh, ctx }
       : null;
   }
 
@@ -168,13 +170,21 @@ export class RuleMatcher {
     return r && questionSignature(r.spec) === signature ? r : undefined;
   }
 
-  /** Fires fresh Jev matches and handlers, then notifies new urgent alerts. Skips rules edited while their shared answers were pending. */
+  /**
+   * Fires fresh Jev matches and handlers, then notifies new urgent alerts. Answers about text the message no longer has
+   * act on nothing; a rule acts only as it is now: still asking the same question, its gates and narrowing passing.
+   */
   private apply(m: TextMessage, answers: Answers, req: Request, liveAt: LiveAt): void {
+    if (!this.judge.isCurrent(m)) {
+      this.engine.kinds.settle({ eventId: req.eventId, m, answers: null }); // its newer text was checked on its own
+      return;
+    }
+    const facts = this.engine.facts(m); // read now, as the rule's gates and narrowing are
     for (const { r, q, signature } of req.rules) {
       const a = answers[q.subject];
       const p = a ? q.match(a) : null;
       const current = this.current(r.id, signature); // skip rules turned off, deleted or re-asked meanwhile
-      if (p !== null && current)
+      if (p !== null && current && this.eligible(current, facts, req.ctx) && narrowPasses(current, facts))
         this.hit(current, m, { kind: MATCH_KIND.meaning, probability: p, highlight: null }, liveAt, req.eventId);
     }
     for (const q of req.extras) {

@@ -30,7 +30,7 @@ const RETRY_STATUSES = new Set([429, 529]);
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1000;
 /** Bounds a backfill burst so interactive requests aren't queued behind it and 429s stay rare. */
-const MAX_IN_FLIGHT = 4;
+export const JEV_MAX_IN_FLIGHT = 4;
 
 /** Jev rejects a whole request over one lone surrogate (half an emoji), so any that slips past cutText becomes U+FFFD. */
 const wellFormed = (_key: string, v: unknown): unknown => (typeof v === 'string' ? v.toWellFormed() : v);
@@ -182,7 +182,7 @@ export class JevProvider {
   }
 
   private async acquire(): Promise<void> {
-    if (this.inFlight < MAX_IN_FLIGHT) {
+    if (this.inFlight < JEV_MAX_IN_FLIGHT) {
       this.inFlight++;
       return;
     }

@@ -31,7 +31,7 @@ export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvide
   const hits = await Promise.all(
     messages.map(async (m) => {
       try {
-        const r = await jev.decide({ state: judge.stateFor(m), questions: { ask: question } });
+        const r = await judge.decideAbout(jev, m, { ask: question });
         if (r.costUsd !== null) costs.push(r.costUsd);
         const a = r.answers.ask as Answer | undefined;
         return a ? { messageId: m.id, channelId: m.channelId, ts: m.ts, content: m.content, ...answerValue(a) } : null;

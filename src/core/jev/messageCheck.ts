@@ -65,7 +65,7 @@ export async function checkMessage(
     if (q) add(ruleSubject(row.id), row.name, customQuestion(q));
   }
   if (ask) add(ASK_ID, ask.question.trim(), customQuestion(ask));
-  const decided = await jev.decide({ state: judge.stateFor(m), questions });
+  const decided = await judge.decideAbout(jev, m, questions);
   const answers: Record<string, unknown> = { ...decided.answers, ...certain };
   const checks = [...labels].flatMap(([id, label]) =>
     answers[id] ? [toResult(id, label, answers[id] as Answer)] : [],

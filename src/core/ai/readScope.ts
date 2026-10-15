@@ -2,6 +2,7 @@
 import type { ReadScope } from '@shared/plugins';
 import type { AiSettings, ProviderId } from '@shared/settings';
 import type { Db } from '../db';
+import type { PluginDb } from '../plugins/pluginDb';
 import { hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, DecisionRequest, DecisionResult, Question } from './decisions';
 import type { ProviderRegistry } from './registry';
@@ -36,7 +37,7 @@ function declared(reads: unknown): ReadScope {
 }
 
 /** Throws LocalOnlyError for hosted reads of local-only channels, including inherited policies and all-channel reads. Missing reads throws TypeError. */
-export function assertMayRead(db: Db, given: unknown, to: Recipient): void {
+export function assertMayRead(db: PluginDb, given: unknown, to: Recipient): void {
   const reads = declared(given);
   if (to.local) return;
   const localOnly = localOnlyChannelIds(db);
@@ -50,7 +51,7 @@ export function assertMayRead(db: Db, given: unknown, to: Recipient): void {
 }
 
 /** Checks Jev requests: Jev is hosted. */
-export const assertJevMayRead = (db: Db, reads: unknown): void => assertMayRead(db, reads, JEV);
+export const assertJevMayRead = (db: PluginDb, reads: unknown): void => assertMayRead(db, reads, JEV);
 
 /** The registry members that say who a provider is. */
 type ProviderFacts = Pick<ProviderRegistry, 'isLocal' | 'providers'>;
@@ -116,7 +117,7 @@ export interface PluginDecider {
 }
 
 /** Checks Jev read scope when queued and before sending, so queued requests respect policy changes. */
-export function scopedDecider(jev: DecisionProvider, db: () => Db): PluginDecider {
+export function scopedDecider(jev: DecisionProvider, db: () => PluginDb): PluginDecider {
   return {
     model: jev.model,
     maxInputChars: jev.maxInputChars,
