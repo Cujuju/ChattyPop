@@ -2,7 +2,7 @@
 // the owner's pointer and keys sent back (state/discordLogin.ts).
 import { Show } from 'solid-js';
 import type { RelayButton } from '@shared/discordLogin';
-import { loginFrame, relayRunning, sendRelayInput, setSignInDismissed, startRelay, stopRelay } from '@/state/discordLogin';
+import { createKeyRelay, loginFrame, relayRunning, sendRelayInput, setSignInDismissed, startRelay, stopRelay } from '@/state/discordLogin';
 
 /** DOM pointer buttons as CDP names them. */
 const BUTTONS: Record<number, RelayButton> = { 0: 'left', 1: 'middle', 2: 'right' };
@@ -25,13 +25,8 @@ export function DiscordSignIn() {
     e.preventDefault();
     sendRelayInput({ kind: 'mouse', type, ...at(e), button: type === 'mouseMoved' ? 'left' : (BUTTONS[e.button] ?? 'none'), clickCount: type === 'mouseMoved' ? 0 : Math.max(e.detail, 1) });
   };
-  const key = (type: 'keyDown' | 'keyUp') => (e: KeyboardEvent) => {
-    e.preventDefault();
-    // A printable key without a shortcut modifier types its character; Enter types a return.
-    const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
-    const text = type === 'keyDown' ? (printable ? e.key : e.key === 'Enter' ? '\r' : null) : null;
-    sendRelayInput({ kind: 'key', type, key: e.key, code: e.code, text, keyCode: e.keyCode });
-  };
+  const relayKey = createKeyRelay();
+  const key = (type: 'keyDown' | 'keyUp') => (e: KeyboardEvent) => relayKey(type, e);
 
   return (
     <section aria-label="Sign in to Discord on the server">

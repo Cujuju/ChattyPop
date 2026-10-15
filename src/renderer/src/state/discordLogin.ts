@@ -44,3 +44,29 @@ export const startRelay = (): Promise<void> => api.discord.loginStart();
 export const stopRelay = (): Promise<void> => api.discord.loginStop();
 /** The owner's pointer or keys on the frame; a lost one is dropped, as a lost frame is. */
 export const sendRelayInput = (e: RelayInput): void => void api.discord.loginInput(e).catch(() => undefined);
+
+/** Virtual-key codes (keyCode) of the paste shortcuts' keys; keyCode follows the layout, as the shortcut does. */
+const VK_V = 86;
+const VK_INSERT = 45;
+
+/** Ctrl/Cmd+V or Shift+Insert: the platform's paste, whose paste event carries the clipboard's text. */
+const isPasteShortcut = (e: KeyboardEvent): boolean =>
+  !e.altKey && (((e.ctrlKey || e.metaKey) && e.keyCode === VK_V) || (e.shiftKey && !e.ctrlKey && !e.metaKey && e.keyCode === VK_INSERT));
+
+/**
+ * Relays the owner's keys on the frame, keeping them from this page. A paste shortcut is left to the browser: its paste
+ * event sends the text, and neither its press nor its release is relayed.
+ */
+export function createKeyRelay(): (type: 'keyDown' | 'keyUp', e: KeyboardEvent) => void {
+  /** Codes of keys pressed for a local paste, whose release stays local too. */
+  const local = new Set<string>();
+  return (type, e) => {
+    if (type === 'keyDown' && isPasteShortcut(e)) return void local.add(e.code);
+    if (type === 'keyUp' && local.delete(e.code)) return;
+    e.preventDefault();
+    // A printable key without a shortcut modifier types its character; Enter types a return.
+    const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
+    const text = type === 'keyDown' ? (printable ? e.key : e.key === 'Enter' ? '\r' : null) : null;
+    sendRelayInput({ kind: 'key', type, key: e.key, code: e.code, text, keyCode: e.keyCode });
+  };
+}
