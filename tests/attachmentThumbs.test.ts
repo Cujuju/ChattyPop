@@ -134,6 +134,32 @@ describe('thumbnails ahead of view', () => {
     expect(readFileSync(join(dirs.previews, `attachment-thumb-${made}.jpg`))).toEqual(JPEG);
   });
 
+  it("removes thumbnails whose file left the store, and nothing else in previews", async () => {
+    const { dirs } = fixture(false);
+    const [kept, freed] = ['b', 'c'].map((c) => c.repeat(64)) as [string, string];
+    store(dirs.attachments, `${kept}.png`);
+    mkdirSync(dirs.previews, { recursive: true });
+    const thumb = (sha: string): string => join(dirs.previews, `attachment-thumb-${sha}.jpg`);
+    for (const name of [thumb(kept), thumb(freed), join(dirs.previews, 'poster-123.jpg')]) writeFileSync(name, JPEG);
+    await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => false);
+    expect([existsSync(thumb(kept)), existsSync(thumb(freed)), existsSync(join(dirs.previews, 'poster-123.jpg'))]).toEqual([true, false, true]);
+  });
+
+  it('removes nothing while the store, or one of its shards, cannot be read', async () => {
+    const { dirs } = fixture(false);
+    const orphan = join(dirs.previews, `attachment-thumb-${'c'.repeat(64)}.jpg`);
+    mkdirSync(dirs.previews, { recursive: true });
+    writeFileSync(orphan, JPEG);
+    rmSync(dirs.attachments, { recursive: true, force: true });
+    await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => false);
+    expect(existsSync(orphan)).toBe(true);
+    // A shard name that is a file: its listing fails.
+    mkdirSync(dirs.attachments, { recursive: true });
+    writeFileSync(join(dirs.attachments, 'ab'), 'not a folder');
+    await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => false);
+    expect(existsSync(orphan)).toBe(true);
+  });
+
   it('stops when told to', async () => {
     const { dirs } = fixture();
     await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => true);

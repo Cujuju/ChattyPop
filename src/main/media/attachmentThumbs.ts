@@ -18,6 +18,8 @@ const SHARD_DIR = /^[0-9a-f]+$/;
 /** A stored file: its hash, then its extension. */
 const STORED_NAME = /^([0-9a-f]{64})\.[a-z0-9]+$/;
 const pending = new Map<string, Promise<Media | null>>();
+/** A content hash's thumbnail file in the previews folder. */
+const thumbName = (sha256: string): string => `${THUMB_PREFIX}${sha256}${THUMB_EXT}`;
 
 // Electron omits this API on Linux; absent APIs and rejected native decodes fall back to callers' file icons.
 const thumbnailsSupported = (): boolean => typeof nativeImage.createThumbnailFromPath === 'function';
@@ -26,7 +28,7 @@ const hasPicture = (name: string): boolean => ['image', 'video'].includes(mediaK
 
 /** Local thumbnail by content hash; callers validate the stored name before entering. */
 export function attachmentThumb(attachments: string, previews: string, sha256: string, name: string): Promise<Media | null> {
-  const cache = join(previews, `${THUMB_PREFIX}${sha256}${THUMB_EXT}`);
+  const cache = join(previews, thumbName(sha256));
   const held = pending.get(cache);
   if (held) return held;
   const made = makeThumbnail(join(attachments, attachmentShard(sha256), name), previews, cache)
@@ -42,19 +44,33 @@ export async function keepAttachmentThumb(attachments: string, previews: string,
 }
 
 /**
- * Makes the thumbnails the store lacks, one at a time: the native thumbnailer runs one at a time, so a tile on screen
- * waits behind at most one. A file whose thumbnail fails is tried again next run. Stops when `stopped()`.
+ * Matches the thumbnails to the store: makes those it lacks, one at a time (the native thumbnailer runs one at a time,
+ * so a tile on screen waits behind at most one), then removes those whose file has left it (freed, or evicted by the
+ * storage cap). A file whose thumbnail fails is tried again next run. Stops when `stopped()`; removes nothing unless
+ * every shard was read, so an unreadable store never empties the cache.
  */
 export async function backfillAttachmentThumbs(attachments: string, previews: string, stopped: () => boolean): Promise<void> {
   if (!thumbnailsSupported()) return;
   const made = new Set(await readdir(previews).catch(() => []));
-  const shards = (await readdir(attachments).catch(() => [])).filter((d) => SHARD_DIR.test(d));
-  for (const shard of shards) {
-    for (const name of await readdir(join(attachments, shard)).catch(() => [])) {
+  const root = await readdir(attachments).catch(() => null);
+  if (!root) return;
+  const stored = new Set<string>();
+  let complete = true;
+  for (const shard of root.filter((d) => SHARD_DIR.test(d))) {
+    const names = await readdir(join(attachments, shard)).catch(() => null);
+    if (!names) { complete = false; continue; }
+    for (const name of names) {
       if (stopped()) return;
       const sha256 = STORED_NAME.exec(name)?.[1];
-      if (sha256 && !made.has(`${THUMB_PREFIX}${sha256}${THUMB_EXT}`)) await keepAttachmentThumb(attachments, previews, name);
+      if (!sha256) continue;
+      stored.add(thumbName(sha256));
+      if (!made.has(thumbName(sha256))) await keepAttachmentThumb(attachments, previews, name);
     }
+  }
+  if (!complete) return;
+  for (const name of made) {
+    if (stopped()) return;
+    if (name.startsWith(THUMB_PREFIX) && name.endsWith(THUMB_EXT) && !stored.has(name)) await rm(join(previews, name), { force: true });
   }
 }
 
