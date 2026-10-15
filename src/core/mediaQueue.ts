@@ -1,6 +1,7 @@
 // Download queues for attachments and custom emoji; main's downloader drains them.
 import type { CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
 import { GENERIC_CONTENT_TYPE, SAFE_EXT } from '@shared/media';
+import { MS_PER_MIN } from '@shared/units';
 import { skipPrunedPending } from './attachmentRetention';
 import type { Db } from './db';
 
@@ -8,7 +9,7 @@ import type { Db } from './db';
 export const mediaQueueHandlers = (
   db: () => Db,
   onStored: (attachmentId: string) => void,
-): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'pendingEmojis' | 'emojiDone'> => ({
+): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
   pendingAttachments: (limit) => {
     skipPrunedPending(db());
     return pendingAttachments(db(), limit);
@@ -19,18 +20,32 @@ export const mediaQueueHandlers = (
     attachmentStored(db(), id, sha256, bytes, storedExt);
     onStored(id);
   },
-  attachmentFailed: (id, error) => attachmentFailed(db(), id, error),
+  attachmentFailed: (id, error, retryable) => attachmentFailed(db(), id, error, retryable),
+  nextAttachmentRetry: () => nextAttachmentRetry(db()),
   pendingEmojis: (limit) => pendingEmojis(db(), limit),
   emojiDone: (id, error) => emojiDone(db(), id, error),
 });
 
-export function pendingAttachments(db: Db, limit: number): PendingAttachment[] {
+/** A failed download's first retry waits this long: a dropped connection or CDN hiccup usually clears within a minute. */
+const DOWNLOAD_RETRY_BASE_MS = MS_PER_MIN;
+/** Each retry waits twice the last; 11 retries span about 34 hours (2^11 - 1 minutes), outlasting a night or a day offline. */
+export const DOWNLOAD_RETRIES_MAX = 11;
+/** The wait before retry `attempt` (1-based). */
+export const downloadRetryDelayMs = (attempt: number): number => DOWNLOAD_RETRY_BASE_MS * 2 ** (attempt - 1);
+
+/** Downloads due by `now`, newest message first; those waiting out a retry delay are left for later. */
+export function pendingAttachments(db: Db, limit: number, now = Date.now()): PendingAttachment[] {
   return db
     .prepare(
       `SELECT id, message_id AS messageId, channel_id AS channelId, url, filename, content_type AS contentType FROM attachments
-       WHERE status = 'pending' ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
+       WHERE status = 'pending' AND (retry_at IS NULL OR retry_at <= ?) ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
     )
-    .all(limit) as PendingAttachment[];
+    .all(now, limit) as PendingAttachment[];
+}
+
+/** When the earliest delayed retry is due; null when none waits. */
+export function nextAttachmentRetry(db: Db): number | null {
+  return db.prepare("SELECT MIN(retry_at) FROM attachments WHERE status = 'pending'").pluck().get() as number | null;
 }
 
 /** Stored attachments still on Discord that may be videos: a video type, or none that says (main reads the extension). */
@@ -73,6 +88,10 @@ export function emojiDone(db: Db, id: string, error: string | null): void {
   db.prepare('UPDATE emojis SET status = ?, error = ? WHERE id = ?').run(error ? 'failed' : 'stored', error, id);
 }
 
-export function attachmentFailed(db: Db, id: string, error: string): void {
-  db.prepare("UPDATE attachments SET status = 'failed', error = ? WHERE id = ?").run(error, id);
+/** A `retryable` failure stays queued until its retry is due, within DOWNLOAD_RETRIES_MAX; any other, or the last, fails. */
+export function attachmentFailed(db: Db, id: string, error: string, retryable: boolean, now = Date.now()): void {
+  const attempts = ((db.prepare('SELECT attempts FROM attachments WHERE id = ?').pluck().get(id) as number | undefined) ?? 0) + 1;
+  const retryAt = retryable && attempts <= DOWNLOAD_RETRIES_MAX ? now + downloadRetryDelayMs(attempts) : null;
+  db.prepare('UPDATE attachments SET status = ?, error = ?, attempts = ?, retry_at = ? WHERE id = ?')
+    .run(retryAt === null ? 'failed' : 'pending', error, attempts, retryAt, id);
 }

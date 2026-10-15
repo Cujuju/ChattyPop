@@ -250,7 +250,10 @@ export interface CoreMethods {
   freeAttachments(ids: string[]): FreeResult;
   attachmentRecompressed(r: ReplaceStored): { savedBytes: number };
   storedFile(id: string): StoredAttachmentFile | null;
-  attachmentFailed(id: string, error: string): void;
+  /** `retryable`: a later attempt may succeed (network, server, disk); false when Discord refused or no longer has the file. */
+  attachmentFailed(id: string, error: string, retryable: boolean): void;
+  /** When the earliest delayed download retry is due (ms); null when none waits. */
+  nextAttachmentRetry(): number | null;
   pendingEmojis(limit: number): PendingEmoji[];
   /** `error` null = stored. */
   emojiDone(id: string, error: string | null): void;

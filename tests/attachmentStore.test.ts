@@ -157,8 +157,10 @@ describe('owner attachment store operations', () => {
   it('additively migrates attachment times and replaces stale views before ALTER TABLE', () => {
     const legacy = new Database(':memory:');
     try {
-      for (const migration of MIGRATIONS.slice(0, -3)) applyMigration(legacy, migration);
-      legacy.pragma(`user_version = ${MIGRATIONS.length - 3}`);
+      // Before stored_ext, compressed_at, ts, and the download retry columns.
+      const before = MIGRATIONS.length - 4;
+      for (const migration of MIGRATIONS.slice(0, before)) applyMigration(legacy, migration);
+      legacy.pragma(`user_version = ${before}`);
       const orphan = snowflakeFromMs(TS);
       legacy.prepare("INSERT INTO messages (id, channel_id, author_id, ts, content, raw_json) VALUES ('message', 'c', 'u', ?, '', '{}')").run(TS);
       legacy.prepare("INSERT INTO attachments (id, message_id, channel_id, filename, url) VALUES (?, ?, 'c', 'a.png', 'url')").run('joined', 'message');

@@ -36,12 +36,20 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
   return found;
 }
 
-/** Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and repeated MESSAGE_UPDATE events. */
+/** On an attachment upsert: a failed download whose URL changed (SET expressions read the row before the update). */
+const REQUEUE = "status = 'failed' AND url IS NOT excluded.url";
+
+/**
+ * Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and
+ * repeated MESSAGE_UPDATE events. A failed download whose signed URL Discord re-issued is queued again with fresh retries.
+ */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
     `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags, ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags`,
+     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags,
+       status = CASE WHEN ${REQUEUE} THEN 'pending' ELSE status END, attempts = CASE WHEN ${REQUEUE} THEN 0 ELSE attempts END,
+       retry_at = CASE WHEN ${REQUEUE} THEN NULL ELSE retry_at END, error = CASE WHEN ${REQUEUE} THEN NULL ELSE error END`,
   );
   const ts = m.attachments?.length ? db.prepare('SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
   for (const a of m.attachments ?? []) {

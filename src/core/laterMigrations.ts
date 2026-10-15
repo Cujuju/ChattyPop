@@ -215,6 +215,11 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   `,
   // 1: an ephemeral reply (only its recipient sees it; history never lists it), kept through text retention.
   ephemeralMessages,
+  // A pending download's failed attempts so far, and when it may next start (ms; NULL: now). See mediaQueue.ts.
+  `
+  ALTER TABLE attachments ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE attachments ADD COLUMN retry_at INTEGER;
+  `,
 ];
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */

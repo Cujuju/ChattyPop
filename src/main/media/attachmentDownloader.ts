@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import type { Session } from 'electron';
 import { sleep } from '@shared/async';
 import type { PendingAttachment } from '@shared/contract';
+import { DiscordHttpError } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
 import type { PaceTiming } from '@shared/settings';
 import { SAFE_EXT, attachmentFileName, attachmentShard, fileExt, mediaKind } from '@shared/media';
@@ -17,6 +18,14 @@ import { EXPIRED_STATUSES, ensureEmoji } from './cdnCache';
 
 /** Rows claimed per pass; downloads run one at a time. */
 const BATCH_SIZE = 20;
+/** 4xx answers a later request can get past: request timeout and rate limit. */
+const TRANSIENT_CLIENT_STATUSES: ReadonlySet<number> = new Set([408, 429]);
+/** setTimeout's ceiling (a signed 32-bit ms count); a longer wait would fire at once. */
+const TIMER_MAX_MS = 2 ** 31 - 1;
+
+/** Discord or its CDN refused or no longer has the file, so retrying can't help. Network, server and disk errors may pass. */
+const isFinalFailure = (err: unknown): boolean =>
+  err instanceof DiscordHttpError && err.status >= 400 && err.status < 500 && !TRANSIENT_CLIENT_STATUSES.has(err.status);
 
 /** Downloads in flight are written under this prefix and renamed into place; never part of the archive (an archive move skips them). */
 export const PARTIAL_DOWNLOAD_PREFIX = '.part-';
@@ -45,6 +54,7 @@ export class AttachmentDownloader {
   private again = false;
   /** Stills of videos archived before posters were kept are fetched once per run. */
   private postersBackfilled = false;
+  private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly dir: string,
@@ -83,6 +93,7 @@ export class AttachmentDownloader {
             await this.downloadOne(a);
           }
         }
+        this.wakeForRetry(await this.core.call('nextAttachmentRetry'));
         // Then stills of videos archived before they were kept, while those are still on Discord.
         if (!this.postersBackfilled) {
           for (const a of await this.core.call('archivedVideos')) {
@@ -111,6 +122,14 @@ export class AttachmentDownloader {
     }
   }
 
+  /** Drains again when the earliest delayed retry is due, which no archive change may prompt. */
+  private wakeForRetry(at: number | null): void {
+    clearTimeout(this.retryTimer);
+    if (at === null) return;
+    this.retryTimer = setTimeout(() => this.kick(), Math.min(Math.max(0, at - Date.now()), TIMER_MAX_MS));
+    this.retryTimer.unref();
+  }
+
   /** Paced gap before each CDN request (see Settings → Download pace). */
   private async gap(): Promise<void> {
     const { mediaMs, jitter } = await this.pace();
@@ -124,7 +143,7 @@ export class AttachmentDownloader {
       await this.core.call('attachmentStored', a.id, sha, bytes, storedExt);
       await this.keepThumb(name);
     } catch (err) {
-      await this.core.call('attachmentFailed', a.id, errorMessage(err));
+      await this.core.call('attachmentFailed', a.id, errorMessage(err), !isFinalFailure(err));
       return;
     }
     await this.keepPoster(a);
@@ -158,7 +177,7 @@ export class AttachmentDownloader {
       const fresh = await freshAttachmentUrl(this.api, a);
       if (fresh) res = await this.ses.fetch(fresh);
     }
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok || !res.body) throw new DiscordHttpError(`HTTP ${res.status}`, res.status);
     return res.body;
   }
 

@@ -142,6 +142,7 @@ describe('the downloader keeps a still for each video it archives', () => {
         if (method === 'pendingAttachments') return (drains++, queue.shift() ?? []);
         if (method === 'archivedVideos') return (backfills++, archived);
         if (method === 'attachmentStored') stored.push(id!);
+        if (method === 'nextAttachmentRetry') return null;
         return [];
       },
     } as unknown as CoreClient;
