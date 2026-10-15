@@ -176,17 +176,53 @@ final class EmojiCacheTests: XCTestCase {
         cache.close()
     }
 
-    func testBackgroundAndCloseCancelWorkAndKeepRetainedFiles() async throws {
+    func testBackgroundParksWorkAndForegroundAnswersIt() async throws {
+        // Regression: backgrounding failed a mounted image's request, and foregrounding never asked again.
         let downloader = ControlledDownloader(), cache = makeCache(downloader)
         cache.replacePairing(with: pairing())
-        let request = Task { try await loaded(cache) }
+        let interrupted = Task { try await loaded(cache) }
         await eventually { await downloader.active == 1 }
         cache.suspend()
-        do { _ = try await request.value; XCTFail("Background work delivered") }
+        await eventually { await downloader.active == 0 }
+        let askedInBackground = Task { try await loaded(cache, emojiKey(2)) }
+        for _ in 0..<20 { await Task.yield() }
+        let backgroundCalls = await downloader.calls
+        XCTAssertEqual(backgroundCalls, 1)
+        cache.resume()
+        await eventually { await downloader.active == 2 }
+        await downloader.complete(emojiKey())
+        await downloader.complete(emojiKey(2))
+        _ = try await interrupted.value
+        _ = try await askedInBackground.value
+        cache.close()
+    }
+
+    func testSignOutAndCloseWhileBackgroundedFailParkedWork() async throws {
+        let downloader = ControlledDownloader(), cache = makeCache(downloader)
+        cache.replacePairing(with: pairing())
+        let signedOut = Task { try await loaded(cache) }
+        await eventually { await downloader.active == 1 }
+        cache.suspend()
+        cache.replacePairing(with: nil)
+        do { _ = try await signedOut.value; XCTFail("Signed-out work delivered") }
+        catch EmojiLoadFailure.cancelled { }
+        cache.resume()
+        for _ in 0..<20 { await Task.yield() }
+        let calls = await downloader.calls
+        XCTAssertEqual(calls, 1)
+        await eventually { await downloader.active == 0 }
+
+        let closing = makeCache(downloader)
+        closing.replacePairing(with: pairing())
+        let closed = Task { try await loaded(closing) }
+        await eventually { await downloader.active == 1 }
+        closing.suspend()
+        closing.close()
+        do { _ = try await closed.value; XCTFail("Closed work delivered") }
         catch EmojiLoadFailure.cancelled { }
         await eventually { await downloader.active == 0 }
-        cache.close()
-        do { _ = try await loaded(cache); XCTFail("Closed cache accepted work") }
+        closing.resume()
+        do { _ = try await loaded(closing); XCTFail("Closed cache accepted work") }
         catch EmojiLoadFailure.unpaired { }
     }
 
