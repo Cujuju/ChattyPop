@@ -179,11 +179,8 @@ describe('bots available in Settings', () => {
   });
 });
 
-/** Opens a file database through every migration twice: about 2 s on CI, past the 5 s default on a busy runner. */
-const MIGRATED_OPENS_TIMEOUT_MS = 30_000;
-
 describe('bot identity upgrade', () => {
-  it('backfills plain and compressed legacy payloads, skips damage, and keeps classification across reopen', { timeout: MIGRATED_OPENS_TIMEOUT_MS }, () => {
+  it('backfills plain and compressed legacy payloads, skips damage, and keeps classification across reopen', () => {
     const path = join(tempDir(), 'old.db');
     const old = new Database(path);
     applyMigrations(old, 0, migrationIndex(storedBotAuthors));

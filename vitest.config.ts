@@ -4,6 +4,12 @@ import { appVersion } from './appVersion';
 import { NO_PLUGIN_SOURCE, bundledPlugins, type PluginSource } from './bundledPlugins';
 import { HOST_TESTING_FILES } from './tests/hostTesting/files';
 
+/**
+ * A test's (and its hooks') own time before it fails as stuck. Tests open real SQLite files through every migration; on a busy hosted
+ * runner that runs up to 7× its usual time (a 0.75 s test past 5 s), so vitest's 5 s default fails sound tests.
+ */
+const TEST_TIMEOUT_MS = 30_000;
+
 /** The test config, its plugin registry built from `plugins`: none for the host's tests, one plugin for plugin:check. */
 export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineConfig({
   resolve: {
@@ -23,6 +29,8 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).
   test: {
     include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'],
+    testTimeout: TEST_TIMEOUT_MS,
+    hookTimeout: TEST_TIMEOUT_MS,
     // The git tests run in throwaway repos: the owner's own git config (hooks, signing) mustn't reach them.
     // '/dev/null' is what git reads as no file on every platform; Node's devNull is not.
     env: { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' },
