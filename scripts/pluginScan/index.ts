@@ -5,6 +5,7 @@ import { SHARED_ENTRY } from '../../src/main/pluginBuild/descriptor';
 import { manifestVersion } from './manifest';
 import { allReadersFor } from './allReaders';
 import { archiveViolations } from './sql';
+import { containmentViolations } from './containment';
 import { PAGE_DIR, SHELL_TIER, TESTS_DIR, TEST_FILE, clockViolations, globalViolations, importViolations, importsOf, loopingMediaViolations, networkWarnings, tablePrefixViolations, userSelectViolations } from './rules';
 import { violation, type SourceFile } from './source';
 
@@ -60,7 +61,7 @@ export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions):
   const scripts = files.filter((f) => SCRIPT.test(f.rel));
   const deps = dependencies(pluginDir);
   const found = files.flatMap((f) =>
-    SCRIPT.test(f.rel) ? [...importViolations(f, deps), ...tablePrefixViolations(f, id), ...globalViolations(f), ...loopingMediaViolations(f)] : userSelectViolations(f),
+    SCRIPT.test(f.rel) ? [...importViolations(f, deps), ...tablePrefixViolations(f, id), ...globalViolations(f), ...loopingMediaViolations(f), ...containmentViolations(f)] : userSelectViolations(f),
   );
   const shell = scripts.flatMap((f) => importsOf(f).filter((i) => i.spec === SHELL_TIER).map((i) => violation(f.rel, i.line, `${SHELL_TIER}: only the phone transport's plugin may import it`)));
   if (!isPhoneTransport) found.push(...shell);

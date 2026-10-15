@@ -46,6 +46,7 @@ export { pluginResource, type PluginResource } from './resource';
 export { pluginData } from './data';
 export { PluginInactiveError } from '@shared/pluginCall';
 export { failure, settled } from './settled';
+export { containedRoot, ownedOrContained, batchWrites, onCleanup, createStore } from './containment';
 
 type WindowEvents<D> = MembersFor<ChannelsOf<D>, 'events', 'renderer' | 'phone'>;
 /** Core's event `name` for windows; returns an unsubscribe function. */

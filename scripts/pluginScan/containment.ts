@@ -1,4 +1,5 @@
 import { parse } from '@babel/parser';
+import { violation, type SourceFile } from './source';
 
 interface Ast {
   type: string;
@@ -13,6 +14,13 @@ const COMPUTATIONS = new Set(['createMemo', 'createEffect', 'createComputed', 'c
 const SOURCES = new Set(['solid-js', 'solid-js/web', 'solid-js/store']);
 const GUARDED = ['createRoot', 'batch', 'onCleanup', 'catchError', 'ErrorBoundary'];
 const STORE_GUARDED = ['createStore', 'createMutable'];
+const SDK_REPLACEMENTS: Record<string, string> = {
+  createRoot: 'containedRoot or ownedOrContained',
+  batch: 'batchWrites',
+  onCleanup: 'onCleanup',
+  createStore: 'createStore',
+  createMutable: 'createStore',
+};
 const FUNCTION = /^(?:FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod|ClassPrivateMethod)$/;
 const node = (v: unknown): Ast | undefined => v !== null && typeof v === 'object' && typeof (v as Ast).type === 'string' ? v as Ast : undefined;
 const child = (n: Ast, key: string): Ast | undefined => node(n[key]);
@@ -181,4 +189,16 @@ export function scanSolid(source: string): SolidScan {
   }
   visit(program, module, true);
   return result;
+}
+
+/** Renderer and page state uses the SDK's containment leaves. */
+export function containmentViolations(file: SourceFile): string[] {
+  if (!/^(renderer|page)\//.test(file.rel)) return [];
+  const scan = scanSolid(file.text);
+  const raw = scan.imports.filter((site) => site.source === 'solid-js' && ['createRoot', 'batch', 'onCleanup'].includes(site.name)
+    || site.source === 'solid-js/store' && STORE_GUARDED.includes(site.name));
+  return [
+    ...raw.map((site) => violation(file.rel, site.line, `${site.name}: use ${SDK_REPLACEMENTS[site.name]} from @plugin-sdk/renderer`)),
+    ...scan.initial.map((site) => violation(file.rel, site.line, `${site.name} at module initialization: use containedRoot or ownedOrContained from @plugin-sdk/renderer`)),
+  ];
 }

@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
+  "version": "3.3.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -248,8 +248,11 @@
       "HOST_TOP_BAR_ITEMS",
       "PluginInactiveError",
       "aiUsageSince",
+      "batchWrites",
       "callable",
+      "containedRoot",
       "coreClient",
+      "createStore",
       "defineRendererPlugin",
       "desktopCoreClient",
       "failure",
@@ -258,8 +261,10 @@
       "mainClient",
       "onAppEvent",
       "onAppEventDebounced",
+      "onCleanup",
       "onEvent",
       "onMessagePartsChanged",
+      "ownedOrContained",
       "phoneCoreClient",
       "pluginData",
       "pluginPreference",

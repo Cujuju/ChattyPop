@@ -22,6 +22,40 @@ function pluginFolder(id: string, files: Record<string, string>): string {
 }
 
 describe("plugin:check's scan", () => {
+  it('rejects raw roots, batches, cleanups, stores and eager computations in renderers and pages', () => {
+    const raw = [
+      "import { createRoot as root, batch, onCleanup } from 'solid-js';",
+      "import * as Stores from 'solid-js/store';",
+      "import { createEffect as effect } from 'solid-js';",
+      'Stores.createStore({}); Stores.createMutable({});',
+      'effect(() => 1);',
+    ].join('\n');
+    const dir = pluginFolder('probe', { 'renderer/raw.ts': raw, 'page/raw.ts': raw, 'core/raw.ts': raw });
+    const replacements = [
+      '1: createRoot: use containedRoot or ownedOrContained from @plugin-sdk/renderer',
+      '1: batch: use batchWrites from @plugin-sdk/renderer',
+      '1: onCleanup: use onCleanup from @plugin-sdk/renderer',
+      '4: createStore: use createStore from @plugin-sdk/renderer',
+      '4: createMutable: use createStore from @plugin-sdk/renderer',
+      '5: createEffect at module initialization: use containedRoot or ownedOrContained from @plugin-sdk/renderer',
+    ];
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual(
+      ['page/raw.ts', 'renderer/raw.ts'].flatMap((file) => replacements.map((line) => `${file}:${line}`)),
+    );
+  });
+
+  it('allows contained module state and computations created by components', () => {
+    const contained = `
+      import { containedRoot as root, ownedOrContained, batchWrites, onCleanup, createStore } from '@plugin-sdk/renderer';
+      import { createMemo, createEffect } from 'solid-js';
+      export const memo = root(() => createMemo(() => 1));
+      export const effect = ownedOrContained(() => createEffect(() => 1));
+      export const View = () => { createEffect(() => 1); return null; };
+    `;
+    const dir = pluginFolder('probe', { 'renderer/state.ts': contained, 'page/state.ts': contained });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual([]);
+  });
+
   it('passes the fixture plugins, the phone transport importing the shell', async () => {
     for (const id of readdirSync(PLUGINS_DIR)) {
       const pluginDir = join(PLUGINS_DIR, id);

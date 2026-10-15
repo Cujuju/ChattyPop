@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
-import { scanSolid, type SolidSite } from './containmentScan';
+import { scanSolid, type SolidSite } from '../scripts/pluginScan/containment';
 
 const ROOT = join(import.meta.dirname, '..');
 const LEAF = 'src/plugin-sdk/renderer/containment.ts';
