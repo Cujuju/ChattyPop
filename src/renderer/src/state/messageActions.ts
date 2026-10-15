@@ -10,7 +10,6 @@ import { channelById } from './directory';
 import { openConversation } from './conversation';
 import { canReact } from './reactions';
 import { openPerson } from './person';
-import { isSelected, toggleSelected } from './messageSelection';
 import { aiSettings } from './preferences';
 import { attachmentMenuItems, messageMenuGroups, type MessageMenuScope } from '@/plugins/slots';
 import type { HostAttachmentMenuItem } from '@/plugins/readSlots';
@@ -96,8 +95,6 @@ const hostAttachmentItems = (player: HTMLMediaElement | null, spoiler: MenuItem 
 
 export type { MessageMenuScope };
 const FULL_ROW: MessageMenuScope = { drawsAttachments: true };
-/** A menu opened from the Archive view's own rows: the only rows that can be selected. */
-export const ARCHIVE_ROW: MessageMenuScope = { drawsAttachments: true, selectable: true };
 
 /**
  * Opens a message's right-click menu: what was right-clicked (selection, a note's text), the pressed attachment's items,
@@ -139,7 +136,6 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
     { label: 'View conversation', icon: 'conversation', run: () => openConversation(m.id) },
     { label: `View ${m.author.name}`, icon: 'person', run: () => openPerson(m.author.id) },
   ];
-  if (scope.selectable) views.push({ label: isSelected(m.id) ? 'Deselect message' : 'Select messages', icon: 'check', run: () => toggleSelected(m) });
 
   openContextMenu(e, messageMenuGroups(m, scope, [
     { id: 'selection', items: target },

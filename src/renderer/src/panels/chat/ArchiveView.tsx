@@ -20,7 +20,7 @@ import {
   readArchivePlaceWith,
 } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
-import { clearSelection, isSelected, selectThrough, selecting, toggleSelected } from '@/state/messageSelection';
+import { clearTicks, isSelected, selectThrough, selecting, stopSelecting, toggleSelected } from '@/state/messageSelection';
 import { preloadExpressions } from '@/state/expressions';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
@@ -150,9 +150,9 @@ export function ArchiveView() {
   const dropTarget = () => (postingUnlocked() ? postable() : undefined);
   const hasFiles = (e: DragEvent): boolean => e.dataTransfer?.types.includes('Files') === true;
 
-  // A selection belongs to the channel shown.
-  createEffect(on(archiveChannelId, clearSelection, { defer: true }));
-  onCleanup(clearSelection);
+  // Ticks belong to the channel shown; select mode ends with the view.
+  createEffect(on(archiveChannelId, clearTicks, { defer: true }));
+  onCleanup(stopSelecting);
   /** While selecting, a click on a message ticks it (Shift: through to it) instead of reaching what it holds. */
   const tickRow = (e: MouseEvent): void => {
     if (!selecting()) return;

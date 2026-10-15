@@ -1,16 +1,19 @@
 import { Match, Show, Switch } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { bindDiscordSlot, chatSource, discordSidebar, setDiscordSidebar, type ChatSource } from '@/state/chat';
-import { showArchive, showLive } from '@/state/archive';
+import { archiveChannelId, showArchive, showLive } from '@/state/archive';
+import { selecting, startSelecting, stopSelecting } from '@/state/messageSelection';
 import { overlayOpen } from '@/state/overlay';
 import { onServerScreen } from '@/state/ui';
 import { ArchiveView } from './ArchiveView';
 import { DiscordSignIn } from './DiscordSignIn';
 import { discordSession, relayRunning, signInDismissed } from '@/state/discordLogin';
-import { PanelHeader, headerStyles as hs } from '@/ui/PanelHeader';
+import { HeaderButton, PanelHeader, headerStyles as hs } from '@/ui/PanelHeader';
 import styles from './Chat.module.css';
 
 export function ChatPanel() {
+  /** Off the server's screen, a signed-out server's Discord is signed in from here (or the archive read as is). */
+  const signingIn = (): boolean => !onServerScreen && ((discordSession() === 'signed-out' && !signInDismissed()) || relayRunning());
   return (
     // Structural geometry only: the live slot must take all remaining height (the native view is sized to it).
     <section class={styles.root} aria-label="Chat" style={{ display: 'grid', 'grid-template-rows': 'auto minmax(0, 1fr)' }}>
@@ -18,6 +21,11 @@ export function ChatPanel() {
         <div class={hs.actions}>
           <Show when={chatSource() === 'live'}>
             <SidebarToggles />
+          </Show>
+          <Show when={chatSource() === 'archive' && !signingIn() && archiveChannelId()}>
+            <HeaderButton aria-pressed={selecting()} title="Pick messages to copy or export" onClick={() => (selecting() ? stopSelecting() : startSelecting())}>
+              Select
+            </HeaderButton>
           </Show>
           {/* Off the server's screen (a remote desktop) there is no live client to switch to. */}
           <Show when={onServerScreen}>
@@ -34,8 +42,7 @@ export function ChatPanel() {
           <div class={styles.liveSlot} ref={(el) => bindDiscordSlot(el, () => chatSource() === 'live' && !overlayOpen())} />
         </Match>
         <Match when={chatSource() === 'archive'}>
-          {/* Off the server's screen, a signed-out server's Discord is signed in from here (or the archive read as is). */}
-          <Show when={!onServerScreen && ((discordSession() === 'signed-out' && !signInDismissed()) || relayRunning())} fallback={<ArchiveView />}>
+          <Show when={signingIn()} fallback={<ArchiveView />}>
             <DiscordSignIn />
           </Show>
         </Match>

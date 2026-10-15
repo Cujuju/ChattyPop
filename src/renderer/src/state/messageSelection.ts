@@ -1,20 +1,21 @@
-// The messages ticked in the Archive view, to act on together. Belongs to the channel shown; never stored.
-import { createSignal } from 'solid-js';
+// The Archive view's select mode and the messages ticked in it, to act on together. Ticks belong to the channel shown; never stored.
+import { batch, createSignal } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { compareSnowflakes } from '@shared/discord';
 
 const NONE: ReadonlyMap<string, ArchiveMessage> = new Map();
 const [selection, setSelection] = createSignal(NONE);
+const [mode, setMode] = createSignal(false);
 /** The message last ticked or unticked: a range runs from it. */
 let anchorId: string | null = null;
 
-/** Messages are being selected: a click on a row ticks it instead of acting on what it holds. */
-export const selecting = (): boolean => selection().size > 0;
+/** Select mode is on (the chat header's Select): a click on a row ticks it instead of acting on what it holds. */
+export const selecting = mode;
 export const isSelected = (messageId: string): boolean => selection().has(messageId);
 /** The selected messages, oldest first. */
 export const selectedMessages = (): ArchiveMessage[] => [...selection().values()].sort((a, b) => compareSnowflakes(a.id, b.id));
 
-/** Ticks `m`, or unticks it; unticking the last one leaves selection. */
+/** Ticks `m`, or unticks it. */
 export function toggleSelected(m: ArchiveMessage): void {
   const next = new Map(selection());
   if (!next.delete(m.id)) next.set(m.id, m);
@@ -33,7 +34,16 @@ export function selectThrough(m: ArchiveMessage, loaded: readonly ArchiveMessage
   setSelection(next);
 }
 
-export function clearSelection(): void {
+/** Unticks every message; select mode stays on. */
+export function clearTicks(): void {
   anchorId = null;
   setSelection(NONE);
 }
+
+export const startSelecting = (): void => void setMode(true);
+
+/** Leaves select mode, dropping the ticks. */
+export const stopSelecting = (): void => batch(() => {
+  clearTicks();
+  setMode(false);
+});

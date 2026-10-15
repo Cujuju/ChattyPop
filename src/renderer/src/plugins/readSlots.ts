@@ -9,8 +9,6 @@ import { declaredItems, placeSlot, type SlotAnchorOf, type SlotItem } from './sl
 /** Parts of a message drawn by the row opening its menu. */
 export interface MessageMenuScope {
   drawsAttachments: boolean;
-  /** The row is one of the Archive view's, where messages can be selected to act on together. */
-  selectable?: boolean;
 }
 
 /** Menu actions of a plugin: shown only in windows that may make every core call they make (a phone may not). */

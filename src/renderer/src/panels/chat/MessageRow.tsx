@@ -5,7 +5,7 @@ import { For, Show, children, createMemo, createSignal, type JSX } from 'solid-j
 import type { ArchiveMessage } from '@shared/contract';
 import { avatarUrl, decorationUrl } from '@shared/media';
 import type { ArchiveDensity } from '@/state/archive';
-import { ARCHIVE_ROW, messageLink, openMessageMenu, type MessageMenuScope } from '@/state/messageActions';
+import { messageLink, openMessageMenu } from '@/state/messageActions';
 import { mentionsMe } from '@/state/ownMessages';
 import { openPerson } from '@/state/person';
 import { pluginPresents } from '@/state/plugins';
@@ -54,9 +54,6 @@ export interface MessageRowProps {
   children?: JSX.Element;
 }
 
-/** The scope of a row's menu: the Archive view's rows offer selection. */
-const menuScope = (props: MessageRowProps): MessageMenuScope | undefined => (props.selected === undefined ? undefined : ARCHIVE_ROW);
-
 /** One archived message, in the cozy (avatar, grouped) or compact (F2 time | author | body log) layout. */
 export function MessageRow(props: MessageRowProps) {
   return (
@@ -81,7 +78,7 @@ function CompactRow(props: MessageRowProps) {
       data-menu={contextMenu()?.messageId === m().id}
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
-      onContextMenu={(e) => openMessageMenu(e, m(), menuScope(props))}
+      onContextMenu={(e) => openMessageMenu(e, m())}
       onTouchStart={gestures.onTouchStart}
       onTouchMove={gestures.onTouchMove}
       onTouchEnd={gestures.onTouchEnd}
@@ -126,7 +123,7 @@ function CozyRow(props: MessageRowProps) {
       data-grouped={props.grouped}
       aria-label={`${m().author.name}, ${messageTime(m().ts, today())}`}
       {...rowMenuTarget}
-      onContextMenu={(e) => openMessageMenu(e, m(), menuScope(props))}
+      onContextMenu={(e) => openMessageMenu(e, m())}
       onTouchStart={gestures.onTouchStart}
       onTouchMove={gestures.onTouchMove}
       onTouchEnd={gestures.onTouchEnd}

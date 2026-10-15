@@ -1,22 +1,30 @@
-// The Archive's message selection: ticking, ranges and the order actions get.
+// The Archive's select mode: entering and leaving, ticking, ranges and the order actions get.
 import { beforeEach, expect, it } from 'vitest';
 import type { ArchiveMessage } from '@shared/contract';
 import { snowflakeFromMs } from '@shared/discord';
-import { clearSelection, isSelected, selectThrough, selectedMessages, selecting, toggleSelected } from '../src/renderer/src/state/messageSelection';
+import { clearTicks, isSelected, selectThrough, selectedMessages, selecting, startSelecting, stopSelecting, toggleSelected } from '../src/renderer/src/state/messageSelection';
 
 const T0 = Date.UTC(2026, 8, 1);
 const loaded = Array.from({ length: 6 }, (_, i) => ({ id: snowflakeFromMs(T0 + i), content: `m${i}` }) as ArchiveMessage);
 const texts = (): string[] => selectedMessages().map((m) => m.content);
 
-beforeEach(clearSelection);
+beforeEach(stopSelecting);
 
-it('ticks and unticks a message; unticking the last one leaves selection', () => {
+it('stays in select mode with nothing ticked until left, and leaving drops the ticks', () => {
   expect(selecting()).toBe(false);
+  startSelecting();
   toggleSelected(loaded[2]!);
-  expect(selecting()).toBe(true);
   expect(isSelected(loaded[2]!.id)).toBe(true);
   toggleSelected(loaded[2]!);
+  expect(selecting()).toBe(true);
+  toggleSelected(loaded[1]!);
+  clearTicks();
+  expect(selecting()).toBe(true);
+  expect(selectedMessages()).toEqual([]);
+  toggleSelected(loaded[3]!);
+  stopSelecting();
   expect(selecting()).toBe(false);
+  expect(selectedMessages()).toEqual([]);
 });
 
 it('gives actions the messages oldest first, whatever order they were ticked in', () => {
