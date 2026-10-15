@@ -66,13 +66,13 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
   };
   const action = createAction();
   const { busy, error } = action;
-  guardRulePage(dirty);
   // Revert remounts the steps to reset their view state.
   const [generation, setGeneration] = createSignal(1);
   const revert = (): void => {
     setInput(structuredClone(saved()));
     setGeneration(generation() + 1);
   };
+  guardRulePage(dirty, revert);
 
   const enabled = (): boolean => stored()?.enabled ?? input().enabled;
   const setEnabled = (on: boolean): void => {
