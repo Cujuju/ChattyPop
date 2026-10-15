@@ -214,6 +214,9 @@
   --cp-media-pick-mark: 22px; /* a picked media cell's check disc, iOS Photos' selection circle */
   --cp-attachment-tile: 128px; /* an attachment grid tile's least side: three across a default side panel, a filename's two lines readable */
   --cp-attachment-list-thumb: 40px; /* an attachment list row's picture: its two text lines high */
+  --cp-attachment-list-kind: 96px; /* the list's kind column: "video · compressed"; longer marks end in an ellipsis */
+  --cp-attachment-list-size: 72px; /* the list's size column: "1023.9 MB" */
+  --cp-attachment-list-date: 56px; /* the list's date column: "30 Sep" */
   --cp-media-hover-zoom: 1.5; /* a tile's picture under the pointer: readable, and its 256px thumbnail stays sharp at a 128px tile */
   --cp-attachment-picker-min: 96px; /* the least an attachment filter's picker or name field shrinks to before the bar wraps */
   --cp-attach-action-disc: var(--cp-quick-reaction-phone); /* an attach action's disc: the message sheet's quick-reaction size, so the phone's sheets share one disc */

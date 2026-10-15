@@ -201,6 +201,13 @@
     scale var(--cp-duration-fast) var(--cp-ease-out);
 }
 
+/* A picture's blurred, dimmed copy filling its square behind the whole picture (the component places and clips the box),
+   so a picture of any shape still reads as a full tile. */
+.mediaBackdrop {
+  filter: blur(var(--cp-media-backdrop-blur)) brightness(var(--cp-media-backdrop-dim));
+  scale: var(--cp-media-backdrop-bleed);
+}
+
 /* data-zoom: enlarged while its cell is under the pointer (by --zoom, the component's, else the theme's), its shadow
    hugging the picture over the neighbours. */
 :hover > .mediaThumb[data-zoom] {
