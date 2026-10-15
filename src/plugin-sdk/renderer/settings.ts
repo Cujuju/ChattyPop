@@ -31,8 +31,11 @@ export function createSetting<T>(
     /** Nothing valid is stored and no write has filled it since load: a seed may fill it. */
     let unseeded = false;
     let seeding = false;
+    /** A write or another window's change landed: the load's stored read is older than the value shown. */
+    let changed = false;
     /** Shows `v` at once; the returned promise settles with the stored write (callers that must know it landed await it). */
     const set = (v: T): Promise<void> => {
+      changed = true;
       unseeded = false;
       const next = normalize(v);
       setValue(() => next);
@@ -52,6 +55,7 @@ export function createSetting<T>(
       }
     };
     const adopted = api.core.getSetting(key).then((stored) => {
+      if (changed) return;
       const next = stored === undefined ? fallback : normalize(stored);
       if (stored !== undefined) setValue(() => next);
       unseeded = next === fallback;
@@ -64,6 +68,7 @@ export function createSetting<T>(
     onAppEvent('setting-changed', (e) => {
       if (e.key !== key) return;
       const next = normalize(e.value);
+      changed = true;
       if (next !== fallback) unseeded = false;
       setValue(() => next);
     });
