@@ -1,7 +1,8 @@
 // The archive's media folder layout. Names must stay byte-identical: a renamed folder orphans its cache.
-import { rmSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { ARCHIVE_ATTACHMENTS_DIR, ARCHIVE_MEDIA_DIR } from '@shared/types/storage';
+import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentDownloader';
 import { EMOJI_SIZE_PX } from './cdnCache';
 
 /** Named by fetch size so a size change starts a fresh cache instead of serving old low-res files. */
@@ -44,4 +45,15 @@ export function mediaDirs(archiveDir: string): MediaDirs {
 
 export function removeLegacyCaches(dirs: MediaDirs): void {
   for (const d of LEGACY_CACHE_DIRS) rmSync(join(dirs.media, d), { recursive: true, force: true });
+}
+
+/** Folders whose writers stage files under PARTIAL_DOWNLOAD_PREFIX: the store (downloads, replacements) and thumbnails. */
+const PARTIAL_DIRS = ['attachments', 'previews'] as const satisfies readonly (keyof MediaDirs)[];
+
+/** Removes partial files a run that ended mid-write left behind. Call at startup, before any writer runs. */
+export function removeAbandonedPartials(dirs: MediaDirs): void {
+  for (const key of PARTIAL_DIRS) {
+    const names = existsSync(dirs[key]) ? readdirSync(dirs[key]) : [];
+    for (const name of names) if (name.startsWith(PARTIAL_DOWNLOAD_PREFIX)) rmSync(join(dirs[key], name), { force: true });
+  }
 }

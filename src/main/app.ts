@@ -70,7 +70,7 @@ import { pairOnScreen, printPairing } from './serverMode';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { backfillAttachmentThumbs, keepAttachmentThumb } from './media/attachmentThumbs';
-import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
+import { mediaDirs, removeAbandonedPartials, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
 import { attachmentPoster, fetchImageTo, fetchVideoTo, posterKept, type PosterSource } from './media/thumbStore';
 import { PanelWindows } from './panelWindows';
@@ -158,6 +158,7 @@ void app.whenReady().then(() => {
   const discordApi = new DiscordApi(() => discordRef, capture, currentPace, shapes);
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
+  removeAbandonedPartials(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
   const posterOf = (a: PendingAttachment): PosterSource => ({ stored: a.url, fresh: () => freshAttachmentUrl(discordApi, a) });
   const posterSource = async (id: string): Promise<PosterSource | null> => {
