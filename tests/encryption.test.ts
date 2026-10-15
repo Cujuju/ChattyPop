@@ -1,3 +1,4 @@
+import { rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type Database from 'better-sqlite3-multiple-ciphers';
@@ -30,6 +31,9 @@ describe('archive encryption', () => {
     rekey(db, KEY);
     db.close();
     expect(encryptionOnDisk(path)).toBe('encrypted');
+    rmSync(path);
+    writeFileSync(path, ''); // emptied: no pages to read
+    expect(encryptionOnDisk(path)).toBe('absent');
   });
 
   it('opens a plaintext file with a key whose encryption never reached it', () => {
