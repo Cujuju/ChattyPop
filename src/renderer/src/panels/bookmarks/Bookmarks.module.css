@@ -272,6 +272,7 @@
   height: max(var(--cp-btn-h), var(--cp-hit-min));
   padding: 0;
   touch-action: manipulation;
+  -webkit-user-select: none;
   user-select: none;
 }
 
