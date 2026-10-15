@@ -21,7 +21,12 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
   plugins: [bundledPlugins(import.meta.dirname, 'node', plugins)],
   define: { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) },
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).
-  test: { include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'] },
+  test: {
+    include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'],
+    // The git tests run in throwaway repos: the owner's own git config (hooks, signing) mustn't reach them.
+    // '/dev/null' is what git reads as no file on every platform; Node's devNull is not.
+    env: { GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' },
+  },
 });
 
 export default testConfig();
