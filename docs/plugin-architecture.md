@@ -553,7 +553,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `banner` | A notice set apart from its surroundings | — |
 | `band` | A band heading a group of rows | — |
 | `wash` | A block in the section colour's wash | — |
-| `ruleBelow`, `ruleAbove` | A rule under or over a region | `data-rule`: `subtle` (between list rows, within a popover), `strong` (a rule dividing running text, as an inset divider between sections) |
+| `ruleBelow`, `ruleAbove`, `ruleEnd` | A rule under, over or at the end edge of a region (a side column before a pane) | `data-rule`: `subtle` (between list rows, within a popover), `strong` (a rule dividing running text, as an inset divider between sections) |
 | `fadeBelow`, `fadeAbove` | A chrome bar's edge without a rule: its `::after` / `::before` fades the chrome ground out over the content past the edge (the component places the box, `--cp-edge-fade-h` tall) | — |
 | `sheet`, `drawer` | Bottom sheet and side drawer dialogs, with their backdrop; a deep sheet is near-black glass that sets pictures apart, a raised one a picker's ground | `data-tone` (deep, raised) (`sheet`) |
 | `page` | A full-screen phone page (a modal dialog filling the screen) on the app base | — |

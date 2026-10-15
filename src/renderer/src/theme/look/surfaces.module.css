@@ -1,5 +1,5 @@
 /* Look vocabulary: grounds, cards, rules between regions, and dialog surfaces (docs/plugin-architecture.md §14). Look only.
-   Hooks: .ruleBelow / .ruleAbove [data-rule='subtle' | 'strong'], .fadeBelow::after, .fadeAbove::before. */
+   Hooks: .ruleBelow / .ruleAbove / .ruleEnd [data-rule='subtle' | 'strong'], .fadeBelow::after, .fadeAbove::before. */
 
 /* The window ground behind everything. */
 .ground {
@@ -67,6 +67,19 @@
 
 .ruleAbove[data-rule='strong'] {
   border-top: var(--cp-border-w) solid var(--cp-border-strong);
+}
+
+/* A rule on a region's end edge, against the region beside it (a side column before a pane); variants as ruleBelow's. */
+.ruleEnd {
+  border-inline-end: var(--cp-border-w) solid var(--cp-border);
+}
+
+.ruleEnd[data-rule='subtle'] {
+  border-inline-end: var(--cp-border-w) solid var(--cp-border-subtle);
+}
+
+.ruleEnd[data-rule='strong'] {
+  border-inline-end: var(--cp-border-w) solid var(--cp-border-strong);
 }
 
 /* Chrome edge pseudo-elements fade over adjacent content. Components position boxes using --cp-edge-fade-h. */
