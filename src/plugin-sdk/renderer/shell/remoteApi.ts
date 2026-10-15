@@ -1,8 +1,8 @@
+import '@/reportPageErrors';
 // A remote desktop's renderer API: the desktop UI a ChattyPop server serves to another machine. Calls travel as a
 // window's (the transport's desktop gateway, src/shared/remote.ts); what the device does itself goes to the client
 // app's shell (src/shared/desktopShell.ts), or the browser when there is none.
 import { APP_RESTART_CHANNEL, MAIN_INVOKE, PAGE_ERROR_CHANNEL, type AppEvent, type RendererApi } from '@shared/contract';
-import { errorReporter } from '../errorReporter';
 import type { DesktopShell } from '@shared/desktopShell';
 import { attachmentUrl, savedFileName, setMediaRoot } from '@shared/media';
 import { targetEvent, type DeliveredNotification } from '@shared/notifications';
@@ -143,7 +143,6 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
  * root must already say `data-surface="remote"`, before any host module loads.
  */
 export async function startRemoteDesktop(api: RemoteRendererApi, mediaRoot: string): Promise<void> {
-  errorReporter(window, () => performance.now(), (report) => Promise.resolve(api.reportPageError(report)), crypto.randomUUID());
   setMediaRoot(mediaRoot);
   setPageOpener(api.openExport ?? null);
   installApi(api);
