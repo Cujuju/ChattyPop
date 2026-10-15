@@ -178,7 +178,7 @@ export function deleteRule(db: Db, id: number): void {
   db.prepare('DELETE FROM rules WHERE id = ?').run(id); // runs cascade
 }
 
-/** Claims one event for a rule; returns the run id, or null when the rule already fired on it. `windowUntil`: where a timed run's window ends. */
+/** Claims one event for a rule; returns the run id, or null when the rule already fired on it or is deleted or off. `windowUntil`: where a timed run's window ends. */
 export function claimRun(
   db: Db,
   ruleId: number,
@@ -188,11 +188,13 @@ export function claimRun(
   now: number,
   windowUntil: number | null = null,
 ): number | null {
+  // Checked in the insert, so a caller holding an old compiled rule can't claim for it.
   const info = db
     .prepare(
-      'INSERT OR IGNORE INTO rule_runs (rule_id, event_key, message_id, channel_id, live, at, window_until) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      `INSERT OR IGNORE INTO rule_runs (rule_id, event_key, message_id, channel_id, live, at, window_until)
+       SELECT @ruleId, @eventKey, @messageId, @channelId, @live, @now, @windowUntil WHERE EXISTS (SELECT 1 FROM rules WHERE id = @ruleId AND enabled = 1)`,
     )
-    .run(ruleId, eventKey, m?.id ?? null, m?.channelId ?? null, live ? 1 : 0, now, windowUntil);
+    .run({ ruleId, eventKey, messageId: m?.id ?? null, channelId: m?.channelId ?? null, live: live ? 1 : 0, now, windowUntil });
   return info.changes ? Number(info.lastInsertRowid) : null;
 }
 

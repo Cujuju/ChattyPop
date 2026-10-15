@@ -130,11 +130,16 @@ export class RuleEngine {
     if (run.runId !== null) this.record(run.runId, a, result);
   }
   private async runAfter(r: CompiledRule, run: Omit<ActionRun, 'actionId'>): Promise<void> {
-    for (const a of r.spec.actions.filter((a) => (ruleKind('actions', a.type)?.phase ?? 'after') === 'after')) {
+    for (const planned of r.spec.actions.filter((a) => (ruleKind('actions', a.type)?.phase ?? 'after') === 'after')) {
+      // Each action starts from its rule as it is now: deleted or off stops the run; a dropped action doesn't start.
+      const rule = this.find(r.id);
+      if (!rule) return;
+      const a = rule.spec.actions.find((x) => x.id === planned.id);
+      if (!a) continue;
       if (run.history && !ruleKind('actions', a.type)?.history) continue;
       let result: ActionResult;
       try {
-        result = await this.actions.run(a, { ...run, actionId: a.id });
+        result = await this.actions.run(a, { ...run, rule, actionId: a.id });
       } catch (err) {
         result = { outcome: 'failed', detail: errorMessage(err) };
       }
