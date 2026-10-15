@@ -65,20 +65,20 @@ describe('archive encryption from main', () => {
       throw new Error('journal restore failed');
     });
     await expect(set(true)).rejects.toThrow(/journal restore/);
-    expect(log).toEqual(['delete', 'create', 'rekey']); // the first delete: startup drops a key the plaintext file doesn't use
+    expect(log).toEqual(['create', 'rekey']);
   });
 
   it('deletes a saved key only once the core reports the file plaintext', async () => {
     const failed = setup(false, () => Promise.reject(new Error('rekey failed')));
     await expect(failed.set(true)).rejects.toThrow(/rekey failed/);
-    expect(log).toEqual(['delete', 'create', 'rekey', 'delete']);
+    expect(log).toEqual(['create', 'rekey', 'delete']);
     log.splice(0);
     const gone = setup(false, async (_key, state) => {
       state.reachable = false;
       throw new Error('core exited');
     });
     await expect(gone.set(true)).rejects.toThrow(/core exited/);
-    expect(log).toEqual(['delete', 'create', 'rekey']); // state unknown: kept, and openDb ignores a key the plaintext file doesn't need
+    expect(log).toEqual(['create', 'rekey']); // state unknown: kept, and openDb ignores a key the plaintext file doesn't need
   });
 
   it('keeps the key when the file cannot be read after a change, and a retry never replaces it', async () => {
@@ -88,14 +88,17 @@ describe('archive encryption from main', () => {
       throw new Error('SQLITE_IOERR');
     });
     await expect(set(true)).rejects.toThrow(/SQLITE_IOERR/);
-    expect(log).toEqual(['delete', 'create', 'rekey']);
+    expect(log).toEqual(['create', 'rekey']);
     await expect(set(true)).rejects.toThrow(/SQLITE_IOERR/); // state unknown: no new key
     state.readFails = false;
     await set(true); // read as encrypted: the key in use stays
-    expect(log).toEqual(['delete', 'create', 'rekey']);
+    expect(log).toEqual(['create', 'rekey']);
   });
 
-  it('keeps the key while the archive file is missing, from startup on', async () => {
+  it('settles no key at startup, and keeps it while the archive file is missing', async () => {
+    setup(false); // a plaintext file, perhaps a fallback location: its key may belong to the archive elsewhere
+    await new Promise((settled) => setTimeout(settled)); // past any startup core calls
+    expect(log).toEqual([]);
     const { set } = setup(true, undefined, { absent: true });
     await expect(set(false)).rejects.toThrow(/missing/);
     expect(log).toEqual([]);

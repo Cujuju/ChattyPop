@@ -26,8 +26,8 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
     if ((await core.call('archiveEncryption').catch(() => null)) === 'plaintext') deleteArchiveKey();
   };
   // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
-  // The first settle drops a key an interrupted change left unused.
-  let encrypting: Promise<void> = settleKey();
+  // Nothing settles at startup: the archive opened may be a fallback location, and a key a plaintext file ignores is harmless.
+  let encrypting: Promise<void> = Promise.resolve();
   const setEncrypted = async (on: boolean): Promise<void> => {
     // Read fresh, never from status: a key is replaced only while the file verifiably doesn't use it.
     const state = await core.call('archiveEncryption');
