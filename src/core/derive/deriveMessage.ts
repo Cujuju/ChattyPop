@@ -1,6 +1,6 @@
 import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
-import { parseRawJson, type Db } from '../db';
+import type { Db } from '../db';
 import { extractLinks } from './links';
 
 interface RawAttachment {
@@ -34,21 +34,6 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
     if (r.emoji?.id && r.emoji.name) found.push({ id: r.emoji.id, name: r.emoji.name, animated: Boolean(r.emoji.animated) });
   }
   return found;
-}
-
-/** What an edit can change of an attachment, as one comparable string. */
-const attachmentState = (a: { id: string; filename: string; description?: string | null; flags?: number | null }): string =>
-  JSON.stringify([a.id, a.filename, a.description ?? null, a.flags ?? null]);
-
-/** Updates stored attachment payloads before derivation so unchanged-text refetches preserve renames and alt text. Retains other gateway-only fields. */
-export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
-  if (!Array.isArray(m.attachments)) return;
-  const stored = db
-    .prepare('SELECT id, filename, description, flags FROM attachments WHERE message_id = ? AND removed_at IS NULL ORDER BY rowid')
-    .all(m.id) as { id: string; filename: string; description: string | null; flags: number | null }[];
-  if (stored.map(attachmentState).join() === m.attachments.map(attachmentState).join()) return;
-  const payload = parseRawJson<object>(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string | Buffer | null);
-  if (payload) db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(JSON.stringify({ ...payload, attachments: m.attachments }), m.id);
 }
 
 /** Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and repeated MESSAGE_UPDATE events. */

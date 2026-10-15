@@ -16,8 +16,9 @@ import {
   type RawUser,
   type RawUserPatch,
 } from '@shared/discord';
-import { parseRawJson, type Db } from './db';
-import { deriveMessage, refreshStoredAttachments } from './derive/deriveMessage';
+import { parseRawJson, rawJsonText, type Db } from './db';
+import { deriveMessage } from './derive/deriveMessage';
+import { mergeFullPayload, olderVersion } from './messageVersion';
 import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser, type UserMergeMode } from './people';
 import {
   PRIVATE_KINDS_SQL,
@@ -197,11 +198,15 @@ export class Archive {
     return this.optedIn.has(channelId);
   }
 
-  /** Inserts messages and retains changed text as revisions. Arrival source remains the first source; only gateway arrivals can be live. */
+  /**
+   * Inserts messages and retains changed text as revisions; a copy older than the stored edit changes nothing, and a
+   * current one refreshes the stored payload. Arrival source remains the first source; only gateway arrivals can be live.
+   */
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult {
     const result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
-    const getMsg = this.db.prepare('SELECT content, edited_ts, pruned_at FROM messages WHERE id = ?');
+    const getMsg = this.db.prepare('SELECT content, edited_ts, raw_json, pruned_at FROM messages WHERE id = ?');
     const insert = this.db.prepare('INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const refresh = this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?');
     const now = Date.now();
     this.db.transaction(() => {
       for (const m of messages) {
@@ -214,19 +219,26 @@ export class Archive {
         const seenAt = snowflakeToMs(m.id);
         if (m.member && typeof m.member === 'object') putMember(this.db, guildId, m.author.id, m.member as RawMember, seenAt);
         this.ingestMentions(m.mentions, guildId, seenAt, via === ARRIVAL.gateway ? 'merge' : 'keep');
-        const existing = getMsg.get(m.id) as { content: string; edited_ts: number | null; pruned_at: number | null } | undefined;
+        const existing = getMsg.get(m.id) as
+          { content: string; edited_ts: number | null; raw_json: string | Buffer | null; pruned_at: number | null } | undefined;
         // Retention removed this text on purpose; a re-fetch or edit must not bring it back.
         if (existing?.pruned_at) continue;
+        const editedTs = m.edited_timestamp ? Date.parse(m.edited_timestamp) : null;
+        // Fetched before an edit the archive already holds (a history page delivered late).
+        if (existing && olderVersion(editedTs, existing.edited_ts)) continue;
         const changed = !existing || existing.content !== m.content;
         const texted = changed ? 0 : textedLinkCount(this.db, m.id);
-        const editedTs = m.edited_timestamp ? Date.parse(m.edited_timestamp) : null;
         if (!existing) {
           insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via);
           result.inserted++;
-        } else if (existing.content !== m.content) {
-          this.reviseContent(m.id, existing, m.content, editedTs, JSON.stringify(m), now);
-          result.edited++;
-        } else refreshStoredAttachments(this.db, m);
+        } else {
+          const storedJson = rawJsonText(existing.raw_json);
+          const raw = JSON.stringify(mergeFullPayload(storedJson ? (JSON.parse(storedJson) as object) : null, m));
+          if (changed) {
+            this.reviseContent(m.id, existing, m.content, editedTs, raw, now);
+            result.edited++;
+          } else if (raw !== storedJson || editedTs !== existing.edited_ts) refresh.run(editedTs, raw, m.id); // unchanged rows keep their compression
+        }
         // Derived first: matching reads the message's attachments and links.
         deriveMessage(this.db, m, m.author.id);
         // Before matching: image text still to come is pending when rules look.
@@ -252,6 +264,8 @@ export class Archive {
       if (u.author) upsertUser(this.db, u.author);
       this.ingestMentions(u.mentions, guildOf(this.db, u.channel_id), snowflakeToMs(u.id));
       if (row.pruned_at) return;
+      // A copy that names its version (null: unedited) and predates the stored edit is stale; one without it is a partial update.
+      if (u.edited_timestamp !== undefined && olderVersion(u.edited_timestamp ? Date.parse(u.edited_timestamp) : null, row.edited_ts)) return;
       const mergedObj = { ...(parseRawJson<object>(row.raw_json) ?? {}), ...u };
       const merged = JSON.stringify(mergedObj);
       const editedTs = u.edited_timestamp ? Date.parse(u.edited_timestamp) : row.edited_ts;

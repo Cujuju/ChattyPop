@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
+import { messagesByIds } from '../src/core/queries/messages';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL, type TextMessage } from '../src/core/arrival';
 
@@ -22,6 +23,48 @@ afterEach(() => vi.useRealTimers());
 
 const stored = (id: string) => db.prepare('SELECT content, edited_ts AS editedTs FROM messages WHERE id = ?').get(id) as { content: string; editedTs: number | null };
 const revisions = (id: string) => db.prepare('SELECT content FROM message_revisions WHERE message_id = ? ORDER BY seen_at').pluck().all(id);
+
+describe('a re-fetch older than the stored edit', () => {
+  it('leaves the newer gateway edit in place, text and edit time', () => {
+    const m = rawMessage(CH, T0, 'old');
+    archive.ingestMessages([m], ARRIVAL.gateway);
+    archive.applyUpdate({ id: m.id, channel_id: CH, content: 'new', edited_timestamp: iso(T0 + MS_PER_MIN) });
+    texts.length = 0;
+    archive.ingestMessages([m], ARRIVAL.sync); // a history page fetched before the edit, delivered after it
+    expect(stored(m.id)).toEqual({ content: 'new', editedTs: T0 + MS_PER_MIN });
+    expect(revisions(m.id)).toEqual(['old']);
+    expect(texts).toEqual([]);
+  });
+
+  it('ignores a gateway edit older than the stored one', () => {
+    const m = rawMessage(CH, T0, 'v1');
+    archive.ingestMessages([m], ARRIVAL.gateway);
+    archive.applyUpdate({ id: m.id, channel_id: CH, content: 'v3', edited_timestamp: iso(T0 + 2 * MS_PER_MIN) });
+    archive.applyUpdate({ id: m.id, channel_id: CH, content: 'v2', edited_timestamp: iso(T0 + MS_PER_MIN) });
+    expect(stored(m.id)).toEqual({ content: 'v3', editedTs: T0 + 2 * MS_PER_MIN });
+    expect(revisions(m.id)).toEqual(['v1']);
+  });
+});
+
+describe('a re-fetch with unchanged text', () => {
+  it('takes the current reactions, embeds and edit time, keeps gateway-only fields, and adds no revision', () => {
+    const m = rawMessage(CH, T0, 'same', { reactions: [{ emoji: { id: null, name: '👍' }, count: 1 }], embeds: [], nonce: 'n1' });
+    archive.ingestMessages([m], ARRIVAL.gateway);
+    const { nonce: _gatewayOnly, ...fetched } = m;
+    const later = { ...fetched, edited_timestamp: iso(T0 + MS_PER_MIN), reactions: [{ emoji: { id: null, name: '👍' }, count: 5 }], embeds: [{ type: 'rich', title: 'Card' }] };
+    texts.length = 0;
+    archive.ingestMessages([later], ARRIVAL.sync);
+    const [shown] = messagesByIds(db, [m.id]);
+    expect(shown).toMatchObject({ content: 'same', editedTs: T0 + MS_PER_MIN, nonce: 'n1', revisions: [] });
+    expect(shown!.reactions.map((r) => r.count)).toEqual([5]);
+    expect(shown!.embeds.map((e) => e.title)).toEqual(['Card']);
+    expect(texts).toEqual([]);
+    // Discord leaves `reactions` out once none remain.
+    const { reactions: _none, ...bare } = later;
+    archive.ingestMessages([bare], ARRIVAL.sync);
+    expect(messagesByIds(db, [m.id])[0]!.reactions).toEqual([]);
+  });
+});
 
 describe('revisions', () => {
   it('keeps every prior text when edits arrive within one millisecond', () => {
