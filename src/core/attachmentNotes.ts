@@ -17,17 +17,17 @@ type Provider = { rank: number; attachments: AttachmentNoteProvider } | { rank: 
 /** By plugin id; notes are listed in each provider's `rank` (its plugin's build order). */
 const providers = new Map<string, Provider>();
 
-export function registerAttachmentNotes(pluginId: string, rank: number, fn: AttachmentNoteProvider): void {
-  providers.set(pluginId, { rank, attachments: fn });
+/** Holds `provider` as `pluginId`'s until the returned disposer runs; a disposer never removes a later registration. */
+function register(pluginId: string, provider: Provider): () => void {
+  providers.set(pluginId, provider);
+  return () => {
+    if (providers.get(pluginId) === provider) providers.delete(pluginId);
+  };
 }
 
-export function registerPartNotes(pluginId: string, rank: number, fn: PartNoteProvider): void {
-  providers.set(pluginId, { rank, parts: fn });
-}
+export const registerAttachmentNotes = (pluginId: string, rank: number, fn: AttachmentNoteProvider): (() => void) => register(pluginId, { rank, attachments: fn });
 
-export function unregisterAttachmentNotes(pluginId: string): void {
-  providers.delete(pluginId);
-}
+export const registerPartNotes = (pluginId: string, rank: number, fn: PartNoteProvider): (() => void) => register(pluginId, { rank, parts: fn });
 
 /** These messages' notes, by message id then part key, each part's in plugin build order; parts without any are absent. */
 export function partNotes(messages: readonly { id: string; attachmentIds: readonly string[] }[]): Map<string, Map<string, AttachmentNote[]>> {

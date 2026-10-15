@@ -142,7 +142,7 @@ export function createCoreContext<D extends PluginDescriptor>(
       mediaDir: bundled.mediaDir,
     },
     preferences: corePreferences(plugin, bundled, reg, live),
-    archive: pluginArchive(id, buildIndex, deps, reg, plugins, live, ask, send, guard),
+    archive: pluginArchive(id, buildIndex, deps, reg, plugins, live, ask, send),
     identity: {
       names: () => bundled.readerNames?.() ?? null,
       onSelf: (fn) => {

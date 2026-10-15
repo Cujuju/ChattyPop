@@ -87,12 +87,13 @@ export class ProviderRegistry {
     this.registered.set(id, registration);
     // Only a provider declaring accounts owns account folders in its plugin's data folder.
     if (declared.accounts && dataDir) this.accounts.activate(id, impl, dataDir);
+    // Revokes before the plugin's own cleanup, so a throw from that cleanup leaves nothing registered or running.
     return () => {
       if (this.registered.get(id) !== registration) return;
       this.registered.delete(id);
       this.accounts.deactivate(id);
-      impl.dispose?.();
       registration.revoked.abort(new ProviderUnavailableError(this.unavailable(id)!));
+      impl.dispose?.();
     };
   }
 

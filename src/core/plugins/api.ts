@@ -54,8 +54,6 @@ export interface Registrations {
   onSettingChanged: { key: string; fn: () => void }[];
   onArchiveChanged: ((channelIds: string[]) => void)[];
   onLinksRebuilt: (() => void)[];
-  /** It provides attachment notes, dropped on unload. */
-  attachmentNotes: boolean;
   /** Subjects of the per-message Jev questions it registered, dropped on unload. */
   jevQuestions: string[];
   /** Keys (registrationCheck) of what a bundled activation registered, checked against its descriptor once it returns. */
@@ -81,7 +79,6 @@ export const emptyRegistrations = (): Registrations => ({
   onSettingChanged: [],
   onArchiveChanged: [],
   onLinksRebuilt: [],
-  attachmentNotes: false,
   jevQuestions: [],
   registered: new Set(),
   handlers: new Map(),

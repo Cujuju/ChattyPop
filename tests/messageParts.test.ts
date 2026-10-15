@@ -1,8 +1,8 @@
 // Message parts: what a message shows that a plugin can make text for, notes keyed by part (drawn under attachments and
 // embeds), and derived text read per part.
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { ARRIVAL } from '../src/core/arrival';
-import { partNotes, registerAttachmentNotes, registerPartNotes, unregisterAttachmentNotes } from '../src/core/attachmentNotes';
+import { partNotes, registerAttachmentNotes, registerPartNotes } from '../src/core/attachmentNotes';
 import { partTexts, storeDerivedText, storeLinkText, tagDerivedParts } from '../src/core/derivedText';
 import { embedPartKeys, messageParts } from '../src/core/messageParts';
 import type { ArchiveEmbed } from '../src/shared/types/archive';
@@ -47,13 +47,11 @@ describe('the parts of a message', () => {
 });
 
 describe('notes by part', () => {
-  afterEach(() => ['att', 'part'].forEach(unregisterAttachmentNotes));
-
   it('draw under the attachment or the embed they are of, in plugin build order', () => {
     const { db, id } = seeded();
     const note = (text: string) => ({ kind: 'k', state: 'done', label: 'l', text });
-    registerPartNotes('part', 2, (ids) => new Map(ids.map((m) => [m, new Map([[`embed:${VIDEO}`, note('heard')], ['attachment:a1', note('translated')]])])));
-    registerAttachmentNotes('att', 1, (ids) => new Map(ids.filter((a) => a === 'a1').map((a) => [a, note('said')])));
+    onTestFinished(registerPartNotes('part', 2, (ids) => new Map(ids.map((m) => [m, new Map([[`embed:${VIDEO}`, note('heard')], ['attachment:a1', note('translated')]])]))));
+    onTestFinished(registerAttachmentNotes('att', 1, (ids) => new Map(ids.filter((a) => a === 'a1').map((a) => [a, note('said')]))));
     expect(partNotes([{ id, attachmentIds: ['a1', 'a2'] }]).get(id)!.get('attachment:a1')!.map((n) => [n.pluginId, n.part, n.text])).toEqual([
       ['att', 'attachment:a1', 'said'],
       ['part', 'attachment:a1', 'translated'],
@@ -105,7 +103,6 @@ describe('link text', () => {
     storeLinkText(db, POST, 'links', '詳細は分からないけどHEAT的な競技');
     return { db, bare: bare.id, card: card.id };
   }
-  afterEach(() => unregisterAttachmentNotes('probe'));
 
   it('is the whole card’s text where a card shows the link, else a part of its own', () => {
     const { db, bare, card } = shared();
@@ -120,7 +117,7 @@ describe('link text', () => {
 
   it('draws its notes under the message text', () => {
     const { db, bare } = shared();
-    registerPartNotes('probe', 1, (ids) => new Map(ids.map((m) => [m, new Map([[`link-text:${POST}`, { kind: 'translation', state: 'done', label: 'translation', text: 'HEAT-like' }]])])));
+    onTestFinished(registerPartNotes('probe', 1, (ids) => new Map(ids.map((m) => [m, new Map([[`link-text:${POST}`, { kind: 'translation', state: 'done', label: 'translation', text: 'HEAT-like' }]])]))));
     const [m] = messagesByIds(db, [bare]);
     expect(m!.notes.map((n) => [n.part, n.text])).toEqual([[`link-text:${POST}`, 'HEAT-like']]);
   });

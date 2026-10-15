@@ -144,7 +144,7 @@ function importer(id: string, bundled: BundledDeps, live: () => boolean): Import
   };
 }
 
-/** Builds a plugin's archive services; `ask` runs plugin code with a fallback, `send` emits while live, `guard` records a throw. */
+/** Builds a plugin's archive services; `ask` runs plugin code while live with a fallback, recording a throw; `send` emits while live. */
 export function pluginArchive(
   id: string,
   buildIndex: number,
@@ -154,21 +154,9 @@ export function pluginArchive(
   live: () => boolean,
   ask: <T>(fn: () => T, fallback: T) => T,
   send: (e: AppEvent) => void,
-  guard: (fn: () => unknown) => void,
 ): PluginArchive {
   const { bundled } = deps;
   const settle = derivedTextSettler(id, bundled, plugins);
-  // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
-  const guarded = <T>(fn: () => T, fallback: T): T => {
-    try {
-      return fn();
-    } catch (err) {
-      guard(() => {
-        throw err;
-      });
-      return fallback;
-    }
-  };
   return {
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
@@ -218,16 +206,15 @@ export function pluginArchive(
       changed: (messageIds) => send({ type: 'message-labels-changed', messageIds }),
     },
     attachmentNotes: {
+      // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
       provide: (fn) => {
-        registerAttachmentNotes(id, buildIndex, (ids) => guarded(() => fn(ids), new Map<string, PluginNote>()));
-        reg.attachmentNotes = true;
+        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, PluginNote>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },
     notes: {
       provide: (fn) => {
-        registerPartNotes(id, buildIndex, (ids) => guarded(() => fn(ids), new Map<string, Map<string, PluginNote>>()));
-        reg.attachmentNotes = true;
+        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, Map<string, PluginNote>>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },
