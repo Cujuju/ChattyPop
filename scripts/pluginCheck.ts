@@ -106,7 +106,7 @@ async function scan(pluginDir: string, log: (line: string) => void): Promise<voi
   // Descriptor validation first rejects folder names that differ from plugin IDs.
   const descriptor = await sourceDescriptor(pluginDir, REPO_ROOT, anchorFolders(pluginDir));
   for (const w of scanWarnings(pluginDir)) log(`plugin:check warning: ${w}`);
-  const violations = scanPlugin({ pluginDir, isPhoneTransport: descriptor.phone?.transport === true });
+  const violations = scanPlugin({ pluginDir, isPhoneTransport: descriptor.phone?.transport === true, adoptedTables: Object.keys(descriptor.adopts?.tables ?? {}) });
   if (violations.length) throw new Error(violations.join('\n'));
 }
 

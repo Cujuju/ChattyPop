@@ -50,10 +50,12 @@ export interface ScanOptions {
   pluginDir: string;
   /** Whether the host names this plugin its phone transport (its descriptor's `phone.transport`). */
   isPhoneTransport: boolean;
+  /** The old names of the tables its descriptor adopts (`adopts.tables`): its indexes and triggers may still bear them. */
+  adoptedTables?: readonly string[];
 }
 
 /** Reports source violations as file:line: message; plugin IDs match folder names. */
-export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions): string[] {
+export function scanPlugin({ pluginDir: dirIn, isPhoneTransport, adoptedTables = [] }: ScanOptions): string[] {
   const pluginDir = resolve(dirIn);
   const id = basename(pluginDir);
   const files = sourceFiles(pluginDir);
@@ -65,7 +67,7 @@ export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions):
   const shell = scripts.flatMap((f) => importsOf(f).filter((i) => i.spec === SHELL_TIER).map((i) => violation(f.rel, i.line, `${SHELL_TIER}: only the phone transport's plugin may import it`)));
   if (!isPhoneTransport) found.push(...shell);
   found.push(...stampViolations(files));
-  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir))];
+  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir), adoptedTables)];
 }
 
 /** What the scan warns of without failing (rules.ts networkWarnings, clockViolations), as file:line: message. */

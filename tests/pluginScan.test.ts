@@ -149,6 +149,31 @@ describe("plugin:check's scan", () => {
     ]);
   });
 
+  it('fails a migration that drops, renames or recreates a host table; passes schema changes to its own and adopted tables', () => {
+    const tables = "import { pluginTable } from '@plugin-sdk/shared';\nimport plugin from '../shared';\nexport const OWN = pluginTable(plugin, 'rows');\n";
+    const dir = pluginFolder('probe', {
+      'core/tables.ts': tables,
+      'core/schema.ts': [
+        "import { OWN } from './tables';",
+        "export const drop = ['DROP TABLE IF EXISTS messages'];",
+        'export const rename = [`CREATE TABLE ${OWN} (id); ALTER TABLE settings RENAME TO ${OWN}`];',
+        "export const recreate = ['CREATE TABLE IF NOT EXISTS channels (id TEXT)'];",
+      ].join('\n'),
+    });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
+      'core/schema.ts:2: host or unknown table: messages',
+      'core/schema.ts:3: host or unknown table: settings',
+      'core/schema.ts:4: host or unknown table: channels',
+    ]);
+    writeFileSync(join(dir, 'core/schema.ts'), [
+      "import { OWN } from './tables';",
+      'export const steps = [`CREATE TABLE ${OWN} (id, ts); CREATE INDEX ${OWN}_ts ON ${OWN} (ts)`, `ALTER TABLE ${OWN} ADD COLUMN pick TEXT`];',
+      "export const legacy = ['DROP INDEX IF EXISTS old_rows_ts'];",
+    ].join('\n'));
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual(['core/schema.ts:3: host or unknown index: old_rows_ts']);
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false, adoptedTables: ['old_rows'] })).toEqual([]);
+  });
+
   it("adds a plugin repo's own all-data grants, beside its plugins folder, to the host's", () => {
     const repo = tempDir();
     const dir = join(repo, 'plugins', 'probe');

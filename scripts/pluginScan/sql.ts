@@ -3,6 +3,20 @@
 import { posix } from 'node:path';
 import { lineAt, violation, type SourceFile } from './source';
 
+/** Whitespace or a block comment between SQL keywords. */
+const GAP = String.raw`(?:\s|\/\*[\s\S]*?\*\/)+`;
+/** A schema statement's opening: CREATE (with its modifiers), DROP or ALTER, and what it acts on. */
+const SCHEMA_VERB = String.raw`CREATE(?:${GAP}(?:TEMP|TEMPORARY|UNIQUE|VIRTUAL))*${GAP}(?:TABLE|INDEX|VIEW|TRIGGER)|DROP${GAP}(?:TABLE|INDEX|VIEW|TRIGGER)|ALTER${GAP}TABLE`;
+/** A literal holding SQL: a statement keyword at its start or after `;` or `(`, possibly behind expressions. */
+const SQL_START = new RegExp(
+  String.raw`(?:^|[;(])\s*(?:__expr_[\da-f]+__\s*)*(?:SELECT|WITH|INSERT|UPDATE|DELETE|REPLACE|FROM|JOIN|INTO|${SCHEMA_VERB})\b(?=\s+\S|[*(["` + '`' + String.raw`]|\/\*)`,
+  'i',
+);
+/** Schema objects a statement creates, drops or alters: tables and views hold rows; indexes and triggers are named. */
+const SCHEMA_OBJECTS: ReadonlySet<string> = new Set(['table', 'view', 'index', 'trigger']);
+/** Words between CREATE and its object. */
+const CREATE_MODIFIERS: ReadonlySet<string> = new Set(['temp', 'temporary', 'unique', 'virtual']);
+
 /** String and template contents with expressions retained as distinct SQL tokens. */
 export function sqlLiterals(source: string): { sql: string; line: number }[] {
   const found: { sql: string; line: number }[] = [];
@@ -27,7 +41,7 @@ export function sqlLiterals(source: string): { sql: string; line: number }[] {
         sql += ` __expr_${Buffer.from(source.slice(begin, at - 1).trim()).toString('hex')}__ `;
       } else sql += char;
     }
-    if (/(?:^|[;(])\s*(?:__expr_[\da-f]+__\s*)*(?:SELECT|WITH|INSERT|UPDATE|DELETE|REPLACE|FROM|JOIN|INTO)\b(?=\s+\S|[*(["`]|\/\*)/i.test(sql)) {
+    if (SQL_START.test(sql)) {
       found.push({ sql, line: source.slice(0, start).split('\n').length });
     }
   };
@@ -73,8 +87,17 @@ export function tableConstants(source: string, visible = false): string[] {
     .filter((match) => match[2] === helper).map((match) => match[1]!);
 }
 
-/** Rejected SQL targets; unknown dynamic expressions fail closed. */
-export function sqlViolations(sql: string, own: ReadonlySet<string>, allowAll: boolean, visible: ReadonlySet<string> = new Set()): string[] {
+/**
+ * Rejected SQL targets; unknown dynamic expressions fail closed. Schema statements act only on its own tables; an index or
+ * trigger is named from one, or from a table the descriptor adopts (`adopted`: its names from before it was a plugin).
+ */
+export function sqlViolations(
+  sql: string,
+  own: ReadonlySet<string>,
+  allowAll: boolean,
+  visible: ReadonlySet<string> = new Set(),
+  adopted: readonly string[] = [],
+): string[] {
   const clean = sql.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'/g, ' ');
   const tokens = [...clean.matchAll(/[@:$]\w+|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]|[\w]+|[(),.;]/g)]
     .map(([token]) => /^["`\[]/.test(token) ? token.slice(1, -1).toLowerCase() : token.toLowerCase());
@@ -117,6 +140,42 @@ export function sqlViolations(sql: string, own: ReadonlySet<string>, allowAll: b
       errors.push(`host or unknown table: ${name}`);
     }
   };
+  /** The token after the object name at `at`: past a schema qualifier, and past the suffix of an own name (`${OWN}_ts`). */
+  const afterName = (at: number): number => {
+    const end = tokens[at + 1] === '.' ? at + 3 : at + 1;
+    return tokens[end - 1]?.startsWith('__expr_') && tokens[end]?.startsWith('_') ? end + 1 : end;
+  };
+  /** An index or trigger name: an own table's, suffixed or not, or an adopted table's. */
+  const objectName = (at: number, kind: string): void => {
+    const name = tokens[at + 1] === '.' ? tokens[at + 2] : tokens[at];
+    if (!name) errors.push(`missing ${kind} name`);
+    else if (name.startsWith('__expr_')) {
+      const expression = Buffer.from(name.slice('__expr_'.length, -2), 'hex').toString();
+      if (!own.has(expression)) errors.push(`unowned ${kind} expression: ${expression}`);
+    } else if (!adopted.some((old) => name === old || name.startsWith(`${old}_`))) errors.push(`host or unknown ${kind}: ${name}`);
+  };
+  /** CREATE, DROP or ALTER at `i`: the tables and views it acts on are written; an index or trigger it creates writes its table. */
+  const schema = (i: number): void => {
+    const verb = tokens[i];
+    let at = i + 1;
+    if (verb === 'create') while (CREATE_MODIFIERS.has(tokens[at]!)) at++;
+    const kind = tokens[at++]!;
+    // ALTER TABLE … DROP COLUMN and the like name no object of their own.
+    if (!SCHEMA_OBJECTS.has(kind) || (verb === 'alter' && kind !== 'table')) return;
+    if (tokens[at] === 'if') at += tokens[at + 1] === 'not' ? 3 : 2;
+    if (kind === 'table' || kind === 'view') {
+      target(at, true);
+      const next = afterName(at);
+      if (verb === 'alter' && tokens[next] === 'rename' && tokens[next + 1] === 'to') target(next + 2, true);
+      return;
+    }
+    objectName(at, kind);
+    if (verb !== 'create') return;
+    // The table it is on: the first ON after its name (a trigger's event comes between).
+    const on = tokens.indexOf('on', afterName(at));
+    if (on < 0) errors.push('missing table target');
+    else target(on + 1, true);
+  };
   let depth = 0;
   const from = new Set<number>();
   for (let i = 0; i < tokens.length; i++) {
@@ -133,6 +192,7 @@ export function sqlViolations(sql: string, own: ReadonlySet<string>, allowAll: b
     }
     if (token === 'join' || (token === ',' && from.has(depth))) target(i + 1, false);
     if (token === 'into') target(i + 1, true);
+    if (token === 'create' || token === 'drop' || token === 'alter') schema(i);
     if (token === 'update' && tokens[i + 1] !== 'set') {
       target(i + (tokens[i + 1] === 'or' ? 3 : 1), true);
     }
@@ -146,7 +206,7 @@ export function privacyViolations(source: string): string[] {
 }
 
 /** Checks SQL literals and imports against plugin tables, views, and all-data grants. Grants unused by their files are rejected. */
-export function archiveViolations(pluginId: string, files: readonly SourceFile[], readers: ReadonlyMap<string, string>): string[] {
+export function archiveViolations(pluginId: string, files: readonly SourceFile[], readers: ReadonlyMap<string, string>, adopted: readonly string[] = []): string[] {
   const offenders: string[] = [];
   const used = new Set<string>();
   for (const { rel, text } of files) {
@@ -171,7 +231,7 @@ export function archiveViolations(pluginId: string, files: readonly SourceFile[]
     }
     for (const { sql, line } of sqlLiterals(text)) {
       if (/\barchive_all_\w+/.test(sql)) used.add(key);
-      offenders.push(...sqlViolations(sql, own, readers.has(key), visible).map((error) => violation(rel, line, error)));
+      offenders.push(...sqlViolations(sql, own, readers.has(key), visible, adopted).map((error) => violation(rel, line, error)));
     }
   }
   const stale = [...readers].filter(([key]) => key.startsWith(`${pluginId}/`) && !used.has(key));
