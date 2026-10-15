@@ -1,3 +1,5 @@
+// Checks ordinary Solid imports, aliases, re-exports and module-level computations for containment.
+// Deliberate reflection through globalThis[Symbol.for('chattypop.hostModules')] or computed keys on published host-module accessors can still reach raw Solid; this static scan does not prevent it.
 import { parse } from '@babel/parser';
 import { violation, type SourceFile } from './source';
 
@@ -18,7 +20,10 @@ const DIRECT_SOURCES = new Set(['solid-js', 'solid-js/store']);
 // The host registry passes plugins the host's real Solid instances.
 const HOST_REGISTRY = 'src/renderer/src/plugins/installedRenderers.ts';
 // Only installed-module plumbing declares, publishes or reads the raw host namespaces.
-const HOST_MODULE_LOADERS = new Set(['src/shared/installedPlugins.ts', 'src/shared/hostModules.ts', 'src/renderer/src/plugins/installedLoader.ts']);
+const HOST_MODULE_LOADERS = new Set([
+  'src/shared/installedPlugins.ts', 'src/shared/hostModules.ts', 'src/renderer/src/plugins/installedLoader.ts',
+  'src/main/pluginBuild/descriptor.ts', 'src/main/pluginBuild/hostModules.ts',
+]);
 const HOST_MODULE_ACCESS = new Set(['HOST_MODULES_KEY', 'hostModules']);
 const SDK_REPLACEMENTS: Record<string, string> = {
   createRoot: 'containedRoot or ownedOrContained',
@@ -90,6 +95,8 @@ function resolve(n: Ast | undefined, scope: Scope): Binding | undefined {
 
 function scan(source: string, hostFile?: string): SolidScan {
   const hostRegistry = hostFile === HOST_REGISTRY;
+  const outsideRenderer = hostFile !== undefined && !/^src\/(renderer|plugin-sdk)\//.test(hostFile);
+  const dynamicSources = outsideRenderer ? SOURCES : DIRECT_SOURCES;
   const program = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] }).program as unknown as Ast;
   const result: SolidScan = { imports: [], initial: [], escapes: [] };
   const escape = (n: Ast, message: string): void => { result.escapes.push({ line: n.loc?.start.line ?? 1, message }); };
@@ -98,6 +105,9 @@ function scan(source: string, hostFile?: string): SolidScan {
   hoisted(program, module);
   for (const n of list(program, 'body')) {
     const exportedFrom = name(child(n, 'source'));
+    if (outsideRenderer && exportedFrom && SOURCES.has(exportedFrom)) {
+      escape(n, `${exportedFrom}: Solid is restricted to renderer and Plugin SDK sources`);
+    }
     if (exportedFrom && SOURCES.has(exportedFrom) && n.exportKind !== 'type') {
       if (n.type === 'ExportNamedDeclaration') {
         for (const specifier of list(n, 'specifiers')) {
@@ -243,7 +253,7 @@ function scan(source: string, hostFile?: string): SolidScan {
     if (n.type === 'CallExpression' || n.type === 'OptionalCallExpression') {
       const callee = unwrap(child(n, 'callee'));
       const from = moduleName(list(n, 'arguments')[0]);
-      if (from && DIRECT_SOURCES.has(from) && (callee?.type === 'Import' || callee?.type === 'Identifier' && callee.name === 'require')) {
+      if (from && dynamicSources.has(from) && (callee?.type === 'Import' || callee?.type === 'Identifier' && callee.name === 'require')) {
         escape(n, `${from}: require and dynamic import are forbidden; use named imports and SDK containment`);
       }
       const binding = resolve(callee, scope);
@@ -260,7 +270,7 @@ function scan(source: string, hostFile?: string): SolidScan {
     }
     if (n.type === 'ImportExpression') {
       const from = moduleName(child(n, 'source'));
-      if (from && DIRECT_SOURCES.has(from)) escape(n, `${from}: dynamic import is forbidden; use named imports and SDK containment`);
+      if (from && dynamicSources.has(from)) escape(n, `${from}: dynamic import is forbidden; use named imports and SDK containment`);
     }
     for (const [key, value] of Object.entries(n)) {
       const nested = Array.isArray(value) ? value.map(node).filter((n): n is Ast => !!n) : node(value) ? [node(value)!] : [];
@@ -277,9 +287,9 @@ export const scanSolid = (source: string): SolidScan => scan(source);
 /** Host scans allow namespace values only in the named host-module registry. */
 export const scanHostSolid = (file: SourceFile): SolidScan => scan(file.text, file.rel);
 
-/** Renderer and page state uses the SDK's containment leaves. */
+/** Shared, renderer and page state uses the SDK's containment leaves. */
 export function containmentViolations(file: SourceFile): string[] {
-  if (!/^(renderer|page)\//.test(file.rel)) return [];
+  if (!/^(shared|renderer|page)\//.test(file.rel)) return [];
   const scan = scanSolid(file.text);
   const raw = scan.imports.filter((site) => site.source === 'solid-js' && ['createRoot', 'batch', 'onCleanup'].includes(site.name)
     || site.source === 'solid-js/store' && STORE_GUARDED.includes(site.name));

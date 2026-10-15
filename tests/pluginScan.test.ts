@@ -23,12 +23,12 @@ function pluginFolder(id: string, files: Record<string, string>): string {
 }
 
 describe("plugin:check's scan", () => {
-  it.each(CONTAINMENT_EVASIONS)('rejects %s in renderer and page sources', (_name, source) => {
-    const dir = pluginFolder('probe', { 'renderer/escape.ts': source, 'page/escape.ts': source });
+  it.each(CONTAINMENT_EVASIONS)('rejects %s in shared, renderer and page sources', (_name, source) => {
+    const dir = pluginFolder('probe', { 'shared/escape.ts': source, 'renderer/escape.ts': source, 'page/escape.ts': source });
     const failures = scanPlugin({ pluginDir: dir, isPhoneTransport: true });
-    for (const file of ['renderer/escape.ts', 'page/escape.ts']) expect(failures.some((failure) => failure.startsWith(`${file}:1:`)), file).toBe(true);
+    for (const file of ['shared/escape.ts', 'renderer/escape.ts', 'page/escape.ts']) expect(failures.some((failure) => failure.startsWith(`${file}:1:`)), file).toBe(true);
   });
-  it('rejects raw roots, batches, cleanups, stores and eager computations in renderers and pages', () => {
+  it('rejects raw roots, batches, cleanups, stores and eager computations in shared, renderer and page sources', () => {
     const raw = [
       "import { createRoot as root, batch, onCleanup } from 'solid-js';",
       "import * as Stores from 'solid-js/store';",
@@ -36,7 +36,7 @@ describe("plugin:check's scan", () => {
       'Stores.createStore({}); Stores.createMutable({});',
       'effect(() => 1);',
     ].join('\n');
-    const dir = pluginFolder('probe', { 'renderer/raw.ts': raw, 'page/raw.ts': raw, 'core/raw.ts': raw });
+    const dir = pluginFolder('probe', { 'shared/raw.ts': raw, 'renderer/raw.ts': raw, 'page/raw.ts': raw, 'core/raw.ts': raw });
     const replacements = [
       '2: solid-js/store: namespace imports are forbidden; use named imports and SDK containment',
       '1: createRoot: use containedRoot or ownedOrContained from @plugin-sdk/renderer',
@@ -47,8 +47,16 @@ describe("plugin:check's scan", () => {
       '5: createEffect at module initialization: use containedRoot or ownedOrContained from @plugin-sdk/renderer',
     ];
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual(
-      ['page/raw.ts', 'renderer/raw.ts'].flatMap((file) => replacements.map((line) => `${file}:${line}`)),
+      ['page/raw.ts', 'renderer/raw.ts', 'shared/raw.ts'].flatMap((file) => replacements.map((line) => `${file}:${line}`)),
     );
+  });
+
+  it('rejects a plugin shared barrel re-exporting a raw store', () => {
+    const dir = pluginFolder('probe', { 'shared/store.ts': "export { createStore } from 'solid-js/store';" });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual([
+      "shared/store.ts:1: createStore: binding may only be used as a direct call's callee",
+      'shared/store.ts:1: createStore: use createStore from @plugin-sdk/renderer',
+    ]);
   });
 
   it('allows contained module state and computations created by components', () => {
@@ -59,7 +67,7 @@ describe("plugin:check's scan", () => {
       export const effect = ownedOrContained(() => createEffect(() => 1));
       export const View = () => { createEffect(() => 1); return null; };
     `;
-    const dir = pluginFolder('probe', { 'renderer/state.ts': contained, 'page/state.ts': contained });
+    const dir = pluginFolder('probe', { 'shared/state.ts': contained, 'renderer/state.ts': contained, 'page/state.ts': contained });
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: true })).toEqual([]);
   });
 

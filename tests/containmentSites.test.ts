@@ -1,8 +1,9 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
 import { containmentViolations, scanHostSolid, scanSolid, type SolidSite } from '../scripts/pluginScan/containment';
 import { CONTAINMENT_EVASIONS } from './containmentEvasions';
+import { tempDir } from './helpers';
 
 const ROOT = join(import.meta.dirname, '..');
 const LEAF = 'src/plugin-sdk/renderer/containment.ts';
@@ -12,10 +13,13 @@ const REGISTRY = 'src/renderer/src/plugins/installedRenderers.ts';
 function files(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(join(dir, entry.name)) : /\.(ts|tsx)$/.test(entry.name) ? [join(dir, entry.name)] : []);
 }
-const inventory = ['src/renderer/src', 'src/plugin-sdk'].flatMap((dir) => files(join(ROOT, dir))).map((file) => ({
-  file: relative(ROOT, file).replaceAll('\\', '/'),
-  ...scanHostSolid({ rel: relative(ROOT, file).replaceAll('\\', '/'), text: readFileSync(file, 'utf8') }),
-}));
+function hostInventory(root: string) {
+  return files(join(root, 'src')).map((file) => ({
+    file: relative(root, file).replaceAll('\\', '/'),
+    ...scanHostSolid({ rel: relative(root, file).replaceAll('\\', '/'), text: readFileSync(file, 'utf8') }),
+  }));
+}
+const inventory = hostInventory(ROOT);
 function restricted(names: string[], allowed: string[]): string[] {
   return inventory.flatMap(({ file, imports }) => imports.filter((site) => names.includes(site.name) && !allowed.includes(file)).map((site) => `${file}:${site.line}: ${site.name}`));
 }
@@ -37,6 +41,30 @@ it('22: no direct Solid computation runs at module initialization', () => {
 
 it('only the containment leaf may escape direct Solid calls', () => {
   expect(inventory.filter(({ file }) => file !== LEAF).flatMap(({ file, escapes }) => escapes.map((site) => `${file}:${site.line}: ${site.message}`))).toEqual([]);
+});
+
+it('rejects a shared barrel re-exporting a raw store in the host inventory', () => {
+  const root = tempDir();
+  mkdirSync(join(root, 'src/shared'), { recursive: true });
+  writeFileSync(join(root, 'src/shared/store.ts'), "export { createStore } from 'solid-js/store';");
+  expect(hostInventory(root)).toEqual([expect.objectContaining({
+    file: 'src/shared/store.ts',
+    escapes: expect.arrayContaining([expect.objectContaining({ message: 'solid-js/store: Solid is restricted to renderer and Plugin SDK sources' })]),
+  })]);
+});
+
+it.each(['shared', 'core', 'main', 'preload'])('forbids every Solid entry in host src/%s', (dir) => {
+  for (const source of ['solid-js', 'solid-js/store', 'solid-js/web']) {
+    for (const text of [
+      `import '${source}';`,
+      `import { unguarded as alias } from '${source}';`,
+      `import type * as Types from '${source}';`,
+      `export { unguarded as alias } from '${source}';`,
+      `export * from '${source}';`,
+      `import('${source}');`,
+      `require('${source}');`,
+    ]) expect(scanHostSolid({ rel: `src/${dir}/probe.ts`, text }).escapes, text).not.toEqual([]);
+  }
 });
 
 it.each(CONTAINMENT_EVASIONS)('rejects %s in host sources', (_name, source) => {
@@ -110,7 +138,10 @@ it.each([
   expect(scanHostSolid({ rel: 'src/renderer/src/probe.ts', text }).escapes).not.toEqual([]);
 });
 
-it.each(['src/shared/installedPlugins.ts', 'src/shared/hostModules.ts', 'src/renderer/src/plugins/installedLoader.ts'])(
+it.each([
+  'src/shared/installedPlugins.ts', 'src/shared/hostModules.ts', 'src/renderer/src/plugins/installedLoader.ts',
+  'src/main/pluginBuild/descriptor.ts', 'src/main/pluginBuild/hostModules.ts',
+])(
   'allows published host-module access in the installed-module loader %s', (rel) => {
     expect(scanHostSolid({ rel, text: "import { HOST_MODULES_KEY } from '@shared/installedPlugins'; globalThis[HOST_MODULES_KEY];" }).escapes).toEqual([]);
   },
