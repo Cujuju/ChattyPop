@@ -73,10 +73,17 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
      RETURNING id`,
   );
   const linkMessage = db.prepare('INSERT OR IGNORE INTO message_links (message_id, link_id) VALUES (?, ?)');
+  const linkIds: number[] = [];
   for (const l of extractLinks(m.content ?? '', m.embeds, m.author?.bot === true)) {
     const { id } = upsertLink.get(l.url, l.platform, l.title, l.description, l.thumbnailUrl, l.site, m.id, m.channel_id, authorId, snowflakeToMs(m.id)) as {
       id: number;
     };
     linkMessage.run(m.id, id);
+    linkIds.push(id);
+  }
+  // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
+  // The link rows stay, as other messages and the link history refer to them.
+  if (typeof m.content === 'string' && Array.isArray(m.embeds)) {
+    db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?))').run(m.id, JSON.stringify(linkIds));
   }
 }

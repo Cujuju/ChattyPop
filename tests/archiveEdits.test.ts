@@ -4,6 +4,8 @@ import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../src/core/db';
 import type { Archive } from '../src/core/archive';
 import { messagesByIds } from '../src/core/queries/messages';
+import { textMessage } from '../src/core/queries/messageText';
+import { searchMessages } from '../src/core/queries/search';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL, type TextMessage } from '../src/core/arrival';
 
@@ -75,5 +77,21 @@ describe('revisions', () => {
     archive.applyUpdate({ id: m.id, channel_id: CH, content: 'v3', edited_timestamp: iso(T0 + 2) });
     expect(revisions(m.id)).toEqual(['v1', 'v2']);
     expect(stored(m.id).content).toBe('v3');
+  });
+});
+
+describe('links an edit removes', () => {
+  it('leave the message: its linked text, search and shares, while another message sharing the link keeps it', () => {
+    const removed = 'https://example.com/removed';
+    const card = { type: 'link', url: removed, title: 'Uniqueremovedlinktitle' };
+    const m = rawMessage(CH, T0, `see ${removed}`, { embeds: [card] });
+    const other = rawMessage(CH, T0 + 1, `also ${removed}`, { embeds: [card] });
+    archive.ingestMessages([m, other], ARRIVAL.gateway);
+    archive.applyUpdate({ id: m.id, channel_id: CH, content: 'removed the link, see https://example.com/kept', edited_timestamp: iso(T0 + MS_PER_MIN), embeds: [] });
+    expect(textMessage(db, m.id)!.linked).toBe('');
+    expect(searchMessages(db, 'Uniqueremovedlinktitle', 10, 'relevance').map((h) => h.messageId)).toEqual([other.id]);
+    const links = (id: string) => db.prepare('SELECT l.url FROM message_links ml JOIN links l ON l.id = ml.link_id WHERE ml.message_id = ?').pluck().all(id);
+    expect(links(m.id)).toEqual(['https://example.com/kept']);
+    expect(links(other.id)).toEqual([removed]);
   });
 });
