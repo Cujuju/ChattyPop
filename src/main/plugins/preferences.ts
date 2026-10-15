@@ -2,10 +2,19 @@
 // through its core client, normalized as core does; undeclared names throw.
 import { pluginSettingKey, type PluginDescriptor } from '@shared/bundledTypes';
 import { preferenceOf, readPreference, type MainPreferences, type PreferenceNames, type PreferenceValue } from '@shared/preferences';
+import { runIsolated } from '@shared/errors';
 import type { MainCore } from '../coreClient';
 
-/** `plugin`'s preferences through `core`; `stage` holds onChange listeners until the activation succeeds. */
-export function mainPreferences<D extends PluginDescriptor>(plugin: D, core: MainCore, stage: (apply: () => void) => void): MainPreferences<D> {
+/**
+ * `plugin`'s preferences through `core`; `stage` holds onChange listeners until the activation succeeds. A listener's throw
+ * or rejection goes to `report`, never into core's event delivery.
+ */
+export function mainPreferences<D extends PluginDescriptor>(
+  plugin: D,
+  core: MainCore,
+  stage: (apply: () => void) => void,
+  report: (err: unknown) => void,
+): MainPreferences<D> {
   const key = (name: string): string => pluginSettingKey(plugin.manifest.id, name);
   return {
     // The declaration's normalize produced it, so it has the declared type.
@@ -17,7 +26,7 @@ export function mainPreferences<D extends PluginDescriptor>(plugin: D, core: Mai
     onChange: <N extends PreferenceNames<D>>(name: N, fn: (value: PreferenceValue<D, N>) => void) => {
       const p = preferenceOf(plugin, name);
       stage(() => core.on('event', (e) => {
-        if (e.type === 'setting-changed' && e.key === key(name)) fn(readPreference(p, e.value) as PreferenceValue<D, N>);
+        if (e.type === 'setting-changed' && e.key === key(name)) runIsolated(() => fn(readPreference(p, e.value) as PreferenceValue<D, N>), report);
       }));
     },
   };
