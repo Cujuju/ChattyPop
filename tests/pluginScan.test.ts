@@ -174,6 +174,30 @@ describe("plugin:check's scan", () => {
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false, adoptedTables: ['old_rows'] })).toEqual([]);
   });
 
+  it('reads SQL behind and between line and block comments as SQL', () => {
+    const dir = pluginFolder('probe', {
+      'core/schema.ts': [
+        "export const a = '-- clean up\\nDROP TABLE messages';",
+        "export const b = '/* clean up */ DROP TABLE channels';",
+        "export const c = 'DROP -- clean up\\nTABLE settings';",
+        "export const d = 'CREATE /* x */ TEMP -- y\\n TABLE guilds (id)';",
+        "export const e = '-- one\\n/* two */\\n-- three\\nSELECT * FROM members';",
+        "export const f = 'SELECT 1 /* keep */; -- then\\nDELETE FROM users';",
+        "export const g = 'DROP TABLE--x\\nroles';",
+        "export const h = 'Nothing -- here; just prose';",
+      ].join('\n'),
+    });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
+      'core/schema.ts:1: host or unknown table: messages',
+      'core/schema.ts:2: host or unknown table: channels',
+      'core/schema.ts:3: host or unknown table: settings',
+      'core/schema.ts:4: host or unknown table: guilds',
+      'core/schema.ts:5: host or unknown table: members',
+      'core/schema.ts:6: host or unknown table: users',
+      'core/schema.ts:7: host or unknown table: roles',
+    ]);
+  });
+
   it("adds a plugin repo's own all-data grants, beside its plugins folder, to the host's", () => {
     const repo = tempDir();
     const dir = join(repo, 'plugins', 'probe');

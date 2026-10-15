@@ -3,15 +3,20 @@
 import { posix } from 'node:path';
 import { lineAt, violation, type SourceFile } from './source';
 
-/** Whitespace or a block comment between SQL keywords. */
-const GAP = String.raw`(?:\s|\/\*[\s\S]*?\*\/)+`;
 /** A schema statement's opening: CREATE (with its modifiers), DROP or ALTER, and what it acts on. */
-const SCHEMA_VERB = String.raw`CREATE(?:${GAP}(?:TEMP|TEMPORARY|UNIQUE|VIRTUAL))*${GAP}(?:TABLE|INDEX|VIEW|TRIGGER)|DROP${GAP}(?:TABLE|INDEX|VIEW|TRIGGER)|ALTER${GAP}TABLE`;
-/** A literal holding SQL: a statement keyword at its start or after `;` or `(`, possibly behind expressions. */
+const SCHEMA_VERB = String.raw`CREATE(?:\s+(?:TEMP|TEMPORARY|UNIQUE|VIRTUAL))*\s+(?:TABLE|INDEX|VIEW|TRIGGER)|DROP\s+(?:TABLE|INDEX|VIEW|TRIGGER)|ALTER\s+TABLE`;
+/** SQL code with comments removed: a statement keyword at its start or after `;` or `(`, possibly behind expressions. */
 const SQL_START = new RegExp(
-  String.raw`(?:^|[;(])\s*(?:__expr_[\da-f]+__\s*)*(?:SELECT|WITH|INSERT|UPDATE|DELETE|REPLACE|FROM|JOIN|INTO|${SCHEMA_VERB})\b(?=\s+\S|[*(["` + '`' + String.raw`]|\/\*)`,
+  String.raw`(?:^|[;(])\s*(?:__expr_[\da-f]+__\s*)*(?:SELECT|WITH|INSERT|UPDATE|DELETE|REPLACE|FROM|JOIN|INTO|${SCHEMA_VERB})\b(?=\s+\S|[*(["` + '`' + String.raw`])`,
   'i',
 );
+/** SQLite's comments and string literals, and the quoted identifiers that may hold their delimiters. */
+const SQL_SPANS = /--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:''|[^'])*'|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]/g;
+
+/** SQL with each comment and string literal blanked as SQLite reads them; quoted identifiers kept. */
+function sqlCode(sql: string): string {
+  return sql.replace(SQL_SPANS, (span) => (/^(?:--|\/\*|')/.test(span) ? ' ' : span));
+}
 /** Schema objects a statement creates, drops or alters: tables and views hold rows; indexes and triggers are named. */
 const SCHEMA_OBJECTS: ReadonlySet<string> = new Set(['table', 'view', 'index', 'trigger']);
 /** Words between CREATE and its object. */
@@ -41,7 +46,7 @@ export function sqlLiterals(source: string): { sql: string; line: number }[] {
         sql += ` __expr_${Buffer.from(source.slice(begin, at - 1).trim()).toString('hex')}__ `;
       } else sql += char;
     }
-    if (SQL_START.test(sql)) {
+    if (SQL_START.test(sqlCode(sql))) {
       found.push({ sql, line: source.slice(0, start).split('\n').length });
     }
   };
@@ -98,8 +103,7 @@ export function sqlViolations(
   visible: ReadonlySet<string> = new Set(),
   adopted: readonly string[] = [],
 ): string[] {
-  const clean = sql.replace(/--[^\n]*|\/\*[\s\S]*?\*\/|'(?:''|[^'])*'/g, ' ');
-  const tokens = [...clean.matchAll(/[@:$]\w+|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]|[\w]+|[(),.;]/g)]
+  const tokens = [...sqlCode(sql).matchAll(/[@:$]\w+|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]|[\w]+|[(),.;]/g)]
     .map(([token]) => /^["`\[]/.test(token) ? token.slice(1, -1).toLowerCase() : token.toLowerCase());
   const ctes = new Set<string>();
   for (let i = 0; i < tokens.length; i++) {
