@@ -1,7 +1,7 @@
 // The DM list from the embedded client's own gateway (docs/dms.md §3.1): READY's private channels, so listing every DM
 // costs no request. Deltas (CHANNEL_*) reach core through ARCHIVED_GATEWAY_EVENTS.
 import type { RawPrivateChannel, RawUser } from '@shared/discord';
-import type { MainCore } from '../coreClient';
+import type { CoreClient } from '../coreClient';
 import type { GatewayTap } from './gatewayTap';
 import { entriesOf } from './readyLists';
 
@@ -63,14 +63,14 @@ export function privateChannelsShape(d: Record<string, unknown>): Record<string,
 }
 
 /** Subscribes before socket creation to capture READY. Sends account identity before DM lists, preserving ordered core deltas and queries. */
-export function watchPrivateChannels(tap: GatewayTap, core: Pick<MainCore, 'call'>, diag: (event: string, data: Record<string, unknown>) => void): void {
+export function watchPrivateChannels(tap: GatewayTap, core: Pick<CoreClient, 'tell'>, diag: (event: string, data: Record<string, unknown>) => void): void {
   tap.on('dispatch', ({ t, d }) => {
     if (t !== 'READY') return;
     const ready = d as Record<string, unknown>;
     diag('private-channels-ready', privateChannelsShape(ready));
     const list = readyPrivateChannels(ready);
     if (!list) return;
-    void core.call('setSelf', list.self);
-    void core.call('replacePrivateChannels', list.self.id, list.channels, list.partial);
+    core.tell('setSelf', list.self);
+    core.tell('replacePrivateChannels', list.self.id, list.channels, list.partial);
   });
 }

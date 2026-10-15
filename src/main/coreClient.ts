@@ -12,6 +12,7 @@ import type {
   CoreResponse,
   CoreResult,
 } from '@shared/contract';
+import { errorMessage } from '@shared/errors';
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
@@ -29,7 +30,12 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [
   /** Why core can no longer answer, once it exited or was stopped; every later call rejects with it. */
   private ended: Error | null = null;
 
-  constructor(entry: string, init: Omit<CoreInit, 'kind'>) {
+  /** `report`: records a diagnostics event (diagnostics.ts diag). */
+  constructor(
+    entry: string,
+    init: Omit<CoreInit, 'kind'>,
+    private readonly report: (event: string, detail: Record<string, unknown>) => void,
+  ) {
     super();
     // Main's environment, INSTALLED_ENV included: core loads the installed plugins main's start accepted.
     this.proc = utilityProcess.fork(entry, [], { serviceName: 'ChattyPop Core', stdio: 'inherit', env: process.env });
@@ -38,7 +44,11 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [
       else if (msg.kind === 'event') this.emit('event', msg.event);
       else this.emit('init-step', msg.step);
     });
-    this.proc.on('exit', (code) => this.end(new Error(`core exited with code ${code}`)));
+    this.proc.on('exit', (code) => {
+      // Stopped: dispose ended it first.
+      this.report('core-exited', { code, stopped: this.ended !== null });
+      this.end(new Error(`core exited with code ${code}`));
+    });
     this.proc.postMessage({ kind: 'init', ...init } satisfies CoreInit);
   }
 
@@ -55,6 +65,16 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [
         this.pending.delete(id);
         reject(err instanceof Error ? err : new Error(String(err)));
       }
+    });
+  }
+
+  /**
+   * Calls `method` without waiting for it: main's one path for that. A failure is recorded, never left unhandled; once core
+   * has ended, its exit is the one record.
+   */
+  tell<M extends CoreMethod>(method: M, ...params: Parameters<CoreMethods[M]>): void {
+    this.call(method, ...params).catch((err: unknown) => {
+      if (err !== this.ended) this.report('core-call-failed', { method, message: errorMessage(err) });
     });
   }
 

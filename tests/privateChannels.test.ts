@@ -15,7 +15,7 @@ function watch() {
   const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
   const calls: unknown[][] = [];
   const notes: Record<string, unknown>[] = [];
-  watchPrivateChannels(tap as unknown as GatewayTap, { call: async (...args: unknown[]) => void calls.push(args) } as never, (_e, data) => void notes.push(data));
+  watchPrivateChannels(tap as unknown as GatewayTap, { tell: (...args: unknown[]) => void calls.push(args) } as never, (_e, data) => void notes.push(data));
   return { tap, calls, notes };
 }
 
