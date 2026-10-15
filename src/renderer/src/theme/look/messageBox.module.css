@@ -209,7 +209,12 @@
 }
 
 /* data-zoom: enlarged while its cell is under the pointer (by --zoom, the component's, else the theme's), its shadow
-   hugging the picture over the neighbours. */
+   hugging the picture over the neighbours. It grows from --zoom-origin (the component keeps it inside what clips it),
+   held after the pointer leaves so it shrinks back to where it grew from. */
+.mediaThumb[data-zoom] {
+  transform-origin: var(--zoom-origin, center);
+}
+
 :hover > .mediaThumb[data-zoom] {
   scale: var(--zoom, var(--cp-media-hover-zoom));
   filter: drop-shadow(var(--cp-shadow-popover));

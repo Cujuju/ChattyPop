@@ -77,7 +77,8 @@ export const STRUCTURE_PREFIXES = ['flex-', 'grid-', 'align-', 'justify-', 'plac
 export const LOOK_PROPERTIES = [
   'color', 'background', 'box-shadow', 'opacity', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'cursor', 'appearance', 'accent-color', 'caret-color',
   'line-height', 'letter-spacing', 'text-transform', 'text-shadow', 'mix-blend-mode', 'scrollbar-color', 'scrollbar-width', 'color-scheme',
-  'fill', 'rotate', 'scale',
+  // An effect's anchor: the point a scale or rotation grows from.
+  'fill', 'rotate', 'scale', 'transform-origin',
 ] as const;
 export const LOOK_PREFIXES = ['background-', 'border', 'outline', 'font', 'text-decoration', 'transition', 'animation', 'stroke', 'mask'] as const;
 
