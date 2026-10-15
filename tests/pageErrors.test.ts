@@ -13,10 +13,14 @@ const { registerPageErrors } = await import('../src/main/pageErrors');
 const PAGE = '12345678-1234-1234-1234-123456789abc';
 const AT = 42;
 const REPORT: PageError = { page: PAGE, at: AT, kind: 'error', message: 'TypeError: boom', stack: 'TypeError: boom\n    at f (x.ts:1:1)' };
+const INVALID_PAGES = ['123456789012345678------------------', PAGE.replace('-', 'a'), PAGE.toUpperCase(), `${PAGE}\n`];
 
 beforeEach(() => vi.clearAllMocks());
 
 describe('page error contract', () => {
+  it.each(INVALID_PAGES)('rejects a noncanonical page id %j', (page) => {
+    expect(pageError({ ...REPORT, page })).toBeNull();
+  });
   it('drops unknown fields and rejects invalid or unbounded reports', () => {
     expect(pageError({ ...REPORT, extra: 'dropped' })).toEqual(REPORT);
     for (const value of [null, 'error', {}, { ...REPORT, page: 'invalid' }, { ...REPORT, at: -1 }, { ...REPORT, at: NaN },
@@ -26,6 +30,16 @@ describe('page error contract', () => {
 });
 
 describe('main page diagnostics', () => {
+  it.each(['desktop', 'remote'])('%s rejects noncanonical page ids before logging', (surface) => {
+    const sender = {};
+    registerPageErrors((candidate) => candidate === sender ? 'main' : undefined);
+    for (const page of INVALID_PAGES) {
+      const report = { ...REPORT, page };
+      if (surface === 'desktop') on.mock.calls[0]![1]({ sender }, report);
+      else handleMain.mock.calls[0]![1](report);
+    }
+    expect(diag).not.toHaveBeenCalled();
+  });
   it('names local windows from their sender, labels remote calls, redacts ids and drops invalid reports', () => {
     const main = {}, panel = {}, unknown = {};
     registerPageErrors((sender) => sender === main ? 'main' : sender === panel ? 'panel:probe' : undefined);

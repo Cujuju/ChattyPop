@@ -4,6 +4,7 @@ export const PAGE_ERROR_MESSAGE_CHARACTERS = 500;
 export const PAGE_ERROR_STACK_CHARACTERS = 4000;
 /** Reports one page load sends: an error repeating on every key fills neither the log nor the network. */
 export const PAGE_ERRORS_PER_LOAD = 20;
+const PAGE_ERROR_UUID_PATTERN = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}(?![\s\S])/;
 
 export interface PageError {
   /** The page load, as its timing batches name it. */
@@ -21,7 +22,7 @@ export interface PageError {
 export function pageError(value: unknown): PageError | null {
   if (!value || typeof value !== 'object') return null;
   const e = value as PageError;
-  if (typeof e.page !== 'string' || !/^[a-f0-9-]{36}$/.test(e.page) || !Number.isFinite(e.at) || e.at < 0
+  if (typeof e.page !== 'string' || !PAGE_ERROR_UUID_PATTERN.test(e.page) || !Number.isFinite(e.at) || e.at < 0
     || (e.kind !== 'error' && e.kind !== 'rejection')
     || typeof e.message !== 'string' || e.message.length > PAGE_ERROR_MESSAGE_CHARACTERS
     || typeof e.stack !== 'string' || e.stack.length > PAGE_ERROR_STACK_CHARACTERS) return null;
