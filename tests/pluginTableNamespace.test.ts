@@ -1,6 +1,7 @@
 // Plugin table names: `p_<id, dashes as underscores>_<name>` can't say where the id ends, so plugins loaded together
-// must not have nesting ids (foo, foo-bar); then each (plugin, local name) pair names its own table.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// must not have nesting ids (foo, foo-bar); then each (plugin, local name) pair names its own table. A removed plugin's
+// tables stay, so a plugin also runs only while every table in its namespace is its own (plugin_tables).
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
@@ -8,7 +9,9 @@ import { checkBundled } from '@shared/bundledCheck';
 import { pluginTableName, tableNamespacesNest } from '@shared/bundledTypes';
 import { acceptInstalled } from '@shared/installedCheck';
 import { PLUGIN_API_VERSION } from '@shared/plugins';
+import { setSetting, type Db } from '../src/core/db';
 import { PluginHost } from '../src/core/plugins/host';
+import { recordDerivableOwners } from '../src/core/plugins/tableOwners';
 import { tempDb, tempDir } from './helpers';
 
 const plugin = (id: string) => definePlugin({ manifest: { id, name: id, version: '1.0.0', description: '' } });
@@ -53,5 +56,79 @@ describe('plugin table namespaces', () => {
       ['foo-bar', 'error', expect.stringMatching(NESTING)],
     ]);
     expect((globalThis as { nestedRan?: string[] }).nestedRan).toEqual(['p_foo_items']);
+  });
+});
+
+describe('plugin table owners', () => {
+  const FOO_BAR = "export function activate(api) { const t = api.db.table('items'); api.db.migrate([`CREATE TABLE ${t} (v TEXT)`]); api.db.prepare(`INSERT INTO ${t} VALUES ('foo-bar state')`).run(); }";
+  const FOO = "export function activate(api) { const t = api.db.table('bar_items'); api.db.migrate([`CREATE TABLE IF NOT EXISTS ${t} (v TEXT)`]); api.db.prepare(`INSERT INTO ${t} VALUES ('foo state')`).run(); }";
+  const SHARED = 'p_foo_bar_items';
+  const write = (dir: string, id: string, main: string): void => {
+    mkdirSync(join(dir, id), { recursive: true });
+    writeFileSync(join(dir, id, 'plugin.json'), JSON.stringify({ id, version: '1.0.0', apiVersion: PLUGIN_API_VERSION, main: 'main.mjs' }));
+    writeFileSync(join(dir, id, 'main.mjs'), main);
+  };
+  const statuses = async (dir: string, db: Db): Promise<unknown[]> => {
+    const host = new PluginHost(dir, { db, emit: () => undefined, changed: () => undefined, ai: async () => ({ text: '' }), decider: () => null });
+    await host.loadAll();
+    host.endActivations();
+    return host.list().map((p) => [p.id, p.status, p.error]);
+  };
+  const rows = (db: Db): unknown[] => db.prepare(`SELECT v FROM ${SHARED}`).pluck().all();
+  const HELD = (owner: string): RegExp => new RegExp(`would include ${SHARED}, which holds plugin ${owner}'s data`);
+
+  it("refuse a plugin whose namespace holds a removed plugin's table: its data stays as it was", async () => {
+    const dir = tempDir();
+    const db = tempDb();
+    write(dir, 'foo-bar', FOO_BAR);
+    expect(await statuses(dir, db)).toEqual([['foo-bar', 'active', null]]);
+    rmSync(join(dir, 'foo-bar'), { recursive: true });
+    write(dir, 'foo', FOO);
+    expect(await statuses(dir, db)).toEqual([['foo', 'error', expect.stringMatching(HELD('foo-bar'))]]);
+    expect(rows(db)).toEqual(['foo-bar state']);
+  });
+
+  it('refuse, the other way round, a plugin whose namespace holds a shorter id’s table', async () => {
+    const dir = tempDir();
+    const db = tempDb();
+    write(dir, 'foo', FOO);
+    expect(await statuses(dir, db)).toEqual([['foo', 'active', null]]);
+    rmSync(join(dir, 'foo'), { recursive: true });
+    write(dir, 'foo-bar', FOO_BAR);
+    expect(await statuses(dir, db)).toEqual([['foo-bar', 'error', expect.stringMatching(HELD('foo'))]]);
+    expect(rows(db)).toEqual(['foo state']);
+  });
+
+  it('run a plugin again over its own recorded tables, whatever else the profile holds', async () => {
+    const dir = tempDir();
+    const db = tempDb();
+    write(dir, 'foo', FOO);
+    await statuses(dir, db);
+    setSetting(db, 'plugin.foo-bar.$schemaVersion', 1);
+    expect(await statuses(dir, db)).toEqual([['foo', 'active', null]]);
+    expect(rows(db)).toEqual(['foo state', 'foo state']);
+  });
+
+  it('derive the owner of a table from before the records: its one data-holding candidate, else refuse', async () => {
+    const dir = tempDir();
+    const db = tempDb();
+    write(dir, 'foo', FOO);
+    db.exec(`CREATE TABLE ${SHARED} (v TEXT); INSERT INTO ${SHARED} VALUES ('legacy')`);
+    setSetting(db, 'plugin.foo-bar.$schemaVersion', 1);
+    expect(await statuses(dir, db)).toEqual([['foo', 'error', expect.stringMatching(`would include ${SHARED}, which may hold plugin foo-bar's data`)]]);
+    db.prepare(`DELETE FROM settings WHERE key = 'plugin.foo-bar.$schemaVersion'`).run();
+    expect(await statuses(dir, db)).toEqual([['foo', 'active', null]]);
+    expect(rows(db)).toEqual(['legacy', 'foo state']);
+  });
+
+  it('are seeded from the tables an archive held before them, where the data held shows the owner', () => {
+    const db = tempDb();
+    db.exec(`CREATE TABLE ${SHARED} (v TEXT); CREATE TABLE p_solo_rows (v TEXT); CREATE TABLE p_xy_zw_rows (v TEXT)`);
+    setSetting(db, 'plugin.foo-bar.$schemaVersion', 1);
+    recordDerivableOwners(db);
+    expect(db.prepare('SELECT name, plugin_id FROM plugin_tables ORDER BY name').raw().all()).toEqual([
+      [SHARED, 'foo-bar'],
+      ['p_solo_rows', 'solo'],
+    ]);
   });
 });

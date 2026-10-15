@@ -8,9 +8,7 @@ import { isObj } from '@shared/normalize';
 import { getSetting, type Db } from '../db';
 import { CONTINUITY_KEY } from './continuity';
 import { PLUGINS_DISABLED_KEY } from './host';
-
-/** A plugin preference's stored key: plugin.<id>.<name> (pluginSettingKey). */
-const PREFERENCE_KEY = /^plugin\.([^.]+)\./;
+import { PREFERENCE_KEY } from './tableOwners';
 /** A plugin-managed rule's key: <plugin id>.<local key> (managedRuleKey); host-managed keys have no dot. */
 const MANAGED_RULE_KEY = /^([^.]+)\./;
 

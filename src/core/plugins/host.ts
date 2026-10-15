@@ -32,6 +32,7 @@ import { CompletionLedger } from './completions';
 import { createCoreContext, type CorePlugin } from './context';
 import { assertRegistered } from './registrationCheck';
 import { ActivationContinuity } from './continuity';
+import { claimTables } from './tableOwners';
 
 /** Ids of plugins the user turned off (Settings → Plugins). */
 export const PLUGINS_DISABLED_KEY = 'plugins.disabled';
@@ -386,6 +387,7 @@ export class PluginHost {
     try {
       const { bundled } = this.deps;
       if (!bundled) throw new Error('This core provides no bundled-plugin host.');
+      claimTables(bundled.ready(), manifest.id);
       const guard = (fn: () => unknown): void => this.guard(p, fn);
       const plugins: HostPlugins = { self: () => this.self, textPending: (id) => this.textPending(id), textSettled: (id) => this.textSettled(id), resumed };
       const ctx = createCoreContext(core.plugin, this.bundled.indexOf(entry), { ...this.deps, bundled }, p.reg, plugins, guard, this.ledger(manifest.id));
@@ -434,6 +436,13 @@ export class PluginHost {
     if (!insideFolder(dir, manifest.main)) {
       p.status = 'error';
       p.error = 'main must be inside the plugin folder';
+      return;
+    }
+    try {
+      claimTables(this.deps.db, manifest.id);
+    } catch (err) {
+      p.status = 'error';
+      p.error = errorMessage(err);
       return;
     }
     try {

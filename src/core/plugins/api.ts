@@ -13,6 +13,7 @@ import { getSetting, setSetting, type Db } from '../db';
 import type { BundledDeps, TextSource } from './bundled';
 import type { CompletionHandler } from './completions';
 import { pluginDb } from './pluginDb';
+import { recordTables } from './tableOwners';
 
 /** Shortest schedule interval: a plugin loop can't keep the core busy. */
 export const MIN_SCHEDULE_MS = MS_PER_MIN;
@@ -87,7 +88,7 @@ export const emptyRegistrations = (): Registrations => ({
 /** Whether an activation's services act: until it unloads, for good (a completion report finalizes through its own grant). */
 export const servicesLive = (reg: Registrations): boolean => !reg.unloaded;
 
-/** Runs a plugin's schema steps not yet applied, each with its version bump in one transaction. */
+/** Runs a plugin's schema steps not yet applied, each with its version bump and its tables' owner in one transaction. */
 export function migratePlugin(db: Db, pluginId: string, steps: readonly string[]): void {
   const key = pluginSettingKey(pluginId, '$schemaVersion');
   const applied = Number(getSetting(db, key)) || 0;
@@ -95,6 +96,7 @@ export function migratePlugin(db: Db, pluginId: string, steps: readonly string[]
     db.transaction(() => {
       db.exec(steps[v]!);
       setSetting(db, key, v + 1);
+      recordTables(db, pluginId);
     })();
   }
 }

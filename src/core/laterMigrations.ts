@@ -9,6 +9,7 @@ import { rawJsonText } from './rawJson';
 import { HIDDEN_SCOPE_RENAMES, HIDDEN_SCOPE_TABLE } from './hiddenScope';
 import { refreshLinkSearch } from './linkSearch';
 import type { Migration } from './migrations';
+import { recordDerivableOwners } from './plugins/tableOwners';
 import { topicsIntoRules } from './topicsIntoRules';
 
 /** Frozen snippet repair removes incomplete Discord tokens at truncation edges. Uses independent patterns rather than live rendering patterns. */
@@ -222,6 +223,7 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   ALTER TABLE attachments ADD COLUMN retry_at INTEGER;
   `,
   requeueLegacyDownloadFailures,
+  pluginTableOwners,
 ];
 
 /**
@@ -232,6 +234,12 @@ export function requeueLegacyDownloadFailures(db: Db): void {
   const failed = db.prepare("SELECT id, error FROM attachments WHERE status = 'failed' AND attempts = 0").all() as { id: string; error: string | null }[];
   const requeue = db.prepare("UPDATE attachments SET status = 'pending', retry_at = NULL WHERE id = ?");
   for (const f of failed) if (!finalDownloadError(f.error)) requeue.run(f.id);
+}
+
+/** Which plugin owns each plugin table (plugins/tableOwners.ts), seeded with the owners existing tables show. */
+export function pluginTableOwners(db: Db): void {
+  db.exec('CREATE TABLE plugin_tables (name TEXT PRIMARY KEY, plugin_id TEXT NOT NULL) WITHOUT ROWID');
+  recordDerivableOwners(db);
 }
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */
