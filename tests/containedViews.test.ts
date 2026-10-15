@@ -3,6 +3,7 @@ import { buildContainment } from './containmentBuild';
 import { VIEWS_SOURCE, WRITES_STUB } from './containedViewsFixture';
 import type { TestNode } from './sectionSplitHarness';
 import { SNAPSHOT_ADAPTER, SNAPSHOT_SOURCE } from './containmentSnapshotFixture';
+import { SEEN_STATE, SEEN_VIEWS_SOURCE } from './seenViewsFixture';
 
 interface View {
   root: TestNode;
@@ -21,6 +22,20 @@ interface Client {
   finishWrite(): void;
 }
 let client: Client;
+interface SeenView {
+  root: TestNode;
+  dispose(): void;
+  set(value: number): void;
+  visible(value: boolean): void;
+  healthy(): void;
+  shows(): boolean;
+  loading(value: boolean): void;
+  seeded(): number | null;
+  id(value: string): void;
+  marked: number[];
+  shown: string[];
+}
+let seenClient: { mountSeen(kind: string, nested?: boolean, watched?: boolean): SeenView };
 interface SnapshotCase {
   environment: Record<string, unknown>;
   stages: { live: boolean }[];
@@ -44,7 +59,14 @@ const open = (options: Parameters<Client['mount']>[0] = {}): View => {
 };
 
 beforeAll(async () => {
-  client = await buildContainment<Client>(VIEWS_SOURCE, { '@/ui/idbStore': WRITES_STUB });
+  client = await buildContainment<Client>(VIEWS_SOURCE, { './idbStore': WRITES_STUB });
+  seenClient = await buildContainment(SEEN_VIEWS_SOURCE, {
+    './idbStore': WRITES_STUB,
+    'test:seen-state': SEEN_STATE,
+    './looking': `export { createOnScreen, pageVisible, windowFocused } from 'test:seen-state';`,
+    '@/state/layout': `export { isPanelCollapsed } from 'test:seen-state';`,
+    '@/state/unread': `export { markPanelSeen, panelShown } from 'test:seen-state';`,
+  });
   snapshots = await buildContainment(SNAPSHOT_SOURCE, {
     'solid-js/web': SNAPSHOT_ADAPTER,
     '@/theme/snapshot.css?raw': `export default 'Snapshot styles';`,
@@ -174,4 +196,94 @@ it('16: snapshot rejects initial and later failures and removes the stage even w
   for (const [key, value] of Object.entries(clean.environment)) vi.stubGlobal(key, value);
   await expect(clean.run()).resolves.toContain('<body><p>Probe</p></body>');
   expect(clean.counts.removed).toBe(1);
+});
+
+it.each(['memo', 'render', 'effect'])('%s failure blocks the same update and later seen marks until retry succeeds', async (kind) => {
+  const view = seenClient.mountSeen(kind);
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0]);
+  expect(view.shown).toEqual(['probe']);
+  view.set(1);
+  await Promise.resolve();
+  expect(view.shows()).toBe(false);
+  expect(view.marked).toEqual([0]);
+  view.set(2);
+  view.visible(false);
+  view.visible(true);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0]);
+  expect(view.shown).toEqual(['probe']);
+  view.healthy();
+  press(buttons(view)[0]!);
+  await Promise.resolve();
+  expect(view.shows()).toBe(true);
+  expect(view.shown).toEqual(['probe', 'probe']);
+  expect(view.marked).toEqual([0, 2]);
+  view.set(3);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0, 2, 3]);
+});
+
+it('an inner failed boundary leaves the panel eligible', async () => {
+  const view = seenClient.mountSeen('memo', true);
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  view.set(1);
+  await Promise.resolve();
+  expect(view.shows()).toBe(true);
+  expect(view.marked).toEqual([0, 1]);
+  view.set(2);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0, 1, 2]);
+  expect(view.shown).toEqual(['probe']);
+});
+
+it('without a view, marking stays tracked even while the view has failed', async () => {
+  const view = seenClient.mountSeen('memo', false, false);
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  view.set(1);
+  await Promise.resolve();
+  view.set(2);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0, 1, 2]);
+  view.visible(false);
+  view.set(3);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0, 1, 2]);
+  view.visible(true);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0, 1, 2, 3]);
+  expect(view.shown).toEqual(['probe', 'probe']);
+});
+
+it('a Plans-like source seeds after loading while its count stays zero', async () => {
+  const view = seenClient.mountSeen('plans');
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  expect(view.marked).toEqual([]);
+  expect(view.seeded()).toBeNull();
+  view.loading(false);
+  await Promise.resolve();
+  expect(view.seeded()).toBe(0);
+  expect(view.marked).toEqual([0]);
+  await Promise.resolve();
+  expect(view.marked).toEqual([0]);
+});
+
+it('a changed panel id marks after the flush and a disposed mount does not mark', async () => {
+  const view = seenClient.mountSeen('memo');
+  disposers.push(view.dispose);
+  await Promise.resolve();
+  view.id('other');
+  expect(view.marked).toEqual([0]);
+  await Promise.resolve();
+  expect(view.marked.length).toBeGreaterThan(1);
+  const marked = [...view.marked];
+  view.set(1);
+  view.dispose();
+  disposers.pop();
+  await Promise.resolve();
+  expect(view.marked).toEqual(marked);
 });

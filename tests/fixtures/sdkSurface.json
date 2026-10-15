@@ -603,6 +603,7 @@
       "archiveLoads",
       "createPhoneRendererApi",
       "createRemoteRendererApi",
+      "createViewShown",
       "createWireDecoder",
       "desktopShell",
       "focusMessageId",
@@ -1014,6 +1015,7 @@
       "RemoteTransport",
       "SectionId",
       "TouchPoint",
+      "ViewShown",
       "WireDecoder"
     ]
   }

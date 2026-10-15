@@ -6,6 +6,7 @@ import { panelIdentity, panelImportance } from '@/panels/titles';
 import { moveLayoutPanel, revealRequest, swapLayoutPanels } from '@/state/layout';
 import { draggedPanel, setDraggedPanel } from '@/state/ui';
 import { markSeenWhileShown } from '@/ui/seen';
+import { createViewShown } from '@/ui/contained';
 import { dropZones } from './panelMenu';
 import { dropZoneAt, type DropZone } from './tree';
 import type { LayoutPanelId, PanelRef, SplitSize } from './types';
@@ -25,11 +26,12 @@ export const fitHeight = (el: Element | null): number => {
 };
 
 export function PanelSlot(props: { panel: PanelRef; size: SplitSize | undefined; axis?: 'row' | 'column'; hidden: boolean }) {
+  const view = createViewShown();
   const def = () => lookupPanel(props.panel.id);
   let slot!: HTMLDivElement;
   const [fitPx, setFitPx] = createSignal(0);
   onMount(() => {
-    markSeenWhileShown(slot, () => props.panel.id);
+    markSeenWhileShown(slot, () => props.panel.id, view);
     // Re-measured on width changes (text rewraps) and content changes, which a clipped body doesn't resize for.
     const measure = (): void => void setFitPx(fitHeight(slot));
     const resize = new ResizeObserver(measure);
@@ -59,7 +61,7 @@ export function PanelSlot(props: { panel: PanelRef; size: SplitSize | undefined;
       hidden={props.hidden}
       style={{ ...ONE_CELL_GRID, overflow: 'hidden', ...sizeStyle(props.size, props.hidden), ...fitFloor() }}
     >
-      <Dynamic component={def()?.component ?? (() => <MissingPanel id={props.panel.id} />)} />
+      <view.Watch><Dynamic component={def()?.component ?? (() => <MissingPanel id={props.panel.id} />)} /></view.Watch>
       <Show when={zones().length > 0}>
         <DropZones target={props.panel.id} zones={zones()} />
       </Show>

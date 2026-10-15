@@ -24,3 +24,4 @@ export { archiveChannelId, archiveLoads, focusMessageId } from '@/state/archive'
 export { longPressOpensMenus, swipeOutcome, type TouchPoint } from '@/ui/touch';
 // A section's pane marks its panel seen while on screen, as a desktop layout slot does.
 export { markSeenWhileShown } from '@/ui/seen';
+export { createViewShown, type ViewShown } from '@/ui/contained';

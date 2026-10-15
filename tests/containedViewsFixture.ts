@@ -11,7 +11,7 @@ export const VIEWS_SOURCE = `
 import { createComponent, createEffect, createMemo, createSignal, onCleanup, splitProps } from 'solid-js';
 import { Contained, contained } from '@/ui/contained';
 import { node, render } from '${CONTAINMENT_ADAPTER}';
-export { holdWrite, finishWrite } from '@/ui/idbStore';
+export { holdWrite, finishWrite } from './idbStore';
 export const failure = new Error('Probe failure'), fallbackFailure = new Error('Fallback failure');
 
 export function mount(opts = {}) {

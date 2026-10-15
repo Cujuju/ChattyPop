@@ -9,17 +9,19 @@ import { DIALOG_PANELS, closePanelDialog, panelDialogWindowId, panelDialogs } fr
 import { FloatingWindow, WindowHeader } from '@/ui/FloatingWindow';
 import { TitledByWindow } from '@/ui/PanelHeader';
 import { markSeenWhileShown } from '@/ui/seen';
+import { createViewShown } from '@/ui/contained';
 import chrome from '@/ui/WindowChrome.module.css';
 
 /** The panel filling the window below its title bar; mounted only while open, so it loads nothing when closed. */
 function PanelBody(props: { id: string }) {
+  const view = createViewShown();
   let frame!: HTMLDivElement;
-  onMount(() => markSeenWhileShown(frame, () => props.id));
+  onMount(() => markSeenWhileShown(frame, () => props.id, view));
   return (
     // Structural frame only, as in PanelWindow: one cell the panel's root stretches to fill.
     <div ref={frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, flex: '1 1 0', 'min-height': 0 }}>
       <TitledByWindow.Provider value>
-        <Dynamic component={lookupPanel(props.id)?.component} />
+        <view.Watch><Dynamic component={lookupPanel(props.id)?.component} /></view.Watch>
       </TitledByWindow.Provider>
     </div>
   );
