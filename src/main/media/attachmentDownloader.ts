@@ -55,6 +55,8 @@ export class AttachmentDownloader {
     private readonly pace: () => Promise<PaceTiming>,
     private readonly enabled: () => Promise<boolean>,
     private readonly posters: PosterKeeper,
+    /** Makes a newly stored file's thumbnail, by its stored name. */
+    private readonly keepThumb: (storedName: string) => Promise<void>,
   ) {}
 
   /** Safe to call often (every archive change); coalesces into one drain loop. */
@@ -118,8 +120,9 @@ export class AttachmentDownloader {
   private async downloadOne(a: PendingAttachment): Promise<void> {
     try {
       const body = await this.fetchBody(a);
-      const { sha, bytes } = await this.store(body, a.filename);
+      const { sha, bytes, name } = await this.store(body, a.filename);
       await this.core.call('attachmentStored', a.id, sha, bytes);
+      await this.keepThumb(name);
     } catch (err) {
       await this.core.call('attachmentFailed', a.id, errorMessage(err));
       return;
@@ -160,7 +163,7 @@ export class AttachmentDownloader {
   }
 
   /** Streams to a temp file while hashing, then moves it to its content address (dedupes identical files). */
-  private async store(body: ReadableStream<Uint8Array>, filename: string): Promise<{ sha: string; bytes: number }> {
+  private async store(body: ReadableStream<Uint8Array>, filename: string): Promise<{ sha: string; bytes: number; name: string }> {
     await mkdir(this.dir, { recursive: true });
     const tmp = join(this.dir, `${PARTIAL_DOWNLOAD_PREFIX}${process.pid}-${Date.now()}`);
     const hash = createHash('sha256');
@@ -173,11 +176,12 @@ export class AttachmentDownloader {
     await pipeline(source, createWriteStream(tmp));
     const sha = hash.digest('hex');
     const shardDir = join(this.dir, attachmentShard(sha));
-    const dest = join(shardDir, attachmentFileName({ sha256: sha, filename, storedExt: null }));
+    const name = attachmentFileName({ sha256: sha, filename, storedExt: null });
+    const dest = join(shardDir, name);
     await mkdir(shardDir, { recursive: true });
     if (existsSync(dest)) await rm(tmp);
     else await rename(tmp, dest);
-    return { sha, bytes };
+    return { sha, bytes, name };
   }
 }
 

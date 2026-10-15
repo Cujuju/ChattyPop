@@ -8,7 +8,7 @@ const env = vi.hoisted(() => ({ supported: true, thumbnail: vi.fn(), jpeg: vi.fn
 vi.mock('electron', () => ({ protocol: {}, nativeImage: { get createThumbnailFromPath() { return env.supported ? env.thumbnail : undefined; } } }));
 const { mediaHandler } = await import('../src/main/media/mediaProtocol');
 const { mediaDirs } = await import('../src/main/media/mediaDirs');
-const { ATTACHMENT_THUMB_PX, ATTACHMENT_THUMB_JPEG_QUALITY } = await import('../src/main/media/attachmentThumbs');
+const { ATTACHMENT_THUMB_PX, ATTACHMENT_THUMB_JPEG_QUALITY, backfillAttachmentThumbs, keepAttachmentThumb } = await import('../src/main/media/attachmentThumbs');
 const SHA = 'a'.repeat(64);
 const NAME = `${SHA}.png`;
 const JPEG = Buffer.from('jpeg thumbnail');
@@ -97,5 +97,56 @@ describe('attachment thumbnail route', () => {
   it('routes phone and remote URLs through the installed media root', () => {
     setMediaRoot('/media/', { emoji: 'native-emoji://' });
     expect(attachmentThumbUrl({ sha256: SHA, filename: 'photo.png', storedExt: null })).toBe(`/media/attachment-thumb/${NAME}`);
+  });
+});
+
+describe('thumbnails ahead of view', () => {
+  /** Stores `name` under its hash's shard. */
+  const store = (attachments: string, name: string): string => {
+    const shard = join(attachments, attachmentShard(name));
+    mkdirSync(shard, { recursive: true });
+    writeFileSync(join(shard, name), 'original');
+    return join(shard, name);
+  };
+
+  it('makes each stored picture missing a thumbnail, one at a time, and nothing else', async () => {
+    const { dirs } = fixture(false);
+    const [made, kept, video, audio] = ['b', 'c', 'd', 'e'].map((c) => c.repeat(64));
+    const picture = store(dirs.attachments, `${made}.jpg`);
+    const clip = store(dirs.attachments, `${video}.mp4`);
+    store(dirs.attachments, `${kept}.png`);
+    store(dirs.attachments, `${audio}.ogg`);
+    store(dirs.attachments, `.part-${made}`);
+    writeFileSync(join(dirs.attachments, '.part-elsewhere'), 'partial');
+    mkdirSync(dirs.previews, { recursive: true });
+    writeFileSync(join(dirs.previews, `attachment-thumb-${kept}.jpg`), JPEG);
+    let running = 0;
+    let most = 0;
+    env.thumbnail.mockImplementation(async () => {
+      most = Math.max(most, ++running);
+      await new Promise((r) => setTimeout(r));
+      running--;
+      return { toJPEG: env.jpeg, isEmpty: env.empty };
+    });
+    await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => false);
+    expect(env.thumbnail.mock.calls.map(([file]) => file).sort()).toEqual([picture, clip].sort());
+    expect(most).toBe(1);
+    expect(readFileSync(join(dirs.previews, `attachment-thumb-${made}.jpg`))).toEqual(JPEG);
+  });
+
+  it('stops when told to', async () => {
+    const { dirs } = fixture();
+    await backfillAttachmentThumbs(dirs.attachments, dirs.previews, () => true);
+    expect(env.thumbnail).not.toHaveBeenCalled();
+  });
+
+  it('keeps a downloaded picture, not other kinds or names', async () => {
+    const { dirs, file, cache } = fixture();
+    await keepAttachmentThumb(dirs.attachments, dirs.previews, `${'f'.repeat(64)}.ogg`);
+    await keepAttachmentThumb(dirs.attachments, dirs.previews, 'notes.png');
+    expect(env.thumbnail).not.toHaveBeenCalled();
+    await keepAttachmentThumb(dirs.attachments, dirs.previews, NAME);
+    expect(env.thumbnail).toHaveBeenCalledWith(file, { width: ATTACHMENT_THUMB_PX, height: ATTACHMENT_THUMB_PX });
+    expect(existsSync(cache)).toBe(true);
   });
 });

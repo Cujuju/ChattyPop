@@ -69,6 +69,7 @@ import { launchMode } from './launchMode';
 import { pairOnScreen, printPairing } from './serverMode';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
+import { backfillAttachmentThumbs, keepAttachmentThumb } from './media/attachmentThumbs';
 import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
 import { attachmentPoster, fetchImageTo, fetchVideoTo, posterKept, type PosterSource } from './media/thumbStore';
@@ -181,6 +182,7 @@ void app.whenReady().then(() => {
     currentPace,
     async () => !archiveMoving && (await pace.syncEnabled()),
     { kept: (id) => posterKept(media.previews, id), keep: (a) => attachmentPoster(mediaSessions, media.previews, a.id, async () => posterOf(a)) },
+    (name) => keepAttachmentThumb(media.attachments, media.previews, name),
   );
 
   ipcMain.handle(CORE_INVOKE_CHANNEL, (_e, method: string, params: unknown[]) => {
@@ -200,7 +202,11 @@ void app.whenReady().then(() => {
   core.on('init-step', (step) => splash.finish(SPLASH_STEP_OF_CORE[step]));
   // Core answers only once its init is done, so its first answer marks the archive open.
   void core.call('selfId').then(() => splash.finish('archive'), () => undefined);
-  win.webContents.once('did-finish-load', () => splash.finish('interface'));
+  win.webContents.once('did-finish-load', () => {
+    splash.finish('interface');
+    // After the window is up, so startup doesn't share the thumbnailer.
+    void backfillAttachmentThumbs(media.attachments, media.previews, () => archiveMoving);
+  });
   app.on('second-instance', () => raiseWindow(win));
   discordRef = discord;
   const emojiIndex = new GuildEmojiIndex(discord.tap);

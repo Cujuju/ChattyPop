@@ -134,6 +134,7 @@ describe('the downloader keeps a still for each video it archives', () => {
     const queue = [pending];
     const stored: string[] = [];
     const kept: string[] = [];
+    const thumbs: string[] = [];
     let backfills = 0;
     let drains = 0;
     const core = {
@@ -152,15 +153,16 @@ describe('the downloader keeps a still for each video it archives', () => {
         throw new Error('proxy down');
       },
     };
-    const downloader = new AttachmentDownloader(dir(), dir(), ses, {} as DiscordApi, core, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, posters);
+    const downloader = new AttachmentDownloader(dir(), dir(), ses, {} as DiscordApi, core, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, posters, async (name) => void thumbs.push(name));
     downloader.kick();
-    return { downloader, stored, kept, backfills: () => backfills, drains: () => drains };
+    return { downloader, stored, kept, thumbs, backfills: () => backfills, drains: () => drains };
   }
 
   it('asks for the still of a video, by content type or extension, and of nothing else; a failed one stores the file anyway', async () => {
     const r = run([pending('v1', 'clip.mov', null), pending('v2', 'clip.bin', 'video/mp4'), pending('i1', 'pic.png', 'image/png')], []);
     await vi.waitFor(() => expect(r.stored).toEqual(['v1', 'v2', 'i1']));
     expect(r.kept).toEqual(['v1', 'v2']);
+    expect(r.thumbs.map((name) => name.split('.')[1])).toEqual(['mov', 'bin', 'png']);
   });
 
   it('keeps the stills of videos archived before, once per run, skipping kept ones and other files', async () => {
