@@ -1,4 +1,4 @@
-import { Show, splitProps, type JSX } from 'solid-js';
+import { Show, createContext, splitProps, useContext, type JSX } from 'solid-js';
 import { movable, panelDragProps, panelMenu } from '@/layout/panelMenu';
 import { isPanelCollapsed, isPlaced, setPanelCollapsed } from '@/state/layout';
 import { openContextMenu, outsideLayout } from '@/state/ui';
@@ -10,6 +10,9 @@ import styles from './PanelHeader.module.css';
 
 /** Shared header parts for panels: .badge (new count), .actions (trailing group), .action, .iconAction, .primary, .toggle. */
 export const headerStyles = styles;
+
+/** True inside a window whose own title bar names the panel (an in-app panel window): the header drops its icon and title. */
+export const TitledByWindow = createContext(false);
 
 /** Shared headers collapse by panel id. Narrowing hides metadata, then tiles, then wraps actions. metaWraps preserves content metadata below titles. */
 export function PanelHeader(props: {
@@ -25,6 +28,7 @@ export function PanelHeader(props: {
   collapsible?: boolean;
   children?: JSX.Element;
 }) {
+  const titledByWindow = useContext(TitledByWindow);
   const id = (): LayoutPanelId | 'plugin' => props.panelId ?? props.section;
   // Outside the layout the header doesn't fold or open the layout menu; in the main window's in-app windows it still drags into the layout.
   const collapsible = (): boolean => Boolean(props.collapsible) && isPlaced(id());
@@ -42,21 +46,27 @@ export function PanelHeader(props: {
   return (
     <div class={styles.frame}>
       <header class={styles.header} data-section={props.section} data-panel-color={props.panelId ?? props.section} data-collapsed={collapsed()} {...panelDragProps(dragId)} onContextMenu={openMenu}>
-        <SectionIcon section={props.section} />
+        <Show when={!titledByWindow}>
+          <SectionIcon section={props.section} />
+        </Show>
         {props.lead}
-        <div class={styles.titleGroup} data-meta-wraps={Boolean(props.metaWraps)}>
-          <h2 class={styles.title}>
-            <Show when={collapsible()} fallback={props.title}>
-              <button type="button" class={styles.toggle} aria-expanded={!collapsed()} onClick={() => setPanelCollapsed(id(), !collapsed())}>
-                {props.title}
-                <span class={`cp-chevron ${styles.chevron}`} aria-hidden="true" />
-              </button>
+        <Show when={!titledByWindow || props.meta}>
+          <div class={styles.titleGroup} data-meta-wraps={Boolean(props.metaWraps)}>
+            <Show when={!titledByWindow}>
+              <h2 class={styles.title}>
+                <Show when={collapsible()} fallback={props.title}>
+                  <button type="button" class={styles.toggle} aria-expanded={!collapsed()} onClick={() => setPanelCollapsed(id(), !collapsed())}>
+                    {props.title}
+                    <span class={`cp-chevron ${styles.chevron}`} aria-hidden="true" />
+                  </button>
+                </Show>
+              </h2>
             </Show>
-          </h2>
-          <Show when={props.meta}>
-            <span class={styles.meta}>{props.meta}</span>
-          </Show>
-        </div>
+            <Show when={props.meta}>
+              <span class={styles.meta}>{props.meta}</span>
+            </Show>
+          </div>
+        </Show>
         {props.children}
       </header>
     </div>

@@ -7,6 +7,7 @@ import { panelIdentity, panelImportance } from '@/panels/titles';
 import { isPlaced } from '@/state/layout';
 import { DIALOG_PANELS, closePanelDialog, panelDialogWindowId, panelDialogs } from '@/state/ui';
 import { FloatingWindow, WindowHeader } from '@/ui/FloatingWindow';
+import { TitledByWindow } from '@/ui/PanelHeader';
 import { markSeenWhileShown } from '@/ui/seen';
 import chrome from '@/ui/WindowChrome.module.css';
 
@@ -17,7 +18,9 @@ function PanelBody(props: { id: string }) {
   return (
     // Structural frame only, as in PanelWindow: one cell the panel's root stretches to fill.
     <div ref={frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, flex: '1 1 0', 'min-height': 0 }}>
-      <Dynamic component={lookupPanel(props.id)?.component} />
+      <TitledByWindow.Provider value>
+        <Dynamic component={lookupPanel(props.id)?.component} />
+      </TitledByWindow.Provider>
     </div>
   );
 }
