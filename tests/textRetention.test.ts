@@ -125,7 +125,7 @@ describe('summary-only messages after retention', () => {
     expect(db.prepare('SELECT id FROM messages WHERE deleted_at IS NOT NULL').pluck().all()).toEqual([normal.id]);
   });
 
-  it('are marked ephemeral by the migration from their stored payloads, plain or compressed', () => {
+  it('are marked ephemeral by the migration from their stored payloads, plain or compressed, past damaged ones', () => {
     const old = new Database(join(tempDir(), 'archive.db'));
     applyMigrations(old, 0, migrationIndex(ephemeralMessages));
     const insert = old.prepare("INSERT INTO messages (id, channel_id, author_id, ts, content, raw_json) VALUES (?, ?, 'u1', 0, '', ?)");
@@ -133,6 +133,8 @@ describe('summary-only messages after retention', () => {
     insert.run('2', CH, compressRawJson(JSON.stringify({ flags: MESSAGE_FLAG.ephemeral | MESSAGE_FLAG.loading })));
     insert.run('3', CH, JSON.stringify({ flags: MESSAGE_FLAG.loading }));
     insert.run('4', CH, null);
+    insert.run('5', CH, 'malformed');
+    insert.run('6', CH, Buffer.from('broken'));
     applyMigrations(old, migrationIndex(ephemeralMessages));
     expect(old.prepare('SELECT id FROM messages WHERE ephemeral = 1 ORDER BY id').pluck().all()).toEqual(['1', '2']);
   });

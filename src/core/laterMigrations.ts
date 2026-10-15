@@ -293,13 +293,25 @@ export function discordNameStyles(db: Db): void {
   `);
 }
 
-/** Keeps Discord's ephemeral flag outside raw_json, which text retention removes; seeded from stored payloads. 64: MESSAGE_FLAG.ephemeral, frozen. */
+/** Discord's ephemeral message flag (MESSAGE_FLAG.ephemeral), frozen for this migration. */
+const EPHEMERAL_FLAG = 64;
+
+/** Keeps Discord's ephemeral flag outside raw_json, which text retention removes; seeded from stored payloads. */
 export function ephemeralMessages(db: Db): void {
-  db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
-  db.exec(`
-    ALTER TABLE messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0;
-    UPDATE messages SET ephemeral = 1 WHERE raw_json IS NOT NULL AND COALESCE(json_extract(msg_json(raw_json), '$.flags'), 0) & 64 != 0;
-  `);
+  db.exec('ALTER TABLE messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0;');
+  const rows = db.prepare('SELECT seq, raw_json FROM messages WHERE raw_json IS NOT NULL').iterate() as Iterable<{ seq: number; raw_json: string | Buffer }>;
+  const found: number[] = [];
+  for (const row of rows) {
+    try {
+      const flags = (JSON.parse(rawJsonText(row.raw_json)!) as { flags?: unknown } | null)?.flags;
+      if (typeof flags === 'number' && (flags & EPHEMERAL_FLAG) !== 0) found.push(row.seq);
+    } catch {
+      // A damaged legacy payload must not prevent the archive opening.
+    }
+  }
+  // This driver forbids writes while an iterator is active.
+  const mark = db.prepare('UPDATE messages SET ephemeral = 1 WHERE seq = ?');
+  for (const seq of found) mark.run(seq);
 }
 
 /** Adds server features, display-name styles and avatar decorations. Seeds each author from the newest payload. */
