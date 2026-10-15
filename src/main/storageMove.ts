@@ -99,10 +99,14 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
   }
 
   hooks.emit({ type: 'storage-move', phase: 'stopping', doneBytes: 0, totalBytes: 0 });
-  await hooks.stop();
-  const files = await listArchive(from);
-  const totalBytes = sum(files);
+  let totalBytes = 0;
+  let fileCount = 0;
+  let failure: unknown = null;
   try {
+    await hooks.stop();
+    const files = await listArchive(from);
+    totalBytes = sum(files);
+    fileCount = files.length;
     let doneBytes = 0;
     let reportedAt = 0;
     for (const f of files) {
@@ -120,19 +124,33 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
       if ((await stat(join(to, f.rel))).size !== f.bytes) throw new Error(`${f.rel} was not copied completely.`);
     }
     if ((await sha256(join(from, ARCHIVE_DB_FILE))) !== (await sha256(join(to, ARCHIVE_DB_FILE)))) throw new Error('The database copy differs from the original.');
+    // Last: once saved, the copy is the archive, so nothing after this may remove it.
+    saveStorageConfig({ archiveDir: to, previousDir: from, verifyOnOpen: true });
   } catch (err) {
-    const message = errorMessage(err);
-    diag('storage-move-failed', { message });
-    hooks.emit({ type: 'storage-move', phase: 'error', doneBytes: 0, totalBytes, message });
-    await removeArchive(to);
-    saveStorageConfig({ ...storageConfig(), notice: { title: 'Moving the archive failed', message: `${message} The archive stays in ${from}.` } });
-    hooks.restart();
-    return;
+    failure = err;
   }
-  saveStorageConfig({ archiveDir: to, previousDir: from, verifyOnOpen: true });
-  diag('storage-moved', { bytes: totalBytes, files: files.length });
-  hooks.emit({ type: 'storage-move', phase: 'restarting', doneBytes: totalBytes, totalBytes });
-  hooks.restart();
+  try {
+    if (failure === null) {
+      diag('storage-moved', { bytes: totalBytes, files: fileCount });
+      hooks.emit({ type: 'storage-move', phase: 'restarting', doneBytes: totalBytes, totalBytes });
+    } else await keepOriginal(from, to, totalBytes, failure, hooks);
+  } finally {
+    // The archive may be closed: every outcome restarts, on the copy after a move, else on the original.
+    hooks.restart();
+  }
+}
+
+/** After a failed move: says why, then removes the partial copy and leaves a notice, each attempted even when another fails. */
+async function keepOriginal(from: string, to: string, totalBytes: number, err: unknown, hooks: MoveHooks): Promise<void> {
+  const message = errorMessage(err);
+  diag('storage-move-failed', { message });
+  hooks.emit({ type: 'storage-move', phase: 'error', doneBytes: 0, totalBytes, message });
+  await removeArchive(to).catch((e: unknown) => diag('storage-move-cleanup-failed', { message: errorMessage(e) }));
+  try {
+    saveStorageConfig({ ...storageConfig(), notice: { title: 'Moving the archive failed', message: `${message} The archive stays in ${from}.` } });
+  } catch (e) {
+    diag('storage-move-notice-failed', { message: errorMessage(e) });
+  }
 }
 
 /** First start after a move: the copied database must pass SQLite's quick_check, else the app returns to the original. */

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { app } from 'electron';
 import type { StorageNotice } from '@shared/contract';
@@ -57,6 +57,11 @@ export function storageConfig(): StorageConfig {
 
 export const archiveDir = (): string => storageConfig().archiveDir;
 
+/** Written whole beside the config, then renamed over it: a failed write (a full disk) leaves the previous config, never a torn one. */
+const PENDING_SUFFIX = '.pending';
+
 export function saveStorageConfig(cfg: StorageConfig): void {
-  writeFileSync(configPath(), JSON.stringify(cfg, null, 2));
+  const pending = configPath() + PENDING_SUFFIX;
+  writeFileSync(pending, JSON.stringify(cfg, null, 2));
+  renameSync(pending, configPath());
 }
