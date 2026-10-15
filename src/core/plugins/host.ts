@@ -11,6 +11,7 @@ import {
   PLUGIN_API_VERSION,
   PLUGIN_ID_PATTERN,
   PLUGIN_MANIFEST_FILE,
+  PLUGIN_STOP_DEADLINE_MS,
   type PluginApi,
   type PluginInfo,
   type PluginManifest,
@@ -113,6 +114,8 @@ export class PluginHost {
   private bundledStarted = false;
   /** Set once the archive begins closing: nothing loads after. */
   private ended = false;
+  /** Folder loads under way: each settles once its activation returned and, if retired meanwhile, its cleanup ran. */
+  private readonly loading = new Set<Promise<void>>();
   /** Every bundled plugin, in build order; each has an on/off switch whether or not it has a core side. */
   private readonly bundled: readonly BundledEntry[];
   private readonly continuity: ActivationContinuity;
@@ -210,13 +213,18 @@ export class PluginHost {
   }
 
   /**
-   * Ends activations before archive closure without changing switches or continuity, including ones still running (their
-   * result is disposed when they return), and stops the folder pass. The app restarts afterward.
+   * Ends activations before archive closure without changing switches or continuity, and stops the folder pass. Ones
+   * still running are retired now; resolves once they returned and their cleanup ran, or at `deadlineMs`. The app restarts afterward.
    */
-  endActivations(): void {
+  async endActivations(deadlineMs = PLUGIN_STOP_DEADLINE_MS): Promise<void> {
     this.ended = true;
     this.generation++;
     for (const p of this.plugins.values()) if (!p.retired) this.unload(p);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const overrun = new Promise<'overrun'>((settle) => (timer = setTimeout(() => settle('overrun'), deadlineMs)));
+    const outcome = await Promise.race([Promise.allSettled([...this.loading]).then(() => 'ended' as const), overrun]);
+    clearTimeout(timer);
+    if (outcome === 'overrun') console.error(`[plugins] activations still running after ${deadlineMs} ms; their cleanup runs after the archive closes`);
   }
 
   private disabled(): Set<string> {
@@ -229,7 +237,10 @@ export class PluginHost {
     if (this.ended || !existsSync(this.dir)) return;
     for (const entry of readdirSync(this.dir, { withFileTypes: true })) {
       if (generation !== this.generation) return;
-      if (entry.isDirectory()) await this.load(join(this.dir, entry.name), disabled, generation);
+      if (!entry.isDirectory()) continue;
+      const load = this.load(join(this.dir, entry.name), disabled, generation);
+      this.loading.add(load);
+      await load.finally(() => this.loading.delete(load));
     }
   }
 

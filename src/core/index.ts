@@ -260,9 +260,9 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     }
   },
   archivePlaintext: () => !encryptedOnDisk(dbPath),
-  closeArchive: () => {
+  closeArchive: async () => {
     const { db: open } = ready();
-    plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
+    await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
     jevLedger.flush(); // Flush spend before archive-move restart.
     open.pragma('wal_checkpoint(TRUNCATE)');
     open.close();

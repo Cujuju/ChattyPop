@@ -224,7 +224,8 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
       host.setSelf(userId);
     },
     restart: () => {
-      host.endActivations();
+      // Installed plugins activate synchronously: none is still running to wait for.
+      void host.endActivations();
       unlinkCore(link);
       db.close();
       return start(definition, o, dir, false);

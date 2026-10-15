@@ -156,7 +156,7 @@ export interface CoreMethods {
   /** Main-only: reads the database file now; true only when it is verifiably plaintext. Throws when the read fails. */
   archivePlaintext(): boolean;
   /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */
-  closeArchive(): void;
+  closeArchive(): Promise<void>;
   /** SQLite quick_check: 'ok', or the first problem found. */
   integrityCheck(): string;
   plugins(): PluginInfo[];

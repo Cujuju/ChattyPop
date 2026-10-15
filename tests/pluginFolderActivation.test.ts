@@ -8,7 +8,7 @@ import { PLUGIN_API_VERSION } from '@shared/plugins';
 import { PluginHost } from '../src/core/plugins/host';
 import { tempDb, tempDir } from './helpers';
 
-/** What the plugin's activations reach: each one starts a resource, then waits for the test to release it. */
+/** What the plugin's activations reach: each one starts a resource, then waits for the test to release it. Its disposer reads a setting first. */
 interface Gate {
   live: number;
   disposals: number;
@@ -22,12 +22,12 @@ const gate = (): Gate => {
   return g;
 };
 const MAIN = `
-export async function activate() {
+export async function activate(api) {
   const g = globalThis.folderGate;
   g.live++;
   g.started++;
   await g.opened;
-  return () => { g.live--; g.disposals++; };
+  return () => { api.settings.get('state'); g.live--; g.disposals++; };
 }`;
 
 let dir: string;
@@ -68,12 +68,23 @@ describe('a folder activation still running', () => {
     const g = hold.folderGate!;
     const loading = host.loadAll();
     await until(() => g.started === 1);
-    host.endActivations();
-    db.close();
+    // As closeArchive: the archive closes once activations have ended.
+    const closing = host.endActivations().then(() => db.close());
     g.release();
+    await closing;
     await loading;
     expect(host.list().map((p) => [p.id, p.status])).toEqual([['slow', 'disabled']]);
     expect([g.started, g.live, g.disposals]).toEqual([1, 0, 1]);
+  });
+
+  it('when the archive closes and it never returns: ending waits no longer than its deadline', async () => {
+    const g = hold.folderGate!;
+    void host.loadAll();
+    await until(() => g.started === 1);
+    const SHORT_DEADLINE_MS = 10;
+    await host.endActivations(SHORT_DEADLINE_MS);
+    expect(host.list().map((p) => [p.id, p.status])).toEqual([['slow', 'disabled']]);
+    expect([g.live, g.disposals]).toEqual([1, 0]);
   });
 
   it('reloaded twice over: one activation stays live, every retired one is torn down, one listing', async () => {

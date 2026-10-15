@@ -71,7 +71,7 @@ describe('plugin table owners', () => {
   const statuses = async (dir: string, db: Db): Promise<unknown[]> => {
     const host = new PluginHost(dir, { db, emit: () => undefined, changed: () => undefined, ai: async () => ({ text: '' }), decider: () => null });
     await host.loadAll();
-    host.endActivations();
+    await host.endActivations();
     return host.list().map((p) => [p.id, p.status, p.error]);
   };
   const rows = (db: Db): unknown[] => db.prepare(`SELECT v FROM ${SHARED}`).pluck().all();

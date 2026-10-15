@@ -1,11 +1,6 @@
 // The app's quit: one sequence, however many requests reach it, so plugin cleanup finishes while core still runs.
 import { errorMessage } from '@shared/errors';
-
-/**
- * How long plugins' resources get to stop at quit before core ends regardless. Windows ends an app still running about
- * 5 s after a shutdown asks it to close (HungAppTimeout's default), so cleanup gets no longer than that.
- */
-export const PLUGIN_STOP_DEADLINE_MS = 5_000;
+import { PLUGIN_STOP_DEADLINE_MS } from '@shared/plugins';
 
 /** What quitting runs, in this order. */
 export interface ShutdownSteps {
