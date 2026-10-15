@@ -157,8 +157,9 @@ describe('owner attachment store operations', () => {
   it('additively migrates attachment times and replaces stale views before ALTER TABLE', () => {
     const legacy = new Database(':memory:');
     try {
-      // Before stored_ext, compressed_at, ts, and the download retry columns.
-      const before = MIGRATIONS.length - 4;
+      // The schema just before stored_ext; later migrations add compressed_at, ts and more.
+      const before = MIGRATIONS.indexOf('ALTER TABLE attachments ADD COLUMN stored_ext TEXT;');
+      expect(before).toBeGreaterThan(0);
       for (const migration of MIGRATIONS.slice(0, before)) applyMigration(legacy, migration);
       legacy.pragma(`user_version = ${before}`);
       const orphan = snowflakeFromMs(TS);
