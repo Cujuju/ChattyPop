@@ -5,7 +5,7 @@ import { snowflakeFromMs } from '@shared/discord';
 import { clearTicks, isSelected, selectThrough, selectedMessages, selecting, startSelecting, stopSelecting, toggleSelected } from '../src/renderer/src/state/messageSelection';
 
 const T0 = Date.UTC(2026, 8, 1);
-const loaded = Array.from({ length: 6 }, (_, i) => ({ id: snowflakeFromMs(T0 + i), content: `m${i}` }) as ArchiveMessage);
+const loaded = Array.from({ length: 6 }, (_, i) => ({ id: snowflakeFromMs(T0 + i), channelId: 'c1', content: `m${i}` }) as ArchiveMessage);
 const texts = (): string[] => selectedMessages().map((m) => m.content);
 
 beforeEach(stopSelecting);
@@ -44,4 +44,12 @@ it('ticks the clicked message alone when the last ticked one is no longer loaded
   toggleSelected(loaded[0]!);
   selectThrough(loaded[4]!, loaded.slice(2));
   expect(texts()).toEqual(['m0', 'm4']);
+});
+
+it("holds one channel's messages: a tick in another channel starts over", () => {
+  toggleSelected(loaded[0]!);
+  toggleSelected({ ...loaded[1]!, id: snowflakeFromMs(T0 + loaded.length), channelId: 'c2', content: 'elsewhere' });
+  expect(texts()).toEqual(['elsewhere']);
+  selectThrough(loaded[3]!, loaded);
+  expect(texts()).toEqual(['m3']);
 });

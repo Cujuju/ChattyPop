@@ -16,9 +16,15 @@ export const isSelected = (messageId: string): boolean => selection().has(messag
 /** The selected messages, oldest first. */
 export const selectedMessages = (): ArchiveMessage[] => [...selection().values()].sort((a, b) => compareSnowflakes(a.id, b.id));
 
+/** The ticks a tick of `m` adds to: none when they are another channel's, so a selection is always of one channel. */
+const ticksFor = (m: ArchiveMessage): Map<string, ArchiveMessage> => {
+  const ticks = selection();
+  return new Map(ticks.values().next().value?.channelId === m.channelId ? ticks : NONE);
+};
+
 /** Ticks `m`, or unticks it. */
 export function toggleSelected(m: ArchiveMessage): void {
-  const next = new Map(selection());
+  const next = ticksFor(m);
   if (!next.delete(m.id)) next.set(m.id, m);
   anchorId = m.id;
   setSelection(next);
@@ -29,7 +35,7 @@ export function selectThrough(m: ArchiveMessage, loaded: readonly ArchiveMessage
   const from = loaded.findIndex((x) => x.id === anchorId);
   const to = loaded.findIndex((x) => x.id === m.id);
   const range = from < 0 || to < 0 ? [m] : loaded.slice(Math.min(from, to), Math.max(from, to) + 1);
-  const next = new Map(selection());
+  const next = ticksFor(m);
   for (const x of range) next.set(x.id, x);
   anchorId = m.id;
   setSelection(next);

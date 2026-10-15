@@ -161,6 +161,8 @@ export function ArchiveView() {
     if (!message) return;
     e.preventDefault();
     e.stopPropagation();
+    // The last channel's rows stay drawn while the next one opens: not tickable.
+    if (message.channelId !== archiveChannelId()) return;
     if (e.shiftKey) selectThrough(message, archiveState.items);
     else toggleSelected(message);
   };

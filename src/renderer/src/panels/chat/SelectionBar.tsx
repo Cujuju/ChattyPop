@@ -27,10 +27,10 @@ const HOST_ITEMS: readonly HostSelectionMenuItem[] = HOST_SELECTION_MENU_ITEMS.m
       : null,
 }));
 
-/** Shown in select mode. Escape leaves it unless something lies over the chat (a menu closes first). */
+/** Shown in select mode. Escape leaves it unless something lies over the chat or took the key (an open menu closes instead). */
 export function SelectionBar() {
   listen(window, 'keydown', (e) => {
-    if (e.key === 'Escape' && !overlayOpen()) stopSelecting();
+    if (e.key === 'Escape' && !e.defaultPrevented && !overlayOpen()) stopSelecting();
   });
   const act = (item: MenuItem, button: HTMLButtonElement): void => {
     if (item.submenu) openMenuAt(button, item.submenu);
