@@ -1,0 +1,7 @@
+/* A person's avatar (PersonFace) filling the box its caller sizes: a picker's lead column, a list row's face. */
+.face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

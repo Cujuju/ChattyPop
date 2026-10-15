@@ -15,6 +15,8 @@ export interface PersonName {
   effect: NameEffect | null;
   /** The place the name was read for; null for none, or one privacy mode hides. Their profile opens there. */
   channelId: string | null;
+  /** Their avatar hash; null for Discord's default avatar. */
+  avatar: string | null;
 }
 /** A person found by name, for pickers (a rule's Who): their display name, else username. */
 export interface PersonMatch {

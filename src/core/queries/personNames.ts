@@ -12,6 +12,7 @@ interface Row {
   roleColorsJson: string | null;
   enhancedRoles: number;
   nameStyle: string | null;
+  avatar: string | null;
 }
 
 export function personNames(db: Db, ids: string[], channelId: string | null): PersonName[] {
@@ -25,13 +26,13 @@ export function personNames(db: Db, ids: string[], channelId: string | null): Pe
   const rows = db
     .prepare(
       `SELECT u.id, ${inServer ? `${displayNameSql('u.id', '@place')} AS name, ${roleStyleSql('u.id', '@place')}` : `${plainNameSql('u.id')} AS name, NULL AS roleColorsJson, 0 AS enhancedRoles`},
-              u.name_style AS nameStyle
+              u.name_style AS nameStyle, u.avatar
        FROM users u WHERE u.id IN (SELECT value FROM json_each(@ids))`,
     )
     .all({ ids: JSON.stringify(ids), ...(inServer ? { place } : {}) }) as Row[];
   return rows.map((r) => {
     const nitro = nitroStyle(r.nameStyle);
     const colors = inServer ? roleColors(r.roleColorsJson, r.enhancedRoles === 1) : nitro;
-    return { id: r.id, name: r.name, color: colors.color, gradient: colors.gradient, font: nitro.font, effect: inServer ? null : nitro.effect, channelId: place };
+    return { id: r.id, name: r.name, color: colors.color, gradient: colors.gradient, font: nitro.font, effect: inServer ? null : nitro.effect, channelId: place, avatar: r.avatar };
   });
 }

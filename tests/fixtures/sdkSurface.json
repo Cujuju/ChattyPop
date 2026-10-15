@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.2.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -308,6 +308,7 @@
       "Note",
       "Page",
       "PanelHeader",
+      "PersonFace",
       "PersonName",
       "ProviderSelect",
       "QrCode",
@@ -408,6 +409,7 @@
       "openSettingsAt",
       "percentText",
       "personName",
+      "personOption",
       "photoAccess",
       "photoFile",
       "photoLibraryOffered",

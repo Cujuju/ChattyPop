@@ -21,7 +21,7 @@ const MOD = { id: '400000000000000001', name: 'Mod', position: 5, color: 0xf47ff
 const VIP = { id: '400000000000000002', name: 'VIP', position: 3, color: 0x2ecc71, colors: { primary_color: 0x2ecc71, secondary_color: 0x3498db, tertiary_color: null } };
 /** Nitro: Vampyre font (10), the Gradient effect (2) in two colours. */
 const GRADIENT_STYLE = { font_id: 10, effect_id: 2, colors: [0xfe9242, 0x3498db] };
-const alice = { id: '300000000000000001', username: 'alice', global_name: 'Alice', display_name_styles: GRADIENT_STYLE };
+const alice = { id: '300000000000000001', username: 'alice', global_name: 'Alice', avatar: 'a11ce', display_name_styles: GRADIENT_STYLE };
 
 let db: Db;
 let archive: Archive;
@@ -44,7 +44,7 @@ const FONT = { key: 'sinistre', family: 'Vampyre' };
 
 describe('person names as Discord draws them in a place', () => {
   it('in a server: nickname, role colour, Nitro font, never Nitro colours', () => {
-    expect(nameIn(GENERAL)).toEqual({ id: alice.id, name: 'Al', color: MOD.color, gradient: null, font: FONT, effect: null, channelId: GENERAL });
+    expect(nameIn(GENERAL)).toEqual({ id: alice.id, name: 'Al', color: MOD.color, gradient: null, font: FONT, effect: null, channelId: GENERAL, avatar: alice.avatar });
     archive.applyRoleChange({ kind: 'delete', roleId: MOD.id });
     expect(nameIn(GENERAL)).toMatchObject({ color: null, gradient: null, font: FONT, effect: null });
   });
@@ -55,7 +55,7 @@ describe('person names as Discord draws them in a place', () => {
   });
 
   it('outside a server (a DM, no place): display name and the whole Nitro style', () => {
-    const nitro = { name: 'Alice', color: 0xfe9242, gradient: GRADIENT_STYLE.colors, font: FONT, effect: 'gradient' };
+    const nitro = { name: 'Alice', color: 0xfe9242, gradient: GRADIENT_STYLE.colors, font: FONT, effect: 'gradient', avatar: alice.avatar };
     expect(nameIn(DM)).toEqual({ id: alice.id, ...nitro, channelId: DM });
     expect(nameIn(null)).toEqual({ id: alice.id, ...nitro, channelId: null });
   });

@@ -17,6 +17,8 @@ export interface SearchOption extends SelectOption {
   searchOnly?: boolean;
   /** Drawn before the label, in the list and on the trigger. */
   lead?: () => JSX.Element;
+  /** Drawn in place of the label's text (a person's name as Discord styles it); the label still names and filters it. */
+  name?: () => JSX.Element;
   /** A quiet line under the label in the list (a model's traits); filtering reads it too. */
   note?: string;
   /** A price, on its own line under the note. */
@@ -102,7 +104,9 @@ export function SearchSelect(props: {
         data-mobile={inCompanion} onClick={() => (open() ? close() : show())}
       >
         <Show when={current()?.lead}>{(draw) => <span class={styles.lead} aria-hidden="true">{draw()()}</span>}</Show>
-        <span class={styles.value}>{current()?.label ?? (props.value || props.placeholder)}</span>
+        <span class={styles.value}>
+          <Show when={current()?.name} fallback={current()?.label ?? (props.value || props.placeholder)}>{(draw) => draw()()}</Show>
+        </span>
         <Show when={inCompanion} fallback={<span class="cp-chevron" aria-hidden="true" />}>
           <Icon name="chevronRight" class={styles.disclosure} />
         </Show>

@@ -181,7 +181,7 @@ export function SearchList(props: {
                       >
                         {lead(o())}
                         <span class={styles.text}>
-                          <span class={styles.label}>{o().label}</span>
+                          <span class={styles.label}><Show when={o().name} fallback={o().label}>{(draw) => draw()()}</Show></span>
                           <Show when={o().note}>{(note) => <span class={`${styles.note} ${look.text}`} data-size="xs" data-tone="muted">{note()}</span>}</Show>
                           <Show when={o().price}>{(price) => <span class={`${styles.note} ${look.text}`} data-size="xs" data-tone="success">{price()}</span>}</Show>
                         </span>

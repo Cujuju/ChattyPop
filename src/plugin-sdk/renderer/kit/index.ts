@@ -44,8 +44,9 @@ export { createPagedList, keyedById } from '@/state/paged';
 export { Avatar, MessageRow } from '@/ui/MessageRow';
 export { AuthorName } from '@/panels/chat/AuthorName';
 export { Embeds, isMediaOnly } from '@/panels/chat/MessageExtras';
-// A person named in a plugin's text: their name as Discord draws it in a place, kept current, opening their profile.
-export { PersonName } from '@/panels/chat/PersonName';
+// A person named in a plugin's text: their name as Discord draws it in a place, kept current, opening their profile;
+// their avatar; a picker option drawing both.
+export { PersonFace, PersonName, personOption } from '@/panels/chat/PersonName';
 export { Card, choiceOptions, ErrorNote, Note, Page, Row, SectionsPage, SettingsButton, type ChoiceText } from '@/views/settings/SettingsLayout';
 // Sections beside a rail or picker, with selection owned by the caller.
 export { SectionSplit, type SectionDef } from '@/views/settings/SettingsLayout';
