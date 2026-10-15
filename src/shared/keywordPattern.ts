@@ -68,6 +68,21 @@ export function buildPattern(spec: PatternSpec): string {
   return `/${consumed}${guard}/${spec.matchCase ? 'u' : 'iu'}`;
 }
 
+/** A keyword match: the stored pattern, and the builder rule it came from (null when typed). */
+export interface TextMatch {
+  pattern: string;
+  spec: PatternSpec | null;
+}
+
+/**
+ * The pattern a keyword match runs: a builder rule's current output, never its stored copy (saved by an older builder,
+ * it can differ); else the typed pattern. Throws a builder rule's problem.
+ */
+export const textPattern = (c: TextMatch): string => (c.spec ? buildPattern(c.spec) : c.pattern);
+
+/** textPattern, or '' while a builder rule has a problem: what an editor shows, tests and names a rule by. */
+export const textPatternOrEmpty = (c: TextMatch): string => (c.spec && specProblem(c.spec) ? '' : textPattern(c));
+
 /** Start and end of each match in `text` (at most `max`), for highlighting. */
 export function matchRanges(re: RegExp, text: string, max: number): [number, number][] {
   const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);

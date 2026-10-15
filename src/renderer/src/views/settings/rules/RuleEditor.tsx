@@ -1,5 +1,5 @@
 import { Show, createSignal } from 'solid-js';
-import { patternName } from '@shared/keywordPattern';
+import { patternName, textPatternOrEmpty } from '@shared/keywordPattern';
 import { contentLabels } from '@shared/messageContent';
 import type { Rule, RuleInput, RuleSpec } from '@shared/rules';
 import { timedTriggerText, type TimedTrigger } from '@shared/ruleTime';
@@ -34,7 +34,7 @@ function nameFor(input: RuleInput): string {
   const contents = narrow.find((p) => p.type === 'contains')?.config as
     import('@shared/messageContent').ContentKind[] | undefined;
   return (
-    (text ? patternName(text.pattern) : '') ||
+    (text ? patternName(textPatternOrEmpty(text)) : '') ||
     meaning?.trim() ||
     jev?.question.trim() ||
     contentLabels(contents ?? []) ||

@@ -1,5 +1,5 @@
 // Host declarations for message and timed triggers, matching, narrowing, files and commands.
-import { buildPattern, compileKeywordPattern, type PatternSpec } from '../keywordPattern';
+import { compileKeywordPattern, textPattern, type TextMatch } from '../keywordPattern';
 import { validateCondition, validateJevSpec, type CustomJevQuestion } from '../jevQuestion';
 import { PLATFORMS, type Platform } from '../links';
 import { isContentKinds, type ContentKind } from '../messageContent';
@@ -16,10 +16,7 @@ import {
 /** The host trigger for new and edited archive messages. */
 export const MESSAGE_TRIGGER = 'message';
 /** Keywords or /regex/; spec is the builder rule it was made from. */
-export interface TextConfig {
-  pattern: string;
-  spec: PatternSpec | null;
-}
+export type TextConfig = TextMatch;
 
 /** The absolute output path and append format for a message file. */
 export interface FileConfig {
@@ -65,7 +62,7 @@ export const text: RuleMatchKind<TextConfig> = {
   asksJev: false,
   create: () => ({ pattern: '', spec: null }),
   validate(c) {
-    compileKeywordPattern(c.spec ? buildPattern(c.spec) : c.pattern);
+    compileKeywordPattern(textPattern(c));
   },
 };
 
