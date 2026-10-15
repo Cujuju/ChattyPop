@@ -92,11 +92,26 @@ const refetchAll = (): void => {
 onAppEvent('rules-changed', refetchAll);
 onAppEvent('privacy-changed', refetchAll);
 
-/** Adds a rule and opens it; throws with a message for the editor. */
-export async function createRule(input: RuleInput): Promise<void> {
+/** Edits typed into a new rule's draft while it was added, by the added rule's id, for its editor to open with. */
+const addedEdits = new Map<number, RuleInput>();
+
+/**
+ * Adds a rule and opens it, remounting the editor on it; throws with a message for the editor. `edited` is the draft
+ * edited since `input` was sent, or null: the new rule's editor opens with it, still unsaved.
+ */
+export async function createRule(input: RuleInput, edited: () => RuleInput | null): Promise<void> {
   const id = await core.createRule(input);
   await refetchRules();
-  setOpenPage(id); // the draft is saved; nothing to lose
+  const draft = edited();
+  if (draft) addedEdits.set(id, draft);
+  setOpenPage(id);
+}
+
+/** The edits made while rule `id` was added, once: its editor's unsaved draft. */
+export function editsWhileAdded(id: number): RuleInput | null {
+  const draft = addedEdits.get(id) ?? null;
+  addedEdits.delete(id);
+  return draft;
 }
 
 export async function saveRule(id: number, input: RuleInput): Promise<void> {
