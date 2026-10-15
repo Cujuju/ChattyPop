@@ -1,5 +1,6 @@
 // The Archive view's select mode and the messages ticked in it, to act on together. Ticks belong to the channel shown; never stored.
-import { batch, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
+import { batchWrites } from '@plugin-sdk/renderer/containment';
 import type { ArchiveMessage } from '@shared/contract';
 import { compareSnowflakes } from '@shared/discord';
 
@@ -43,7 +44,7 @@ export function clearTicks(): void {
 export const startSelecting = (): void => void setMode(true);
 
 /** Leaves select mode, dropping the ticks. */
-export const stopSelecting = (): void => batch(() => {
+export const stopSelecting = (): void => batchWrites(() => {
   clearTicks();
   setMode(false);
 });
