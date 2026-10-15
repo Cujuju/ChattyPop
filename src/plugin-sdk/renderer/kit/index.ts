@@ -75,6 +75,8 @@ export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect, type SearchOption } from '@/ui/SearchSelect';
 // A server's icon (initials when it has none), as the sidebar draws it.
 export { GuildIcon } from '@/ui/GuildIcon';
+// A DM's face as the DM list draws it: the person's avatar, a group's icon or two members.
+export { DmFace } from '@/ui/DmFace';
 export { EffortSelect, effortLabel, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
@@ -92,6 +94,7 @@ export { now } from '@/state/clock';
 // Which bots count as new messages (Settings → Archive → New-message counts).
 export { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } from '@/state/countedBots';
 export { archivedChannels, channelById, channelLabel, channelSigil, directory, isThread, loadDirectory } from '@/state/directory';
+export { isDmChannel, type DmChannel } from '@/state/dmRules';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPerson } from '@/state/person';
 // In-app windows a plugin opens per key, several of a kind at once (its renderer side's `windows`).

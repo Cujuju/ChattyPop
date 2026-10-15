@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -280,6 +280,7 @@
       "ChipField",
       "ChipRow",
       "DayDivider",
+      "DmFace",
       "DoubleTapEmojiPicker",
       "EffortRow",
       "EffortSelect",
@@ -374,6 +375,7 @@
       "freeStored",
       "hasEffortChoice",
       "inCompanion",
+      "isDmChannel",
       "isMediaOnly",
       "isPanelCollapsed",
       "isThread",
@@ -952,6 +954,7 @@
       "CompressAs",
       "CompressOutcome",
       "ConfirmOptions",
+      "DmChannel",
       "HeaderButtonVariant",
       "HtmlPage",
       "IconName",
