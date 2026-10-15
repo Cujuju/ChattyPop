@@ -6,7 +6,7 @@ import type { CustomJevQuestion } from '@shared/jevQuestion';
 import { jevQueryOverrides, saveJevQuery } from '@/state/jevQueries';
 import { jevFeatureLocked, toggleJevFeature } from '@/state/jevStatus';
 import { aiSettings } from '@/state/preferences';
-import { createAction } from '@/ui/action';
+import { createAction, submitDraft } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { JevQuestionField, conditionWording } from '@/ui/JevQuestionField';
 import { jevFeatureLabel } from './jevFeatures';
@@ -56,12 +56,13 @@ export function JevQueryEditor(props: { def: JevQueryDef }) {
 
   const save = async (q: CustomJevQuestion | null): Promise<void> => {
     setSavedText(null);
+    const sent = submitDraft(draft, setDraft);
     const done = await action.run(async () => {
       await saveJevQuery(d.id, q);
       return true;
     });
-    if (!done) return;
-    setDraft(saved());
+    // Edited meanwhile: those edits stay, and the status says they're unsaved.
+    if (!done || !sent.settle(saved())) return;
     setSavedText(q ? 'Saved. It applies to new messages and runs from now on.' : 'Back to the default.');
   };
 

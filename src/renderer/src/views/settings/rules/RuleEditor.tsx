@@ -13,7 +13,7 @@ import {
   saveRule,
   setRuleEnabled,
 } from '@/state/rules';
-import { createAction } from '@/ui/action';
+import { createAction, submitDraft } from '@/ui/action';
 import { Icon } from '@/ui/icons';
 import { ActionsStep } from './ActionsStep';
 import { GatesStep } from './GatesStep';
@@ -84,12 +84,13 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
   const save = (e: SubmitEvent): void => {
     e.preventDefault();
     const r = stored();
-    const next = { ...input(), name: input().name.trim() || nameFor(input()), enabled: enabled() };
+    const sent = submitDraft(input, setInput);
+    const next = { ...sent.value, name: sent.value.name.trim() || nameFor(sent.value), enabled: enabled() };
     void action.run(async () => {
       if (!r) return createRule(next); // opens the new rule, remounting this page on it
       await saveRule(r.id, next);
-      setInput(next);
       setSaved(structuredClone(next));
+      sent.settle(next);
     });
   };
   const remove = (r: Rule): void =>
