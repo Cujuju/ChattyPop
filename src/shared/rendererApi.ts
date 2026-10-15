@@ -3,7 +3,7 @@ import type { PluginCallResult } from './pluginCall';
 import type { StoredFile } from './media';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
-import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
+import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerSend, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
 import type { OwnerPollVote } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
@@ -64,8 +64,8 @@ export interface RendererApi {
     setOptIn(channelId: string, on: boolean): Promise<void>;
     /** Samples this server's unarchived channels and asks Jev which match the owner's rules. */
     suggestChannels(guildId: string): Promise<ChannelSuggestion[]>;
-    /** Posts a message as the owner (text, reply, files, sticker or GIF); rejects with Discord's reason. */
-    send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+    /** Posts a message as the owner (text, reply, files, sticker or GIF), as the account it was written as only; rejects with Discord's reason. */
+    send(m: OwnerSend): Promise<PostedOwnerMessage>;
     scheduledAvailability(channelId: string): Promise<ScheduledAvailability>;
     createScheduled(m: ScheduledDraft): Promise<ScheduledMessage>;
     scheduledMessages(): Promise<ScheduledMessage[]>;

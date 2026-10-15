@@ -10,7 +10,7 @@ import { membersVersion } from './mentions';
 import { inPanelWindow } from './ui';
 
 /** The signed-in Discord user's id; null until main has read it. */
-const selfId = createPushedValue(
+export const selfId = createPushedValue(
   () => api.core.selfId(),
   'self-changed',
   (e) => e.userId,

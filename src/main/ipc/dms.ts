@@ -6,6 +6,7 @@ import { diag } from '../diagnostics';
 import type { DiscordClient } from '../discord/client';
 import { DmService } from '../discord/dms';
 import type { OwnerAccount } from '../discord/account';
+import type { OwnerSession } from '../discord/ownerSession';
 import type { FriendIndex } from '../discord/profiles';
 import type { ReadStates } from '../discord/readStates';
 import { gatePosting, type PostingGate } from '../plugins/posting';
@@ -16,6 +17,8 @@ export interface DmDeps {
   owner: DiscordClient;
   /** The account READY named: a write checked as one account is never sent as another. */
   account: Pick<OwnerAccount, 'userId'>;
+  /** Each DM write is an owner action, bound to the session proven when it is asked. */
+  session: Pick<OwnerSession, 'actions'>;
   friends: FriendIndex;
   readStates: Pick<ReadStates, 'settingsChanged'>;
   /** Every DM write is a posting call (@shared/posting): refused while posting is locked. */
@@ -27,14 +30,14 @@ export function registerDmHandlers(d: DmDeps): DmService {
   const { discord: channels } = MAIN_INVOKE;
   const dms = new DmService({ api: d.owner, core: d.core, account: () => d.account.userId, friends: d.friends, settingsChanged: (s) => d.readStates.settingsChanged(s), diag });
   handleMain(channels.friends, () => d.friends.list());
-  const writes = gatePosting(d.posting, {
+  const writes = d.session.actions(gatePosting(d.posting, {
     startDm: (recipients: unknown, archive: unknown) => dms.start(recipients, archive),
     dmWith: (userId: unknown) => dms.dmWith(userId),
     addToDm: (channelId: unknown, userIds: unknown, archive: unknown) => dms.add(channelId, userIds, archive),
     closeDm: (channelId: unknown, quietly: unknown) => dms.close(channelId, quietly),
     renameDm: (channelId: unknown, name: unknown) => dms.rename(channelId, name),
     muteDm: (channelId: unknown, window: unknown) => dms.mute(channelId, window),
-  });
+  }));
   handleMain(channels.startDm, (recipients: unknown, archive: unknown) => writes.startDm(recipients, archive));
   handleMain(channels.dmWith, (userId: unknown) => writes.dmWith(userId));
   handleMain(channels.addToDm, (channelId: unknown, userIds: unknown, archive: unknown) => writes.addToDm(channelId, userIds, archive));

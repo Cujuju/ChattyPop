@@ -10,6 +10,7 @@ import { redactIds } from '../diagnostics';
 import { DiscordAuthError } from './api';
 import type { DiscordWriter, RequestContext } from './client';
 import { checkAdd, checkArchiveChoice, checkManageable, checkRename, checkStart, type Friends } from './dmChecks';
+import { AccountChangedError } from './ownerSession';
 
 /** Client action locations; direct profile/DM opens omit location. */
 export const DM_CONTEXT = {
@@ -28,13 +29,6 @@ const isChannel = (v: unknown): v is RawPrivateChannel => {
   const c = v as Partial<RawPrivateChannel> | null;
   return !!c && typeof c.id === 'string' && typeof c.type === 'number' && DM_CHANNEL_TYPES.has(c.type);
 };
-
-/** Thrown before a write goes when another account signed in after it was checked: nothing was sent. */
-export class AccountChangedError extends Error {
-  constructor() {
-    super('Another Discord account signed in: nothing was sent.');
-  }
-}
 
 export interface DmServiceDeps {
   /** DiscordApi.prompt: the owner is waiting. */
@@ -178,7 +172,7 @@ export class DmService {
     return {
       account: self,
       guard: () => {
-        if (this.d.account() !== self) throw new AccountChangedError();
+        if (this.d.account() !== self) throw new AccountChangedError('Another Discord account signed in: nothing was sent.');
       },
     };
   }

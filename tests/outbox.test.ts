@@ -6,6 +6,8 @@ import { PostingLocked, isPostingLocked } from '@shared/posting';
 import { AUTO_RETRY_MS, NONCE_DEDUPE_MS, SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxJob, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
 const CHANNEL = '100000000000000001';
+/** The account the queued messages were written as. */
+const ACCOUNT = '900000000000000001';
 
 class Unreachable extends Error {}
 
@@ -37,7 +39,7 @@ function setup(canRestore = false) {
   const job = (text: string, editable = true): OutboxJob<string> => ({
     channelId: CHANNEL,
     label: text,
-    message: { channelId: CHANNEL, text, replyTo: null, files: [], stickerId: null, gif: null, nonce: `n-${text}` },
+    message: { channelId: CHANNEL, text, replyTo: null, files: [], stickerId: null, gif: null, nonce: `n-${text}`, accountId: ACCOUNT },
     files: [],
     mentions: {},
     draft: editable ? text : null,

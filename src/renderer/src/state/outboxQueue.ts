@@ -5,7 +5,7 @@
 import { batchWrites } from '@plugin-sdk/renderer/containment';
 import { createSignal } from 'solid-js';
 import { createStore, produce } from 'solid-js/store';
-import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
+import type { OwnerSend, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 
@@ -39,8 +39,8 @@ export interface Outgoing {
 export interface OutboxJob<D> {
   channelId: string;
   label: string;
-  /** The message without its files; built once, so every attempt sends the same nonce. */
-  message: OwnerMessage;
+  /** The message without its files; built once, so every attempt sends the same nonce as the same account. */
+  message: OwnerSend;
   files: DraftFileInput[];
   /** Names for its `<@id>` mentions, by id, as picked: the pending row shows them before the archive knows them. */
   mentions: Record<string, string>;
@@ -52,7 +52,7 @@ export interface OutboxJob<D> {
 export interface OutboxRecord<D> {
   channelId: string;
   label: string;
-  message: OwnerMessage;
+  message: OwnerSend;
   files: SavedDraftFile[];
   /** Absent in records saved before mention names. */
   mentions?: Record<string, string>;
@@ -70,7 +70,7 @@ export interface OutboxRecord<D> {
 }
 
 export interface OutboxDeps<D> {
-  send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+  send(m: OwnerSend): Promise<PostedOwnerMessage>;
   /** Publishes the accepted row in the same batch that removes its pending row. */
   accept?(result: PostedOwnerMessage): void;
   /** Timing-only observer; paint observers are wired by the window. */

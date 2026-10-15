@@ -12,7 +12,8 @@ const answer = (kind: 'forward' | 'send') => async (arg: { nonce: string; text?:
 };
 vi.mock('@/api', () => ({ api: { discord: { forward: answer('forward'), send: answer('send') }, core: { messageById: async () => null } } }));
 vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: () => undefined }));
-vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => ({ guildId: 'g' }), directory: () => [], loadDirectory: async () => undefined }));
+vi.mock('../src/renderer/src/state/ownMessages', () => ({ selfId: () => 'me' }));
+vi.mock('../src/renderer/src/state/directory',() => ({ channelById: () => ({ guildId: 'g' }), directory: () => [], loadDirectory: async () => undefined }));
 
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const statePath = '../src/renderer/src/state/forward';

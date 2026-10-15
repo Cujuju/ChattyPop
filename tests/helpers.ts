@@ -106,3 +106,17 @@ export function fakeModel(dir: string, id: string): void {
 
 /** An open Discord page whose isolated world answers each script with `evaluate` (DiscordApi's page). */
 export const discordPage = (evaluate: (script: string) => Promise<unknown>) => ({ webContents: { isDestroyed: () => false }, world: { evaluate } });
+
+type HeadersListener = (details: { method: string; url: string; webContentsId?: number; requestHeaders: Record<string, string> }, cb: (r: { requestHeaders: Record<string, string> }) => void) => void;
+
+/** A Discord session (HeaderCapture's) whose request hook the test drives: `send` is a request the embedded client makes. */
+export function fakeDiscordSession(): { session: never; send: (headers: Record<string, string>, url?: string) => Record<string, string> } {
+  let listener: HeadersListener | undefined;
+  const session = { webRequest: { onBeforeRequest: () => undefined, onBeforeSendHeaders: (_f: unknown, l: HeadersListener) => (listener = l), onCompleted: () => undefined } };
+  const send = (headers: Record<string, string>, url = 'https://discord.com/api/v9/users/@me'): Record<string, string> => {
+    let passed: Record<string, string> = {};
+    listener!({ method: 'GET', url, webContentsId: 1, requestHeaders: headers }, (r) => (passed = r.requestHeaders));
+    return passed;
+  };
+  return { session: session as never, send };
+}

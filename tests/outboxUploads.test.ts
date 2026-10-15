@@ -8,6 +8,8 @@ import { isPostingLocked } from '@shared/posting';
 import { NONCE_DEDUPE_MS, createOutbox, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
 const CHANNEL = '100000000000000001';
+/** The account the queued messages were written as. */
+const ACCOUNT = '900000000000000001';
 class Unreachable extends Error {}
 
 function setup() {
@@ -38,7 +40,7 @@ function setup() {
     now: () => Date.now(),
   });
   const file = new File(['clip'], 'clip.mp4', { type: 'video/mp4' });
-  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1' }, files: [file], mentions: {}, draft: null });
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1', accountId: ACCOUNT }, files: [file], mentions: {}, draft: null });
   const head = () => box.outgoing(CHANNEL)[0];
   return { box, posted, uploads, head, saved: () => saved, failNextSend: (e: Error) => void (sendError = e) };
 }
@@ -149,7 +151,7 @@ it('keeps options through outbox save/load, video preparation, upload and Edit',
     save: (records: OutboxRecord<{ files: SavedDraftFile[] }>[]) => { saved = records; },
   };
   const box = createOutbox(deps);
-  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: '', files: [], replyTo: null, stickerId: null, gif: null, nonce: 'n-options' }, files: [entry], mentions: {}, draft: { files: [entry] } });
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: '', files: [], replyTo: null, stickerId: null, gif: null, nonce: 'n-options', accountId: ACCOUNT }, files: [entry], mentions: {}, draft: { files: [entry] } });
   expect(saved[0]!.files).toEqual([entry]);
   unlocked = true;
   const reloaded = createOutbox(deps);

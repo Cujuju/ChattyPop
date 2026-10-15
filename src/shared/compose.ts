@@ -49,6 +49,12 @@ export interface OwnerMessage {
   postWithinMs?: number;
 }
 
+/** A message the outbox sends: kept across reloads and reconnects, so it names the account it was written as. */
+export interface OwnerSend extends OwnerMessage {
+  /** The signed-in account when it was written (null: none yet); main sends it as no other. */
+  accountId: string | null;
+}
+
 /** Discord accepted this nonce; its payload can be shown before gateway ingestion. */
 export interface PostedOwnerMessage {
   nonce: string;

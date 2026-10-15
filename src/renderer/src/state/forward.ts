@@ -5,6 +5,7 @@ import type { ArchiveMessage, DirectoryChannel } from '@shared/contract';
 import { DISCORD_TEXT_MAX, FORUM_CHANNEL_TYPE, TEXT_CHANNEL_TYPES, newNonce } from '@shared/discord';
 import { channelById, directory } from './directory';
 import { onAppEvent } from './events';
+import { selfId } from './ownMessages';
 
 /** One destination's sends for the open message: a retry reuses its nonces and never re-posts a forward that went. */
 interface Attempt {
@@ -69,5 +70,5 @@ export async function forwardMessage(m: ArchiveMessage, channelId: string, note:
   if (!note.trim()) return;
   const nonce = a.notes.get(note) ?? newNonce();
   a.notes.set(note, nonce);
-  await api.discord.send({ channelId, text: note, replyTo: null, files: [], stickerId: null, gif: null, nonce });
+  await api.discord.send({ channelId, text: note, replyTo: null, files: [], stickerId: null, gif: null, nonce, accountId: selfId() });
 }
