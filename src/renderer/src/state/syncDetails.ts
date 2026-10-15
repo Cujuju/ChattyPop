@@ -1,7 +1,7 @@
 import { api } from '@/api';
 import { createStore } from 'solid-js/store';
 import { snowflakeToMs } from '@shared/discord';
-import { PACE_TIMING, backfillCutoffMs, resolveBackfillCutoffMs, type ChannelBackfillHistory } from '@shared/archiveSettings';
+import { PACE_TIMING, backfillCutoffMs, resolveBackfillCutoffMs, type ArchiveSettings, type ChannelBackfillHistory } from '@shared/archiveSettings';
 import { backfillFraction, estimateBackfillPages } from '@shared/backfillProgress';
 import { onAppEvent } from './events';
 import { archiveSettings } from './preferences';
@@ -61,11 +61,10 @@ export interface BackfillCost {
 
 const timeOf = (id: string | null): number | null => (id === null ? null : snowflakeToMs(id));
 
-/** The cost of fetching each of `channelIds` back to `history` (undefined: the default depth). Threads aren't counted. */
-export async function backfillCost(channelIds: readonly string[], history: ChannelBackfillHistory | undefined): Promise<BackfillCost> {
-  const settings = archiveSettings();
+/** The cost of fetching each of `channelIds` back to `history` at `pace`. Every input is a parameter, so a caller's source tracks them. Threads aren't counted. */
+export async function backfillCost(channelIds: readonly string[], history: ChannelBackfillHistory, pace: ArchiveSettings['syncPace']): Promise<BackfillCost> {
   const now = Date.now();
-  const cutoffMs = backfillCutoffMs(history ?? settings.backfillHistory, now);
+  const cutoffMs = backfillCutoffMs(history, now);
   const cost: BackfillCost = { pages: 0, unknown: 0, durationMs: 0 };
   for (const state of await Promise.all(channelIds.map((id) => api.core.syncState(id)))) {
     const stored = { count: state.count, oldestMs: timeOf(state.oldestId), newestMs: timeOf(state.newestId), backfillComplete: state.backfillComplete };
@@ -73,6 +72,6 @@ export async function backfillCost(channelIds: readonly string[], history: Chann
     if (pages === null) cost.unknown++;
     else cost.pages += pages;
   }
-  cost.durationMs = cost.pages * PACE_TIMING[settings.syncPace].apiMs;
+  cost.durationMs = cost.pages * PACE_TIMING[pace].apiMs;
   return cost;
 }

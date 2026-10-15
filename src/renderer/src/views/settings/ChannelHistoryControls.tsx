@@ -38,7 +38,11 @@ function SeveralAtOnce() {
     const d = depth();
     return d && d !== 'complete' && 'sinceMs' in d ? d.sinceMs : undefined;
   };
-  const [cost] = createResource(() => (chosen().length ? { ids: chosen(), depth: depth() } : null), (q) => backfillCost(q.ids, q.depth));
+  // Default depth and pace are read here, so changing either re-estimates.
+  const [cost] = createResource(
+    () => (chosen().length ? { ids: chosen(), history: depth() ?? archiveSettings().backfillHistory, pace: archiveSettings().syncPace } : null),
+    (q) => backfillCost(q.ids, q.history, q.pace),
+  );
   const estimate = (): string => {
     if (!chosen().length) return 'Pick the channels, DMs or whole servers to change.';
     if (cost.error) return errorText(cost.error);
