@@ -3,7 +3,8 @@ import * as sdkRenderer from '@plugin-sdk/renderer';
 import * as sdkKit from '@plugin-sdk/renderer/kit';
 import * as sdkPosting from '@plugin-sdk/renderer/posting';
 import * as sdkShell from '@plugin-sdk/renderer/shell';
-import { solidHostModules } from '@plugin-sdk/renderer/containment';
+import * as solid from 'solid-js';
+import * as solidStore from 'solid-js/store';
 import * as solidWeb from 'solid-js/web';
 import type { TierHostModules } from '@shared/installedPlugins';
 import type { RendererPlugin } from './define';
@@ -16,7 +17,8 @@ export const RENDERER_HOST_MODULES = {
   '@plugin-sdk/renderer/kit': sdkKit,
   '@plugin-sdk/renderer/posting': sdkPosting,
   '@plugin-sdk/renderer/shell': sdkShell,
-  ...solidHostModules,
+  'solid-js': solid,
+  'solid-js/store': solidStore,
   'solid-js/web': solidWeb,
 } satisfies TierHostModules<'browser'>;
 

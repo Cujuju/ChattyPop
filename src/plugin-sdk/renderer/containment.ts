@@ -1,11 +1,6 @@
 // An ownerless event-handler or async-continuation call creates a root that lives as long as the window.
 import { batch, catchError, createRoot, getOwner, onCleanup as solidOnCleanup, untrack } from 'solid-js';
 import { createStore as solidCreateStore, type SetStoreFunction } from 'solid-js/store';
-import * as solid from 'solid-js';
-import * as solidStore from 'solid-js/store';
-
-/** Installed plugins share the host's Solid instances. */
-export const solidHostModules = { 'solid-js': solid, 'solid-js/store': solidStore };
 
 /** Reports to the page's error handlers without throwing or tracking. */
 export function reportFailure(error: unknown): void {

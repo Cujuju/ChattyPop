@@ -27,6 +27,14 @@ beforeAll(async () => {
 beforeEach(() => { reports.mockClear(); vi.stubGlobal('reportError', reports); });
 afterEach(() => { disposers.splice(0).forEach((dispose) => dispose()); vi.unstubAllGlobals(); });
 
+it('the containment leaf cannot supply raw Solid namespaces to a host consumer', async () => {
+  await expect(buildContainment(`
+    import { solidHostModules } from '@plugin-sdk/renderer/containment';
+    const Store = solidHostModules['solid-js/store'];
+    export const [state, set] = Store.createStore({ value: 0 });
+  `)).rejects.toThrow(/solidHostModules.*not exported/);
+});
+
 it('1: an uncontained memo aborts a store update and leaves its sibling stale on two more writes', () => {
   const [turn, setTurn] = s.createSignal(0);
   const [store, setStore] = s.solidCreateStore({ value: 0 });

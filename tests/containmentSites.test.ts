@@ -1,18 +1,20 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { expect, it } from 'vitest';
-import { scanSolid, type SolidSite } from '../scripts/pluginScan/containment';
+import { containmentViolations, scanHostSolid, scanSolid, type SolidSite } from '../scripts/pluginScan/containment';
 import { CONTAINMENT_EVASIONS } from './containmentEvasions';
 
 const ROOT = join(import.meta.dirname, '..');
 const LEAF = 'src/plugin-sdk/renderer/containment.ts';
 const CONTAINED = 'src/renderer/src/ui/contained.ts';
 const SNAPSHOT = 'src/renderer/src/ui/snapshot.tsx';
+const REGISTRY = 'src/renderer/src/plugins/installedRenderers.ts';
 function files(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => entry.isDirectory() ? files(join(dir, entry.name)) : /\.(ts|tsx)$/.test(entry.name) ? [join(dir, entry.name)] : []);
 }
 const inventory = ['src/renderer/src', 'src/plugin-sdk'].flatMap((dir) => files(join(ROOT, dir))).map((file) => ({
-  file: relative(ROOT, file).replaceAll('\\', '/'), ...scanSolid(readFileSync(file, 'utf8')),
+  file: relative(ROOT, file).replaceAll('\\', '/'),
+  ...scanHostSolid({ rel: relative(ROOT, file).replaceAll('\\', '/'), text: readFileSync(file, 'utf8') }),
 }));
 function restricted(names: string[], allowed: string[]): string[] {
   return inventory.flatMap(({ file, imports }) => imports.filter((site) => names.includes(site.name) && !allowed.includes(file)).map((site) => `${file}:${site.line}: ${site.name}`));
@@ -54,6 +56,35 @@ it('allows direct imported callees, type imports and shadowed names', () => {
   `);
   expect(scan.escapes).toEqual([]);
   expect(scan.initial).toEqual([]);
+});
+
+const HOST_MODULE_MAP = `
+  import * as Solid from 'solid-js';
+  import * as Store from 'solid-js/store';
+  export const RENDERER_HOST_MODULES = {
+    'solid-js': Solid,
+    'solid-js/store': Store,
+  } satisfies TierHostModules<'browser'>;
+`;
+
+it('allows raw namespaces only as registry host-module values', () => {
+  expect(scanHostSolid({ rel: REGISTRY, text: HOST_MODULE_MAP })).toEqual({ imports: [], initial: [], escapes: [] });
+  expect(scanHostSolid({ rel: 'src/renderer/src/probe.ts', text: HOST_MODULE_MAP }).escapes).not.toEqual([]);
+  expect(containmentViolations({ rel: 'renderer/installedRenderers.ts', text: HOST_MODULE_MAP })).not.toEqual([]);
+});
+
+it.each([
+  'Solid.batch(() => {});',
+  'Store.createStore({});',
+  'Solid.createSignal(0);',
+  'const run = Solid.batch;',
+  'const copy = Store;',
+  'const other = { "solid-js": Solid };',
+  'export { Solid };',
+  'export * as RawStore from "solid-js/store";',
+  'export * from "solid-js";',
+])('rejects namespace access and re-exports in the registry: %s', (source) => {
+  expect(scanHostSolid({ rel: REGISTRY, text: HOST_MODULE_MAP + source }).escapes).not.toEqual([]);
 });
 
 const names = (sites: SolidSite[]): string[] => sites.map((s) => s.name);

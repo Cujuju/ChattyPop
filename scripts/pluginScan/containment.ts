@@ -15,6 +15,8 @@ const SOURCES = new Set(['solid-js', 'solid-js/web', 'solid-js/store']);
 const GUARDED = ['createRoot', 'batch', 'onCleanup', 'catchError', 'ErrorBoundary'];
 const STORE_GUARDED = ['createStore', 'createMutable'];
 const DIRECT_SOURCES = new Set(['solid-js', 'solid-js/store']);
+// The host registry passes plugins the host's real Solid instances.
+const HOST_REGISTRY = 'src/renderer/src/plugins/installedRenderers.ts';
 const SDK_REPLACEMENTS: Record<string, string> = {
   createRoot: 'containedRoot or ownedOrContained',
   batch: 'batchWrites',
@@ -83,8 +85,7 @@ function resolve(n: Ast | undefined, scope: Scope): Binding | undefined {
   return undefined;
 }
 
-/** Resolves Solid bindings and eager computations. Named factory calls require a separate audit. */
-export function scanSolid(source: string): SolidScan {
+function scan(source: string, hostRegistry = false): SolidScan {
   const program = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] }).program as unknown as Ast;
   const result: SolidScan = { imports: [], initial: [], escapes: [] };
   const escape = (n: Ast, message: string): void => { result.escapes.push({ line: n.loc?.start.line ?? 1, message }); };
@@ -105,6 +106,7 @@ export function scanSolid(source: string): SolidScan {
         }
       }
       if (n.type === 'ExportAllDeclaration' || list(n, 'specifiers').some((s) => s.type === 'ExportNamespaceSpecifier')) {
+        if (DIRECT_SOURCES.has(exportedFrom)) escape(n, `${exportedFrom}: raw namespace re-exports are forbidden`);
         const names = exportedFrom === 'solid-js' ? GUARDED : exportedFrom === 'solid-js/store' ? STORE_GUARDED : ['render'];
         for (const name of names) result.imports.push({ source: exportedFrom, name, line: n.loc?.start.line ?? 1 });
       }
@@ -121,8 +123,26 @@ export function scanSolid(source: string): SolidScan {
       const imported = specifier.type === 'ImportNamespaceSpecifier' ? '*' : name(child(specifier, 'imported'));
       const binding = imported ? { source: from, name: imported } : null;
       module.bindings.set(local, binding);
-      if (imported === '*' && DIRECT_SOURCES.has(from)) escape(specifier, `${from}: namespace imports are forbidden; use named imports and SDK containment`);
+      if (imported === '*' && DIRECT_SOURCES.has(from) && !hostRegistry) escape(specifier, `${from}: namespace imports are forbidden; use named imports and SDK containment`);
       if (binding && imported !== '*') result.imports.push({ ...binding, line: specifier.loc?.start.line ?? 1 });
+    }
+  }
+
+  const hostValues = new Set<Ast>();
+  if (hostRegistry) for (const exported of list(program, 'body')) {
+    if (exported.type !== 'ExportNamedDeclaration') continue;
+    const declaration = child(exported, 'declaration');
+    if (declaration?.type !== 'VariableDeclaration') continue;
+    for (const entry of list(declaration, 'declarations')) {
+      if (name(child(entry, 'id')) !== 'RENDERER_HOST_MODULES') continue;
+      const map = unwrap(child(entry, 'init'));
+      if (map?.type !== 'ObjectExpression') continue;
+      for (const property of list(map, 'properties')) {
+        if (property.type !== 'ObjectProperty') continue;
+        const value = unwrap(child(property, 'value'));
+        const binding = value?.type === 'Identifier' ? lookup(module, String(value.name)) : undefined;
+        if (binding?.name === '*' && DIRECT_SOURCES.has(binding.source) && name(child(property, 'key')) === binding.source) hostValues.add(value!);
+      }
     }
   }
 
@@ -142,6 +162,9 @@ export function scanSolid(source: string): SolidScan {
     if (n.type === 'Identifier' || n.type === 'JSXIdentifier') {
       if (key === 'id' || (key === 'key' || key === 'property') && !parent?.computed || key === 'exported') return;
       const binding = lookup(scope, String(n.name));
+      if (binding?.name === '*' && DIRECT_SOURCES.has(binding.source) && hostRegistry && !hostValues.has(n)) {
+        escape(n, `${binding.source}: namespace bindings may only be values in RENDERER_HOST_MODULES`);
+      }
       if (binding && directOnly(binding) && !directCall) escape(n, `${binding.name}: binding may only be used as a direct call's callee`);
       return;
     }
@@ -220,6 +243,12 @@ export function scanSolid(source: string): SolidScan {
   visit(program, module, true);
   return result;
 }
+
+/** Resolves Solid bindings and eager computations. Named factory calls require a separate audit. */
+export const scanSolid = (source: string): SolidScan => scan(source);
+
+/** Host scans allow namespace values only in the named host-module registry. */
+export const scanHostSolid = (file: SourceFile): SolidScan => scan(file.text, file.rel === HOST_REGISTRY);
 
 /** Renderer and page state uses the SDK's containment leaves. */
 export function containmentViolations(file: SourceFile): string[] {
