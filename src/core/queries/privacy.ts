@@ -25,6 +25,13 @@ export const visibleMessageSql = (m: string): string => `(${visibleChannelSql(`$
 export const visibleMessageRefSql = (channelColumn: string, idColumn: string): string =>
   `(${visibleChannelSql(channelColumn)} AND (${NOTHING_HIDDEN_SQL} OR NOT EXISTS (SELECT 1 FROM messages hm WHERE hm.id = ${idColumn} AND ${hiddenRefSql('hm.content')})))`;
 
+/**
+ * SQL true when a reply's preview of message @id may show: its archived copy (if any) is visible, and Discord's
+ * snapshot (@channel, @text) is in a visible channel and names no hidden id. A hidden archived copy never falls back to the snapshot.
+ */
+export const VISIBLE_REPLY_SOURCE_SQL = `(NOT EXISTS (SELECT 1 FROM messages rm WHERE rm.id = @id AND NOT ${visibleMessageSql('rm')})
+  AND ${visibleChannelSql('@channel')} AND ${noHiddenRefSql('@text')})`;
+
 export function privacyScope(db: PluginDb): PrivacyScope {
   return {
     guildIds: db.prepare('SELECT id FROM hidden_ids WHERE id NOT IN (SELECT id FROM hidden_channels)').pluck().all() as string[],
