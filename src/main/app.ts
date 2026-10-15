@@ -87,7 +87,7 @@ import { PluginStates } from './plugins/states';
 import { handleInstalledScheme, handlePluginScheme } from './pluginProtocol';
 import { archiveDir, profilePath } from './storageLocation';
 import { type Publication, TailnetServe, runTailscale } from './tailnet';
-import { followDepthChanges } from './sync/depthChange';
+import { followArchiveChanges } from './sync/depthChange';
 import { Pace } from './sync/pace';
 import { SyncService } from './sync/syncService';
 import { shutdownSequence } from './shutdown';
@@ -310,7 +310,7 @@ void app.whenReady().then(() => {
   });
   followSession(relay, { page: discord, capture }, () => void sync.syncAll());
   sync.onSettled = () => void core.call('syncSettled');
-  followDepthChanges(core, sync);
+  followArchiveChanges(core, sync);
   const gatewayAccess = new GatewayAccess();
   discord.tap.on('dispatch', ({ t, d }) => {
     if (isArchivedGatewayEvent(t)) void core.call('applyGatewayEvent', t, gatewayArchivePayload(t, d));

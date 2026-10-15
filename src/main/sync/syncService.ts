@@ -61,6 +61,10 @@ export class SyncService {
   private account: string | null = null;
   /** History someone waits for beyond a channel's depth setting (historyTo). */
   private readonly reaches = new HistoryReaches();
+  /** Channels sync reached while paused and dropped from the queue: resume queues them again. */
+  private readonly paused = new Set<string>();
+  /** Counts resumes, so a pause check that read the setting before one doesn't drop its channel. */
+  private resumes = 0;
   /** Called each time the queue drains: every queued channel is as current as sync can make it. */
   onSettled: () => void = () => undefined;
 
@@ -125,7 +129,16 @@ export class SyncService {
   halt(): void {
     this.halted = true;
     this.queue.length = 0;
+    this.paused.clear();
     this.reaches.stopAll();
+  }
+
+  /** Sync is on (Settings → Archive): queues the channels a pause dropped. */
+  resume(): void {
+    this.resumes++;
+    const ids = [...this.paused];
+    this.paused.clear();
+    ids.forEach((id) => this.enqueue(id));
   }
 
   /** Fetches each channel's history back to `sinceMs` (its threads' too), past a shallower depth setting, and answers once each has ended. Settings are untouched. */
@@ -184,7 +197,11 @@ export class SyncService {
 
   private async syncChannel(channelId: string): Promise<SyncEnd> {
     // Read fresh per channel (not Pace's cache), so pausing sync takes effect at the next channel.
+    const resumes = this.resumes;
     if (!(await readArchiveSettings(this.core)).syncEnabled) {
+      this.paused.add(channelId);
+      // Turned back on while the setting was read: that resume missed this channel.
+      if (resumes !== this.resumes) this.resume();
       this.emit({ type: 'sync-progress', channelId, phase: 'paused', fetched: 0 });
       return 'paused';
     }

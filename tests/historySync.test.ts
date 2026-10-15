@@ -1,86 +1,16 @@
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AppEvent } from '@shared/contract';
-import { normalizeArchiveSettings, resolveBackfillCutoffMs, type ArchiveSettings, type ChannelBackfillHistory } from '@shared/archiveSettings';
+import { normalizeArchiveSettings } from '@shared/archiveSettings';
 import { HISTORY_PAGE_SIZE, estimateBackfillPages } from '@shared/backfillProgress';
-import { DM_CHANNEL_TYPE, FORUM_CHANNEL_TYPE, compareSnowflakes, snowflakeFromMs, type RawMessage, type RawThread } from '@shared/discord';
+import { DM_CHANNEL_TYPE, FORUM_CHANNEL_TYPE, snowflakeFromMs } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_MIN } from '@shared/units';
-import { archiveHandlers } from '../src/core/archiveHandlers';
-import { ARRIVAL } from '../src/core/arrival';
-import { seedArchive, tempDb, rawMessage } from './helpers';
+import { rawMessage } from './helpers';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
-const { SyncService } = await import('../src/main/sync/syncService');
+const { CHANNEL, FIRST_PAGE, HISTORY_MESSAGES, NOW, OTHER, OTHER_THREAD, SELF, THREAD, daily, harness } = await import('./syncHarness');
 const { deepenedChannels } = await import('../src/main/sync/depthChange');
 
-const NOW = Date.parse('2026-10-12T12:00:00Z');
-const CHANNEL = '200000000000000001';
-const OTHER = '200000000000000002';
-const THREAD = '300000000000000001';
-const OTHER_THREAD = '300000000000000002';
-const SELF = '900000000000000001';
-/** Enough history to require multiple Discord message pages. */
-const HISTORY_MESSAGES = 120;
-/** A first sync stores the latest page whole, whatever the cutoff. */
-const FIRST_PAGE = HISTORY_PAGE_SIZE;
 afterEach(() => vi.restoreAllMocks());
-
-function harness(choice: ChannelBackfillHistory) {
-  vi.spyOn(Date, 'now').mockReturnValue(NOW);
-  const db = tempDb();
-  const archive = seedArchive(db, [{ id: CHANNEL }, { id: OTHER }]);
-  let settings = normalizeArchiveSettings({ backfillHistory: { unit: 'days', amount: 1 }, channelBackfillHistory: { [CHANNEL]: choice } });
-  const messages = new Map<string, RawMessage[]>();
-  const threads = new Map<string, RawThread[]>();
-  const events: AppEvent[] = [];
-  const requests: { path: string; query: Record<string, unknown> }[] = [];
-  /** Why every Discord request fails, or only thread listing, while set; `inFlight` runs while a sent request awaits its answer. */
-  const discord: { failure: string | null; threadFailure: string | null; inFlight: ((path: string, query: Record<string, unknown>) => void) | null } = { failure: null, threadFailure: null, inFlight: null };
-  const handlers = archiveHandlers({
-    ready: () => ({ db, archive }), emit: (e) => void events.push(e), noteChanged: () => undefined,
-    backfillFromMs: (id) => resolveBackfillCutoffMs(settings, id, Date.now(), archive.channelInfo(id)),
-    selfId: () => SELF, lastSeenAt: () => NOW, applyTextTier: async () => undefined, autoArchiveSinceMs: () => null,
-  });
-  const core = {
-    call: async (method: string, ...params: unknown[]) => method === 'getSetting' ? settings
-      : (handlers as unknown as Record<string, (...p: unknown[]) => unknown>)[method]!(...params),
-  };
-  const api = {
-    get: async (path: string, query: Record<string, unknown>, opts?: { guard?: () => Promise<void> }) => {
-      await opts?.guard?.();
-      discord.inFlight?.(path, query);
-      if (discord.failure) throw new Error(discord.failure);
-      requests.push({ path, query });
-      const id = path.split('/')[1]!;
-      const limit = Number(query['limit']);
-      if (path.endsWith('/threads/search')) {
-        if (discord.threadFailure) throw new Error(discord.threadFailure);
-        const all = query['archived'] === 'true' ? [] : threads.get(id) ?? [];
-        const offset = Number(query['offset']);
-        return { threads: all.slice(offset, offset + limit), has_more: offset + limit < all.length };
-      }
-      const after = query['after'] as string | undefined;
-      const before = query['before'] as string | undefined;
-      return (messages.get(id) ?? [])
-        .filter((m) => (!after || compareSnowflakes(m.id, after) > 0) && (!before || compareSnowflakes(m.id, before) < 0))
-        .sort((a, b) => after ? compareSnowflakes(a.id, b.id) : compareSnowflakes(b.id, a.id))
-        .slice(0, limit);
-    },
-  };
-  const sync = new SyncService(api as never, core as never, (e) => void events.push(e), { guildList: () => [], channelsOf: () => null });
-  const run = async (id = CHANNEL) => {
-    const done = new Promise<void>((resolve) => { sync.onSettled = resolve; });
-    sync.enqueue(id);
-    await done;
-    expect(events.filter((e) => e.type === 'sync-progress' && e.phase === 'error')).toEqual([]);
-  };
-  const set = (patch: Partial<ArchiveSettings>) => {
-    settings = normalizeArchiveSettings({ ...settings, ...patch });
-  };
-  const choose = (id: string, history: ChannelBackfillHistory) => set({ channelBackfillHistory: { ...settings.channelBackfillHistory, [id]: history } });
-  return { db, archive, messages, threads, requests, discord, sync, run, set, choose, settings: () => settings };
-}
-
 describe('history depth through sync', () => {
   it('extends a bounded channel to its first message on its next sync, and shallower choices keep it all', async () => {
     const h = harness({ unit: 'days', amount: 3 });
@@ -152,10 +82,6 @@ describe('history depth through sync', () => {
   });
 });
 
-/** One message a day back from NOW, newest first: message i is i + `firstDay` days old. */
-const daily = (channelId: string, firstDay = 1): RawMessage[] =>
-  Array.from({ length: HISTORY_MESSAGES }, (_, i) => rawMessage(channelId, NOW - (i + firstDay) * MS_PER_DAY, `message ${i}`));
-
 describe('history asked for past the depth setting', () => {
   it('fetches back to the time, answers when it is reached and leaves the setting alone', async () => {
     const h = harness({ unit: 'days', amount: 3 });
@@ -226,57 +152,6 @@ describe('history asked for past the depth setting', () => {
     h.messages.set(CHANNEL, [...daily(CHANNEL).slice(0, HISTORY_PAGE_SIZE - 1), ...boundary, ...daily(CHANNEL, 61)]);
     expect(await h.sync.historyTo([CHANNEL], START)).toEqual([{ channelId: CHANNEL, outcome: 'reached' }]);
     expect(h.archive.syncState(CHANNEL).count).toBeGreaterThan(HISTORY_PAGE_SIZE);
-  });
-});
-
-describe('a channel no longer archived while its page is fetched', () => {
-  it('stores nothing and moves no cursor, so archiving it again fetches that page', async () => {
-    const h = harness({ unit: 'days', amount: 3 });
-    h.messages.set(CHANNEL, daily(CHANNEL));
-    h.discord.inFlight = () => h.archive.setOptIn(CHANNEL, false);
-    await h.run();
-    h.discord.inFlight = null;
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 0, oldestId: null, newestId: null, backfillComplete: false });
-    h.archive.setOptIn(CHANNEL, true);
-    await h.run();
-    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE });
-  });
-});
-
-describe('the startup re-check', () => {
-  /** Days re-checked: the messages below are inside, ANCIENT outside. */
-  const REVERIFY_DAYS = 7;
-  const NEWEST = rawMessage(CHANNEL, NOW - MS_PER_MIN, 'newest');
-  const OLDER = rawMessage(CHANNEL, NOW - 2 * MS_PER_MIN, 'older');
-  const ANCIENT = rawMessage(CHANNEL, NOW - 4 * REVERIFY_DAYS * MS_PER_DAY, 'before the window');
-  /** Archives the three, leaves `remaining` on Discord, re-checks at the next start (`during` its requests): which three are now deleted. */
-  async function recheck(h: ReturnType<typeof harness>, remaining: RawMessage[], during: typeof h.discord.inFlight = null): Promise<boolean[]> {
-    h.messages.set(CHANNEL, [NEWEST, OLDER, ANCIENT]);
-    await h.run();
-    h.discord.inFlight = during;
-    h.messages.set(CHANNEL, remaining);
-    h.set({ reverifyChannelIds: [CHANNEL], reverifyDays: REVERIFY_DAYS });
-    const done = new Promise<void>((resolve) => { h.sync.onSettled = resolve; });
-    await h.sync.syncAll();
-    await done;
-    const deletedAt = h.db.prepare('SELECT deleted_at AS at FROM messages WHERE id = ?');
-    return [NEWEST, OLDER, ANCIENT].map((m) => (deletedAt.get(m.id) as { at: number | null }).at !== null);
-  }
-
-  it('marks the newest message deleted while closed, but not one that arrives during the scan', async () => {
-    const h = harness({ unit: 'days', amount: 3 });
-    const live = rawMessage(CHANNEL, NOW, 'sent during the scan');
-    // The scan's first request: the channel's messages, neither after nor before.
-    const arrives = (path: string, query: Record<string, unknown>): void => {
-      if (path === `channels/${CHANNEL}/messages` && !query['after'] && !query['before']) h.archive.ingestMessages([live], ARRIVAL.gateway);
-    };
-    expect(await recheck(h, [OLDER, ANCIENT], arrives)).toEqual([true, false, false]);
-    expect(h.db.prepare('SELECT deleted_at AS at FROM messages WHERE id = ?').get(live.id)).toEqual({ at: null });
-  });
-
-  it('marks the whole window deleted once the channel is empty', async () => {
-    const h = harness({ unit: 'days', amount: 3 });
-    expect(await recheck(h, [])).toEqual([true, true, false]);
   });
 });
 
