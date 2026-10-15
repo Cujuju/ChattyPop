@@ -147,10 +147,15 @@ export function gatesPass(r: CompiledRule, f: MessageFacts, a: QuestionContext):
 
 /** Where and who only: the gates a message older than the rule (history) is held to. */
 export function scopePasses(r: CompiledRule, f: MessageFacts): boolean {
-  const { m } = f;
-  if (r.authors && r.authors.has(m.authorId) === !!r.spec.gates.authorsNot) return false;
-  if (r.channels && !r.channels.has(m.channelId) && !r.channels.has(f.place().parentId ?? '')) return false;
-  return !r.guilds || r.guilds.has(f.place().guildId ?? '');
+  if (r.authors && r.authors.has(f.m.authorId) === !!r.spec.gates.authorsNot) return false;
+  return placePasses(r, f);
+}
+
+/** Where: a picked channel (or a thread of one) or any channel of a picked server, a union as the picker offers them (inPlacesSql). */
+function placePasses(r: Pick<CompiledRule, 'channels' | 'guilds'>, f: MessageFacts): boolean {
+  if (!r.channels && !r.guilds) return true;
+  const { guildId, parentId } = f.place();
+  return !!(r.channels?.has(f.m.channelId) || (parentId !== null && r.channels?.has(parentId)) || (guildId !== null && r.guilds?.has(guildId)));
 }
 
 /** Every narrowing filter must hold. */

@@ -3,7 +3,7 @@ import type { ContentKind } from '@shared/messageContent';
 import { ruleKind } from '@shared/ruleKinds';
 import type { TextMessage } from '../arrival';
 import type { Db } from '../db';
-import { inChannelsSql } from '../queries/channelScope';
+import { inPlacesSql } from '../queries/channelScope';
 import { containsAnySql, contentColumnsSql, kindsOfRow } from '../queries/messageContent';
 import { TEXT_MESSAGE_COLUMNS } from '../queries/messageText';
 import { directMatch, narrowPasses, scopePasses, type CompiledRule, type MessageFacts } from './compile';
@@ -41,7 +41,7 @@ export function readHistory(db: Db, r: CompiledRule, facts: (m: TextMessage) => 
   const syncDirect = keepsHistory(r, actionType) || (!r.matches.some((p) => !!p.direct) && !r.byNarrow && !r.builtin);
   const contentKinds = r.spec.narrow.find((p) => p.type === 'contains')?.config as ContentKind[] | undefined;
   const contains = contentKinds?.length ? contentKinds : null;
-  const scope = r.channels ? inChannelsSql('m.channel_id', [...r.channels]) : null;
+  const scope = inPlacesSql('m.channel_id', [...(r.channels ?? [])], [...(r.guilds ?? [])]);
   type Row = TextMessage & Record<string, unknown>;
   const matches = (): RuleHistoryMatch[] => {
     if (!keepsHistory(r, actionType)) return [];

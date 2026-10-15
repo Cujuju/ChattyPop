@@ -6,6 +6,7 @@ import { MS_PER_MIN } from '@shared/units';
 import type { RuleAction } from '@shared/rules';
 import { TIMED_ATTEMPTS_MAX, TIMED_MAX_LOOKBACK_MS, TIMED_RUN_ACTION_MARK } from '@shared/ruleTime';
 import { getSetting, setSetting, type Db } from '../db';
+import { inPlacesSql } from '../queries/channelScope';
 import type { ActionResult, RuleActions } from './actions';
 import type { CompiledRule } from './compile';
 import type { RuleEngine } from './engine';
@@ -28,18 +29,9 @@ const phaseOrder = (actions: ScheduledAction[]): ScheduledAction[] => ['match', 
 
 /** Archived channels in a rule's Where: a channel covers its threads, a server its channels. null = every one. */
 export function scopeChannels(db: Db, r: Pick<CompiledRule, 'channels' | 'guilds'>): string[] | null {
-  if (!r.channels && !r.guilds) return null;
-  return db
-    .prepare(
-      `SELECT id FROM channels WHERE opted_in = 1
-         AND (id IN (SELECT value FROM json_each(@channels)) OR parent_id IN (SELECT value FROM json_each(@channels))
-              OR guild_id IN (SELECT value FROM json_each(@guilds)))`,
-    )
-    .pluck()
-    .all({
-      channels: JSON.stringify([...(r.channels ?? [])]),
-      guilds: JSON.stringify([...(r.guilds ?? [])]),
-    }) as string[];
+  const places = inPlacesSql('id', [...(r.channels ?? [])], [...(r.guilds ?? [])]);
+  if (!places) return null;
+  return db.prepare(`SELECT id FROM channels WHERE opted_in = 1 AND ${places.sql}`).pluck().all(...places.params) as string[];
 }
 
 /** Claims due window rules and executes their actions in phase order. */
