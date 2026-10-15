@@ -17,7 +17,7 @@ export function ViewFailure(props: { name: string; shows: ViewFailureShown; erro
   onMount(() => { if (props.refocus) button?.focus(); });
   const retry = (): JSX.Element => <button ref={button} type="button" class="cp-button" onClick={press}>Try again</button>;
   const body = (): JSX.Element => (
-    <div ref={(el) => element = el} class={styles.block} role="status">
+    <div ref={(el) => { if (typeof props.shows !== 'object') element = el; }} class={styles.block} role="status">
       <p class={styles.title}><Icon name="alert" class={styles.icon} />{text()}</p>
       <Show when={firstLine()}><p class={styles.detail} title={detail()}>{firstLine()}</p></Show>
       {retry()}
@@ -34,6 +34,6 @@ export function ViewFailure(props: { name: string; shows: ViewFailureShown; erro
       <button type="button" class="cp-primary" onClick={press}>Reload</button>
     </div>
   );
-  if (typeof props.shows === 'object') return <section class={styles.panel}><PanelHeader {...props.shows.header} title={props.name} collapsible />{body()}</section>;
+  if (typeof props.shows === 'object') return <section ref={(el) => element = el} class={styles.panel}><PanelHeader {...props.shows.header} title={props.name} collapsible />{body()}</section>;
   return body();
 }

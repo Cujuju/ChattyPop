@@ -212,6 +212,16 @@ it('a retry failure repeats the copy and restores focus only from inside the fal
   expect(text(alerts(fresh)[0]!)).toBe('Probe view stopped working.Try again');
 });
 
+it('focus in a failed panel header also belongs to the fallback', () => {
+  const pageDocument: { activeElement: unknown } = { activeElement: null };
+  vi.stubGlobal('document', pageDocument);
+  const view = open({ shows: { header: { section: 'chat' } } });
+  view.set(1);
+  buttons(view).find((button) => button.props['aria-expanded'] !== undefined)!.focus();
+  press(buttons(view).find((button) => text(button) === 'Try again')!);
+  expect(pageDocument.activeElement).toBe(buttons(view).find((button) => text(button) === 'Try again'));
+});
+
 it('14: an inner boundary captures its failure; a throwing inner fallback reaches the outer boundary', () => {
   const inner = open({ nested: true });
   inner.set(1);
