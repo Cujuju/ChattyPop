@@ -35,6 +35,7 @@ interface SeenView {
   id(value: string): void;
   marked: number[];
   shown: string[];
+  shownWatermarks: (number | null)[];
 }
 let seenClient: { mountSeen(kind: string, nested?: boolean, watched?: boolean): SeenView };
 interface SnapshotCase {
@@ -339,6 +340,40 @@ it('a Plans-like source seeds after loading while its count stays zero', async (
   expect(view.marked).toEqual([0]);
   await Promise.resolve();
   expect(view.marked).toEqual([0]);
+});
+
+it('onShown snapshots the prior watermark before any seen mark on eligibility changes', async () => {
+  const view = seenClient.mountSeen('watermark');
+  disposers.push(view.dispose);
+  view.healthy();
+  await Promise.resolve();
+  expect(view.shownWatermarks).toEqual([null]);
+  expect(view.seeded()).toBe(0);
+  view.visible(false);
+  view.set(5);
+  await Promise.resolve();
+  view.visible(true);
+  await Promise.resolve();
+  expect(view.shownWatermarks).toEqual([null, 0]);
+  expect(view.seeded()).toBe(5);
+});
+
+it('a deferred onShown failure reaches its Contained owner and reports once', () => {
+  const deferred: (() => void)[] = [];
+  const schedule = queueMicrotask;
+  vi.stubGlobal('queueMicrotask', (work: () => void) => deferred.push(work));
+  try {
+    const view = seenClient.mountSeen('throwing');
+    disposers.push(view.dispose);
+    const escaped: unknown[] = [];
+    while (deferred.length) {
+      try { deferred.shift()!(); } catch (error) { escaped.push(error); }
+    }
+    expect(escaped).toEqual([]);
+    expect(text(alerts(view)[0]!)).toBe('Panel stopped working.Try again');
+    expect(reports).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ message: 'Shown failure' }));
+    expect(view.marked).toEqual([]);
+  } finally { vi.stubGlobal('queueMicrotask', schedule); }
 });
 
 it('a changed panel id marks after the flush and a disposed mount does not mark', async () => {
