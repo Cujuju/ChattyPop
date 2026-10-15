@@ -63,6 +63,24 @@ describe('the startup re-check', () => {
   });
 });
 
+describe('a new gateway session', () => {
+  it('catches up what was sent while none was connected, for the same account too', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.messages.set(CHANNEL, daily(CHANNEL));
+    let done = h.settled();
+    await h.sync.syncAll();
+    await h.sync.sessionReady();
+    await done;
+    // The gateway drops without a resume; this is posted before the next READY.
+    const missed = rawMessage(CHANNEL, NOW, 'sent during the gap');
+    h.messages.get(CHANNEL)!.unshift(missed);
+    done = h.settled();
+    await h.sync.sessionReady();
+    await done;
+    expect(h.db.prepare('SELECT 1 AS stored FROM messages WHERE id = ?').get(missed.id)).toEqual({ stored: 1 });
+  });
+});
+
 describe('sync turned back on', () => {
   it('fetches the channels a pause skipped, without waiting for another trigger', async () => {
     const h = harness({ unit: 'days', amount: 3 });

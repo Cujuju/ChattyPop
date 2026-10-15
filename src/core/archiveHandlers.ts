@@ -27,7 +27,6 @@ type Handlers = Pick<
   | 'upsertChannels'
   | 'setOptIn'
   | 'optedInChannels'
-  | 'optedInDms'
   | 'syncable'
   | 'upsertThreads'
   | 'channelInfo'
@@ -134,7 +133,6 @@ export function archiveHandlers(o: {
     upsertChannels: (guildId, channels) => archive().upsertChannels(guildId, channels),
     setOptIn: (channelId, on) => setArchiving(channelId, on),
     optedInChannels: () => archive().optedInChannels(o.selfId()),
-    optedInDms: () => archive().optedInChannels(o.selfId(), true),
     syncable: (channelId) => archive().syncable(channelId, o.selfId()),
     upsertThreads: (threads) => {
       const stale = archive().upsertThreads(threads, o.backfillFromMs);

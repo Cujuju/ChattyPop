@@ -57,8 +57,6 @@ export class SyncService {
   private reverifyDue = new Set<string>();
   /** syncAll has run: the session is captured, so requests can go. */
   private started = false;
-  /** The account READY last named; its DMs are queued when it changes. */
-  private account: string | null = null;
   /** History someone waits for beyond a channel's depth setting (historyTo). */
   private readonly reaches = new HistoryReaches();
   /** Channels sync reached while paused and dropped from the queue: resume queues them again. */
@@ -117,12 +115,13 @@ export class SyncService {
     for (const id of await this.core.call('optedInChannels')) this.enqueue(id);
   }
 
-  /** Account changes queue that account’s archived DMs. Other accounts’ queued DMs stop at their next syncability check. */
-  async signedIn(userId: string): Promise<void> {
-    if (userId === this.account) return;
-    this.account = userId;
-    if (!this.started) return; // syncAll queues them with the rest
-    for (const id of await this.core.call('optedInDms')) this.enqueue(id);
+  /**
+   * A new gateway session (READY, same account or not): what was sent while none was connected never arrives live, so every
+   * kept channel catches up, the account's DMs among them. Other accounts' queued DMs stop at their next syncability check.
+   */
+  async sessionReady(): Promise<void> {
+    if (!this.started) return; // syncAll queues them all
+    for (const id of await this.core.call('optedInChannels')) this.enqueue(id);
   }
 
   /** Stops for good (the archive is being moved and the app restarts): the queue is dropped and nothing new starts. */

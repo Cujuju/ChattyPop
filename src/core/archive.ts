@@ -21,7 +21,6 @@ import { deriveMessage } from './derive/deriveMessage';
 import { mergeFullPayload, olderVersion } from './messageVersion';
 import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser, type UserMergeMode } from './people';
 import {
-  PRIVATE_KINDS_SQL,
   autoArchivable,
   changeRecipient,
   closePrivateChannel,
@@ -178,12 +177,11 @@ export class Archive {
 
   /**
    * Archived channels sync keeps current for `selfId` (syncedChannelSql), excluding threads: sync reaches those through
-   * their parent's thread discovery. `dmsOnly`: just the account's DMs, once READY names it.
+   * their parent's thread discovery.
    */
-  optedInChannels(selfId: string | null, dmsOnly = false): string[] {
-    const kinds = dmsOnly ? `AND c.kind IN (${PRIVATE_KINDS_SQL})` : '';
+  optedInChannels(selfId: string | null): string[] {
     return (
-      this.db.prepare(`SELECT c.id FROM channels c WHERE ${syncedChannelSql('c')} AND c.kind NOT IN (${THREAD_KINDS_SQL}) ${kinds}`).all({ self: selfId ?? '' }) as {
+      this.db.prepare(`SELECT c.id FROM channels c WHERE ${syncedChannelSql('c')} AND c.kind NOT IN (${THREAD_KINDS_SQL})`).all({ self: selfId ?? '' }) as {
         id: string;
       }[]
     ).map((r) => r.id);

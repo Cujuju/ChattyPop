@@ -305,8 +305,8 @@ void app.whenReady().then(() => {
   // A channel archived (by the owner, or a DM by auto-archive) syncs its history.
   core.on('event', (e) => {
     if (e.type === 'opt-in-changed' && e.optedIn) sync.enqueue(e.optedIn);
-    // Sync keeps only the signed-in account's DMs: READY naming one queues them.
-    if (e.type === 'self-changed') void sync.signedIn(e.userId);
+    // Core announces every READY, once it knows the account: whose DMs sync keeps, and a gateway gap to catch up.
+    if (e.type === 'self-changed') void sync.sessionReady();
   });
   followSession(relay, { page: discord, capture }, () => void sync.syncAll());
   sync.onSettled = () => void core.call('syncSettled');

@@ -122,8 +122,6 @@ export interface CoreMethods {
   setOptIn(channelId: string, on: boolean): void;
   /** Archived channels sync keeps current: a DM only when it is the signed-in account's and not a group left. */
   optedInChannels(): string[];
-  /** The signed-in account's archived DMs sync keeps current: queued once READY names the account. */
-  optedInDms(): string[];
   /** Whether sync still keeps a channel or thread current (as optedInChannels): checked before each page. */
   syncable(channelId: string): boolean;
   /** Stores threads of archived channels; returns those with messages left to sync. */
