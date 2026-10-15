@@ -121,7 +121,7 @@ describe('summary-only messages after retention', () => {
     dispose();
     const pruned = db.prepare('SELECT id FROM messages WHERE pruned_at IS NOT NULL').pluck().all();
     expect(pruned).toEqual(expect.arrayContaining([ephemeral.id, normal.id]));
-    expect(archive.reconcileDeletes(CH, [], at, at + 1, NOW)).toBe(1);
+    expect(archive.reconcileDeletes(CH, [], ephemeral.id, normal.id, NOW)).toBe(1);
     expect(db.prepare('SELECT id FROM messages WHERE deleted_at IS NOT NULL').pluck().all()).toEqual([normal.id]);
   });
 
