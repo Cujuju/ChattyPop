@@ -178,8 +178,10 @@ describe('host modules each platform publishes', () => {
   it("browser: the shared SDK and the renderer step's modules are HOST_MODULES.browser", async () => {
     // A renderer module: imported by path so the node type-check doesn't follow it.
     const renderers = '../src/renderer/src/plugins/installedRenderers';
-    const { RENDERER_HOST_MODULES } = (await import(renderers)) as { RENDERER_HOST_MODULES: Record<string, object> };
-    expect(sorted([SHARED_HOST_MODULE, ...Object.keys(RENDERER_HOST_MODULES)])).toEqual(sorted(HOST_MODULES.browser));
+    const registry = (await import(renderers)) as { RENDERER_HOST_MODULE_IDS: string[] };
+    const { RENDERER_HOST_MODULE_IDS } = registry;
+    expect(registry).not.toHaveProperty('RENDERER_HOST_MODULES');
+    expect(sorted([SHARED_HOST_MODULE, ...RENDERER_HOST_MODULE_IDS])).toEqual(sorted(HOST_MODULES.browser));
   });
 });
 

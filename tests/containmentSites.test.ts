@@ -61,17 +61,60 @@ it('allows direct imported callees, type imports and shadowed names', () => {
 const HOST_MODULE_MAP = `
   import * as Solid from 'solid-js';
   import * as Store from 'solid-js/store';
-  export const RENDERER_HOST_MODULES = {
+  import { loadRenderers } from './installedLoader';
+  const RENDERER_HOST_MODULES = {
     'solid-js': Solid,
     'solid-js/store': Store,
   } satisfies TierHostModules<'browser'>;
 `;
 
 it('allows raw namespaces only as registry host-module values', () => {
-  expect(scanHostSolid({ rel: REGISTRY, text: HOST_MODULE_MAP })).toEqual({ imports: [], initial: [], escapes: [] });
+  expect(scanHostSolid({ rel: REGISTRY, text: HOST_MODULE_MAP + 'loadRenderers(io, shared, RENDERER_HOST_MODULES);' })).toEqual({ imports: [], initial: [], escapes: [] });
   expect(scanHostSolid({ rel: 'src/renderer/src/probe.ts', text: HOST_MODULE_MAP }).escapes).not.toEqual([]);
   expect(containmentViolations({ rel: 'renderer/installedRenderers.ts', text: HOST_MODULE_MAP })).not.toEqual([]);
 });
+
+it('rejects exporting the raw registry map declaration', () => {
+  const text = HOST_MODULE_MAP.replace('const RENDERER_HOST_MODULES', 'export const RENDERER_HOST_MODULES');
+  expect(scanHostSolid({ rel: REGISTRY, text }).escapes).not.toEqual([]);
+});
+
+it.each([
+  "import { RENDERER_HOST_MODULES as modules } from './plugins/installedRenderers'; modules['solid-js'].batch(() => {});",
+  "import * as registry from './plugins/installedRenderers'; registry.RENDERER_HOST_MODULES['solid-js/store'].createStore({});",
+  "export { RENDERER_HOST_MODULES as modules } from './plugins/installedRenderers';",
+])('rejects importing or re-exporting the raw registry map: %s', (text) => {
+  expect(scanHostSolid({ rel: 'src/renderer/src/probe.ts', text }).escapes).not.toEqual([]);
+});
+
+it.each([
+  'export { RENDERER_HOST_MODULES };',
+  'export default RENDERER_HOST_MODULES;',
+  'const modules = RENDERER_HOST_MODULES;',
+  "RENDERER_HOST_MODULES['solid-js'].batch(() => {});",
+  "RENDERER_HOST_MODULES['solid-js/store'].createStore({});",
+  'Object.keys(RENDERER_HOST_MODULES);',
+  'loadRenderers(io, shared, { ...RENDERER_HOST_MODULES });',
+  'function other(loadRenderers) { loadRenderers(io, shared, RENDERER_HOST_MODULES); }',
+])('rejects raw registry map references outside the loader argument: %s', (source) => {
+  expect(scanHostSolid({ rel: REGISTRY, text: HOST_MODULE_MAP + source }).escapes).not.toEqual([]);
+});
+
+it.each([
+  "import { HOST_MODULES_KEY as key } from '@shared/installedPlugins'; globalThis[key]['solid-js'].batch(() => {});",
+  "import * as installed from '@shared/installedPlugins'; globalThis[installed.HOST_MODULES_KEY]['solid-js/store'].createStore({});",
+  "globalThis[installed['HOST_MODULES_KEY']]['solid-js'];",
+  "import { hostModules as modules } from '@shared/hostModules'; modules()['solid-js'];",
+  "export { HOST_MODULES_KEY as key } from '@shared/installedPlugins';",
+])('rejects raw published host modules in non-loader host files: %s', (text) => {
+  expect(scanHostSolid({ rel: 'src/renderer/src/probe.ts', text }).escapes).not.toEqual([]);
+});
+
+it.each(['src/shared/installedPlugins.ts', 'src/shared/hostModules.ts', 'src/renderer/src/plugins/installedLoader.ts'])(
+  'allows published host-module access in the installed-module loader %s', (rel) => {
+    expect(scanHostSolid({ rel, text: "import { HOST_MODULES_KEY } from '@shared/installedPlugins'; globalThis[HOST_MODULES_KEY];" }).escapes).toEqual([]);
+  },
+);
 
 it.each([
   'Solid.batch(() => {});',

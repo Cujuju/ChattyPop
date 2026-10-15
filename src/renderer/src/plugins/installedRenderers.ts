@@ -6,13 +6,13 @@ import * as sdkShell from '@plugin-sdk/renderer/shell';
 import * as solid from 'solid-js';
 import * as solidStore from 'solid-js/store';
 import * as solidWeb from 'solid-js/web';
-import type { TierHostModules } from '@shared/installedPlugins';
+import { HOST_MODULES, SHARED_HOST_MODULE, type TierHostModules } from '@shared/installedPlugins';
 import type { RendererPlugin } from './define';
 import { loadRenderers, windowIo } from './installedLoader';
 import { installedShared } from './installedShared';
 
 /** Every browser host module but the shared SDK, which the shared step publishes. */
-export const RENDERER_HOST_MODULES = {
+const RENDERER_HOST_MODULES = {
   '@plugin-sdk/renderer': sdkRenderer,
   '@plugin-sdk/renderer/kit': sdkKit,
   '@plugin-sdk/renderer/posting': sdkPosting,
@@ -21,6 +21,9 @@ export const RENDERER_HOST_MODULES = {
   'solid-js/store': solidStore,
   'solid-js/web': solidWeb,
 } satisfies TierHostModules<'browser'>;
+
+/** The renderer tier's ids; the private map's type requires exactly these modules. */
+export const RENDERER_HOST_MODULE_IDS = HOST_MODULES.browser.filter((id) => id !== SHARED_HOST_MODULE);
 
 /** The renderer step, after the shared one: the renderer entries of the installed plugins that loaded, in load order. */
 export const installedRenderers = async (): Promise<RendererPlugin[]> => loadRenderers(windowIo(), await installedShared(), RENDERER_HOST_MODULES);
