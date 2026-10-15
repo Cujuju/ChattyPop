@@ -100,14 +100,14 @@ describe('archive: edits and deletes are never lost', () => {
 describe('archive: sync cursors', () => {
   it('extend only from sync pages, never from live messages', () => {
     const page = [rawMessage(GENERAL, T0, 'a'), rawMessage(GENERAL, T0 + MS_PER_MIN, 'b')];
-    archive.ingestSyncPage(GENERAL, page, 'older', false);
+    archive.ingestSyncPage(GENERAL, page, 'older', false, null);
     archive.ingestMessages([rawMessage(GENERAL, T0 + 10 * MS_PER_MIN, 'live')], ARRIVAL.gateway);
     const s = archive.syncState(GENERAL);
     expect(s).toMatchObject({ oldestId: page[0]!.id, newestId: page[1]!.id, count: 3, backfillComplete: false });
   });
 
   it('marks backfill complete when an older page reaches the start', () => {
-    archive.ingestSyncPage(GENERAL, [rawMessage(GENERAL, T0, 'a')], 'older', true);
+    archive.ingestSyncPage(GENERAL, [rawMessage(GENERAL, T0, 'a')], 'older', true, null);
     expect(archive.syncState(GENERAL).backfillComplete).toBe(true);
   });
 });
@@ -131,7 +131,7 @@ describe('archive: threads follow their parent', () => {
   it('reports a synced thread again only when it has newer messages', () => {
     const id = '300000000000000001';
     archive.upsertThreads([thread(id, GENERAL, T0)], 0);
-    archive.ingestSyncPage(id, [rawMessage(id, T0, 'x')], 'older', true);
+    archive.ingestSyncPage(id, [rawMessage(id, T0, 'x')], 'older', true, null);
     expect(archive.upsertThreads([thread(id, GENERAL, T0)], 0)).toEqual([]);
     expect(archive.upsertThreads([thread(id, GENERAL, T0 + MS_PER_MIN)], 0)).toEqual([id]);
   });

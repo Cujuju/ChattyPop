@@ -33,8 +33,8 @@ function harness(choice: ChannelBackfillHistory) {
   const threads = new Map<string, RawThread[]>();
   const events: AppEvent[] = [];
   const requests: { path: string; query: Record<string, unknown> }[] = [];
-  /** Why every Discord request fails, or only thread listing, while set. */
-  const discord: { failure: string | null; threadFailure: string | null } = { failure: null, threadFailure: null };
+  /** Why every Discord request fails, or only thread listing, while set; `inFlight` runs while a sent request awaits its answer. */
+  const discord: { failure: string | null; threadFailure: string | null; inFlight: (() => void) | null } = { failure: null, threadFailure: null, inFlight: null };
   const handlers = archiveHandlers({
     ready: () => ({ db, archive }), emit: (e) => void events.push(e), noteChanged: () => undefined,
     backfillFromMs: (id) => resolveBackfillCutoffMs(settings, id, Date.now(), archive.channelInfo(id)),
@@ -47,6 +47,7 @@ function harness(choice: ChannelBackfillHistory) {
   const api = {
     get: async (path: string, query: Record<string, unknown>, opts?: { guard?: () => Promise<void> }) => {
       await opts?.guard?.();
+      discord.inFlight?.();
       if (discord.failure) throw new Error(discord.failure);
       requests.push({ path, query });
       const id = path.split('/')[1]!;
@@ -224,6 +225,20 @@ describe('history asked for past the depth setting', () => {
     h.messages.set(CHANNEL, [...daily(CHANNEL).slice(0, HISTORY_PAGE_SIZE - 1), ...boundary, ...daily(CHANNEL, 61)]);
     expect(await h.sync.historyTo([CHANNEL], START)).toEqual([{ channelId: CHANNEL, outcome: 'reached' }]);
     expect(h.archive.syncState(CHANNEL).count).toBeGreaterThan(HISTORY_PAGE_SIZE);
+  });
+});
+
+describe('a channel no longer archived while its page is fetched', () => {
+  it('stores nothing and moves no cursor, so archiving it again fetches that page', async () => {
+    const h = harness({ unit: 'days', amount: 3 });
+    h.messages.set(CHANNEL, daily(CHANNEL));
+    h.discord.inFlight = () => h.archive.setOptIn(CHANNEL, false);
+    await h.run();
+    h.discord.inFlight = null;
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: 0, oldestId: null, newestId: null, backfillComplete: false });
+    h.archive.setOptIn(CHANNEL, true);
+    await h.run();
+    expect(h.archive.syncState(CHANNEL)).toMatchObject({ count: FIRST_PAGE });
   });
 });
 

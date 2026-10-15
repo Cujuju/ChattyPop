@@ -257,8 +257,8 @@ export interface CoreMethods {
   pendingEmojis(limit: number): PendingEmoji[];
   /** `error` null = stored. */
   emojiDone(id: string, error: string | null): void;
-  /** Stores a sync page and advances the channel's sync cursors atomically. */
-  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult;
+  /** Stores a sync page and advances the channel's sync cursors atomically; null (nothing stored or moved) once sync no longer keeps the channel. */
+  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult | null;
 }
 
 export type CoreMethod = keyof CoreMethods;

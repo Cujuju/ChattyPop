@@ -213,6 +213,11 @@ export class SyncService {
     return this.api.get<T>(path, query, { guard });
   }
 
+  /** Stores a fetched page and moves the cursors over it, unless sync stopped keeping the channel while it was fetched. */
+  private async store(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): Promise<void> {
+    if (!(await this.core.call('ingestSyncPage', channelId, page, direction, reachedEnd))) throw new SyncStopped();
+  }
+
   /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync, which a wait for the channel covers. */
   private async discoverThreads(channelId: string): Promise<string[]> {
     const settings = await readArchiveSettings(this.core);
@@ -283,7 +288,7 @@ export class SyncService {
     for (let after = state.newestId; ;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, after: after ?? undefined });
       const reachedEnd = page.length < HISTORY_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
+      await this.store(channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'catch-up', fetched });
       if (!after || reachedEnd) break;
@@ -296,7 +301,7 @@ export class SyncService {
     for (let before = synced.oldestId; before && snowflakeToMs(before) >= cutoffMs;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, before });
       const reachedEnd = page.length < HISTORY_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
+      await this.store(channelId, page, 'older', reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'backfill', fetched });
       if (reachedEnd) return;

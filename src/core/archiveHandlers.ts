@@ -216,8 +216,8 @@ export function archiveHandlers(o: {
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
     messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
-      const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd);
-      if (page.length) o.noteChanged(channelId);
+      const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd, o.selfId());
+      if (r && page.length) o.noteChanged(channelId);
       return r;
     },
   };

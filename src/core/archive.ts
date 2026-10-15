@@ -340,12 +340,14 @@ export class Archive {
 
   /**
    * Stores one page fetched by sync and extends the synced range in the same transaction,
-   * so a crash can never leave the cursor ahead of the stored messages.
+   * so a crash can never leave the cursor ahead of the stored messages. Null: sync stopped keeping the channel for `selfId`
+   * while the page was fetched, so nothing is stored and the cursors stay put.
    */
-  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult {
-    let result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
+  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean, selfId: string | null): IngestResult | null {
+    let result: IngestResult | null = null;
     this.db.transaction(() => {
-      if (page.length) result = this.ingestMessages(page, ARRIVAL.sync);
+      if (!this.syncable(channelId, selfId)) return;
+      result = page.length ? this.ingestMessages(page, ARRIVAL.sync) : { inserted: 0, edited: 0, skipped: 0 };
       const ids = page.map((m) => m.id).sort(compareSnowflakes);
       const cur = this.syncState(channelId);
       const newest = ids.length && (!cur.newestId || compareSnowflakes(ids.at(-1)!, cur.newestId) > 0) ? ids.at(-1)! : cur.newestId;
