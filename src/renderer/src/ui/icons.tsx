@@ -25,6 +25,7 @@ export const ICON_SHAPES = {
       <circle cx="13.5" cy="10.5" r="1.25" fill="currentColor" />
     </>
   ),
+  alert: () => <path d="M12 4 2.5 20h19zM12 10v4M12 17h.01" />,
   // Four tiles: an app's commands.
   apps: () => (
     <>

@@ -12,7 +12,7 @@ import { SyncStatusPanel } from './sync-status';
 import { ChatPanel } from './chat';
 import { BookmarksPanel } from './bookmarks';
 import { StatusBarPanel } from './status-bar';
-import { contained } from '@/ui/contained';
+import { Contained, contained } from '@/ui/contained';
 
 export interface PanelDef {
   title: string;
@@ -28,9 +28,13 @@ const COMPONENTS: Record<PanelId, Component> = {
 };
 
 /** Every named section of the UI. Layouts refer to panels only by these ids. */
-export const PANELS = Object.fromEntries(Object.entries(COMPONENTS).map(([id, component]) => [id, { title: PANEL_TITLES[id as PanelId], component: contained(PANEL_TITLES[id as PanelId], component, 'note') }])) as Record<PanelId, PanelDef>;
+export const PANELS = Object.fromEntries(Object.entries(COMPONENTS).map(([id, component]) => [id, { title: PANEL_TITLES[id as PanelId], component: contained(PANEL_TITLES[id as PanelId], component, { header: { section: id } }) }])) as Record<PanelId, PanelDef>;
 
-const ContainedPluginPanel = contained('Plugin panel', PluginPanelSlot, 'note');
+const ContainedPluginPanel = (props: Parameters<typeof PluginPanelSlot>[0]) => createComponent(Contained, {
+  get name() { return findPluginPanel(props.id)?.title ?? 'Plugin panel'; },
+  get shows() { return { header: { section: 'plugin', panelId: props.id } }; },
+  get children() { return createComponent(PluginPanelSlot, props); },
+});
 
 export type { PanelId };
 

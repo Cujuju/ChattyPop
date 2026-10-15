@@ -43,8 +43,8 @@ export function mountSeen(kind, nested = false, watched = true) {
   const dispose = render(() => {
     view = createViewShown();
     onMount(() => markSeenWhileShown(root, panelId, watched ? view : undefined));
-    return <view.Watch><Contained name="Panel" shows="note">
-      {nested ? <Contained name="Inner" shows="note"><Body /></Contained> : <Body />}
+    return <view.Watch><Contained name="Panel" shows="line">
+      {nested ? <Contained name="Inner" shows="line"><Body /></Contained> : <Body />}
     </Contained></view.Watch>;
   }, root);
   return { root, dispose, set: setItems, visible: setVisible, loading: setLoading, seeded, id: setPanelId, healthy: () => setHealthy(true), marked, shown, shows: view.shows };

@@ -8,9 +8,18 @@ export interface TestNode {
   children: TestNode[];
   parent: TestNode | null;
   value?: string;
+  contains(other: TestNode | null): boolean;
+  focus(): void;
 }
 
-export const node = (tag: string, text = ''): TestNode => ({ tag, text, props: {}, children: [], parent: null });
+export const node = (tag: string, text = ''): TestNode => {
+  const element: TestNode = {
+    tag, text, props: {}, children: [], parent: null,
+    contains: (other) => other === element || element.children.some((child) => child.contains(other)),
+    focus: () => Object.defineProperty((globalThis as { document?: object }).document!, 'activeElement', { configurable: true, value: element }),
+  };
+  return element;
+};
 
 export const { createComponent, createElement, createTextNode, insertNode, insert, spread, setProp, mergeProps, effect, memo, use, render } = createRenderer<TestNode>({
   createElement: (tag) => node(tag),

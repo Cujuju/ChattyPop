@@ -5,7 +5,7 @@ import type { ReadContributions } from './readSlots';
 import type { FilterView, KindView } from '@/views/settings/rules/kinds/types';
 import type { RuleSection } from '@shared/ruleKinds/types';
 
-type FieldPolicy = Exclude<FailureShown, 'reload'> | 'keep';
+type FieldPolicy = 'line' | 'block' | 'panel' | 'name' | 'nothing' | 'keep';
 type KeysOfUnion<V> = V extends unknown ? keyof V : never;
 /** Every field needs a stated policy, including fields specific to a union member. */
 type FieldPolicies<V> = { readonly [F in KeysOfUnion<V>]-?: FieldPolicy };
@@ -14,33 +14,33 @@ type ByIdKind = Exclude<keyof LooseContributions, SingleKind>;
 type ViewOf<K extends ByIdKind> = NonNullable<LooseContributions[K]> extends Readonly<Record<string, infer V>> ? V : never;
 
 const BY_ID: { readonly [K in ByIdKind]: FieldPolicies<ViewOf<K>> } = {
-  panels: { view: 'note', unread: 'keep' },
-  windows: { title: 'name', view: 'note' },
-  settings: { body: 'note', meta: 'keep', muted: 'keep' },
+  panels: { view: 'panel', unread: 'keep' },
+  windows: { title: 'name', view: 'block' },
+  settings: { body: 'block', meta: 'keep', muted: 'keep' },
   shortcuts: {},
-  providers: { rows: 'note', note: 'keep', modelAction: 'nothing' },
-  jevFeatures: { Body: 'note', group: 'keep', hint: 'keep', perMessage: 'keep' },
+  providers: { rows: 'line', note: 'keep', modelAction: 'nothing' },
+  jevFeatures: { Body: 'line', group: 'keep', hint: 'keep', perMessage: 'keep' },
   statusBar: { Component: 'nothing' },
   topBar: { Component: 'nothing' },
-  phoneSections: { label: 'keep', section: 'keep', Component: 'note', badge: 'keep', place: 'keep', overview: 'keep' },
-  phoneDrawer: { label: 'keep', section: 'keep', Component: 'note', opensArchive: 'keep' },
-  providerRows: { Component: 'note' },
+  phoneSections: { label: 'keep', section: 'keep', Component: 'panel', badge: 'keep', place: 'keep', overview: 'keep' },
+  phoneDrawer: { label: 'keep', section: 'keep', Component: 'panel', opensArchive: 'keep' },
+  providerRows: { Component: 'line' },
   notificationKinds: { label: 'keep', desktop: 'keep' },
   unread: { count: 'keep', markSeen: 'keep', onShown: 'keep', kind: 'keep' },
-  personSections: { Component: 'note' },
-  personLinks: { Component: 'note' },
-  personTabs: { label: 'keep', Component: 'note' },
+  personSections: { Component: 'line' },
+  personLinks: { Component: 'line' },
+  personTabs: { label: 'keep', Component: 'block' },
   messageMenu: { calls: 'keep', heading: 'keep', menu: 'keep' },
   attachmentMenu: { calls: 'keep', item: 'keep' },
   selectionMenu: { calls: 'keep', item: 'keep' },
-  chatFooter: { Component: 'note' },
+  chatFooter: { Component: 'line' },
   hoverEmoji: { Component: 'nothing' },
   hoverActions: { Component: 'nothing' },
   attachmentActions: { Component: 'nothing' },
   ruleTemplates: { title: 'keep', flow: 'keep', hint: 'keep', make: 'keep' },
 };
 const RULES: FieldPolicies<NonNullable<LooseContributions['rules']>> = {
-  managedControls: 'keep', activity: 'keep', actsAsYouNote: 'note',
+  managedControls: 'keep', activity: 'keep', actsAsYouNote: 'line',
   // Called tracked by the host; failures reach that host view's boundary.
   ruleBadge: 'keep',
   triggers: 'keep', match: 'keep', filters: 'keep', actions: 'keep',
@@ -48,7 +48,7 @@ const RULES: FieldPolicies<NonNullable<LooseContributions['rules']>> = {
 const KIND = {
   // Called tracked by the host; failures reach that host view's boundary.
   label: 'keep',
-  managedOnly: 'keep', windowHint: 'keep', Editor: 'note', summary: 'keep',
+  managedOnly: 'keep', windowHint: 'keep', Editor: 'block', summary: 'keep',
 } as const;
 const RULE_KINDS: { readonly [S in RuleSection]: FieldPolicies<S extends 'filters' ? FilterView : KindView> } = {
   triggers: KIND, match: KIND, actions: KIND, filters: { ...KIND, chips: 'keep' },
@@ -60,23 +60,23 @@ type Fields = Record<string, unknown>;
 type Policies = Readonly<Record<string, FieldPolicy>>;
 const isFields = (value: unknown): value is Fields => value !== null && typeof value === 'object';
 
-function guardFields(name: string, fields: Fields, policies: Policies): Fields {
+function guardFields(name: string, fields: Fields, policies: Policies, panel?: FailureShown): Fields {
   let copy: Fields | undefined;
   for (const [field, policy] of Object.entries(policies)) {
     const view = fields[field];
     if (policy === 'keep' || typeof view !== 'function') continue;
     copy ??= { ...fields };
-    copy[field] = contained(name, view as (props: object) => JSX.Element, policy);
+    copy[field] = contained(name, view as (props: object) => JSX.Element, policy === 'panel' ? panel! : policy);
   }
   return copy ?? fields;
 }
 
-function guardById(name: string, values: unknown, policies: Policies): unknown {
+function guardById(name: string, values: unknown, policies: Policies, kind?: string): unknown {
   if (!isFields(values)) return values;
   let copy: Fields | undefined;
   for (const [id, value] of Object.entries(values)) {
     if (!isFields(value)) continue;
-    const guarded = guardFields(name, value, policies);
+    const guarded = guardFields(name, value, policies, { header: { section: kind === 'panels' ? id : value.section as string } });
     if (guarded === value) continue;
     copy ??= { ...values };
     copy[id] = guarded;
@@ -105,7 +105,7 @@ export function guardContributions<C extends object>(name: string, contributions
     copy ??= { ...fields };
     copy[kind] = guarded;
   };
-  for (const [kind, policies] of Object.entries(BY_ID)) replace(kind, guardById(name, fields[kind], policies));
+  for (const [kind, policies] of Object.entries(BY_ID)) replace(kind, guardById(name, fields[kind], policies, kind));
   replace('rules', guardRules(name, fields.rules));
   for (const [kind, policies] of Object.entries({ composer: COMPOSER, channels: CHANNELS })) {
     const value = fields[kind];

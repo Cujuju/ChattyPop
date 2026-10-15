@@ -33,7 +33,7 @@ const HOST_SECTIONS: readonly (PhoneSection & { id: HostPhoneSectionId })[] = [
     id: 'archive',
     label: 'Archive',
     section: 'chat',
-    Component: contained('Archive', ArchivePane, 'note'),
+    Component: contained('Archive', ArchivePane, { header: { section: 'chat' } }),
   },
 ];
 
@@ -42,7 +42,7 @@ const CHANNEL_ROW = 'section[aria-label="Channels"] button[aria-current]';
 
 /** The host's drawer panes. */
 const HOST_DRAWER_ITEMS: readonly (PhoneDrawerItem & { id: HostPhoneDrawerItemId })[] = [
-  { id: 'channels', label: 'channels', section: 'channels', Component: contained('Channels', ChannelsPanel, 'note'), opensArchive: CHANNEL_ROW },
+  { id: 'channels', label: 'channels', section: 'channels', Component: contained('Channels', ChannelsPanel, { header: { section: 'channels' } }), opensArchive: CHANNEL_ROW },
 ];
 
 /** The phone's sections: the Archive and active plugins' sections, in placement order. Reactive. */

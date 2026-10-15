@@ -18,6 +18,6 @@ export function startPage(view: () => JSX.Element): void {
     return view();
   }
   void rendererPluginsInstalled().then(() =>
-    render(() => <Contained name="ChattyPop" shows="reload"><Page /></Contained>, document.getElementById('root')!),
+    render(() => <Contained name="ChattyPop" shows="page"><Page /></Contained>, document.getElementById('root')!),
   );
 }

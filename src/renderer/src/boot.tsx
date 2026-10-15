@@ -28,6 +28,6 @@ export function startApp(): void {
 
   // Waits for stored settings and the plugin list: rendering on fallbacks would flash the default layout and theme.
   void firstPaintReady().then(() =>
-    render(() => <Contained name="ChattyPop" shows="reload"><Root /></Contained>, document.getElementById('root')!),
+    render(() => <Contained name="ChattyPop" shows="page"><Root /></Contained>, document.getElementById('root')!),
   );
 }

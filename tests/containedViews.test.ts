@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { buildContainment } from './containmentBuild';
-import { VIEWS_SOURCE, WRITES_STUB } from './containedViewsFixture';
+import { HEADER_STUBS, VIEWS_SOURCE, WRITES_STUB } from './containedViewsFixture';
 import type { TestNode } from './sectionSplitHarness';
 import { SNAPSHOT_ADAPTER, SNAPSHOT_SOURCE } from './containmentSnapshotFixture';
 import { SEEN_STATE, SEEN_VIEWS_SOURCE } from './seenViewsFixture';
@@ -16,7 +16,7 @@ interface View {
 interface Client {
   failure: Error;
   fallbackFailure: Error;
-  mount(options?: { shows?: string; children?: number; boundaries?: number; initial?: string; nested?: boolean; throwFallback?: boolean }): View;
+  mount(options?: { shows?: string | { header: { section: string; panelId?: string } }; error?: unknown; children?: number; boundaries?: number; initial?: string; nested?: boolean; throwFallback?: boolean }): View;
   mountProps(): { root: TestNode; dispose(): void; set(value: string): void; reads: string[] };
   holdWrite(): void;
   finishWrite(): void;
@@ -49,7 +49,7 @@ const reports = vi.fn();
 const disposers: (() => void)[] = [];
 const nodes = (n: TestNode): TestNode[] => [n, ...n.children.flatMap(nodes)];
 const text = (n: TestNode): string => n.text + n.children.map(text).join('');
-const alerts = (v: { root: TestNode }): TestNode[] => nodes(v.root).filter((n) => n.props.role === 'alert');
+const alerts = (v: { root: TestNode }): TestNode[] => nodes(v.root).filter((n) => n.props.role === 'alert' || n.props.role === 'status');
 const buttons = (v: { root: TestNode }): TestNode[] => nodes(v.root).filter((n) => n.tag === 'button');
 const press = (button: TestNode): void => (button.props.onClick as () => void)();
 const open = (options: Parameters<Client['mount']>[0] = {}): View => {
@@ -59,12 +59,12 @@ const open = (options: Parameters<Client['mount']>[0] = {}): View => {
 };
 
 beforeAll(async () => {
-  client = await buildContainment<Client>(VIEWS_SOURCE, { './idbStore': WRITES_STUB });
+  client = await buildContainment<Client>(VIEWS_SOURCE, { ...HEADER_STUBS, './idbStore': WRITES_STUB });
   seenClient = await buildContainment(SEEN_VIEWS_SOURCE, {
+    ...HEADER_STUBS,
     './idbStore': WRITES_STUB,
     'test:seen-state': SEEN_STATE,
     './looking': `export { createOnScreen, pageVisible, windowFocused } from 'test:seen-state';`,
-    '@/state/layout': `export { isPanelCollapsed } from 'test:seen-state';`,
     '@/state/unread': `export { markPanelSeen, panelShown } from 'test:seen-state';`,
   });
   snapshots = await buildContainment(SNAPSHOT_SOURCE, {
@@ -73,11 +73,11 @@ beforeAll(async () => {
     './Snapshot.module.css': `export default { stage: 'probe-stage' };`,
   });
 });
-beforeEach(() => { reports.mockClear(); vi.stubGlobal('reportError', reports); });
+beforeEach(() => { reports.mockClear(); vi.stubGlobal('reportError', reports); vi.stubGlobal('document', { activeElement: null }); });
 afterEach(() => { disposers.splice(0).forEach((dispose) => dispose()); });
 afterAll(() => vi.unstubAllGlobals());
 
-it('9: a failed note names the view, preserves sibling updates and retries with a fresh mount', () => {
+it('9: a failed line names the view, preserves sibling updates and retries with a fresh mount', () => {
   const view = open();
   view.set(1);
   expect(text(alerts(view)[0]!)).toBe('Probe view stopped working.Try again');
@@ -131,9 +131,11 @@ it('12: nothing and name fallbacks draw their policy; Reload waits for pending w
   const reload = vi.fn();
   vi.stubGlobal('location', { reload });
   client.holdWrite();
-  const page = open({ shows: 'reload' });
+  const page = open({ shows: 'page' });
   page.set(1);
-  expect(text(alerts(page)[0]!)).toBe('Probe view stopped working.Reload');
+  expect(text(alerts(page)[0]!)).toBe('ChattyPop stopped working.Probe failureUnsent messages and drafts are kept.Reload');
+  expect(alerts(page)[0]!.props.role).toBe('alert');
+  expect(buttons(page)[0]!.props.class).toBe('cp-primary');
   press(buttons(page)[0]!);
   await Promise.resolve();
   expect(reload).not.toHaveBeenCalled();
@@ -151,6 +153,57 @@ it('13: initial direct, memo and effect failures reach the fallback', () => {
     expect(view.counts.cleanups).toBe(1);
   }
   expect(reports).toHaveBeenCalledTimes(3);
+});
+
+it('line and block fallbacks show polite status, error detail and retry', () => {
+  const error = new Error('First line\nMore detail');
+  const line = open({ shows: 'line', error });
+  line.set(1);
+  expect(alerts(line)[0]!.props.role).toBe('status');
+  expect(nodes(line.root).find((n) => n.tag === 'span' && n.props.title)?.props.title).toBe(error.message);
+  expect(buttons(line)[0]!.props.class).toBe('cp-button');
+  const block = open({ shows: 'block', error });
+  block.set(1);
+  expect(alerts(block)[0]!.props.role).toBe('status');
+  expect(text(alerts(block)[0]!)).toBe('Probe view stopped working.First lineTry again');
+  expect(nodes(block.root).find((n) => n.tag === 'p' && n.props.title)?.props.title).toBe(error.message);
+  const empty = open({ shows: 'block', error: '' });
+  empty.set(1);
+  expect(nodes(empty.root).filter((n) => n.tag === 'p')).toHaveLength(1);
+  const value = open({ shows: 'block', error: 'Plain failure' });
+  value.set(1);
+  expect(text(alerts(value)[0]!)).toContain('Plain failure');
+});
+
+it('panel failures keep the real section header and individual panel id', () => {
+  const panel = open({ shows: { header: { section: 'plugin', panelId: 'plugin:probe:panel' } } });
+  panel.set(1);
+  const header = nodes(panel.root).find((n) => n.tag === 'header')!;
+  expect(header.props['data-section']).toBe('plugin');
+  expect(header.props['data-panel-color']).toBe('plugin:probe:panel');
+  expect(text(header)).toContain('Probe view');
+  expect(alerts(panel)[0]!.props.role).toBe('status');
+  expect(text(alerts(panel)[0]!)).toBe('Probe view stopped working.Probe failureTry again');
+});
+
+it('a retry failure repeats the copy and restores focus only from inside the fallback', () => {
+  const composer = { name: 'Composer' };
+  const pageDocument: { activeElement: unknown } = { activeElement: composer };
+  vi.stubGlobal('document', pageDocument);
+  const view = open();
+  view.set(1);
+  expect(pageDocument.activeElement).toBe(composer);
+  press(buttons(view)[0]!);
+  expect(text(alerts(view)[0]!)).toBe("Probe view still isn't working.Try again");
+  expect(pageDocument.activeElement).toBe(composer);
+  const oldButton = buttons(view)[0]!;
+  oldButton.focus();
+  press(oldButton);
+  expect(buttons(view)[0]).not.toBe(oldButton);
+  expect(pageDocument.activeElement).toBe(buttons(view)[0]);
+  const fresh = open();
+  fresh.set(1);
+  expect(text(alerts(fresh)[0]!)).toBe('Probe view stopped working.Try again');
 });
 
 it('14: an inner boundary captures its failure; a throwing inner fallback reaches the outer boundary', () => {

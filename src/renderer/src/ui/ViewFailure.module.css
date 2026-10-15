@@ -1,0 +1,97 @@
+/* A view that stopped: what stopped, its error, one way on. The icon carries the tone; the text stays readable. */
+.line {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-4);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  line-height: var(--cp-leading-normal);
+}
+
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon {
+  flex: 0 0 auto;
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+  color: var(--cp-danger);
+}
+
+/* Fills its place from the top, at the panel's content inset. */
+.block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--cp-space-4);
+  min-width: 0;
+  padding: var(--cp-space-7);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  margin: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-medium);
+}
+
+.detail {
+  display: -webkit-box;
+  max-width: 60ch;
+  margin: 0;
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-mono);
+  font-size: var(--cp-text-xs);
+  line-height: var(--cp-leading-normal);
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* A panel keeps its header above the block, as its own body would sit. */
+.panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The whole window: centred, nothing else on the page. */
+.page {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--cp-space-6);
+  min-height: 100dvh;
+  padding: var(--cp-space-7);
+  color: var(--cp-text-2);
+  font-family: var(--cp-font-sans);
+  text-align: center;
+}
+
+.page .title {
+  font-size: var(--cp-text-lg);
+}
+
+.hint {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+}

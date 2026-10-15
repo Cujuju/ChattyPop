@@ -21,7 +21,7 @@ export function PanelWindow(props: { id: string }) {
     // data-section/-importance: the same theme scope the panel gets in a layout slot.
     <div ref={frame} class={styles.frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, width: '100%', height: '100%' }}>
       <view.Watch><Dynamic component={def()?.component ?? (() => <p>Panel unavailable: {props.id}</p>)} /></view.Watch>
-      <Contained name="Menus and viewers" shows="note"><Overlays /></Contained>
+      <Contained name="Menus and viewers" shows="line"><Overlays /></Contained>
     </div>
   );
 }

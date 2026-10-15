@@ -1,4 +1,8 @@
-import { beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it, vi } from 'vitest';
+
+vi.mock('../src/renderer/src/ui/contained', () => ({
+  contained: (_name: string, _view: unknown, shows: unknown) => Object.assign(() => null, { shows }),
+}));
 
 type Fields = Record<string, unknown>;
 let guard: <C extends object>(name: string, contributions: C) => C;
@@ -96,4 +100,25 @@ it('17: absent optional fields stay absent, nonfunctions stay identical and unch
   expect(guard('Probe', unchanged)).toBe(unchanged);
   const nonfunctions = { panels: { probe: { view: 'Already drawn', unread: nested } } };
   expect(guard('Probe', nonfunctions)).toBe(nonfunctions);
+});
+
+it('panel contributions resolve their header identity and bodies use the assigned variants', () => {
+  const input = {
+    panels: { 'probe.panel': { view: fn } },
+    phoneSections: { probe: { section: 'chat', Component: fn } },
+    phoneDrawer: { probe: { section: 'channels', Component: fn } },
+    windows: { probe: { view: fn } }, settings: { probe: { body: fn } },
+    personTabs: { probe: { Component: fn } }, chatFooter: { probe: { Component: fn } },
+    rules: { actions: { probe: { Editor: fn } } },
+  };
+  const guarded = guard('Probe', input);
+  const shows = (view: unknown): unknown => (view as { shows: unknown }).shows;
+  expect(shows(guarded.panels['probe.panel'].view)).toEqual({ header: { section: 'probe.panel' } });
+  expect(shows(guarded.phoneSections.probe.Component)).toEqual({ header: { section: 'chat' } });
+  expect(shows(guarded.phoneDrawer.probe.Component)).toEqual({ header: { section: 'channels' } });
+  expect(shows(guarded.windows.probe.view)).toBe('block');
+  expect(shows(guarded.settings.probe.body)).toBe('block');
+  expect(shows(guarded.personTabs.probe.Component)).toBe('block');
+  expect(shows(guarded.rules.actions.probe.Editor)).toBe('block');
+  expect(shows(guarded.chatFooter.probe.Component)).toBe('line');
 });
