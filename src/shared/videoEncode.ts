@@ -81,10 +81,14 @@ function presetBitrate(size: VideoSize, preset: EncodePreset): number {
   return preset.videoBitrate * Math.min(1, areaRatio);
 }
 
+/** The presets of every quality larger than `quality`, whose rates cap its own. */
+export const largerPresets = (quality: EncodeQuality): EncodePreset[] =>
+  QUALITY_ORDER.slice(0, QUALITY_ORDER.indexOf(quality)).map((q) => ENCODE_PRESETS[q]);
+
 /** Video bitrate for an upright `source` at `quality`: its preset's rate, capped by every larger quality's rate for that source. */
 export function videoBitrateFor(source: VideoSize, quality: EncodeQuality): number {
-  const larger = QUALITY_ORDER.slice(0, QUALITY_ORDER.indexOf(quality) + 1).map((q) => ENCODE_PRESETS[q]);
-  return Math.round(Math.min(...larger.map((preset) => presetBitrate(targetSize(source, preset), preset))));
+  const presets = [ENCODE_PRESETS[quality], ...largerPresets(quality)];
+  return Math.round(Math.min(...presets.map((preset) => presetBitrate(targetSize(source, preset), preset))));
 }
 
 export interface FrameTiming {

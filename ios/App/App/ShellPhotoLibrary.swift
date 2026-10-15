@@ -19,6 +19,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     private static let shrinkKey = "shrink"
     private static let shortSideKey = "shortSide"
     private static let videoBitrateKey = "videoBitrate"
+    private static let rateCapsKey = "rateCaps"
     private static let audioBitrateKey = "audioBitrate"
     private static let maxFrameRateKey = "maxFrameRate"
     /// Mirrors SHELL_ASSET_READ_BYTES.
@@ -231,13 +232,27 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     // MARK: Export
 
-    /// An export request's `shrink`, when whole and positive.
+    /// A whole, positive number field of `fields`.
+    private static func positive(_ fields: [String: Any], _ key: String) -> Int? {
+        (fields[key] as? NSNumber).map(\.intValue).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    /// A ShellVideoShrink or ShellVideoRateCap's preset, when whole and positive.
+    private static func shrinkPreset(_ value: Any) -> ShellVideoShrinker.Preset? {
+        guard let fields = value as? [String: Any], let shortSide = positive(fields, shortSideKey),
+              let videoBitrate = positive(fields, videoBitrateKey) else { return nil }
+        return ShellVideoShrinker.Preset(shortSide: shortSide, videoBitrate: videoBitrate)
+    }
+
+    /// An export request's `shrink`, when whole and positive. A page from before `rateCaps` sends none.
     private static func shrinkTarget(_ value: Any?) -> ShellVideoShrinker.Target? {
-        guard let fields = value as? [String: Any] else { return nil }
-        let number = { (key: String) -> Int? in (fields[key] as? NSNumber).map(\.intValue).flatMap { $0 > 0 ? $0 : nil } }
-        guard let shortSide = number(shortSideKey), let videoBitrate = number(videoBitrateKey),
-              let audioBitrate = number(audioBitrateKey), let maxFrameRate = number(maxFrameRateKey) else { return nil }
-        return ShellVideoShrinker.Target(shortSide: shortSide, videoBitrate: videoBitrate, audioBitrate: audioBitrate, maxFrameRate: maxFrameRate)
+        guard let fields = value as? [String: Any], let preset = shrinkPreset(fields),
+              let audioBitrate = positive(fields, audioBitrateKey), let maxFrameRate = positive(fields, maxFrameRateKey),
+              let capFields = (fields[rateCapsKey] ?? [Any]()) as? [Any] else { return nil }
+        let rateCaps = capFields.compactMap(shrinkPreset)
+        guard rateCaps.count == capFields.count else { return nil }
+        return ShellVideoShrinker.Target(shortSide: preset.shortSide, videoBitrate: preset.videoBitrate, rateCaps: rateCaps,
+                                         audioBitrate: audioBitrate, maxFrameRate: maxFrameRate)
     }
 
     private func export(_ id: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {

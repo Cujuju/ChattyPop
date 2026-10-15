@@ -39,6 +39,7 @@
 		C0E044000000000000000107 /* EmojiStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000106; };
 		C0E044000000000000000109 /* EmojiTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E044000000000000000108; };
 		C0E04400000000000000010B /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E04400000000000000010A; };
+		C0E04400000000000000010D /* VideoShrinkRateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E04400000000000000010C; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +104,7 @@
 		C0E044000000000000000106 /* EmojiStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiStoreTests.swift"; sourceTree = SOURCE_ROOT; };
 		C0E044000000000000000108 /* EmojiTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/EmojiTypesTests.swift"; sourceTree = SOURCE_ROOT; };
 		C0E04400000000000000010A /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/TestSupport.swift"; sourceTree = SOURCE_ROOT; };
+		C0E04400000000000000010C /* VideoShrinkRateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "../EmojiCacheTests/VideoShrinkRateTests.swift"; sourceTree = SOURCE_ROOT; };
 		C0E044000000000000000011 /* AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -188,7 +190,7 @@
 			path = ShareExtension;
 			sourceTree = "<group>";
 		};
-		C0E044000000000000000012 /* AppTests */ = {isa = PBXGroup; children = (C0E044000000000000000100, C0E044000000000000000102, C0E044000000000000000104, C0E044000000000000000106, C0E044000000000000000108, C0E04400000000000000010A,); path = AppTests; sourceTree = "<group>"; };
+		C0E044000000000000000012 /* AppTests */ = {isa = PBXGroup; children = (C0E044000000000000000100, C0E044000000000000000102, C0E044000000000000000104, C0E044000000000000000106, C0E044000000000000000108, C0E04400000000000000010A, C0E04400000000000000010C,); path = AppTests; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -342,7 +344,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C0E044000000000000000013 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C0E044000000000000000101, C0E044000000000000000103, C0E044000000000000000105, C0E044000000000000000107, C0E044000000000000000109, C0E04400000000000000010B,); runOnlyForDeploymentPostprocessing = 0; };
+		C0E044000000000000000013 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (C0E044000000000000000101, C0E044000000000000000103, C0E044000000000000000105, C0E044000000000000000107, C0E044000000000000000109, C0E04400000000000000010B, C0E04400000000000000010D,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
