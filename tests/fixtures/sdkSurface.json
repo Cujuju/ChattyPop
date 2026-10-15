@@ -234,6 +234,7 @@
       "findExecutable",
       "notificationRequest",
       "pairPageCss",
+      "redactIds",
       "sendMessage",
       "uploadFiles"
     ],

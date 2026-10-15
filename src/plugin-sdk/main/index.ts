@@ -4,6 +4,7 @@ import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { MainContext, MainPlugin } from '@main/plugins/context';
 
 export type { MainContext, MainPlugin } from '@main/plugins/context';
+export { redactIds } from '@main/diagnostics';
 export type { Notifications, NotificationRequest, NotificationTarget } from '@shared/notifications';
 export type { AttachmentFetch } from '@main/media/attachmentDownloader';
 
