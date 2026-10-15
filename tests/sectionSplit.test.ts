@@ -77,8 +77,10 @@ beforeAll(async () => {
     plugins: [fixture, solid({ hot: false, dev: false, solid: { generate: 'universal', moduleName: join(import.meta.dirname, 'sectionSplitHarness.ts').replaceAll('\\', '/') } })],
     resolve: { alias: [
       { find: '@/state/ui', replacement: STATE },
+      { find: '@plugin-sdk', replacement: join(ROOT, 'src/plugin-sdk') },
       { find: '@', replacement: join(ROOT, 'src/renderer/src') },
       { find: /^solid-js$/, replacement: join(ROOT, 'node_modules/solid-js/dist/solid.js') },
+      { find: /^solid-js\/store$/, replacement: join(ROOT, 'node_modules/solid-js/store/dist/store.js') },
       { find: /^solid-js\/web$/, replacement: join(ROOT, 'node_modules/solid-js/web/dist/web.js') },
     ] },
     ssr: { noExternal: true },

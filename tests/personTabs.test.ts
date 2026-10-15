@@ -98,9 +98,11 @@ beforeAll(async () => {
     plugins: [fixture, solid({ hot: false, dev: false, solid: { generate: 'universal', moduleName: ADAPTER } })],
     resolve: { alias: [
       ...MOCKED.map((find) => ({ find, replacement: STATE })),
+      { find: '@plugin-sdk', replacement: join(ROOT, 'src/plugin-sdk') },
       { find: '@shared', replacement: join(ROOT, 'src/shared') },
       { find: '@', replacement: join(ROOT, 'src/renderer/src') },
       { find: /^solid-js$/, replacement: join(ROOT, 'node_modules/solid-js/dist/solid.js') },
+      { find: /^solid-js\/store$/, replacement: join(ROOT, 'node_modules/solid-js/store/dist/store.js') },
       { find: /^solid-js\/web$/, replacement: join(ROOT, 'node_modules/solid-js/web/dist/web.js') },
     ] },
     ssr: { noExternal: true },
