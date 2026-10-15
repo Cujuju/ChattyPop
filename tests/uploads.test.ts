@@ -6,12 +6,16 @@ import { ALT_TEXT_MAX, POST_WINDOW_PASSED, UPLOAD_GONE, uploadLimitBytes } from 
 import { BYTES_PER_GB, BYTES_PER_MB } from '@shared/units';
 import { sendOwnerMessage } from '../src/main/discord/send';
 import { UPLOAD_IDLE_MS, Uploads } from '../src/main/discord/uploads';
+import { ownerAction } from './helpers';
 
 const CHANNEL = '100000000000000001';
 const OTHER = '100000000000000002';
 const NONCE = '100000000000000009';
 const HTTP_OK = 200;
 const HTTP_FORBIDDEN = 403;
+/** The account the messages were written as; its session runs each call, as main's handlers do. */
+const ACCOUNT = '900000000000000001';
+const asOwner = ownerAction(ACCOUNT);
 
 /**
  * Electron's ClientRequest as Uploads drives it: writes acknowledged (unless `hold`); on end, 'close' and then the store's
@@ -64,15 +68,15 @@ function setup(limit = 100) {
 const message = (uploads: string[]) => ({ channelId: CHANNEL, text: '', replyTo: null, files: [], uploads, stickerId: null, gif: null, nonce: NONCE });
 
 describe('Uploads', () => {
-  it('refuses a file over the channel’s limit before asking Discord', async () => {
+  it('refuses a file over the channel’s limit before asking Discord', () => asOwner(async () => {
     const { api, uploads, posts } = setup(10);
-    await expect(uploads.prepare(api, CHANNEL, [{ name: 'big.mov', size: 11 }])).rejects.toThrow(/big\.mov is over/);
+    await expect(uploads.prepare(api, CHANNEL, [{ name: 'big.mov', size: 11 }], ACCOUNT)).rejects.toThrow(/big\.mov is over/);
     expect(posts).toEqual([]);
-  });
+  }));
 
-  it('streams pieces in order, then a message names the finished upload and releases it', async () => {
+  it('streams pieces in order, then a message names the finished upload and releases it', () => asOwner(async () => {
     const { api, uploads, posts } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'clip.mp4', size: 5 }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'clip.mp4', size: 5 }], ACCOUNT);
     await expect(uploads.chunk(slot!.token, 2, new Uint8Array(3))).rejects.toThrow(/out of order/);
     await uploads.chunk(slot!.token, 0, new Uint8Array(2));
     await uploads.chunk(slot!.token, 2, new Uint8Array(3));
@@ -83,44 +87,44 @@ describe('Uploads', () => {
     expect(posts.at(-1)!.json['attachments']).toEqual([{ id: '0', filename: 'clip.mp4', uploaded_filename: 'up/0' }]);
     expect(posts.at(-1)!.json['nonce']).toBe(NONCE);
     await expect(sendOwnerMessage(api, message([slot!.token]), uploads)).rejects.toThrow(UPLOAD_GONE);
-  });
+  }));
 
-  it('keeps options with prepared uploads and posts their spoiler name and description', async () => {
+  it('keeps options with prepared uploads and posts their spoiler name and description', () => asOwner(async () => {
     const { api, uploads, posts } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, description: 'Sunset', spoiler: true }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, description: 'Sunset', spoiler: true }], ACCOUNT);
     expect(posts[0]!.json['files']).toEqual([{ id: '0', filename: 'SPOILER_photo.png', file_size: 1, is_clip: false }]);
     await uploads.chunk(slot!.token, 0, new Uint8Array(1));
     await uploads.finish(slot!.token);
     await sendOwnerMessage(api, message([slot!.token]), uploads);
     expect(posts.at(-1)!.json['attachments']).toEqual([{ id: '0', filename: 'SPOILER_photo.png', uploaded_filename: 'up/0', description: 'Sunset' }]);
-  });
+  }));
 
-  it('rejects invalid prepared-upload options before asking Discord', async () => {
+  it('rejects invalid prepared-upload options before asking Discord', () => asOwner(async () => {
     const { api, uploads, posts } = setup();
     for (const options of [{ description: 'x'.repeat(ALT_TEXT_MAX + 1) }, { description: false }, { spoiler: 1 }]) {
-      await expect(uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, ...options }])).rejects.toThrow(/alt text|attachment options/);
+      await expect(uploads.prepare(api, CHANNEL, [{ name: 'photo.png', size: 1, ...options }], ACCOUNT)).rejects.toThrow(/alt text|attachment options/);
     }
     expect(posts).toEqual([]);
-  });
+  }));
 
-  it('a message can’t name an unfinished upload, or one for another channel', async () => {
+  it('a message can’t name an unfinished upload, or one for another channel', () => asOwner(async () => {
     const { api, uploads } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 1 }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 1 }], ACCOUNT);
     expect(() => uploads.take(CHANNEL, [slot!.token])).toThrow(UPLOAD_GONE);
     await uploads.chunk(slot!.token, 0, new Uint8Array(1));
     await uploads.finish(slot!.token);
     expect(() => uploads.take(OTHER, [slot!.token])).toThrow(UPLOAD_GONE);
-  });
+  }));
 
-  it('a refused upload is dropped and says why', async () => {
+  it('a refused upload is dropped and says why', () => asOwner(async () => {
     storeStatus = HTTP_FORBIDDEN;
     const { api, uploads } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 1 }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 1 }], ACCOUNT);
     await uploads.chunk(slot!.token, 0, new Uint8Array(1));
     await expect(uploads.finish(slot!.token)).rejects.toThrow(/refused the upload \(403\)/);
     await expect(uploads.finish(slot!.token)).rejects.toThrow(UPLOAD_GONE);
     storeStatus = HTTP_OK;
-  });
+  }));
 });
 
 describe('Uploads, pieces and idle', () => {
@@ -129,24 +133,24 @@ describe('Uploads, pieces and idle', () => {
     vi.useRealTimers();
   });
 
-  it('refuses a second piece while one is being sent', async () => {
+  it('refuses a second piece while one is being sent', () => asOwner(async () => {
     const { api, uploads } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }], ACCOUNT);
     FakeRequest.hold = true;
     const first = uploads.chunk(slot!.token, 0, new Uint8Array(2));
     await expect(uploads.chunk(slot!.token, 0, new Uint8Array(2))).rejects.toThrow(/out of order/);
     await expect(uploads.finish(slot!.token)).rejects.toThrow(/missing pieces/);
     expect(requests.at(-1)!.written).toEqual([2]);
     first.catch(() => undefined);
-  });
+  }));
 
-  it('a finished file stays held while the message’s later files upload', async () => {
+  it('a finished file stays held while the message’s later files upload', () => asOwner(async () => {
     vi.useFakeTimers();
     const { api, uploads } = setup();
     const [a, b] = await uploads.prepare(api, CHANNEL, [
       { name: 'a.png', size: 1 },
       { name: 'b.png', size: 2 },
-    ]);
+    ], ACCOUNT);
     await uploads.chunk(a!.token, 0, new Uint8Array(1));
     await uploads.finish(a!.token);
     for (const offset of [0, 1]) {
@@ -155,18 +159,18 @@ describe('Uploads, pieces and idle', () => {
     }
     await uploads.finish(b!.token);
     expect(uploads.take(CHANNEL, [a!.token, b!.token])).toHaveLength(2);
-  });
+  }));
 
-  it('dropping an idle upload fails the piece waiting on it', async () => {
+  it('dropping an idle upload fails the piece waiting on it', () => asOwner(async () => {
     vi.useFakeTimers();
     const { api, uploads } = setup();
-    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }]);
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.mp4', size: 4 }], ACCOUNT);
     FakeRequest.hold = true;
     const piece = uploads.chunk(slot!.token, 0, new Uint8Array(2));
     vi.advanceTimersByTime(UPLOAD_IDLE_MS);
     await expect(piece).rejects.toThrow(UPLOAD_GONE);
     expect(requests.at(-1)!.aborted).toBe(true);
-  });
+  }));
 });
 
 describe('the sender’s post window', () => {

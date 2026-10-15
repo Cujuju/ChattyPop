@@ -13,6 +13,7 @@ const { AccountChangedError, OwnerSession, STILL_LOADING, requireWrittenAs } = a
 const { postingClient } = await import('../src/main/plugins/posting');
 const { sendOwnerMessage } = await import('../src/main/discord/send');
 const { DmService } = await import('../src/main/discord/dms');
+const { Uploads } = await import('../src/main/discord/uploads');
 
 const B = '900000000000000002';
 const TOKEN: Record<string, string> = { [A]: 'FAKE-account-A', [B]: 'FAKE-account-B' };
@@ -23,6 +24,8 @@ const IDENTIFY_OP = 2;
 const RESUME_OP = 6;
 const UPLOAD_URL = 'https://discord-attachments-uploads-prd.storage.googleapis.com/slot';
 const unlocked = { unlocked: async () => true };
+/** Any channel upload limit the test files fit under. */
+const UPLOAD_LIMIT = 1024;
 /** Lets queued promise work run. */
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve));
 
@@ -137,6 +140,36 @@ describe('a write asked as one account', () => {
     const calls = h.owner.actions({ write: () => h.api.prompt.post('channels/1/typing', undefined), read: () => h.api.prompt.get('users/@me') });
     await expect(calls.write()).rejects.toThrow(STILL_LOADING);
     await expect(calls.read()).resolves.toEqual({ id: '1' });
+  });
+});
+
+describe("a kept message's uploads", () => {
+  const file = [{ name: 'private.txt', size: 1 }];
+
+  it('are not prepared as another account that signed in while the message waited', async () => {
+    const h = harness();
+    h.signIn(A);
+    const uploads = new Uploads({} as never, async () => UPLOAD_LIMIT);
+    const prepare = h.owner.actions({ prepare: (accountId: unknown) => uploads.prepare(postingClient(h.api.prompt, unlocked), CHANNEL, file, accountId) }).prepare;
+    h.signIn(B);
+    await expect(prepare(A)).rejects.toBeInstanceOf(AccountChangedError);
+    expect(h.sent).toEqual([]);
+  });
+
+  it("keep their slots for the account they were prepared as: no piece, finish or post goes on under another's", async () => {
+    const h = harness();
+    h.signIn(A);
+    const uploads = new Uploads({} as never, async () => UPLOAD_LIMIT);
+    const calls = h.owner.actions({
+      prepare: () => uploads.prepare(postingClient(h.api.prompt, unlocked), CHANNEL, file, A),
+      chunk: async (token: string) => uploads.chunk(token, 0, new Uint8Array(1)),
+      finish: async (token: string) => uploads.finish(token),
+      take: async (token: string) => uploads.take(CHANNEL, [token]),
+    });
+    const [slot] = await calls.prepare();
+    h.signIn(B);
+    for (const step of [calls.chunk, calls.finish, calls.take]) await expect(step(slot!.token)).rejects.toBeInstanceOf(AccountChangedError);
+    expect(h.sent.map((r) => r.auth)).toEqual([TOKEN[A]]);
   });
 });
 

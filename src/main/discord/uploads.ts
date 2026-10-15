@@ -8,6 +8,7 @@ import { uploadFilename } from '@shared/media';
 import { BYTES_PER_MB, MS_PER_MIN } from '@shared/units';
 import type { DiscordWriter } from './client';
 import { checkFileOptions } from './fileOptions';
+import { requireWrittenAs } from './ownerSession';
 import type { UploadedFile } from './send';
 
 /** An upload with no piece for this long is dropped: its sender gave up or went away. */
@@ -22,6 +23,8 @@ interface DiscordSlot {
 }
 
 interface Upload {
+  /** The account the message was written as: its slot is that account's, so only that account's session sends to it or posts it. */
+  account: string;
   channelId: string;
   name: string;
   size: number;
@@ -54,8 +57,13 @@ export class Uploads {
     private readonly limit: (channelId: string) => Promise<number>,
   ) {}
 
-  /** Asks Discord for a slot per file, as the web client does; throws the reason a file can't go (over the channel's limit). */
-  async prepare(api: DiscordWriter, channelIdArg: unknown, filesArg: unknown): Promise<UploadSlot[]> {
+  /**
+   * Asks Discord for a slot per file, as the web client does, as `accountArg` (the account the message was written as) only;
+   * throws the reason a file can't go (another account signed in, over the channel's limit).
+   */
+  async prepare(api: DiscordWriter, channelIdArg: unknown, filesArg: unknown, accountArg: unknown): Promise<UploadSlot[]> {
+    requireWrittenAs(accountArg);
+    const account = accountArg as string;
     const channelId = snowflakeArg(channelIdArg, 'channel');
     if (!Array.isArray(filesArg) || !filesArg.length || filesArg.length > DISCORD_FILES_PER_MESSAGE_MAX || !filesArg.every(isFileMeta))
       throw new Error(`Attach 1 to ${DISCORD_FILES_PER_MESSAGE_MAX} files.`);
@@ -77,7 +85,7 @@ export class Uploads {
     });
     for (const { f, slot, token } of refs) {
       batch.add(token);
-      this.held.set(token, { channelId, name: f.name, size: f.size, description: f.description, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
+      this.held.set(token, { account, channelId, name: f.name, size: f.size, description: f.description, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
     }
     this.touch(batch);
     return refs.map(({ f, token }) => ({ token, name: f.name, size: f.size }));
@@ -122,12 +130,17 @@ export class Uploads {
     this.touch(u.batch);
   }
 
-  /** The finished uploads a message to `channelId` references, in order; they are released. Throws UPLOAD_GONE for one not held. */
+  /**
+   * The finished uploads a message to `channelId` references, in order; they are released. Throws UPLOAD_GONE for one not
+   * held, AccountChangedError for one another account's session would post.
+   */
   take(channelId: string, tokens: unknown): UploadedFile[] {
     if (!Array.isArray(tokens) || tokens.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error('Not the uploads of a message.');
     const uploads = tokens.map((t) => {
       const u = typeof t === 'string' ? this.held.get(t) : undefined;
-      if (!u || !u.finished || u.channelId !== channelId) throw new Error(UPLOAD_GONE);
+      if (!u) throw new Error(UPLOAD_GONE);
+      requireWrittenAs(u.account);
+      if (!u.finished || u.channelId !== channelId) throw new Error(UPLOAD_GONE);
       return u;
     });
     return uploads.map((u, i) => ({ id: String(i), filename: u.name, uploaded_filename: u.uploadFilename, ...(u.description ? { description: u.description } : {}) }));
@@ -138,9 +151,11 @@ export class Uploads {
     for (const t of tokens) this.drop(t);
   }
 
+  /** The held upload, for its own account's session only: no piece of one account's file goes on under another's. */
   private get(tokenArg: unknown): [string, Upload] {
     const u = typeof tokenArg === 'string' ? this.held.get(tokenArg) : undefined;
     if (!u) throw new Error(UPLOAD_GONE);
+    requireWrittenAs(u.account);
     return [tokenArg as string, u];
   }
 

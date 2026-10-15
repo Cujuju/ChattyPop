@@ -9,6 +9,8 @@ import { selfId } from './ownMessages';
 
 /** One destination's sends for the open message: a retry reuses its nonces and never re-posts a forward that went. */
 interface Attempt {
+  /** The account it was started as: the forward and its notes go as no other. */
+  accountId: string | null;
   nonce: string;
   posted: boolean;
   /** Note text → its nonce. */
@@ -60,15 +62,15 @@ export function forwardTargets(query: string): ForwardTarget[] {
 export async function forwardMessage(m: ArchiveMessage, channelId: string, note: string): Promise<void> {
   // Checked before anything goes: a note Discord refuses must not leave the forward posted without it.
   if (note.length > DISCORD_TEXT_MAX) throw new Error(`Discord allows ${DISCORD_TEXT_MAX} characters.`);
-  const a = attempts.get(channelId) ?? { nonce: newNonce(), posted: false, notes: new Map<string, string>() };
+  const a = attempts.get(channelId) ?? { accountId: selfId(), nonce: newNonce(), posted: false, notes: new Map<string, string>() };
   attempts.set(channelId, a);
   if (!a.posted) {
     const guildId = channelById(m.channelId)?.guildId ?? null;
-    await api.discord.forward({ source: { channelId: m.channelId, messageId: m.id, guildId }, channelId, nonce: a.nonce });
+    await api.discord.forward({ source: { channelId: m.channelId, messageId: m.id, guildId }, channelId, nonce: a.nonce, accountId: a.accountId });
     a.posted = true;
   }
   if (!note.trim()) return;
   const nonce = a.notes.get(note) ?? newNonce();
   a.notes.set(note, nonce);
-  await api.discord.send({ channelId, text: note, replyTo: null, files: [], stickerId: null, gif: null, nonce, accountId: selfId() });
+  await api.discord.send({ channelId, text: note, replyTo: null, files: [], stickerId: null, gif: null, nonce, accountId: a.accountId });
 }

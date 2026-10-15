@@ -73,10 +73,10 @@ function unstalled<T>(call: Promise<T>, ms: number): Promise<T> {
   return Promise.race([call, stalled]).finally(() => clearTimeout(timer));
 }
 
-/** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go; resolves the slots' tokens. */
-export async function uploadFiles(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]> {
+/** Uploads each file to its Discord slot in UPLOAD_CHUNK_BYTES pieces, read as they go, as `accountId` only; resolves the slots' tokens. */
+export async function uploadFiles(channelId: string, accountId: string | null, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]> {
   const slots = await unstalled(
-    api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.file.name, size: f.file.size, description: f.description, spoiler: f.spoiler }))),
+    api.discord.prepareUploads(channelId, files.map((f) => ({ name: f.file.name, size: f.file.size, description: f.description, spoiler: f.spoiler })), accountId),
     SEND_BASE_TIMEOUT_MS,
   );
   const total = files.reduce((n, f) => n + f.file.size, 0);

@@ -77,8 +77,8 @@ export interface OutboxDeps<D> {
   mark?(phase: 'enqueue' | 'rpc-start' | 'rpc-end' | 'accepted', nonce: string, id: number, messageId?: string): void;
   /** The files as they'll be uploaded (videos shrunk to this device's quality); reports progress. */
   prepare(channelId: string, files: File[], progress: (fraction: number) => void): Promise<File[]>;
-  /** Uploads the files in pieces, reporting progress; resolves the tokens the message names. */
-  upload(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]>;
+  /** Uploads the files in pieces as `accountId` (the message's) only, reporting progress; resolves the tokens the message names. */
+  upload(channelId: string, accountId: string | null, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]>;
   /** The desktop no longer holds the message's uploads (UPLOAD_GONE): they go again. */
   uploadGone(err: unknown): boolean;
   /** The desktop refused to post past the message's postWithinMs (POST_WINDOW_PASSED). */
@@ -231,7 +231,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       .map((file, i) => ({ ...original[i]!, file }));
     e.prepared = prepared;
     update(channelId, id, { phase: 'uploading', progress: 0 });
-    e.uploads = await deps.upload(channelId, prepared, (p) => update(channelId, id, { progress: p }));
+    e.uploads = await deps.upload(channelId, e.job.message.accountId, prepared, (p) => update(channelId, id, { progress: p }));
     save();
   }
 

@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ArchiveMessage } from '@shared/contract';
 
-const calls: { kind: 'forward' | 'send'; nonce: string; text?: string }[] = [];
+const calls: { kind: 'forward' | 'send'; nonce: string; accountId: string | null; text?: string }[] = [];
+const signedIn = vi.hoisted(() => ({ id: 'me' }));
 const failNext = { forward: false, send: false };
-const answer = (kind: 'forward' | 'send') => async (arg: { nonce: string; text?: string }) => {
-  calls.push({ kind, nonce: arg.nonce, ...(arg.text === undefined ? {} : { text: arg.text }) });
+const answer = (kind: 'forward' | 'send') => async (arg: { nonce: string; accountId: string | null; text?: string }) => {
+  calls.push({ kind, nonce: arg.nonce, accountId: arg.accountId, ...(arg.text === undefined ? {} : { text: arg.text }) });
   if (failNext[kind]) {
     failNext[kind] = false;
     throw new Error('Discord is down');
@@ -12,7 +13,7 @@ const answer = (kind: 'forward' | 'send') => async (arg: { nonce: string; text?:
 };
 vi.mock('@/api', () => ({ api: { discord: { forward: answer('forward'), send: answer('send') }, core: { messageById: async () => null } } }));
 vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: () => undefined }));
-vi.mock('../src/renderer/src/state/ownMessages', () => ({ selfId: () => 'me' }));
+vi.mock('../src/renderer/src/state/ownMessages', () => ({ selfId: () => signedIn.id }));
 vi.mock('../src/renderer/src/state/directory',() => ({ channelById: () => ({ guildId: 'g' }), directory: () => [], loadDirectory: async () => undefined }));
 
 // A renderer module: imported by path so the node type-check doesn't follow it.
@@ -31,6 +32,8 @@ describe('forward retries', () => {
     await expect(forwardMessage(message, 'c2', 'look')).rejects.toThrow();
     failNext.send = true;
     await expect(forwardMessage(message, 'c2', 'look')).rejects.toThrow();
+    // Another account signed in before the retry: every step still names the account the forward was started as.
+    signedIn.id = 'other';
     // Forward pressed again on the same message while its window is open: the pending retry keeps its history.
     startForward(message);
     await forwardMessage(message, 'c2', 'look');
@@ -40,6 +43,8 @@ describe('forward retries', () => {
     expect(f2!.nonce).toBe(f1!.nonce);
     expect(n2).toEqual(n1);
     expect(n1!.text).toBe('look');
+    expect(new Set(calls.map((c) => c.accountId))).toEqual(new Set(['me']));
+    signedIn.id = 'me';
 
     calls.length = 0;
     closeForward();

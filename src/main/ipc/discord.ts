@@ -3,7 +3,7 @@ import { votePollAsOwner } from '../discord/polls';
 import { handleMain } from './mainCalls';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from '@shared/commands';
-import { uploadLimitBytes, type ExpressionCatalog, type OwnerSend } from '@shared/compose';
+import { uploadLimitBytes, type ExpressionCatalog } from '@shared/compose';
 import type { DiscordProfile, MutualFriends, ReactionUsers } from '@shared/types/discordProfile';
 import { DM_GUILD_ID, isReactionEmoji, snowflakeArg } from '@shared/discord';
 import { normalizeSyncedChatChange } from '@shared/chatSettings';
@@ -89,6 +89,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const savedBookmarks = (page: unknown) => saved.bookmarks(page);
   const saveMessage = (message: unknown) => saved.save(message);
   const removeSavedMessage = (message: unknown) => saved.remove(message);
+  /** A write the sender kept across calls goes only as the account it names (requireWrittenAs): every step of its job is checked. */
+  const writtenAs = (v: unknown): void => requireWrittenAs((v as { accountId?: unknown } | null)?.accountId);
   const tiers = new GuildTiers(d.discord.tap);
   /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
   const limitFor = async (channelId: string): Promise<number> => {
@@ -101,22 +103,30 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const scheduledCalls = {
     scheduledAvailability: async (channelId: unknown) => scheduled.availability(channelId),
     scheduledMessages: () => scheduled.list(),
-    createScheduled: (m: unknown) => scheduled.create(m), updateScheduled: (u: unknown) => scheduled.update(u),
+    createScheduled: async (m: unknown) => {
+      writtenAs(m);
+      return scheduled.create(m);
+    },
+    updateScheduled: (u: unknown) => scheduled.update(u),
     cancelScheduled: (id: unknown) => scheduled.remove(id), sendScheduledNow: (id: unknown) => scheduled.remove(id, true),
   };
   // The outbox may send it after a reload or reconnect: only as the account it was written as.
   const send = async (m: unknown): ReturnType<typeof sendOwnerMessage> => {
-    requireWrittenAs((m as Partial<OwnerSend> | null)?.accountId);
+    writtenAs(m);
     return sendOwnerMessage(poster, m, uploads);
   };
   const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
-  const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);
+  const prepareUploads = (channelId: unknown, files: unknown, accountId: unknown) => uploads.prepare(poster, channelId, files, accountId);
   const uploadChunk = (token: unknown, offset: unknown, bytes: unknown): Promise<void> => uploads.chunk(token, offset, bytes);
   const finishUpload = (token: unknown): Promise<void> => uploads.finish(token);
   const gifs = (query: unknown): ReturnType<typeof searchGifs> => searchGifs(d.owner, d.capture, query);
   const edit = (e: unknown): Promise<void> => editOwnerMessage(poster, e);
   const deleteMessage = (m: unknown): Promise<void> => deleteOwnerMessage(poster, m);
-  const forward = (f: unknown): Promise<void> => forwardAsOwner(poster, f);
+  // A forward's note goes as its own send: both steps go only as the account the forward was started as.
+  const forward = async (f: unknown): Promise<void> => {
+    writtenAs(f);
+    return forwardAsOwner(poster, f);
+  };
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
   // A vote is a post (locked as one); the archive takes it before this resolves, as a reaction.

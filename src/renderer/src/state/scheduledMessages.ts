@@ -11,6 +11,7 @@ import { outgoingText } from './composer';
 import { snapshotDraft, takeDraft } from './drafts';
 import { onAppEvent } from './events';
 import { uploadFiles } from './outbox';
+import { selfId } from './ownMessages';
 import { postingUnlocked } from './posting';
 import { cancelReply, replyPing, replyTarget } from './reply';
 import { prepareFiles } from './uploadPrep';
@@ -112,20 +113,22 @@ export async function scheduleDraft(channelId: string, stickerId: string | null 
   const draft = snapshotDraft(channelId, target);
   const content = outgoingText(draft);
   const epoch = generation;
+  // Its uploads and creation go only as the account it was written as.
+  const accountId = selfId();
   const ping = replyPing();
   setBusy((b) => ({ ...b, [channelId]: true }));
   notify(channelId, '');
   try {
     const prepared = await prepareFiles(draft.files.map((f) => f.file), await api.discord.uploadLimit(channelId), () => {});
     const files = draft.files.map((f, i) => ({ ...f, file: prepared[i]! }));
-    const uploads = files.length ? await uploadFiles(channelId, files, () => {}) : [];
+    const uploads = files.length ? await uploadFiles(channelId, accountId, files, () => {}) : [];
     if (epoch !== generation) throw new Error('The Discord account changed.');
     markUnconfirmed(channelId);
     await whenWritten();
     if (epoch !== generation) throw new Error('The Discord account changed.');
     const item = await api.discord.createScheduled({
       channelId, text: content, files: [], uploads, replyTo: target ? { messageId: target.id, ping } : null,
-      stickerId, gif: null, nonce: newNonce(), scheduledTimestamp: timestamp,
+      stickerId, gif: null, nonce: newNonce(), scheduledTimestamp: timestamp, accountId,
     });
     if (epoch !== generation) return;
     clearScheduleUnconfirmed(channelId);
@@ -152,13 +155,14 @@ export async function schedulePoll(channelId: string, poll: PollDraft): Promise<
   if (!timestamp || !schedulingAvailable(channelId)) throw new Error('Choose an available schedule time first.');
   const target = replyTarget()?.channelId === channelId ? replyTarget() : null;
   const epoch = generation;
+  const accountId = selfId();
   setBusy((b) => ({ ...b, [channelId]: true }));
   try {
     markUnconfirmed(channelId);
     await whenWritten();
     if (epoch !== generation) throw new Error('The Discord account changed.');
     const item = await api.discord.createScheduled({ channelId, text: '', files: [], stickerId: null, gif: null,
-      replyTo: target ? { messageId: target.id, ping: replyPing() } : null, poll, nonce: newNonce(), scheduledTimestamp: timestamp });
+      replyTo: target ? { messageId: target.id, ping: replyPing() } : null, poll, nonce: newNonce(), scheduledTimestamp: timestamp, accountId });
     if (epoch !== generation) return;
     clearScheduleUnconfirmed(channelId);
     accept(item);

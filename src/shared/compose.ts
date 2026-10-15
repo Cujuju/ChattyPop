@@ -49,11 +49,14 @@ export interface OwnerMessage {
   postWithinMs?: number;
 }
 
-/** A message the outbox sends: kept across reloads and reconnects, so it names the account it was written as. */
-export interface OwnerSend extends OwnerMessage {
-  /** The signed-in account when it was written (null: none yet); main sends it as no other. */
+/** A write whose steps (uploads, retries, a forward's note) span calls: it names the account it was written as. */
+export interface WrittenAs {
+  /** The signed-in account when it was written (null: none yet); main sends no step of it as another. */
   accountId: string | null;
 }
+
+/** A message the outbox sends: kept across reloads and reconnects, so it names the account it was written as. */
+export interface OwnerSend extends OwnerMessage, WrittenAs {}
 
 /** Discord accepted this nonce; its payload can be shown before gateway ingestion. */
 export interface PostedOwnerMessage {
