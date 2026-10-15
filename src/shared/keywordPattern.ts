@@ -20,12 +20,28 @@ export const EMPTY_PATTERN_SPEC: PatternSpec = { anyOf: [], allOf: [], noneOf: [
 const WORD_CHAR = '[\\p{L}\\p{N}]';
 const escape = (s: string): string => s.replace(/[.+^${}()|[\]\\/]/g, '\\$&');
 
-/** One term as regex source: escaped text, glob wildcards, any run of spaces for a space, optional word edges. */
-export function termSource(term: string, wholeWords: boolean): string {
-  const body = escape(term.trim())
-    .replace(/\*/g, `${WORD_CHAR}*`)
-    .replace(/\?/g, WORD_CHAR)
-    .replace(/\s+/g, '\\s+');
+/** Glob `*`: any run of word characters. */
+const ANY_RUN = `${WORD_CHAR}*`;
+/** A glob segment between stars as regex source: escaped text, `?` for one word character, any run of spaces for a space. */
+const segmentSource = (s: string): string => escape(s).replace(/\?/g, WORD_CHAR).replace(/\s+/g, '\\s+');
+
+/**
+ * One term as regex source, with optional word edges. A star before a later star takes the segment's leftmost match,
+ * atomically (lookahead plus backreference), so failure costs linear time per start instead of combinatorial
+ * backtracking. Leftmost is exact: a word-only segment's later matches lie within the same word run, and a segment
+ * holding a non-word character has one possible place. `group` numbers capturing groups in source order.
+ */
+function termSource(term: string, wholeWords: boolean, group: () => number): string {
+  const [first, ...afterStars] = term.trim().split(/\*+/);
+  let body = segmentSource(first!);
+  afterStars.forEach((segment, i) => {
+    const last = i === afterStars.length - 1;
+    if (last) body += `${ANY_RUN}${segmentSource(segment)}`;
+    else {
+      const n = group();
+      body += `(?=(${ANY_RUN}?${segmentSource(segment)}))\\${n}`;
+    }
+  });
   return wholeWords ? `(?<!${WORD_CHAR})${body}(?!${WORD_CHAR})` : body;
 }
 
@@ -43,12 +59,11 @@ export function specProblem(spec: PatternSpec): string | null {
 export function buildPattern(spec: PatternSpec): string {
   const problem = specProblem(spec);
   if (problem) throw new Error(problem);
-  const src = (terms: string[]): string[] => clean(terms).map((t) => termSource(t, spec.wholeWords));
-  const any = src(spec.anyOf);
-  const all = src(spec.allOf);
-  const none = src(spec.noneOf);
-  const conditions = [...all.map((t) => `(?=[\\s\\S]*?${t})`), ...none.map((t) => `(?![\\s\\S]*?${t})`)];
-  const consumed = `(?:${(any.length ? any : all).join('|')})`;
+  let groups = 0;
+  // Called in source order (consumed terms, then all-of, then none-of), so backreferences match their groups.
+  const src = (terms: string[]): string[] => clean(terms).map((t) => termSource(t, spec.wholeWords, () => ++groups));
+  const consumed = `(?:${src(clean(spec.anyOf).length ? spec.anyOf : spec.allOf).join('|')})`;
+  const conditions = [...src(spec.allOf).map((t) => `(?=[\\s\\S]*?${t})`), ...src(spec.noneOf).map((t) => `(?![\\s\\S]*?${t})`)];
   const guard = conditions.length ? `(?<=^${conditions.join('')}[\\s\\S]*)` : '';
   return `/${consumed}${guard}/${spec.matchCase ? 'u' : 'iu'}`;
 }
@@ -57,12 +72,10 @@ export function buildPattern(spec: PatternSpec): string {
 export function matchRanges(re: RegExp, text: string, max: number): [number, number][] {
   const g = new RegExp(re.source, re.flags.includes('g') ? re.flags : `${re.flags}g`);
   const out: [number, number][] = [];
-  for (let m = g.exec(text); m && out.length < max; m = g.exec(text)) {
-    if (m[0].length === 0) {
-      g.lastIndex++; // Reject empty matches to prevent loops.
-      continue;
-    }
-    out.push([m.index, m.index + m[0].length]);
+  // matchAll steps past an empty match by a whole code point in u/v mode; empty matches aren't ranges.
+  for (const m of text.matchAll(g)) {
+    if (out.length >= max) break;
+    if (m[0].length) out.push([m.index, m.index + m[0].length]);
   }
   return out;
 }
