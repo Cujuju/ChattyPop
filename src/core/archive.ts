@@ -205,7 +205,9 @@ export class Archive {
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult {
     const result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
     const getMsg = this.db.prepare('SELECT content, edited_ts, raw_json, pruned_at FROM messages WHERE id = ?');
-    const insert = this.db.prepare('INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const insert = this.db.prepare(
+      'INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via, ephemeral) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
     const refresh = this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?');
     const now = Date.now();
     this.db.transaction(() => {
@@ -229,7 +231,8 @@ export class Archive {
         const changed = !existing || existing.content !== m.content;
         const texted = changed ? 0 : textedLinkCount(this.db, m.id);
         if (!existing) {
-          insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via);
+          const ephemeral = typeof m.flags === 'number' && (m.flags & MESSAGE_FLAG.ephemeral) !== 0 ? 1 : 0;
+          insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via, ephemeral);
           result.inserted++;
         } else {
           const storedJson = rawJsonText(existing.raw_json);
@@ -311,9 +314,10 @@ export class Archive {
   reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number, at: number): number {
     if (!this.optedIn.has(channelId)) return 0;
     const seen = new Set(seenIds);
-    const ephemeral = `COALESCE(${rawJsonSql('$.flags', '')}, 0) & ${MESSAGE_FLAG.ephemeral}`;
+    // The column survives text retention; the payload also covers rows an older build stored in a shared profile.
+    const ephemeral = `(ephemeral = 1 OR COALESCE(${rawJsonSql('$.flags', '')}, 0) & ${MESSAGE_FLAG.ephemeral} != 0)`;
     const stored = this.db
-      .prepare(`SELECT id FROM messages WHERE channel_id = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL AND ${ephemeral} = 0`)
+      .prepare(`SELECT id FROM messages WHERE channel_id = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL AND NOT ${ephemeral}`)
       .all(channelId, sinceTs, untilTs) as { id: string }[];
     const gone = stored.filter((r) => !seen.has(r.id));
     const mark = this.db.prepare('UPDATE messages SET deleted_at = ? WHERE id = ?');

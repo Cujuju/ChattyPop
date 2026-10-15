@@ -213,6 +213,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
     (CAST(id AS INTEGER) >> 22) + 1420070400000);
   CREATE INDEX attachments_ts ON attachments(ts, id);
   `,
+  // 1: an ephemeral reply (only its recipient sees it; history never lists it), kept through text retention.
+  ephemeralMessages,
 ];
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */
@@ -288,6 +290,15 @@ export function discordNameStyles(db: Db): void {
     UPDATE users SET (tag_guild_id, tag, tag_badge) = (SELECT guild_id, tag, badge FROM latest_tags t WHERE t.author_id = users.id)
       WHERE id IN (SELECT author_id FROM latest_tags);
     DROP TABLE latest_tags;
+  `);
+}
+
+/** Keeps Discord's ephemeral flag outside raw_json, which text retention removes; seeded from stored payloads. 64: MESSAGE_FLAG.ephemeral, frozen. */
+export function ephemeralMessages(db: Db): void {
+  db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
+  db.exec(`
+    ALTER TABLE messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0;
+    UPDATE messages SET ephemeral = 1 WHERE raw_json IS NOT NULL AND COALESCE(json_extract(msg_json(raw_json), '$.flags'), 0) & 64 != 0;
   `);
 }
 
