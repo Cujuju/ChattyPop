@@ -96,7 +96,7 @@ export const pluginSetting = <D extends PluginDescriptor>(plugin: D, name: Prefe
 // Host vocabulary.
 export * from '@shared/units';
 export * from '@shared/errors';
-export { PAGE_ERROR_MESSAGE_CHARACTERS, PAGE_ERROR_STACK_CHARACTERS, PAGE_ERRORS_PER_LOAD, pageError, type PageError } from '@shared/pageErrors';
+export { PAGE_ERROR_PATH_ATTRIBUTE, PAGE_ERROR_MESSAGE_CHARACTERS, PAGE_ERROR_STACK_CHARACTERS, PAGE_ERRORS_PER_LOAD, pageError, type PageError } from '@shared/pageErrors';
 export * from '@shared/normalize';
 export { cutText } from '@shared/text';
 export * from '@shared/async';

@@ -1,3 +1,5 @@
+/** The served page root names its same-origin error route before any module runs. */
+export const PAGE_ERROR_PATH_ATTRIBUTE = 'data-error-path';
 /** A page's uncaught errors, as it reports them to diagnostics. */
 export const PAGE_ERROR_MESSAGE_CHARACTERS = 500;
 /** Room for some twenty frames of a dev build's unbundled URLs. */

@@ -1,6 +1,6 @@
 // Renderer SDK exposes contributions, clients, resources, settings/state/events through API leaves and shared code. Excludes plugin registry/host stores; kit supplies UI, shell supplies phone plumbing.
 import { api } from '@/api';
-export { errorReporter } from './errorReporter';
+export { errorReporter, pageLoadId } from './errorReporter';
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import { pluginSettingKey } from '@shared/bundledTypes';
 import { preferenceOf, type Preference, type PreferenceNames, type PreferenceValue } from '@shared/preferences';

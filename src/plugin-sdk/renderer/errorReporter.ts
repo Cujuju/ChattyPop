@@ -1,5 +1,8 @@
 import { PAGE_ERROR_MESSAGE_CHARACTERS, PAGE_ERROR_STACK_CHARACTERS, PAGE_ERRORS_PER_LOAD, type PageError } from '@shared/pageErrors';
 
+/** One host-owned id for this load's errors and timing batches. */
+export const pageLoadId = crypto.randomUUID();
+
 /** What the reporter listens on: the page's window. */
 type ErrorSource = Pick<Window, 'addEventListener'>;
 

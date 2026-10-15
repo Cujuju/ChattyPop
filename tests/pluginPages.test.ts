@@ -77,6 +77,22 @@ describe('plugin pages', () => {
     expect(emitted()).toEqual(['install/icon.png', 'sw.js']);
     expect(emitted('none')).toEqual([]);
   });
+
+  it('serves development pages with the host bootstrap before the plugin entry', async () => {
+    const { plugins, rendererRoot, page } = project();
+    const plugin = pagesPlugin(rendererRoot, { dirs: plugins });
+    let serve: Hook = () => undefined;
+    hook(plugin, 'configureServer')({
+      middlewares: { use: (handler: Hook) => { serve = handler; } },
+      transformIndexHtml: async (_path: string, html: string) => html,
+    });
+    const html = await new Promise<string>((resolve, reject) => {
+      const response = { setHeader: () => response, end: resolve };
+      serve({ url: '/probe.html' }, response, reject);
+    });
+    const scripts = [...html.matchAll(/<script type="module" src="([^"]+)"/g)].map((match) => match[1]);
+    expect(scripts).toEqual([PAGE_BOOTSTRAP, `/@fs/${join(page, 'main.tsx').replaceAll('\\', '/')}`]);
+  });
 });
 
 describe('a transport page', () => {

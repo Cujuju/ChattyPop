@@ -1,7 +1,7 @@
 // Client mode (main/client): the servers it keeps, the page and session each server's windows get, and the preload
 // that gives the desktop shell to that server's pages and no other.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AppEvent } from '@shared/contract';
+import { PAGE_ERROR_CHANNEL, type AppEvent, type RendererApi } from '@shared/contract';
 import type { DesktopShell } from '@shared/desktopShell';
 
 const electron = vi.hoisted(() => ({ exposed: [] as [string, unknown][] }));
@@ -134,5 +134,16 @@ describe("a server window's preload", () => {
     process.argv = [...argv, CONNECT_PAGE_ARG];
     await import('../src/preload/index');
     expect(electron.exposed.map(([key]) => key)).toEqual([CONNECT_GLOBAL]);
+  });
+
+  it('sends local page errors once over desktop IPC', async () => {
+    vi.stubGlobal('location', { origin: 'file://' });
+    await import('../src/preload/index');
+    const { ipcRenderer } = await import('electron');
+    const send = vi.mocked(ipcRenderer.send);
+    send.mockClear();
+    const report = { page: '12345678-1234-1234-1234-123456789abc', at: 0, kind: 'error', message: 'boom', stack: '' } as const;
+    (electron.exposed.find(([key]) => key === 'chattypop')![1] as RendererApi).reportPageError(report);
+    expect(send).toHaveBeenCalledExactlyOnceWith(PAGE_ERROR_CHANNEL, report);
   });
 });
