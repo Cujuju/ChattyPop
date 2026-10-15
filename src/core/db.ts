@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs';
 import Database from 'better-sqlite3-multiple-ciphers';
-import type { CoreStatus } from '@shared/contract';
+import type { ArchiveEncryption, CoreStatus } from '@shared/contract';
 import { dropArchiveViews, installArchiveViews } from './archiveViews';
 import { MIGRATIONS, applyMigration, type Migration } from './migrations';
 import { rawJsonText } from './rawJson';
@@ -84,6 +84,12 @@ export function encryptedOnDisk(path: string): boolean {
   } finally {
     probe.close();
   }
+}
+
+/** The file at `path` as read now; throws when the read fails for any reason other than a missing key. */
+export function encryptionOnDisk(path: string): ArchiveEncryption {
+  if (!hasPages(path)) return 'absent';
+  return encryptedOnDisk(path) ? 'encrypted' : 'plaintext';
 }
 
 /**

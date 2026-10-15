@@ -32,7 +32,7 @@ import { enforceAttachmentCap } from './attachmentRetention';
 import { archiveHandlers } from './archiveHandlers';
 import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
-import { encryptedOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
+import { encryptedOnDisk, encryptionOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
 import { mediaQueueHandlers } from './mediaQueue';
@@ -259,7 +259,11 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
       encrypted = encryptedOnDisk(dbPath); // a failed rekey may still have changed the file
     }
   },
-  archivePlaintext: () => !encryptedOnDisk(dbPath),
+  archiveEncryption: () => {
+    const state = encryptionOnDisk(dbPath);
+    if (state !== 'absent') encrypted = state === 'encrypted'; // a fresh read also corrects the status a failed probe left
+    return state;
+  },
   closeArchive: async () => {
     const { db: open } = ready();
     await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land

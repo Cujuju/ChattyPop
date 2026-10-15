@@ -20,17 +20,20 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   const restart = (): void => restartApp(win);
   handleMain(storage.info, () => storageInfo());
   // The key is saved before encrypting (a crash between the two leaves a key the plaintext file opens without),
-  // and deleted only once a fresh read of the file shows it plaintext: a failed change may have encrypted it anyway.
-  // A failed read or an unreachable core leaves the state unknown, so the key stays.
+  // and deleted only once a fresh read of an existing file shows it plaintext: a failed change may have encrypted it anyway.
+  // A missing file, a failed read or an unreachable core leaves the state unknown, so the key stays.
   const settleKey = async (): Promise<void> => {
-    if (await core.call('archivePlaintext').catch(() => false)) deleteArchiveKey();
+    if ((await core.call('archiveEncryption').catch(() => null)) === 'plaintext') deleteArchiveKey();
   };
   // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
   // The first settle drops a key an interrupted change left unused.
   let encrypting: Promise<void> = settleKey();
   const setEncrypted = async (on: boolean): Promise<void> => {
+    // Read fresh, never from status: a key is replaced only while the file verifiably doesn't use it.
+    const state = await core.call('archiveEncryption');
+    if (state === 'absent') throw new Error('The archive file is missing, so its encryption cannot be changed.');
     // Already so: a second client's same request must not replace (and on failure delete) the key in use.
-    if ((await core.call('status')).encrypted === on) return;
+    if ((state === 'encrypted') === on) return;
     try {
       await core.call('setEncryption', on ? createArchiveKey() : null);
     } finally {

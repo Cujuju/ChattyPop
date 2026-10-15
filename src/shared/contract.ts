@@ -153,8 +153,8 @@ export interface CoreMethods {
   savedWritableChannels(accountId: string): SavedChannelAccess[];
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
-  /** Main-only: reads the database file now; true only when it is verifiably plaintext. Throws when the read fails. */
-  archivePlaintext(): boolean;
+  /** Main-only: the database file's encryption, read from disk now. Throws when the read fails. */
+  archiveEncryption(): ArchiveEncryption;
   /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */
   closeArchive(): Promise<void>;
   /** SQLite quick_check: 'ok', or the first problem found. */
@@ -264,3 +264,6 @@ export interface CoreMethods {
 }
 
 export type CoreMethod = keyof CoreMethods;
+
+/** A database file as read from disk: no file with pages yet (`absent`), or whether a keyless read fails. */
+export type ArchiveEncryption = 'absent' | 'plaintext' | 'encrypted';

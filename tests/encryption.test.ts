@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type Database from 'better-sqlite3-multiple-ciphers';
-import { encryptedOnDisk, openDb, rekey } from '../src/core/db';
+import { encryptedOnDisk, encryptionOnDisk, openDb, rekey } from '../src/core/db';
 import { tempDir } from './helpers';
 
 const KEY = 'dGVzdC1rZXktZm9yLWNoYXR0eXBvcA'; // base64 of "test-key-for-chattypop" gitleaks:allow
@@ -20,6 +20,16 @@ describe('archive encryption', () => {
     rekey(keyed, null);
     keyed.close();
     expect(openDb(path).prepare("SELECT value FROM settings WHERE key = 'probe'").pluck().get()).toBe('1');
+  });
+
+  it('reads a missing file as absent, never as plaintext a key could be deleted for', () => {
+    const path = join(tempDir(), 'archive.db');
+    expect(encryptionOnDisk(path)).toBe('absent');
+    const db = openDb(path);
+    expect(encryptionOnDisk(path)).toBe('plaintext');
+    rekey(db, KEY);
+    db.close();
+    expect(encryptionOnDisk(path)).toBe('encrypted');
   });
 
   it('opens a plaintext file with a key whose encryption never reached it', () => {
