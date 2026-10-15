@@ -196,7 +196,15 @@
 /* A cell's picture: unseen until it has loaded (data-loaded), then faded in over the cell's ground, so none pops in. */
 .mediaThumb {
   opacity: 0;
-  transition: opacity var(--cp-duration-fast) var(--cp-ease);
+  transition:
+    opacity var(--cp-duration-fast) var(--cp-ease),
+    scale var(--cp-duration-fast) var(--cp-ease-out);
+}
+
+/* data-zoom: enlarged while its cell is under the pointer, its shadow hugging the picture over the neighbours. */
+:hover > .mediaThumb[data-zoom] {
+  scale: var(--cp-media-hover-zoom);
+  filter: drop-shadow(var(--cp-shadow-popover));
 }
 
 .mediaThumb[data-loaded='true'] {
