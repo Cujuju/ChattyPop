@@ -38,6 +38,20 @@ describe('a re-fetch older than the stored edit', () => {
     expect(texts).toEqual([]);
   });
 
+  it('stays older than a same-text gateway update that advanced the edit time', () => {
+    const m = rawMessage(CH, T0, 'A', { edited_timestamp: iso(T0 + MS_PER_MIN) });
+    archive.ingestMessages([m], ARRIVAL.gateway);
+    archive.applyUpdate({ id: m.id, channel_id: CH, content: 'A', edited_timestamp: iso(T0 + 3 * MS_PER_MIN), embeds: [{ type: 'rich', title: 'Card' }] });
+    expect(stored(m.id)).toEqual({ content: 'A', editedTs: T0 + 3 * MS_PER_MIN });
+    expect(revisions(m.id)).toEqual([]);
+    texts.length = 0;
+    // Fetched at T2, between the two, delivered after the T3 update.
+    archive.ingestMessages([{ ...m, content: 'B', edited_timestamp: iso(T0 + 2 * MS_PER_MIN) }], ARRIVAL.sync);
+    expect(stored(m.id)).toEqual({ content: 'A', editedTs: T0 + 3 * MS_PER_MIN });
+    expect(revisions(m.id)).toEqual([]);
+    expect(texts).toEqual([]);
+  });
+
   it('ignores a gateway edit older than the stored one', () => {
     const m = rawMessage(CH, T0, 'v1');
     archive.ingestMessages([m], ARRIVAL.gateway);

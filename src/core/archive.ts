@@ -273,7 +273,8 @@ export class Archive {
       const edited = typeof u.content === 'string' && u.content !== row.content ? u.content : null;
       const texted = edited === null ? textedLinkCount(this.db, u.id) : 0;
       if (edited !== null) this.reviseContent(u.id, row, edited, editedTs, merged, Date.now());
-      else this.db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(merged, u.id);
+      // Same text: the version still advances, so a snapshot older than this update stays stale.
+      else this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?').run(editedTs, merged, u.id);
       deriveMessage(this.db, mergedObj, row.author_id); // before matching, which reads attachments and links
       this.onShown(u.id);
       if (edited !== null) this.onText(this.stored(u.id), { via: ARRIVAL.gateway, at: Date.now(), edit: true });
