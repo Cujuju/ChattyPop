@@ -4,9 +4,13 @@ import { BYTES_PER_GB, BYTES_PER_KB, BYTES_PER_MB, MS_PER_MIN } from '@shared/un
 const THOUSAND = 1000;
 const MILLION = 1_000_000;
 
-/** Disk size: whole MB below a GB, else GB to one decimal. */
-export const formatBytes = (bytes: number): string =>
-  bytes >= BYTES_PER_GB ? `${(bytes / BYTES_PER_GB).toFixed(1)} GB` : `${(bytes / BYTES_PER_MB).toFixed(0)} MB`;
+/** Disk size: GB to one decimal, else whole MB, else whole KB, else bytes (a small file never reads "0 MB"). */
+export const formatBytes = (bytes: number): string => {
+  if (bytes >= BYTES_PER_GB) return `${(bytes / BYTES_PER_GB).toFixed(1)} GB`;
+  if (bytes >= BYTES_PER_MB) return `${Math.round(bytes / BYTES_PER_MB)} MB`;
+  if (bytes >= BYTES_PER_KB) return `${Math.round(bytes / BYTES_PER_KB)} KB`;
+  return `${bytes} B`;
+};
 
 /** A file's size in whole KB, as attachments show it; empty when unknown. */
 export const kilobytesText = (bytes: number | null | undefined): string => (bytes ? `${Math.round(bytes / BYTES_PER_KB)} KB` : '');
