@@ -91,4 +91,50 @@ describe('page error reporter', () => {
     for (let i = 0; i <= PAGE_ERRORS_PER_LOAD; i++) page.fire('error', { error: new Error('again'), message: '' });
     expect(send).toHaveBeenCalledTimes(PAGE_ERRORS_PER_LOAD);
   });
+
+  it.each(['error', 'unhandledrejection'])('reports duplicate %s objects once and consumes one slot', (event) => {
+    const send = vi.fn((_report: PageError) => Promise.resolve());
+    const page = source();
+    errorReporter(page, () => AT, send, PAGE);
+    const thrown = new Error('shared failing dependency');
+    const failure = event === 'error' ? { error: thrown, message: thrown.message } : { reason: thrown };
+    page.fire(event, failure);
+    page.fire(event, failure);
+    expect(send).toHaveBeenCalledTimes(1);
+    for (let i = 1; i < PAGE_ERRORS_PER_LOAD; i++) page.fire('error', { error: new Error('distinct'), message: '' });
+    expect(send).toHaveBeenCalledTimes(PAGE_ERRORS_PER_LOAD);
+    expect(send.mock.calls.filter(([report]) => report.message === 'Error: distinct')).toHaveLength(PAGE_ERRORS_PER_LOAD - 1);
+    page.fire('error', { error: new Error('over cap'), message: '' });
+    expect(send).toHaveBeenCalledTimes(PAGE_ERRORS_PER_LOAD);
+  });
+
+  it.each([new Error('shared'), {}, () => undefined])('deduplicates thrown objects across errors and rejections: %s', (thrown) => {
+    const send = vi.fn(() => Promise.resolve());
+    const page = source();
+    errorReporter(page, () => AT, send, PAGE);
+    page.fire('error', { error: thrown, message: 'shared' });
+    page.fire('unhandledrejection', { reason: thrown });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([undefined, null, 'again', 0, false, Symbol('again')])('reports repeated primitives as before: %s', (thrown) => {
+    const send = vi.fn(() => Promise.resolve());
+    const page = source();
+    errorReporter(page, () => AT, send, PAGE);
+    page.fire('error', { error: thrown, message: 'again' });
+    page.fire('error', { error: thrown, message: 'again' });
+    page.fire('unhandledrejection', { reason: thrown });
+    page.fire('unhandledrejection', { reason: thrown });
+    expect(send).toHaveBeenCalledTimes(4);
+  });
+
+  it('tracks thrown objects independently for each page load', () => {
+    const send = vi.fn(() => Promise.resolve());
+    const thrown = new Error('shared');
+    for (const page of [source(), source()]) {
+      errorReporter(page, () => AT, send, PAGE);
+      page.fire('error', { error: thrown, message: '' });
+    }
+    expect(send).toHaveBeenCalledTimes(2);
+  });
 });
