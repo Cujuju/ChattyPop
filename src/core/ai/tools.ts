@@ -1,7 +1,6 @@
 import type { ChatTurn, CompletionRequest, CompletionTool } from './types';
 
-/** 48: Claude prefixes MCP tools with 16 characters under Anthropic's 64-character tool-name limit. */
-export const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{0,47}$/;
+export { TOOL_NAME_PATTERN } from '@shared/aiToolNames';
 export const ROUND_SEPARATOR = '\n\n';
 export const TOOL_CALLS_SPENT: string = 'No more lookups are allowed for this answer. Answer now from what you have.';
 

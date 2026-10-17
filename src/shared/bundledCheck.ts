@@ -1,5 +1,6 @@
 // Pure descriptor checks validate ids, namespaces, duplicates and anchors identically across builds/catalogs and runtime installs.
 import { checkArchiveRefs } from './archiveRefs';
+import { archiveToolName } from './aiToolNames';
 import { HOST_SEARCH_KEYS } from './searchTokens';
 import { HOST_JEV_FEATURES, isHostJevFeature } from './aiSettings';
 import { DECLARED_PROVIDER_ID } from './providerAccounts';
@@ -254,6 +255,8 @@ export function checkBundled(list: readonly PluginDescriptor[], catalog: AnchorC
     if (nesting) throw nestedTablesError(id, nesting.manifest.id);
     if (p.coverage) once('coverage provider', 'coverage');
     if (p.aiRuns) once('AI run provider', 'aiRuns');
+    if (p.aiTools !== undefined && !Array.isArray(p.aiTools)) throw new TypeError(`${id} aiTools must be an array of local names.`);
+    for (const name of p.aiTools ?? []) once('AI tool', archiveToolName(id, name));
     for (const token of p.search?.tokens ?? []) {
       if (!/^[a-z][a-z0-9_]*$/.test(token.key) || (HOST_SEARCH_KEYS as readonly string[]).includes(token.key))
         throw new Error(`Invalid plugin search token ${token.key}`);

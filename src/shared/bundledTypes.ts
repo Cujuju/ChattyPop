@@ -129,6 +129,8 @@ export interface PluginDescriptor {
   preferences?: Readonly<Record<string, AnyPreference>>;
   /** AI providers its core side registers, in the order Settings → AI lists them. */
   providers?: readonly ProviderDecl[];
+  /** Local AI tool names its core side provides through ctx.ai.tools. */
+  aiTools?: readonly string[];
   channels?: AnyChannels;
   panels?: readonly PanelDecl[];
   settings?: readonly SettingsDecl[];

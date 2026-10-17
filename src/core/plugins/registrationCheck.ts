@@ -1,13 +1,13 @@
-// Checks activation registrations against declared core calls, completion handlers, rule kinds, AI providers and search rankers.
+// Checks activation registrations against declared core calls, completion handlers, rule kinds, AI providers, tools and search rankers.
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { completionOf, membersOf } from '@shared/pluginChannels';
 import type { RuleSection } from '@shared/ruleKinds/types';
 
 /**
  * What was registered: a served core call, a completion report's handler, a rule kind in its section, an AI provider,
- * the search ranker.
+ * an AI tool, or the search ranker.
  */
-export type RegistrationKind = 'core call' | 'completion handler' | `rule ${RuleSection}` | 'AI provider' | 'search ranker';
+export type RegistrationKind = 'core call' | 'completion handler' | `rule ${RuleSection}` | 'AI provider' | 'AI tool' | 'search ranker';
 
 /** A registration's key, as Registrations.registered records it. */
 export const registration = (kind: RegistrationKind, name: string): string => `${kind} ${name}`;
@@ -21,7 +21,8 @@ export function declaredRegistrations(plugin: PluginDescriptor): string[] {
   const kinds = Object.entries(plugin.rules ?? {}).flatMap(([section, list]) => list.map((kind) => registration(`rule ${section as RuleSection}`, kind.type)));
   const providers = (plugin.providers ?? []).map((p) => registration('AI provider', p.id));
   const ranker = plugin.search?.ranker ? [registration('search ranker', SEARCH_RANKER)] : [];
-  return [...calls, ...kinds, ...providers, ...ranker];
+  const tools = (plugin.aiTools ?? []).map((name) => registration('AI tool', name));
+  return [...calls, ...kinds, ...providers, ...ranker, ...tools];
 }
 
 /** Throws naming each registration `plugin` declares that `registered` lacks; an activation missing one failed. */

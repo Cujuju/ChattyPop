@@ -52,6 +52,7 @@ export default plugin;
 | `jev.features[].key` | `ctx.jev.decider/isOn(key)`, per-message and rule-match questions' `feature(s)` name only these or host switches | give `jevFeatures[key]` (its Settings row); `jevSwitch(plugin, key)` (kit) reads and sets it |
 | `notices[].kind` | — (main: `ctx.notifications.show({ kind })` names only these) | give `notificationKinds[kind]` (its phone choice) |
 | `search.ranker: true` | `ctx.search.rerank(fn)`, once | — |
+| `aiTools: [name]` | `ctx.ai.tools.provide(tools)` with exactly those local names | — |
 
 Core and main have an `activate(ctx)` that runs once and registers through `ctx`. It is synchronous in core, so bundled plugins register before the startup Jev catch-up. After any bundled activation (startup, or turning a plugin back on) the host requests one coalesced Jev catch-up, once the plugin's questions are registered and rules recompiled, so what arrived while it was off is judged. `ctx.session.resumed` tells an activation whether it continues the previous one without a gap (on through the end of the previous core session and not off since); otherwise caches of what the archive held, such as Alerts' history signatures, are rebuilt. Ordinary registrations through `ctx` are dropped when the plugin is turned off, and after that the context is inert: `settle`, `emit` and other calls do nothing. `activate` returns a disposer only for resources the plugin created itself (a queue, child processes). An activation must register everything its descriptor declares for its side: in core, a `serve` of each core call, a handler for each completion report, each rule kind, each AI provider and its search ranker; in main, a `serve` of each main call. A core activation missing one (or a descriptor with no core side declaring one) fails with an error naming what is missing, and its registrations are dropped as when it is turned off; a main activation missing one, or throwing, is logged (`plugin-activation-failed`) and registers nothing (`src/core/plugins/registrationCheck.ts`, `src/main/plugins/bundled.ts`). Declared completion reports (§3) let already-sent work finish without reactivating the plugin, through a finalizer rather than the context.
 
@@ -182,6 +183,49 @@ Main validates keys before OS-encrypted storage, then sends them to core memory.
 - **Features set to a provider that can't run.** A feature says why in its reply ("… is chosen for <feature>. Needs the X plugin, which is off.", or "which failed to start (see Settings → Plugins): <error>" when its activation threw; rule kinds are explained the same way) and never answers with another provider; the pick stays listed as unavailable in its settings. A stored summary names its provider by label, or by id when this build lacks it.
 - **Local AI only.** Channels set to local AI only use the first declared `local` provider; with none running, requests for them say why. Host wording names the running local providers. Plugins' requests are held to it by their declared read scope (below).
 - **Bundled providers and Plan usage.** Claude, ChatGPT (Codex), Ollama and OpenRouter are the plugins `claude`, `codex`, `ollama` and `openrouter`, declared in that (build) order. Plan usage (`usage`) owns the Plan usage panel (layout id `provider`, kept so saved layouts still place it), its phone drawer pane and the Display name row; without it the panel, pane and row are gone, and display names stay stored. The host reads each provider's plan usage when first asked (`planUsageOf`) and re-reads one after work it ran (`refetchPlanUsage(id)`); the panel asks for every enabled provider, the Summaries status bar for the default.
+
+### Archive tools
+
+SDK 3.3 adds `ctx.archive.search` and `ctx.ai.tools`. A plugin that answers questions can search the same message, derived-text and link-text indexes as the app, and discover tools contributed by other active plugins. Neither service invokes hosted search ranking.
+
+`ctx.archive.search(query, options)` takes free text only; filter tokens remain literal text. `ArchiveSearchOptions` requires `channelIds` (empty means no hits) and `limit` (an integer in `1..ARCHIVE_SEARCH_MAX`, 100), with optional `authorIds`, `since` and `until` (inclusive milliseconds). It returns `ArchiveSearchHit[]` (`messageId`, `channelId`, `ts`) in best-match order, deduplicated across indexes with live message privacy applied. No words means no hits; a limit outside the bounds throws `RangeError`.
+
+The descriptor's optional `aiTools: readonly string[]` declares local names matching `/^[a-z][a-z0-9_]{0,23}$/`, unique per plugin. Models see `<pluginId>_<name>`, which must also match `TOOL_NAME_PATTERN` (at most 48 characters); a plugin id containing dashes cannot contribute tools under this naming contract. `checkBundled` rejects invalid names, long qualified names and duplicates. Activation must provide every declared name exactly once; undeclared, repeated or missing registrations fail activation and its registrations are dropped.
+
+The core SDK exports these contracts:
+
+```ts
+interface ArchiveToolScope {
+  readonly channelIds: readonly string[];
+  readonly since: number | null;
+  readonly until: number | null;
+}
+interface ArchiveToolLine { text: string; messageId?: string }
+interface ArchiveToolResult {
+  lines: readonly ArchiveToolLine[];
+  readChannels?: readonly string[];
+  note?: string;
+}
+interface ArchiveTool {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  run(args: unknown, scope: ArchiveToolScope, signal: AbortSignal): Promise<ArchiveToolResult>;
+}
+interface ArchiveToolInfo {
+  name: string;
+  plugin: string;
+  pluginName: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+```
+
+`description` tells the model what the tool returns and when to use it. `parameters` is a JSON Schema object (`type: 'object'`, `properties`, `additionalProperties: false`) accepted by `z.fromJSONSchema`. `ctx.ai.tools.provide(tools: readonly ArchiveTool[]): void` runs during activation. `list(): readonly ArchiveToolInfo[]` returns other active plugins' qualified tools in build order, with independent metadata copies. Re-read it for each answer. `run(name, args, scope, signal): Promise<ArchiveToolResult>` executes a listed tool; unknown names reject with `Error`, retired names with `PluginInactiveError`.
+
+The caller selects channels permitted for its AI provider (§3 AI read scope) and passes those as `scope.channelIds`. A tool reads only those channels and its inclusive time window (`null` is unbounded). The host intersects channels with privacy-visible `archive_channels` before running it, and rejects reversed or non-finite windows with `RangeError`. Scope is immutable. Lines quoting or describing one message carry its `messageId`; aggregate lines declare the channels shaping them in `readChannels`, which the caller records as read.
+
+Before returning, the host checks every cited message against `archive_messages`, the channel scope and time window. It drops invalid lines and non-string text, filters `readChannels` to the scope, and redacts line text and `note` with current privacy. It keeps at most `ARCHIVE_TOOL_LINES_MAX` (50) valid lines and appends a note when more remain. Dropped-line counts are logged once per run with the contributing plugin id; invalid lines do not reach answers. Visibility is checked again after asynchronous work. A throw is recorded on the contributing plugin and rejects with its message. Abort rejects promptly with the signal's reason; turning either the contributing or calling plugin off aborts pending work, even if it ignores cancellation. The SDK's `testPlugin` uses these same registrations and guards.
 
 ### AI read scope
 

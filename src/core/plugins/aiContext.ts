@@ -14,6 +14,8 @@ import { revocable } from '../ai/revocable';
 import { keyError } from '../ai/keyError';
 import type { BundledDeps } from './bundled';
 import { registration } from './registrationCheck';
+import { archiveToolServices } from './archiveToolContext';
+import type { ArchiveTool, ArchiveToolInfo, ArchiveToolResult, ArchiveToolScope } from '../ai/archiveTools';
 
 /** AI services scoped to one bundled plugin. */
 export interface PluginAi<D extends PluginDescriptor = PluginDescriptor> {
@@ -41,6 +43,14 @@ export interface PluginAi<D extends PluginDescriptor = PluginDescriptor> {
   /** The host's OpenRouter keys, for a provider declared as paid through them. */
   openRouterKeys: OpenRouterKeyReader;
   usage: { provide(read: UsageReader): void };
+  tools: {
+    /** Supplies exactly the declared names during activation, until the plugin turns off. */
+    provide(tools: readonly ArchiveTool[]): void;
+    /** Other active plugins' qualified tools in build order; re-read for each answer. */
+    list(): readonly ArchiveToolInfo[];
+    /** Host-scoped run; unknown names reject, and retired tools reject with PluginInactiveError. */
+    run(name: string, args: unknown, scope: ArchiveToolScope, signal: AbortSignal): Promise<ArchiveToolResult>;
+  };
   /** Settings → AI or Settings → Jev was saved. */
   onSettingsChange(fn: () => void): void;
 }
@@ -51,6 +61,7 @@ const NO_USAGE = { runs: 0, inputTokens: 0, cachedInputTokens: 0, outputTokens: 
 /** Builds a plugin's AI services; `ask` runs plugin code with a fallback, `guard` records a plugin's throw. */
 export function pluginAi<D extends PluginDescriptor>(
   plugin: D,
+  buildIndex: number,
   bundled: BundledDeps,
   reg: Registrations,
   /** The activation's lifetime: what it hands out is cancelled when it ends. */
@@ -73,6 +84,7 @@ export function pluginAi<D extends PluginDescriptor>(
   const unavailable = (id: ProviderId, settings: AiSettings = bundled.aiSettings()): string | null =>
     providers.unavailable(id) ?? offReason(id, settings);
   return {
+    tools: archiveToolServices(plugin, buildIndex, bundled.ready, reg, lifetime, (err) => guard(() => { throw err; })),
     settings: bundled.aiSettings,
     provider: (id, settings = bundled.aiSettings()) => {
       const why = unavailable(id, settings);

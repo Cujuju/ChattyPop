@@ -176,7 +176,7 @@ export function createCoreContext<D extends PluginDescriptor>(
       send({ type: 'rules-changed' });
       return ids;
     }),
-    ai: pluginAi(plugin, bundled, reg, lifetime.signal, ask, guard),
+    ai: pluginAi(plugin, buildIndex, bundled, reg, lifetime.signal, ask, guard),
     jev: pluginJev(plugin, buildIndex, bundled, reg, lifetime, live, ask),
     net: {
       fetch: lifetimeFetch(descriptorFetch(plugin, (key) => getSetting(bundled.ready(), key), bundled.send), lifetime),

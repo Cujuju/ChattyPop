@@ -94,6 +94,7 @@ export type { OpenRouterKeyReader } from '@core/ai/registry';
 export { OPENROUTER_APP_HEADERS, openRouterErrorText, type OpenRouterError } from '@core/ai/openRouterKeys';
 export { OPENROUTER_API, type OpenRouterKeyBalance, type OpenRouterKeyEntry } from '@shared/openrouter';
 export type { PluginAi } from '@core/plugins/aiContext';
+export { ARCHIVE_TOOL_LINES_MAX, type ArchiveToolScope, type ArchiveToolLine, type ArchiveToolResult, type ArchiveTool, type ArchiveToolInfo } from '@core/ai/archiveTools';
 export { LocalOnlyError, boundDecider, type AiReader, type AiSources, type PluginCompletionRequest, type PluginDecider, type PluginProvider, type ReadScope } from '@core/ai/readScope';
 export type { Answer, DecisionProvider, Question } from '@core/ai/decisions';
 export type { PluginMessageQuestion } from '@core/plugins/jevContext';
