@@ -14,6 +14,7 @@ import { partTexts, tagDerivedParts, type PartText } from '../derivedText';
 import { messageParts, type MessagePart } from '../messageParts';
 import { messageImages, type LinkImage, type MessageImage } from '../messageImages';
 import { messagesByIds } from '../queries/messages';
+import { archiveSearch, type ArchiveSearchHit, type ArchiveSearchOptions } from '../queries/archiveSearch';
 import { lastReader, messageRead } from '../queries/readMarks';
 import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
@@ -32,6 +33,8 @@ export interface Importer {
 
 /** Archive services scoped to one bundled plugin. */
 export interface PluginArchive {
+  /** Free text across message, derived and link text, best matches first; privacy and caller scope applied. */
+  search(query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[];
   /** Payload metadata for selected ids, including compressed payloads; background reads retain their original scope. */
   payloads: ArchivePayloadReader;
   /** Indexed early-exit reply check over original archive data. */
@@ -160,6 +163,7 @@ export function pluginArchive(
   const { bundled } = deps;
   const settle = derivedTextSettler(id, bundled, plugins);
   return {
+    search: (query, opts) => live() ? archiveSearch(bundled.ready(), query, opts) : [],
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
     messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),

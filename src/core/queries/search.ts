@@ -9,6 +9,7 @@ import { CONTENT_SQL, rawJsonSql } from './messageContent';
 import { mentionsFrom } from './messageExtras';
 import { displayNameSql } from './names';
 import { visibleMessageSql } from './privacy';
+import { searchIndexUnion } from './searchIndexes';
 
 /** Tokens (words) of context FTS5 keeps around matches in a result snippet. */
 const SNIPPET_TOKENS = 14;
@@ -112,22 +113,17 @@ export function searchMessages(db: Db, text: string, limit: number, sort: Search
                          ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName, m.ts, ${rawJsonSql('$.mentions')} AS mentionsJson`;
   const joins = 'LEFT JOIN channels c ON c.id = m.channel_id LEFT JOIN users u ON u.id = m.author_id';
   if (q) {
-    const hits = (fts: string, from: string): string =>
-      `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score
-       ${from} ${joins} WHERE ${fts} MATCH ?${filters}`;
+    const hits = (fts: string): string =>
+      `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score`;
     // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
-    const sources = [
-      hits('fts_messages', 'FROM fts_messages f JOIN messages m ON m.seq = f.rowid'),
-      hits('fts_derived_texts', 'FROM fts_derived_texts fd JOIN derived_texts d ON d.seq = fd.rowid JOIN messages m ON m.id = d.message_id'),
-      hits('fts_links', 'FROM fts_links fl JOIN message_links ml ON ml.link_id = fl.rowid JOIN messages m ON m.id = ml.message_id'),
-    ];
+    const union = searchIndexUnion(q, hits, joins, filters, f.params);
     const rows = db
       .prepare(
         `SELECT messageId, channelId, channelName, authorName, ts, mentionsJson, snippet, MIN(score) AS score FROM (
-           ${sources.join(' UNION ALL ')}
+           ${union.sql}
          ) GROUP BY messageId ORDER BY ${sort === 'relevance' ? 'score' : `ts ${TIME_ORDER[sort]}`} LIMIT ?`,
       )
-      .all(...sources.flatMap(() => [q, ...f.params]), limit) as (HitRow & { score: number })[];
+      .all(...union.params, limit) as (HitRow & { score: number })[];
     return rows.map(({ score: _score, mentionsJson, ...hit }) => ({ ...hit, mentions: mentionsFrom(mentionsJson) }));
   }
   const rows = db

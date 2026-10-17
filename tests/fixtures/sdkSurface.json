@@ -170,6 +170,7 @@
       "visibleTable"
     ],
     "@plugin-sdk/core": [
+      "ARCHIVE_SEARCH_MAX",
       "ARRIVAL",
       "HOSTED_MAX_INPUT_CHARS",
       "IS_WINDOWS",
@@ -805,6 +806,8 @@
       "ArchiveReplyExists",
       "ArchiveReplyReader",
       "ArchiveReplyTargets",
+      "ArchiveSearchHit",
+      "ArchiveSearchOptions",
       "Arrived",
       "AttachmentNoteProvider",
       "ChatTurn",
