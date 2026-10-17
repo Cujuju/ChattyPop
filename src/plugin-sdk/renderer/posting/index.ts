@@ -20,6 +20,9 @@ export {
   type DraftFile,
   type DraftFileInput,
 } from '@/state/composer';
+/** Drafts set aside per channel (SDK 3.4): stash the box's draft, list the stash, bring one back. */
+export { stashDraft, stashedDrafts, unstashDraft } from '@/state/draftStash';
+export type { SavedDraft } from '@/state/drafts';
 export { discardSend, dismissSending, editSend, outgoing, retrySend, sendingDismissed, type Outgoing } from '@/state/outbox';
 
 // Slash commands: the menu, the command being filled in, and its options.

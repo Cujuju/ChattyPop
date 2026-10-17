@@ -1,5 +1,5 @@
 {
-  "version": "3.3.0",
+  "version": "3.4.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -620,9 +620,12 @@
       "startForward",
       "startReply",
       "startThread",
+      "stashDraft",
+      "stashedDrafts",
       "suggest",
       "typedBuiltin",
       "unfinishedOptions",
+      "unstashDraft",
       "updateScheduledMessage"
     ],
     "@plugin-sdk/renderer/shell": [
@@ -1051,6 +1054,7 @@
       "MentionCandidate",
       "NewThread",
       "Outgoing",
+      "SavedDraft",
       "ScheduledMessage",
       "ScheduledUpdate",
       "SolidIconName",
