@@ -333,6 +333,7 @@
       "SegGroup",
       "Select",
       "SettingsButton",
+      "SolidIcon",
       "StatusBarItem",
       "Switch",
       "TopBarButton",
@@ -986,6 +987,7 @@
       "ProviderModels",
       "SearchOption",
       "SectionDef",
+      "SolidIconName",
       "StoredAttachmentRef"
     ],
     "@plugin-sdk/renderer/posting": [

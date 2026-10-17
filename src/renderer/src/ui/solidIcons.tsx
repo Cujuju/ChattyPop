@@ -62,6 +62,8 @@ const SOLID_ICONS = {
   // A bin with its lid: Discord's Delete.
   trash: () => <path d="M9 2h6l1 2h5v2H3V4h5ZM4.5 8h15l-1.3 12.2A2 2 0 0 1 16.2 22H7.8a2 2 0 0 1-2-1.8Z" />,
   send: () => <path d="M3.4 20.4 21 12 3.4 3.6V10l12 2-12 2Z" />,
+  // A rounded square: stop a running answer or task.
+  stop: () => <rect x="6" y="6" width="12" height="12" rx="2" />,
   sticker: () => (
     <>
       <path d="M6 3h12a3 3 0 0 1 3 3v6h-5a4 4 0 0 0-4 4v5H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Z" />

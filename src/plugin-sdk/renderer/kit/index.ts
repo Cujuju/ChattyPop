@@ -81,6 +81,7 @@ export { DmFace } from '@/ui/DmFace';
 export { EffortSelect, effortLabel, hasEffortChoice, keptEffort } from '@/views/settings/EffortSelect';
 export { SectionGlyph, SectionIcon } from '@/ui/SectionIcon';
 export { Icon } from '@/ui/icons';
+export { SolidIcon, type SolidIconName } from '@/ui/solidIcons';
 // A site's brand mark in text colour, with a globe for unknown hosts.
 export { BrandIcon } from '@/ui/BrandIcon';
 export { QrCode } from '@/ui/QrCode';
