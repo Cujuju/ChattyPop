@@ -68,7 +68,6 @@ export function completionContract(provider: LlmProvider): LlmProvider {
       };
       const close = (): void => {
         active = false;
-        delete request.onEvent;
         signal.removeEventListener('abort', close);
       };
       signal.addEventListener('abort', close, { once: true });

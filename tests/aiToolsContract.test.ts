@@ -107,11 +107,13 @@ describe('completion lifetime', () => {
     else if (lifetime === 'request') controller.abort(new Error('cancelled'));
     else h.off();
     await rejected;
-    expect(captured).not.toHaveProperty('onEvent');
+    expect(captured.onEvent).toBe(emit);
     emit({ type: 'toolResult', callId: 'late', ok: true });
+    captured.onEvent!({ type: 'toolResult', callId: 'late', ok: true });
     result.resolve({ text: 'late' });
     await result.promise;
     emit({ type: 'text', delta: 'late' });
+    captured.onEvent!({ type: 'text', delta: 'late' });
     expect(events).toEqual([{ type: 'text', delta: 'early' }]);
   });
 
@@ -130,8 +132,9 @@ describe('completion lifetime', () => {
       result.reject(new Error('failed'));
       await expect(pending).rejects.toThrow('failed');
     }
-    expect(captured).not.toHaveProperty('onEvent');
+    expect(captured.onEvent).toBe(emit);
     emit({ type: 'text', delta: 'late' });
+    captured.onEvent!({ type: 'text', delta: 'late' });
     expect(onEvent).toHaveBeenCalledExactlyOnceWith({ type: 'text', delta: 'early' });
   });
 
@@ -176,6 +179,7 @@ describe('completion lifetime', () => {
     await h.registry.accountsChanged({ ...h.settings, accounts: [] });
     await rejected;
     emit({ type: 'text', delta: 'late' });
+    captured.onEvent!({ type: 'text', delta: 'late' });
     await expect(captured.tools![0]!.run({}, new AbortController().signal)).rejects.toBe(captured.signal!.reason);
     expect(onEvent).not.toHaveBeenCalled();
     result.resolve({ text: 'late' });
@@ -216,7 +220,11 @@ describe('answer text events', () => {
     await h.provider.complete({ system: '', prompt: '', ...(mode === 'schema' ? { schema: {} } : {}), ...(mode !== 'no callback' ? { onEvent } : {}) });
     if (mode === 'streamed') expect(onEvent).toHaveBeenCalledExactlyOnceWith({ type: 'text', delta: 'answer' });
     else expect(onEvent).not.toHaveBeenCalled();
-    expect(h.seen[0]).not.toHaveProperty('onEvent');
+    if (mode === 'no callback') expect(h.seen[0]).not.toHaveProperty('onEvent');
+    else {
+      h.seen[0]!.onEvent!({ type: 'text', delta: 'late' });
+      expect(onEvent).toHaveBeenCalledTimes(mode === 'streamed' ? 1 : 0);
+    }
   });
 });
 
