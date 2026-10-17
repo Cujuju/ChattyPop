@@ -43,12 +43,13 @@ const NO_PHONE_EXTRAS = (): never => {
 };
 
 /** Declares scripted test providers. */
-const scriptedDeclaration = (id: string, local: boolean, images: boolean): DeclaredProvider => ({
+const scriptedDeclaration = (id: string, local: boolean, images: boolean, tools: boolean): DeclaredProvider => ({
   id,
   label: id,
   displayName: id,
   local,
   images,
+  tools,
   plugin: { id: providerPlugin(id), name: id },
 });
 
@@ -76,7 +77,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     listeners.forEach((fn) => fn(structuredClone(e)));
   };
   const scripted = o.ai?.providers ?? [];
-  const decls = [...providerDeclarations(installed), ...scripted.map((p) => ({ ...scriptedDeclaration(p.id, p.local ?? false, p.images ?? false), accounts: p.accounts, apiKey: p.apiKey }))];
+  const decls = [...providerDeclarations(installed), ...scripted.map((p) => ({ ...scriptedDeclaration(p.id, p.local ?? false, p.images ?? false, p.tools ?? false), accounts: p.accounts, apiKey: p.apiKey }))];
   const features = installed.flatMap((p) => (p.jev?.features ?? []).map((f) => ({ key: stampedName(p.manifest.id, f.key), default: f.default })));
   const registry = new ProviderRegistry(() => undefined, decls);
   registry.setProviderApiKeys(o.ai?.apiKeys ?? {});

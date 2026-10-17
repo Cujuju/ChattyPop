@@ -142,11 +142,14 @@ export function boundDecider(jev: PluginDecider, reads: ReadScope): DecisionProv
 }
 
 /** A completion from the provider a folder plugin names (HostDeps.ai). */
-export type ScopedCompletion = (req: Omit<CompletionRequest, 'model' | 'effort'> & Reads & { provider: ProviderId }) => Promise<{ text: string; json?: unknown }>;
+// PluginApi is versioned separately from the descriptor SDK's chat contract.
+type FolderRequest = Omit<CompletionRequest, 'model' | 'effort' | 'history' | 'tools' | 'maxToolCalls' | 'onEvent'>;
+export type ScopedCompletion = (req: FolderRequest & Reads & { provider: ProviderId }) => Promise<{ text: string; json?: unknown }>;
 
 /** Validates provider availability, settings and read scope before sending a folder plugin completion with the selected model and effort. */
 export function scopedCompletion(db: () => Db, registry: ProviderFacts & Pick<ProviderRegistry, 'get' | 'unavailable'>, settings: () => AiSettings): ScopedCompletion {
-  return async ({ reads, provider, ...req }) => {
+  return async (given) => {
+    const { reads, provider, history: _history, tools: _tools, maxToolCalls: _maxToolCalls, onEvent: _onEvent, ...req } = given as CompletionRequest & Reads & { provider: ProviderId };
     declared(reads);
     const s = settings();
     const choice = s.providers[provider];

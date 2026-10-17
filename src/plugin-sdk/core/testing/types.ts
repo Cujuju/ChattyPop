@@ -31,6 +31,8 @@ export interface ScriptedProvider {
   local?: boolean;
   /** Declared to read images (ProviderDecl.images). */
   images?: boolean;
+  /** Declared to call tools (ProviderDecl.tools). */
+  tools?: boolean;
   /** Account capabilities of a scripted provider; linkAccount drives its test sign-in. */
   accounts?: import('@plugin-sdk/shared').ProviderAccountsDecl;
   apiKey?: import('@plugin-sdk/shared').ProviderApiKeyDecl;
