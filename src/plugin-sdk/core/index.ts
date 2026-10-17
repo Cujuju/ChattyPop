@@ -56,6 +56,18 @@ export { X_POST_URL_PREFIX, X_STATUS_PATH, normalizeUrl } from '@core/derive/lin
 export { ARRIVAL, liveAtOf, type Arrived, type TextMessage } from '@core/arrival';
 export { clipMessage } from '@core/ai/clip';
 export {
+  TOOL_NAME_PATTERN,
+  ROUND_SEPARATOR,
+  TOOL_CALLS_SPENT,
+  toolRunner,
+  answerStream,
+  historyTranscript,
+  ftsQuery,
+  type ToolOutcome,
+  type ToolRunner,
+  type AnswerStream,
+} from '@core/ai/tools';
+export {
   HOSTED_MAX_INPUT_CHARS,
   ProviderUnavailableError,
   chosenModel,
