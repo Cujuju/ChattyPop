@@ -85,6 +85,8 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
     marketplace: viaMain('marketplace'),
     rules: { pickFile: serverOnly('Choosing a rule file') },
     media: {
+      saveAttachmentsToFolder: serverOnly('Saving stored files to a folder'),
+      showAttachmentFolder: serverOnly('Showing an export folder'), startFileDrag: serverOnly('Dragging stored files'),
       beginReplacement: serverOnly('Compressing stored attachments'),
       replacementChunk: serverOnly('Compressing stored attachments'),
       finishReplacement: serverOnly('Compressing stored attachments'),

@@ -3,6 +3,9 @@ import type { StoredFile } from '../media';
 /** Maximum attachments freed in one owner request. */
 export const FREE_ATTACHMENTS_MAX = 1000;
 
+export interface FolderSaveResult { saved: number; failed: number; folder: string }
+export interface FolderSaveProgress { done: number; total: number }
+
 export interface FreeResult {
   /** Attachments marked evicted. */
   freed: number;

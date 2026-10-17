@@ -362,7 +362,7 @@ void app.whenReady().then(() => {
     publish,
   });
   registerRuleHandlers(win);
-  registerMediaHandlers(media.attachments);
+  registerMediaHandlers(media.attachments, { folderRecord: profilePath('attachment-export-folder.json'), previewsDir: media.previews });
   registerAttachmentStoreHandlers(media.attachments, core);
 
   const shutdown = shutdownSequence({
