@@ -30,16 +30,32 @@ export function exportLeafName(file: StoredFile): string {
 }
 
 const FIRST_COLLISION = 2;
+/** Windows' and most file systems' longest path component, in UTF-16 units. */
+export const MAX_LEAF_CHARS = 255;
+
+/** `stem` shortened so `stem + tail` fits one path component; a cut never splits a surrogate pair. */
+function fitLeaf(stem: string, tail: string): string {
+  const room = MAX_LEAF_CHARS - tail.length;
+  if (stem.length <= room) return stem + tail;
+  const cut = /[\uD800-\uDBFF]/.test(stem[room - 1] ?? '') ? room - 1 : room;
+  // Windows drops a name's trailing dots and spaces, so a cut never ends on one.
+  return stem.slice(0, cut).replace(/[. ]+$/, '') + tail;
+}
+
+/** `name`, or its numbered collision form, within MAX_LEAF_CHARS; a file-type extension (SAFE_EXT) is never cut. */
+export function exportCandidate(name: string, suffix: number | null): string {
+  const ext = extname(name);
+  const keepExt = SAFE_EXT.test(ext.slice(1).toLowerCase());
+  const stem = keepExt ? name.slice(0, -ext.length) : name;
+  return fitLeaf(stem, `${suffix === null ? '' : ` (${suffix})`}${keepExt ? ext : ''}`);
+}
+
 /** Exclusive copies preserve existing files, including collisions created by another concurrent export. */
 async function copyUnique(source: string, folder: string, name: string): Promise<void> {
-  const ext = extname(name);
-  const stem = ext ? name.slice(0, -ext.length) : name;
-  let candidate = name;
-  for (let suffix = FIRST_COLLISION; ; suffix++) {
-    try { await copyFile(source, join(folder, candidate), constants.COPYFILE_EXCL); return; }
+  for (let suffix: number | null = null; ; suffix = suffix === null ? FIRST_COLLISION : suffix + 1) {
+    try { await copyFile(source, join(folder, exportCandidate(name, suffix)), constants.COPYFILE_EXCL); return; }
     catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      candidate = `${stem} (${suffix})${ext}`;
     }
   }
 }
