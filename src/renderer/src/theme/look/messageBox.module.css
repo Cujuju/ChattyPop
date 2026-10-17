@@ -215,7 +215,8 @@
   transform-origin: var(--zoom-origin, center);
 }
 
-:hover > .mediaThumb[data-zoom] {
+/* Its cell under the pointer, or previewed from the keyboard (data-preview on the cell). */
+:is(:hover, [data-preview='true']) > .mediaThumb[data-zoom] {
   scale: var(--zoom, var(--cp-media-hover-zoom));
   filter: drop-shadow(var(--cp-shadow-popover));
 }
