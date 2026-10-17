@@ -16,8 +16,6 @@ export interface ToolField {
 }
 export type ToolFields = Record<string, ToolField>;
 const LOCAL_TIME_PATTERN = '^\\d{4}-\\d{2}-\\d{2}( \\d{2}:\\d{2})?$';
-/** Local tool dates have minute precision; inclusive day ends retain the final millisecond. */
-const DAY_END = { hour: 23, minute: 59, second: 59, millisecond: 999 };
 /** ISO-style local date components have at least two digits. */
 const DATE_COMPONENT_WIDTH = 2;
 /** Local tool dates use four-digit years. */
@@ -62,7 +60,7 @@ export function parseToolArgs<T>(raw: unknown, fields: ToolFields, required: str
   return values as T;
 }
 
-/** Parses strict local dates and rejects normalized invalid dates and nonexistent daylight-saving times. */
+/** Date-only bounds cover the local day; explicit times reject nonexistent daylight-saving times. */
 export function parseToolTime(value: unknown, bound: 'since' | 'until' = 'since'): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'string' || !new RegExp(LOCAL_TIME_PATTERN).test(value)) throw new Error(`Invalid ${bound} date: use YYYY-MM-DD or YYYY-MM-DD HH:mm in local time.`);
@@ -73,8 +71,12 @@ export function parseToolTime(value: unknown, bound: 'since' | 'until' = 'since'
   result.setFullYear(year, month - 1, day);
   result.setHours(hour, minute, 0, 0);
   if (result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day
-    || result.getHours() !== hour || result.getMinutes() !== minute) throw new Error(`Invalid ${bound} local date.`);
-  if (!time && bound === 'until') result.setHours(DAY_END.hour, DAY_END.minute, DAY_END.second, DAY_END.millisecond);
+    || (time && (result.getHours() !== hour || result.getMinutes() !== minute))) throw new Error(`Invalid ${bound} local date.`);
+  if (!time && bound === 'until') {
+    result.setDate(day + 1);
+    result.setHours(0, 0, 0, 0);
+    return result.getTime() - 1;
+  }
   return result.getTime();
 }
 
@@ -105,8 +107,8 @@ export function toolScopeSql(scope: ArchiveToolScope): { sql: string; params: (s
 }
 
 /** Readers fetch one extra row to report truncation without loading every matching message. */
-export function toolResult(lines: ArchiveToolLine[], limit: number = ARCHIVE_TOOL_LINES_MAX, readChannels?: readonly string[], more = false): ArchiveToolResult {
+export function toolResult(lines: ArchiveToolLine[], limit: number = ARCHIVE_TOOL_LINES_MAX, readChannels: readonly string[], more = false): ArchiveToolResult {
   const cap = Math.min(limit, ARCHIVE_TOOL_LINES_MAX);
-  return { lines: lines.slice(0, cap), ...(readChannels ? { readChannels } : {}),
-    ...(more || lines.length > cap ? { note: 'More results not shown.' } : {}) };
+  return { lines: lines.slice(0, cap), readChannels,
+    ...(more || lines.length > cap ? { more: true } : {}) };
 }

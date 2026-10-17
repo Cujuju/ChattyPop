@@ -21,9 +21,11 @@ export interface ArchiveToolLine {
 
 export interface ArchiveToolResult {
   lines: readonly ArchiveToolLine[];
-  /** Required, non-empty provenance for uncited lines and the plugin note; every channel must remain in scope. */
+  /** Every channel shaping any line or note, including cited lines' channels. Required and non-empty whenever lines is non-empty. */
   readChannels?: readonly string[];
   note?: string;
+  /** More matching results exist; the host appends its fixed truncation notice. */
+  more?: boolean;
 }
 
 export interface ArchiveTool {
@@ -39,6 +41,8 @@ export interface ArchiveToolInfo { name: string; plugin: string; pluginName: str
 
 /** Keeps tool answers small enough for a model to read alongside other lookups. */
 export const ARCHIVE_TOOL_LINES_MAX = 50;
+const UNAVAILABLE_NOTE = "This lookup's results are unavailable.";
+const MORE_NOTE = 'More results not shown.';
 
 interface Entry {
   order: number;
@@ -70,8 +74,14 @@ function guardedResult(db: Db, pluginId: string, result: unknown, scope: Archive
   if (!isObj(result) || !Array.isArray(result['lines'])) throw new TypeError('An archive tool must return lines.');
   const allowed = new Set(scope.channelIds);
   const declared = result['readChannels'];
-  const uncitedAllowed = Array.isArray(declared) && declared.length > 0
-    && declared.every((id) => typeof id === 'string' && allowed.has(id));
+  const provenanceValid = Array.isArray(declared) && declared.length > 0
+    && [...declared].every((id) => typeof id === 'string' && allowed.has(id));
+  if (result['lines'].length && !provenanceValid) {
+    console.warn(`[plugin ${pluginId}] archive-tool-dropped-lines`, result['lines'].length);
+    return { lines: [], note: UNAVAILABLE_NOTE };
+  }
+  const readChannels = provenanceValid ? [...new Set(declared as string[])] : [];
+  const provenance = new Set(readChannels);
   const message = db.prepare('SELECT channel_id AS channelId, ts FROM archive_messages WHERE id = ?');
   const { redact } = privacy(db);
   const lines: ArchiveToolLine[] = [];
@@ -82,19 +92,21 @@ function guardedResult(db: Db, pluginId: string, result: unknown, scope: Archive
     if (id !== undefined) {
       if (typeof id !== 'string') continue;
       const row = message.get(id) as { channelId: string; ts: number } | undefined;
-      if (!row || !allowed.has(row.channelId) || (scope.since !== null && row.ts < scope.since) || (scope.until !== null && row.ts > scope.until)) continue;
-    } else if (!uncitedAllowed) continue;
+      if (!row || !allowed.has(row.channelId) || !provenance.has(row.channelId)
+        || (scope.since !== null && row.ts < scope.since) || (scope.until !== null && row.ts > scope.until)) continue;
+    }
     if (lines.length >= ARCHIVE_TOOL_LINES_MAX) { capped = true; continue; }
     lines.push({ text: redact(line['text']), ...(id !== undefined ? { messageId: id as string } : {}) });
   }
   const dropped = result['lines'].length - lines.length;
   if (dropped) console.warn(`[plugin ${pluginId}] archive-tool-dropped-lines`, dropped);
-  const note = uncitedAllowed && typeof result['note'] === 'string' ? redact(result['note']) : '';
-  const readChannels = Array.isArray(result['readChannels']) ? [...new Set(result['readChannels'].filter((id): id is string => typeof id === 'string' && allowed.has(id)))] : undefined;
+  const note = provenanceValid && typeof result['note'] === 'string' ? redact(result['note']) : '';
+  const more = result['more'] === true || capped;
   return {
     lines,
-    ...(readChannels !== undefined ? { readChannels } : {}),
-    ...(note || capped ? { note: [note, capped ? 'More results not shown.' : ''].filter(Boolean).join('\n') } : {}),
+    ...(Array.isArray(declared) ? { readChannels } : {}),
+    ...(more ? { more: true } : {}),
+    ...(note || more ? { note: [note, more ? MORE_NOTE : ''].filter(Boolean).join('\n') } : {}),
   };
 }
 

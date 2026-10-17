@@ -59,9 +59,9 @@ describe('archive tool kit', () => {
 
   it('caps results and retains provenance and truncation information', () => {
     const lines = Array.from({ length: ARCHIVE_TOOL_LINES_MAX + 1 }, (_, n) => ({ text: String(n) }));
-    expect(toolResult(lines).lines).toHaveLength(ARCHIVE_TOOL_LINES_MAX);
-    expect(toolResult(lines, 1, ['first'])).toEqual({ lines: [lines[0]], readChannels: ['first'], note: 'More results not shown.' });
-    expect(toolResult([], 1, [], true)).toEqual({ lines: [], readChannels: [], note: 'More results not shown.' });
-    expect(toolResult([])).toEqual({ lines: [] });
+    expect(toolResult(lines, undefined, ['first']).lines).toHaveLength(ARCHIVE_TOOL_LINES_MAX);
+    expect(toolResult(lines, 1, ['first'])).toEqual({ lines: [lines[0]], readChannels: ['first'], more: true });
+    expect(toolResult([], 1, [], true)).toEqual({ lines: [], readChannels: [], more: true });
+    expect(toolResult([], undefined, [])).toEqual({ lines: [], readChannels: [] });
   });
 });

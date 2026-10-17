@@ -1,6 +1,6 @@
 // Archive tool contracts through fixture descriptors and the SDK's real testing host.
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
-import { ARCHIVE_TOOL_LINES_MAX, PluginInactiveError, TOOL_NAME_PATTERN, defineCorePlugin, type ArchiveTool, type ArchiveToolResult, type ArchiveToolScope, type CoreContext } from '@plugin-sdk/core';
+import { ARCHIVE_TOOL_LINES_MAX, PluginInactiveError, TOOL_NAME_PATTERN, defineCorePlugin, toolResult, type ArchiveTool, type ArchiveToolResult, type ArchiveToolScope, type CoreContext } from '@plugin-sdk/core';
 import { definePlugin } from '@plugin-sdk/shared';
 import { testPlugin } from '@plugin-sdk/core/testing';
 import { checkBundled } from '@shared/bundledCheck';
@@ -146,25 +146,38 @@ describe('archive tool host guards', () => {
   it('drops absent, out-of-scope, out-of-window and invisible message lines; keeps inclusive edges', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     onTestFinished(() => warn.mockRestore());
-    const h = start(async () => ({ lines: [-1, 0, 1, 2, 3, 4, 5, 6].map((n) => ({ text: `row ${n}`, messageId: messageId(n) })).concat([{ text: 'missing', messageId: 'missing' }]) }));
-    expect(await h.run()).toEqual({ lines: [0, 1, 2].map((n) => ({ text: `row ${n}`, messageId: messageId(n) })) });
+    const h = start(async () => ({ lines: [-1, 0, 1, 2, 3, 4, 5, 6].map((n) => ({ text: `row ${n}`, messageId: messageId(n) })).concat([{ text: 'missing', messageId: 'missing' }]), readChannels: ['c1'] }));
+    expect(await h.run()).toEqual({ lines: [0, 1, 2].map((n) => ({ text: `row ${n}`, messageId: messageId(n) })), readChannels: ['c1'] });
     expect(warn).toHaveBeenCalledExactlyOnceWith('[plugin toolprobe] archive-tool-dropped-lines', 6);
     const all = await h.run({ ...scope, since: null, until: null });
     expect(all.lines.map((l) => l.messageId)).toEqual([-1, 0, 1, 2, 3].map(messageId));
   });
 
-  it('filters and deduplicates readChannels and redacts both line text and notes', async () => {
+  it('deduplicates readChannels and redacts both line text and notes', async () => {
     const h = start(async () => ({ lines: [{ text: '#quiet-room in sealed-server', messageId: messageId(1) }, { text: 'Totals from quiet-room' }], readChannels: ['c1', 'c1'], note: 'quiet-room / sealed-server' }));
     expect(await h.run()).toEqual({ lines: [{ text: '#private-channel in a private server', messageId: messageId(1) }, { text: 'Totals from #private-channel' }], readChannels: ['c1'], note: '#private-channel / a private server' });
   });
 
-  it.each([undefined, [], ['c1', 'c2'], ['c1', 7]])('drops uncited content and plugin notes without complete visible provenance: %j', async (readChannels) => {
-    const h = start(async () => ({ lines: [{ text: 'secretword: 42' }, { text: 'Cited fact', messageId: messageId(1) }],
-      readChannels, note: 'secretword note' } as ArchiveToolResult));
+  it.each([undefined, [], 'c1', ['c1', 'c2'], ['c1', 7], Array(1)])('rejects the whole result without complete visible provenance: %j', async (readChannels) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    onTestFinished(() => warn.mockRestore());
+    const h = start(async () => ({ lines: [{ text: 'Cited fact', messageId: messageId(1) }],
+      readChannels, note: 'secretword note', more: true } as ArchiveToolResult));
     const result = await h.run();
-    expect(result.lines).toEqual([{ text: 'Cited fact', messageId: messageId(1) }]);
-    expect(result.note).toBeUndefined();
-    expect(result.readChannels).toEqual(readChannels === undefined ? undefined : readChannels.length ? ['c1'] : []);
+    expect(result).toEqual({ lines: [], note: "This lookup's results are unavailable." });
+    expect(warn).toHaveBeenCalledExactlyOnceWith('[plugin toolprobe] archive-tool-dropped-lines', 1);
+  });
+
+  it('drops a cited line whose channel contradicts otherwise valid provenance', async () => {
+    const h = start(async () => ({ lines: [{ text: 'Cited fact', messageId: messageId(1) }, { text: 'Uncited fact' }], readChannels: ['c2'], note: 'Plugin note.' }));
+    expect(await h.run({ ...scope, channelIds: ['c1', 'c2'] })).toEqual({ lines: [{ text: 'Uncited fact' }], readChannels: ['c2'], note: 'Plugin note.' });
+  });
+
+  it('appends one fixed truncation note for cited-only tools even when the host also caps lines', async () => {
+    const h = start(async () => toolResult([{ text: 'Cited fact', messageId: messageId(1) }], 1, ['c1'], true));
+    expect(await h.run()).toEqual({ lines: [{ text: 'Cited fact', messageId: messageId(1) }], readChannels: ['c1'], more: true, note: 'More results not shown.' });
+    const capped = start(async () => ({ lines: Array.from({ length: ARCHIVE_TOOL_LINES_MAX + 1 }, () => ({ text: 'Cited fact', messageId: messageId(1) })), readChannels: ['c1'], more: true }));
+    expect((await capped.run()).note).toBe('More results not shown.');
   });
 
   it('drops non-string text and malformed lines, caps output, appends a note and logs once', async () => {
@@ -226,7 +239,16 @@ describe('archive tool host guards', () => {
     const pending = h.run();
     h.t.archive.setChannel('c1', { hidden: true });
     finish({ lines: [{ text: 'now hidden', messageId: messageId(1) }, { text: 'secretword: 42' }], readChannels: ['c1'], note: 'secretword note' });
-    expect(await pending).toEqual({ lines: [], readChannels: [] });
+    expect(await pending).toEqual({ lines: [], note: "This lookup's results are unavailable." });
+  });
+
+  it('rejects a cited summary item when another contributing channel becomes hidden mid-run', async () => {
+    let finish!: (result: ArchiveToolResult) => void;
+    const h = start(() => new Promise((resolve) => { finish = resolve; }));
+    const pending = h.run({ ...scope, channelIds: ['c1', 'c2'] });
+    h.t.archive.setChannel('c2', { hidden: true });
+    finish({ lines: [{ text: 'Summary combines two channels', messageId: messageId(1) }], readChannels: ['c1', 'c2'], note: 'Summary detail.' });
+    expect(await pending).toEqual({ lines: [], note: "This lookup's results are unavailable." });
   });
 
   it('forwards caller deactivation to a running tool and rejects with PluginInactiveError', async () => {
