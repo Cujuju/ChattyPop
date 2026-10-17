@@ -1,7 +1,7 @@
 // Scoped free-text search for plugins, with the app's index union and live privacy.
 import type { Db } from '../db';
+import { ftsQuery } from '../ai/tools';
 import { visibleMessageSql } from './privacy';
-import { ftsQuery } from './search';
 import { searchIndexUnion } from './searchIndexes';
 
 /** Bounds plugin search results to a small set suitable for follow-up archive reads. */
@@ -20,7 +20,7 @@ export interface ArchiveSearchOptions {
 
 export interface ArchiveSearchHit { messageId: string; channelId: string; ts: number }
 
-/** Best match first, deduplicated across all three text indexes. Filter tokens remain literal free text. */
+/** Matches any distinctive word, best match first, deduplicated across indexes. Ignores stopwords and short words; no distinctive words means no hits. Filter tokens remain literal text. */
 export function archiveSearch(db: Db, query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[] {
   if (!Number.isInteger(opts.limit) || opts.limit < 1 || opts.limit > ARCHIVE_SEARCH_MAX) {
     throw new RangeError(`Archive search limit must be between 1 and ${ARCHIVE_SEARCH_MAX}.`);

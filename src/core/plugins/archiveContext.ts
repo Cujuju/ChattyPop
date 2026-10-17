@@ -33,7 +33,7 @@ export interface Importer {
 
 /** Archive services scoped to one bundled plugin. */
 export interface PluginArchive {
-  /** Free text across message, derived and link text, best matches first; privacy and caller scope applied. */
+  /** Matches any distinctive word across message, derived and link text, best match first. Ignores stopwords and short words; none remaining means no hits. Applies privacy and scope. */
   search(query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[];
   /** Payload metadata for selected ids, including compressed payloads; background reads retain their original scope. */
   payloads: ArchivePayloadReader;

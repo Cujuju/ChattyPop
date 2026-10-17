@@ -49,6 +49,28 @@ describe('plugin archive search', () => {
     expect(h.search('quartz', { since: START + 4 })).toEqual([]);
   });
 
+  it('finds messages matching one distinctive word in a full question', () => {
+    const h = start();
+    expect(h.search('What did people decide about the quartz date?').map((r) => r.messageId).sort())
+      .toEqual([messageId(1), messageId(2), messageId(3), messageId(4)]);
+  });
+
+  it('ranks a message matching two query words above one matching one', () => {
+    const h = start();
+    h.t.archive.arrive([
+      { id: messageId(5), channelId: 'c1', ts: START + 4, content: 'launch agenda' },
+      { id: messageId(6), channelId: 'c1', ts: START + 5, content: 'launch date' },
+    ]);
+    expect(h.search('launch date').map((r) => r.messageId)).toEqual([messageId(6), messageId(5)]);
+  });
+
+  it('returns no hits for stopwords and short words only', () => {
+    const h = start();
+    h.t.archive.arrive([{ id: messageId(5), channelId: 'c1', ts: START + 4, content: 'What did the AI do?' }]);
+    expect(h.search('what did the')).toEqual([]);
+    expect(h.search('AI do')).toEqual([]);
+  });
+
   it('evaluates privacy on each search, including hidden references in visible messages', () => {
     const h = start();
     h.t.archive.arrive([{ id: messageId(5), channelId: 'c1', content: 'quartz <#c3>', ts: START + 4 }]);
@@ -61,7 +83,7 @@ describe('plugin archive search', () => {
   it('takes free text only, and returns no hits without words or after unload', async () => {
     const h = start();
     expect(h.search(' \t ')).toEqual([]);
-    expect(h.search('quartz from:u2')).toEqual([]);
+    expect(h.search('quartz from:u2')).toEqual(h.search());
     await h.t.off();
     expect(h.search()).toEqual([]);
   });
