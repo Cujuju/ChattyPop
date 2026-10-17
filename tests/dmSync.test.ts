@@ -25,17 +25,16 @@ beforeEach(() => {
   h.a.upsertPrivateChannel(null, { id: LEGACY, type: DM_CHANNEL_TYPE, recipients: [BOB] }, true);
   for (const id of [DM, GROUP, NEW, LEGACY]) h.a.setOptIn(id, true);
 });
-const sorted = async (method: 'optedInChannels' | 'optedInDms'): Promise<string[]> => ((await h.call(method)) as string[]).sort();
+const sorted = async (method: 'optedInChannels'): Promise<string[]> => ((await h.call(method)) as string[]).sort();
 const leave = (id: string): unknown => h.call('applyGatewayEvent', 'CHANNEL_DELETE', { id, type: GROUP_DM_CHANNEL_TYPE });
 
 describe('what sync keeps', () => {
   it("the signed-in account's archived DMs only, never a group left; no DM before READY names the account", async () => {
     expect(await sorted('optedInChannels')).toEqual([GUILD_CHANNEL, DM, GROUP].sort());
-    expect(await sorted('optedInDms')).toEqual([DM, GROUP].sort());
     expect(await h.call('syncable', NEW)).toBe(false);
     expect(await h.call('syncable', LEGACY)).toBe(false);
     await leave(GROUP);
-    expect(await sorted('optedInDms')).toEqual([DM]);
+    expect(await sorted('optedInChannels')).toEqual([GUILD_CHANNEL, DM].sort());
     expect(await h.call('syncable', GROUP)).toBe(false);
     h.signIn(OTHER);
     expect(await sorted('optedInChannels')).toEqual([GUILD_CHANNEL, NEW].sort());
@@ -76,7 +75,7 @@ const sentFor = (sent: string[], id: string): string[] => sent.filter((p) => p.i
 describe('sync', () => {
   it("stops a queued DM once another account signs in, then queues that account's archived DMs", async () => {
     const { sync, sent, settled } = syncOver();
-    await sync.signedIn(SELF);
+    await sync.sessionReady();
     let done = settled();
     await sync.syncAll();
     // READY for another account lands while the account's first channel syncs.
@@ -84,7 +83,7 @@ describe('sync', () => {
     await done;
     expect([sentFor(sent, DM), sentFor(sent, GROUP), sentFor(sent, NEW)]).toEqual([[], [], []]);
     done = settled();
-    await sync.signedIn(OTHER);
+    await sync.sessionReady();
     await done;
     expect(sentFor(sent, NEW)).toHaveLength(1);
     expect(sentFor(sent, LEGACY)).toEqual([]);

@@ -122,8 +122,6 @@ export interface CoreMethods {
   setOptIn(channelId: string, on: boolean): void;
   /** Archived channels sync keeps current: a DM only when it is the signed-in account's and not a group left. */
   optedInChannels(): string[];
-  /** The signed-in account's archived DMs sync keeps current: queued once READY names the account. */
-  optedInDms(): string[];
   /** Whether sync still keeps a channel or thread current (as optedInChannels): checked before each page. */
   syncable(channelId: string): boolean;
   /** Stores threads of archived channels; returns those with messages left to sync. */
@@ -155,8 +153,10 @@ export interface CoreMethods {
   savedWritableChannels(accountId: string): SavedChannelAccess[];
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
+  /** Main-only: the database file's encryption, read from disk now. Throws when the read fails. */
+  archiveEncryption(): ArchiveEncryption;
   /** Checkpoints/closes the database for copying. Subsequent calls fail until restart. */
-  closeArchive(): void;
+  closeArchive(): Promise<void>;
   /** SQLite quick_check: 'ok', or the first problem found. */
   integrityCheck(): string;
   plugins(): PluginInfo[];
@@ -185,12 +185,16 @@ export interface CoreMethods {
   /** The owner's poll vote, applied to the archive before the call resolves. */
   applyOwnPollVote(v: OwnerPollVote): void;
   syncState(channelId: string): SyncState;
-  /** Marks deleted every stored message of the channel in [sinceTs, untilTs] that a fresh fetch no longer returned; returns how many. */
-  reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number): number;
+  /** Marks deleted every stored message of the channel from `fromId` through `throughId` that a fresh fetch no longer returned; returns how many. */
+  reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string): number;
+  /** The channel's newest stored message, deleted ones included; null when none is stored. */
+  newestStoredId(channelId: string): string | null;
   messagePage(q: MessagePageQuery): ArchiveMessage[];
   messageWindow(q: MessagePageQuery): MessageWindow;
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */
   messageById(messageId: string): ArchiveMessage | null;
+  /** Archived messages by id, as the Archive shows them, in no set order; ids not archived or hidden by privacy mode are left out. */
+  messagesByIds(messageIds: string[]): ArchiveMessage[];
   /** The first `limit` matches in `sort` order. */
   searchMessages(text: string, limit: number, sort: SearchSort): SearchHit[];
   /** One person's footprint in the archive; null when the archive has never seen them. */
@@ -243,16 +247,23 @@ export interface CoreMethods {
   archivedVideos(): PendingAttachment[];
   /** Where an attachment is fetched from (a video's poster); null once it or its message left Discord. */
   attachmentSource(id: string): PendingAttachment | null;
-  attachmentStored(id: string, sha256: string, bytes: number): void;
+  /** `storedExt`: the extension of the store's one file for this content when it differs from the filename's, else null. */
+  attachmentStored(id: string, sha256: string, bytes: number, storedExt: string | null): void;
   freeAttachments(ids: string[]): FreeResult;
   attachmentRecompressed(r: ReplaceStored): { savedBytes: number };
   storedFile(id: string): StoredAttachmentFile | null;
-  attachmentFailed(id: string, error: string): void;
+  /** `retryable`: a later attempt may succeed (network, server, disk); false when Discord refused or no longer has the file. */
+  attachmentFailed(id: string, error: string, retryable: boolean): void;
+  /** When the earliest delayed download retry is due (ms); null when none waits. */
+  nextAttachmentRetry(): number | null;
   pendingEmojis(limit: number): PendingEmoji[];
   /** `error` null = stored. */
   emojiDone(id: string, error: string | null): void;
-  /** Stores a sync page and advances the channel's sync cursors atomically. */
-  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult;
+  /** Stores a sync page and advances the channel's sync cursors atomically; null (nothing stored or moved) once sync no longer keeps the channel. */
+  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult | null;
 }
 
 export type CoreMethod = keyof CoreMethods;
+
+/** A database file as read from disk: no file with pages yet (`absent`), or whether a keyless read fails. */
+export type ArchiveEncryption = 'absent' | 'plaintext' | 'encrypted';

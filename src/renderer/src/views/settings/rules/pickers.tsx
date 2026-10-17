@@ -1,4 +1,5 @@
-import { For, Show, createResource, createSignal, createUniqueId, type JSX } from 'solid-js';
+import { For, Show, createSignal, createUniqueId, type JSX } from 'solid-js';
+import { keyedResource } from '@/state/keyedResource';
 import { listen, onPointerDownOutside } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
 import { RemovableChip } from './TermChips';
@@ -52,19 +53,20 @@ export function AddPicker(props: {
   const [open, setOpen] = createSignal(false);
   const [query, setQuery] = createSignal('');
   const listId = createUniqueId();
-  const [found] = createResource(
-    () => (props.search && open() && query().trim() ? query() : null),
-    (q) => props.search!(q),
-    { initialValue: [] },
-  );
+  // Only the open picker's current query's people: an earlier query's must not be pickable while this one loads.
+  const found = keyedResource(() => (props.search && open() && query().trim() ? query() : null), (q) => props.search!(q));
   const shown = (): PickOption[] => {
-    if (props.search) return found();
+    if (props.search) return found() ?? [];
     const words = query().toLowerCase().split(/\s+/).filter(Boolean);
     return (props.options?.() ?? []).filter((o) => words.every((w) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(w))).slice(0, MAX_SHOWN);
   };
   const emptyText = (): string => {
-    if (props.search && !query().trim()) return 'Type a name';
-    return found.loading ? 'Searching…' : (props.empty ?? 'Nothing matches');
+    if (props.search) {
+      if (!query().trim()) return 'Type a name';
+      if (found.failure) return "Couldn't search";
+      if (found() === undefined) return 'Searching…';
+    }
+    return props.empty ?? 'Nothing matches';
   };
   const pick = (o: PickOption): void => {
     props.onPick(o.value);

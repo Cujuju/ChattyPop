@@ -100,14 +100,14 @@ describe('archive: edits and deletes are never lost', () => {
 describe('archive: sync cursors', () => {
   it('extend only from sync pages, never from live messages', () => {
     const page = [rawMessage(GENERAL, T0, 'a'), rawMessage(GENERAL, T0 + MS_PER_MIN, 'b')];
-    archive.ingestSyncPage(GENERAL, page, 'older', false);
+    archive.ingestSyncPage(GENERAL, page, 'older', false, null);
     archive.ingestMessages([rawMessage(GENERAL, T0 + 10 * MS_PER_MIN, 'live')], ARRIVAL.gateway);
     const s = archive.syncState(GENERAL);
     expect(s).toMatchObject({ oldestId: page[0]!.id, newestId: page[1]!.id, count: 3, backfillComplete: false });
   });
 
   it('marks backfill complete when an older page reaches the start', () => {
-    archive.ingestSyncPage(GENERAL, [rawMessage(GENERAL, T0, 'a')], 'older', true);
+    archive.ingestSyncPage(GENERAL, [rawMessage(GENERAL, T0, 'a')], 'older', true, null);
     expect(archive.syncState(GENERAL).backfillComplete).toBe(true);
   });
 });
@@ -131,7 +131,7 @@ describe('archive: threads follow their parent', () => {
   it('reports a synced thread again only when it has newer messages', () => {
     const id = '300000000000000001';
     archive.upsertThreads([thread(id, GENERAL, T0)], 0);
-    archive.ingestSyncPage(id, [rawMessage(id, T0, 'x')], 'older', true);
+    archive.ingestSyncPage(id, [rawMessage(id, T0, 'x')], 'older', true, null);
     expect(archive.upsertThreads([thread(id, GENERAL, T0)], 0)).toEqual([]);
     expect(archive.upsertThreads([thread(id, GENERAL, T0 + MS_PER_MIN)], 0)).toEqual([id]);
   });
@@ -204,13 +204,16 @@ describe('archive: direct messages', () => {
 describe('archive: startup re-check', () => {
   it('marks deleted only the stored messages missing from the re-fetched window', () => {
     const before = rawMessage(GENERAL, T0 - MS_PER_MIN, 'outside, older');
-    const kept = rawMessage(GENERAL, T0, 'kept');
+    // The range's ends share their milliseconds with messages outside it.
+    const sameMsOlder = rawMessage(GENERAL, T0, 'outside, same millisecond');
+    const kept = rawMessage(GENERAL, T0, 'kept', { id: snowflakeFromMs(T0, 1) });
     const gone = rawMessage(GENERAL, T0 + MS_PER_MIN, 'deleted while closed');
     const edge = rawMessage(GENERAL, T0 + 2 * MS_PER_MIN, 'kept too');
+    const sameMsNewer = rawMessage(GENERAL, T0 + 2 * MS_PER_MIN, 'outside, same millisecond', { id: snowflakeFromMs(T0 + 2 * MS_PER_MIN, 1) });
     const after = rawMessage(GENERAL, T0 + 3 * MS_PER_MIN, 'outside, newer');
-    archive.ingestMessages([before, kept, gone, edge, after], ARRIVAL.gateway);
-    expect(archive.reconcileDeletes(GENERAL, [kept.id, edge.id], T0, T0 + 2 * MS_PER_MIN, T0 + 10 * MS_PER_MIN)).toBe(1);
+    archive.ingestMessages([before, sameMsOlder, kept, gone, edge, sameMsNewer, after], ARRIVAL.gateway);
+    expect(archive.reconcileDeletes(GENERAL, [kept.id, edge.id], kept.id, edge.id, T0 + 10 * MS_PER_MIN)).toBe(1);
     expect(row(gone.id).deleted_at).toBe(T0 + 10 * MS_PER_MIN);
-    for (const m of [before, kept, edge, after]) expect(row(m.id).deleted_at).toBeNull();
+    for (const m of [before, sameMsOlder, kept, edge, sameMsNewer, after]) expect(row(m.id).deleted_at).toBeNull();
   });
 });

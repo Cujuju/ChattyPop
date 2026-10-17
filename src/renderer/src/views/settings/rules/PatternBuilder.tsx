@@ -1,7 +1,7 @@
 import { For, Match, Show, Switch, createMemo, createSignal, type JSX } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import type { ContentKind } from '@shared/messageContent';
-import { EMPTY_PATTERN_SPEC, buildPattern, specProblem, type PatternSpec } from '@shared/keywordPattern';
+import { EMPTY_PATTERN_SPEC, buildPattern, specProblem, textPatternOrEmpty, type PatternSpec, type TextMatch } from '@shared/keywordPattern';
 import { keywordRegex } from '@shared/keywordPattern';
 import { errorText } from '@/ui/format';
 import { PatternTester } from './PatternTester';
@@ -10,10 +10,8 @@ import styles from './PatternBuilder.module.css';
 import chips from './TermChips.module.css';
 
 /** What a rule matches by text: the stored pattern, and the builder rule it came from (null when typed). */
-export interface MatchValue {
-  pattern: string;
-  spec: PatternSpec | null;
-}
+export type MatchValue = TextMatch;
+
 
 type Mode = 'keywords' | 'builder' | 'regex';
 const REGEX_PATTERN = /^\/(.+)\/([a-z]*)$/s;
@@ -34,6 +32,8 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
   const initial = (): Mode => (props.value.spec ? 'builder' : REGEX_PATTERN.test(props.value.pattern.trim()) ? 'regex' : 'keywords');
   const [mode, setMode] = createSignal<Mode>(initial());
   const spec = (): PatternSpec => props.value.spec ?? EMPTY_PATTERN_SPEC;
+  /** The pattern the rule runs: a builder rule's current output, not its stored copy. */
+  const pattern = createMemo(() => textPatternOrEmpty(props.value));
   const regexParts = () => {
     const m = REGEX_PATTERN.exec(props.value.pattern.trim());
     return m ? { body: m[1]!, flags: m[2]! } : { body: '', flags: DEFAULT_FLAGS };
@@ -44,7 +44,7 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
       if (problem) return { re: null, error: problem };
     }
     try {
-      return { re: keywordRegex(props.value.pattern), error: null };
+      return { re: keywordRegex(pattern()), error: null };
     } catch (err) {
       return { re: null, error: errorText(err) };
     }
@@ -80,7 +80,7 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
     } else if (next === 'keywords') {
       props.onChange({ spec: null, pattern: from === 'builder' ? spec().anyOf.join(', ') : '' });
     } else {
-      props.onChange({ spec: null, pattern: from === 'builder' ? props.value.pattern : '' });
+      props.onChange({ spec: null, pattern: from === 'builder' ? pattern() : '' });
     }
   };
 
@@ -109,10 +109,10 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
             Match case
           </label>
           <p class="cp-hint">Enter or comma adds. * is any letters, ? exactly one.</p>
-          <Show when={props.value.pattern}>
+          <Show when={pattern()}>
             <div class="cp-field">
               <span class="cp-label">Regex</span>
-              <code class={styles.code}>{props.value.pattern}</code>
+              <code class={styles.code}>{pattern()}</code>
               <button type="button" class={styles.linkButton} onClick={() => switchMode('regex')}>
                 Edit as regex
               </button>
@@ -145,7 +145,7 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
           </p>
         )}
       </Show>
-      <PatternTester re={compiled().re} pattern={props.value.pattern} channelIds={props.channelIds} contains={props.contains} />
+      <PatternTester re={compiled().re} pattern={pattern()} channelIds={props.channelIds} contains={props.contains} />
     </div>
   );
 }

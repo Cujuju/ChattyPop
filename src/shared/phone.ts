@@ -25,6 +25,7 @@ export const PHONE_CORE_METHODS = [
   'messagePage',
   'messageWindow',
   'messageById',
+  'messagesByIds',
   'searchMessages',
   'rankSearch',
   'personProfile',

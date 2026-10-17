@@ -255,6 +255,8 @@ class ShellViewController: CAPBridgeViewController, WKHTTPCookieStoreObserver {
 
     @objc private func emojiBackgrounded() { emojiCache?.suspend() }
     @objc private func emojiForegrounded() {
+        // Resumed under the kept pairing; a changed cookie then replaces it, which fails the resumed loads.
+        emojiCache?.resume()
         if let cookieStore { cookiesDidChange(in: cookieStore) }
     }
 

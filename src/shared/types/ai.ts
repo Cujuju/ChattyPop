@@ -28,6 +28,8 @@ export interface ModelOption {
   isDefault?: boolean;
   /** It reads images sent with a prompt (a provider declared with `images`). */
   images?: boolean;
+  /** It calls tools sent with a request (a provider declared with `tools`). */
+  tools?: boolean;
   /** Its size on disk, for a model installed on this computer. */
   bytes?: number;
 }

@@ -23,6 +23,8 @@ final class ShellEmojiCache: EmojiImageLoader {
     private var context: EmojiPairingContext?
     private var pairingReady = false
     private var closed = false
+    /// Backgrounded: waiting callers stay, but no lookup or download runs until `resume`.
+    private var suspended = false
     private var preparation: Task<Void, Never>?
     private var loads: [UUID: Load] = [:]
     private var keys: [EmojiAssetKey: UUID] = [:]
@@ -48,12 +50,7 @@ final class ShellEmojiCache: EmojiImageLoader {
         context = next
         pairingReady = true
         purgeMemory()
-        if wasReady {
-            for load in Array(loads.values) {
-                load.task?.cancel()
-                finish(load, .failure(.cancelled))
-            }
-        }
+        if wasReady { cancelAll() }
         let preceding = preparation
         preparation = Task { [weak self, store] in
             await preceding?.value
@@ -63,7 +60,7 @@ final class ShellEmojiCache: EmojiImageLoader {
             if let next { await store.activate(namespace: next.namespace, generation: next.generation) }
             else if let previous { try? await store.clear(namespace: previous.namespace) }
         }
-        if !wasReady { for load in Array(loads.values) { startLookup(load) } }
+        if !wasReady && !suspended { for load in Array(loads.values) { startLookup(load) } }
     }
 
     @discardableResult
@@ -86,7 +83,7 @@ final class ShellEmojiCache: EmojiImageLoader {
             load.task = Task { [weak self] in self?.finish(load, .failure(.queueFull)) }
         } else {
             keys[key] = load.id
-            if pairingReady { startLookup(load) }
+            if pairingReady && !suspended { startLookup(load) }
         }
         return token
     }
@@ -122,20 +119,33 @@ final class ShellEmojiCache: EmojiImageLoader {
     func purgeMemory() { memory.removeAll(); memoryBytes = 0 }
     func flush() { Task { [store] in try? await store.flush() } }
 
-    /// Backgrounding stops foreground work while retaining the validated pairing and durable files.
+    /// Backgrounding stops foreground work while retaining the validated pairing, durable files and waiting callers: a
+    /// mounted image's request is answered after `resume`, not failed.
     func suspend() {
-        for load in Array(loads.values) {
+        suspended = true
+        // Unkeyed loads already carry their immediate failure.
+        for load in Array(loads.values) where keys[load.key] == load.id {
             load.task?.cancel()
-            finish(load, .failure(.cancelled))
+            park(load)
         }
         purgeMemory()
         flush()
     }
 
+    /// Foregrounding restarts the loads `suspend` parked and those asked for since. A pairing change meanwhile failed them.
+    func resume() {
+        guard suspended else { return }
+        suspended = false
+        guard pairingReady, !closed else { return }
+        for load in Array(loads.values) where load.task == nil { startLookup(load) }
+    }
+
     func close() {
         guard !closed else { return }
         closed = true
-        suspend()
+        cancelAll()
+        purgeMemory()
+        flush()
         let previous = context
         context = nil
         let preceding = preparation
@@ -192,7 +202,7 @@ final class ShellEmojiCache: EmojiImageLoader {
     }
 
     private func drain() {
-        while active.count < max(1, policy.downloadsMax), !queue.isEmpty {
+        while !suspended, active.count < max(1, policy.downloadsMax), !queue.isEmpty {
             let id = queue.removeFirst()
             guard let load = loads[id], let context = load.context, isLive(load) else { continue }
             active.insert(id)
@@ -231,6 +241,22 @@ final class ShellEmojiCache: EmojiImageLoader {
         let callbacks = Array(load.callers.values)
         discard(load)
         for callback in callbacks { callback(result) }
+    }
+    /// Fails every load: its context is gone.
+    private func cancelAll() {
+        for load in Array(loads.values) {
+            load.task?.cancel()
+            finish(load, .failure(.cancelled))
+        }
+    }
+    /// Replaces `load` with an unstarted one holding its callers; work begun for `load` finds it gone and stops.
+    private func park(_ load: Load) {
+        let parked = Load(key: load.key)
+        parked.callers = load.callers
+        discard(load)
+        loads[parked.id] = parked
+        keys[parked.key] = parked.id
+        for token in parked.callers.keys { tokens[token] = parked.id }
     }
     private func discard(_ load: Load) {
         loads.removeValue(forKey: load.id)

@@ -14,6 +14,20 @@ export function inChannelsSql(column: string, channelIds: readonly string[]): { 
 }
 
 /**
+ * SQL true when `column` is one of `channelIds` (or a thread of one) or a channel of one of `guildIds`: a union, as a
+ * rule's Where picks places. null when both are empty (anywhere). Bind `params` where the SQL goes.
+ */
+export function inPlacesSql(column: string, channelIds: readonly string[], guildIds: readonly string[]): { sql: string; params: string[] } | null {
+  const parts = [
+    ...(channelIds.length ? [inChannelsSql(column, channelIds)] : []),
+    ...(guildIds.length
+      ? [{ sql: `${column} IN (SELECT id FROM channels WHERE guild_id IN (${guildIds.map(() => '?').join(', ')}))`, params: [...guildIds] }]
+      : []),
+  ];
+  return parts.length ? { sql: `(${parts.map((p) => p.sql).join(' OR ')})`, params: parts.flatMap((p) => p.params) } : null;
+}
+
+/**
  * SQL true when message `m` is in the channel bound to `param` (a named parameter, e.g. `@channel`) or in any channel
  * under it. Unlike inChannelsSql, children of every kind count.
  */

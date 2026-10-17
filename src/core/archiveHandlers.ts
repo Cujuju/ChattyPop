@@ -27,7 +27,6 @@ type Handlers = Pick<
   | 'upsertChannels'
   | 'setOptIn'
   | 'optedInChannels'
-  | 'optedInDms'
   | 'syncable'
   | 'upsertThreads'
   | 'channelInfo'
@@ -50,9 +49,11 @@ type Handlers = Pick<
   | 'putGuildOrder'
   | 'syncState'
   | 'reconcileDeletes'
+  | 'newestStoredId'
   | 'messagePage'
   | 'messageWindow'
   | 'messageById'
+  | 'messagesByIds'
   | 'applyOwnReaction'
   | 'applyOwnPollVote'
   | 'ingestSyncPage'
@@ -132,7 +133,6 @@ export function archiveHandlers(o: {
     upsertChannels: (guildId, channels) => archive().upsertChannels(guildId, channels),
     setOptIn: (channelId, on) => setArchiving(channelId, on),
     optedInChannels: () => archive().optedInChannels(o.selfId()),
-    optedInDms: () => archive().optedInChannels(o.selfId(), true),
     syncable: (channelId) => archive().syncable(channelId, o.selfId()),
     upsertThreads: (threads) => {
       const stale = archive().upsertThreads(threads, o.backfillFromMs);
@@ -205,17 +205,19 @@ export function archiveHandlers(o: {
       if (archive().applyOwnPollVote(v)) o.noteChanged(v.channelId);
     },
     syncState: (channelId) => archive().syncState(channelId),
-    reconcileDeletes: (channelId, seenIds, sinceTs, untilTs) => {
-      const n = archive().reconcileDeletes(channelId, seenIds, sinceTs, untilTs, Date.now());
+    reconcileDeletes: (channelId, seenIds, fromId, throughId) => {
+      const n = archive().reconcileDeletes(channelId, seenIds, fromId, throughId, Date.now());
       if (n) o.noteChanged(channelId);
       return n;
     },
+    newestStoredId: (channelId) => newestMessageId(o.ready().db, channelId),
     messagePage: (q) => messagePage(o.ready().db, q),
     messageWindow: (q) => messageWindow(o.ready().db, q),
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
+    messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
-      const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd);
-      if (page.length) o.noteChanged(channelId);
+      const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd, o.selfId());
+      if (r && page.length) o.noteChanged(channelId);
       return r;
     },
   };

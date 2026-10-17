@@ -5,7 +5,7 @@
 import { batchWrites, createStore } from '@plugin-sdk/renderer/containment';
 import { createSignal } from 'solid-js';
 import { produce } from 'solid-js/store';
-import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
+import type { OwnerSend, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 
@@ -39,8 +39,8 @@ export interface Outgoing {
 export interface OutboxJob<D> {
   channelId: string;
   label: string;
-  /** The message without its files; built once, so every attempt sends the same nonce. */
-  message: OwnerMessage;
+  /** The message without its files; built once, so every attempt sends the same nonce as the same account. */
+  message: OwnerSend;
   files: DraftFileInput[];
   /** Names for its `<@id>` mentions, by id, as picked: the pending row shows them before the archive knows them. */
   mentions: Record<string, string>;
@@ -52,7 +52,7 @@ export interface OutboxJob<D> {
 export interface OutboxRecord<D> {
   channelId: string;
   label: string;
-  message: OwnerMessage;
+  message: OwnerSend;
   files: SavedDraftFile[];
   /** Absent in records saved before mention names. */
   mentions?: Record<string, string>;
@@ -70,15 +70,15 @@ export interface OutboxRecord<D> {
 }
 
 export interface OutboxDeps<D> {
-  send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+  send(m: OwnerSend): Promise<PostedOwnerMessage>;
   /** Publishes the accepted row in the same batch that removes its pending row. */
   accept?(result: PostedOwnerMessage): void;
   /** Timing-only observer; paint observers are wired by the window. */
   mark?(phase: 'enqueue' | 'rpc-start' | 'rpc-end' | 'accepted', nonce: string, id: number, messageId?: string): void;
   /** The files as they'll be uploaded (videos shrunk to this device's quality); reports progress. */
   prepare(channelId: string, files: File[], progress: (fraction: number) => void): Promise<File[]>;
-  /** Uploads the files in pieces, reporting progress; resolves the tokens the message names. */
-  upload(channelId: string, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]>;
+  /** Uploads the files in pieces as `accountId` (the message's) only, reporting progress; resolves the tokens the message names. */
+  upload(channelId: string, accountId: string | null, files: SavedDraftFile[], progress: (fraction: number) => void): Promise<string[]>;
   /** The desktop no longer holds the message's uploads (UPLOAD_GONE): they go again. */
   uploadGone(err: unknown): boolean;
   /** The desktop refused to post past the message's postWithinMs (POST_WINDOW_PASSED). */
@@ -231,7 +231,7 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
       .map((file, i) => ({ ...original[i]!, file }));
     e.prepared = prepared;
     update(channelId, id, { phase: 'uploading', progress: 0 });
-    e.uploads = await deps.upload(channelId, prepared, (p) => update(channelId, id, { progress: p }));
+    e.uploads = await deps.upload(channelId, e.job.message.accountId, prepared, (p) => update(channelId, id, { progress: p }));
     save();
   }
 

@@ -1,12 +1,17 @@
 // Contract tests for text retention.
+import { join } from 'node:path';
+import Database from 'better-sqlite3-multiple-ciphers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_ARCHIVE_SETTINGS, type ArchiveSettings } from '@shared/settings';
+import { MESSAGE_FLAG } from '@shared/components';
 import { MS_PER_DAY } from '@shared/units';
-import type { Db } from '../src/core/db';
+import { compressRawJson, setSetting, type Db } from '../src/core/db';
+import { ephemeralMessages } from '../src/core/laterMigrations';
+import { DERIVE_VERSION_KEY, rederiveIfStale } from '../src/core/derive/rederive';
 import { messagePage } from '../src/core/queries/messages';
 import { TextRetentionRunner, applyTextRetention } from '../src/core/textRetention';
 import { registerTextCoverage } from '../src/core/textCoverage';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { applyMigrations, migrationIndex, rawMessage, seedArchive, tempDb, tempDir } from './helpers';
 import { ARRIVAL } from '../src/core/arrival';
 
 const CH = '200000000000000001';
@@ -84,6 +89,54 @@ describe('text retention keeps important messages', () => {
     const covered = db.prepare("SELECT id FROM messages WHERE content = 'old covered'").pluck().get() as string;
     db.prepare("INSERT INTO jev_judgments (message_id, subject, value, model, judged_at) VALUES (?, 'notable', 0.9, 'fake', 0)").run(covered);
     expect((await applyTextRetention(db, settings({ textTier: 'summary-only' }), NOW)).pruned).toBe(1);
+  });
+});
+
+describe('summary-only messages after retention', () => {
+  const shares = () =>
+    db.prepare('SELECT m.content, l.url, l.first_message_id = m.id AS first FROM message_links ml JOIN messages m ON m.id = ml.message_id JOIN links l ON l.id = ml.link_id ORDER BY m.ts, l.url').all();
+
+  it('keep their link shares through a derivation rebuild, which re-derives the rest', async () => {
+    seedArchive(db, [{ id: CH }]).ingestMessages([rawMessage(CH, RECENT + 1, 'again https://example.com and https://example.com/b')], ARRIVAL.gateway);
+    await applyTextRetention(db, settings({ textTier: 'summary-only' }), NOW);
+    const before = shares();
+    expect(before).toEqual([
+      { content: '', url: 'https://example.com', first: 1 },
+      { content: 'again https://example.com and https://example.com/b', url: 'https://example.com', first: 0 },
+      { content: 'again https://example.com and https://example.com/b', url: 'https://example.com/b', first: 1 },
+    ]);
+    setSetting(db, DERIVE_VERSION_KEY, 0);
+    expect(rederiveIfStale(db, () => undefined)).toBe(3); // the messages with payloads
+    expect(shares()).toEqual(before);
+  });
+
+  it('stay out of deletion checks when ephemeral: history never lists them', async () => {
+    const at = OLD + 2 * MS_PER_DAY;
+    const archive = seedArchive(db, [{ id: CH }]);
+    const ephemeral = rawMessage(CH, at, 'only you can see this', { flags: MESSAGE_FLAG.ephemeral });
+    const normal = rawMessage(CH, at + 1, 'deleted while closed');
+    archive.ingestMessages([ephemeral, normal], ARRIVAL.gateway);
+    const dispose = registerTextCoverage(() => [{ channelIds: [CH], since: at - 1, until: at + 2 }]);
+    await applyTextRetention(db, settings({ textTier: 'summary-only' }), NOW);
+    dispose();
+    const pruned = db.prepare('SELECT id FROM messages WHERE pruned_at IS NOT NULL').pluck().all();
+    expect(pruned).toEqual(expect.arrayContaining([ephemeral.id, normal.id]));
+    expect(archive.reconcileDeletes(CH, [], ephemeral.id, normal.id, NOW)).toBe(1);
+    expect(db.prepare('SELECT id FROM messages WHERE deleted_at IS NOT NULL').pluck().all()).toEqual([normal.id]);
+  });
+
+  it('are marked ephemeral by the migration from their stored payloads, plain or compressed, past damaged ones', () => {
+    const old = new Database(join(tempDir(), 'archive.db'));
+    applyMigrations(old, 0, migrationIndex(ephemeralMessages));
+    const insert = old.prepare("INSERT INTO messages (id, channel_id, author_id, ts, content, raw_json) VALUES (?, ?, 'u1', 0, '', ?)");
+    insert.run('1', CH, JSON.stringify({ flags: MESSAGE_FLAG.ephemeral }));
+    insert.run('2', CH, compressRawJson(JSON.stringify({ flags: MESSAGE_FLAG.ephemeral | MESSAGE_FLAG.loading })));
+    insert.run('3', CH, JSON.stringify({ flags: MESSAGE_FLAG.loading }));
+    insert.run('4', CH, null);
+    insert.run('5', CH, 'malformed');
+    insert.run('6', CH, Buffer.from('broken'));
+    applyMigrations(old, migrationIndex(ephemeralMessages));
+    expect(old.prepare('SELECT id FROM messages WHERE ephemeral = 1 ORDER BY id').pluck().all()).toEqual(['1', '2']);
   });
 });
 

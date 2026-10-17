@@ -1,10 +1,12 @@
-// Checks declared AI read channels against the selected provider and effective local-AI-only policy at dispatch.
+// Checks declared AI reads against current local-only policy at dispatch and tool boundaries.
 import type { ReadScope } from '@shared/plugins';
 import type { AiSettings, ProviderId } from '@shared/settings';
 import type { Db } from '../db';
+import type { PluginDb } from '../plugins/pluginDb';
 import { hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, DecisionRequest, DecisionResult, Question } from './decisions';
 import type { ProviderRegistry } from './registry';
+import { joined, untilRevoked } from './revocable';
 import { ProviderUnavailableError, chosenModel, offReason, type CompletionRequest, type CompletionResult, type LlmProvider } from './types';
 
 export type { ReadScope };
@@ -36,7 +38,7 @@ function declared(reads: unknown): ReadScope {
 }
 
 /** Throws LocalOnlyError for hosted reads of local-only channels, including inherited policies and all-channel reads. Missing reads throws TypeError. */
-export function assertMayRead(db: Db, given: unknown, to: Recipient): void {
+export function assertMayRead(db: PluginDb, given: unknown, to: Recipient): void {
   const reads = declared(given);
   if (to.local) return;
   const localOnly = localOnlyChannelIds(db);
@@ -50,7 +52,7 @@ export function assertMayRead(db: Db, given: unknown, to: Recipient): void {
 }
 
 /** Checks Jev requests: Jev is hosted. */
-export const assertJevMayRead = (db: Db, reads: unknown): void => assertMayRead(db, reads, JEV);
+export const assertJevMayRead = (db: PluginDb, reads: unknown): void => assertMayRead(db, reads, JEV);
 
 /** The registry members that say who a provider is. */
 type ProviderFacts = Pick<ProviderRegistry, 'isLocal' | 'providers'>;
@@ -93,7 +95,7 @@ export interface PluginProvider extends Omit<LlmProvider, 'complete' | 'dispose'
   complete(req: PluginCompletionRequest): Promise<CompletionResult>;
 }
 
-/** `provider`, checking each completion's reads with `check` before it is sent. */
+/** Checks reads at dispatch and before each tool runs or returns; refusal aborts the completion. */
 export function scopedProvider(provider: LlmProvider, check: (reads: unknown) => void): PluginProvider {
   const { planUsage } = provider;
   return {
@@ -101,7 +103,29 @@ export function scopedProvider(provider: LlmProvider, check: (reads: unknown) =>
     maxInputChars: provider.maxInputChars,
     complete: async ({ reads, ...req }) => {
       check(reads);
-      return provider.complete(req);
+      if (!req.tools?.length) return provider.complete(req);
+      const refused = new AbortController();
+      const signal = joined(refused.signal, req.signal);
+      const admit = (): void => {
+        try {
+          check(reads);
+        } catch (error) {
+          refused.abort(error);
+          throw error;
+        }
+      };
+      const tools = req.tools.map((tool) => ({
+        ...tool,
+        run: async (args: unknown, signal: AbortSignal) => {
+          admit();
+          try {
+            return await tool.run(args, signal);
+          } finally {
+            admit();
+          }
+        },
+      }));
+      return untilRevoked(signal, () => provider.complete({ ...req, signal, tools }));
     },
     listModels: () => provider.listModels(),
     ...(planUsage ? { planUsage: () => planUsage.call(provider) } : {}),
@@ -116,7 +140,7 @@ export interface PluginDecider {
 }
 
 /** Checks Jev read scope when queued and before sending, so queued requests respect policy changes. */
-export function scopedDecider(jev: DecisionProvider, db: () => Db): PluginDecider {
+export function scopedDecider(jev: DecisionProvider, db: () => PluginDb): PluginDecider {
   return {
     model: jev.model,
     maxInputChars: jev.maxInputChars,
@@ -141,11 +165,14 @@ export function boundDecider(jev: PluginDecider, reads: ReadScope): DecisionProv
 }
 
 /** A completion from the provider a folder plugin names (HostDeps.ai). */
-export type ScopedCompletion = (req: Omit<CompletionRequest, 'model' | 'effort'> & Reads & { provider: ProviderId }) => Promise<{ text: string; json?: unknown }>;
+// PluginApi is versioned separately from the descriptor SDK's chat contract.
+type FolderRequest = Omit<CompletionRequest, 'model' | 'effort' | 'history' | 'tools' | 'maxToolCalls' | 'onEvent'>;
+export type ScopedCompletion = (req: FolderRequest & Reads & { provider: ProviderId }) => Promise<{ text: string; json?: unknown }>;
 
 /** Validates provider availability, settings and read scope before sending a folder plugin completion with the selected model and effort. */
 export function scopedCompletion(db: () => Db, registry: ProviderFacts & Pick<ProviderRegistry, 'get' | 'unavailable'>, settings: () => AiSettings): ScopedCompletion {
-  return async ({ reads, provider, ...req }) => {
+  return async (given) => {
+    const { reads, provider, history: _history, tools: _tools, maxToolCalls: _maxToolCalls, onEvent: _onEvent, ...req } = given as CompletionRequest & Reads & { provider: ProviderId };
     declared(reads);
     const s = settings();
     const choice = s.providers[provider];

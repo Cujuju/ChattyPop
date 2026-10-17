@@ -318,6 +318,27 @@ describe('context services', () => {
     expect(t.status()).toMatchObject({ error: expect.stringMatching(/broken notes/) });
   });
 
+  it('reports privacy mode and hidden-channel changes only to the active registration', async () => {
+    const heard = vi.fn();
+    let subscribe!: () => void;
+    const t = startHarness(defineCorePlugin(judge, (ctx) => {
+      subscribe = () => ctx.archive.onPrivacyChanged(heard);
+      subscribe();
+    }), { archive: { channels: [{ id: 'c1', name: 'general' }] } });
+    t.archive.setPrivacyMode(true);
+    expect(heard).toHaveBeenCalledTimes(1);
+    t.archive.setChannel('c1', { hidden: true });
+    expect(heard).toHaveBeenCalledTimes(2);
+    await t.off();
+    subscribe();
+    t.archive.setPrivacyMode(false);
+    t.archive.setChannel('c1', { hidden: false });
+    expect(heard).toHaveBeenCalledTimes(2);
+    await t.on();
+    t.archive.setPrivacyMode(true);
+    expect(heard).toHaveBeenCalledTimes(3);
+  });
+
   // Link index rebuilds and settings saves are host events the harness has no trigger for: this drives the host itself.
   it('reports archive changes, link index rebuilds and AI settings saves while the plugin is on', async () => {
     const heard: unknown[] = [];

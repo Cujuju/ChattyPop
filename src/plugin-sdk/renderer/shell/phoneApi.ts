@@ -190,6 +190,8 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     restartApp: viaMain(APP_RESTART_CHANNEL),
     openPanelWindow: () => Promise.resolve(),
     showInMainWindow: ignored,
+    reportShownChannel: ignored,
+    getShownChannel: () => Promise.resolve(null),
     // The phone's page closes with the browser tab; main has no window of it to hold.
     setUnsaved: ignored,
     discardUnsaved: ignored,

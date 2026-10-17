@@ -25,6 +25,7 @@ import type { SplashPhaseId } from '@shared/splash.mjs';
 import { loadArchiveKey } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
+import { registerShownChannelHandlers } from './shownChannel';
 import { diag } from './diagnostics';
 import { pickFiles, pickFolder } from './dialogs';
 import { SECRET_FILES } from './secretFile';
@@ -70,7 +71,7 @@ import { pairOnScreen, printPairing } from './serverMode';
 import { startSplash } from './splash';
 import { AttachmentDownloader, freshAttachmentUrl } from './media/attachmentDownloader';
 import { backfillAttachmentThumbs, keepAttachmentThumb } from './media/attachmentThumbs';
-import { mediaDirs, removeLegacyCaches } from './media/mediaDirs';
+import { mediaDirs, removeAbandonedPartials, removeLegacyCaches } from './media/mediaDirs';
 import { handleMediaScheme, mediaHandler } from './media/mediaProtocol';
 import { attachmentPoster, fetchImageTo, fetchVideoTo, posterKept, type PosterSource } from './media/thumbStore';
 import { PanelWindows } from './panelWindows';
@@ -88,9 +89,10 @@ import { PluginStates } from './plugins/states';
 import { handleInstalledScheme, handlePluginScheme } from './pluginProtocol';
 import { archiveDir, profilePath } from './storageLocation';
 import { type Publication, TailnetServe, runTailscale } from './tailnet';
-import { followDepthChanges } from './sync/depthChange';
+import { followArchiveChanges } from './sync/depthChange';
 import { Pace } from './sync/pace';
 import { SyncService } from './sync/syncService';
+import { shutdownSequence } from './shutdown';
 import { raiseWindow } from './windowState';
 
 /** In-memory session for third-party media (X images): no Discord cookies, nothing persisted. */
@@ -136,7 +138,7 @@ void app.whenReady().then(() => {
   const core = new CoreClient(join(here, 'core.js'), {
     archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), key,
     openRouterKeys: loadOpenRouterKeys(), typeSafeKey: loadTypeSafeKey(), providerApiKeys: loadProviderKeys(SECRET_FILES),
-  });
+  }, diag);
   registerKeyHandlers(core);
 
   // Capture must be installed before the Discord view loads, or its first API requests are missed.
@@ -159,6 +161,7 @@ void app.whenReady().then(() => {
   const discordApi = new DiscordApi(() => discordRef, capture, currentPace, shapes);
   const media = mediaDirs(dataDir);
   removeLegacyCaches(media);
+  removeAbandonedPartials(media);
   const mediaSessions = { discord: discordSession, web: session.fromPartition(WEB_MEDIA_PARTITION) };
   const posterOf = (a: PendingAttachment): PosterSource => ({ stored: a.url, fresh: () => freshAttachmentUrl(discordApi, a) });
   const posterSource = async (id: string): Promise<PosterSource | null> => {
@@ -215,7 +218,7 @@ void app.whenReady().then(() => {
   const readStates = new ReadStates(
     discord.tap,
     discordApi,
-    (counts, scope) => void core.call('putReadStates', counts, scope),
+    (counts, scope) => core.tell('putReadStates', counts, scope),
     diag,
   );
   core.on('event', (e) => {
@@ -227,7 +230,7 @@ void app.whenReady().then(() => {
   const directory = new GatewayDirectory(discord.tap);
   discord.tap.on('sent', ({ op, d }) => shapes.observe(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
   // Servers in the owner's Discord sidebar order, from READY's settings and their updates.
-  watchGuildOrder(discord.tap, (guildIds) => void core.call('putGuildOrder', guildIds), diag);
+  watchGuildOrder(discord.tap, (guildIds) => core.tell('putGuildOrder', guildIds), diag);
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
   const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
@@ -236,6 +239,7 @@ void app.whenReady().then(() => {
     const id = panelWindows.panelId(sender);
     return id === undefined ? undefined : `panel:${id}`;
   });
+  registerShownChannelHandlers(win, panelWindows);
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);
   });
@@ -309,20 +313,20 @@ void app.whenReady().then(() => {
   // A channel archived (by the owner, or a DM by auto-archive) syncs its history.
   core.on('event', (e) => {
     if (e.type === 'opt-in-changed' && e.optedIn) sync.enqueue(e.optedIn);
-    // Sync keeps only the signed-in account's DMs: READY naming one queues them.
-    if (e.type === 'self-changed') void sync.signedIn(e.userId);
+    // Core announces every READY, once it knows the account: whose DMs sync keeps, and a gateway gap to catch up.
+    if (e.type === 'self-changed') void sync.sessionReady();
   });
   followSession(relay, { page: discord, capture }, () => void sync.syncAll());
-  sync.onSettled = () => void core.call('syncSettled');
-  followDepthChanges(core, sync);
+  sync.onSettled = () => core.tell('syncSettled');
+  followArchiveChanges(core, sync);
   const gatewayAccess = new GatewayAccess();
   discord.tap.on('dispatch', ({ t, d }) => {
-    if (isArchivedGatewayEvent(t)) void core.call('applyGatewayEvent', t, gatewayArchivePayload(t, d));
+    if (isArchivedGatewayEvent(t)) core.tell('applyGatewayEvent', t, gatewayArchivePayload(t, d));
     const typing = typingEvents.read(t, d);
     if (typing) toRenderer(typing);
-    for (const g of gatewayGuildRoles(t, d)) void core.call('replaceGuildRoles', g.guildId, g.roles);
+    for (const g of gatewayGuildRoles(t, d)) core.tell('replaceGuildRoles', g.guildId, g.roles);
     const access = gatewayAccess.read(t, d);
-    if (access && (access.owners.length || access.overwrites.length || access.members.length)) void core.call('applyAccessFacts', access);
+    if (access && (access.owners.length || access.overwrites.length || access.members.length)) core.tell('applyAccessFacts', access);
   });
 
   registerStorageHandlers({
@@ -367,12 +371,22 @@ void app.whenReady().then(() => {
   registerMediaHandlers(media.attachments);
   registerAttachmentStoreHandlers(media.attachments, core);
 
-  app.on('window-all-closed', () => {
-    discordSession.flushStorageData();
-    shapes.flush();
+  const shutdown = shutdownSequence({
+    flush: () => {
+      discordSession.flushStorageData();
+      shapes.flush();
+    },
     // Main sides' switch-governed resources (a phone transport's server) stop; external config they made stays.
-    void mainPlugins.stop();
-    core.dispose();
-    app.quit();
+    stopPlugins: () => mainPlugins.stop(),
+    disposeCore: () => core.dispose(),
+    quit: () => app.quit(),
+    diag,
+  });
+  app.on('window-all-closed', () => void shutdown.run());
+  // A quit that skips window-all-closed (macOS Cmd+Q, an update's install) waits for the same sequence, which quits again.
+  app.on('will-quit', (e) => {
+    if (shutdown.done()) return;
+    e.preventDefault();
+    void shutdown.run();
   });
 });

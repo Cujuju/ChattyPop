@@ -118,4 +118,14 @@ describe('paged list directions', () => {
     expect(await late).toBeNull();
     expect(list2.state.items.map((i) => i.id)).toEqual([7]);
   });
+
+  it('an update may say whether its rows reach the start, so older pages open again', async () => {
+    const list = createPagedList<Item>(2, async () => [{ id: 1 }]);
+    await list.reload(async () => ({ items: [{ id: 2 }], reachedStart: true }));
+    expect(await list.loadOlder()).toBe(0);
+    await list.update(async () => [{ id: 3 }, { id: 4 }], (rows) => ({ items: rows, reachedStart: false }));
+    expect(list.state.reachedStart).toBe(false);
+    expect(await list.loadOlder()).toBe(1);
+    expect(list.state.items.map((i) => i.id)).toEqual([1, 3, 4]);
+  });
 });

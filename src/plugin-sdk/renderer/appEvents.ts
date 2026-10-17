@@ -2,13 +2,15 @@
 // plugins and host stores (state/events.ts re-exports it) share a single hub over the @/api leaf.
 import { api } from '@/api';
 import type { AppEvent } from '@shared/contract';
+import { runIsolated } from '@shared/fanOut';
+import { reportFailure } from './containment';
 
 type EventOf<T extends AppEvent['type']> = Extract<AppEvent, { type: T }>;
 type Listener<T extends AppEvent['type']> = (e: EventOf<T>) => void;
 const listeners = new Map<AppEvent['type'], Set<(e: AppEvent) => void>>();
 
-// One bridge subscription for the whole renderer; stores subscribe by event type.
-api.onEvent((e) => listeners.get(e.type)?.forEach((l) => l(e)));
+// One bridge subscription for the whole renderer; stores subscribe by event type. A listener's failure is reported, not passed on.
+api.onEvent((e) => listeners.get(e.type)?.forEach((l) => runIsolated(() => l(e), reportFailure)));
 
 /** Calls `listener` with each app event of `type`; returns an unsubscribe function. */
 export function onAppEvent<T extends AppEvent['type']>(type: T, listener: Listener<T>): () => void {

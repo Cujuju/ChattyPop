@@ -1,4 +1,4 @@
-// A deeper history setting takes effect when it is made: the channels it deepens are queued, not left for the next start.
+// Archive settings take effect when made: a deeper history queues the channels it deepens, and sync turned on queues what a pause dropped.
 import { SETTINGS_KEYS, normalizeArchiveSettings, resolveBackfillCutoffMs, type ArchiveSettings } from '@shared/settings';
 import { errorMessage } from '@shared/errors';
 import { MS_PER_S } from '@shared/units';
@@ -14,8 +14,8 @@ const DEPTH_CHANGE_SETTLE_MS = 2 * MS_PER_S;
 export const deepenedChannels = (prev: ArchiveSettings, next: ArchiveSettings, channelIds: readonly string[], now: number): string[] =>
   channelIds.filter((id) => resolveBackfillCutoffMs(next, id, now) < resolveBackfillCutoffMs(prev, id, now));
 
-/** Queues the archived channels a settings change deepens, once the change has settled. */
-export function followDepthChanges(core: CoreClient, sync: Pick<SyncService, 'enqueue'>): void {
+/** Resumes sync as soon as a change leaves it on; queues the archived channels a change deepens once it has settled. */
+export function followArchiveChanges(core: CoreClient, sync: Pick<SyncService, 'enqueue' | 'resume'>): void {
   /** The settings sync last acted on. Unread at start (the failure is logged), the first change sets it and queues nothing. */
   let applied: ArchiveSettings | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -26,6 +26,8 @@ export function followDepthChanges(core: CoreClient, sync: Pick<SyncService, 'en
   core.on('event', (e) => {
     if (e.type !== 'setting-changed' || e.key !== SETTINGS_KEYS.archive) return;
     const next = normalizeArchiveSettings(e.value);
+    // A switch, not a typed amount: nothing to settle.
+    if (next.syncEnabled) sync.resume();
     clearTimeout(timer);
     timer = setTimeout(() => {
       const prev = applied;

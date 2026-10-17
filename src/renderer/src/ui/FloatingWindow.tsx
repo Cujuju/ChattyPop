@@ -1,6 +1,7 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { For, createEffect, on, type JSX } from 'solid-js';
+import { For, type JSX } from 'solid-js';
 import { saveWindow, savedWindows, trackWindow, untrackWindow, windowAt, windowRank, type WindowRect } from '@/state/windows';
+import { syncDialog } from './dialogSync';
 import { listen } from './listen';
 import { WINDOW_EDGES, resizeRect, type WindowEdge } from './windowResize';
 import { Icon } from './icons';
@@ -57,21 +58,15 @@ export function FloatingWindow(props: Props) {
     return next;
   };
 
-  createEffect(
-    on(
-      () => props.open,
-      (open) => {
-        if (open && !el.open) {
-          el.show();
-          trackWindow(props.id, rect(), true);
-          apply(clampToViewport(cascade(clampToViewport(savedWindows()[geometryKey()] ?? centred()))));
-        } else if (!open && el.open) {
-          remember();
-          el.close();
-        }
-      },
-    ),
-  );
+  const onNativeClose = syncDialog(() => el, () => props.open, {
+    shown: () => {
+      trackWindow(props.id, rect(), true);
+      apply(clampToViewport(cascade(clampToViewport(savedWindows()[geometryKey()] ?? centred()))));
+    },
+    hiding: remember,
+    hidden: () => untrackWindow(props.id),
+    request: () => props.onClose(),
+  });
 
   const onPointerDown = (e: PointerEvent): void => {
     trackWindow(props.id, rect(), true);
@@ -135,10 +130,7 @@ export function FloatingWindow(props: Props) {
         e.preventDefault();
         props.onClose();
       }}
-      onClose={() => {
-        untrackWindow(props.id);
-        props.onClose();
-      }}
+      onClose={onNativeClose}
     >
       {props.children}
       <For each={WINDOW_EDGES}>{(edge) => <div class={styles.grip} data-edge={edge} aria-hidden="true" onPointerDown={(e) => onGripDown(e, edge)} />}</For>

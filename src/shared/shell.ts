@@ -139,10 +139,20 @@ export interface ShellVideoShrink {
   shortSide: number;
   /** Video bitrate at the full shorter side, bit/s, scaled down by area below it. */
   videoBitrate: number;
+  /**
+   * Every larger quality's preset (largerPresets). The rate is the least of this target's and each cap's own rate for the
+   * source (videoBitrateFor), so a smaller quality never gets more bits. An app treats a missing list as empty.
+   */
+  rateCaps: ShellVideoRateCap[];
   /** AAC bitrate, bit/s. */
   audioBitrate: number;
   /** Frames per second at most. */
   maxFrameRate: number;
+}
+/** A larger quality's preset in ShellVideoShrink's `rateCaps`: its shorter side, px, and its rate at that side, bit/s. */
+export interface ShellVideoRateCap {
+  shortSide: number;
+  videoBitrate: number;
 }
 /** The most items one `recent` request returns. */
 export const SHELL_PHOTOS_PAGE_MAX = 200;

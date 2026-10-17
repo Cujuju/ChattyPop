@@ -8,19 +8,19 @@ const manifest = (id: string, name: string) => ({ id, name, version: '1.0.0', de
 export const FIXTURE_PROVIDER_PLUGINS: readonly PluginDescriptor[] = [
   definePlugin({
     manifest: manifest('claude', 'Claude'),
-    providers: [{ id: 'claude', label: 'Claude · Claude Code', displayName: 'Claude', enabledByDefault: true, planUsage: true }],
+    providers: [{ id: 'claude', label: 'Claude · Claude Code', displayName: 'Claude', enabledByDefault: true, planUsage: true, tools: true }],
   }),
   definePlugin({
     manifest: manifest('codex', 'ChatGPT'),
-    providers: [{ id: 'codex', label: 'ChatGPT · Codex', displayName: 'ChatGPT', enabledByDefault: true, planUsage: true }],
+    providers: [{ id: 'codex', label: 'ChatGPT · Codex', displayName: 'ChatGPT', enabledByDefault: true, planUsage: true, tools: true }],
   }),
   definePlugin({
     manifest: manifest('ollama', 'Ollama'),
-    providers: [{ id: 'ollama', label: 'Ollama · local', displayName: 'Ollama', enabledByDefault: false, local: true, images: true }],
+    providers: [{ id: 'ollama', label: 'Ollama · local', displayName: 'Ollama', enabledByDefault: false, local: true, images: true, tools: true }],
   }),
   definePlugin({
     manifest: manifest('openrouter', 'OpenRouter'),
-    providers: [{ id: 'openrouter', label: 'OpenRouter', displayName: 'OpenRouter', enabledByDefault: false, planUsage: true, openRouterKeys: true }],
+    providers: [{ id: 'openrouter', label: 'OpenRouter', displayName: 'OpenRouter', enabledByDefault: false, planUsage: true, openRouterKeys: true, tools: true }],
   }),
 ];
 

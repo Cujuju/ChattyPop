@@ -81,15 +81,24 @@ export function timedTriggerError(t: TimedTrigger): string | null {
   }
 }
 
-/** The latest time at or before `now` that a daily trigger was due (local time, on one of `days`; any when empty). */
+/** A local hour no DST change moves across a date line: reads a calendar day's weekday. */
+const MIDDAY_HOUR = 12;
+
+/**
+ * The latest time at or before `now` that a daily trigger was due (local time, on one of `days`; any when empty). Each
+ * local date gets its wall time built afresh: one due per date. A time a spring gap skips falls the gap's length later
+ * (Date's rule); a time a fall-back repeats is its first occurrence.
+ */
 export function lastDailyDue(now: number, at: string, days: readonly number[]): number {
   const [h, m] = at.split(':').map(Number) as [number, number];
-  const d = new Date(now);
-  d.setHours(h, m, 0, 0);
-  if (d.getTime() > now) d.setDate(d.getDate() - 1);
-  // At most a week back finds a listed weekday.
-  for (let i = 0; i < DAYS_PER_WEEK && days.length && !days.includes(d.getDay()); i++) d.setDate(d.getDate() - 1);
-  return d.getTime();
+  const today = new Date(now);
+  // At most a week back finds a listed weekday; the week-old date is the fallback for an unlisted one.
+  for (let back = 0; ; back++) {
+    const date = [today.getFullYear(), today.getMonth(), today.getDate() - back] as const;
+    const due = new Date(...date, h, m).getTime();
+    const listed = !days.length || days.includes(new Date(...date, MIDDAY_HOUR).getDay());
+    if (due <= now && (listed || back >= DAYS_PER_WEEK)) return due;
+  }
 }
 
 export interface TimedState {
@@ -148,6 +157,12 @@ function everyDuesSince(scheduled: number, stepMs: number, from: number, now: nu
 export function dueWindows(t: TimedTrigger, s: TimedState): TimedWindow[] {
   const floor = s.now - TIMED_MAX_LOOKBACK_MS;
   const from = Math.max(s.lastRunAt ?? s.armedAt, s.armedAt);
+  /** Each due time's own window: from the due before it, never before the rule's start or the horizon; empty ones dropped. */
+  const perDue = (dues: number[], previous: (due: number) => number, key: (due: number) => string): TimedWindow[] =>
+    dues.flatMap((due) => {
+      const sinceTs = Math.max(from, floor, previous(due));
+      return sinceTs < due ? [{ key: key(due), sinceTs, untilTs: due }] : [];
+    });
   switch (t.kind) {
     case 'daily': {
       const key = (due: number): string => `${TIMED_RUN_PREFIX}daily:${due}`;
@@ -156,11 +171,7 @@ export function dueWindows(t: TimedTrigger, s: TimedState): TimedWindow[] {
         return due > from ? [{ key: key(due), sinceTs: Math.max(from, floor), untilTs: s.now }] : [];
       }
       const reach = Math.max(from, s.now - t.backfillHours * MS_PER_HOUR);
-      return dailyDuesSince(t, reach, s.now).map((due) => ({
-        key: key(due),
-        sinceTs: Math.max(from, lastDailyDue(due - 1, t.at, t.days)),
-        untilTs: due,
-      }));
+      return perDue(dailyDuesSince(t, reach, s.now), (due) => lastDailyDue(due - 1, t.at, t.days), key);
     }
     case 'every': {
       const stepMs = t.hours * MS_PER_HOUR;
@@ -174,7 +185,7 @@ export function dueWindows(t: TimedTrigger, s: TimedState): TimedWindow[] {
         return due <= s.now ? [{ key: key(due), sinceTs: Math.max(from, floor), untilTs: s.now }] : [];
       }
       const reach = Math.max(from, s.now - t.backfillHours * MS_PER_HOUR);
-      return everyDuesSince(scheduled, stepMs, reach, s.now).map((due) => ({ key: key(due), sinceTs: Math.max(from, due - stepMs), untilTs: due }));
+      return perDue(everyDuesSince(scheduled, stepMs, reach, s.now), (due) => due - stepMs, key);
     }
     case 'appStart': {
       // Turned on during this session: its first app start is the next one.

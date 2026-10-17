@@ -16,6 +16,12 @@ export const pluginPanelId = (pluginId: string, panelId: string): PluginPanelId 
 export const isPluginPanelId = (id: string): id is PluginPanelId => PLUGIN_PANEL_ID_PATTERN.test(id);
 /** The plugin a plugin panel's layout id belongs to. */
 export const pluginOfPanelId = (id: PluginPanelId): string => id.split(':')[1]!;
+/**
+ * How long plugins' resources get to stop (at quit, or before the archive closes) before the app goes on regardless.
+ * Windows ends an app still running about 5 s after a shutdown asks it to close (HungAppTimeout's default), so cleanup
+ * gets no longer than that.
+ */
+export const PLUGIN_STOP_DEADLINE_MS = 5_000;
 /** plugin.json in each folder under the plugins directory. */
 export const PLUGIN_MANIFEST_FILE = 'plugin.json';
 

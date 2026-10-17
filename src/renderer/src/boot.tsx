@@ -10,6 +10,7 @@ import { onAppEvent } from './state/events';
 import { revealPanel } from './state/layout';
 import { PANEL_WINDOW_ID, openSettingsAt } from './state/ui';
 import { promptRestoreAtStart } from './state/pluginRestore';
+import { holdImeKeys } from './ui/keys';
 import { trackPopoverCovers } from './ui/popoverCover';
 import { Contained } from './ui/contained';
 
@@ -19,6 +20,8 @@ function Root() {
 }
 
 export function startApp(): void {
+  // First of this window's key listeners: an input method's keys reach no app handler.
+  holdImeKeys(window);
   onAppEvent('open-panel', (e) => revealPanel(e.panelId));
   onAppEvent('open-settings', (e) => openSettingsAt(e.section));
   // Popovers clear the native Discord view where they overlap it.

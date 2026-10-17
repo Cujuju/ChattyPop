@@ -78,9 +78,15 @@ const emojiEntries = (channelId: string): [string, CustomEmoji][] => [...pickedI
 /** Read selected IDs for the editing surface; callers cannot mutate the draft's token map. */
 export const customEmojiEntries = emojiEntries;
 const mentionEntries = (channelId: string): [string, MentionPick][] => [...mentionedIn(channelId)];
-const saveText = (channelId: string): void =>
+/** Channels whose text or files were saved this session: what loadSaved read is older than them, even an emptied draft. */
+const textSaved = new Set<string>();
+const filesSaved = new Set<string>();
+const saveText = (channelId: string): void => {
+  textSaved.add(channelId);
   idbSet(TEXT_KEY + channelId, draftText(channelId) ? ({ text: draftText(channelId), emoji: emojiEntries(channelId), mentions: mentionEntries(channelId) } satisfies SavedText) : undefined);
+};
 const saveFiles = (channelId: string): void => {
+  filesSaved.add(channelId);
   const files = draftFiles(channelId).map(savedDraftFile);
   idbSet(FILES_KEY + channelId, files.length ? files : undefined);
 };
@@ -205,22 +211,22 @@ export function restoreDraft(channelId: string, d: SavedDraft): boolean {
   return true;
 }
 
-/** Brings back the drafts kept before a reload; a draft typed into since stays as it is. */
-async function loadSaved(): Promise<void> {
-  const [texts, files] = await Promise.all([idbEntries<SavedText>(TEXT_KEY), idbEntries<DraftFileInput[]>(FILES_KEY)]);
+// Brings back the drafts kept before a reload, text and files each as its scan answers; a part changed since stays as it is.
+void idbEntries<SavedText>(TEXT_KEY).then((texts) => {
   for (const [key, t] of texts) {
     const channelId = key.slice(TEXT_KEY.length);
-    if (draftText(channelId)) continue;
+    if (textSaved.has(channelId)) continue;
     ensure(channelId);
     picked.set(channelId, new Map(t.emoji));
     mentioned.set(channelId, new Map(t.mentions));
     setDrafts(channelId, 'text', t.text);
   }
+});
+void idbEntries<DraftFileInput[]>(FILES_KEY).then((files) => {
   for (const [key, fs] of files) {
     const channelId = key.slice(FILES_KEY.length);
-    if (draftFiles(channelId).length) continue;
+    if (filesSaved.has(channelId)) continue;
     ensure(channelId);
     setDrafts(channelId, 'files', fs.map(toDraftFile));
   }
-}
-void loadSaved();
+});

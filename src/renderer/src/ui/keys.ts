@@ -18,3 +18,23 @@ export const isInOverlay = (t: EventTarget | null): boolean => t instanceof Elem
 
 /** The event's target is inside a window, menu or popup dialog (a picker), whose Escape closes it. */
 export const isInEscapeOwner = (t: EventTarget | null): boolean => isInOverlay(t) || (t instanceof Element && t.closest('[role=dialog]') !== null);
+
+/** keyCode of a key an input method processed: keydown while composing, and Safari's composition-ending Enter. */
+const IME_PROCESS_KEY_CODE = 229;
+
+/** The key belongs to an input method composing text (CJK conversion), not to the app (MDN's isComposing/229 test). */
+export const isImeKey = (e: KeyboardEvent): boolean => e.isComposing || e.keyCode === IME_PROCESS_KEY_CODE;
+
+/**
+ * Keeps input-method keys from every app key handler in `win`: a window capture listener added before any other runs
+ * first. Default actions are untouched, so the input method still gets its keys.
+ */
+export function holdImeKeys(win: EventTarget): void {
+  win.addEventListener(
+    'keydown',
+    (e) => {
+      if (isImeKey(e as KeyboardEvent)) e.stopImmediatePropagation();
+    },
+    true,
+  );
+}

@@ -243,7 +243,7 @@ export function createMainContext<D extends PluginDescriptor>(plugin: D, d: Main
         },
       },
     },
-    preferences: mainPreferences(plugin, d.core, reg.stage),
+    preferences: mainPreferences(plugin, d.core, reg.stage, (err) => d.diag('plugin-preference-listener-failed', { pluginId: id, message: errorMessage(err) })),
     appearance: { theme: async () => builtInTheme(normalizeAppearanceSettings(await d.core.call('getSetting', SETTINGS_KEYS.appearance).catch(() => null))) },
     pages: d.pages,
     pdf: (source) => d.pdf(decodePdfSource(source)),

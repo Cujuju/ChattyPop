@@ -10,6 +10,7 @@ import {
   TEXT_CHANNEL_TYPES,
   THREAD_PARENT_TYPES,
   compareSnowflakes,
+  snowflakeFromMs,
   snowflakeToMs,
   type RawMessage,
   type RawThread,
@@ -56,10 +57,12 @@ export class SyncService {
   private reverifyDue = new Set<string>();
   /** syncAll has run: the session is captured, so requests can go. */
   private started = false;
-  /** The account READY last named; its DMs are queued when it changes. */
-  private account: string | null = null;
   /** History someone waits for beyond a channel's depth setting (historyTo). */
   private readonly reaches = new HistoryReaches();
+  /** Channels sync reached while paused and dropped from the queue: resume queues them again. */
+  private readonly paused = new Set<string>();
+  /** Counts resumes, so a pause check that read the setting before one doesn't drop its channel. */
+  private resumes = 0;
   /** Called each time the queue drains: every queued channel is as current as sync can make it. */
   onSettled: () => void = () => undefined;
 
@@ -112,19 +115,29 @@ export class SyncService {
     for (const id of await this.core.call('optedInChannels')) this.enqueue(id);
   }
 
-  /** Account changes queue that account’s archived DMs. Other accounts’ queued DMs stop at their next syncability check. */
-  async signedIn(userId: string): Promise<void> {
-    if (userId === this.account) return;
-    this.account = userId;
-    if (!this.started) return; // syncAll queues them with the rest
-    for (const id of await this.core.call('optedInDms')) this.enqueue(id);
+  /**
+   * A new gateway session (READY, same account or not): what was sent while none was connected never arrives live, so every
+   * kept channel catches up, the account's DMs among them. Other accounts' queued DMs stop at their next syncability check.
+   */
+  async sessionReady(): Promise<void> {
+    if (!this.started) return; // syncAll queues them all
+    for (const id of await this.core.call('optedInChannels')) this.enqueue(id);
   }
 
   /** Stops for good (the archive is being moved and the app restarts): the queue is dropped and nothing new starts. */
   halt(): void {
     this.halted = true;
     this.queue.length = 0;
+    this.paused.clear();
     this.reaches.stopAll();
+  }
+
+  /** Sync is on (Settings → Archive): queues the channels a pause dropped. */
+  resume(): void {
+    this.resumes++;
+    const ids = [...this.paused];
+    this.paused.clear();
+    ids.forEach((id) => this.enqueue(id));
   }
 
   /** Fetches each channel's history back to `sinceMs` (its threads' too), past a shallower depth setting, and answers once each has ended. Settings are untouched. */
@@ -183,7 +196,11 @@ export class SyncService {
 
   private async syncChannel(channelId: string): Promise<SyncEnd> {
     // Read fresh per channel (not Pace's cache), so pausing sync takes effect at the next channel.
+    const resumes = this.resumes;
     if (!(await readArchiveSettings(this.core)).syncEnabled) {
+      this.paused.add(channelId);
+      // Turned back on while the setting was read: that resume missed this channel.
+      if (resumes !== this.resumes) this.resume();
       this.emit({ type: 'sync-progress', channelId, phase: 'paused', fetched: 0 });
       return 'paused';
     }
@@ -211,6 +228,11 @@ export class SyncService {
       if (!(await this.core.call('syncable', channelId))) throw new SyncStopped();
     };
     return this.api.get<T>(path, query, { guard });
+  }
+
+  /** Stores a fetched page and moves the cursors over it, unless sync stopped keeping the channel while it was fetched. */
+  private async store(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): Promise<void> {
+    if (!(await this.core.call('ingestSyncPage', channelId, page, direction, reachedEnd))) throw new SyncStopped();
   }
 
   /** Stores recent-window threads in client browser order: open, then archived, newest activity first. Returns threads needing message sync, which a wait for the channel covers. */
@@ -254,22 +276,28 @@ export class SyncService {
   private async reverify(channelId: string): Promise<void> {
     const { reverifyDays } = await readArchiveSettings(this.core);
     const cutoffMs = Date.now() - reverifyDays * MS_PER_DAY;
+    // Stored before the first request, so it existed by then: the scan from the latest page returns it unless it was deleted.
+    // Messages arriving during the scan sort after it and stay out.
+    const throughId = await this.core.call('newestStoredId', channelId);
     const seen: string[] = [];
     let oldest: string | null = null;
-    let newest: string | null = null;
     for (let before: string | undefined; ;) {
       const page = await this.page<RawMessage[]>(channelId, `channels/${channelId}/messages`, { limit: HISTORY_PAGE_SIZE, before });
-      if (!page.length) break;
-      await this.core.call('ingestMessages', page);
-      seen.push(...page.map((m) => m.id));
-      newest ??= maxId(page);
-      oldest = minId(page);
-      this.emit({ type: 'sync-progress', channelId, phase: 'reverify', fetched: seen.length });
-      if (page.length < HISTORY_PAGE_SIZE || snowflakeToMs(oldest) < cutoffMs) break;
-      before = oldest;
+      if (page.length) {
+        await this.core.call('ingestMessages', page);
+        seen.push(...page.map((m) => m.id));
+        oldest = minId(page);
+        this.emit({ type: 'sync-progress', channelId, phase: 'reverify', fetched: seen.length });
+      }
+      if (page.length < HISTORY_PAGE_SIZE) break;
+      before = minId(page);
+      if (snowflakeToMs(before) < cutoffMs) break;
     }
-    // Only the window the pages covered without gaps: from the oldest fetched message to the newest.
-    if (oldest && newest) await this.core.call('reconcileDeletes', channelId, seen, snowflakeToMs(oldest), snowflakeToMs(newest));
+    if (!throughId) return;
+    // Covered without gaps: back to the oldest fetched, or the whole window once a short page showed nothing older exists.
+    const windowStart = snowflakeFromMs(cutoffMs);
+    const fromId = oldest && compareSnowflakes(oldest, windowStart) < 0 ? oldest : windowStart;
+    await this.core.call('reconcileDeletes', channelId, seen, fromId, throughId);
   }
 
   private async syncRange(channelId: string, path: string): Promise<void> {
@@ -283,7 +311,7 @@ export class SyncService {
     for (let after = state.newestId; ;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, after: after ?? undefined });
       const reachedEnd = page.length < HISTORY_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
+      await this.store(channelId, page, after ? 'newer' : 'older', !after && reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'catch-up', fetched });
       if (!after || reachedEnd) break;
@@ -296,7 +324,7 @@ export class SyncService {
     for (let before = synced.oldestId; before && snowflakeToMs(before) >= cutoffMs;) {
       const page = await this.page<RawMessage[]>(channelId, path, { limit: HISTORY_PAGE_SIZE, before });
       const reachedEnd = page.length < HISTORY_PAGE_SIZE;
-      await this.core.call('ingestSyncPage', channelId, page, 'older', reachedEnd);
+      await this.store(channelId, page, 'older', reachedEnd);
       fetched += page.length;
       this.emit({ type: 'sync-progress', channelId, phase: 'backfill', fetched });
       if (reachedEnd) return;

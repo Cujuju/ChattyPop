@@ -10,7 +10,8 @@ import { ProviderAccounts } from './accounts';
 import type { DecisionProvider } from './decisions';
 import { JevProvider, openRouterJevRoute, typeSafeJevRoute, type JevRoute, type JevSpent } from './jev';
 import { openRouterKeyBalance } from './openRouterKeys';
-import { revocable } from './revocable';
+import { completionContract, revocable } from './revocable';
+import { checkToolRequest } from './toolRequest';
 import { keyError, keyedProvider, redactKey } from './keyError';
 import {
   ProviderUnavailableError,
@@ -32,6 +33,14 @@ function withoutImages(p: LlmProvider, label: string): LlmProvider {
     complete: (req) => (req.images?.length ? Promise.reject(new Error(`${label} can't read images.`)) : p.complete(req)),
     listModels: () => p.listModels(),
     ...(p.planUsage ? { planUsage: () => p.planUsage!() } : {}),
+  };
+}
+
+/** A provider not declared to call tools refuses a request carrying some. */
+function withoutTools(p: LlmProvider, label: string): LlmProvider {
+  return {
+    ...p,
+    complete: (req) => (req.tools?.length ? Promise.reject(new Error(`${label} can't call tools.`)) : p.complete(req)),
   };
 }
 
@@ -87,12 +96,13 @@ export class ProviderRegistry {
     this.registered.set(id, registration);
     // Only a provider declaring accounts owns account folders in its plugin's data folder.
     if (declared.accounts && dataDir) this.accounts.activate(id, impl, dataDir);
+    // Revokes before the plugin's own cleanup, so a throw from that cleanup leaves nothing registered or running.
     return () => {
       if (this.registered.get(id) !== registration) return;
       this.registered.delete(id);
       this.accounts.deactivate(id);
-      impl.dispose?.();
       registration.revoked.abort(new ProviderUnavailableError(this.unavailable(id)!));
+      impl.dispose?.();
     };
   }
 
@@ -137,9 +147,11 @@ export class ProviderRegistry {
     const held = this.accounts.get(id);
     const raw = registration.impl.create(settings.providers[id] ?? NO_CHOICE, held.account);
     const named: LlmProvider = { id, maxInputChars: raw.maxInputChars, complete: (req) => raw.complete(req), listModels: () => raw.listModels(), ...(raw.planUsage ? { planUsage: () => raw.planUsage!() } : {}) };
-    const provider = keyedProvider(revocable(revocable(named, held.revoked.signal), registration.revoked.signal), () => this.apiKey(id));
+    const provider = keyedProvider(revocable(revocable(completionContract(named), held.revoked.signal), registration.revoked.signal), () => this.apiKey(id));
     const d = declaredProvider(id, this.declared)!;
-    return d.images ? provider : withoutImages(provider, d.label);
+    const images = d.images ? provider : withoutImages(provider, d.label);
+    const tools = d.tools ? images : withoutTools(images, d.label);
+    return { ...tools, complete: async (req) => tools.complete(checkToolRequest(req)) };
   }
 
   /** Settings → AI: each running provider's state, in declared order. A failing report is shown as the reason. */

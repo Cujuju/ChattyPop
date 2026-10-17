@@ -1,5 +1,5 @@
 // Discord's server-side scheduled sends; times are local in pickers and ISO on the wire.
-import type { OwnerMessage } from './compose';
+import type { OwnerMessage, WrittenAs } from './compose';
 import { timeFormat } from './hourCycle';
 import { snowflakeToMs, type RawMessage } from './discord';
 import { MS_PER_DAY, MS_PER_MIN } from './units';
@@ -20,6 +20,9 @@ export interface ScheduledAvailability {
 export interface ScheduledDraft extends OwnerMessage {
   scheduledTimestamp: string;
 }
+
+/** A scheduled message as the sender asks for it: its uploads went first, so it names the account it was written as. */
+export interface ScheduledSend extends ScheduledDraft, WrittenAs {}
 
 export interface ScheduledMessage {
   user_id: string;

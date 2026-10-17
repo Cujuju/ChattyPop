@@ -1,5 +1,5 @@
 // Host match, filter and window-trigger implementations.
-import { buildPattern, compileKeywordPattern } from '@shared/keywordPattern';
+import { compileKeywordPattern, textPattern } from '@shared/keywordPattern';
 import type { CustomJevQuestion } from '@shared/jevQuestion';
 import type { TextConfig } from '@shared/ruleKinds/host';
 import type { ContentKind } from '@shared/messageContent';
@@ -13,7 +13,7 @@ import type { RuleKinds } from './kinds';
 /** Registers prepared host matching and narrowing, plus scheduled-window calculation. */
 export function registerHostMatches(k: RuleKinds): void {
   k.match<TextConfig, RegExp>('text', {
-    prepare: (c) => compileKeywordPattern(c.spec ? buildPattern(c.spec) : c.pattern),
+    prepare: (c) => compileKeywordPattern(textPattern(c)),
     direct: (re, { m }) =>
       m.content && re.test(m.content) ? { kind: 'pattern', probability: null, highlight: re } : null,
   });

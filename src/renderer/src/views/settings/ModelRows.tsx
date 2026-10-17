@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
 import type { ModelOption, ProviderStatus } from '@shared/contract';
 import type { ProviderId } from '@shared/settings';
-import { providerStatus } from '@/state/preferences';
+import { keepProviderStatusLoaded, providerStatus } from '@/state/preferences';
 import { SearchSelect } from '@/ui/SearchSelect';
 import { EffortSelect, hasEffortChoice, keptEffort } from './EffortSelect';
 import { Row, settingsControl as c } from './SettingsLayout';
@@ -27,6 +27,7 @@ interface RowProps {
 }
 
 export function ModelRow(props: RowProps) {
+  keepProviderStatusLoaded();
   const status = () => statusOf(props.provider);
   const current = () => props.value.model ?? '';
   // Keep a saved model selectable even if the provider stopped listing it.
@@ -61,6 +62,7 @@ export function ModelRow(props: RowProps) {
 
 /** The chosen model's thinking/effort levels; hidden when it offers none. */
 export function EffortRow(props: RowProps) {
+  keepProviderStatusLoaded();
   const model = () => modelOption(props.provider, props.value.model);
   return (
     <Show when={hasEffortChoice(model(), props.value.effort)}>

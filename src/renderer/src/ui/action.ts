@@ -12,6 +12,26 @@ export interface Action {
   cancel(): void;
 }
 
+/** An editor's draft as one save sent it. */
+export interface Submission<T> {
+  readonly value: T;
+  /** The save is done: the draft becomes `stored` only if unedited since; true when it did. Later edits stay, still unsaved. */
+  settle(stored: T): boolean;
+}
+
+/** Takes `draft` for a save. Unedited means the same value: each edit sets a new one, so reference equality tells. */
+export function submitDraft<T>(draft: Accessor<T>, setDraft: (value: T) => unknown): Submission<T> {
+  const value = draft();
+  return {
+    value,
+    settle: (stored) => {
+      if (draft() !== value) return false;
+      setDraft(stored);
+      return true;
+    },
+  };
+}
+
 export function createAction(): Action {
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);

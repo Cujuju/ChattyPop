@@ -212,8 +212,9 @@ The loader queues additional misses, with a maximum of 256 unique queued downloa
 request removes it from the queue. Queue overflow returns a recoverable load failure; it never expands the
 queue without a bound. The existing renderer visibility control continues to limit requests during a fling.
 
-There is no automatic retry loop. A later load can try again after a transient failure. Foreground downloads
-can be cancelled on backgrounding; no background-transfer session or new background entitlement is needed.
+There is no automatic retry loop. A later load can try again after a transient failure. Backgrounding cancels
+foreground downloads but keeps their waiting requests, and foregrounding starts them again, so a mounted image
+is answered rather than failed. No background-transfer session or new background entitlement is needed.
 
 ## Loader and WebKit interface
 
@@ -272,8 +273,9 @@ bytes, and finish notification. Errors return an uncached response; successful i
 Pairing replacement, sign-out, and controller destruction close the previous loader context and cancel
 queued/download work. Recheck the context generation before both persistence and response delivery.
 Delete the old namespace after the new pairing is established, and keep the global byte cap during cleanup.
-An initial unknown cookie state must never trigger namespace deletion. Resume foregrounding by refreshing
-the validated cookie snapshot.
+An initial unknown cookie state must never trigger namespace deletion. Resume foregrounding by restarting the
+waiting requests under the kept pairing, then refreshing the validated cookie snapshot; a changed pairing
+fails them as any pairing replacement does.
 
 Explicit ID removal increments an invalidation revision for each affected ID. An earlier request cannot
 commit a removed image after eviction. Size eviction removes stored entries without inventing catalog

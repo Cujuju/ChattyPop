@@ -11,6 +11,7 @@ import {
   PLUGIN_API_VERSION,
   PLUGIN_ID_PATTERN,
   PLUGIN_MANIFEST_FILE,
+  PLUGIN_STOP_DEADLINE_MS,
   type PluginApi,
   type PluginInfo,
   type PluginManifest,
@@ -25,14 +26,14 @@ import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting } from '../db';
 import { createPluginApi, emptyRegistrations, type HostDeps, type Registrations } from './api';
 import { unregisterMessageQuestion } from '../jev/messageQuestions';
-import { unregisterAttachmentNotes } from '../attachmentNotes';
 import { audiencesOf, completionOf, type Audience } from '@shared/pluginChannels';
-import type { PluginDescriptor } from '@shared/bundledTypes';
+import { nestedTablesError, tableNamespacesNest, type PluginDescriptor } from '@shared/bundledTypes';
 import type { HostPlugins, TextSource } from './bundled';
 import { CompletionLedger } from './completions';
 import { createCoreContext, type CorePlugin } from './context';
 import { assertRegistered } from './registrationCheck';
 import { ActivationContinuity } from './continuity';
+import { reservePluginId } from './tableOwners';
 
 /** Ids of plugins the user turned off (Settings → Plugins). */
 export const PLUGINS_DISABLED_KEY = 'plugins.disabled';
@@ -52,6 +53,8 @@ interface Loaded {
   error: string | null;
   reg: Registrations;
   deactivate?: () => void;
+  /** Set once unloaded: an activation still running then disposes what it returns instead of committing it. */
+  retired?: true;
 }
 
 /** Bundled descriptor and optional core side. */
@@ -104,11 +107,15 @@ function readManifest(dir: string): PluginManifest {
  */
 export class PluginHost {
   private readonly plugins = new Map<string, Loaded>();
-  /** Bumped on every reload so the ESM loader re-reads changed entry files. */
+  /** Bumped on every folder pass, so the ESM loader re-reads changed entry files and an older pass stops. */
   private generation = 0;
   /** The signed-in Discord user, once main reports it; handed to bundled plugins that load later. */
   private self: string | null = null;
   private bundledStarted = false;
+  /** Set once the archive begins closing: nothing loads after. */
+  private ended = false;
+  /** Folder loads under way: each settles once its activation returned and, if retired meanwhile, its cleanup ran. */
+  private readonly loading = new Set<Promise<void>>();
   /** Every bundled plugin, in build order; each has an on/off switch whether or not it has a core side. */
   private readonly bundled: readonly BundledEntry[];
   private readonly continuity: ActivationContinuity;
@@ -133,6 +140,11 @@ export class PluginHost {
     this.bundled = descriptors.map((plugin) => ({ plugin, core: byId.get(plugin.manifest.id) ?? null }));
     const unlisted = core.filter((c) => !descriptors.some((d) => d.manifest.id === c.plugin.manifest.id));
     if (unlisted.length) throw new Error(`Core entries without a bundled descriptor: ${unlisted.map((c) => c.plugin.manifest.id).join(', ')}`);
+    // checkBundled and acceptInstalled keep nesting ids out of a build's descriptors; a host given them otherwise refuses.
+    for (const d of descriptors) {
+      const nesting = descriptors.find((other) => tableNamespacesNest(d.manifest.id, other.manifest.id));
+      if (nesting) throw nestedTablesError(d.manifest.id, nesting.manifest.id);
+    }
     this.continuity = new ActivationContinuity(() => deps.db);
     deps.bundled?.providers.bindPlugins((id) => this.state(id));
     deps.bundled?.rules.bindPlugins((id) => this.state(id));
@@ -205,20 +217,35 @@ export class PluginHost {
     this.deps.emit({ type: 'plugins-changed' });
   }
 
-  /** Ends activations before archive closure without changing switches or continuity. The app restarts afterward. */
-  endActivations(): void {
-    for (const p of this.plugins.values()) if (p.status === 'active') this.unload(p);
+  /**
+   * Ends activations before archive closure without changing switches or continuity, and stops the folder pass. Ones
+   * still running are retired now; resolves once they returned and their cleanup ran, or at `deadlineMs`. The app restarts afterward.
+   */
+  async endActivations(deadlineMs = PLUGIN_STOP_DEADLINE_MS): Promise<void> {
+    this.ended = true;
+    this.generation++;
+    for (const p of this.plugins.values()) if (!p.retired) this.unload(p);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const overrun = new Promise<'overrun'>((settle) => (timer = setTimeout(() => settle('overrun'), deadlineMs)));
+    const outcome = await Promise.race([Promise.allSettled([...this.loading]).then(() => 'ended' as const), overrun]);
+    clearTimeout(timer);
+    if (outcome === 'overrun') console.error(`[plugins] activations still running after ${deadlineMs} ms; their cleanup runs after the archive closes`);
   }
 
   private disabled(): Set<string> {
     return new Set((getSetting(this.deps.db, PLUGINS_DISABLED_KEY) as string[] | undefined) ?? []);
   }
 
+  /** Loads the plugins folder; a later pass (a reload) supersedes this one, which then loads nothing more. */
   private async loadFolders(disabled: Set<string>): Promise<void> {
-    this.generation++;
-    if (!existsSync(this.dir)) return;
+    const generation = ++this.generation;
+    if (this.ended || !existsSync(this.dir)) return;
     for (const entry of readdirSync(this.dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) await this.load(join(this.dir, entry.name), disabled);
+      if (generation !== this.generation) return;
+      if (!entry.isDirectory()) continue;
+      const load = this.load(join(this.dir, entry.name), disabled, generation);
+      this.loading.add(load);
+      await load.finally(() => this.loading.delete(load));
     }
   }
 
@@ -280,6 +307,11 @@ export class PluginHost {
   /** Messages in these channels changed (debounced; real channels only). */
   archiveChanged(channelIds: string[]): void {
     for (const p of this.active()) for (const fn of p.reg.onArchiveChanged) this.guard(p, () => fn(channelIds));
+  }
+
+  /** Privacy mode or its hidden scope changed. */
+  privacyChanged(): void {
+    for (const p of this.active()) for (const fn of p.reg.onPrivacyChanged) this.guard(p, fn);
   }
 
   /** The link index was rebuilt from stored messages; runs inside the rebuild's transaction. */
@@ -352,7 +384,7 @@ export class PluginHost {
       reg: emptyRegistrations(),
     };
     this.plugins.set(manifest.id, p);
-    if (disabled.has(manifest.id)) return;
+    if (this.ended || disabled.has(manifest.id)) return;
     const loadError = this.failedHere.get(manifest.id);
     if (loadError !== undefined) {
       p.status = 'error';
@@ -376,6 +408,7 @@ export class PluginHost {
     try {
       const { bundled } = this.deps;
       if (!bundled) throw new Error('This core provides no bundled-plugin host.');
+      reservePluginId(bundled.ready(), manifest.id);
       const guard = (fn: () => unknown): void => this.guard(p, fn);
       const plugins: HostPlugins = { self: () => this.self, textPending: (id) => this.textPending(id), textSettled: (id) => this.textSettled(id), resumed };
       const ctx = createCoreContext(core.plugin, this.bundled.indexOf(entry), { ...this.deps, bundled }, p.reg, plugins, guard, this.ledger(manifest.id));
@@ -395,7 +428,7 @@ export class PluginHost {
     }
   }
 
-  private async load(dir: string, disabled: Set<string>): Promise<void> {
+  private async load(dir: string, disabled: Set<string>, generation: number): Promise<void> {
     let manifest: PluginManifest;
     try {
       manifest = readManifest(dir);
@@ -413,6 +446,12 @@ export class PluginHost {
       return;
     }
     this.plugins.set(manifest.id, p);
+    const nesting = [...this.plugins.values()].find((other) => tableNamespacesNest(manifest.id, other.manifest.id));
+    if (nesting) {
+      p.status = 'error';
+      p.error = nestedTablesError(manifest.id, nesting.manifest.id).message;
+      return;
+    }
     if (disabled.has(manifest.id)) return;
     const entry = resolve(dir, manifest.main);
     if (!insideFolder(dir, manifest.main)) {
@@ -421,32 +460,49 @@ export class PluginHost {
       return;
     }
     try {
-      const mod = (await import(`${pathToFileURL(entry).href}?v=${this.generation}`)) as PluginModule;
+      reservePluginId(this.deps.db, manifest.id);
+    } catch (err) {
+      p.status = 'error';
+      p.error = errorMessage(err);
+      return;
+    }
+    try {
+      const mod = (await import(`${pathToFileURL(entry).href}?v=${generation}`)) as PluginModule;
+      if (p.retired) return;
       if (typeof mod.activate !== 'function') throw new Error(`${manifest.main} does not export activate(api)`);
       const api = createPluginApi(manifest.id, this.deps, p.reg, (fn) => this.guard(p, fn));
       const deactivate = await mod.activate(api);
+      // Unloaded while activating (switched off, reloaded, archive closing): what it returned runs now, never committed.
+      if (p.retired) return void (typeof deactivate === 'function' && this.cleanup(p, 'deactivate', deactivate));
       if (typeof deactivate === 'function') p.deactivate = deactivate;
       p.status = 'active';
     } catch (err) {
+      if (p.retired) return console.error(`[plugin ${manifest.id}] activation failed after it was unloaded`, err);
       this.unload(p);
       p.status = 'error';
       p.error = errorMessage(err);
     }
   }
 
+  /** Drops everything the activation registered; each cleanup runs on its own, so one that throws is logged and the rest still run. */
   private unload(p: Loaded): void {
+    p.retired = true;
     p.reg.unloaded = true;
     p.reg.timers.forEach(clearInterval);
-    p.reg.disposers.forEach((dispose) => dispose());
+    for (const dispose of p.reg.disposers) this.cleanup(p, 'cleanup', dispose);
     p.reg.jevQuestions.forEach(unregisterMessageQuestion);
-    if (p.reg.attachmentNotes) unregisterAttachmentNotes(p.manifest.id);
-    try {
-      p.deactivate?.();
-    } catch (err) {
-      console.error(`[plugin ${p.manifest.id}] deactivate failed`, err);
-    }
+    if (p.deactivate) this.cleanup(p, 'deactivate', p.deactivate);
     p.reg = emptyRegistrations();
     p.deactivate = undefined;
+  }
+
+  /** Runs one of a plugin's cleanups; a throw is logged, never passed on. */
+  private cleanup(p: Loaded, what: string, fn: () => void): void {
+    try {
+      fn();
+    } catch (err) {
+      console.error(`[plugin ${p.manifest.id}] ${what} failed`, err);
+    }
   }
 
   /** Bundled plugin `id`'s completion reports. */

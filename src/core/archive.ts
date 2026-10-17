@@ -16,11 +16,11 @@ import {
   type RawUser,
   type RawUserPatch,
 } from '@shared/discord';
-import { parseRawJson, type Db } from './db';
-import { deriveMessage, refreshStoredAttachments } from './derive/deriveMessage';
+import { parseRawJson, rawJsonText, type Db } from './db';
+import { deriveMessage } from './derive/deriveMessage';
+import { mergeFullPayload, olderVersion } from './messageVersion';
 import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser, type UserMergeMode } from './people';
 import {
-  PRIVATE_KINDS_SQL,
   autoArchivable,
   changeRecipient,
   closePrivateChannel,
@@ -177,12 +177,11 @@ export class Archive {
 
   /**
    * Archived channels sync keeps current for `selfId` (syncedChannelSql), excluding threads: sync reaches those through
-   * their parent's thread discovery. `dmsOnly`: just the account's DMs, once READY names it.
+   * their parent's thread discovery.
    */
-  optedInChannels(selfId: string | null, dmsOnly = false): string[] {
-    const kinds = dmsOnly ? `AND c.kind IN (${PRIVATE_KINDS_SQL})` : '';
+  optedInChannels(selfId: string | null): string[] {
     return (
-      this.db.prepare(`SELECT c.id FROM channels c WHERE ${syncedChannelSql('c')} AND c.kind NOT IN (${THREAD_KINDS_SQL}) ${kinds}`).all({ self: selfId ?? '' }) as {
+      this.db.prepare(`SELECT c.id FROM channels c WHERE ${syncedChannelSql('c')} AND c.kind NOT IN (${THREAD_KINDS_SQL})`).all({ self: selfId ?? '' }) as {
         id: string;
       }[]
     ).map((r) => r.id);
@@ -197,11 +196,17 @@ export class Archive {
     return this.optedIn.has(channelId);
   }
 
-  /** Inserts messages and retains changed text as revisions. Arrival source remains the first source; only gateway arrivals can be live. */
+  /**
+   * Inserts messages and retains changed text as revisions; a copy older than the stored edit changes nothing, and a
+   * current one refreshes the stored payload. Arrival source remains the first source; only gateway arrivals can be live.
+   */
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult {
     const result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
-    const getMsg = this.db.prepare('SELECT content, edited_ts, pruned_at FROM messages WHERE id = ?');
-    const insert = this.db.prepare('INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const getMsg = this.db.prepare('SELECT content, edited_ts, raw_json, pruned_at FROM messages WHERE id = ?');
+    const insert = this.db.prepare(
+      'INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via, ephemeral) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    const refresh = this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?');
     const now = Date.now();
     this.db.transaction(() => {
       for (const m of messages) {
@@ -214,19 +219,27 @@ export class Archive {
         const seenAt = snowflakeToMs(m.id);
         if (m.member && typeof m.member === 'object') putMember(this.db, guildId, m.author.id, m.member as RawMember, seenAt);
         this.ingestMentions(m.mentions, guildId, seenAt, via === ARRIVAL.gateway ? 'merge' : 'keep');
-        const existing = getMsg.get(m.id) as { content: string; edited_ts: number | null; pruned_at: number | null } | undefined;
+        const existing = getMsg.get(m.id) as
+          { content: string; edited_ts: number | null; raw_json: string | Buffer | null; pruned_at: number | null } | undefined;
         // Retention removed this text on purpose; a re-fetch or edit must not bring it back.
         if (existing?.pruned_at) continue;
+        const editedTs = m.edited_timestamp ? Date.parse(m.edited_timestamp) : null;
+        // Fetched before an edit the archive already holds (a history page delivered late).
+        if (existing && olderVersion(editedTs, existing.edited_ts)) continue;
         const changed = !existing || existing.content !== m.content;
         const texted = changed ? 0 : textedLinkCount(this.db, m.id);
-        const editedTs = m.edited_timestamp ? Date.parse(m.edited_timestamp) : null;
         if (!existing) {
-          insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via);
+          const ephemeral = typeof m.flags === 'number' && (m.flags & MESSAGE_FLAG.ephemeral) !== 0 ? 1 : 0;
+          insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via, ephemeral);
           result.inserted++;
-        } else if (existing.content !== m.content) {
-          this.reviseContent(m.id, existing, m.content, editedTs, JSON.stringify(m), now);
-          result.edited++;
-        } else refreshStoredAttachments(this.db, m);
+        } else {
+          const storedJson = rawJsonText(existing.raw_json);
+          const raw = JSON.stringify(mergeFullPayload(storedJson ? (JSON.parse(storedJson) as object) : null, m));
+          if (changed) {
+            this.reviseContent(m.id, existing, m.content, editedTs, raw, now);
+            result.edited++;
+          } else if (raw !== storedJson || editedTs !== existing.edited_ts) refresh.run(editedTs, raw, m.id); // unchanged rows keep their compression
+        }
         // Derived first: matching reads the message's attachments and links.
         deriveMessage(this.db, m, m.author.id);
         // Before matching: image text still to come is pending when rules look.
@@ -252,13 +265,16 @@ export class Archive {
       if (u.author) upsertUser(this.db, u.author);
       this.ingestMentions(u.mentions, guildOf(this.db, u.channel_id), snowflakeToMs(u.id));
       if (row.pruned_at) return;
+      // A copy that names its version (null: unedited) and predates the stored edit is stale; one without it is a partial update.
+      if (u.edited_timestamp !== undefined && olderVersion(u.edited_timestamp ? Date.parse(u.edited_timestamp) : null, row.edited_ts)) return;
       const mergedObj = { ...(parseRawJson<object>(row.raw_json) ?? {}), ...u };
       const merged = JSON.stringify(mergedObj);
       const editedTs = u.edited_timestamp ? Date.parse(u.edited_timestamp) : row.edited_ts;
       const edited = typeof u.content === 'string' && u.content !== row.content ? u.content : null;
       const texted = edited === null ? textedLinkCount(this.db, u.id) : 0;
       if (edited !== null) this.reviseContent(u.id, row, edited, editedTs, merged, Date.now());
-      else this.db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(merged, u.id);
+      // Same text: the version still advances, so a snapshot older than this update stays stale.
+      else this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?').run(editedTs, merged, u.id);
       deriveMessage(this.db, mergedObj, row.author_id); // before matching, which reads attachments and links
       this.onShown(u.id);
       if (edited !== null) this.onText(this.stored(u.id), { via: ARRIVAL.gateway, at: Date.now(), edit: true });
@@ -293,15 +309,21 @@ export class Archive {
     return this.optedIn.has(d.channel_id) && applyReactionEvent(this.db, t, d, selfId);
   }
 
-  /** Marks previously fetched messages missing from a contiguous refetch as deleted, including retention-pruned rows. Excludes ephemeral messages, which never appear in history. */
-  reconcileDeletes(channelId: string, seenIds: string[], sinceTs: number, untilTs: number, at: number): number {
+  /**
+   * Marks stored messages from `fromId` through `throughId` (ids, both included) that a contiguous refetch of that range didn't return
+   * as deleted, including retention-pruned rows. Excludes ephemeral messages, which never appear in history.
+   */
+  reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string, at: number): number {
     if (!this.optedIn.has(channelId)) return 0;
     const seen = new Set(seenIds);
-    const ephemeral = `COALESCE(${rawJsonSql('$.flags', '')}, 0) & ${MESSAGE_FLAG.ephemeral}`;
+    // The column survives text retention; the payload also covers rows an older build stored in a shared profile.
+    const ephemeral = `(ephemeral = 1 OR COALESCE(${rawJsonSql('$.flags', '')}, 0) & ${MESSAGE_FLAG.ephemeral} != 0)`;
     const stored = this.db
-      .prepare(`SELECT id FROM messages WHERE channel_id = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL AND ${ephemeral} = 0`)
-      .all(channelId, sinceTs, untilTs) as { id: string }[];
-    const gone = stored.filter((r) => !seen.has(r.id));
+      .prepare(`SELECT id FROM messages WHERE channel_id = ? AND ts >= ? AND ts <= ? AND deleted_at IS NULL AND NOT ${ephemeral}`)
+      .all(channelId, snowflakeToMs(fromId), snowflakeToMs(throughId)) as { id: string }[];
+    // Ids within the bounds' milliseconds: another message of the same millisecond may lie outside the range.
+    const inRange = (id: string): boolean => compareSnowflakes(id, fromId) >= 0 && compareSnowflakes(id, throughId) <= 0;
+    const gone = stored.filter((r) => inRange(r.id) && !seen.has(r.id));
     const mark = this.db.prepare('UPDATE messages SET deleted_at = ? WHERE id = ?');
     this.db.transaction(() => gone.forEach((r) => mark.run(at, r.id)))();
     return gone.length;
@@ -322,12 +344,14 @@ export class Archive {
 
   /**
    * Stores one page fetched by sync and extends the synced range in the same transaction,
-   * so a crash can never leave the cursor ahead of the stored messages.
+   * so a crash can never leave the cursor ahead of the stored messages. Null: sync stopped keeping the channel for `selfId`
+   * while the page was fetched, so nothing is stored and the cursors stay put.
    */
-  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult {
-    let result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
+  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean, selfId: string | null): IngestResult | null {
+    let result: IngestResult | null = null;
     this.db.transaction(() => {
-      if (page.length) result = this.ingestMessages(page, ARRIVAL.sync);
+      if (!this.syncable(channelId, selfId)) return;
+      result = page.length ? this.ingestMessages(page, ARRIVAL.sync) : { inserted: 0, edited: 0, skipped: 0 };
       const ids = page.map((m) => m.id).sort(compareSnowflakes);
       const cur = this.syncState(channelId);
       const newest = ids.length && (!cur.newestId || compareSnowflakes(ids.at(-1)!, cur.newestId) > 0) ? ids.at(-1)! : cur.newestId;
@@ -369,6 +393,7 @@ export class Archive {
     applyRoleChange(this.db, c);
   }
 
+  /** Keeps the prior text as a revision. seen_at, its key, rises per message: edits within one millisecond each get their own. */
   private reviseContent(
     id: string,
     prior: { content: string; edited_ts: number | null },
@@ -378,8 +403,11 @@ export class Archive {
     now: number,
   ): void {
     this.db
-      .prepare('INSERT OR IGNORE INTO message_revisions (message_id, seen_at, edited_ts, content) VALUES (?, ?, ?, ?)')
-      .run(id, now, prior.edited_ts, prior.content);
+      .prepare(
+        `INSERT INTO message_revisions (message_id, seen_at, edited_ts, content)
+         VALUES (@id, MAX(@now, COALESCE((SELECT MAX(seen_at) + 1 FROM message_revisions WHERE message_id = @id), @now)), @editedTs, @content)`,
+      )
+      .run({ id, now, editedTs: prior.edited_ts, content: prior.content });
     this.db.prepare('UPDATE messages SET content = ?, edited_ts = ?, raw_json = ? WHERE id = ?').run(content, editedTs, raw, id);
   }
 }

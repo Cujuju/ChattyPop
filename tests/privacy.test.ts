@@ -97,6 +97,24 @@ describe('messages in privacy mode', () => {
     setMode(true);
     expect(messagesByIds(db, [mods!.id])).toEqual([]);
   });
+
+  it("leaves out a shown reply's preview of a hidden source, archived or only in Discord's snapshot", () => {
+    const [plain, naming] = messagePage(db, { channelId: GENERAL, limit: 10 });
+    const snapshot = (id: string, content: string, channelId = GENERAL) => ({ id, channel_id: channelId, content, author: { id: 'u2', username: 'bob' } });
+    const replyTo = (n: number, ref: ReturnType<typeof snapshot>) =>
+      rawMessage(GENERAL, at(10 + n), `reply ${n}`, { type: 19, message_reference: { message_id: ref.id }, referenced_message: ref } as never);
+    const replies = [
+      replyTo(1, snapshot(plain!.id, plain!.content)),
+      replyTo(2, snapshot(naming!.id, naming!.content)), // archived source naming a hidden channel
+      replyTo(3, snapshot('400000000000000001', `ask <#${MODS}>`)), // snapshot only, naming a hidden channel
+      replyTo(4, snapshot('400000000000000002', 'from the hidden server', SECRET_CHANNEL)), // snapshot only, in a hidden channel
+    ];
+    archive.ingestMessages(replies, ARRIVAL.gateway);
+    const previews = (): (string | null)[] => messagesByIds(db, replies.map((r) => r.id)).map((m) => m.reply?.content ?? null);
+    expect(previews()).toEqual(['plain hello', `see <#${MODS}> hello`, `ask <#${MODS}>`, 'from the hidden server']);
+    setMode(true);
+    expect(previews()).toEqual(['plain hello', null, null, null]);
+  });
 });
 
 describe('privacy css for the live client', () => {

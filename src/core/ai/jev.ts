@@ -30,7 +30,7 @@ const RETRY_STATUSES = new Set([429, 529]);
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 1000;
 /** Bounds a backfill burst so interactive requests aren't queued behind it and 429s stay rare. */
-const MAX_IN_FLIGHT = 4;
+export const JEV_MAX_IN_FLIGHT = 4;
 
 /** Jev rejects a whole request over one lone surrogate (half an emoji), so any that slips past cutText becomes U+FFFD. */
 const wellFormed = (_key: string, v: unknown): unknown => (typeof v === 'string' ? v.toWellFormed() : v);
@@ -92,6 +92,10 @@ export function typeSafeJevRoute(key: string): JevRoute {
 
 const isProb = (v: unknown): v is number => typeof v === 'number' && v >= 0 && v <= 1;
 
+/** A probability map: a plain object whose every key passes `isKey` and every value is a probability. */
+const isProbabilities = (v: unknown, isKey: (k: string) => boolean): boolean =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) && Object.entries(v).every(([k, p]) => isKey(k) && isProb(p));
+
 /** Drops malformed answers, so callers can rely on "present = well-formed, absent = no judgment". */
 function isAnswerTo(q: Question, a: unknown): boolean {
   if (typeof a !== 'object' || a === null) return false;
@@ -100,10 +104,17 @@ function isAnswerTo(q: Question, a: unknown): boolean {
   switch (q.type) {
     case 'noul':
       return isProb(r['noul']);
-    case 'choice':
-      return typeof r['choice'] === 'string' && r['choice'] in q.criteria && isProb(r['confidence']);
-    case 'score':
-      return typeof r['score'] === 'number' && Number.isFinite(r['score']) && isProb(r['confidence']);
+    case 'choice': {
+      const isOption = (k: unknown): boolean => typeof k === 'string' && Object.hasOwn(q.criteria, k);
+      return isOption(r['choice']) && isProb(r['confidence']) && isProbabilities(r['probabilities'], isOption);
+    }
+    case 'score': {
+      // Levels are 0 to one less than the question's level count; the score may fall between two.
+      const top = q.criteria.length - 1;
+      const isLevel = (k: string): boolean => /^\d+$/.test(k) && Number(k) <= top;
+      const s = r['score'];
+      return typeof s === 'number' && s >= 0 && s <= top && isProb(r['confidence']) && isProbabilities(r['probabilities'], isLevel);
+    }
   }
 }
 
@@ -171,7 +182,7 @@ export class JevProvider {
   }
 
   private async acquire(): Promise<void> {
-    if (this.inFlight < MAX_IN_FLIGHT) {
+    if (this.inFlight < JEV_MAX_IN_FLIGHT) {
       this.inFlight++;
       return;
     }

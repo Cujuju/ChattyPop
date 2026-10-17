@@ -47,6 +47,8 @@ function desktopApi(core: CorePort, main: MainPort | null, deliver: (fn: (e: App
     openPanelWindow: absent('panel windows'),
     showInMainWindow: () => undefined,
     reportPageError: () => undefined,
+    reportShownChannel: () => undefined,
+    getShownChannel: async () => null,
     setUnsaved: () => undefined,
     discardUnsaved: () => undefined,
     onEvent: (listener) => {

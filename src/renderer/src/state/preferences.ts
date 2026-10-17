@@ -1,5 +1,5 @@
 // Host preferences.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
+import { containedRoot, onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createResource, createSignal } from 'solid-js';
 import type { ProviderStatus } from '@shared/contract';
@@ -107,12 +107,22 @@ export function applyTheme(): void {
   });
 }
 
+/** Mounted components that show provider status outside Settings (keepProviderStatusLoaded). */
+const [statusViewers, setStatusViewers] = createSignal(0);
+
+/** Loads provider status while the calling component is mounted, as Settings does while open. Call in a component body. */
+export function keepProviderStatusLoaded(): void {
+  setStatusViewers((n) => n + 1);
+  onCleanup(() => setStatusViewers((n) => n - 1));
+}
+
 /**
- * Availability and model lists per provider. Loaded only while Settings is open (listing Claude/Codex
- * models spawns their CLIs). `refreshProviderStatus` re-lists models past the session cache.
+ * Availability and model lists per provider. Loaded only while Settings or a component that shows them is open
+ * (listing Claude/Codex models spawns their CLIs; the session cache keeps later reads cheap).
+ * `refreshProviderStatus` re-lists models past the session cache.
  */
 const [providerStatusRead, { refetch: refetchProviderStatus }] = containedRoot(() => createResource<ProviderStatus[], true, boolean>(
-  () => settingsOpen() || undefined,
+  () => settingsOpen() || statusViewers() > 0 || undefined,
   (_open, info) => api.core.aiStatus(info.refetching === true),
   { initialValue: [] },
 ));

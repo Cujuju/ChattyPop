@@ -11,6 +11,7 @@ import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { OwnerAccount } from '../discord/account';
+import { OwnerSession, requireWrittenAs } from '../discord/ownerSession';
 import { OwnerTyping } from '../discord/ownTyping';
 import type { GatewayDirectory } from '../discord/directory';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
@@ -77,6 +78,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   // Posting calls' requests go through `poster`, which checks the lock before every attempt; reactions and reads don't.
   const poster = postingClient(d.owner, d.posting);
   const account = new OwnerAccount(d.discord.tap);
+  // Every call below is an owner action: its writes go as the account proven when it was asked, or not at all.
+  const session = new OwnerSession(d.discord.tap, d.capture);
   const savedAccess = new SavedAccess(d.discord.tap, d.directory, d.core);
   const saved = new SavedMessages({ client: poster, capture: d.capture, tap: d.discord.tap,
     filter: (items, ids) => d.core.call('filterSavedMessages', items, ids),
@@ -86,6 +89,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const savedBookmarks = (page: unknown) => saved.bookmarks(page);
   const saveMessage = (message: unknown) => saved.save(message);
   const removeSavedMessage = (message: unknown) => saved.remove(message);
+  /** A write the sender kept across calls goes only as the account it names (requireWrittenAs): every step of its job is checked. */
+  const writtenAs = (v: unknown): void => requireWrittenAs((v as { accountId?: unknown } | null)?.accountId);
   const tiers = new GuildTiers(d.discord.tap);
   /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
   const limitFor = async (channelId: string): Promise<number> => {
@@ -98,18 +103,30 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const scheduledCalls = {
     scheduledAvailability: async (channelId: unknown) => scheduled.availability(channelId),
     scheduledMessages: () => scheduled.list(),
-    createScheduled: (m: unknown) => scheduled.create(m), updateScheduled: (u: unknown) => scheduled.update(u),
+    createScheduled: async (m: unknown) => {
+      writtenAs(m);
+      return scheduled.create(m);
+    },
+    updateScheduled: (u: unknown) => scheduled.update(u),
     cancelScheduled: (id: unknown) => scheduled.remove(id), sendScheduledNow: (id: unknown) => scheduled.remove(id, true),
   };
-  const send = (m: unknown): ReturnType<typeof sendOwnerMessage> => sendOwnerMessage(poster, m, uploads);
+  // The outbox may send it after a reload or reconnect: only as the account it was written as.
+  const send = async (m: unknown): ReturnType<typeof sendOwnerMessage> => {
+    writtenAs(m);
+    return sendOwnerMessage(poster, m, uploads);
+  };
   const uploadLimit = (channelId: unknown): Promise<number> => limitFor(snowflakeArg(channelId, 'channel'));
-  const prepareUploads = (channelId: unknown, files: unknown) => uploads.prepare(poster, channelId, files);
+  const prepareUploads = (channelId: unknown, files: unknown, accountId: unknown) => uploads.prepare(poster, channelId, files, accountId);
   const uploadChunk = (token: unknown, offset: unknown, bytes: unknown): Promise<void> => uploads.chunk(token, offset, bytes);
   const finishUpload = (token: unknown): Promise<void> => uploads.finish(token);
   const gifs = (query: unknown): ReturnType<typeof searchGifs> => searchGifs(d.owner, d.capture, query);
   const edit = (e: unknown): Promise<void> => editOwnerMessage(poster, e);
   const deleteMessage = (m: unknown): Promise<void> => deleteOwnerMessage(poster, m);
-  const forward = (f: unknown): Promise<void> => forwardAsOwner(poster, f);
+  // A forward's note goes as its own send: both steps go only as the account the forward was started as.
+  const forward = async (f: unknown): Promise<void> => {
+    writtenAs(f);
+    return forwardAsOwner(poster, f);
+  };
   // The archive takes the reaction before this resolves, so the renderer's refresh shows it.
   const react = async (r: unknown): Promise<void> => d.core.call('applyOwnReaction', await reactAsOwner(d.owner, r));
   // A vote is a post (locked as one); the archive takes it before this resolves, as a reaction.
@@ -159,7 +176,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const startThread = (t: unknown): Promise<void> => createThread(poster, t);
   // Friends from the client's gateway: the profile's Friends Since, and who a group may hold.
   const friends = new FriendIndex(d.discord.tap);
-  const dms = registerDmHandlers({ core: d.core, owner: poster, account, friends, readStates: d.readStates, posting: d.posting });
+  const dms = registerDmHandlers({ core: d.core, owner: poster, account, session, friends, readStates: d.readStates, posting: d.posting });
   const direct = (m: unknown): Promise<void> => sendDirect(poster, (userId) => dms.dmWith(userId), m);
   // Only this server's text channels that aren't archived; samples go straight to Jev and are dropped.
   handleMain(channels.suggestChannels, async (guildId: unknown) => {
@@ -196,8 +213,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const recent = trackRecentMessageEvents(d.discord.tap);
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
   handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
-  // One gate for the window's and the phone's calls: posting calls refuse while posting is locked.
-  const calls: DiscordCalls = gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings });
+  // One gate for the window's and the phone's calls: posting calls refuse while posting is locked; each is an owner action.
+  const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings }));
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

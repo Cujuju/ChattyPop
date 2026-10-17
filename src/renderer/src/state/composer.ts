@@ -8,6 +8,7 @@ import { convertEmoticons } from '@shared/emoticons';
 import { discordChatSettings } from './chatSettings';
 import { takeDraft, type SavedDraft } from './drafts';
 import { enqueue } from './outbox';
+import { selfId } from './ownMessages';
 import { cancelReply, replyPing, replyTarget } from './reply';
 
 /** Bumped to move the typing into the shown composer (a conversation just opened there). */
@@ -49,6 +50,7 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
       stickerId,
       gif: null,
       nonce: newNonce(),
+      accountId: selfId(),
     },
     files,
     mentions: pickedMentionNames(draft.mentions ?? []),
@@ -64,7 +66,7 @@ export function sendGif(channelId: string, gif: Gif, query: string): void {
   enqueue({
     channelId,
     label: 'GIF',
-    message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce() },
+    message: { channelId, text: gif.url, replyTo, files: [], stickerId: null, gif: { id: gif.id, query }, nonce: newNonce(), accountId: selfId() },
     files: [],
     mentions: {},
     draft: null,
@@ -78,7 +80,7 @@ export function sendPoll(channelId: string, poll: PollDraft): void {
   enqueue({
     channelId,
     label: `Poll: ${poll.question.trim()}`,
-    message: { channelId, text: '', replyTo, files: [], stickerId: null, gif: null, poll, nonce: newNonce() },
+    message: { channelId, text: '', replyTo, files: [], stickerId: null, gif: null, poll, nonce: newNonce(), accountId: selfId() },
     files: [],
     mentions: {},
     draft: null,

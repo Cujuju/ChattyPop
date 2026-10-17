@@ -1,6 +1,6 @@
 import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
-import { parseRawJson, type Db } from '../db';
+import type { Db } from '../db';
 import { extractLinks } from './links';
 
 interface RawAttachment {
@@ -36,27 +36,20 @@ function customEmojis(m: DerivableMessage): CustomEmoji[] {
   return found;
 }
 
-/** What an edit can change of an attachment, as one comparable string. */
-const attachmentState = (a: { id: string; filename: string; description?: string | null; flags?: number | null }): string =>
-  JSON.stringify([a.id, a.filename, a.description ?? null, a.flags ?? null]);
+/** On an attachment upsert: a failed download whose URL changed (SET expressions read the row before the update). */
+const REQUEUE = "status = 'failed' AND url IS NOT excluded.url";
 
-/** Updates stored attachment payloads before derivation so unchanged-text refetches preserve renames and alt text. Retains other gateway-only fields. */
-export function refreshStoredAttachments(db: Db, m: DerivableMessage): void {
-  if (!Array.isArray(m.attachments)) return;
-  const stored = db
-    .prepare('SELECT id, filename, description, flags FROM attachments WHERE message_id = ? AND removed_at IS NULL ORDER BY rowid')
-    .all(m.id) as { id: string; filename: string; description: string | null; flags: number | null }[];
-  if (stored.map(attachmentState).join() === m.attachments.map(attachmentState).join()) return;
-  const payload = parseRawJson<object>(db.prepare('SELECT raw_json FROM messages WHERE id = ?').pluck().get(m.id) as string | Buffer | null);
-  if (payload) db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(JSON.stringify({ ...payload, attachments: m.attachments }), m.id);
-}
-
-/** Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and repeated MESSAGE_UPDATE events. */
+/**
+ * Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and
+ * repeated MESSAGE_UPDATE events. A failed download whose signed URL Discord re-issued is queued again with fresh retries.
+ */
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
   const addAttachment = db.prepare(
     `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags, ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags`,
+     ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags,
+       status = CASE WHEN ${REQUEUE} THEN 'pending' ELSE status END, attempts = CASE WHEN ${REQUEUE} THEN 0 ELSE attempts END,
+       retry_at = CASE WHEN ${REQUEUE} THEN NULL ELSE retry_at END, error = CASE WHEN ${REQUEUE} THEN NULL ELSE error END`,
   );
   const ts = m.attachments?.length ? db.prepare('SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
   for (const a of m.attachments ?? []) {
@@ -88,10 +81,17 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
      RETURNING id`,
   );
   const linkMessage = db.prepare('INSERT OR IGNORE INTO message_links (message_id, link_id) VALUES (?, ?)');
+  const linkIds: number[] = [];
   for (const l of extractLinks(m.content ?? '', m.embeds, m.author?.bot === true)) {
     const { id } = upsertLink.get(l.url, l.platform, l.title, l.description, l.thumbnailUrl, l.site, m.id, m.channel_id, authorId, snowflakeToMs(m.id)) as {
       id: number;
     };
     linkMessage.run(m.id, id);
+    linkIds.push(id);
+  }
+  // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
+  // The link rows stay, as other messages and the link history refer to them.
+  if (typeof m.content === 'string' && Array.isArray(m.embeds)) {
+    db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?))').run(m.id, JSON.stringify(linkIds));
   }
 }

@@ -19,24 +19,25 @@ export function registerStorageHandlers({ win, core, emit, stopArchive }: Storag
   const { storage } = MAIN_INVOKE;
   const restart = (): void => restartApp(win);
   handleMain(storage.info, () => storageInfo());
-  // The key is saved before encrypting (a crash between the two leaves a readable key, never a locked archive),
-  // and deleted only after decrypting succeeded.
+  // The key is saved before encrypting (a crash between the two leaves a key the plaintext file opens without),
+  // and deleted only once a fresh read of an existing file shows it plaintext: a failed change may have encrypted it anyway.
+  // A missing file, a failed read or an unreachable core leaves the state unknown, so the key stays.
+  const settleKey = async (): Promise<void> => {
+    if ((await core.call('archiveEncryption').catch(() => null)) === 'plaintext') deleteArchiveKey();
+  };
   // One change at a time: overlapping calls (the desktop and a phone) must not interleave saving and deleting the key.
+  // Nothing settles at startup: the archive opened may be a fallback location, and a key a plaintext file ignores is harmless.
   let encrypting: Promise<void> = Promise.resolve();
   const setEncrypted = async (on: boolean): Promise<void> => {
+    // Read fresh, never from status: a key is replaced only while the file verifiably doesn't use it.
+    const state = await core.call('archiveEncryption');
+    if (state === 'absent') throw new Error('The archive file is missing, so its encryption cannot be changed.');
     // Already so: a second client's same request must not replace (and on failure delete) the key in use.
-    if ((await core.call('status')).encrypted === on) return;
-    if (on) {
-      const key = createArchiveKey();
-      try {
-        await core.call('setEncryption', key);
-      } catch (err) {
-        deleteArchiveKey();
-        throw err;
-      }
-    } else {
-      await core.call('setEncryption', null);
-      deleteArchiveKey();
+    if ((state === 'encrypted') === on) return;
+    try {
+      await core.call('setEncryption', on ? createArchiveKey() : null);
+    } finally {
+      await settleKey();
     }
   };
   handleMain(storage.setEncrypted, (on) => {

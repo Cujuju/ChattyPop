@@ -24,7 +24,7 @@ import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { installedStart } from '@main/plugins/installed/runtime';
 import type { DecisionProvider } from './ai/decisions';
 import { ProviderRegistry } from './ai/registry';
-import { scopedCompletion } from './ai/readScope';
+import { scopedCompletion, scopedDecider } from './ai/readScope';
 import { Archive } from './archive';
 import type { Arrived, TextMessage } from './arrival';
 import { rederiveIfStale } from './derive/rederive';
@@ -32,10 +32,9 @@ import { enforceAttachmentCap } from './attachmentRetention';
 import { archiveHandlers } from './archiveHandlers';
 import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
-import { getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
+import { encryptedOnDisk, encryptionOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
-import { localOnlyChannelIds } from './channelPolicy';
 import { mediaQueueHandlers } from './mediaQueue';
 import { attachmentStoreHandlers } from './attachmentStoreHandlers';
 import { aiHandlers } from './aiHandlers';
@@ -93,7 +92,7 @@ let pluginDataRoot = '';
 /** Media store size measured on disk (media/ holds attachments and cached icons). */
 let mediaSize: DirSize | undefined;
 let attachmentsDir = '';
-/** Whether the database is encrypted (a key was given at init or set since). */
+/** Whether the database file is encrypted, as read from disk at open and after each change. */
 let encrypted = false;
 
 let previousSessionSeenAt = 0;
@@ -105,6 +104,7 @@ function ready(): { db: Db; archive: Archive } {
 }
 
 function emit(event: AppEvent): void {
+  if (event.type === 'privacy-changed') plugins?.privacyChanged();
   process.parentPort.postMessage({ kind: 'event', event } satisfies CoreEventMessage);
 }
 
@@ -249,18 +249,25 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   },
   suggestChannels: (samples) =>
     suggestChannels(
-      requireDecider('suggestChannels', 'Turn on Settings → Jev → Suggest channels to archive (and set a Jev key).'),
+      scopedDecider(requireDecider('suggestChannels', 'Turn on Settings → Jev → Suggest channels to archive (and set a Jev key).'), () => ready().db),
       rulesOf().list(),
       samples,
-      localOnlyChannelIds(ready().db),
     ),
   setEncryption: (key) => {
-    rekey(ready().db, key);
-    encrypted = key !== null;
+    try {
+      rekey(ready().db, key);
+    } finally {
+      encrypted = encryptedOnDisk(dbPath); // a failed rekey may still have changed the file
+    }
   },
-  closeArchive: () => {
+  archiveEncryption: () => {
+    const state = encryptionOnDisk(dbPath);
+    if (state !== 'absent') encrypted = state === 'encrypted'; // a fresh read also corrects the status a failed probe left
+    return state;
+  },
+  closeArchive: async () => {
     const { db: open } = ready();
-    plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
+    await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
     jevLedger.flush(); // Flush spend before archive-move restart.
     open.pragma('wal_checkpoint(TRUNCATE)');
     open.close();
@@ -302,7 +309,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       db = openDb(dbPath, data.key);
       initStep('database');
       namesWritten = watchNameWrites(db);
-      encrypted = data.key !== null;
+      encrypted = encryptedOnDisk(dbPath);
       loadJevQueryOverrides(db);
       registerNotable();
       registerClasses();

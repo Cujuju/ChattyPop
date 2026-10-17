@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createComputed } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
-import type { OwnerMessage, PostedOwnerMessage } from '@shared/compose';
+import type { OwnerSend, PostedOwnerMessage } from '@shared/compose';
 import { postedArchiveMessage } from '@shared/postedMessage';
 import { createSentRows } from '../src/renderer/src/state/outboxSent';
 import { createOutbox, SEND_BASE_TIMEOUT_MS } from '../src/renderer/src/state/outboxQueue';
@@ -13,8 +13,10 @@ import { acceptedMessage, ACCEPTED_ID, ACCEPTED_AT } from './postedMessageFixtur
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
 const CHANNEL = '200000000000000001';
+/** The account the message was written as. */
+const ACCOUNT = '900000000000000001';
 const NONCE = '1300000000000000000';
-const message: OwnerMessage = { channelId: CHANNEL, text: 'accepted', nonce: NONCE, files: [], replyTo: null, stickerId: null, gif: null };
+const message: OwnerSend = { channelId: CHANNEL, text: 'accepted', nonce: NONCE, files: [], replyTo: null, stickerId: null, gif: null, accountId: ACCOUNT };
 const accepted = () => acceptedMessage(message);
 const archived = (): ArchiveMessage => ({ ...postedArchiveMessage(accepted().message, NONCE), content: 'gateway copy' });
 const settle = () => vi.advanceTimersByTimeAsync(0);

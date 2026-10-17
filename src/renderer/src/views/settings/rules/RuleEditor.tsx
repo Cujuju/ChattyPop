@@ -1,11 +1,13 @@
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { Show, createSignal } from 'solid-js';
-import { patternName } from '@shared/keywordPattern';
+import { patternName, textPatternOrEmpty } from '@shared/keywordPattern';
 import { contentLabels } from '@shared/messageContent';
 import type { Rule, RuleInput, RuleSpec } from '@shared/rules';
 import { timedTriggerText, type TimedTrigger } from '@shared/ruleTime';
 import {
   confirmDeleteRule,
   createRule,
+  editsWhileAdded,
   guardRulePage,
   newRuleDraft,
   ruleInputOf,
@@ -13,7 +15,7 @@ import {
   saveRule,
   setRuleEnabled,
 } from '@/state/rules';
-import { createAction } from '@/ui/action';
+import { createAction, submitDraft } from '@/ui/action';
 import { Icon } from '@/ui/icons';
 import { ActionsStep } from './ActionsStep';
 import { GatesStep } from './GatesStep';
@@ -34,7 +36,7 @@ function nameFor(input: RuleInput): string {
   const contents = narrow.find((p) => p.type === 'contains')?.config as
     import('@shared/messageContent').ContentKind[] | undefined;
   return (
-    (text ? patternName(text.pattern) : '') ||
+    (text ? patternName(textPatternOrEmpty(text)) : '') ||
     meaning?.trim() ||
     jev?.question.trim() ||
     contentLabels(contents ?? []) ||
@@ -57,7 +59,8 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
     props.ruleId === null ? null : (rules().find((r) => r.id === props.ruleId) ?? null);
   const first = stored();
   const [saved, setSaved] = createSignal<RuleInput>(first ? ruleInputOf(first) : structuredClone(newRuleDraft()));
-  const [input, setInput] = createSignal<RuleInput>(structuredClone(saved()));
+  // A rule just added opens with the edits typed while it was added, unsaved.
+  const [input, setInput] = createSignal<RuleInput>((first && editsWhileAdded(first.id)) || structuredClone(saved()));
   const timed = (): TimedTrigger | null =>
     input().spec.trigger.type === 'timed' ? (input().spec.trigger.config as TimedTrigger) : null;
   const dirty = (): boolean => fieldsOf(input()) !== fieldsOf(saved());
@@ -66,13 +69,17 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
   };
   const action = createAction();
   const { busy, error } = action;
-  guardRulePage(dirty);
   // Revert remounts the steps to reset their view state.
   const [generation, setGeneration] = createSignal(1);
+  /** Whether an add in flight takes this draft's newer edits to the added rule: not once they're dropped or the page is gone. */
+  let carriesEdits = false;
+  onCleanup(() => (carriesEdits = false));
   const revert = (): void => {
+    carriesEdits = false;
     setInput(structuredClone(saved()));
     setGeneration(generation() + 1);
   };
+  guardRulePage(dirty, revert);
 
   const enabled = (): boolean => stored()?.enabled ?? input().enabled;
   const setEnabled = (on: boolean): void => {
@@ -84,12 +91,16 @@ export function RuleEditor(props: { ruleId: number | null; onClose: () => void }
   const save = (e: SubmitEvent): void => {
     e.preventDefault();
     const r = stored();
-    const next = { ...input(), name: input().name.trim() || nameFor(input()), enabled: enabled() };
+    const sent = submitDraft(input, setInput);
+    const next = { ...sent.value, name: sent.value.name.trim() || nameFor(sent.value), enabled: enabled() };
     void action.run(async () => {
-      if (!r) return createRule(next); // opens the new rule, remounting this page on it
+      if (!r) {
+        carriesEdits = true;
+        return createRule(next, () => (carriesEdits && !sent.settle(next) ? input() : null));
+      }
       await saveRule(r.id, next);
-      setInput(next);
       setSaved(structuredClone(next));
+      sent.settle(next);
     });
   };
   const remove = (r: Rule): void =>

@@ -170,7 +170,7 @@ export function membersMenu(c: DmChannel): MenuGroup[] {
   return [
     {
       heading: count === null ? 'Members unknown' : `Members · ${count}`,
-      items: [you, ...c.dm.recipients.map((r): MenuItem => ({ label: r.name, ...owner(r.id), run: () => openPerson(r.id) }))],
+      items: [you, ...c.dm.recipients.map((r): MenuItem => ({ label: r.name, ...owner(r.id), run: () => openPerson(r.id, c.id) }))],
     },
     {
       items: [

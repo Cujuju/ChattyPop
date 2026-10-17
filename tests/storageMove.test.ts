@@ -10,6 +10,18 @@ vi.mock('electron', () => ({
   app: { getPath: () => ui.userData },
   dialog: { showOpenDialog: async () => ({ canceled: false, filePaths: [ui.pick] }) },
 }));
+/** How many of the next storage-location saves fail as on a full disk. */
+const failSaves = vi.hoisted(() => ({ next: 0 }));
+vi.mock('../src/main/storageLocation', async (actual) => {
+  const real = await actual<typeof import('../src/main/storageLocation')>();
+  return {
+    ...real,
+    saveStorageConfig: (cfg: Parameters<typeof real.saveStorageConfig>[0]) => {
+      if (failSaves.next > 0 && failSaves.next--) throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+      real.saveStorageConfig(cfg);
+    },
+  };
+});
 
 const { deletePreviousArchive, dismissStorageNotice, moveArchive, storageInfo, verifyMovedArchive } = await import('../src/main/storageMove');
 const { saveStorageConfig, storageConfig } = await import('../src/main/storageLocation');
@@ -75,6 +87,28 @@ describe('moving the archive', () => {
       ].sort(),
     );
     expect((await storageInfo()).previousDir).toBeNull(); // not offered for deletion until verified
+  });
+
+  it('restarts on the original whatever fails once the archive stopped, even saving the failure notice', async () => {
+    const tries: { stop?: () => Promise<void>; saves: number; notice: boolean }[] = [
+      { saves: 1, notice: true }, // the new location can't be saved
+      { saves: 2, notice: false }, // nor can the notice
+      { stop: async () => Promise.reject(new Error('sync would not stop')), saves: 0, notice: true },
+    ];
+    for (const t of tries) {
+      restarts = 0;
+      errors = [];
+      saveStorageConfig({ archiveDir: from });
+      failSaves.next = t.saves;
+      ui.pick = tempDir();
+      await moveArchive(win, { ...hooks, stop: t.stop ?? hooks.stop });
+      expect(restarts).toBe(1);
+      expect(errors).toHaveLength(1);
+      expect(storageConfig().archiveDir).toBe(from);
+      expect(storageConfig().notice !== undefined).toBe(t.notice);
+      expect(readdirSync(ui.pick)).toEqual([]); // the partial copy is removed
+    }
+    failSaves.next = 0;
   });
 
   it('keeps the copy after a passing check, and reverts after a failing one with a notice for the next start', async () => {

@@ -4,6 +4,7 @@ import { managedRuleKey, pluginSettingKey, pluginTableName, stampedName, type Pl
 import { SETTINGS_KEYS } from '@shared/settings';
 import { getSetting, setSetting, type Db } from '../db';
 import { isObj } from '@shared/normalize';
+import { reserveForData } from './tableOwners';
 
 /** Moves old Jev switches to stamped keys. Old values override defaults already written under the new keys. */
 function adoptJevFeatures(db: Db, pluginId: string, aliases: Readonly<Record<string, string>>): void {
@@ -26,10 +27,13 @@ export function adoptBundledData(db: Db, plugins: readonly PluginDescriptor[]): 
   for (const p of plugins) {
     const id = p.manifest.id;
     db.transaction(() => {
-      for (const [old, name] of Object.entries(p.adopts?.tables ?? {})) {
-        const table = pluginTableName(id, name);
+      const moves = Object.entries(p.adopts?.tables ?? {})
+        .map(([old, name]) => [old, pluginTableName(id, name)] as const)
+        .filter(([old, table]) => tableExists(db, old) && !tableExists(db, table));
+      // Reserved before any rename: while a nesting id ran, its tables could read the moved ones, so the old tables stay.
+      if (moves.length && reserveForData(db, id)) {
         // Names are checked by checkBundled (TABLE_NAME), so they are safe to splice. Indexes and triggers follow.
-        if (tableExists(db, old) && !tableExists(db, table)) db.exec(`ALTER TABLE ${old} RENAME TO ${table}`);
+        for (const [old, table] of moves) db.exec(`ALTER TABLE ${old} RENAME TO ${table}`);
       }
       for (const [old, type] of Object.entries(p.adopts?.actionKinds ?? {})) {
         db.prepare('UPDATE rule_action_runs SET kind = ? WHERE kind = ?').run(type, old);

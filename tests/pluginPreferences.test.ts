@@ -90,7 +90,7 @@ describe("main's ctx.preferences", () => {
       on: (_name: 'event', fn: (e: AppEvent) => void) => void listeners.push(fn),
     };
     const staged: (() => void)[] = [];
-    const prefs = mainPreferences(plugin, core as never, (apply) => void staged.push(apply));
+    const prefs = mainPreferences(plugin, core as never, (apply) => void staged.push(apply), (err) => { throw err; });
     const emit = (e: AppEvent) => listeners.forEach((fn) => fn(e));
     return { stored, core, prefs, staged, emit };
   };

@@ -64,7 +64,8 @@ export function mergedCatalog(build: readonly PluginDescriptor[], buildCatalog: 
 
 /**
  * Keeps `candidates`, in order, whose descriptor validates (checkBundled) beside the build's and those kept; refuses
- * others with why. Anchors resolve against all candidates. Main's start decides; every process reruns it.
+ * others with why. Anchors resolve against every candidate whose declarations catalog alone; one that fails to is
+ * refused first, so it never voids the rest. Main's start decides; every process reruns it.
  */
 export function acceptInstalled<T>(
   build: readonly PluginDescriptor[],
@@ -72,10 +73,19 @@ export function acceptInstalled<T>(
   candidates: readonly T[],
   descriptor: (candidate: T) => PluginDescriptor,
 ): { kept: T[]; refused: { candidate: T; error: unknown }[] } {
-  const catalog = mergedCatalog(build, buildCatalog, candidates.map(descriptor));
   const kept: T[] = [];
   const refused: { candidate: T; error: unknown }[] = [];
-  for (const candidate of candidates) {
+  const catalogable = candidates.filter((candidate) => {
+    try {
+      anchorCatalog([descriptor(candidate)]);
+      return true;
+    } catch (error) {
+      refused.push({ candidate, error });
+      return false;
+    }
+  });
+  const catalog = mergedCatalog(build, buildCatalog, catalogable.map(descriptor));
+  for (const candidate of catalogable) {
     try {
       checkBundled([...build, ...kept.map(descriptor), descriptor(candidate)], catalog, 'absent');
       kept.push(candidate);

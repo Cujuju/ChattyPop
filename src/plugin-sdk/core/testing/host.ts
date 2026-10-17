@@ -43,12 +43,13 @@ const NO_PHONE_EXTRAS = (): never => {
 };
 
 /** Declares scripted test providers. */
-const scriptedDeclaration = (id: string, local: boolean, images: boolean): DeclaredProvider => ({
+const scriptedDeclaration = (id: string, local: boolean, images: boolean, tools: boolean): DeclaredProvider => ({
   id,
   label: id,
   displayName: id,
   local,
   images,
+  tools,
   plugin: { id: providerPlugin(id), name: id },
 });
 
@@ -70,13 +71,15 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   const db = openDb(join(dir, 'archive.db'));
   const events: AppEvent[] = [];
   const listeners = new Set<(e: AppEvent) => void>();
+  let host!: PluginHost;
   // Clones emitted events per process; subsequent mutations do not propagate.
   const emit = (e: AppEvent): void => {
+    if (e.type === 'privacy-changed') host?.privacyChanged();
     events.push(structuredClone(e));
     listeners.forEach((fn) => fn(structuredClone(e)));
   };
   const scripted = o.ai?.providers ?? [];
-  const decls = [...providerDeclarations(installed), ...scripted.map((p) => ({ ...scriptedDeclaration(p.id, p.local ?? false, p.images ?? false), accounts: p.accounts, apiKey: p.apiKey }))];
+  const decls = [...providerDeclarations(installed), ...scripted.map((p) => ({ ...scriptedDeclaration(p.id, p.local ?? false, p.images ?? false, p.tools ?? false), accounts: p.accounts, apiKey: p.apiKey }))];
   const features = installed.flatMap((p) => (p.jev?.features ?? []).map((f) => ({ key: stampedName(p.manifest.id, f.key), default: f.default })));
   const registry = new ProviderRegistry(() => undefined, decls);
   registry.setProviderApiKeys(o.ai?.apiKeys ?? {});
@@ -85,7 +88,6 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   registry.bindAccounts(ai, emit);
   // Jev for a switch that is on: the registry's check, with the scripted Jev in place of a keyed connection.
   const jevFor = (feature: JevFeature) => (o.ai?.jev && jevFeatureOn(ai().jev, feature) ? o.ai.jev : null);
-  let host!: PluginHost;
   const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id));
   const saveSetting = (key: string, value: unknown): void => {
     setSetting(db, key, value);
@@ -224,7 +226,8 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
       host.setSelf(userId);
     },
     restart: () => {
-      host.endActivations();
+      // Installed plugins activate synchronously: none is still running to wait for.
+      void host.endActivations();
       unlinkCore(link);
       db.close();
       return start(definition, o, dir, false);

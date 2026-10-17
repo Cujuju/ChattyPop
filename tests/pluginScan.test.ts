@@ -2,7 +2,7 @@
 import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { PluginDescriptor } from '@shared/bundledTypes';
+import { nestedTablesError, type PluginDescriptor } from '@shared/bundledTypes';
 import { scanPlugin, scanWarnings } from '../scripts/pluginScan';
 import { REPO_ALL_READERS } from '../scripts/pluginScan/allReaders';
 import { tempDir } from './helpers';
@@ -196,6 +196,62 @@ describe("plugin:check's scan", () => {
     expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
       'core/stats.ts: listed in scripts/pluginScan/allReaders.ts, but reads no archive_all_ view',
     ]);
+  });
+
+  it('fails a migration that drops, renames or recreates a host table; passes schema changes to its own and adopted tables', () => {
+    const tables = "import { pluginTable } from '@plugin-sdk/shared';\nimport plugin from '../shared';\nexport const OWN = pluginTable(plugin, 'rows');\n";
+    const dir = pluginFolder('probe', {
+      'core/tables.ts': tables,
+      'core/schema.ts': [
+        "import { OWN } from './tables';",
+        "export const drop = ['DROP TABLE IF EXISTS messages'];",
+        'export const rename = [`CREATE TABLE ${OWN} (id); ALTER TABLE settings RENAME TO ${OWN}`];',
+        "export const recreate = ['CREATE TABLE IF NOT EXISTS channels (id TEXT)'];",
+      ].join('\n'),
+    });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
+      'core/schema.ts:2: host or unknown table: messages',
+      'core/schema.ts:3: host or unknown table: settings',
+      'core/schema.ts:4: host or unknown table: channels',
+    ]);
+    writeFileSync(join(dir, 'core/schema.ts'), [
+      "import { OWN } from './tables';",
+      'export const steps = [`CREATE TABLE ${OWN} (id, ts); CREATE INDEX ${OWN}_ts ON ${OWN} (ts)`, `ALTER TABLE ${OWN} ADD COLUMN pick TEXT`];',
+      "export const legacy = ['DROP INDEX IF EXISTS old_rows_ts'];",
+    ].join('\n'));
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual(['core/schema.ts:3: host or unknown index: old_rows_ts']);
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false, adoptedTables: ['old_rows'] })).toEqual([]);
+  });
+
+  it('reads SQL behind and between line and block comments as SQL', () => {
+    const dir = pluginFolder('probe', {
+      'core/schema.ts': [
+        "export const a = '-- clean up\\nDROP TABLE messages';",
+        "export const b = '/* clean up */ DROP TABLE channels';",
+        "export const c = 'DROP -- clean up\\nTABLE settings';",
+        "export const d = 'CREATE /* x */ TEMP -- y\\n TABLE guilds (id)';",
+        "export const e = '-- one\\n/* two */\\n-- three\\nSELECT * FROM members';",
+        "export const f = 'SELECT 1 /* keep */; -- then\\nDELETE FROM users';",
+        "export const g = 'DROP TABLE--x\\nroles';",
+        "export const h = 'Nothing -- here; just prose';",
+      ].join('\n'),
+    });
+    expect(scanPlugin({ pluginDir: dir, isPhoneTransport: false })).toEqual([
+      'core/schema.ts:1: host or unknown table: messages',
+      'core/schema.ts:2: host or unknown table: channels',
+      'core/schema.ts:3: host or unknown table: settings',
+      'core/schema.ts:4: host or unknown table: guilds',
+      'core/schema.ts:5: host or unknown table: members',
+      'core/schema.ts:6: host or unknown table: users',
+      'core/schema.ts:7: host or unknown table: roles',
+    ]);
+  });
+
+  it("names a plugin beside it whose id nests with its own: one profile can't hold both", () => {
+    const plugins = join(tempDir(), 'plugins');
+    for (const id of ['foo', 'foo-bar', 'foobar']) cpSync(CHECK_FIXTURE, join(plugins, id), { recursive: true });
+    expect(scanPlugin({ pluginDir: join(plugins, 'foo'), isPhoneTransport: false })).toEqual([`shared/index.ts: ${nestedTablesError('foo', 'foo-bar').message}`]);
+    expect(scanPlugin({ pluginDir: join(plugins, 'foobar'), isPhoneTransport: false })).toEqual([]);
   });
 
   it("adds a plugin repo's own all-data grants, beside its plugins folder, to the host's", () => {

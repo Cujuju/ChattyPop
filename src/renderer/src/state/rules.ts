@@ -44,11 +44,17 @@ let mayLeave = leaveFreely;
 /** The question on screen: leaving again while it is open waits on the same answer. */
 let asking: Promise<boolean> | null = null;
 
-/** Guards the open editor's unsaved edits while the calling component lives: leaving the page, closing or reloading the window asks. */
-export function guardRulePage(dirty: () => boolean): void {
-  const check = async (): Promise<boolean> =>
-    !dirty() ||
-    confirmDialog({ title: 'Unsaved changes', message: 'Discard your unsaved changes to this rule?', confirmLabel: 'Discard', danger: true });
+/**
+ * Guards the open editor's unsaved edits while the calling component lives: leaving the page, closing or reloading the
+ * window asks. Answering Discard calls `discard`: an editor that stays mounted (Settings closed over it) drops the edits.
+ */
+export function guardRulePage(dirty: () => boolean, discard: () => void): void {
+  const check = async (): Promise<boolean> => {
+    if (!dirty()) return true;
+    const discarded = await confirmDialog({ title: 'Unsaved changes', message: 'Discard your unsaved changes to this rule?', confirmLabel: 'Discard', danger: true });
+    if (discarded) discard();
+    return discarded;
+  };
   mayLeave = check;
   onCleanup(() => {
     if (mayLeave === check) mayLeave = leaveFreely;
@@ -86,11 +92,26 @@ const refetchAll = (): void => {
 onAppEvent('rules-changed', refetchAll);
 onAppEvent('privacy-changed', refetchAll);
 
-/** Adds a rule and opens it; throws with a message for the editor. */
-export async function createRule(input: RuleInput): Promise<void> {
+/** Edits typed into a new rule's draft while it was added, by the added rule's id, for its editor to open with. */
+const addedEdits = new Map<number, RuleInput>();
+
+/**
+ * Adds a rule and opens it, remounting the editor on it; throws with a message for the editor. `edited` is the draft
+ * edited since `input` was sent, or null: the new rule's editor opens with it, still unsaved.
+ */
+export async function createRule(input: RuleInput, edited: () => RuleInput | null): Promise<void> {
   const id = await core.createRule(input);
   await refetchRules();
-  setOpenPage(id); // the draft is saved; nothing to lose
+  const draft = edited();
+  if (draft) addedEdits.set(id, draft);
+  setOpenPage(id);
+}
+
+/** The edits made while rule `id` was added, once: its editor's unsaved draft. */
+export function editsWhileAdded(id: number): RuleInput | null {
+  const draft = addedEdits.get(id) ?? null;
+  addedEdits.delete(id);
+  return draft;
 }
 
 export async function saveRule(id: number, input: RuleInput): Promise<void> {

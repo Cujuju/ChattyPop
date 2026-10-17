@@ -18,7 +18,7 @@ import {
   type ShellPhotosRequest,
   type ShellVideoShrink,
 } from '@shared/shell';
-import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE, effectiveVideoQualityFor } from '@shared/videoEncode';
+import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE, effectiveVideoQualityFor, largerPresets } from '@shared/videoEncode';
 import { deviceChatSettings } from '@/state/chatSettings';
 import { onCellular } from '@/state/network';
 
@@ -73,7 +73,7 @@ function videoShrink(): ShellVideoShrink | undefined {
   const quality = effectiveVideoQualityFor(deviceChatSettings(), onCellular());
   if (quality === 'best') return undefined;
   const { shortSide, videoBitrate } = ENCODE_PRESETS[quality];
-  return { shortSide, videoBitrate, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE };
+  return { shortSide, videoBitrate, rateCaps: largerPresets(quality), audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE };
 }
 
 /** Export `exported` read piece by piece, one in flight, into a File; the last read deletes it. A failed read releases it. */

@@ -15,7 +15,7 @@ export function ConversationView() {
     <FloatingWindow id="conversation" open={conversationFor() !== null} class={chrome.dialog} aria-label="Conversation" onClose={closeConversation}>
       <WindowHeader title="Conversation" classes={chrome} closeLabel="Close" onClose={closeConversation} />
       <div class={chrome.body}>
-        <Show when={conversation.error}>
+        <Show when={conversation.failure}>
           <p class="cp-error" role="alert">
             Couldn't load this conversation.
           </p>
@@ -35,7 +35,7 @@ export function ConversationView() {
                       <button type="button" class={styles.time} title="Open in the Archive" onClick={() => void openArchive(m.channelId, m.id)}>
                         {clockTime(m.ts)}
                       </button>
-                      <button type="button" class={styles.author} onClick={() => openPerson(m.author.id)}>
+                      <button type="button" class={styles.author} onClick={() => openPerson(m.author.id, m.channelId)}>
                         {m.author.name}
                       </button>
                       <div class={styles.text}>

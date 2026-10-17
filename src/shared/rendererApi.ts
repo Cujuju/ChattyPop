@@ -4,7 +4,7 @@ import type { PageError } from './pageErrors';
 import type { StoredFile } from './media';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
-import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerMessage, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot } from './compose';
+import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerSend, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot, WrittenAs } from './compose';
 import type { OwnerPollVote } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
@@ -20,7 +20,7 @@ import type { UnreadTotals } from './unread';
 import type { MarketplaceApi } from './marketplace';
 import type { PdfPage } from './htmlPage';
 import type { ReplacementExt } from './attachmentReplacement';
-import type { ScheduledAvailability, ScheduledDraft, ScheduledMessage, ScheduledUpdate } from './scheduledMessages';
+import type { ScheduledAvailability, ScheduledMessage, ScheduledSend, ScheduledUpdate } from './scheduledMessages';
 import type { DiscordSessionState, LoginRelayState, RelayInput } from './discordLogin';
 import type { SavedBookmarkPage, SavedIndex, SavedPageRequest, SavedRemove, SavedWrite } from './savedMessages';
 
@@ -67,18 +67,18 @@ export interface RendererApi {
     setOptIn(channelId: string, on: boolean): Promise<void>;
     /** Samples this server's unarchived channels and asks Jev which match the owner's rules. */
     suggestChannels(guildId: string): Promise<ChannelSuggestion[]>;
-    /** Posts a message as the owner (text, reply, files, sticker or GIF); rejects with Discord's reason. */
-    send(m: OwnerMessage): Promise<PostedOwnerMessage>;
+    /** Posts a message as the owner (text, reply, files, sticker or GIF), as the account it was written as only; rejects with Discord's reason. */
+    send(m: OwnerSend): Promise<PostedOwnerMessage>;
     scheduledAvailability(channelId: string): Promise<ScheduledAvailability>;
-    createScheduled(m: ScheduledDraft): Promise<ScheduledMessage>;
+    createScheduled(m: ScheduledSend): Promise<ScheduledMessage>;
     scheduledMessages(): Promise<ScheduledMessage[]>;
     updateScheduled(change: ScheduledUpdate): Promise<ScheduledMessage>;
     cancelScheduled(id: string): Promise<void>;
     sendScheduledNow(id: string): Promise<void>;
     /** The largest file the owner may upload to the channel: their plan's limit or its server's Boost limit. */
     uploadLimit(channelId: string): Promise<number>;
-    /** Discord upload slots for a message's files; rejects with the reason one can't go (over the limit). */
-    prepareUploads(channelId: string, files: UploadFileMeta[]): Promise<UploadSlot[]>;
+    /** Discord upload slots for a message's files, as the account it was written as only; rejects with the reason one can't go (over the limit). */
+    prepareUploads(channelId: string, files: UploadFileMeta[], accountId: string | null): Promise<UploadSlot[]>;
     /** The next piece of an upload, in order from offset 0, at most UPLOAD_CHUNK_BYTES; resolves once sent on. */
     uploadChunk(token: string, offset: number, bytes: Uint8Array): Promise<void>;
     /** Completes an upload once all its bytes went; rejects with Discord's refusal. */
@@ -87,8 +87,8 @@ export interface RendererApi {
     edit(e: OwnerEdit): Promise<void>;
     /** Deletes one of the owner's messages from Discord (the archive keeps its copy); rejects with Discord's reason. */
     deleteMessage(m: OwnerMessageRef): Promise<void>;
-    /** Forwards a message to another channel; rejects with Discord's reason. */
-    forward(f: OwnerForward): Promise<void>;
+    /** Forwards a message to another channel, as the account it was started as only; rejects with Discord's reason. */
+    forward(f: OwnerForward & WrittenAs): Promise<void>;
     /** Adds or takes back the owner's reaction; resolves once the archive shows it. Rejects with Discord's reason. */
     react(r: OwnerReaction): Promise<void>;
     /** Sets the owner's vote on a poll (no answers takes it back); resolves once the archive shows it. Rejects with Discord's reason. */
@@ -209,6 +209,10 @@ export interface RendererApi {
   openPanelWindow(panelId: string): Promise<void>;
   /** From a panel window: brings the main window up showing this message (or channel) in the Archive; `compose` replies to or edits it there. */
   showInMainWindow(channelId: string, messageId?: string, opts?: { compose: ComposeIntent }): void;
+  /** Reports the main window's shown channel for its panel windows. */
+  reportShownChannel(channelId: string | null): void;
+  /** Reads the main window's latest shown channel; subsequent changes arrive as shown-channel events. */
+  getShownChannel(): Promise<string | null>;
   /** Whether this window holds unsaved edits: main then holds its close or reload and asks (the unsaved-changes event). */
   setUnsaved(on: boolean): void;
   /** The owner discarded this window's unsaved edits: main goes on with the close or reload it held. */
@@ -251,6 +255,7 @@ export const RENDERER_CORE_METHODS = [
   'messagePage',
   'messageWindow',
   'messageById',
+  'messagesByIds',
   'searchMessages',
   'personProfile',
   'discordProfile',

@@ -6,14 +6,17 @@ import { MAIN_INVOKE } from '@shared/contract';
 import { decodeWire, encodeWire } from '@shared/wire';
 import { DesktopUnreachableError, type PhoneCall } from '@shared/phone';
 import { PostingLocked } from '@shared/posting';
-import { SCHEDULE_UNCONFIRMED, type ScheduledDraft, type ScheduledMessage } from '@shared/scheduledMessages';
+import { SCHEDULE_UNCONFIRMED, type ScheduledMessage, type ScheduledSend } from '@shared/scheduledMessages';
 import type { DiscordClient, RequestOptions } from '../src/main/discord/client';
 import { PhoneHub } from '../src/main/phone/hub';
 
 const CHANNEL = '100000000000000001';
 const USER = '200000000000000002';
+const OTHER_ACCOUNT = '200000000000000009';
 const ID = '300000000000000003';
 const PATH = 'users/@me/scheduled-messages';
+/** Gateway opcode the client sends to start a session; READY answers it. */
+const IDENTIFY_OP = 2;
 const env = vi.hoisted(() => ({ handlers: new Map<string, (e: unknown, ...args: unknown[]) => Promise<unknown>>() }));
 vi.mock('electron', () => ({ app: { getPath: () => '' }, ipcMain: { handle: (channel: string, fn: never) => {
   if (env.handlers.has(channel)) throw new Error(`Duplicate IPC handler: ${channel}`);
@@ -32,8 +35,8 @@ const { createPhoneRendererApi } = await import(phoneApiPath) as {
 beforeEach(() => env.handlers.clear());
 
 const time = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
-const draft = (): ScheduledDraft => ({ channelId: CHANNEL, text: '@silent mobile message', files: [], uploads: [], replyTo: null,
-  stickerId: null, gif: null, nonce: '400000000000000004', scheduledTimestamp: time() });
+const draft = (): ScheduledSend => ({ channelId: CHANNEL, text: '@silent mobile message', files: [], uploads: [], replyTo: null,
+  stickerId: null, gif: null, nonce: '400000000000000004', scheduledTimestamp: time(), accountId: USER });
 const item = (): ScheduledMessage => ({ user_id: USER, scheduled_message_id: ID, send_at_timestamp: time(), state: 0,
   create_args: { channel_id: CHANNEL, content: 'mobile message', flags: 4096, type: 0 } });
 
@@ -57,15 +60,20 @@ function harness() {
   const remove = vi.fn(async (_path: string, opts?: RequestOptions) => { await opts?.guard?.(); state.items = []; });
   const owner = { get, postOnce, patch, delete: remove } as unknown as DiscordClient;
   const core = { on: () => undefined, call: vi.fn(async () => []) };
+  const tap = new EventEmitter();
   const calls = registerDiscordHandlers({
     win: {} as never, core: core as never, sync: {} as never, owner,
-    capture: { onInvalidated: () => () => undefined, onCaptured: () => () => undefined } as never,
+    capture: { onInvalidated: () => () => undefined, onCaptured: () => () => undefined, current: {}, sessionGeneration: 1, gatewayAuthorized: true,
+      expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true } as never,
     emit: () => undefined, discordSession: {} as never,
-    discord: { tap: new EventEmitter(), webContents: { debugger: {} }, shownChannel: null } as never,
+    discord: { tap, webContents: { debugger: {} }, shownChannel: null } as never,
     emojiIndex: {} as never, readStates: { settingsChanged: () => undefined },
     posting: { unlocked: async () => state.unlocked }, chatSettings: { write: async () => undefined },
     directory: { guildList: () => [], channelsOf: () => [] },
   });
+  // The desktop's client signs USER in: each call runs as USER's owner action (ownerSession.ts).
+  tap.emit('sent', { op: IDENTIFY_OP, d: { token: USER }, socketId: USER });
+  tap.emit('dispatch', { t: 'READY', d: { user: { id: USER } }, socketId: USER });
   const hub = new PhoneHub({ core: core as never, discord: () => calls, main: async () => undefined, media: async () => new Response(), active: () => true });
   const transport = vi.fn(async (call: PhoneCall) => {
     const sent = decodeWire(encodeWire(call)) as unknown as PhoneCall;
@@ -111,6 +119,12 @@ describe('scheduled sends through the phone', () => {
     for (const promise of [phone.discord.createScheduled(draft()), phone.discord.updateScheduled({ id: ID, content: 'changed' }), phone.discord.cancelScheduled(ID), phone.discord.sendScheduledNow(ID)])
       await expect(promise).rejects.toBeInstanceOf(PostingLocked);
     expect(postOnce).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('creates nothing for a message written as another account than the one signed in', async () => {
+    const { phone, postOnce } = harness();
+    await expect(phone.discord.createScheduled({ ...draft(), accountId: OTHER_ACCOUNT })).rejects.toThrow(/another Discord account/);
+    expect(postOnce).not.toHaveBeenCalled();
   });
 
   it('preserves definite validation refusals and never sends them to Discord', async () => {

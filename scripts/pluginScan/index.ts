@@ -1,7 +1,8 @@
 // Checks plugin source boundaries. Excludes tests, dependencies, and static page files.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { SHARED_ENTRY } from '../../src/main/pluginBuild/descriptor';
+import { nestedTablesError, tableNamespacesNest } from '../../src/shared/bundledTypes';
 import { manifestVersion } from './manifest';
 import { allReadersFor } from './allReaders';
 import { archiveViolations } from './sql';
@@ -35,6 +36,12 @@ function dependencies(pluginDir: string): Set<string> {
   return new Set(Object.keys((JSON.parse(readFileSync(file, 'utf8')) as { dependencies?: Record<string, string> }).dependencies ?? {}));
 }
 
+/** A plugin beside it (its folder's siblings, named by id) whose id nests with `id`: one marketplace or profile can't hold both. */
+function nestingViolations(pluginDir: string, id: string): string[] {
+  const siblings = readdirSync(dirname(pluginDir), { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(join(dirname(pluginDir), e.name, SHARED_ENTRY)));
+  return siblings.filter((e) => tableNamespacesNest(id, e.name)).map((e) => `${SHARED_ENTRY}: ${nestedTablesError(id, e.name).message}`);
+}
+
 /** Rejects manifest shapes unsupported by release stamping. */
 function stampViolations(files: SourceFile[]): string[] {
   const shared = files.find((f) => f.rel === SHARED_ENTRY);
@@ -51,10 +58,12 @@ export interface ScanOptions {
   pluginDir: string;
   /** Whether the host names this plugin its phone transport (its descriptor's `phone.transport`). */
   isPhoneTransport: boolean;
+  /** The old names of the tables its descriptor adopts (`adopts.tables`): its indexes and triggers may still bear them. */
+  adoptedTables?: readonly string[];
 }
 
 /** Reports source violations as file:line: message; plugin IDs match folder names. */
-export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions): string[] {
+export function scanPlugin({ pluginDir: dirIn, isPhoneTransport, adoptedTables = [] }: ScanOptions): string[] {
   const pluginDir = resolve(dirIn);
   const id = basename(pluginDir);
   const files = sourceFiles(pluginDir);
@@ -65,8 +74,8 @@ export function scanPlugin({ pluginDir: dirIn, isPhoneTransport }: ScanOptions):
   );
   const shell = scripts.flatMap((f) => importsOf(f).filter((i) => i.spec === SHELL_TIER).map((i) => violation(f.rel, i.line, `${SHELL_TIER}: only the phone transport's plugin may import it`)));
   if (!isPhoneTransport) found.push(...shell);
-  found.push(...stampViolations(files));
-  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir))];
+  found.push(...stampViolations(files), ...nestingViolations(pluginDir, id));
+  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir), adoptedTables)];
 }
 
 /** What the scan warns of without failing (rules.ts networkWarnings, clockViolations), as file:line: message. */

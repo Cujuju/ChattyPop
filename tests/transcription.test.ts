@@ -7,7 +7,7 @@ import type { DiscordApi } from '../src/main/discord/api';
 import type { CoreClient } from '../src/main/coreClient';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { VOICE_MESSAGE_FLAG } from '@shared/discord';
-import { registerAttachmentNotes, unregisterAttachmentNotes } from '../src/core/attachmentNotes';
+import { registerAttachmentNotes } from '../src/core/attachmentNotes';
 import { storeDerivedText } from '../src/core/derivedText';
 import type { Archive } from '../src/core/archive';
 import type { Db } from '../src/core/db';
@@ -63,8 +63,7 @@ describe('transcripts reach search, rules and the Archive', () => {
     const db = tempDb();
     const v = voiceMessage(seedArchive(db, [{ id: 'c1' }]));
     const note = { kind: 'transcript', state: 'done', label: 'transcript · en', text: 'see you soon' } as const;
-    registerAttachmentNotes(NOTES_PLUGIN, 0, (ids) => new Map(ids.filter((a) => a === v.attachmentId).map((a) => [a, note])));
-    onTestFinished(() => unregisterAttachmentNotes(NOTES_PLUGIN));
+    onTestFinished(registerAttachmentNotes(NOTES_PLUGIN, 0, (ids) => new Map(ids.filter((a) => a === v.attachmentId).map((a) => [a, note]))));
     const [m] = messagePage(db, { channelId: 'c1', limit: 10 });
     expect(m?.attachments[0]?.notes).toEqual([{ pluginId: NOTES_PLUGIN, part: `attachment:${v.attachmentId}`, ...note }]);
   });

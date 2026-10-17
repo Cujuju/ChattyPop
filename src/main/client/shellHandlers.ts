@@ -26,6 +26,7 @@ async function saveAs(win: BrowserWindow, title: string, name: string, filters?:
 }
 
 export function registerShellHandlers(windows: ServerWindows): void {
+  const shownChannels = new Map<string, string | null>();
   /** The server window a message came from; undefined for anything else, which is ignored. */
   const from = (e: IpcMainEvent): ServerWindow | undefined => windows.of(e.sender);
   /** The server window a call came from; a call from anything else is refused. */
@@ -96,6 +97,17 @@ export function registerShellHandlers(windows: ServerWindows): void {
     if (!raiseWindow(main)) return;
     windows.command(main, { type: 'open-message', channelId, ...(typeof messageId === 'string' ? { messageId, ...(isComposeIntent(compose) ? { compose } : {}) } : {}) });
   });
+
+  ipcMain.on(SHELL_CHANNELS.reportShownChannel, (e, channelId: unknown) => {
+    const w = from(e);
+    if (!w || w.panel !== null || (channelId !== null && typeof channelId !== 'string')) return;
+    shownChannels.set(w.origin, channelId);
+    for (const win of windows.all()) {
+      const panel = windows.of(win.webContents);
+      if (panel && panel.origin === w.origin && panel.panel !== null) windows.command(win, { type: 'shown-channel', channelId });
+    }
+  });
+  ipcMain.handle(SHELL_CHANNELS.getShownChannel, (e) => shownChannels.get(caller(e).origin) ?? null);
 
   ipcMain.on(SHELL_CHANNELS.listening, (e) => windows.listening(e.sender));
 }

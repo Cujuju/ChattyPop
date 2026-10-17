@@ -8,11 +8,13 @@ import { isPostingLocked } from '@shared/posting';
 import { NONCE_DEDUPE_MS, createOutbox, type OutboxRecord } from '../src/renderer/src/state/outboxQueue';
 
 const CHANNEL = '100000000000000001';
+/** The account the queued messages were written as. */
+const ACCOUNT = '900000000000000001';
 class Unreachable extends Error {}
 
 function setup() {
   const posted: OwnerMessage[] = [];
-  const uploads: { files: string[]; progress: (p: number) => void; resolve(t: string[]): void; reject(e: Error): void }[] = [];
+  const uploads: { accountId: string | null; files: string[]; progress: (p: number) => void; resolve(t: string[]): void; reject(e: Error): void }[] = [];
   let sendError: Error | null = null;
   let saved: OutboxRecord<string>[] = [];
   const box = createOutbox<string>({
@@ -28,7 +30,7 @@ function setup() {
       return acceptedMessage(m);
     },
     prepare: async (_c, files) => files,
-    upload: (_c, files, progress) => new Promise((resolve, reject) => void uploads.push({ files: files.map((f) => f.file.name), progress, resolve, reject })),
+    upload: (_c, accountId, files, progress) => new Promise((resolve, reject) => void uploads.push({ accountId, files: files.map((f) => f.file.name), progress, resolve, reject })),
     uploadGone: (err) => (err as Error).message === UPLOAD_GONE,
     windowPassed: (err) => (err as Error).message === POST_WINDOW_PASSED,
     errorText: (err) => (err as Error).message,
@@ -38,7 +40,7 @@ function setup() {
     now: () => Date.now(),
   });
   const file = new File(['clip'], 'clip.mp4', { type: 'video/mp4' });
-  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1' }, files: [file], mentions: {}, draft: null });
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: 'look', replyTo: null, files: [], stickerId: null, gif: null, nonce: 'n1', accountId: ACCOUNT }, files: [file], mentions: {}, draft: null });
   const head = () => box.outgoing(CHANNEL)[0];
   return { box, posted, uploads, head, saved: () => saved, failNextSend: (e: Error) => void (sendError = e) };
 }
@@ -53,6 +55,8 @@ describe('outbox uploads', () => {
     await settle();
     expect(head()).toMatchObject({ status: 'sending', phase: 'uploading', text: 'look' });
     expect(saved()[0]!.files[0]!.file.name).toBe('clip.mp4');
+    // Uploaded as the account it was written as: main prepares its slots as no other.
+    expect(uploads[0]!.accountId).toBe(ACCOUNT);
     uploads[0]!.progress(0.5);
     expect(head()!.progress).toBe(0.5);
     uploads[0]!.resolve(['t1']);
@@ -142,14 +146,14 @@ it('keeps options through outbox save/load, video preparation, upload and Edit',
     unlocked: () => unlocked, locked: () => false,
     send: async () => { throw new Error('refused'); },
     prepare: async () => [prepared],
-    upload: async (_c: string, files: SavedDraftFile[]) => { uploaded.push(files); return ['t1']; },
+    upload: async (_c: string, _a: string | null, files: SavedDraftFile[]) => { uploaded.push(files); return ['t1']; },
     uploadGone: () => false, windowPassed: () => false, unreachable: () => false,
     errorText: (e: unknown) => (e as Error).message, now: () => Date.now(),
     restore: (_c: string, d: { files: SavedDraftFile[] }) => { restored.push(d); return true; },
     save: (records: OutboxRecord<{ files: SavedDraftFile[] }>[]) => { saved = records; },
   };
   const box = createOutbox(deps);
-  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: '', files: [], replyTo: null, stickerId: null, gif: null, nonce: 'n-options' }, files: [entry], mentions: {}, draft: { files: [entry] } });
+  box.enqueue({ channelId: CHANNEL, label: 'clip', message: { channelId: CHANNEL, text: '', files: [], replyTo: null, stickerId: null, gif: null, nonce: 'n-options', accountId: ACCOUNT }, files: [entry], mentions: {}, draft: { files: [entry] } });
   expect(saved[0]!.files).toEqual([entry]);
   unlocked = true;
   const reloaded = createOutbox(deps);

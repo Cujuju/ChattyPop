@@ -45,6 +45,45 @@ export function revocable(provider: LlmProvider, revoked: AbortSignal): LlmProvi
   };
 }
 
+/** Wraps requests once, after every lifetime signal is joined, so tools receive the provider's signal. */
+export function completionContract(provider: LlmProvider): LlmProvider {
+  return {
+    ...provider,
+    complete: (req) => {
+      const signal = req.signal ?? new AbortController().signal;
+      let active = true;
+      let textSeen = false;
+      const request = {
+        ...req,
+        signal,
+        ...(req.tools ? { tools: req.tools.map((tool) => ({
+          ...tool,
+          run: (args: unknown) => untilRevoked(signal, () => tool.run(args, signal)),
+        })) } : {}),
+      };
+      if (req.onEvent) request.onEvent = (event) => {
+        if (!active || signal.aborted) return;
+        if (event.type === 'text') textSeen = true;
+        req.onEvent!(event);
+      };
+      const close = (): void => {
+        active = false;
+        signal.removeEventListener('abort', close);
+      };
+      signal.addEventListener('abort', close, { once: true });
+      return untilRevoked(signal, async () => {
+        try {
+          const result = await provider.complete(request);
+          if (req.schema === undefined && !textSeen) request.onEvent?.({ type: 'text', delta: result.text });
+          return result;
+        } finally {
+          close();
+        }
+      }).finally(close);
+    },
+  };
+}
+
 /** Jev until `revoked` aborts; a queued or running request gets the abort through its signal. */
 export function revocableDecider(jev: DecisionProvider, revoked: AbortSignal): DecisionProvider {
   return {

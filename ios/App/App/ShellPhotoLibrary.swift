@@ -19,6 +19,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     private static let shrinkKey = "shrink"
     private static let shortSideKey = "shortSide"
     private static let videoBitrateKey = "videoBitrate"
+    private static let rateCapsKey = "rateCaps"
     private static let audioBitrateKey = "audioBitrate"
     private static let maxFrameRateKey = "maxFrameRate"
     /// Mirrors SHELL_ASSET_READ_BYTES.
@@ -62,8 +63,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     /// The library's photos and videos, newest first, fetched once until it changes. Measured on an iPhone 17 Pro Max with about
     /// 87,000 items: the first fetch takes about 1.7 s while the app is still launching and about 150–190 ms once settled, which
     /// the sheet's first page would wait for; warmed in the background, that page takes about 4 ms.
-    private let fetchLock = NSLock()
-    private var fetched: PHFetchResult<PHAsset>?
+    private let fetched = ShellFetchCache<PHFetchResult<PHAsset>>()
     /// Serial: a page asked for while the library is being warmed waits for that fetch instead of starting another.
     private let fetchQueue = DispatchQueue(label: "com.cujuju.chattypop.photo-fetch", qos: .userInitiated)
 
@@ -192,7 +192,7 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
     }
 
     func photoLibraryDidChange(_ changeInstance: PHChange) {
-        fetchLock.withLock { fetched = nil }
+        fetched.invalidate()
         // A photo just taken or saved shouldn't make the next open pay for the fetch.
         warm()
         thumbnails.reset()
@@ -201,17 +201,16 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     /// The library's photos and videos, newest first: the warmed fetch, else fetched now. Only on `fetchQueue`.
     private func all() -> PHFetchResult<PHAsset> {
-        if let cached = fetchLock.withLock({ fetched }) { return cached }
-        let signpost = ShellThumbnails.signposter.beginInterval("fetch", id: ShellThumbnails.signposter.makeSignpostID())
-        defer { ShellThumbnails.signposter.endInterval("fetch", signpost) }
-        // Fetched outside the lock: PhotoKit may call photoLibraryDidChange, which takes it, on this thread.
-        let options = PHFetchOptions()
-        options.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d", PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
-        options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-        let result = PHAsset.fetchAssets(with: options)
-        // Uncached until observed: without the observer nothing would clear it.
-        if observing { fetchLock.withLock { fetched = result } }
-        return result
+        // Kept only while observed: without the observer nothing would clear it. PhotoKit may call photoLibraryDidChange on
+        // this thread during the fetch.
+        fetched.read(keep: observing) {
+            let signpost = ShellThumbnails.signposter.beginInterval("fetch", id: ShellThumbnails.signposter.makeSignpostID())
+            defer { ShellThumbnails.signposter.endInterval("fetch", signpost) }
+            let options = PHFetchOptions()
+            options.predicate = NSPredicate(format: "mediaType == %d || mediaType == %d", PHAssetMediaType.image.rawValue, PHAssetMediaType.video.rawValue)
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            return PHAsset.fetchAssets(with: options)
+        }
     }
 
     private func recent(offset: Int, limit: Int) -> [String: Any] {
@@ -231,13 +230,27 @@ final class ShellPhotoLibrary: NSObject, PHPhotoLibraryChangeObserver {
 
     // MARK: Export
 
-    /// An export request's `shrink`, when whole and positive.
+    /// A whole, positive number field of `fields`.
+    private static func positive(_ fields: [String: Any], _ key: String) -> Int? {
+        (fields[key] as? NSNumber).map(\.intValue).flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    /// A ShellVideoShrink or ShellVideoRateCap's preset, when whole and positive.
+    private static func shrinkPreset(_ value: Any) -> ShellVideoShrinker.Preset? {
+        guard let fields = value as? [String: Any], let shortSide = positive(fields, shortSideKey),
+              let videoBitrate = positive(fields, videoBitrateKey) else { return nil }
+        return ShellVideoShrinker.Preset(shortSide: shortSide, videoBitrate: videoBitrate)
+    }
+
+    /// An export request's `shrink`, when whole and positive. A page from before `rateCaps` sends none.
     private static func shrinkTarget(_ value: Any?) -> ShellVideoShrinker.Target? {
-        guard let fields = value as? [String: Any] else { return nil }
-        let number = { (key: String) -> Int? in (fields[key] as? NSNumber).map(\.intValue).flatMap { $0 > 0 ? $0 : nil } }
-        guard let shortSide = number(shortSideKey), let videoBitrate = number(videoBitrateKey),
-              let audioBitrate = number(audioBitrateKey), let maxFrameRate = number(maxFrameRateKey) else { return nil }
-        return ShellVideoShrinker.Target(shortSide: shortSide, videoBitrate: videoBitrate, audioBitrate: audioBitrate, maxFrameRate: maxFrameRate)
+        guard let fields = value as? [String: Any], let preset = shrinkPreset(fields),
+              let audioBitrate = positive(fields, audioBitrateKey), let maxFrameRate = positive(fields, maxFrameRateKey),
+              let capFields = (fields[rateCapsKey] ?? [Any]()) as? [Any] else { return nil }
+        let rateCaps = capFields.compactMap(shrinkPreset)
+        guard rateCaps.count == capFields.count else { return nil }
+        return ShellVideoShrinker.Target(shortSide: preset.shortSide, videoBitrate: preset.videoBitrate, rateCaps: rateCaps,
+                                         audioBitrate: audioBitrate, maxFrameRate: maxFrameRate)
     }
 
     private func export(_ id: String, shrink: ShellVideoShrinker.Target?, done: @escaping (Result<[String: Any], Error>) -> Void) {

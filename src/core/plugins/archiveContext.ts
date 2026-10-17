@@ -61,6 +61,8 @@ export interface PluginArchive {
   onAttachmentStored(fn: (attachmentId: string) => void): void;
   /** Messages in these channels were stored, edited or removed (debounced; a change to no channel isn't reported). */
   onChanged(fn: (channelIds: string[]) => void): void;
+  /** Privacy mode or the channels and servers it hides changed. */
+  onPrivacyChanged(fn: () => void): void;
   /** Messages as the Archive shows them; ids not archived, or hidden by privacy mode, are left out. */
   messages(ids: string[]): ArchiveMessage[];
   linkIndex: {
@@ -144,7 +146,7 @@ function importer(id: string, bundled: BundledDeps, live: () => boolean): Import
   };
 }
 
-/** Builds a plugin's archive services; `ask` runs plugin code with a fallback, `send` emits while live, `guard` records a throw. */
+/** Builds a plugin's archive services; `ask` runs plugin code while live with a fallback, recording a throw; `send` emits while live. */
 export function pluginArchive(
   id: string,
   buildIndex: number,
@@ -154,21 +156,9 @@ export function pluginArchive(
   live: () => boolean,
   ask: <T>(fn: () => T, fallback: T) => T,
   send: (e: AppEvent) => void,
-  guard: (fn: () => unknown) => void,
 ): PluginArchive {
   const { bundled } = deps;
   const settle = derivedTextSettler(id, bundled, plugins);
-  // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
-  const guarded = <T>(fn: () => T, fallback: T): T => {
-    try {
-      return fn();
-    } catch (err) {
-      guard(() => {
-        throw err;
-      });
-      return fallback;
-    }
-  };
   return {
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
@@ -187,6 +177,7 @@ export function pluginArchive(
     onText: (fn) => void reg.onText.push(fn),
     onAttachmentStored: (fn) => void reg.onAttachmentStored.push(fn),
     onChanged: (fn) => void reg.onArchiveChanged.push(fn),
+    onPrivacyChanged: (fn) => void (live() && reg.onPrivacyChanged.push(fn)),
     messages: (ids) => messagesByIds(bundled.ready(), ids),
     linkIndex: { onRebuilt: (fn) => void reg.onLinksRebuilt.push(fn) },
     derivedText: {
@@ -218,16 +209,15 @@ export function pluginArchive(
       changed: (messageIds) => send({ type: 'message-labels-changed', messageIds }),
     },
     attachmentNotes: {
+      // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
       provide: (fn) => {
-        registerAttachmentNotes(id, buildIndex, (ids) => guarded(() => fn(ids), new Map<string, PluginNote>()));
-        reg.attachmentNotes = true;
+        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, PluginNote>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },
     notes: {
       provide: (fn) => {
-        registerPartNotes(id, buildIndex, (ids) => guarded(() => fn(ids), new Map<string, Map<string, PluginNote>>()));
-        reg.attachmentNotes = true;
+        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, Map<string, PluginNote>>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },

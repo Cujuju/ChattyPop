@@ -11,6 +11,8 @@ import {
   APP_RESTART_CHANNEL,
   RENDERER_CORE_METHODS,
   SHOW_IN_MAIN_CHANNEL,
+  SHOWN_CHANNEL_CHANNEL,
+  GET_SHOWN_CHANNEL_CHANNEL,
   DISCARD_UNSAVED_CHANNEL,
   UNSAVED_CHANNEL,
   PAGE_ERROR_CHANNEL,
@@ -59,6 +61,8 @@ const api: RendererApi = {
   restartApp: () => ipcRenderer.invoke(APP_RESTART_CHANNEL),
   openPanelWindow: (panelId: string) => ipcRenderer.invoke(PANEL_WINDOW_CHANNEL, panelId),
   showInMainWindow: (channelId, messageId, opts) => ipcRenderer.send(SHOW_IN_MAIN_CHANNEL, channelId, messageId, opts?.compose),
+  reportShownChannel: (channelId) => ipcRenderer.send(SHOWN_CHANNEL_CHANNEL, channelId),
+  getShownChannel: () => ipcRenderer.invoke(GET_SHOWN_CHANNEL_CHANNEL),
   setUnsaved: (on: boolean) => ipcRenderer.send(UNSAVED_CHANNEL, on),
   discardUnsaved: () => ipcRenderer.send(DISCARD_UNSAVED_CHANNEL),
   onEvent: (listener: (e: AppEvent) => void) => {

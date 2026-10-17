@@ -109,6 +109,8 @@ export const api: RendererApi = {
   restartApp: method(null, 'restartApp') as RendererApi['restartApp'],
   openPanelWindow: method(null, 'openPanelWindow') as RendererApi['openPanelWindow'],
   showInMainWindow: method(null, 'showInMainWindow') as RendererApi['showInMainWindow'],
+  reportShownChannel: method(null, 'reportShownChannel') as RendererApi['reportShownChannel'],
+  getShownChannel: method(null, 'getShownChannel') as RendererApi['getShownChannel'],
   setUnsaved: method(null, 'setUnsaved') as RendererApi['setUnsaved'],
   discardUnsaved: method(null, 'discardUnsaved') as RendererApi['discardUnsaved'],
   onEvent,

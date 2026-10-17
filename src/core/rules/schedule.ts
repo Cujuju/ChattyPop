@@ -6,6 +6,7 @@ import { MS_PER_MIN } from '@shared/units';
 import type { RuleAction } from '@shared/rules';
 import { TIMED_ATTEMPTS_MAX, TIMED_MAX_LOOKBACK_MS, TIMED_RUN_ACTION_MARK } from '@shared/ruleTime';
 import { getSetting, setSetting, type Db } from '../db';
+import { inPlacesSql } from '../queries/channelScope';
 import type { ActionResult, RuleActions } from './actions';
 import type { CompiledRule } from './compile';
 import type { RuleEngine } from './engine';
@@ -28,18 +29,9 @@ const phaseOrder = (actions: ScheduledAction[]): ScheduledAction[] => ['match', 
 
 /** Archived channels in a rule's Where: a channel covers its threads, a server its channels. null = every one. */
 export function scopeChannels(db: Db, r: Pick<CompiledRule, 'channels' | 'guilds'>): string[] | null {
-  if (!r.channels && !r.guilds) return null;
-  return db
-    .prepare(
-      `SELECT id FROM channels WHERE opted_in = 1
-         AND (id IN (SELECT value FROM json_each(@channels)) OR parent_id IN (SELECT value FROM json_each(@channels))
-              OR guild_id IN (SELECT value FROM json_each(@guilds)))`,
-    )
-    .pluck()
-    .all({
-      channels: JSON.stringify([...(r.channels ?? [])]),
-      guilds: JSON.stringify([...(r.guilds ?? [])]),
-    }) as string[];
+  const places = inPlacesSql('id', [...(r.channels ?? [])], [...(r.guilds ?? [])]);
+  if (!places) return null;
+  return db.prepare(`SELECT id FROM channels WHERE opted_in = 1 AND ${places.sql}`).pluck().all(...places.params) as string[];
 }
 
 /** Claims due window rules and executes their actions in phase order. */
@@ -86,7 +78,9 @@ export class RuleSchedule {
     this.busy = true;
     try {
       const once = kind.oncePerSession(r.spec.trigger.config);
-      while (this.db.open && (await this.payOldestDebt(r, this.now(), this.debtCutoff(r), scopeChannels(this.db, r), once)));
+      for (let current = this.engine.find(r.id); current && this.db.open; current = this.engine.find(r.id)) {
+        if (!(await this.payOldestDebt(current, this.now(), this.debtCutoff(current), scopeChannels(this.db, current), once))) break;
+      }
       this.emit({ type: 'rules-changed' });
     } finally {
       this.busy = false;
@@ -139,8 +133,11 @@ export class RuleSchedule {
     const cutoff = this.debtCutoff(r);
     forgiveDebts(this.db, r.id, cutoff, r.spec.actions.map((a) => a.id));
     let ran = false;
-    // Each pass reads claims and debts again, so an interrupted action keeps its window.
-    while (this.db.open && (await this.runOldestDue(r, cutoff))) ran = true;
+    // Each pass reads claims, debts and the rule again: an interrupted action keeps its window; a rule deleted or turned off stops.
+    for (let current = this.engine.find(r.id); current && this.db.open; current = this.engine.find(r.id)) {
+      if (!(await this.runOldestDue(current, this.debtCutoff(current)))) break;
+      ran = true;
+    }
     if (ran) this.emit({ type: 'rules-changed' });
   }
 
@@ -231,12 +228,17 @@ export class RuleSchedule {
 
   /** Begins attempts before invoking actions and settles each outcome, retaining failures for bounded retries. */
   private async runActions(r: CompiledRule, runId: number, actions: ScheduledAction[], channelIds: string[] | null, once: boolean): Promise<boolean> {
-    for (const { a, d } of actions) {
+    for (const { a: planned, d } of actions) {
+      // Each action starts from its rule as it is now: deleted or off stops the run; a dropped action's debt is forgiven next pass.
+      const rule = this.engine.find(r.id);
+      if (!rule) return false;
+      const a = rule.spec.actions.find((x) => x.id === planned.id);
+      if (!a) continue;
       const unavailable = this.engine.kinds.unavailable('actions', a.type);
       if (unavailable && once) {
-        const considered = `${r.id}:${a.id}`;
+        const considered = `${rule.id}:${a.id}`;
         this.appStartDone.delete(considered);
-        this.keepOwed(considered, d.sinceTs, r.armedAt);
+        this.keepOwed(considered, d.sinceTs, rule.armedAt);
       }
       const attempt = unavailable ? 0 : beginAttempt(this.db, runId, a.id, this.now());
       if (attempt === null) return false; // the rule was deleted meanwhile
@@ -246,7 +248,7 @@ export class RuleSchedule {
       };
       let result: ActionResult;
       try {
-        result = unavailable ? { outcome: 'skipped', detail: unavailable } : await this.actions.run(a, { rule: r, runId, history: false, actionId: a.id, event });
+        result = unavailable ? { outcome: 'skipped', detail: unavailable } : await this.actions.run(a, { rule, runId, history: false, actionId: a.id, event });
       } catch (err) {
         result = { outcome: 'failed', detail: errorMessage(err) };
       }

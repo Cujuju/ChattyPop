@@ -10,8 +10,10 @@ import type { PageWorld } from './pageWorld';
 import { RateLimits, routeKey } from './rateLimits';
 import { carried, routeTemplate, type ClientShapes } from './clientShapes';
 import { contextProperties, type DiscordClient, type DiscordQuery, type RequestContext, type RequestOptions, type WriteOptions } from './client';
+import { AccountChangedError, STILL_LOADING, actionSession } from './ownerSession';
 
 const API_BASE = 'https://discord.com/api/v9/';
+const NOT_LOGGED_IN = 'Not logged in to Discord (no captured session yet).';
 /** Hard floor before a paced request whatever the pace setting says (the prompt lane isn't paced). */
 const MIN_REQUEST_INTERVAL_MS = 1000;
 /** Retries for 429/5xx before giving up on one request. */
@@ -158,12 +160,15 @@ export class DiscordApi implements DiscordClient {
     const paced = lane === 'paced';
     const request = <T>(path: string, query: DiscordQuery, method: PageRequest['method'], body: PageRequest['body'], opts: WriteOptions = {}): Promise<T> => {
       let url: URL;
+      let generation: number | undefined;
       try {
         url = apiUrl(path, query);
+        // Bound now, not when sent: a write never goes under a credential captured after it was asked.
+        if (method !== 'GET') generation = this.writeGeneration();
       } catch (err) {
         return Promise.reject(err);
       }
-      return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: opts.retryServerErrors !== false && !opts.once, paced, context: opts.context, guard: opts.guard, verify: opts.verify }));
+      return this.enqueue(lane, routeKey(method, url), () => this.send<T>(url, method, body, { retryServerErrors: opts.retryServerErrors !== false && !opts.once, paced, context: opts.context, guard: opts.guard, verify: opts.verify, generation }));
     };
     // Undefined sends no body (typing), as the client does.
     const json = (v: unknown): PageRequest['body'] => (v === undefined ? undefined : { text: JSON.stringify(v) });
@@ -185,6 +190,15 @@ export class DiscordApi implements DiscordClient {
     if (!page || page.webContents.isDestroyed()) throw new DiscordAuthError('The live Discord client is not open.');
     const res = await pageFetch(page, uploadUrl, { method: 'PUT', headers: {}, body: { base64: bytes.toString('base64') }, credentials: 'omit' });
     if (res.status < 200 || res.status >= 300) throw new Error(`Upload failed (${res.status}).`);
+  }
+
+  /** The credential generation a write goes under: its owner action's (ownerSession.ts), else the one captured as it is queued. */
+  private writeGeneration(): number {
+    const action = actionSession();
+    if (action === null) throw new DiscordAuthError(STILL_LOADING);
+    if (action) return action.generation;
+    if (!this.capture.current) throw new DiscordAuthError(NOT_LOGGED_IN);
+    return this.capture.sessionGeneration;
   }
 
   private enqueue<T>(lane: Lane, route: string, request: () => Promise<T>): Promise<T> {
@@ -251,7 +265,10 @@ export class DiscordApi implements DiscordClient {
     });
   }
 
-  /** Pump paces first attempts. paced false skips retry pacing, preserving rate-limit waits; guard runs immediately before every attempt. */
+  /**
+   * Pump paces first attempts. paced false skips retry pacing, preserving rate-limit waits; guard runs immediately before every attempt.
+   * A write (`generation` set) goes only under the credential it was bound to, checked just before the headers are attached.
+   */
   private async send<T>(
     url: URL,
     method: PageRequest['method'],
@@ -262,7 +279,8 @@ export class DiscordApi implements DiscordClient {
       context,
       guard,
       verify,
-    }: { retryServerErrors?: boolean; paced?: boolean; context?: RequestContext | undefined; guard?: RequestOptions['guard']; verify?: RequestOptions['verify'] } = {},
+      generation,
+    }: { retryServerErrors?: boolean; paced?: boolean; context?: RequestContext | undefined; guard?: RequestOptions['guard']; verify?: RequestOptions['verify']; generation?: number | undefined } = {},
   ): Promise<T> {
     const route = routeKey(method, url);
     for (let attempt = 1; ; attempt++) {
@@ -272,9 +290,10 @@ export class DiscordApi implements DiscordClient {
       if (limited > 0) await sleep(limited);
       await guard?.();
       verify?.();
+      if (generation !== undefined && this.capture.sessionGeneration !== generation) throw new AccountChangedError();
       const headers = this.capture.current;
       const page = this.page();
-      if (!headers || !page || page.webContents.isDestroyed()) throw new DiscordAuthError('Not logged in to Discord (no captured session yet).');
+      if (!headers || !page || page.webContents.isDestroyed()) throw new DiscordAuthError(NOT_LOGGED_IN);
       this.lastRequestAt = Date.now();
 
       const sent = {

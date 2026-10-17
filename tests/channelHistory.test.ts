@@ -93,7 +93,7 @@ describe('thread upsert history per parent', () => {
       { id: OTHER_THREAD, parent_id: OTHER, name: 'shallow', type: 11, last_message_id: snowflakeFromMs(NOW - MS_PER_DAY, 1) },
     ];
     handlers.applyGatewayEvent('THREAD_LIST_SYNC', { threads });
-    threads.forEach((t, index) => archive.ingestSyncPage(t.id, [rawMessage(t.id, NOW - MS_PER_DAY, 'latest', { id: snowflakeFromMs(NOW - MS_PER_DAY, index) })], 'older', false));
+    threads.forEach((t, index) => archive.ingestSyncPage(t.id, [rawMessage(t.id, NOW - MS_PER_DAY, 'latest', { id: snowflakeFromMs(NOW - MS_PER_DAY, index) })], 'older', false, null));
     expect(handlers.upsertThreads(threads)).toEqual([THREAD]);
     expect(archive.channelInfo(THREAD)?.parentId).toBe(PARENT);
     expect(archive.channelInfo(OTHER_THREAD)?.parentId).toBe(OTHER);

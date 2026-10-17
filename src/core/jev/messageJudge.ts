@@ -1,11 +1,12 @@
 import { errorMessage } from '@shared/errors';
 import { MS_PER_DAY } from '@shared/units';
 import { clipMessage } from '../ai/clip';
-import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type Question } from '../ai/decisions';
+import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type DecisionRequest, type DecisionResult, type Question } from '../ai/decisions';
+import { scopedDecider } from '../ai/readScope';
 import { isLocalOnly } from '../channelPolicy';
 import type { PluginDb } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
-import { MESSAGE_TEXT_SQL } from '../queries/messageText';
+import { LINKED_TEXT_SQL, MESSAGE_TEXT_SQL } from '../queries/messageText';
 import { plainNameSql } from '../queries/names';
 import type { TextMessage } from '../arrival';
 import { BATCH_STATE, batchKey } from './messageBatch';
@@ -66,8 +67,32 @@ export class MessageJudge {
     return true;
   }
 
+  /** Asks Jev `questions` about `m` alone, with its context; no answer is stored. Refused unsent if its channel turns local-only. */
+  decideAbout<Q extends Record<string, Question>>(jev: DecisionProvider, m: TextMessage, questions: Q): Promise<DecisionResult<Q>> {
+    return this.decide(jev, [m.channelId], { state: this.stateFor(m), questions });
+  }
+
+  /**
+   * Every request carrying message text goes through here: it declares the channels it reads, checked against local-AI-only
+   * when queued and again when sent (scopedDecider), so a policy changed while it waited for a slot holds.
+   */
+  private decide<Q extends Record<string, Question>>(jev: DecisionProvider, reads: string[], req: DecisionRequest<Q>): Promise<DecisionResult<Q>> {
+    return scopedDecider(jev, () => this.db).decide({ ...req, reads: [...new Set(reads)] });
+  }
+
+  /**
+   * Whether `m`'s text (its own, derived and linked) is still the archive's: false once an edit or later text replaced it.
+   * A message the archive doesn't hold has no newer text.
+   */
+  isCurrent(m: TextMessage): boolean {
+    const now = this.db.prepare(`SELECT ${MESSAGE_TEXT_SQL} AS content, ${LINKED_TEXT_SQL} AS linked FROM messages m WHERE m.id = ?`).get(m.id) as
+      | Pick<TextMessage, 'content' | 'linked'>
+      | undefined;
+    return !now || (now.content === m.content && now.linked === m.linked);
+  }
+
   /** Context includes the message, reply target, two preceding messages and linked text, so bare links include post content. */
-  stateFor(m: TextMessage): Record<string, unknown> {
+  private stateFor(m: TextMessage): Record<string, unknown> {
     const reply = this.replyTo(m);
     const linked = m.linked ? `\n(${LINKED_MARK} ${clipMessage(m.linked)})` : '';
     return {
@@ -125,14 +150,14 @@ export class MessageJudge {
       ...batches.map(async (b) => {
         if (b.members.length === 1) return one(b.members[0]!.item);
         try {
-          const r = await jev.decide({ state: BATCH_STATE, questions: b.questions });
+          const r = await this.decide(jev, b.members.map(({ item }) => item.m.channelId), { state: BATCH_STATE, questions: b.questions });
           result.costs.push(r.costUsd);
           for (const { item, keys } of b.members) {
             const answers = Object.fromEntries(Object.entries(keys).flatMap(([k, s]) => (r.answers[k] ? [[s, r.answers[k] as Answer]] : [])));
             result.answers.set(item.m.id, this.keep(jev, item.m, item.questions, answers, item.certain, item.fresh ?? ALWAYS_FRESH));
           }
         } catch (err: unknown) {
-          // One message can sink a batch (Jev refuses the whole request), so each is asked again on its own.
+          // One message can sink a batch (Jev refuses the whole request, or its channel turned local-only), so each is asked again on its own.
           console.warn('[jev] batched judgment failed, asking each message alone:', errorMessage(err));
           await Promise.all(b.members.map(({ item }) => one(item)));
         }
@@ -143,12 +168,16 @@ export class MessageJudge {
 
   /** Asks Jev `questions` (none: no request), then stores its fresh answers and the `certain` ones. */
   private async ask(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, certain: Answers, fresh: Fresh): Promise<{ answers: Answers; costUsd: number | null }> {
-    const { answers, costUsd } = Object.keys(questions).length ? await jev.decide({ state: this.stateFor(m), questions }) : { answers: {}, costUsd: null };
+    const { answers, costUsd } = Object.keys(questions).length ? await this.decideAbout(jev, m, questions) : { answers: {}, costUsd: null };
     return { answers: this.keep(jev, m, questions, answers as Answers, certain, fresh), costUsd };
   }
 
-  /** Stores the answers to `questions` Jev gave and the `certain` ones whose question is still fresh; returns them by subject. */
+  /**
+   * Stores the answers to `questions` Jev gave and the `certain` ones whose question is still fresh; returns them by subject.
+   * None when `m`'s text changed meanwhile: they judged text it no longer has, and its newer text is asked on its own.
+   */
   private keep(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, answers: Answers, certain: Answers, fresh: Fresh): Answers {
+    if (!this.isCurrent(m)) return {};
     const store = this.db.prepare('INSERT OR REPLACE INTO jev_judgments (message_id, subject, value, label, model, judged_at) VALUES (?, ?, ?, ?, ?, ?)');
     const now = Date.now();
     const out: Answers = {};

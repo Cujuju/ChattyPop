@@ -35,6 +35,8 @@ export interface ProviderDecl {
   apiKey?: ProviderApiKeyDecl;
   /** Some of its models read images sent with a prompt (CompletionRequest.images; ModelOption.images says which). */
   images?: boolean;
+  /** Some of its models call tools (CompletionRequest.tools; ModelOption.tools says which). */
+  tools?: boolean;
   /** Its own web page (an https URL): Settings → AI links it beside the section's title. */
   site?: string;
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EMPTY_PATTERN_SPEC, buildPattern, matchRanges, specProblem, type PatternSpec } from '@shared/keywordPattern';
-import { compileKeywordPattern } from '@shared/keywordPattern';
+import { compileKeywordPattern, textPattern, textPatternOrEmpty } from '@shared/keywordPattern';
 import { previewPattern } from '../src/core/patternPreview';
 import { ARRIVAL } from '../src/core/arrival';
 import { rawMessage } from './helpers';
@@ -69,5 +69,26 @@ describe('rules store the builder rule and the pattern built from it', () => {
     expect(all.hits.map((x) => x.channelName)).toEqual(['chat', 'deals']); // newest first
     const inDeals = previewPattern(h.db, text.pattern, [deals], null, now);
     expect(inDeals.hits.map((x) => x.text)).toEqual(['keyboard gb live now']);
+  });
+});
+
+describe("a keyword match's pattern", () => {
+  const builder = spec({ anyOf: ['gb*open*now'] });
+  /** A builder rule saved before a builder change: its stored copy is not what the builder makes now. */
+  const stale = { pattern: '/gb\\w*open\\w*now/iu', spec: builder };
+
+  it("runs a builder rule's current output, never its stored copy", () => {
+    expect(textPattern(stale)).toBe(buildPattern(builder));
+    expect(textPatternOrEmpty(stale)).toBe(buildPattern(builder));
+  });
+
+  it('runs a typed pattern as stored', () => {
+    expect(textPattern({ pattern: 'gb, group buy', spec: null })).toBe('gb, group buy');
+  });
+
+  it("throws a builder rule's problem; the shown pattern is empty", () => {
+    const empty = { pattern: '/old/iu', spec: EMPTY_PATTERN_SPEC };
+    expect(() => textPattern(empty)).toThrow(specProblem(EMPTY_PATTERN_SPEC)!);
+    expect(textPatternOrEmpty(empty)).toBe('');
   });
 });

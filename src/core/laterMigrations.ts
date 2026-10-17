@@ -1,5 +1,6 @@
 // Later archive schema migrations.
 import { declaredProviders } from '@shared/aiProviders';
+import { finalDownloadError } from '@shared/media';
 import { isObj } from '@shared/normalize';
 import { upgradeRuleSpec } from '@shared/ruleUpgrade';
 import type { Db } from './db';
@@ -8,6 +9,7 @@ import { rawJsonText } from './rawJson';
 import { HIDDEN_SCOPE_RENAMES, HIDDEN_SCOPE_TABLE } from './hiddenScope';
 import { refreshLinkSearch } from './linkSearch';
 import type { Migration } from './migrations';
+import { recordDerivableOwners, recordHolders } from './plugins/tableOwners';
 import { topicsIntoRules } from './topicsIntoRules';
 
 /** Frozen snippet repair removes incomplete Discord tokens at truncation edges. Uses independent patterns rather than live rendering patterns. */
@@ -213,7 +215,45 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
     (CAST(id AS INTEGER) >> 22) + 1420070400000);
   CREATE INDEX attachments_ts ON attachments(ts, id);
   `,
+  // 1: an ephemeral reply (only its recipient sees it; history never lists it), kept through text retention.
+  ephemeralMessages,
+  // A pending download's failed attempts so far, and when it may next start (ms; NULL: now). See mediaQueue.ts.
+  `
+  ALTER TABLE attachments ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE attachments ADD COLUMN retry_at INTEGER;
+  `,
+  requeueLegacyDownloadFailures,
+  pluginTableOwners,
+  pluginNamespaces,
+  reserveTableOwners,
 ];
+
+/**
+ * Download failures stored before attempts were counted (attempts 0) that a retry may pass go back in the queue, once;
+ * DOWNLOAD_RETRIES_MAX bounds their retries. Failures since count attempts, so stay as they are.
+ */
+export function requeueLegacyDownloadFailures(db: Db): void {
+  const failed = db.prepare("SELECT id, error FROM attachments WHERE status = 'failed' AND attempts = 0").all() as { id: string; error: string | null }[];
+  const requeue = db.prepare("UPDATE attachments SET status = 'pending', retry_at = NULL WHERE id = ?");
+  for (const f of failed) if (!finalDownloadError(f.error)) requeue.run(f.id);
+}
+
+/** Which plugin owns each plugin table (plugins/tableOwners.ts), seeded with the owners existing tables show. */
+export function pluginTableOwners(db: Db): void {
+  db.exec('CREATE TABLE plugin_tables (name TEXT PRIMARY KEY, plugin_id TEXT NOT NULL) WITHOUT ROWID');
+  recordDerivableOwners(db);
+}
+
+/** Reserves each recorded table owner's id (plugins/tableOwners.ts): an id holding data, which plugin_tables no longer guards. */
+export function reserveTableOwners(db: Db): void {
+  db.exec('INSERT OR IGNORE INTO plugin_namespaces (plugin_id) SELECT DISTINCT plugin_id FROM plugin_tables');
+}
+
+/** The plugins that ran (plugins/tableOwners.ts), seeded with those whose data the archive holds. */
+export function pluginNamespaces(db: Db): void {
+  db.exec('CREATE TABLE plugin_namespaces (plugin_id TEXT PRIMARY KEY) WITHOUT ROWID');
+  recordHolders(db);
+}
 
 /** Stores "on" for each provider declared on by default that a profile in use never switched. A new profile has stored no setting, and starts with none. */
 export function keepDefaultProviders(db: Db, declared: readonly { id: string }[] = declaredProviders()): void {
@@ -289,6 +329,27 @@ export function discordNameStyles(db: Db): void {
       WHERE id IN (SELECT author_id FROM latest_tags);
     DROP TABLE latest_tags;
   `);
+}
+
+/** Discord's ephemeral message flag (MESSAGE_FLAG.ephemeral), frozen for this migration. */
+const EPHEMERAL_FLAG = 64;
+
+/** Keeps Discord's ephemeral flag outside raw_json, which text retention removes; seeded from stored payloads. */
+export function ephemeralMessages(db: Db): void {
+  db.exec('ALTER TABLE messages ADD COLUMN ephemeral INTEGER NOT NULL DEFAULT 0;');
+  const rows = db.prepare('SELECT seq, raw_json FROM messages WHERE raw_json IS NOT NULL').iterate() as Iterable<{ seq: number; raw_json: string | Buffer }>;
+  const found: number[] = [];
+  for (const row of rows) {
+    try {
+      const flags = (JSON.parse(rawJsonText(row.raw_json)!) as { flags?: unknown } | null)?.flags;
+      if (typeof flags === 'number' && (flags & EPHEMERAL_FLAG) !== 0) found.push(row.seq);
+    } catch {
+      // A damaged legacy payload must not prevent the archive opening.
+    }
+  }
+  // This driver forbids writes while an iterator is active.
+  const mark = db.prepare('UPDATE messages SET ephemeral = 1 WHERE seq = ?');
+  for (const seq of found) mark.run(seq);
 }
 
 /** Adds server features, display-name styles and avatar decorations. Seeds each author from the newest payload. */

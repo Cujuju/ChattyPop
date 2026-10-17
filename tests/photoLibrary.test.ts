@@ -1,10 +1,10 @@
 // The page's half of the iPhone app's photo library bridge: gated by the `photoLibrary` capability, requests shaped as the app reads them,
 // and a picked item fetched once from the app's scheme into a File for the upload path.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SHELL_ASSET_READ_BYTES, SHELL_CAPABILITIES, SHELL_NATIVE_GLOBAL, SHELL_PHOTOS_HANDLER, SHELL_PHOTOS_PAGE_MAX, type PhotoAccess, type ShellAssetPage, type ShellPhotosRequest } from '@shared/shell';
+import { SHELL_ASSET_READ_BYTES, SHELL_CAPABILITIES, SHELL_NATIVE_GLOBAL, SHELL_PHOTOS_HANDLER, SHELL_PHOTOS_PAGE_MAX, type PhotoAccess, type ShellAssetPage, type ShellPhotosRequest, type ShellVideoShrink } from '@shared/shell';
 
 import { DEFAULT_DEVICE_CHAT_SETTINGS, type DeviceChatSettings } from '@shared/chatSettings';
-import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE } from '@shared/videoEncode';
+import { AUDIO_BITRATE, ENCODE_PRESETS, MAX_FRAME_RATE, targetSize, videoBitrateFor, type EncodeQuality } from '@shared/videoEncode';
 
 const device = vi.hoisted(() => ({ settings: null as DeviceChatSettings | null, cellular: false }));
 vi.mock('../src/renderer/src/state/chatSettings', () => ({ deviceChatSettings: () => device.settings }));
@@ -119,11 +119,38 @@ describe('with it', () => {
     };
     expect(await exportOf()).toEqual({ op: 'export', id: 'v' });
     device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'standard' };
-    const shrinkOf = (preset: (typeof ENCODE_PRESETS)[keyof typeof ENCODE_PRESETS]) => ({ ...preset, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE });
-    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf(ENCODE_PRESETS.standard) });
+    const shrinkOf = (quality: EncodeQuality, rateCaps: unknown[]) => ({ ...ENCODE_PRESETS[quality], rateCaps, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE });
+    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf('standard', []) });
     device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'best', dataSaving: true };
     device.cellular = true;
-    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf(ENCODE_PRESETS.dataSaver) });
+    expect(await exportOf()).toEqual({ op: 'export', id: 'v', shrink: shrinkOf('dataSaver', [ENCODE_PRESETS.standard]) });
+  });
+
+  it("sends a shrink whose rate, read as ShellVideoShrink says, is the page encoder's", async () => {
+    // Regression: the app got Data Saver's preset alone, and gave a 640×360 video 562,500 bit/s against Standard's 500,000.
+    answer = (r) => (r.op === 'export' ? { token: 'T', name: 'a.mp4', type: 'video/mp4', size: 0 } : undefined);
+    const shrinkAt = async (videoQuality: EncodeQuality): Promise<ShellVideoShrink> => {
+      device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality };
+      requests = [];
+      await library.photoFile('v');
+      return (requests[0] as { shrink: ShellVideoShrink }).shrink;
+    };
+    // ShellVideoShrinker.videoBitrate's rule: the least of each preset's rate, scaled by area below its shorter side.
+    const nativeRate = (shrink: ShellVideoShrink, source: { width: number; height: number }): number =>
+      Math.round(
+        Math.min(
+          ...[shrink, ...shrink.rateCaps].map((preset) => {
+            const size = targetSize(source, preset);
+            return preset.videoBitrate * Math.min(1, (Math.min(size.width, size.height) / preset.shortSide) ** 2);
+          }),
+        ),
+      );
+    for (const quality of ['standard', 'dataSaver'] as const) {
+      const shrink = await shrinkAt(quality);
+      for (const source of [{ width: 640, height: 360 }, { width: 360, height: 640 }, { width: 1920, height: 1080 }, { width: 900, height: 500 }]) {
+        expect(nativeRate(shrink, source)).toBe(videoBitrateFor(source, quality));
+      }
+    }
   });
 });
 
@@ -164,7 +191,7 @@ describe('the system pickers', () => {
     expect(requests).toEqual([]);
     device.settings = { ...DEFAULT_DEVICE_CHAT_SETTINGS, videoQuality: 'standard' };
     await library.pickPhotos(1);
-    expect(requests).toEqual([{ op: 'pick', limit: 1, shrink: { ...ENCODE_PRESETS.standard, audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE } }]);
+    expect(requests).toEqual([{ op: 'pick', limit: 1, shrink: { ...ENCODE_PRESETS.standard, rateCaps: [], audioBitrate: AUDIO_BITRATE, maxFrameRate: MAX_FRAME_RATE } }]);
   });
 
   it('release the unread exports when one fails', async () => {

@@ -1,5 +1,6 @@
 // The run's temp folder (`inject('tempRoot')`, read by tempDir) is typed in globalSetup.ts.
 /// <reference path="./globalSetup.ts" />
+import { EventEmitter } from 'node:events';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inject } from 'vitest';
@@ -11,6 +12,7 @@ import { installArchiveViews } from '../src/core/archiveViews';
 import { openDb, type Db } from '../src/core/db';
 import { ARRIVAL, type Arrived } from '../src/core/arrival';
 import { MIGRATIONS, applyMigration, type Migration } from '../src/core/migrations';
+import { OwnerSession } from '../src/main/discord/ownerSession';
 
 /** Discord's channel type for a guild text channel. */
 const GUILD_TEXT_CHANNEL = 0;
@@ -18,6 +20,8 @@ const GUILD_TEXT_CHANNEL = 0;
 const TEST_GUILD: RawGuild = { id: 'g1', name: 'G' };
 /** The Toolchain's model folder under its tools directory. */
 const MODELS_DIR = 'models';
+/** Gateway opcode the client sends to start a session; READY answers it (ownerSession.ts). */
+const IDENTIFY_OP = 2;
 /** Time for work the app queued on a fake (Jev, an LLM) to finish; the fakes answer at once. */
 const ASYNC_SETTLE_MS = 50;
 
@@ -106,3 +110,27 @@ export function fakeModel(dir: string, id: string): void {
 
 /** An open Discord page whose isolated world answers each script with `evaluate` (DiscordApi's page). */
 export const discordPage = (evaluate: (script: string) => Promise<unknown>) => ({ webContents: { isDestroyed: () => false }, world: { evaluate } });
+
+type HeadersListener = (details: { method: string; url: string; webContentsId?: number; requestHeaders: Record<string, string> }, cb: (r: { requestHeaders: Record<string, string> }) => void) => void;
+
+/** A Discord session (HeaderCapture's) whose request hook the test drives: `send` is a request the embedded client makes. */
+export function fakeDiscordSession(): { session: never; send: (headers: Record<string, string>, url?: string) => Record<string, string> } {
+  let listener: HeadersListener | undefined;
+  const session = { webRequest: { onBeforeRequest: () => undefined, onBeforeSendHeaders: (_f: unknown, l: HeadersListener) => (listener = l), onCompleted: () => undefined } };
+  const send = (headers: Record<string, string>, url = 'https://discord.com/api/v9/users/@me'): Record<string, string> => {
+    let passed: Record<string, string> = {};
+    listener!({ method: 'GET', url, webContentsId: 1, requestHeaders: headers }, (r) => (passed = r.requestHeaders));
+    return passed;
+  };
+  return { session: session as never, send };
+}
+
+/** Runs a call as an owner action of `account` (ownerSession.ts), as main's Discord handlers run each call. */
+export function ownerAction(account: string): <T>(call: () => Promise<T>) => Promise<T> {
+  const tap = new EventEmitter();
+  const capture = { current: {}, sessionGeneration: 1, gatewayAuthorized: true, expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true };
+  const session = new OwnerSession(tap as never, capture as never);
+  tap.emit('sent', { op: IDENTIFY_OP, d: { token: account }, socketId: account });
+  tap.emit('dispatch', { t: 'READY', d: { user: { id: account } }, socketId: account });
+  return <T>(call: () => Promise<T>) => session.actions({ call }).call() as Promise<T>;
+}

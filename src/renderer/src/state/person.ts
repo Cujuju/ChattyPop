@@ -1,12 +1,12 @@
 // Person view: whose profile the Person window shows, that profile from core, and their Discord profile as
 // seen in the server of the channel shown when it opened.
-import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, createSignal } from 'solid-js';
+import { createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelById } from './directory';
 import { shownChannelId } from './archive';
 import { cachedThenLive } from './cachedLive';
+import { keyedResource } from './keyedResource';
 import { onAppEvent } from './events';
 
 interface PersonTarget {
@@ -19,7 +19,8 @@ const [target, setTarget] = createSignal<PersonTarget | null>(null);
 export const personId = (): string | null => target()?.userId ?? null;
 export const personGuildId = (): string | null => target()?.guildId ?? null;
 
-export const [person, { refetch: refetchPerson }] = containedRoot(() => createResource(personId, (id) => api.core.personProfile(id)));
+/** The archive's profile of the person shown; null when the archive never saw them. */
+export const person = keyedResource(personId, (id) => api.core.personProfile(id));
 
 /** Their Discord profile: the cached copy at once, then Discord's answer; stale when Discord can't be reached. */
 export const discordProfile = cachedThenLive(
@@ -44,15 +45,21 @@ const guildOf = (channelId: string | null): string | null => {
   return guild === DM_GUILD_ID ? null : guild;
 };
 
-/** Opens `userId`'s profile as seen in the server of `channelId` (default: the channel the Archive shows). */
-export const openPerson = (userId: string, channelId: string | null = shownChannelId()): void => {
+/**
+ * Opens `userId`'s profile as seen in the server of `channelId`, the place it was opened from (null: none). Required: the
+ * Archive's channel is no context for a message shown elsewhere (Bookmarks, Conversation).
+ */
+export const openPerson = (userId: string, channelId: string | null): void => {
   const same = personId() === userId;
   setFriendsOpen(false);
   // A new target object refetches their Discord profile, also for the same person.
   setTarget({ userId, guildId: guildOf(channelId) });
   // Re-opening the same person refreshes the archive part too: it may have grown since.
-  if (same) void refetchPerson();
+  if (same) person.refetch();
 };
+
+/** The SDK's `openPerson`: a plugin's call without a place opens from the Archive's shown channel, as it always did. */
+export const openPersonFromPlugin = (userId: string, channelId: string | null = shownChannelId()): void => openPerson(userId, channelId);
 
 export const closePerson = (): void => {
   setTarget(null);
@@ -60,5 +67,5 @@ export const closePerson = (): void => {
 
 // Privacy mode changed: hidden servers and channels leave or rejoin the profile.
 onAppEvent('privacy-changed', () => {
-  if (personId()) void refetchPerson();
+  if (personId()) person.refetch();
 });

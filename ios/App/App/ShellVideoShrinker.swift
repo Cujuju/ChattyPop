@@ -2,12 +2,21 @@ import AVFoundation
 
 /// Re-encodes a library video to H.264 and AAC in MP4 at the page's send quality (ShellVideoShrink in src/shared/shell.ts), so a
 /// large video is cut down before the page reads it: WebKit holds the page's File in memory. Upright, HDR tone-mapped to SDR,
-/// its shorter side scaled down to the target's (never up), at the target's rate scaled by area, frames capped at its rate.
+/// its shorter side scaled down to the target's (never up), at videoBitrate's rate, frames capped at the target's rate.
 enum ShellVideoShrinker {
+    /// A page encode preset (EncodePreset in src/shared/videoEncode.ts).
+    struct Preset {
+        let shortSide: Int
+        /// Video bitrate at the full shorter side, bit/s.
+        let videoBitrate: Int
+    }
+
     struct Target {
         let shortSide: Int
         /// Video bitrate at the full shorter side, bit/s.
         let videoBitrate: Int
+        /// Every larger quality's preset, whose rates for the source cap this target's.
+        let rateCaps: [Preset]
         let audioBitrate: Int
         let maxFrameRate: Int
     }
@@ -40,6 +49,25 @@ enum ShellVideoShrinker {
         return Int(min(abs(upright.width), abs(upright.height)))
     }
 
+    /// `source` with its shorter side scaled down to `shortSide` (never up), aspect kept, both sides even (targetSize in
+    /// src/shared/videoEncode.ts).
+    static func outputSize(of source: CGSize, shortSide: Int) -> CGSize {
+        let scale = min(1, CGFloat(shortSide) / min(source.width, source.height))
+        let even = { (px: CGFloat) in max(dimensionStep, (px * scale / dimensionStep).rounded(.down) * dimensionStep) }
+        return CGSize(width: even(source.width), height: even(source.height))
+    }
+
+    /// The video rate for an upright `source`, bit/s: the least of the target's and each cap's rate, each scaled by area below
+    /// its shorter side (videoBitrateFor), so a smaller quality never gets more bits.
+    static func videoBitrate(for source: CGSize, target: Target) -> Int {
+        let rate = { (preset: Preset) -> CGFloat in
+            let size = outputSize(of: source, shortSide: preset.shortSide)
+            return CGFloat(preset.videoBitrate) * min(1, pow(min(size.width, size.height) / CGFloat(preset.shortSide), 2))
+        }
+        let own = rate(Preset(shortSide: target.shortSide, videoBitrate: target.videoBitrate))
+        return Int(target.rateCaps.map(rate).reduce(own, min).rounded())
+    }
+
     /// Writes `asset` to `url` at `target`. Throws if reading or writing fails; the caller removes `url` then.
     static func shrink(_ asset: AVAsset, to url: URL, target: Target) async throws {
         guard let track = try await asset.loadTracks(withMediaType: .video).first else { throw ShrinkError.noVideo }
@@ -49,13 +77,8 @@ enum ShellVideoShrinker {
 
         let upright = natural.applying(transform)
         let source = CGSize(width: abs(upright.width), height: abs(upright.height))
-        let sourceShort = min(source.width, source.height)
-        let scale = min(1, CGFloat(target.shortSide) / sourceShort)
-        let even = { (px: CGFloat) in max(dimensionStep, (px * scale / dimensionStep).rounded(.down) * dimensionStep) }
-        let size = CGSize(width: even(source.width), height: even(source.height))
-        // The target's rate at its full shorter side, scaled down by area below it (presetBitrate in src/shared/videoEncode.ts).
-        let areaRatio = min(1, pow(min(size.width, size.height) / CGFloat(target.shortSide), 2))
-        let videoBitrate = Int((CGFloat(target.videoBitrate) * areaRatio).rounded())
+        let size = outputSize(of: source, shortSide: target.shortSide)
+        let bitrate = videoBitrate(for: source, target: target)
         let frameRate = nominalRate > 0 ? min(Int(nominalRate.rounded()), target.maxFrameRate) : target.maxFrameRate
 
         // The composition turns the picture upright, scales it and tone-maps HDR to Rec. 709.
@@ -91,7 +114,7 @@ enum ShellVideoShrinker {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
             ],
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: videoBitrate,
+                AVVideoAverageBitRateKey: bitrate,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
                 AVVideoMaxKeyFrameIntervalDurationKey: keyFrameInterval,
             ],
