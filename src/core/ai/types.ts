@@ -12,10 +12,44 @@ export interface CompletionImage {
   data: string;
 }
 
+/** An earlier turn of the conversation a completion continues. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
+/** A function the model may call while it answers; it runs in the caller's process. */
+export interface CompletionTool {
+  /** Unique in the request; matches TOOL_NAME_PATTERN. */
+  name: string;
+  description: string;
+  /** JSON Schema of the arguments: `type: 'object'` with `properties`. */
+  parameters: Record<string, unknown>;
+  /** The text the model reads back. A throw reaches the model as the call's failure. */
+  run(args: unknown, signal: AbortSignal): Promise<string>;
+}
+
+/** What a running completion reports, in order. */
+export type CompletionEvent =
+  /** More of the answer; the deltas join to the result's `text`. */
+  | { type: 'text'; delta: string }
+  /** The model called a tool; `toolResult` with the same `callId` follows. */
+  | { type: 'toolCall'; callId: string; name: string; args: unknown }
+  | { type: 'toolResult'; callId: string; ok: boolean };
+
 export interface CompletionRequest {
   /** Replaces the provider's own system prompt entirely. */
   system: string;
+  /** The new user turn. */
   prompt: string;
+  /** Earlier turns, oldest first; `prompt` follows them. */
+  history?: readonly ChatTurn[];
+  /** Only a provider declared with `tools` takes them (others refuse the request); never with `schema`. */
+  tools?: readonly CompletionTool[];
+  /** Required with `tools`: the most tool calls run; later calls are answered TOOL_CALLS_SPENT, so the model answers. */
+  maxToolCalls?: number;
+  /** Progress while it runs. Not called after the request settles or its signal aborts. */
+  onEvent?(event: CompletionEvent): void;
   /** Read with the prompt; only a provider declared with `images` takes them (others refuse the request). */
   images?: readonly CompletionImage[];
   /** The longest answer wanted, in tokens; a provider that can't limit it answers in full. */
