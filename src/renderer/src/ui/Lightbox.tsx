@@ -1,6 +1,6 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { Show, createEffect, on } from 'solid-js';
-import { lightbox, setLightbox } from '@/state/ui';
+import { Show, createEffect, on, untrack } from 'solid-js';
+import { lightbox, setLightbox, type LightboxGallery } from '@/state/ui';
 import { stepLightbox } from '@/state/lightbox';
 import { setOverlayCover } from '@/state/windows';
 import { AnimatedImage } from './AnimatedImage';
@@ -23,9 +23,14 @@ export function Lightbox() {
   };
   const zoom = createZoom(() => setLightbox(null), step);
   const pullProgress = (): number => Math.min(1, zoom.pull() / (window.innerHeight * PULL_FADE_WINDOW_SHARE));
+  let shownGallery: LightboxGallery | undefined;
   createEffect(() => {
-    if (lightbox() && !dialog.open) dialog.showModal();
-    else if (!lightbox() && dialog.open) dialog.close();
+    const image = lightbox();
+    if (image && !dialog.open) dialog.showModal();
+    else if (!image && dialog.open) dialog.close();
+    // After close() has returned focus to the opener, so the gallery's choice wins.
+    if (!image) untrack(() => shownGallery?.closed?.());
+    shownGallery = image?.gallery;
   });
   // Each image opens fitted.
   createEffect(on(() => lightbox()?.src, () => {
@@ -86,7 +91,7 @@ export function Lightbox() {
             </figcaption>
             <Show when={img().gallery}>
               {(gallery) => <>
-                <span class={styles.counter} aria-live="polite">{gallery().position}</span>
+                <Show when={gallery().position}>{(position) => <span class={styles.counter} aria-live="polite">{position()}</span>}</Show>
                 <Show when={gallery().prev}><button type="button" class={`${styles.round} ${styles.prev}`} aria-label="Previous file" onClick={() => step(-1)}><Icon name="chevronLeft" /></button></Show>
                 <Show when={gallery().next}><button type="button" class={`${styles.round} ${styles.next}`} aria-label="Next file" onClick={() => step(1)}><Icon name="chevronRight" /></button></Show>
               </>}

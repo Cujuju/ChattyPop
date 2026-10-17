@@ -1,10 +1,13 @@
 import { createSignal } from 'solid-js';
 
 export interface LightboxGallery {
-  position: string;
+  /** Absent while the file's place in the whole order isn't known. */
+  position?: string;
   details?: string;
   prev?: () => void;
   next?: () => void;
+  /** The viewer closed on this image, after focus returned to its opener; the gallery may move focus to the file shown. */
+  closed?: () => void;
 }
 
 /** Stored media with optional gallery navigation; single-image callers need no gallery or kind. */
