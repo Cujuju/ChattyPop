@@ -211,6 +211,7 @@
   --cp-focus-ring: var(--cp-focus-ring-width) solid var(--cp-focus-ring-color);
   --cp-focus-ring-offset: 1px;
   --cp-focus-ring-offset-inset: -1px; /* controls that must not grow on focus */
+  --cp-focus-ring-media-width: 2px; /* over a picture a hairline vanishes into the image */
 
   /* Selection */
   --cp-selection-bg: color-mix(in srgb, var(--cp-accent) 30%, transparent);
