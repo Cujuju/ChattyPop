@@ -8,7 +8,7 @@ import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type A
 import { chatSource, setChatSource } from './chat';
 import { inCompanion, inPanelWindow } from './ui';
 import { channelById, refetchDirectory } from './directory';
-import { onAppEvent, onMessagePartsChanged } from './events';
+import { createPushedValue, onAppEvent, onMessagePartsChanged } from './events';
 import { createPagedList } from './paged';
 import { messageBefore } from '@shared/messageOrder';
 import { textOrNull } from '@shared/normalize';
@@ -287,8 +287,12 @@ void api.discord.shownChannel().then((c) => {
   if (c && liveChannelId() === null) setLiveChannelId(c.channelId);
 });
 
-/** The channel the Chat area is showing: the live client's while it is shown, else the Archive's. */
-export const shownChannelId = (): string | null => (chatSource() === 'live' ? liveChannelId() : archiveChannelId());
+const mirroredChannelId = inPanelWindow ? createPushedValue(() => api.getShownChannel(), 'shown-channel', (e) => e.channelId).value : () => null;
+
+/** The main window's shown channel in panel windows; otherwise this window's live or Archive channel. */
+export const shownChannelId = (): string | null => inPanelWindow ? mirroredChannelId() : chatSource() === 'live' ? liveChannelId() : archiveChannelId();
+
+if (!inPanelWindow && !inCompanion) containedRoot(() => createEffect(() => api.reportShownChannel(shownChannelId())));
 
 /** Sidebar picks move visible live clients; otherwise open Archive. */
 export function openChannel(c: { id: string; guildId: string }): void {

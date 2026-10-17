@@ -25,6 +25,7 @@ import type { SplashPhaseId } from '@shared/splash.mjs';
 import { loadArchiveKey } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
+import { registerShownChannelHandlers } from './shownChannel';
 import { diag } from './diagnostics';
 import { pickFiles, pickFolder } from './dialogs';
 import { SECRET_FILES } from './secretFile';
@@ -232,6 +233,7 @@ void app.whenReady().then(() => {
   // The account's Chat settings, from READY and their updates: every window and phone reads them from the archive.
   const chatSettings = new AccountChatSettings(discord.tap, discordApi.prompt, (settings) => core.call('setSetting', SETTINGS_KEYS.discordChat, settings), diag);
   const panelWindows = new PanelWindows(win, loadRenderer, rendererWindowOptions());
+  registerShownChannelHandlers(win, panelWindows);
   ipcMain.handle(PANEL_WINDOW_CHANNEL, (_e, panelId: unknown) => {
     if (typeof panelId === 'string') panelWindows.show(panelId);
   });

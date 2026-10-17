@@ -115,6 +115,8 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
       return Promise.resolve();
     },
     showInMainWindow: (channelId, messageId, opts) => shell?.showInMainWindow(channelId, messageId, opts?.compose),
+    reportShownChannel: (channelId) => shell?.reportShownChannel?.(channelId),
+    getShownChannel: () => shell?.getShownChannel?.() ?? Promise.resolve(null),
     setUnsaved: (on) => shell?.setUnsaved(on),
     discardUnsaved: () => shell?.discardUnsaved(),
     onEvent: (listener) => {

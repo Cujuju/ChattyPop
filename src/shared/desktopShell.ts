@@ -25,6 +25,10 @@ export interface DesktopShell {
   openPanelWindow(panelId: string): void;
   /** From a panel window: shows a message (or channel) in this server's main window. */
   showInMainWindow(channelId: string, messageId?: string, compose?: ComposeIntent): void;
+  /** Reports this server's main window channel. Absent in clients predating channel mirroring. */
+  reportShownChannel?(channelId: string | null): void;
+  /** Reads this server's main window channel. Absent in clients predating channel mirroring. */
+  getShownChannel?(): Promise<string | null>;
   /** Whether this window holds unsaved edits, so the app asks before closing it. */
   setUnsaved(on: boolean): void;
   discardUnsaved(): void;
@@ -44,6 +48,8 @@ export const SHELL_CHANNELS = {
   savePdf: 'shell:save-pdf',
   openPanelWindow: 'shell:open-panel',
   showInMainWindow: 'shell:show-in-main',
+  reportShownChannel: 'shell:shown-channel',
+  getShownChannel: 'shell:get-shown-channel',
   /** Sent by the preload when the page subscribes (onLocalEvent): the app holds a window's commands until then. */
   listening: 'shell:listening',
 } as const;

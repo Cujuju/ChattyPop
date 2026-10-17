@@ -41,6 +41,8 @@ function shell() {
     savePdf: vi.fn(async () => undefined),
     openPanelWindow: vi.fn(),
     showInMainWindow: vi.fn(),
+    reportShownChannel: vi.fn(),
+    getShownChannel: vi.fn(async () => 'shown-channel'),
     setUnsaved: vi.fn(),
     discardUnsaved: vi.fn(),
     onLocalEvent: vi.fn((l: (e: AppEvent) => void) => {
@@ -92,6 +94,30 @@ describe('remote desktop calls', () => {
 });
 
 describe('the client app shell', () => {
+  it('keeps shown-channel reports and reads in the local shell, with updates on local events', async () => {
+    const t = transport();
+    const s = shell();
+    const api = createRemoteRendererApi(t, s);
+    api.reportShownChannel('c');
+    api.reportShownChannel(null);
+    expect(s.reportShownChannel.mock.calls).toEqual([['c'], [null]]);
+    await expect(api.getShownChannel()).resolves.toBe('shown-channel');
+    const got: AppEvent[] = [];
+    api.onEvent((e) => got.push(e));
+    s.command({ type: 'shown-channel', channelId: 'next' });
+    expect(got).toEqual([{ type: 'shown-channel', channelId: 'next' }]);
+    expect(t.calls).toEqual([]);
+  });
+
+  it('tolerates a client shell predating channel mirroring', async () => {
+    const s: DesktopShell = shell();
+    delete s.reportShownChannel;
+    delete s.getShownChannel;
+    const api = createRemoteRendererApi(transport(), s);
+    expect(() => api.reportShownChannel('c')).not.toThrow();
+    await expect(api.getShownChannel()).resolves.toBeNull();
+  });
+
   it('saves files, draws PDFs, shows the badge and opens panel windows on this device', async () => {
     setMediaRoot('/media/');
     const t = transport();

@@ -31,6 +31,8 @@ export type AppEvent =
   | { type: 'status-changed' }
   /** The live Discord client now shows this channel; the Archive follows it when opened. */
   | { type: 'live-channel'; guildId: string; channelId: string }
+  /** Main window's shown channel, mirrored to its panel windows. */
+  | { type: 'shown-channel'; channelId: string | null }
   /** Main asks its window to reveal a panel named by a notification. */
   | { type: 'open-panel'; panelId: string }
   /** Main → the main window: open Settings at a section (a server's tray pairing a device). */
@@ -282,6 +284,10 @@ export const APP_RESTART_CHANNEL = 'app:restart';
 export const PANEL_WINDOW_CHANNEL = 'window:open-panel';
 /** Panel window → main: show a message (or channel) in the main window's Archive. */
 export const SHOW_IN_MAIN_CHANNEL = 'window:show-in-main';
+/** Main window → main: the channel its Chat area shows. */
+export const SHOWN_CHANNEL_CHANNEL = 'window:shown-channel';
+/** Panel window → main: the latest channel the main window reported. */
+export const GET_SHOWN_CHANNEL_CHANNEL = 'window:get-shown-channel';
 /** Window → main: whether it holds unsaved edits, so main asks before closing or reloading it. */
 export const UNSAVED_CHANNEL = 'window:unsaved';
 /** Window → main: the owner discarded its unsaved edits; main goes on with the close or reload it held. */

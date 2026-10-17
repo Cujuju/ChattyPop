@@ -206,6 +206,10 @@ export interface RendererApi {
   openPanelWindow(panelId: string): Promise<void>;
   /** From a panel window: brings the main window up showing this message (or channel) in the Archive; `compose` replies to or edits it there. */
   showInMainWindow(channelId: string, messageId?: string, opts?: { compose: ComposeIntent }): void;
+  /** Reports the main window's shown channel for its panel windows. */
+  reportShownChannel(channelId: string | null): void;
+  /** Reads the main window's latest shown channel; subsequent changes arrive as shown-channel events. */
+  getShownChannel(): Promise<string | null>;
   /** Whether this window holds unsaved edits: main then holds its close or reload and asks (the unsaved-changes event). */
   setUnsaved(on: boolean): void;
   /** The owner discarded this window's unsaved edits: main goes on with the close or reload it held. */
