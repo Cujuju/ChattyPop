@@ -110,6 +110,7 @@ export async function openArchive(channelId: string, messageId?: string): Promis
 
 /** Opens `place`'s channel around its message, the view putting it back where it was; at the newest when it is gone. */
 export async function openArchiveAt(place: ArchivePlace): Promise<void> {
+  if (inPanelWindow) return api.showInMainWindow(place.channelId, place.messageId);
   setFocusMessageId(null);
   setOpeningPlace(place);
   await open(place.channelId, place.messageId);

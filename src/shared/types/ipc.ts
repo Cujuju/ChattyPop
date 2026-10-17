@@ -15,6 +15,7 @@ export const isComposeIntent = (v: unknown): v is ComposeIntent => (COMPOSE_INTE
 
 /** Pushed to the renderer; the renderer never polls. */
 export type AppEvent =
+  | { type: 'attachment-save-progress'; requestId: string; done: number; total: number }
   | { type: 'account-link'; id: string; state: 'waiting' | 'done' | 'failed'; url: string | null; error: string | null; opened?: boolean }
   | { type: 'saved-messages-changed'; session: string | null; revision: number; pageEpoch: number; reset: boolean }
   | { type: 'archive-changed'; channelIds: string[]; /** Channels with only new inserts in this batch; absent means refresh existing rows. */ insertOnlyChannelIds?: string[]; /** Names or their styling (members, roles) changed: views re-read the names they show. */ namesChanged?: true; /** The servers whose names changed; absent when any server's may have. */ nameGuildIds?: string[] }
@@ -248,6 +249,9 @@ export const MAIN_INVOKE = {
   },
   media: {
     saveAttachment: 'media:save-attachment',
+    saveAttachmentsToFolder: 'media:save-attachments-to-folder',
+    showAttachmentFolder: 'media:show-attachment-folder',
+    startFileDrag: 'media:start-file-drag',
     savePdf: 'media:save-pdf',
     beginReplacement: 'media:begin-replacement',
     replacementChunk: 'media:replacement-chunk',

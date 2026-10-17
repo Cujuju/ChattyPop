@@ -70,6 +70,7 @@ export { AnimatedImage, EmojiImage } from '@/ui/AnimatedImage';
 // Image previews use the host's cached media routes and embedded Discord session.
 export { attachmentUrl, attachmentThumbUrl, attachmentPosterUrl, mediaKind, mediaType, proxiedUrl, thumbUrl } from '@shared/media';
 export { canSave as canSaveAttachment, saveAttachment as saveAttachmentFile } from '@/state/savedFiles';
+export { canSaveAttachmentsToFolder, saveAttachmentsToFolder, showAttachmentFolder, startFileDrag, type FolderSaveProgress, type FolderSaveResult } from '@/state/attachmentExports';
 export { compressStored, compressibleAs, canCompressHere, freeStored, type StoredAttachmentRef, type CompressOutcome, type CompressAs } from '@/state/storedAttachments';
 export { setLightbox } from '@/state/ui';
 export type { LightboxImage, LightboxGallery } from '@/state/ui';

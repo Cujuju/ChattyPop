@@ -16,6 +16,9 @@ export const REMOTE_LOCAL_MAIN_CALLS: readonly string[] = [
 
 /** Main calls that act on the server's screen or disk; a remote desktop is refused them. */
 export const REMOTE_REFUSED_MAIN_CALLS: readonly string[] = [
+  MAIN_INVOKE.media.saveAttachmentsToFolder,
+  MAIN_INVOKE.media.showAttachmentFolder,
+  MAIN_INVOKE.media.startFileDrag,
   MAIN_INVOKE.media.beginReplacement,
   MAIN_INVOKE.media.replacementChunk,
   MAIN_INVOKE.media.finishReplacement,
@@ -59,6 +62,7 @@ export { REMOTE_DEVICE_SETTINGS, isRemoteDeviceSetting } from './remoteDevice';
  * renderer), except changes to settings the desktop keeps for itself, which its transport sends.
  */
 export function remoteAppEvent(e: AppEvent): AppEvent | null {
+  if (e.type === 'attachment-save-progress') return null;
   if (e.type === 'account-link') return null;
   if (e.type === 'plugin-event') return rendererGetsEvent(e.pluginId, e.name) ? e : null;
   if (e.type === 'setting-changed' && isRemoteDeviceSetting(e.key)) return null;

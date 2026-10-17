@@ -46,6 +46,8 @@ export const ICON_SHAPES = {
   bookmark: () => <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4z" />,
   calendar: () => <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 11h18M7 15h2M12 15h2M7 18h2" /></>,
   check: () => <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // Ranked space usage.
+  chart: () => <path d="M4 3v17h17M8 16v-5M13 16V7M18 16V4" />,
   chevronLeft: () => <path d="M15 6l-6 6 6 6" />,
   chevronRight: () => <path d="M9 6l6 6-6 6" />,
   chevronsLeft: () => <path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" />,
