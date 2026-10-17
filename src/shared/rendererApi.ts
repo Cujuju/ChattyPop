@@ -2,6 +2,7 @@
 import type { PluginCallResult } from './pluginCall';
 import type { PageError } from './pageErrors';
 import type { StoredFile } from './media';
+import type { FolderSaveResult } from './types/attachmentStore';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
 import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerSend, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot, WrittenAs } from './compose';
@@ -180,6 +181,10 @@ export interface RendererApi {
   media: {
     /** Asks where to save an archived attachment (its own name offered), then copies it there. Resolves when done or cancelled. */
     saveAttachment(file: StoredFile): Promise<void>;
+    saveAttachmentsToFolder(files: StoredFile[], requestId: string): Promise<FolderSaveResult | null>;
+    /** Reveals only a folder previously returned by this window's export. */
+    showAttachmentFolder(folder: string): Promise<void>;
+    startFileDrag(file: StoredFile): Promise<void>;
     /** Draws an export as a one-page PDF (main/pdf.ts) and asks where to save it. Resolves when done or cancelled. */
     savePdf(page: PdfPage): Promise<void>;
     beginReplacement(attachmentId: string, ext: ReplacementExt): Promise<{ token: string }>;

@@ -226,6 +226,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   pluginTableOwners,
   pluginNamespaces,
   reserveTableOwners,
+  // Duplicate posting counts and newest-first hash lookups avoid scanning the archive per tile.
+  'CREATE INDEX attachments_sha256 ON attachments(sha256, ts, id) WHERE sha256 IS NOT NULL;',
 ];
 
 /**

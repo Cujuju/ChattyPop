@@ -256,6 +256,7 @@ The paired views below have identical columns: `archive_<suffix>` applies live p
 | `archive_rules` | `id, name, managed_key` | None |
 | `archive_links`, `archive_all_links` | `id, url, platform, title, description, thumbnail_url, site, first_message_id, first_channel_id, first_author_id, first_ts, author_name` | First share's channel, original message content and URL |
 | `archive_message_links`, `archive_all_message_links` | `message_id, link_id` | Archived message visibility; orphan shares remain |
+| `archive_derived_texts`, `archive_all_derived_texts` | `seq, message_id, source, ord, text, part` | Archived message visibility; missing messages excluded. `part` is a messageParts key; source begins with the contributing plugin's id. |
 | `archive_search`, `archive_all_search` | `seq, query, rank` | Archived message visibility |
 | `archive_names`, `archive_all_names` | `channel_id, user_id, name` | Channel visibility |
 

@@ -28,6 +28,20 @@ const ids = (sql: string): unknown[] => db.prepare(sql).pluck().all();
 const count = (view: string): number => db.prepare(`SELECT COUNT(*) FROM ${view}`).pluck().get() as number;
 
 describe('archive views', () => {
+  it('scopes derived parts to visible archived messages, including content-reference privacy', () => {
+    db.exec(`INSERT INTO derived_texts (message_id, source, ord, text, part) VALUES
+      ('m-hide', 'probe:hidden', 1, 'hidden', 'attachment:hidden'),
+      ('m-ref-channel', 'probe:reference', 1, 'reference', NULL),
+      ('gone', 'probe:orphan', 1, 'orphan', NULL)`);
+    expect(count('archive_all_derived_texts')).toBe(5);
+    expect(count('archive_derived_texts')).toBe(4);
+    setSetting(db, 'privacyMode', true);
+    expect(db.prepare('SELECT source, part FROM archive_derived_texts ORDER BY ord').all()).toEqual([
+      { source: 'probe:first', part: null }, { source: 'probe:second', part: null },
+    ]);
+    expect(count('archive_all_derived_texts')).toBe(5);
+  });
+
   it('reads every persistent view and adopts tables on a reopened connection without application functions', () => {
     db.prepare("UPDATE messages SET raw_json = ? WHERE id = 'm-open'").run(compressRawJson('{"flags":8192}'));
     const documented = Object.keys(VIEW_COLUMNS).flatMap(archiveViewNames).sort();
@@ -101,7 +115,7 @@ describe('archive views', () => {
   });
 
   it('keeps all rows in every all-data view, with matching columns and no stale privacy snapshot', () => {
-    const counts: Record<string, number> = { messages: 7, channels: 4, guilds: 2, users: 2, attachments: 9, rules: 1, links: 5, message_links: 5, search: 7, names: 4 };
+    const counts: Record<string, number> = { messages: 7, channels: 4, guilds: 2, users: 2, attachments: 9, derived_texts: 2, rules: 1, links: 5, message_links: 5, search: 7, names: 4 };
     const visible = db.prepare('SELECT id FROM archive_messages ORDER BY id');
     for (const mode of [false, true, false]) {
       setSetting(db, 'privacyMode', mode);

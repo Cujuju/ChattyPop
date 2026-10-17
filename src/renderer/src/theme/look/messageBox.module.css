@@ -189,8 +189,8 @@
 }
 
 .mediaCell:focus-visible {
-  outline: var(--cp-focus-ring);
-  outline-offset: var(--cp-focus-ring-offset-inset);
+  outline: var(--cp-focus-ring-media-width) solid var(--cp-focus-ring-color);
+  outline-offset: calc(-1 * var(--cp-focus-ring-media-width));
 }
 
 /* A cell's picture: unseen until it has loaded (data-loaded), then faded in over the cell's ground, so none pops in. */
