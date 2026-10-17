@@ -43,6 +43,8 @@ export const ICON_SHAPES = {
   bell: () => <path d="M6 9a6 6 0 0 1 12 0v4l2 4H4l2-4zM10 20a2 2 0 0 0 4 0" />,
   // A bell struck through: muted.
   bellOff: () => <path d="M6 9a6 6 0 0 1 12 0v4l2 4H4l2-4zM10 20a2 2 0 0 0 4 0M3 3l18 18" />,
+  bookmark: () => <path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4z" />,
+  calendar: () => <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 11h18M7 15h2M12 15h2M7 18h2" /></>,
   check: () => <path d="M5 12.5l4.5 4.5L19 7.5" />,
   chevronLeft: () => <path d="M15 6l-6 6 6 6" />,
   chevronRight: () => <path d="M9 6l6 6-6 6" />,

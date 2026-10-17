@@ -25,6 +25,7 @@ const links = `SELECT l.id, l.url, l.platform, l.title, l.description, l.thumbna
   ${displayNameSql('l.first_author_id', 'l.first_channel_id')} AS author_name
   FROM links l LEFT JOIN users u ON u.id = l.first_author_id`;
 const shares = 'SELECT message_id, link_id FROM message_links';
+const derivedTexts = 'SELECT seq, message_id, source, ord, text, part FROM derived_texts d';
 const search = 'SELECT rowid AS seq, fts_messages AS query, rank FROM fts_messages';
 const names = `SELECT c.id AS channel_id, mem.user_id, mem.nick AS name
   FROM members mem JOIN channels c ON c.guild_id = mem.guild_id`;
@@ -40,6 +41,8 @@ export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_users: users,
   archive_all_attachments: attachments,
   archive_attachments: `${attachments} WHERE ${visibleMessageRefSql('channel_id', 'message_id')}`,
+  archive_all_derived_texts: derivedTexts,
+  archive_derived_texts: `${derivedTexts} WHERE EXISTS (SELECT 1 FROM messages m WHERE m.id = d.message_id AND ${visibleMessageSql('m')})`,
   archive_rules: rules,
   archive_all_links: links,
   archive_links: `${links}
