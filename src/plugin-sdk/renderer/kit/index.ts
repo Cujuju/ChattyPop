@@ -105,7 +105,7 @@ export { openPersonFromPlugin as openPerson } from '@/state/person';
 // In-app windows a plugin opens per key, several of a kind at once (its renderer side's `windows`).
 export { closePluginWindow, openPluginWindow, pluginWindowOpen } from '@/state/pluginWindows';
 export { personName } from '@/state/personNames';
-export { aiSettings, appearanceSettings, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
+export { aiSettings, appearanceSettings, keepProviderStatusLoaded, providerName, providerSettingsOf, providerStatus, refetchProviderStatus, setProviderDisplayName } from '@/state/preferences';
 export { openRule, ruleInputOf, rules, saveRule, startNewRule } from '@/state/rules';
 export { inCompanion, openMenuAt, openSettingsAt, type IconName, type MenuGroup, type MenuItem } from '@/state/ui';
 // In-app camera captures, saved to the phone's Photos when its chat settings ask.

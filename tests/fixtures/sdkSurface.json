@@ -390,6 +390,7 @@
       "isPanelCollapsed",
       "isThread",
       "jevSwitch",
+      "keepProviderStatusLoaded",
       "keptEffort",
       "keyedById",
       "lastPlanUsageOf",
