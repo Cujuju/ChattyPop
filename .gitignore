@@ -13,6 +13,12 @@ release/
 /ios/.swiftpm/
 
 # Local, per-machine
-.claude/
+# Claude Code: share settings, commands, skills, workflows; keep personal and per-machine files out
+.claude/settings.local.json
+.claude/worktrees/
+.claude/handoffs/
+.claude/plans/
+.claude/screenshots/
+.claude/*.lock
 CLAUDE.local.md
 .env*
