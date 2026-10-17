@@ -1,4 +1,5 @@
-import { For, Show, onMount, onCleanup, type Accessor, type JSX } from 'solid-js';
+import { For, Show, onMount, type Accessor, type JSX } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { VirtualLog as VirtualLogCanvas } from '@cujuju/solidjs-virtual-log';
 import type { VirtualLog } from './virtualLog';
 
