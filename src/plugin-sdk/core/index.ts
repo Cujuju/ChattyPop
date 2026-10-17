@@ -95,6 +95,7 @@ export { OPENROUTER_APP_HEADERS, openRouterErrorText, type OpenRouterError } fro
 export { OPENROUTER_API, type OpenRouterKeyBalance, type OpenRouterKeyEntry } from '@shared/openrouter';
 export type { PluginAi } from '@core/plugins/aiContext';
 export { ARCHIVE_TOOL_LINES_MAX, type ArchiveToolScope, type ArchiveToolLine, type ArchiveToolResult, type ArchiveTool, type ArchiveToolInfo } from '@core/ai/archiveTools';
+export { toolSchema, toolTextField, toolLimitField, toolTimeFields, parseToolArgs, clampToolScope, toolScopeSql, toolResult, toolTime, parseToolTime, type ToolField, type ToolFields } from '@core/ai/archiveToolKit';
 export { LocalOnlyError, boundDecider, type AiReader, type AiSources, type PluginCompletionRequest, type PluginDecider, type PluginProvider, type ReadScope } from '@core/ai/readScope';
 export type { Answer, DecisionProvider, Question } from '@core/ai/decisions';
 export type { PluginMessageQuestion } from '@core/plugins/jevContext';

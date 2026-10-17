@@ -1,25 +1,20 @@
 // Descriptor-checked archive tool registrations and activation-scoped callers.
 import { archiveToolName } from '@shared/aiToolNames';
 import type { PluginDescriptor } from '@shared/bundledTypes';
-import { isObj } from '@shared/normalize';
 import { listArchiveTools, registerArchiveTool, runArchiveTool, type ArchiveTool } from '../ai/archiveTools';
 import { joined, untilRevoked } from '../ai/revocable';
 import type { Db } from '../db';
 import type { PluginAi } from './aiContext';
 import { servicesLive, type Registrations } from './api';
 import { registration } from './registrationCheck';
+import { checkArchiveToolSchema } from './archiveToolSchema';
 
 /** Checks the JSON Schema object required by model tool interfaces before publishing it. */
 function checkTool(tool: ArchiveTool): void {
-  const schema = tool.parameters;
   if (typeof tool.description !== 'string' || !tool.description.trim() || typeof tool.run !== 'function') {
     throw new TypeError(`AI tool ${tool.name} needs a description and run function.`);
   }
-  if (!isObj(schema) || Array.isArray(schema) || schema['type'] !== 'object' || !isObj(schema['properties']) || Array.isArray(schema['properties']) || schema['additionalProperties'] !== false) {
-    throw new TypeError(`AI tool ${tool.name} parameters must be an object schema with properties and additionalProperties: false.`);
-  }
-  // Reject cycles and bigint before registering a schema sent as JSON.
-  JSON.stringify(schema);
+  checkArchiveToolSchema(tool.name, tool.parameters);
 }
 
 /** Tools supplied and consumed by one activation. The testing host uses this same adapter. */

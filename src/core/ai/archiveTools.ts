@@ -21,7 +21,7 @@ export interface ArchiveToolLine {
 
 export interface ArchiveToolResult {
   lines: readonly ArchiveToolLine[];
-  /** In-scope channels shaping lines without messageId, recorded as read. */
+  /** Required, non-empty provenance for uncited lines and the plugin note; every channel must remain in scope. */
   readChannels?: readonly string[];
   note?: string;
 }
@@ -30,7 +30,7 @@ export interface ArchiveTool {
   /** A declared local aiTools name. */
   name: string;
   description: string;
-  /** JSON Schema object with properties and additionalProperties: false. */
+  /** Object schema with primitive or primitive-array properties; see the documented archive-tool subset. */
   parameters: Record<string, unknown>;
   run(args: unknown, scope: ArchiveToolScope, signal: AbortSignal): Promise<ArchiveToolResult>;
 }
@@ -69,6 +69,9 @@ function visibleScope(db: Db, scope: ArchiveToolScope): ArchiveToolScope {
 function guardedResult(db: Db, pluginId: string, result: unknown, scope: ArchiveToolScope): ArchiveToolResult {
   if (!isObj(result) || !Array.isArray(result['lines'])) throw new TypeError('An archive tool must return lines.');
   const allowed = new Set(scope.channelIds);
+  const declared = result['readChannels'];
+  const uncitedAllowed = Array.isArray(declared) && declared.length > 0
+    && declared.every((id) => typeof id === 'string' && allowed.has(id));
   const message = db.prepare('SELECT channel_id AS channelId, ts FROM archive_messages WHERE id = ?');
   const { redact } = privacy(db);
   const lines: ArchiveToolLine[] = [];
@@ -80,13 +83,13 @@ function guardedResult(db: Db, pluginId: string, result: unknown, scope: Archive
       if (typeof id !== 'string') continue;
       const row = message.get(id) as { channelId: string; ts: number } | undefined;
       if (!row || !allowed.has(row.channelId) || (scope.since !== null && row.ts < scope.since) || (scope.until !== null && row.ts > scope.until)) continue;
-    }
+    } else if (!uncitedAllowed) continue;
     if (lines.length >= ARCHIVE_TOOL_LINES_MAX) { capped = true; continue; }
     lines.push({ text: redact(line['text']), ...(id !== undefined ? { messageId: id as string } : {}) });
   }
   const dropped = result['lines'].length - lines.length;
   if (dropped) console.warn(`[plugin ${pluginId}] archive-tool-dropped-lines`, dropped);
-  const note = typeof result['note'] === 'string' ? redact(result['note']) : '';
+  const note = uncitedAllowed && typeof result['note'] === 'string' ? redact(result['note']) : '';
   const readChannels = Array.isArray(result['readChannels']) ? [...new Set(result['readChannels'].filter((id): id is string => typeof id === 'string' && allowed.has(id)))] : undefined;
   return {
     lines,

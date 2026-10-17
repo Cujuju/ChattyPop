@@ -108,9 +108,12 @@ describe('archive tool declarations and registration', () => {
   it('provides only during activation and checks object schemas, descriptions and run functions', () => {
     const h = start(async () => ({ lines: [] }));
     expect(() => h.ctx().ai.tools.provide([])).toThrow(/during activate/);
-    for (const patch of [{ parameters: {} }, { parameters: { type: 'object', properties: [], additionalProperties: false } }, { description: '' }, { run: null }]) {
+    for (const patch of [{ parameters: {} }, { parameters: { type: 'object', properties: [], additionalProperties: false } },
+      { parameters: { ...parameters, properties: { query: { $ref: '#/$defs/missing' } } } }, { description: '' }, { run: null }]) {
       const bad = host((ctx) => ctx.ai.tools.provide([{ ...tool(async () => ({ lines: [] })), ...patch } as ArchiveTool]));
       expect(bad.t.status().status).toBe('error');
+      expect(bad.t.status().error).toContain('AI tool read');
+      expect(bad.consumer.ai.tools.list()).toEqual([]);
     }
   });
 });
@@ -151,14 +154,23 @@ describe('archive tool host guards', () => {
   });
 
   it('filters and deduplicates readChannels and redacts both line text and notes', async () => {
-    const h = start(async () => ({ lines: [{ text: '#quiet-room in sealed-server', messageId: messageId(1) }, { text: 'Totals from quiet-room' }], readChannels: ['c1', 'c2', 'c3', 'missing', 'c1'], note: 'quiet-room / sealed-server' }));
+    const h = start(async () => ({ lines: [{ text: '#quiet-room in sealed-server', messageId: messageId(1) }, { text: 'Totals from quiet-room' }], readChannels: ['c1', 'c1'], note: 'quiet-room / sealed-server' }));
     expect(await h.run()).toEqual({ lines: [{ text: '#private-channel in a private server', messageId: messageId(1) }, { text: 'Totals from #private-channel' }], readChannels: ['c1'], note: '#private-channel / a private server' });
+  });
+
+  it.each([undefined, [], ['c1', 'c2'], ['c1', 7]])('drops uncited content and plugin notes without complete visible provenance: %j', async (readChannels) => {
+    const h = start(async () => ({ lines: [{ text: 'secretword: 42' }, { text: 'Cited fact', messageId: messageId(1) }],
+      readChannels, note: 'secretword note' } as ArchiveToolResult));
+    const result = await h.run();
+    expect(result.lines).toEqual([{ text: 'Cited fact', messageId: messageId(1) }]);
+    expect(result.note).toBeUndefined();
+    expect(result.readChannels).toEqual(readChannels === undefined ? undefined : readChannels.length ? ['c1'] : []);
   });
 
   it('drops non-string text and malformed lines, caps output, appends a note and logs once', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     onTestFinished(() => warn.mockRestore());
-    const h = start(async () => ({ lines: [null, { text: 7 }, { text: 'bad id', messageId: 7 }, ...Array.from({ length: ARCHIVE_TOOL_LINES_MAX + 2 }, (_, n) => ({ text: `row ${n}` }))], note: 'Existing note.' } as unknown as ArchiveToolResult));
+    const h = start(async () => ({ lines: [null, { text: 7 }, { text: 'bad id', messageId: 7 }, ...Array.from({ length: ARCHIVE_TOOL_LINES_MAX + 2 }, (_, n) => ({ text: `row ${n}` }))], readChannels: ['c1'], note: 'Existing note.' } as unknown as ArchiveToolResult));
     const result = await h.run();
     expect(result.lines).toHaveLength(ARCHIVE_TOOL_LINES_MAX);
     expect(result.lines[0]).toEqual({ text: 'row 0' });
@@ -213,7 +225,7 @@ describe('archive tool host guards', () => {
     const h = start(() => new Promise((resolve) => { finish = resolve; }));
     const pending = h.run();
     h.t.archive.setChannel('c1', { hidden: true });
-    finish({ lines: [{ text: 'now hidden', messageId: messageId(1) }], readChannels: ['c1'] });
+    finish({ lines: [{ text: 'now hidden', messageId: messageId(1) }, { text: 'secretword: 42' }], readChannels: ['c1'], note: 'secretword note' });
     expect(await pending).toEqual({ lines: [], readChannels: [] });
   });
 
