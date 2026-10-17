@@ -100,11 +100,9 @@
   text-decoration: underline;
 }
 
-.close {
+/* The viewer's round buttons: close, previous and next. */
+.round {
   position: fixed;
-  /* Below a phone's status bar and clear of its rounded corners; 0 on the desktop. */
-  top: calc(var(--cp-space-7) + env(safe-area-inset-top));
-  right: calc(var(--cp-space-7) + env(safe-area-inset-right));
   display: inline-grid;
   place-content: center;
   width: var(--cp-btn-h);
@@ -120,13 +118,19 @@
     color var(--cp-duration-fast) var(--cp-ease);
 }
 
-.close:hover {
+.round:hover {
   background: var(--cp-surface-4);
   color: var(--cp-text-1);
 }
 
-.close:focus-visible {
+.round:focus-visible {
   outline-offset: var(--cp-focus-ring-offset);
+}
+
+.close {
+  /* Below a phone's status bar and clear of its rounded corners; 0 on the desktop. */
+  top: calc(var(--cp-space-7) + env(safe-area-inset-top));
+  right: calc(var(--cp-space-7) + env(safe-area-inset-right));
 }
 
 .prev,
@@ -137,7 +141,10 @@
 
 .prev {
   left: calc(var(--cp-space-7) + env(safe-area-inset-left));
-  right: auto;
+}
+
+.next {
+  right: calc(var(--cp-space-7) + env(safe-area-inset-right));
 }
 
 .counter {

@@ -87,11 +87,11 @@ export function Lightbox() {
             <Show when={img().gallery}>
               {(gallery) => <>
                 <span class={styles.counter} aria-live="polite">{gallery().position}</span>
-                <Show when={gallery().prev}><button type="button" class={`${styles.close} ${styles.prev}`} aria-label="Previous file" onClick={() => step(-1)}><Icon name="chevronLeft" /></button></Show>
-                <Show when={gallery().next}><button type="button" class={`${styles.close} ${styles.next}`} aria-label="Next file" onClick={() => step(1)}><Icon name="chevronRight" /></button></Show>
+                <Show when={gallery().prev}><button type="button" class={`${styles.round} ${styles.prev}`} aria-label="Previous file" onClick={() => step(-1)}><Icon name="chevronLeft" /></button></Show>
+                <Show when={gallery().next}><button type="button" class={`${styles.round} ${styles.next}`} aria-label="Next file" onClick={() => step(1)}><Icon name="chevronRight" /></button></Show>
               </>}
             </Show>
-            <button type="button" class={styles.close} aria-label={img().kind === 'video' ? 'Close video' : 'Close image'} onClick={() => setLightbox(null)}>
+            <button type="button" class={`${styles.round} ${styles.close}`} aria-label={img().kind === 'video' ? 'Close video' : 'Close image'} onClick={() => setLightbox(null)}>
               <Icon name="close" />
             </button>
           </figure>
