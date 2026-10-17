@@ -47,7 +47,8 @@ export function Lightbox() {
       aria-label={lightbox()?.kind === 'video' ? 'Video viewer' : 'Image viewer'}
       tabIndex={-1}
       onKeyDown={(e) => {
-        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        // A focused video's own controls seek and set volume with the arrows.
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.target instanceof HTMLMediaElement) return;
         if (lightbox()?.gallery && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
           e.preventDefault();
           step(e.key === 'ArrowLeft' ? -1 : 1);
