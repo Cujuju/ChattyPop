@@ -1,4 +1,4 @@
-// Checks declared AI read channels against the selected provider and effective local-AI-only policy at dispatch.
+// Checks declared AI reads against current local-only policy at dispatch and tool boundaries.
 import type { ReadScope } from '@shared/plugins';
 import type { AiSettings, ProviderId } from '@shared/settings';
 import type { Db } from '../db';
@@ -6,6 +6,7 @@ import type { PluginDb } from '../plugins/pluginDb';
 import { hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, DecisionRequest, DecisionResult, Question } from './decisions';
 import type { ProviderRegistry } from './registry';
+import { joined, untilRevoked } from './revocable';
 import { ProviderUnavailableError, chosenModel, offReason, type CompletionRequest, type CompletionResult, type LlmProvider } from './types';
 
 export type { ReadScope };
@@ -94,7 +95,7 @@ export interface PluginProvider extends Omit<LlmProvider, 'complete' | 'dispose'
   complete(req: PluginCompletionRequest): Promise<CompletionResult>;
 }
 
-/** `provider`, checking each completion's reads with `check` before it is sent. */
+/** Checks reads at dispatch and before each tool runs or returns; refusal aborts the completion. */
 export function scopedProvider(provider: LlmProvider, check: (reads: unknown) => void): PluginProvider {
   const { planUsage } = provider;
   return {
@@ -102,7 +103,29 @@ export function scopedProvider(provider: LlmProvider, check: (reads: unknown) =>
     maxInputChars: provider.maxInputChars,
     complete: async ({ reads, ...req }) => {
       check(reads);
-      return provider.complete(req);
+      if (!req.tools?.length) return provider.complete(req);
+      const refused = new AbortController();
+      const signal = joined(refused.signal, req.signal);
+      const admit = (): void => {
+        try {
+          check(reads);
+        } catch (error) {
+          refused.abort(error);
+          throw error;
+        }
+      };
+      const tools = req.tools.map((tool) => ({
+        ...tool,
+        run: async (args: unknown, signal: AbortSignal) => {
+          admit();
+          try {
+            return await tool.run(args, signal);
+          } finally {
+            admit();
+          }
+        },
+      }));
+      return untilRevoked(signal, () => provider.complete({ ...req, signal, tools }));
     },
     listModels: () => provider.listModels(),
     ...(planUsage ? { planUsage: () => planUsage.call(provider) } : {}),
