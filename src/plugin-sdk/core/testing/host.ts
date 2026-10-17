@@ -71,8 +71,10 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   const db = openDb(join(dir, 'archive.db'));
   const events: AppEvent[] = [];
   const listeners = new Set<(e: AppEvent) => void>();
+  let host!: PluginHost;
   // Clones emitted events per process; subsequent mutations do not propagate.
   const emit = (e: AppEvent): void => {
+    if (e.type === 'privacy-changed') host?.privacyChanged();
     events.push(structuredClone(e));
     listeners.forEach((fn) => fn(structuredClone(e)));
   };
@@ -86,7 +88,6 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   registry.bindAccounts(ai, emit);
   // Jev for a switch that is on: the registry's check, with the scripted Jev in place of a keyed connection.
   const jevFor = (feature: JevFeature) => (o.ai?.jev && jevFeatureOn(ai().jev, feature) ? o.ai.jev : null);
-  let host!: PluginHost;
   const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id));
   const saveSetting = (key: string, value: unknown): void => {
     setSetting(db, key, value);

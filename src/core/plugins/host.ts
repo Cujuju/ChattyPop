@@ -309,6 +309,11 @@ export class PluginHost {
     for (const p of this.active()) for (const fn of p.reg.onArchiveChanged) this.guard(p, () => fn(channelIds));
   }
 
+  /** Privacy mode or its hidden scope changed. */
+  privacyChanged(): void {
+    for (const p of this.active()) for (const fn of p.reg.onPrivacyChanged) this.guard(p, fn);
+  }
+
   /** The link index was rebuilt from stored messages; runs inside the rebuild's transaction. */
   linksRebuilt(): void {
     for (const p of this.active()) for (const fn of p.reg.onLinksRebuilt) this.guard(p, fn);

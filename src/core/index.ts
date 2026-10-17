@@ -104,6 +104,7 @@ function ready(): { db: Db; archive: Archive } {
 }
 
 function emit(event: AppEvent): void {
+  if (event.type === 'privacy-changed') plugins?.privacyChanged();
   process.parentPort.postMessage({ kind: 'event', event } satisfies CoreEventMessage);
 }
 

@@ -53,6 +53,7 @@ export interface Registrations {
   onShown: ((messageId: string) => void)[];
   onSettingChanged: { key: string; fn: () => void }[];
   onArchiveChanged: ((channelIds: string[]) => void)[];
+  onPrivacyChanged: (() => void)[];
   onLinksRebuilt: (() => void)[];
   /** Subjects of the per-message Jev questions it registered, dropped on unload. */
   jevQuestions: string[];
@@ -78,6 +79,7 @@ export const emptyRegistrations = (): Registrations => ({
   onShown: [],
   onSettingChanged: [],
   onArchiveChanged: [],
+  onPrivacyChanged: [],
   onLinksRebuilt: [],
   jevQuestions: [],
   registered: new Set(),

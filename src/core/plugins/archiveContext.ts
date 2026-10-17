@@ -61,6 +61,8 @@ export interface PluginArchive {
   onAttachmentStored(fn: (attachmentId: string) => void): void;
   /** Messages in these channels were stored, edited or removed (debounced; a change to no channel isn't reported). */
   onChanged(fn: (channelIds: string[]) => void): void;
+  /** Privacy mode or the channels and servers it hides changed. */
+  onPrivacyChanged(fn: () => void): void;
   /** Messages as the Archive shows them; ids not archived, or hidden by privacy mode, are left out. */
   messages(ids: string[]): ArchiveMessage[];
   linkIndex: {
@@ -175,6 +177,7 @@ export function pluginArchive(
     onText: (fn) => void reg.onText.push(fn),
     onAttachmentStored: (fn) => void reg.onAttachmentStored.push(fn),
     onChanged: (fn) => void reg.onArchiveChanged.push(fn),
+    onPrivacyChanged: (fn) => void (live() && reg.onPrivacyChanged.push(fn)),
     messages: (ids) => messagesByIds(bundled.ready(), ids),
     linkIndex: { onRebuilt: (fn) => void reg.onLinksRebuilt.push(fn) },
     derivedText: {
