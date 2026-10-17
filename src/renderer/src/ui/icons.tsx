@@ -43,6 +43,8 @@ export const ICON_SHAPES = {
   // A bell struck through: muted.
   bellOff: () => <path d="M6 9a6 6 0 0 1 12 0v4l2 4H4l2-4zM10 20a2 2 0 0 0 4 0M3 3l18 18" />,
   check: () => <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  // Ranked space usage.
+  chart: () => <path d="M4 3v17h17M8 16v-5M13 16V7M18 16V4" />,
   chevronLeft: () => <path d="M15 6l-6 6 6 6" />,
   chevronRight: () => <path d="M9 6l6 6-6 6" />,
   chevronsLeft: () => <path d="M11 6l-6 6 6 6M19 6l-6 6 6 6" />,
