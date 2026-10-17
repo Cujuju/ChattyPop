@@ -15,6 +15,8 @@ const DOUBLE_TAP_SLOP_PX = 24;
 const TAP_SLOP_PX = 8;
 /** Wheel zoom per px of scroll: a 100px notch zooms ~22%. */
 const WHEEL_ZOOM_PER_PX = 0.002;
+const SWIPE_MIN_PX = 60;
+const SWIPE_AXIS_RATIO = 2;
 
 export interface ZoomControls {
   zoom: Accessor<Zoom>;
@@ -28,7 +30,7 @@ export interface ZoomControls {
 }
 
 /** `onDismiss`: the fitted image was dragged down far enough and let go. */
-export function createZoom(onDismiss: () => void): ZoomControls {
+export function createZoom(onDismiss: () => void, onSwipe?: (direction: -1 | 1) => void): ZoomControls {
   const [zoom, setZoom] = createSignal<Zoom>(FIT);
   const [pull, setPull] = createSignal(0);
   const [gesturing, setGesturing] = createSignal(false);
@@ -36,6 +38,7 @@ export function createZoom(onDismiss: () => void): ZoomControls {
   const pointers = new Map<number, Point>();
   let start: { zoom: Zoom; points: Point[]; moved: boolean } | null = null;
   let lastTap: { at: number; p: Point } | null = null;
+  let pinched = false;
 
   const box = (): Size => ({ w: img!.offsetWidth, h: img!.offsetHeight });
   /** A client point relative to the image's fitted (untransformed) box. */
@@ -61,6 +64,7 @@ export function createZoom(onDismiss: () => void): ZoomControls {
     if (e.button !== 0) return; // a right-click opens the menu, not a drag
     img!.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size > 1) pinched = true;
     setGesturing(true);
     begin();
   };
@@ -91,10 +95,17 @@ export function createZoom(onDismiss: () => void): ZoomControls {
     if (!pointers.delete(e.pointerId)) return;
     const tapped = start !== null && !start.moved && pointers.size === 0 && e.type === 'pointerup';
     if (pointers.size) return begin(); // a finger lifted mid-pinch: the rest carry on from here
+    const origin = start?.points[0];
+    const dx = origin ? e.clientX - origin.x : 0;
+    const dy = origin ? e.clientY - origin.y : 0;
+    const swipe = !pinched && start?.points.length === 1 && start.zoom.scale === 1 && e.type === 'pointerup'
+      && Math.abs(dx) >= SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_AXIS_RATIO;
     setGesturing(false);
     start = null;
+    pinched = false;
     const pulled = pull();
     setPull(0); // short of dismissing, the image eases back
+    if (swipe && onSwipe) { lastTap = null; onSwipe(dx < 0 ? 1 : -1); return; }
     if (dismisses(pulled, e.type === 'pointerup')) return onDismiss();
     if (!tapped) return void (lastTap = null);
     const p = { x: e.clientX, y: e.clientY };
@@ -128,6 +139,7 @@ export function createZoom(onDismiss: () => void): ZoomControls {
     pointers.clear();
     start = null;
     lastTap = null;
+    pinched = false;
     setGesturing(false);
     setPull(0);
     setZoom(FIT);

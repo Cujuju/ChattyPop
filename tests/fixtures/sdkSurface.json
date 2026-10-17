@@ -977,6 +977,8 @@
       "HtmlPage",
       "IconName",
       "JevSwitch",
+      "LightboxGallery",
+      "LightboxImage",
       "MenuGroup",
       "MenuItem",
       "ModelRowsProps",

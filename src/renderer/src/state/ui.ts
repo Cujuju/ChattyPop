@@ -67,17 +67,7 @@ export const [resizing, setResizing] = createSignal(false);
 /** Panel dragging hides native Discord to expose drop zones. */
 export const [draggedPanel, setDraggedPanel] = createSignal<LayoutPanelId | null>(null);
 
-/** An image opened in the viewer: the full-size source, a label, and the original to open in the browser. */
-export interface LightboxImage {
-  src: string;
-  /** An animated image's still, shown while the owner can't look. */
-  still?: string;
-  alt: string;
-  caption: string;
-  /** Discord's original URL, for "Open original". */
-  originalUrl: string | null;
-}
-export const [lightbox, setLightbox] = createSignal<LightboxImage | null>(null);
+export { lightbox, setLightbox, type LightboxImage, type LightboxGallery } from './lightbox';
 
 /** The message a Jev check is open for. */
 export const [jevCheckFor, setJevCheckFor] = createSignal<ArchiveMessage | null>(null);
