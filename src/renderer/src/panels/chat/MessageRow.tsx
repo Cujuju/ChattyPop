@@ -258,7 +258,9 @@ function MessageBody(props: { message: ArchiveMessage; editing: boolean }) {
             {(r) => (
               <div class={styles.revision}>
                 <span class={styles.revisionLabel}>was</span>
-                <p class={styles.revisionText}>{r.content}</p>
+                <p class={styles.revisionText}>
+                  <Markdown text={r.content} mentions={m().mentions} />
+                </p>
               </div>
             )}
           </For>
