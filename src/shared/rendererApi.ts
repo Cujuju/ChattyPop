@@ -12,7 +12,7 @@ import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
 import type { CustomTheme, DiscordSidebar, ProviderId } from './settings';
 import type { SyncedChatSettings } from './chatSettings';
-import type { AppEvent, ComposeIntent, DiscordProbe, DiscordSlot } from './types/ipc';
+import type { AppEvent, ComposeIntent, DiscordProbe, DiscordSlot, LiveUpdatesState } from './types/ipc';
 import type { ChannelSuggestion, StorageInfo } from './types/storage';
 import type { ArchiveEmoji } from './types/archive';
 import type { DiscordProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
@@ -153,6 +153,10 @@ export interface RendererApi {
     loginStop(): Promise<void>;
     /** The owner's pointer or keys on a relayed frame. */
     loginInput(e: RelayInput): Promise<void>;
+    /** Whether new messages, DMs and alerts arrive live; changes emit live-updates. */
+    liveUpdates(): Promise<LiveUpdatesState>;
+    /** Reloads the live client so ChattyPop reads its new gateway session. */
+    reconnect(): Promise<void>;
   };
   storage: {
     info(): Promise<StorageInfo>;

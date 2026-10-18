@@ -1,4 +1,4 @@
-import { For, Show } from 'solid-js';
+import { For, Show, createSignal } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { layoutMenu, panelDragProps, titleOf, toolbarPanels } from '@/layout/panelMenu';
 import { PRESETS, type PresetId } from '@/layout/presets';
@@ -17,6 +17,7 @@ import {
   setRenamingLayout,
   type LayoutId,
 } from '@/state/layout';
+import { liveUpdates, reconnectDiscord } from '@/state/liveUpdates';
 import { privacyMode, togglePrivacyMode } from '@/state/privacy';
 import { unreadCount } from '@/state/unread';
 import { openContextMenu, setSettingsOpen } from '@/state/ui';
@@ -25,6 +26,8 @@ import { TopBarButton } from './TopBarButton';
 import { SectionIcon } from '@/ui/SectionIcon';
 import { Search } from './Search';
 import { Icon } from '@/ui/icons';
+import { HeaderButton } from '@/ui/PanelHeader';
+import { look } from '@/theme/look';
 import styles from './TopBar.module.css';
 import { topBarItems } from '@/plugins/slots';
 import type { TopBarItem } from '@/plugins/frameSlots';
@@ -115,6 +118,26 @@ function LayoutSwitcher() {
   );
 }
 
+/** While Discord's live traffic doesn't reach ChattyPop: nothing new arrives until Reconnect reloads the client. */
+function LiveUpdatesWarning() {
+  const [reconnecting, setReconnecting] = createSignal(false);
+  const reconnect = (): void => {
+    setReconnecting(true);
+    // A failed call (main logs its own) leaves the state off, so the warning and its button stay.
+    void reconnectDiscord().catch(() => undefined).finally(() => setReconnecting(false));
+  };
+  return (
+    <Show when={liveUpdates() === 'off'}>
+      <div role="status" class={`${styles.liveWarning} ${look.status}`} data-tint="danger"
+        title="ChattyPop isn't receiving Discord's live traffic: new messages, DMs and alerts won't appear until it reconnects.">
+        <Icon name="alert" class={styles.liveWarningIcon} />
+        <span>Live updates off</span>
+        <HeaderButton disabled={reconnecting()} onClick={reconnect}>Reconnect</HeaderButton>
+      </div>
+    </Show>
+  );
+}
+
 /** Host PrivacyButton: retained markup, placed alongside plugin contributions. */
 function PrivacyButton() {
   return (
@@ -156,7 +179,7 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   },
 ];
 
-/** Fixed app frame contains search, panel toolbar, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
+/** Fixed app frame contains search, panel toolbar, a live-updates warning, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
   return (
     <header class={styles.root}>
@@ -165,6 +188,7 @@ export function TopBar() {
       </div>
       <PanelToolbar />
       <div class={styles.end}>
+        <LiveUpdatesWarning />
         <For each={topBarItems(HOST_ITEMS)}>{(item) => <item.Component />}</For>
       </div>
     </header>

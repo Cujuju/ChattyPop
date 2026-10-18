@@ -47,6 +47,7 @@ import { gatewayArchivePayload } from './discord/gatewayPeople';
 import { gatewayGuildRoles } from './discord/roles';
 import { TypingEvents } from './discord/typing';
 import { LoginRelay, followSession } from './discord/loginRelay';
+import { LiveUpdates } from './discord/liveUpdates';
 import { normalizeRelayInput } from '@shared/discordLogin';
 import { DISCORD_PARTITION, type DiscordView } from './discordView';
 import { registerDiscordHandlers } from './ipc/discord';
@@ -298,6 +299,14 @@ void app.whenReady().then(() => {
   handleMain(discordChannels.loginState, () => relay.state);
   handleMain(discordChannels.loginRelayState, () => relay.relayState);
   handleMain(discordChannels.loginStart, () => relay.start());
+  // Whether the live client's gateway traffic reaches ChattyPop; Reconnect reloads the client for the tap to read anew.
+  const liveUpdates = new LiveUpdates({ tap: discord.tap, signedIn: () => relay.state === 'signed-in', emit: toRenderer, diag });
+  handleMain(discordChannels.liveUpdates, () => liveUpdates.state);
+  handleMain(discordChannels.reconnect, async () => {
+    liveUpdates.wait();
+    // A failed load leaves the state waiting, so the warning returns once the grace passes.
+    await discord.reconnect().catch((err: unknown) => diag('discord-reconnect-failed', { message: errorMessage(err) }));
+  });
   handleMain(discordChannels.loginStop, () => relay.stop());
   handleMain(discordChannels.loginInput, (e) => {
     const input = normalizeRelayInput(e);

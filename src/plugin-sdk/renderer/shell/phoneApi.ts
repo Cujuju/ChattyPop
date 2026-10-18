@@ -145,6 +145,9 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       loginStart: unavailable('Signing in to Discord'),
       loginStop: unavailable('Signing in to Discord'),
       loginInput: unavailable('Signing in to Discord'),
+      // The live client's health shows in the desktop's header.
+      liveUpdates: unavailable('Live update status'),
+      reconnect: unavailable('Reconnecting Discord'),
     },
     // Moving the archive picks a folder on the PC.
     storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), dismissNotice: unavailable('Archive notices'), setEncrypted: viaMain(storage.setEncrypted) },

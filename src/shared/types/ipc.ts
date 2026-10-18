@@ -32,6 +32,8 @@ export type AppEvent =
   | { type: 'status-changed' }
   /** The live Discord client now shows this channel; the Archive follows it when opened. */
   | { type: 'live-channel'; guildId: string; channelId: string }
+  /** Whether the live client's gateway traffic reaches ChattyPop (main/discord/liveUpdates.ts). */
+  | { type: 'live-updates'; state: LiveUpdatesState }
   /** Main window's shown channel, mirrored to its panel windows. */
   | { type: 'shown-channel'; channelId: string | null }
   /** Main asks its window to reveal a panel named by a notification. */
@@ -134,6 +136,9 @@ export interface DiscordSlot {
 }
 
 /** Session health of the embedded Discord client, as seen by ChattyPop. */
+/** Live: a gateway session began on a socket ChattyPop reads. Waiting: none yet. Off: none came in time while signed in. */
+export type LiveUpdatesState = 'live' | 'waiting' | 'off';
+
 export interface DiscordProbe {
   loggedIn: boolean;
   capturedAt: number | null;
@@ -231,6 +236,8 @@ export const MAIN_INVOKE = {
     loginStart: 'discord:login-start',
     loginStop: 'discord:login-stop',
     loginInput: 'discord:login-input',
+    liveUpdates: 'discord:live-updates',
+    reconnect: 'discord:reconnect',
   },
   storage: {
     info: 'storage:info',
