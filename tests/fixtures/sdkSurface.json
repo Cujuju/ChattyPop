@@ -1,5 +1,5 @@
 {
-  "version": "3.7.0",
+  "version": "3.8.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -345,6 +345,7 @@
       "PersonFace",
       "PersonName",
       "PillNumberPicker",
+      "PlaceRail",
       "ProviderSelect",
       "QrCode",
       "RemovableChip",
@@ -1045,7 +1046,10 @@
       "PhotoAccess",
       "PhotoAsset",
       "PhotoPage",
+      "PlaceCounts",
+      "PlaceRailProps",
       "ProviderModels",
+      "RailPlace",
       "SearchOption",
       "SectionDef",
       "SolidIconName",

@@ -1,0 +1,96 @@
+/* The place rail: server marks in a narrow column, then the picked server's channels. Structure only; TSX applies look roles. */
+
+.servers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex: 0 0 auto;
+  width: var(--cp-rail-w);
+  min-height: 0;
+  padding: var(--cp-space-3) 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* A server's mark: its GuildIcon at the rail's tile size, inset so the current one's raised ground shows around it. */
+.server {
+  --guild-icon-size: var(--cp-rail-tile);
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: calc(var(--cp-rail-tile) + 2 * var(--cp-space-2));
+  height: calc(var(--cp-rail-tile) + 2 * var(--cp-space-2));
+  padding: 0;
+}
+
+/* The glyph for all servers or for direct messages. */
+.glyph {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+}
+
+/* Discord's channel list width. */
+.channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  flex: 0 0 auto;
+  width: var(--cp-sidebar-w);
+  min-height: 0;
+  padding: var(--cp-space-3) var(--cp-space-2);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* The server's name, then the button that folds the column away. */
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: 0 0 var(--cp-space-2) var(--cp-space-2);
+}
+
+.heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.place {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: var(--cp-space-1) var(--cp-space-2);
+  text-align: start;
+}
+
+.placeName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A thread under its channel: a thread row's height, its spine hung under the channel's sigil, which sits past the
+   channel row's inset, fold slot and gap. */
+.place[data-thread] {
+  height: var(--cp-row-h-sm);
+  padding-block: 0;
+  padding-inline-start: calc(var(--cp-space-2) + var(--cp-icon-sm) + var(--cp-space-2) + var(--cp-space-1));
+}
+
+.fold {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-content: center;
+  width: var(--cp-btn-h-sm);
+  height: var(--cp-btn-h-sm);
+  padding: 0;
+}

@@ -104,6 +104,8 @@ export { isDmChannel, type DmChannel } from '@/state/dmRules';
 // Threads folded under their channel in channel lists; one saved choice per channel, shared by every list.
 export { foldGesture, showThreads, threadsShown, unseenInThreads } from '@/state/threadFolds';
 export { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
+// Discord's server and channel columns as a place picker.
+export { PlaceRail, type PlaceCounts, type PlaceRailProps, type RailPlace } from '@/ui/PlaceRail';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPanel } from './openPanel';
 // The SDK's openPerson keeps its optional place; the host's own requires one.
