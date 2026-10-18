@@ -31,7 +31,7 @@ describe('message link shares', () => {
     db.exec("INSERT INTO message_links (message_id, link_id) VALUES ('m1', 1), ('m2', 1), ('m2', 2)");
     expect(indexesOn(db, 'message_links')).toEqual([]);
     applyMigrations(db, cut);
-    expect(indexesOn(db, 'message_links')).toHaveLength(1);
+    expect(indexesOn(db, 'message_links')).toContain('message_links_link');
     expect(db.prepare('SELECT message_id, link_id FROM message_links ORDER BY message_id, link_id').all()).toEqual([
       { message_id: 'm1', link_id: 1 },
       { message_id: 'm2', link_id: 1 },
