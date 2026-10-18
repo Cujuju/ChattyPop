@@ -131,6 +131,38 @@
   outline-offset: var(--cp-focus-ring-offset-inset);
 }
 
+/* A button that opens a list, drawn as the app-wide select (theme/forms.css): SearchSelect's trigger, a plugin's menu selector. */
+.selectTrigger {
+  border: var(--cp-border-w) solid var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-surface-3);
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  cursor: pointer;
+  transition: border-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+/* The phone: native select size beside Provider and Range (theme/forms.css). */
+:global(html[data-surface='companion']) .selectTrigger {
+  font-size: var(--cp-phone-text);
+}
+
+.selectTrigger:hover:not(:disabled) {
+  border-color: var(--cp-border-strong);
+}
+
+.selectTrigger:focus-visible,
+.selectTrigger[aria-expanded='true']:not([data-mobile='true']) {
+  border-color: var(--cp-accent);
+  outline: none;
+}
+
+.selectTrigger:disabled {
+  opacity: var(--cp-opacity-disabled);
+  cursor: not-allowed;
+}
+
 /* Segmented control: a recessed track (.segments) of options (.segment); the checked one is raised. */
 .segments {
   border: var(--cp-border-w) solid var(--cp-border-subtle);

@@ -1,4 +1,4 @@
-/* Searchable select: the trigger matches the app-wide select look (theme/forms.css); the list floats in the top layer with a filter
+/* Searchable select: the trigger wears the look role selectTrigger (the app-wide select look); the list floats in the top layer with a filter
    field, or fills the phone's screen as a page. Hooks: .option[data-active='true'] (keyboard/hover), .option[data-current='true']
    (the chosen value), .list[data-tree='true'] (top-level options head nested ones), .trigger[data-mobile='true'] (opens the page). */
 .root {
@@ -11,6 +11,7 @@
   height: var(--cp-btn-h);
 }
 
+/* Its look is the theme's selectTrigger role. */
 .trigger {
   display: flex;
   align-items: center;
@@ -18,33 +19,6 @@
   width: 100%;
   height: 100%;
   padding: 0 var(--cp-space-4);
-  border: var(--cp-border-w) solid var(--cp-border);
-  border-radius: var(--cp-radius-sm);
-  background: var(--cp-surface-3);
-  color: var(--cp-text-1);
-  font-family: var(--cp-font-sans);
-  font-size: var(--cp-text-sm);
-  transition: border-color var(--cp-duration-fast) var(--cp-ease);
-}
-
-/* The phone: the trigger reads at native select size beside Provider and Range (theme/forms.css). */
-:global(html[data-surface='companion']) .trigger {
-  font-size: var(--cp-phone-text);
-}
-
-.trigger:hover:not(:disabled) {
-  border-color: var(--cp-border-strong);
-}
-
-.trigger:focus-visible,
-.trigger[aria-expanded='true']:not([data-mobile='true']) {
-  border-color: var(--cp-accent);
-  outline: none;
-}
-
-.trigger:disabled {
-  opacity: var(--cp-opacity-disabled);
-  cursor: not-allowed;
 }
 
 .value {

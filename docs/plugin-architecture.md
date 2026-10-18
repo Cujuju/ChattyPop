@@ -618,6 +618,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `insetFocus` | Focus ring drawn inside a flush control | — |
 | `chip` | Raised pill toggle; pressed in the section colour | `aria-pressed` |
 | `filterChip` | Ghost filter chip; pressed in its identity colour | `aria-pressed`, `data-platform` |
+| `selectTrigger` | A button opening a list, drawn as the app-wide select (bordered rounded rectangle) | `aria-expanded`, `disabled` |
 | `segments`, `segment` | Segmented control track and option | `aria-checked` |
 | `expressionTabs` | Plain expression type labels with short separators; used with `SegGroup` | `aria-checked` |
 | `button` | Thumb-sized button | `data-variant` (primary, raised) |

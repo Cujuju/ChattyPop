@@ -97,7 +97,7 @@ export function SearchSelect(props: {
   return (
     <div class={`${styles.root} ${props.class ?? ''}`} ref={root}>
       <button
-        ref={trigger} type="button" id={props.id} class={styles.trigger}
+        ref={trigger} type="button" id={props.id} class={`${styles.trigger} ${look.selectTrigger}`}
         disabled={props.disabled} title={path()}
         aria-label={props.label ? `${props.label}: ${current()?.label ?? (props.value || props.placeholder || '')}` : undefined}
         aria-haspopup={inCompanion ? 'dialog' : 'listbox'} aria-expanded={open()}
