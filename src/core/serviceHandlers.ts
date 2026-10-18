@@ -5,6 +5,7 @@ import type { CoreMethods } from '@shared/contract';
 import type { Db } from './db';
 import type { PluginHost } from './plugins/host';
 import { conversation } from './queries/conversation';
+import { scoreReplyHoldout } from './conversations/score';
 import { ownCommands } from './queries/ownCommands';
 import { ownEmoji, ownReactions } from './queries/ownEmoji';
 import { mentionCandidates } from './queries/mentions';
@@ -37,7 +38,7 @@ export const ruleHandlers = (
 export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
-): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
+): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'conversationLinkScore' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
   searchMessages: (text, limit, sort, caller) => searchOffThread(db(), text, limit, normalizeSearchSort(sort), typeof caller === 'string' ? caller : null),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
@@ -53,6 +54,7 @@ export const queryHandlers = (
   ownAuthor: (channelId) => ownAuthor(db(), selfId(), channelId),
   ownerModerates: (channelId) => ownerModerates(db(), selfId(), channelId),
   conversation: (messageId) => conversation(db(), messageId),
+  conversationLinkScore: (channelIds) => scoreReplyHoldout(db(), channelIds),
   ownEmoji: (limit) => {
     const id = selfId();
     return id ? ownEmoji(db(), id, limit) : [];

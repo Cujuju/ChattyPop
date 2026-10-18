@@ -273,6 +273,7 @@ export const RENDERER_CORE_METHODS = [
   'ownAuthor',
   'ownerModerates',
   'conversation',
+  'conversationLinkScore',
   'ownEmoji',
   'ownReactions',
   'ownCommands',

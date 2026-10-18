@@ -18,6 +18,7 @@ import {
 } from '@shared/discord';
 import { parseRawJson, rawJsonText, type Db } from './db';
 import { deriveMessage } from './derive/deriveMessage';
+import { queueConversationLinks, queueMessageRelink } from './conversations/store';
 import { mergeFullPayload, olderVersion } from './messageVersion';
 import { guildOf, markMemberLeft, putMember, upsertMembers, upsertUser, type UserMergeMode } from './people';
 import {
@@ -231,6 +232,7 @@ export class Archive {
         if (!existing) {
           const ephemeral = typeof m.flags === 'number' && (m.flags & MESSAGE_FLAG.ephemeral) !== 0 ? 1 : 0;
           insert.run(m.id, m.channel_id, m.author.id, snowflakeToMs(m.id), editedTs, m.content, JSON.stringify(m), via, ephemeral);
+          queueConversationLinks(this.db, m.channel_id, snowflakeToMs(m.id));
           result.inserted++;
         } else {
           const storedJson = rawJsonText(existing.raw_json);
@@ -409,5 +411,6 @@ export class Archive {
       )
       .run({ id, now, editedTs: prior.edited_ts, content: prior.content });
     this.db.prepare('UPDATE messages SET content = ?, edited_ts = ?, raw_json = ? WHERE id = ?').run(content, editedTs, raw, id);
+    queueMessageRelink(this.db, id);
   }
 }
