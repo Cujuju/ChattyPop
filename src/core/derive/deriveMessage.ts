@@ -2,7 +2,7 @@ import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
 import type { Db } from '../db';
 import { extractLinks } from './links';
-import { LINK_METADATA_UPDATES, metadataSources, replaceRemovedMetadata } from './linkMetadata';
+import { LINK_METADATA_FIELDS, LINK_METADATA_UPDATES, reconcileLinkMetadata } from './linkMetadata';
 
 interface RawAttachment {
   id: string;
@@ -68,8 +68,8 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
   for (const e of customEmojis(m)) addEmoji.run(e.id, e.name, e.animated ? 1 : 0);
 
   const upsertLink = db.prepare(
-    `INSERT INTO links (url, platform, title, description, thumbnail_url, site, first_message_id, first_channel_id, first_author_id, first_ts, metadata_sources)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO links (url, platform, title, description, thumbnail_url, site, first_message_id, first_channel_id, first_author_id, first_ts)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(url) DO UPDATE SET
        -- Backfill stores older messages after newer ones; the earliest share is the link's "first".
        first_message_id = CASE WHEN excluded.first_ts < links.first_ts THEN excluded.first_message_id ELSE links.first_message_id END,
@@ -79,14 +79,16 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
        ${LINK_METADATA_UPDATES}
      RETURNING id`,
   );
-  const linkMessage = db.prepare('INSERT OR IGNORE INTO message_links (message_id, link_id) VALUES (?, ?)');
+  const linkMessage = db.prepare(`INSERT INTO message_links (message_id, link_id, ${LINK_METADATA_FIELDS.map((f) => `metadata_${f}`).join(', ')})
+    VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(message_id, link_id) DO UPDATE SET
+    ${LINK_METADATA_FIELDS.map((f) => `metadata_${f} = excluded.metadata_${f}`).join(', ')}`);
   const linkIds: number[] = [];
   for (const l of extractLinks(m.content ?? '', m.embeds, m.author?.bot === true)) {
-    const sources = metadataSources([l.title, l.description, l.thumbnailUrl, l.site], m.id, m.channel_id);
-    const { id } = upsertLink.get(l.url, l.platform, l.title, l.description, l.thumbnailUrl, l.site, m.id, m.channel_id, authorId, snowflakeToMs(m.id), sources) as {
+    const values = [l.title, l.description, l.thumbnailUrl, l.site];
+    const { id } = upsertLink.get(l.url, l.platform, ...values, m.id, m.channel_id, authorId, snowflakeToMs(m.id)) as {
       id: number;
     };
-    linkMessage.run(m.id, id);
+    linkMessage.run(m.id, id, ...values);
     linkIds.push(id);
   }
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
@@ -94,6 +96,7 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
   if (typeof m.content === 'string' && Array.isArray(m.embeds)) {
     const removed = db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?)) RETURNING link_id')
       .all(m.id, JSON.stringify(linkIds)) as { link_id: number }[];
-    replaceRemovedMetadata(db, removed.map((r) => r.link_id), m.id);
+    linkIds.push(...removed.map((r) => r.link_id));
   }
+  reconcileLinkMetadata(db, linkIds);
 }
