@@ -51,6 +51,13 @@ export function unstashDraft(channelId: string, index: number): void {
   saveStash(channelId, [...current, ...rest]);
 }
 
+/** Throws stashed draft `index` away; the box is untouched. */
+export function dropStashedDraft(channelId: string, index: number): void {
+  const list = stashedDrafts(channelId);
+  if (!list[index]) return;
+  saveStash(channelId, list.filter((_, i) => i !== index));
+}
+
 // Brings back the stashes kept before a reload, after any stashed meanwhile (whose save left the older ones out).
 void idbEntries<SavedDraft[]>(STASH_KEY).then((saved) => {
   for (const [key, older] of saved) {

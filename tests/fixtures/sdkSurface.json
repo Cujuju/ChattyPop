@@ -1,5 +1,5 @@
 {
-  "version": "3.5.0",
+  "version": "3.6.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -555,6 +555,7 @@
       "draftError",
       "draftFiles",
       "draftText",
+      "dropStashedDraft",
       "editSend",
       "editingId",
       "emojiSuggestions",

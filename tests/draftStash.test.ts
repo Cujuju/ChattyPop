@@ -34,6 +34,7 @@ interface Stash {
   stashDraft(channelId: string): boolean;
   stashedDrafts(channelId: string): readonly { text: string; reply: { id: string } | null }[];
   unstashDraft(channelId: string, index: number): void;
+  dropStashedDraft(channelId: string, index: number): void;
 }
 const C = '100000000000000001';
 const OTHER = '100000000000000002';
@@ -87,6 +88,22 @@ describe('the draft stash', () => {
     expect(d.draftText(C)).toBe('first');
     expect(texts(s)).toEqual(['typing now', 'second']);
     expect((written.get(KEY) as { text: string }[]).map((x) => x.text)).toEqual(['typing now', 'second']);
+  });
+
+  it('throws one stashed draft away, leaving the box and the rest', async () => {
+    const { d, s } = await load();
+    d.setDraftText(C, 'first');
+    s.stashDraft(C);
+    d.setDraftText(C, 'second');
+    s.stashDraft(C);
+    d.setDraftText(C, 'typing now');
+    s.dropStashedDraft(C, 0);
+    expect(d.draftText(C)).toBe('typing now');
+    expect(texts(s)).toEqual(['first']);
+    expect((written.get(KEY) as { text: string }[]).map((x) => x.text)).toEqual(['first']);
+    s.dropStashedDraft(C, 0);
+    expect(s.stashedDrafts(C)).toEqual([]);
+    expect(written.get(KEY)).toBeUndefined();
   });
 
   it('carries the reply: stashing closes it, restoring opens it again over another', async () => {

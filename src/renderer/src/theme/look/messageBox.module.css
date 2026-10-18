@@ -107,6 +107,39 @@
   color: var(--cp-text-2);
 }
 
+/* The draft stash's flag over the box: a sticky-note tab, its free (start) end cut in a V, its sticky end banded.
+   The component pads its start by --cp-stash-flag-notch. */
+.stashFlag {
+  border-radius: 0;
+  background: var(--cp-stash-flag);
+  box-shadow: inset calc(-1 * var(--cp-stash-flag-band-w)) 0 0 var(--cp-stash-flag-band);
+  color: var(--cp-stash-flag-ink);
+  mask:
+    linear-gradient(to top right, transparent 50%, #000 0) top left / var(--cp-stash-flag-notch) 50% no-repeat,
+    linear-gradient(to bottom right, transparent 50%, #000 0) bottom left / var(--cp-stash-flag-notch) 50% no-repeat,
+    linear-gradient(#000 0 0) var(--cp-stash-flag-notch) 0 / calc(100% - var(--cp-stash-flag-notch)) 100% no-repeat;
+}
+
+/* A button on the flag (Stash, the count): the flag's ink, darkened under the pointer; a rule before the second. */
+.stashFlagPart {
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.stashFlagPart:hover,
+.stashFlagPart[aria-expanded='true'] {
+  background: var(--cp-stash-flag-press);
+}
+
+.stashFlagPart + .stashFlagPart {
+  border-left: var(--cp-border-w) solid var(--cp-stash-flag-rule);
+}
+
+.stashFlagPart:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
 /* An attached file's tile. */
 .fileTile {
   border-radius: var(--cp-radius-md);

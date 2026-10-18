@@ -35,6 +35,12 @@
   --cp-mention-bg: color-mix(in srgb, var(--cp-mention) 10%, transparent);
   --cp-mention-bg-menu: color-mix(in srgb, var(--cp-mention) 18%, transparent); /* its menu is open */
   --cp-mention-bar: var(--cp-mention);
+  /* The draft stash's flag: sticky-note paper, the same in every theme so it reads as a note stuck on; ink 12.7 on it */
+  --cp-stash-flag: #f2d45c;
+  --cp-stash-flag-ink: #10131a;
+  --cp-stash-flag-band: color-mix(in srgb, var(--cp-stash-flag-ink) 22%, var(--cp-stash-flag)); /* its sticky end, where it holds to the box */
+  --cp-stash-flag-press: color-mix(in srgb, var(--cp-stash-flag-ink) 12%, transparent); /* a part under the pointer */
+  --cp-stash-flag-rule: color-mix(in srgb, var(--cp-stash-flag-ink) 30%, transparent); /* between Stash and the count */
   --cp-surface-hover: color-mix(in srgb, var(--cp-text-1) 6%, transparent);
   --cp-surface-active: color-mix(in srgb, var(--cp-text-1) 10%, transparent); /* pressed ghost control */
 
