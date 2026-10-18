@@ -24,7 +24,7 @@ import { adoptBundledData } from '@core/plugins/adoption';
 import type { BundledDeps } from '@core/plugins/bundled';
 import type { CorePlugin } from '@core/plugins/context';
 import { PLUGINS_DISABLED_KEY, PluginHost } from '@core/plugins/host';
-import { pluginDb } from '@core/plugins/pluginDb';
+import { archiveRead, pluginDb } from '@core/plugins/pluginDb';
 import { previousSeenAt, recordSeen } from '@core/lastSeen';
 import { addedTextArrival, textMessage } from '@core/queries/messageText';
 import { RuleKinds } from '@core/rules/kinds';
@@ -202,6 +202,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     on: () => switchTo(true),
     mediaDir: bundled.mediaDir,
     db: pluginDb(() => db, () => true, id),
+    read: archiveRead(() => db),
     archive: {
       arrive: (messages) => {
         const raws = messages.map((m) => rawMessage(m, now));

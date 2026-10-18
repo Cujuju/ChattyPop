@@ -2,7 +2,7 @@ import type { ProviderAccountSettings } from '@plugin-sdk/shared';
 // The core testing harness's public types (docs/plugin-architecture.md §15): SDK types only, so a plugin's tests never
 // see a host internal (tests/pluginTesting.test.ts checks the import graph).
 export type { CoreLink } from '@plugin-sdk/shared/testing';
-import type { ActionResult, ActionRun, CorePlugin, DecisionProvider, LlmProvider, PluginDb } from '@plugin-sdk/core';
+import type { ActionResult, ActionRun, CorePlugin, DecisionProvider, LlmProvider, ArchiveRead, PluginDb } from '@plugin-sdk/core';
 import type { CoreLink } from '@plugin-sdk/shared/testing';
 import type {
   ChannelsOf,
@@ -144,6 +144,8 @@ export interface TestPlugin<D extends PluginDescriptor> {
   readonly mediaDir: string;
   /** The archive database as the plugin's own reads see it (its tables, archive views); writes are the test's. */
   readonly db: PluginDb;
+  /** ctx.storage.read over the same archive: off-thread, cancellable reads, as AI tools use. */
+  readonly read: ArchiveRead;
   archive: {
     /** Messages arriving live: archived and heard by plugins (ctx.archive.onText), then their channels' change noted (onChanged). */
     arrive(messages: readonly SeedMessage[]): string[];
