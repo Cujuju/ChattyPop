@@ -122,6 +122,6 @@ describe('search ranking', () => {
     expect(env.ranks).toHaveLength(0);
     setSearchSort('oldest');
     await vi.advanceTimersByTimeAsync(QUERY_DEBOUNCE_MS);
-    expect(env.searches.map((s) => s.args)).toEqual([['plans', RESULT_LIMIT, 'oldest']]);
+    expect(env.searches.map((s) => s.args)).toEqual([['plans', RESULT_LIMIT, 'oldest', expect.any(String)]]);
   });
 });

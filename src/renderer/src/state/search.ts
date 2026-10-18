@@ -37,6 +37,9 @@ export function focusSearch(): void {
   setSearchFocusRequests((n) => n + 1);
 }
 
+/** This window's searches: each new one cancels the one before it in core, so typing never queues stale scans. */
+const SEARCH_CALLER = crypto.randomUUID();
+
 let timer: ReturnType<typeof setTimeout> | undefined;
 let rankTimer: ReturnType<typeof setTimeout> | undefined;
 /** The latest query's ticket: an answer to any earlier one, cleared ones included, is dropped. */
@@ -54,7 +57,7 @@ export function querySearch(text: string): void {
   }
   const sort = searchSort();
   timer = setTimeout(() => {
-    void api.core.searchMessages(text, RESULT_LIMIT, sort).then((hits) => {
+    void api.core.searchMessages(text, RESULT_LIMIT, sort, SEARCH_CALLER).then((hits) => {
       if (ticket !== latest) return;
       setSearchHits(hits);
       if (sort !== 'relevance' || hits.length < 2) return; // a time order stands; one hit has nothing to reorder
@@ -64,7 +67,7 @@ export function querySearch(text: string): void {
           () => undefined, // keep the full-text order
         );
       }, RANK_PAUSE_MS);
-    });
+    }, () => undefined); // cancelled by a newer search, or by a privacy change, which searches again
   }, QUERY_DEBOUNCE_MS);
 }
 

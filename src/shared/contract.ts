@@ -195,8 +195,11 @@ export interface CoreMethods {
   messageById(messageId: string): ArchiveMessage | null;
   /** Archived messages by id, as the Archive shows them, in no set order; ids not archived or hidden by privacy mode are left out. */
   messagesByIds(messageIds: string[]): ArchiveMessage[];
-  /** The first `limit` matches in `sort` order. */
-  searchMessages(text: string, limit: number, sort: SearchSort): SearchHit[];
+  /**
+   * The first `limit` matches in `sort` order, read off the core thread. A newer search under the same `caller` key
+   * (one per window) cancels this one, which then rejects.
+   */
+  searchMessages(text: string, limit: number, sort: SearchSort, caller: string): Promise<SearchHit[]>;
   /** One person's footprint in the archive; null when the archive has never seen them. */
   personProfile(userId: string): PersonProfile | null;
   /** The last Discord profile of a person, as seen in a server (null outside one); null before the first fetch. */

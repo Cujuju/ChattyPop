@@ -14,7 +14,8 @@ import { findPeople, peopleByIds } from './queries/people';
 import { personNames } from './queries/personNames';
 import { personProfile } from './queries/person';
 import { cachedMutualFriends, cachedProfile, cachedReactors, storeMutualFriends, storeProfile, storeReactors } from './discordProfiles';
-import { parseSearch, searchMessages } from './queries/search';
+import { parseSearch } from './queries/search';
+import { searchOffThread } from './searchRuns';
 import type { RuleService } from './rules/ruleService';
 import { rankSearch } from './searchRankers';
 import { previewPattern } from './patternPreview';
@@ -37,7 +38,7 @@ export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
 ): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
-  searchMessages: (text, limit, sort) => searchMessages(db(), text, limit, normalizeSearchSort(sort)),
+  searchMessages: (text, limit, sort, caller) => searchOffThread(db(), text, limit, normalizeSearchSort(sort), typeof caller === 'string' ? caller : null),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
   storeDiscordProfile: (f) => storeProfile(db(), f),

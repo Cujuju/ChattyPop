@@ -105,36 +105,47 @@ export function parseSearch(text: string): SearchFilters {
 /** A hit's text: whole when short, else cut around its first match (or from its start) with tokens, links and URLs whole. */
 const resultText = (text: string): string => (text.length <= RESULT_TEXT_CHARS ? text : snippet(text, FIRST_MATCH, RESULT_TEXT_CHARS));
 
-/** A hit as selected: its mentions still JSON. */
-type HitRow = Omit<SearchHit, 'mentions'> & { mentionsJson: string | null };
+/** A hit as selected: its mentions still JSON, its text uncut, and its bm25 score when words were searched. */
+export type HitRow = Omit<SearchHit, 'mentions'> & { mentionsJson: string | null; score?: number };
+
+/** A search as one read-only statement, and how its rows become hits; null when the query asks for nothing. */
+export interface SearchStatement {
+  sql: string;
+  params: (string | number)[];
+  hits: (rows: readonly HitRow[]) => SearchHit[];
+}
+
+const toHits = (rows: readonly HitRow[]): SearchHit[] =>
+  rows.map(({ mentionsJson, score: _score, ...hit }) => ({ ...hit, snippet: resultText(hit.snippet ?? ''), mentions: mentionsFrom(mentionsJson) }));
 
 /** The first `limit` matches in `sort` order: by time, or best first (bm25) when there are words to score. */
-export function searchMessages(db: Db, text: string, limit: number, sort: SearchSort): SearchHit[] {
+export function searchStatement(text: string, limit: number, sort: SearchSort): SearchStatement | null {
   const f = parseSearch(text);
   const q = ftsQuery(f.words);
-  if (!q && !f.where.length) return [];
+  if (!q && !f.where.length) return null;
   const filters = ` AND ${[...f.where, visibleMessageSql('m')].join(' AND ')}`;
   const select = `SELECT m.id AS messageId, m.channel_id AS channelId, COALESCE(c.name, m.channel_id) AS channelName,
                          m.author_id AS authorId, ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName, u.avatar AS authorAvatar, m.ts, ${rawJsonSql('$.mentions')} AS mentionsJson`;
   const joins = 'LEFT JOIN channels c ON c.id = m.channel_id LEFT JOIN users u ON u.id = m.author_id';
-  if (q) {
-    const hits = (fts: string): string =>
-      `${select}, highlight(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}') AS snippet, bm25(${fts}) AS score`;
-    // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
-    const union = searchIndexUnion(q, hits, joins, filters, f.params, {
-      sql: `EXISTS (SELECT 1 FROM messages m ${joins} WHERE m.id = s.id${filters})`, params: f.params,
-    });
-    const rows = db
-      .prepare(
-        `SELECT messageId, channelId, channelName, authorId, authorName, authorAvatar, ts, mentionsJson, snippet, MIN(score) AS score FROM (
-           ${union.sql}
-         ) GROUP BY messageId ORDER BY ${sort === 'relevance' ? 'score' : `ts ${TIME_ORDER[sort]}`} LIMIT ?`,
-      )
-      .all(...union.params, limit) as (HitRow & { score: number })[];
-    return rows.map(({ score: _score, mentionsJson, ...hit }) => ({ ...hit, snippet: resultText(hit.snippet), mentions: mentionsFrom(mentionsJson) }));
+  if (!q) {
+    return { sql: `${select}, m.content AS snippet FROM messages m ${joins} WHERE 1${filters} ORDER BY m.ts ${TIME_ORDER[sort]} LIMIT ?`, params: [...f.params, limit], hits: toHits };
   }
-  const rows = db
-    .prepare(`${select}, m.content AS snippet FROM messages m ${joins} WHERE 1${filters} ORDER BY m.ts ${TIME_ORDER[sort]} LIMIT ?`)
-    .all(...f.params, limit) as HitRow[];
-  return rows.map(({ mentionsJson, ...hit }) => ({ ...hit, snippet: resultText(hit.snippet ?? ''), mentions: mentionsFrom(mentionsJson) }));
+  const hits = (fts: string): string => `${select}, highlight(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}') AS snippet, bm25(${fts}) AS score`;
+  // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
+  const union = searchIndexUnion(q, hits, joins, filters, f.params, {
+    sql: `EXISTS (SELECT 1 FROM messages m ${joins} WHERE m.id = s.id${filters})`, params: f.params,
+  });
+  return {
+    sql: `SELECT messageId, channelId, channelName, authorId, authorName, authorAvatar, ts, mentionsJson, snippet, MIN(score) AS score FROM (
+            ${union.sql}
+          ) GROUP BY messageId ORDER BY ${sort === 'relevance' ? 'score' : `ts ${TIME_ORDER[sort]}`} LIMIT ?`,
+    params: [...union.params, limit],
+    hits: toHits,
+  };
+}
+
+/** searchStatement run on the calling connection. */
+export function searchMessages(db: Db, text: string, limit: number, sort: SearchSort): SearchHit[] {
+  const s = searchStatement(text, limit, sort);
+  return s ? s.hits(db.prepare(s.sql).all(...s.params) as HitRow[]) : [];
 }
