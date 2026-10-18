@@ -1,0 +1,25 @@
+/* The time window picker: the select lays out as the caller's own child; a custom range floats in the top layer. Structure only. */
+
+.root {
+  display: contents;
+}
+
+/* With cp-popover, in the top layer: TimeWindowSelect.tsx sets left/top and the window caps. */
+.popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+}
+
+.popover:popover-open {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.dateInput {
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--cp-btn-h-sm);
+}
