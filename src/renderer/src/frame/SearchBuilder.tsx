@@ -90,10 +90,10 @@ export function FilterList(props: Nav & { filters: readonly SearchFilter[]; save
   );
 }
 
-/** A person's avatar or a server's icon, in one fixed-width column. */
-function Lead(props: { lead: ChoiceLead }) {
+/** A person's avatar or a server's icon, in one fixed-width column; `class` sizes it elsewhere (a chip). */
+export function Lead(props: { lead: ChoiceLead; class?: string }) {
   return (
-    <span class={styles.lead}>
+    <span class={props.class ?? styles.lead}>
       <Switch>
         <Match when={props.lead.kind === 'person' && props.lead}>{(p) => <img class={`${styles.avatar} ${look.avatar}`} src={avatarUrl(p().id, p().avatar)} alt="" loading="lazy" />}</Match>
         <Match when={props.lead.kind === 'server' && props.lead}>{(g) => <GuildIcon id={g().id} name={g().name} icon={g().icon} />}</Match>

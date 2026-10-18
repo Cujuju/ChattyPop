@@ -1,0 +1,100 @@
+/* Search field chips, as Discord draws a finished filter: a pill inset evenly from the field's edge.
+   Its height is the field's (--search-field-h, set by Search.module.css) less the stroke and the inset on each side.
+   Hooks: .chip[data-problem]. */
+
+.chips {
+  display: contents;
+}
+
+.chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-2);
+  height: calc(var(--search-field-h) - 2 * var(--cp-stroke-w) - 2 * var(--cp-search-chip-inset));
+  /* Less the × glyph's inset in its button at the end, so the key and the × sit equally far in. */
+  padding-inline: var(--cp-space-3) calc(var(--cp-space-3) - (var(--cp-search-chip-lead) - var(--cp-icon-sm)) / 2);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-text-1);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.key {
+  color: var(--cp-accent);
+}
+
+/* The avatar or server icon, a line of text tall. */
+.lead {
+  --guild-icon-size: var(--cp-search-chip-lead);
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-search-chip-lead);
+  height: var(--cp-search-chip-lead);
+}
+
+.label {
+  min-width: 0;
+  max-width: var(--cp-search-chip-label-max-w);
+  font-weight: var(--cp-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sigil {
+  margin-right: var(--cp-space-1);
+  color: var(--cp-text-muted);
+}
+
+.remove {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--cp-search-chip-lead);
+  height: var(--cp-search-chip-lead);
+  padding: 0;
+  border: none;
+  border-radius: var(--cp-radius-xs);
+  background: none;
+  color: var(--cp-text-muted);
+  cursor: pointer;
+}
+
+.remove svg {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+.remove:hover {
+  color: var(--cp-text-1);
+}
+
+/* A filter the search can't apply (an unknown kind, not a date): its reason is listed above the results. */
+.chip[data-problem] {
+  background: var(--cp-danger-bg);
+}
+
+.chip[data-problem] .key,
+.chip[data-problem] .label {
+  color: var(--cp-danger);
+}
+
+/* Phone: the remove button is a tap target the chip's full height, ending the chip. */
+:global(html[data-surface='companion']) .chip {
+  padding-inline-end: 0;
+}
+
+:global(html[data-surface='companion']) .remove {
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1;
+}
+
+/* Phone: the avatar or server icon at the drawer's size, to suit the taller chip and its phone text. */
+:global(html[data-surface='companion']) .lead {
+  --guild-icon-size: var(--cp-avatar-sm);
+  width: var(--cp-avatar-sm);
+  height: var(--cp-avatar-sm);
+}

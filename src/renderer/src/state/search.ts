@@ -22,6 +22,9 @@ export const SEARCH_CHOICES_MAX = 10;
 /** People whose name, username or a server nickname contains `query`. */
 export const findSearchPeople = (query: string): Promise<PersonMatch[]> => api.core.findPeople(query, SEARCH_CHOICES_MAX);
 
+/** The person a `from:<@id>` names. */
+export const searchPersonById = (id: string): Promise<PersonMatch[]> => api.core.peopleByIds([id]);
+
 export const [searchText, setSearchText] = createSignal('');
 export const [searchHits, setSearchHits] = createSignal<SearchHit[]>([]);
 /** The dropdown is open (it covers the chat area, so the native Discord view must hide). */
@@ -69,6 +72,12 @@ export function querySearch(text: string): void {
       }, RANK_PAUSE_MS);
     }, () => undefined); // cancelled by a newer search, or by a privacy change, which searches again
   }, QUERY_DEBOUNCE_MS);
+}
+
+/** Shows a whole query from outside the field (a saved search, a person's messages): its terms finished, as chips. */
+export function showSearch(query: string): void {
+  querySearch(query.trim() ? `${query.trim()} ` : '');
+  focusSearch();
 }
 
 /** Changes the results' order and searches again in it. */

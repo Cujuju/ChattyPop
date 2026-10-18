@@ -1,5 +1,5 @@
 {
-  "version": "3.10.0",
+  "version": "3.11.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -499,6 +499,7 @@
       "showAttachmentFolder",
       "showJevQuery",
       "showPanel",
+      "showSearch",
       "showThreads",
       "shownChannelId",
       "snapshotPage",

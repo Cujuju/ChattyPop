@@ -132,19 +132,55 @@ export function withValue(text: string, value: string, narrow?: string): string 
 export const withChoice = (text: string, pending: PendingFilter, choice: FilterChoice): string =>
   withValue(text, choice.value, pending.negated ? undefined : choice.narrow);
 
-/**
- * The finished term (badge) a Backspace at `caret` removes whole, with the space after it: [start, end), or null when the
- * caret isn't just past one. A term still being typed (no space after it yet) loses one character at a time.
- */
-export function termBeforeCaret(text: string, caret: number, pluginKeys: readonly string[]): { start: number; end: number } | null {
-  let at = 0;
-  for (const s of searchQuerySpans(text, pluginKeys)) {
-    const length = s.kind === 'text' ? s.text.length : s.key.length + s.value.length;
-    if (s.kind === 'term' && s.state !== 'typing' && at + length + 1 === caret && /\s/.test(text[caret - 1] ?? '')) return { start: at, end: caret };
-    at += length;
-  }
-  return null;
+/** A finished term, shown as a chip: as typed, and the filter and value it names. */
+export interface QueryChip {
+  /** The term as typed, e.g. `-in:"two words"`. */
+  raw: string;
+  /** The filter's key, lowercase, without `-` or `:`. */
+  key: string;
+  /** The value without its quotes. */
+  value: string;
+  negated: boolean;
+  /** The search can't apply it (an unknown kind, not a date). */
+  problem: boolean;
 }
+
+/** A query as the field shows it: chips first, then the text being typed. */
+export interface SplitQuery {
+  chips: QueryChip[];
+  draft: string;
+}
+
+const WHITESPACE = /\s/;
+const QUOTED = /^"(.*)"$/;
+
+/**
+ * `text` as chips and a draft. A term is finished (a chip) once a space follows it; its space goes with it. Everything
+ * else, a term still being typed included, stays in the draft, in order.
+ */
+export function splitQuery(text: string, pluginKeys: readonly string[]): SplitQuery {
+  const spans = searchQuerySpans(text, pluginKeys);
+  const chips: QueryChip[] = [];
+  let draft = '';
+  spans.forEach((s, i) => {
+    if (s.kind === 'text') {
+      const prev = spans[i - 1];
+      draft += prev?.kind === 'term' && prev.state !== 'typing' && WHITESPACE.test(s.text[0]!) ? s.text.slice(1) : s.text;
+      return;
+    }
+    const next = spans[i + 1];
+    if (s.state === 'typing' || next?.kind !== 'text' || !WHITESPACE.test(next.text[0]!)) {
+      draft += s.key + s.value;
+      return;
+    }
+    const negated = s.key.startsWith('-');
+    chips.push({ raw: s.key + s.value, key: s.key.slice(negated ? 1 : 0, -1).toLowerCase(), value: s.value.replace(QUOTED, '$1'), negated, problem: s.state === 'problem' });
+  });
+  return { chips, draft: draft.trimStart() };
+}
+
+/** The query `chips` then `draft` make: each chip with its space, so splitQuery reads them back as chips. */
+export const joinQuery = (chips: readonly QueryChip[], draft: string): string => chips.map((c) => `${c.raw} `).join('') + draft;
 
 /** The `server:` term naming one server. */
 export const serverTerm = (name: string): string => `server:${quoted(name)}`;

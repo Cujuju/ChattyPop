@@ -1,17 +1,17 @@
 // Archive search field and its panel: the query builder, a filter's value picker, or results with operator feedback.
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, on } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import type { SearchHit } from '@shared/contract';
 import { searchTokens } from '@/plugins/slots';
 import { SEARCH_SORTS, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import { openArchive } from '@/state/archive';
-import { isSavedSearch, querySearch, savedSearches, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
+import { isSavedSearch, querySearch, savedSearches, showSearch, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
 import { inCompanion } from '@/state/ui';
 import { listen } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
-import { namedChoiceSources } from './searchChoices';
-import { pendingFilter, searchFilters, termBeforeCaret, withChoice, withFilter, type FilterChoice, type PendingFilter } from './searchFilters';
-import { QueryBadges } from './QueryBadges';
+import { chipChoice, namedChoiceSources, rememberChoice } from './searchChoices';
+import { joinQuery, pendingFilter, searchFilters, splitQuery, withChoice, withFilter, type FilterChoice, type PendingFilter, type QueryChip } from './searchFilters';
+import { SearchChips } from './SearchChips';
 import { AddFilterStrip, FilterList, ValuePicker } from './SearchBuilder';
 import { SearchHits } from './SearchResults';
 import { Icon } from '@/ui/icons';
@@ -31,10 +31,14 @@ function offeredChoices(pending: PendingFilter): OfferedChoices | Promise<Offere
   return list instanceof Promise ? list.then((l) => ({ pending, list: l })) : { pending, list };
 }
 
+/** The same chips, term for term: the field keeps them (and their looked-up names) while only the draft changes. */
+const sameChips = (a: readonly QueryChip[], b: readonly QueryChip[]): boolean => a.length === b.length && a.every((c, i) => c.raw === b[i]!.raw);
+
 /** Leader then / focuses archive search. Empty queries show filters/saved searches; a `key:` being typed offers matching values; results open Archive messages. */
 export function Search() {
   let input!: HTMLInputElement;
   let root!: HTMLDivElement;
+  let query!: HTMLDivElement;
   const filters = createMemo(() => searchFilters(searchTokens(), namedChoiceSources));
   const pending = createMemo(() => pendingFilter(searchText(), filters()));
   const [offered] = createResource(pending, offeredChoices);
@@ -53,23 +57,31 @@ export function Search() {
   const mode = (): 'filters' | 'value' | 'results' => (searchText().trim() === '' ? 'filters' : picking() ? 'value' : 'results');
   const pick = (choice: FilterChoice | undefined): void => {
     const p = pending();
-    if (p && choice && current()) edit(withChoice(searchText(), p, choice));
+    if (!p || !choice || !current()) return;
+    rememberChoice(p.filter.key, choice);
+    edit(withChoice(searchText(), p, choice));
   };
   const pluginKeys = createMemo(() => searchTokens().map((t) => t.key));
   const problems = () => parseSearchQuery(searchText(), pluginKeys()).problems;
-  /** The field's horizontal scroll, which the badges drawn over it follow. Typing scrolls it with no scroll event, so it is read after each change. */
-  const [scrollLeft, setScrollLeft] = createSignal(0);
-  const followScroll = (): void => void requestAnimationFrame(() => setScrollLeft(input.scrollLeft));
-  createEffect(on(searchText, followScroll, { defer: true }));
-  /** Backspace just past a finished term removes it whole, as Discord removes a badge. */
-  const onBackspace = (e: KeyboardEvent): void => {
-    if (e.key !== 'Backspace' || input.selectionStart === null || input.selectionStart !== input.selectionEnd) return;
-    const cut = termBeforeCaret(searchText(), input.selectionStart, pluginKeys());
-    if (!cut) return;
-    e.preventDefault();
-    edit(searchText().slice(0, cut.start) + searchText().slice(cut.end));
-    input.setSelectionRange(cut.start, cut.start);
+  /** The query as the field shows it: finished filters as chips, then the draft typed in the input. */
+  const split = createMemo(() => splitQuery(searchText(), pluginKeys()));
+  const chips = createMemo(() => split().chips, undefined, { equals: sameChips });
+  const draft = (): string => split().draft;
+  const removeChip = (chip: QueryChip): void => edit(joinQuery(chips().filter((c) => c !== chip), draft()));
+  const choiceFor = (chip: QueryChip) => chipChoice(chip, filters().find((f) => f.key === chip.key), chips());
+  /** Typing sets the draft; a term it finishes moves into a chip, so the input then shows the draft alone. */
+  const onDraft = (el: HTMLInputElement): void => {
+    edit(joinQuery(chips(), el.value));
+    if (el.value !== draft()) el.value = draft();
   };
+  /** Backspace at the draft's start removes the last chip, as Discord's does. */
+  const onBackspace = (e: KeyboardEvent): void => {
+    if (e.key !== 'Backspace' || input.selectionStart !== 0 || input.selectionEnd !== 0 || !chips().length) return;
+    e.preventDefault();
+    removeChip(chips().at(-1)!);
+  };
+  // A new chip may overflow the field: keep the draft in view.
+  createEffect(on(chips, () => (query.scrollLeft = query.scrollWidth), { defer: true }));
   /** Replaces the query, keeping the field focused and the panel open. */
   const edit = (query: string): void => {
     querySearch(query);
@@ -117,7 +129,8 @@ export function Search() {
       <label for="archive-search" class="cp-visually-hidden">
         Search the archive
       </label>
-      <div class={styles.field}>
+      {/* A press on the field's ground or a chip types into the draft; buttons keep their own presses. */}
+      <div class={`cp-stroke ${styles.field}`} onMouseDown={(e) => e.target !== input && !(e.target as Element).closest('button') && (e.preventDefault(), input.focus())}>
         {/* Magnifier toggles search on mousedown before blur and preserves field focus. Escape closes keyboard search. */}
         <button
           type="button"
@@ -132,27 +145,26 @@ export function Search() {
         >
           <Icon name="search" />
         </button>
-        <input
-          ref={input}
-          id="archive-search"
-          class={`cp-stroke ${styles.input}`}
-          type="search"
-          placeholder="Search the archive"
-          autocomplete="off"
-          role="combobox"
-          aria-expanded={searchOpen()}
-          aria-controls="archive-search-results"
-          aria-activedescendant={searchOpen() && rowCount() ? `search-row-${active()}` : undefined}
-          value={searchText()}
-          onInput={(e) => edit(e.currentTarget.value)}
-          onFocus={() => setSearchOpen(true)}
-          onKeyDown={(e) => (onBackspace(e), onKey(e), followScroll())}
-          onKeyUp={followScroll}
-          onPointerDown={followScroll}
-          onPointerMove={(e) => e.buttons && followScroll()}
-          onScroll={followScroll}
-        />
-        <QueryBadges class={styles.badges} text={searchText()} pluginKeys={pluginKeys()} scrollLeft={scrollLeft()} />
+        <div ref={query} class={styles.query}>
+          <SearchChips id="archive-search-filters" chips={chips()} choice={choiceFor} onRemove={removeChip} />
+          <input
+            ref={input}
+            id="archive-search"
+            class={styles.input}
+            type="search"
+            placeholder={chips().length ? undefined : 'Search the archive'}
+            autocomplete="off"
+            role="combobox"
+            aria-expanded={searchOpen()}
+            aria-controls="archive-search-results"
+            aria-activedescendant={searchOpen() && rowCount() ? `search-row-${active()}` : undefined}
+            aria-describedby={chips().length ? 'archive-search-filters' : undefined}
+            value={draft()}
+            onInput={(e) => onDraft(e.currentTarget)}
+            onFocus={() => setSearchOpen(true)}
+            onKeyDown={(e) => (onBackspace(e), onKey(e))}
+          />
+        </div>
         <Show when={mode() !== 'filters'}>
           <button
             type="button"
@@ -178,7 +190,7 @@ export function Search() {
                 filters={filters()}
                 saved={savedSearches()}
                 onFilter={(f) => edit(withFilter(searchText(), f.key))}
-                onSaved={edit}
+                onSaved={(q) => (showSearch(q), setActive(0))}
                 onRemoveSaved={toggleSavedSearch}
               />
             </Match>

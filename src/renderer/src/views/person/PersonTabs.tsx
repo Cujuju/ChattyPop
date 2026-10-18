@@ -12,7 +12,7 @@ import type { PersonTabView } from '@/plugins/readSlots';
 import { openArchive } from '@/state/archive';
 import { now, today } from '@/state/clock';
 import { discordProfile, mutualFriends, openPerson, showMutualFriends } from '@/state/person';
-import { querySearch, setSearchOpen } from '@/state/search';
+import { showSearch } from '@/state/search';
 import { listAge } from '@/ui/dates';
 import { shortDate, yearDate } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
@@ -35,13 +35,6 @@ type PlacedTab = Omit<Tab, 'id'> & { id: string; Component?: PersonTabView['Comp
 
 /** A count as read, grouped by thousands. */
 const figure = (n: number): string => n.toLocaleString();
-
-/** Puts a query in the top-bar search and opens its results. */
-function search(query: string): void {
-  querySearch(query);
-  setSearchOpen(true);
-  document.getElementById('archive-search')?.focus();
-}
 
 export function PersonTabs(props: { p: PersonProfile }) {
   const [tab, setTab] = createSignal('channels');
@@ -124,13 +117,13 @@ export function PersonTabs(props: { p: PersonProfile }) {
           </For>
         </dl>
         <div class={styles.actions}>
-          <button type="button" class="cp-button" onClick={() => search(byThem())}>
+          <button type="button" class="cp-button" onClick={() => showSearch(byThem())}>
             Search their messages
           </button>
-          <button type="button" class="cp-button" disabled={!props.p.totals.edited} onClick={() => search(`${byThem()} is:edited`)}>
+          <button type="button" class="cp-button" disabled={!props.p.totals.edited} onClick={() => showSearch(`${byThem()} is:edited`)}>
             Edits
           </button>
-          <button type="button" class="cp-button" disabled={!props.p.totals.deleted} onClick={() => search(`${byThem()} is:deleted`)}>
+          <button type="button" class="cp-button" disabled={!props.p.totals.deleted} onClick={() => showSearch(`${byThem()} is:deleted`)}>
             Deletions
           </button>
         </div>

@@ -38,7 +38,7 @@ export const personLinks = () => null, personSections = () => [];
 export const discordProfile = { value: discord }, mutualFriends = { value: () => null, loading: () => false, stale: () => false };
 export const showMutualFriends = () => {}, openPerson = () => {}, openArchive = () => {};
 export const now = () => 0, today = () => 0, scrolledFromTop = () => 0;
-export const querySearch = () => {}, setSearchOpen = () => {};
+export const showSearch = () => {};
 export const PersonName = () => null, GuildIcon = () => null, Icon = () => null;
 export const look = {};
 `;

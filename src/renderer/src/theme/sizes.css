@@ -21,6 +21,10 @@
   --cp-sidebar-w: 232px;
   --cp-search-w: 420px;
   --cp-search-snippet-lines: 3; /* a search result's text, cut to this many lines (unitless): enough to read the match in context */
+  --cp-search-chip-inset: var(--cp-space-1); /* a search chip's gap to the field's edge, above and below: the field's ground shows round it */
+  --cp-search-chip-lead: var(--cp-icon-lg); /* a search chip's avatar or server icon, and its remove button: a line of text tall */
+  --cp-search-chip-label-max-w: 160px; /* a chip's name before it ellipsizes: a long channel or display name leaves room for two more chips */
+  --cp-search-draft-min-w: 8ch; /* the text typed after the chips: room to read a key being typed ("during:") */
   --cp-splitter-size: 10px;
   --cp-resize-grab: 8px; /* pointer hit area centred on a 1px split divider; takes no layout space */
   --cp-dialog-w: 760px; /* settings: tab list plus a ~580px section column */

@@ -2,7 +2,7 @@
 import { expect, it, vi } from 'vitest';
 import { HOST_SEARCH_KEYS } from '@shared/searchTokens';
 import { parseSearchQuery } from '@shared/searchQuery';
-import { pendingFilter, searchFilters, serverTerm, termBeforeCaret, withChoice, withFilter, withValue, type FilterChoice } from '../src/renderer/src/frame/searchFilters';
+import { joinQuery, pendingFilter, searchFilters, serverTerm, splitQuery, withChoice, withFilter, withValue, type FilterChoice } from '../src/renderer/src/frame/searchFilters';
 
 const tag = { key: 'tag', description: 'Tagged', value: 'tag name' };
 
@@ -60,11 +60,20 @@ it('offers date choices the parser accepts', () => {
   for (const c of during.choices('') as FilterChoice[]) expect(parseSearchQuery(`during:${c.value}`).problems).toEqual([]);
 });
 
-it('removes a finished term whole on Backspace just past its space, but a term being typed one character at a time', () => {
-  const text = 'cats from:theo has:link ';
-  expect(termBeforeCaret(text, text.length, [])).toEqual({ start: 15, end: text.length });
-  expect(termBeforeCaret(text, 15, [])).toEqual({ start: 5, end: 15 });
-  expect(termBeforeCaret('cats from:theo', 14, [])).toBeNull();
-  expect(termBeforeCaret('cats ', 5, [])).toBeNull();
-  expect(termBeforeCaret('note:x ', 7, [])).toBeNull();
+it('shows each finished term as a chip and the rest as the draft, and joins them back to the same query', () => {
+  const { chips, draft } = splitQuery('cats -from:theo in:"two words" has:nothing x tag:y', ['tag']);
+  expect(chips).toEqual([
+    { raw: '-from:theo', key: 'from', value: 'theo', negated: true, problem: false },
+    { raw: 'in:"two words"', key: 'in', value: 'two words', negated: false, problem: false },
+    { raw: 'has:nothing', key: 'has', value: 'nothing', negated: false, problem: true },
+  ]);
+  // The last term has no space after it yet: still being typed.
+  expect(draft).toBe('cats x tag:y');
+  expect(splitQuery('from:theo ', [])).toEqual({ chips: [expect.objectContaining({ key: 'from' })], draft: '' });
+  expect(splitQuery('note:x from:"Ada L', []).chips).toEqual([]);
+  for (const text of ['', 'cats', 'from:theo ', 'from:theo has:link cats from:', 'in:general  two  spaces']) {
+    const split = splitQuery(text, []);
+    expect(splitQuery(joinQuery(split.chips, split.draft), [])).toEqual(split);
+  }
+  expect(joinQuery(chips.slice(1), draft)).toBe('in:"two words" has:nothing cats x tag:y');
 });
