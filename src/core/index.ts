@@ -44,6 +44,7 @@ import { registerNotable } from './jev/notable';
 import { registerTags } from './jev/tags';
 import { JevSpendLedger } from './jevSpend';
 import { startLastSeen } from './lastSeen';
+import { ConversationLinkJob } from './conversations/job';
 import { lastReader, recordReader } from './queries/readMarks';
 import type { BundledDeps } from './plugins/bundled';
 import { PluginHost } from './plugins/host';
@@ -388,6 +389,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
         { start: installedStart(), failed: failedCore },
       );
       const pluginHost = plugins;
+      const conversationLinks = new ConversationLinkJob(() => (!initError && db?.open ? db : null));
       archive = new Archive(
         db,
         (m, arrived) => {
@@ -395,7 +397,10 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
           pluginHost.dispatchMessage(m, arrived, 'message');
         },
         linkedText,
-        (id) => pluginHost.imagesShown(id),
+        (id) => {
+          pluginHost.imagesShown(id);
+          conversationLinks.kick(); // a stored message may have queued links
+        },
       );
       adoptBundledData(db, BUNDLED_PLUGINS); // before any plugin reads its tables or settings
       previousSessionSeenAt = startLastSeen(() => db);
@@ -403,6 +408,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       // After archive is set: aiSettings() reads through ready().
       watcher.requestCatchUp(); // judgments an earlier session didn't finish
       rederiveIfStale(db, () => pluginHost.linksRebuilt());
+      conversationLinks.start();
       applyAttachmentCap();
       void applyTextTier();
       setInterval(() => void applyTextTier().catch(() => undefined), TEXT_RETENTION_INTERVAL_MS); // fails only while the archive is moving
