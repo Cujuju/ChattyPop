@@ -15,6 +15,7 @@ import { messageParts, type MessagePart } from '../messageParts';
 import { messageImages, type LinkImage, type MessageImage } from '../messageImages';
 import { messagesByIds } from '../queries/messages';
 import { archiveSearch, type ArchiveSearchHit, type ArchiveSearchOptions } from '../queries/archiveSearch';
+import { archiveSearchCount, type ArchiveSearchCount, type ArchiveSearchGroup } from '../queries/archiveSearchCount';
 import { lastReader, messageRead } from '../queries/readMarks';
 import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
@@ -35,6 +36,8 @@ export interface Importer {
 export interface PluginArchive {
   /** Matches any distinctive word across message, derived and link text, best match first. Ignores stopwords and short words; none remaining means no hits. Applies privacy and scope. */
   search(query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[];
+  /** Counts all search matches once, highest count first, with bounded groups. null query counts all scoped messages. */
+  searchCount(query: string | null, opts: ArchiveSearchOptions, group: ArchiveSearchGroup): ArchiveSearchCount[];
   /** Payload metadata for selected ids, including compressed payloads; background reads retain their original scope. */
   payloads: ArchivePayloadReader;
   /** Indexed early-exit reply check over original archive data. */
@@ -164,6 +167,7 @@ export function pluginArchive(
   const settle = derivedTextSettler(id, bundled, plugins);
   return {
     search: (query, opts) => live() ? archiveSearch(bundled.ready(), query, opts) : [],
+    searchCount: (query, opts, group) => live() ? archiveSearchCount(bundled.ready(), query, opts, group) : [],
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
     messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),

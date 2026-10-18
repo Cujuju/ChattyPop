@@ -46,6 +46,7 @@ export const defineCorePlugin = <const D extends PluginDescriptor>(plugin: D, ac
 export { fromJson, parseRawJson } from '@core/db';
 export type { Importer } from '@core/plugins/archiveContext';
 export { ARCHIVE_SEARCH_MAX, type ArchiveSearchOptions, type ArchiveSearchHit } from '@core/queries/archiveSearch';
+export { ARCHIVE_SEARCH_GROUPS_MAX, type ArchiveSearchCount, type ArchiveSearchGroup } from '@core/queries/archiveSearchCount';
 export { storedAttachmentPath } from '@core/attachmentRetention';
 // Typed domain operations.
 export { embedsFrom } from '@core/queries/messageExtras';
