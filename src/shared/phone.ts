@@ -33,6 +33,7 @@ export const PHONE_CORE_METHODS = [
   'mutualFriends',
   'reactors',
   'findPeople',
+  'findSearchAuthors',
   'peopleByIds',
   'personNames',
   'mentionCandidates',

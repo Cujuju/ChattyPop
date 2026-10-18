@@ -238,6 +238,21 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   CREATE INDEX conversation_links_channel_ts ON conversation_links(channel_id, ts);
   CREATE TABLE conversation_link_queue (channel_id TEXT PRIMARY KEY, from_ts INTEGER NOT NULL, until_ts INTEGER NOT NULL) WITHOUT ROWID;
   `,
+  // Who posted in each channel, how often and when last (search's from: names), kept by the messages table's triggers.
+  // last_ts: the newest message seen; a deleted one leaves it.
+  `
+  CREATE TABLE channel_authors (channel_id TEXT NOT NULL, author_id TEXT NOT NULL, messages INTEGER NOT NULL, last_ts INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, author_id)) WITHOUT ROWID;
+  INSERT INTO channel_authors SELECT channel_id, author_id, COUNT(*), MAX(ts) FROM messages GROUP BY channel_id, author_id;
+  CREATE TRIGGER messages_channel_authors_ai AFTER INSERT ON messages BEGIN
+    INSERT INTO channel_authors VALUES (NEW.channel_id, NEW.author_id, 1, NEW.ts)
+      ON CONFLICT (channel_id, author_id) DO UPDATE SET messages = messages + 1, last_ts = MAX(last_ts, excluded.last_ts);
+  END;
+  CREATE TRIGGER messages_channel_authors_ad AFTER DELETE ON messages BEGIN
+    UPDATE channel_authors SET messages = messages - 1 WHERE channel_id = OLD.channel_id AND author_id = OLD.author_id;
+    DELETE FROM channel_authors WHERE channel_id = OLD.channel_id AND author_id = OLD.author_id AND messages <= 0;
+  END;
+  `,
 ];
 
 /**

@@ -22,6 +22,10 @@ export const SEARCH_CHOICES_MAX = 10;
 /** People whose name, username or a server nickname contains `query`. */
 export const findSearchPeople = (query: string): Promise<PersonMatch[]> => api.core.findPeople(query, SEARCH_CHOICES_MAX);
 
+/** People a `from:` in `query` can find, named like `name`; those in the shown channel's server first. */
+export const findSearchAuthors = (name: string, query: string, shownChannelId: string | null): Promise<PersonMatch[]> =>
+  api.core.findSearchAuthors(name, query, shownChannelId, SEARCH_CHOICES_MAX);
+
 /** The person a `from:<@id>` names. */
 export const searchPersonById = (id: string): Promise<PersonMatch[]> => api.core.peopleByIds([id]);
 

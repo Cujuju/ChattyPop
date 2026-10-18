@@ -11,7 +11,7 @@ import { ownEmoji, ownReactions } from './queries/ownEmoji';
 import { mentionCandidates } from './queries/mentions';
 import { ownAuthor } from './queries/messages';
 import { ownerModerates } from './queries/moderation';
-import { findPeople, peopleByIds } from './queries/people';
+import { findPeople, findSearchAuthors, peopleByIds } from './queries/people';
 import { personNames } from './queries/personNames';
 import { personProfile } from './queries/person';
 import { cachedMutualFriends, cachedProfile, cachedReactors, storeMutualFriends, storeProfile, storeReactors } from './discordProfiles';
@@ -38,7 +38,7 @@ export const ruleHandlers = (
 export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
-): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'conversationLinkScore' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
+): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'findSearchAuthors' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'conversationLinkScore' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
   searchMessages: (text, limit, sort, caller) => searchOffThread(db(), text, limit, normalizeSearchSort(sort), typeof caller === 'string' ? caller : null),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
@@ -48,6 +48,7 @@ export const queryHandlers = (
   reactors: (messageId, emojiKey) => cachedReactors(db(), messageId, emojiKey),
   storeReactors: (messageId, emojiKey, users, count, at) => storeReactors(db(), messageId, emojiKey, users, count, at),
   findPeople: (query, limit) => findPeople(db(), query, limit),
+  findSearchAuthors: (name, query, shownChannelId, limit) => findSearchAuthors(db(), name, query, shownChannelId, limit),
   peopleByIds: (ids) => peopleByIds(db(), ids),
   personNames: (ids, channelId) => personNames(db(), ids, channelId),
   mentionCandidates: (channelId, query, limit) => mentionCandidates(db(), selfId(), channelId, query, limit),

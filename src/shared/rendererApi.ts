@@ -271,6 +271,7 @@ export const RENDERER_CORE_METHODS = [
   'mutualFriends',
   'reactors',
   'findPeople',
+  'findSearchAuthors',
   'peopleByIds',
   'personNames',
   'mentionCandidates',

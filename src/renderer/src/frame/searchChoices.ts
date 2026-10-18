@@ -2,7 +2,9 @@
 import { DM_GUILD_ID } from '@shared/discord';
 import { mentionedUserId } from '@shared/searchQuery';
 import { archivedChannels, channelSigil, directory } from '@/state/directory';
-import { SEARCH_CHOICES_MAX, findSearchPeople, searchPersonById } from '@/state/search';
+import type { PersonMatch } from '@shared/contract';
+import { shownChannelId } from '@/state/archive';
+import { SEARCH_CHOICES_MAX, findSearchAuthors, findSearchPeople, searchPersonById, searchText } from '@/state/search';
 import { serverTerm, type FilterChoice, type NamedChoiceSources, type QueryChip, type SearchFilter } from './searchFilters';
 
 const lower = (s: string): string => s.toLowerCase();
@@ -17,17 +19,22 @@ const best = <T>(items: readonly T[], name: (t: T) => string, partial: string): 
     .slice(0, SEARCH_CHOICES_MAX);
 };
 
-/** People matching what is typed, as findPeople ranks them, or the one a `<@id>` names; none before a first letter (all would match). The value is the username. */
-async function people(partial: string): Promise<FilterChoice[]> {
-  if (!partial.trim()) return [];
-  const id = mentionedUserId(partial.trim());
-  return (await (id ? searchPersonById(id) : findSearchPeople(partial))).map((p) => ({
-    label: p.name,
-    // A username names one person; one never seen with a username is named by id, as the person view links them.
-    value: p.username ?? `<@${p.id}>`,
-    detail: p.username ? `@${p.username}` : undefined,
-    lead: { kind: 'person', id: p.id, avatar: p.avatar },
-  }));
+/** A person as a choice; the value is the username. */
+const personChoice = (p: PersonMatch): FilterChoice => ({
+  label: p.name,
+  // A username names one person; one never seen with a username is named by id, as the person view links them.
+  value: p.username ?? `<@${p.id}>`,
+  detail: p.username ? `@${p.username}` : undefined,
+  lead: { kind: 'person', id: p.id, avatar: p.avatar },
+});
+
+/** People the query can find matching what is typed (the most active before a first letter), as findSearchAuthors ranks them. */
+const people = async (partial: string): Promise<FilterChoice[]> => (await findSearchAuthors(partial, searchText(), shownChannelId())).map(personChoice);
+
+/** Anyone a finished value names, posted or not, for its chip: the one a `<@id>` names, else matches by name. */
+async function person(value: string): Promise<FilterChoice[]> {
+  const id = mentionedUserId(value.trim());
+  return (await (id ? searchPersonById(id) : findSearchPeople(value))).map(personChoice);
 }
 
 /** Archived server channels (DMs have no name `in:` matches), with their server's icon. One whose name another server's channel contains also adds `server:`. */
@@ -51,7 +58,7 @@ function servers(partial: string): FilterChoice[] {
   return best(archived, (g) => g.name, partial).map((g) => ({ label: g.name, value: g.name, lead: { kind: 'server', id: g.id, name: g.name, icon: g.icon } }));
 }
 
-export const namedChoiceSources: NamedChoiceSources = { people, channels, servers };
+export const namedChoiceSources: NamedChoiceSources = { people, person, channels, servers };
 
 /** People a chip named, picked or looked up: their lookup is a core call, so a chip shows the answer once it has one. */
 const knownPeople = new Map<string, FilterChoice | null>();
@@ -74,7 +81,7 @@ export function chipChoice(chip: QueryChip, filter: SearchFilter | undefined, ch
     const named = list.filter((c) => lower(c.value) === lower(chip.value));
     return named.find((c) => server !== undefined && lower(c.detail ?? '') === lower(server)) ?? named[0] ?? null;
   };
-  const list = filter.choices(chip.value);
+  const list = (filter.lookup ?? filter.choices)(chip.value);
   if (!(list instanceof Promise)) return exact(list);
   return list.then(
     (l) => {

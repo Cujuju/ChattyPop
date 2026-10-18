@@ -42,7 +42,7 @@ it('adds a narrowing term to a picked value, but not to a negated one', () => {
 
 it('offers the named filters their sources and the short ones only values matching what is typed', async () => {
   const people = vi.fn(async (partial: string) => [{ label: partial, value: partial }]);
-  const filters = searchFilters([], { people, channels: () => [], servers: () => [] });
+  const filters = searchFilters([], { people, person: () => [], channels: () => [], servers: () => [] });
   expect(await filters.find((f) => f.key === 'from')!.choices('ad')).toEqual([{ label: 'ad', value: 'ad' }]);
   expect(people).toHaveBeenCalledWith('ad');
   expect(filters.find((f) => f.key === 'has')!.choices('im')).toEqual([{ label: 'image', value: 'image' }]);

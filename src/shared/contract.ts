@@ -214,6 +214,12 @@ export interface CoreMethods {
   storeReactors(messageId: string, emojiKey: string, users: RawUser[], count: number, fetchedAt: number): ReactionUsers;
   /** People whose name, username or a server nickname contains `query`: a name or username starting with it first, then by name. */
   findPeople(query: string, limit: number): PersonMatch[];
+  /**
+   * People a `from:` in the search `query` can find: those who posted where its `in:` and `server:` terms look (anywhere
+   * without them), whose name contains `name` (all when empty). A name starting with it first, then those who posted in
+   * the shown channel's server, then the most active.
+   */
+  findSearchAuthors(name: string, query: string, shownChannelId: string | null, limit: number): PersonMatch[];
   /** Mention autocomplete returns eligible people, permitted everyone/here, then roles within one limit. */
   mentionCandidates(channelId: string, query: string, limit: number): MentionCandidate[];
   /** The owner as the author of a message they post in the channel (name, avatar and style there); null before the archive knows them. */

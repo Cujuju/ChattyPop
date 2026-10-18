@@ -32,11 +32,16 @@ export interface SearchFilter {
   choices: (partial: string) => FilterChoices;
   /** Choices are named things (people, places), listed as rows; else short values, shown as chips. */
   named?: boolean;
+  /** Choices for a finished value (a chip's name) where they differ from those offered: people offered are narrowed. */
+  lookup?: (value: string) => FilterChoices;
 }
 
 /** Where the people, channels and servers the `from:`, `in:` and `server:` filters offer come from. */
 export interface NamedChoiceSources {
+  /** People the query can find. */
   people: (partial: string) => FilterChoices;
+  /** Anyone, posted or not: a chip's person. */
+  person: (value: string) => FilterChoices;
   channels: (partial: string) => FilterChoices;
   servers: (partial: string) => FilterChoices;
 }
@@ -48,7 +53,7 @@ export const FILTER_GROUPS: readonly { id: FilterGroup; title: string }[] = [
 ];
 
 const none = (): readonly FilterChoice[] => [];
-const NO_NAMED_CHOICES: NamedChoiceSources = { people: none, channels: none, servers: none };
+const NO_NAMED_CHOICES: NamedChoiceSources = { people: none, person: none, channels: none, servers: none };
 
 /** The choices whose label or value contains `partial`, ignoring case. */
 export const matching = (choices: readonly FilterChoice[], partial: string): readonly FilterChoice[] => {
@@ -78,7 +83,7 @@ function dateChoices(partial: string): readonly FilterChoice[] {
 }
 
 const hostFilters = (named: NamedChoiceSources): readonly SearchFilter[] => [
-  { key: 'from', group: 'who', description: 'Sent by a person', value: 'name', choices: named.people, named: true },
+  { key: 'from', group: 'who', description: 'Sent by a person', value: 'name', choices: named.people, lookup: named.person, named: true },
   { key: 'in', group: 'who', description: 'In a channel', value: 'channel', choices: named.channels, named: true },
   { key: 'server', group: 'who', description: 'In a server', value: 'server', choices: named.servers, named: true },
   { key: 'has', group: 'what', description: 'Has a link, file, image or embed', value: 'kind', choices: kinds(HAS_KINDS) },

@@ -88,19 +88,31 @@ function termSql(t: SearchTerm): { sql: string; params: (string | number)[] } {
   }
 }
 
-/** Operators that can't apply are left out here; the renderer shows them from the same parse. */
-export function parseSearch(text: string): SearchFilters {
-  const parsed = parseSearchQuery(text, searchTokenKeys());
+/** Each term's SQL, ANDed by the caller. */
+function termsSql(terms: readonly SearchTerm[]): Pick<SearchFilters, 'where' | 'params'> {
   const where: string[] = [];
   const params: (string | number)[] = [];
-  for (const t of parsed.terms) {
+  for (const t of terms) {
     const s = termSql(t);
     // A NULL (an unknown author's missing name) is "no match", so its negation must include the row.
     where.push(t.negated ? `NOT IFNULL(${s.sql}, 0)` : s.sql);
     params.push(...s.params);
   }
-  return { words: parsed.words, where, params };
+  return { where, params };
 }
+
+/** Operators that can't apply are left out here; the renderer shows them from the same parse. */
+export function parseSearch(text: string): SearchFilters {
+  const parsed = parseSearchQuery(text, searchTokenKeys());
+  return { words: parsed.words, ...termsSql(parsed.terms) };
+}
+
+/** The keys naming where a search looks; their SQL reads only `c` (the channel). */
+const PLACE_KEYS: ReadonlySet<SearchTerm['key']> = new Set(['in', 'server']);
+
+/** The query's `in:` and `server:` terms as SQL over `c` (channels): the channels its search looks in. */
+export const placeSql = (text: string): Pick<SearchFilters, 'where' | 'params'> =>
+  termsSql(parseSearchQuery(text, searchTokenKeys()).terms.filter((t) => PLACE_KEYS.has(t.key)));
 
 /** A hit's text: whole when short, else cut around its first match (or from its start) with tokens, links and URLs whole. */
 const resultText = (text: string): string => (text.length <= RESULT_TEXT_CHARS ? text : snippet(text, FIRST_MATCH, RESULT_TEXT_CHARS));
