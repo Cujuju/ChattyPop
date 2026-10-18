@@ -149,6 +149,8 @@ export interface TestPlugin<D extends PluginDescriptor> {
   archive: {
     /** Messages arriving live: archived and heard by plugins (ctx.archive.onText), then their channels' change noted (onChanged). */
     arrive(messages: readonly SeedMessage[]): string[];
+    /** Links stored messages into conversations, as core's background linker does after ingest (ctx.archive.conversationSql reads them). */
+    linkConversations(): Promise<void>;
     /** Changes a channel's local-AI-only or privacy mark. */
     setChannel(id: string, policy: Pick<SeedChannel, 'localOnly' | 'hidden'>): void;
     setPrivacyMode(on: boolean): void;

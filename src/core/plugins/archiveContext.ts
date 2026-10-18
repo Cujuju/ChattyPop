@@ -17,6 +17,7 @@ import { messagesByIds } from '../queries/messages';
 import { archiveSearch, type ArchiveSearchHit, type ArchiveSearchOptions } from '../queries/archiveSearch';
 import { archiveSearchCount, type ArchiveSearchCount, type ArchiveSearchGroup } from '../queries/archiveSearchCount';
 import { archiveLinksSql, metadataScopeSql } from '../queries/linkMetadata';
+import { CONVERSATION_SQL } from '../conversations/read';
 import { aiSources, type AiReader } from '../ai/readScope';
 import type { ArchiveToolScope } from '../ai/archiveTools';
 import { lastReader, messageRead } from '../queries/readMarks';
@@ -43,6 +44,11 @@ export interface PluginArchive {
   searchCount(query: string | null, opts: ArchiveSearchOptions, group: ArchiveSearchGroup): ArchiveSearchCount[];
   /** Read-only link SELECT with scoped metadata and metadata_channel_ids provenance. Scoped reads default to hosted policy; unscoped reads are for display. */
   linksSql(scope?: ArchiveToolScope, reader?: AiReader | 'display'): string;
+  /**
+   * Read-only SELECT of one message's conversation from stored links, its one parameter the message id: `message_id,
+   * channel_id, ts, parent_id, kind, confidence`, root first, bounded. Privacy applied; scope is the caller's.
+   */
+  conversationSql(): string;
   /** Payload metadata for selected ids, including compressed payloads; background reads retain their original scope. */
   payloads: ArchivePayloadReader;
   /** Indexed early-exit reply check over original archive data. */
@@ -178,6 +184,7 @@ export function pluginArchive(
       const policy = reader !== 'display' && (scope || reader) ? sources.sql('s.channel_id', reader ?? 'hosted') : '1';
       return archiveLinksSql(live() ? `${scope ? metadataScopeSql(scope) : '1'} AND ${policy}` : '0', false, true);
     },
+    conversationSql: () => CONVERSATION_SQL,
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
     messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),

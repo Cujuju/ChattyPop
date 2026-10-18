@@ -14,6 +14,7 @@ export const VIEW_COLUMNS: Record<string, string> = {
   message_links: 'message_id, link_id',
   search: 'seq, query, rank',
   names: 'channel_id, user_id, name',
+  conversation_links: 'message_id, channel_id, ts, parent_id, kind, confidence',
 };
 
 /** Hidden channels, inherited privacy, hidden-id references, missing metadata and retained orphan references. */
@@ -47,6 +48,14 @@ export function seedArchiveViews(db: Db): void {
     INSERT INTO derived_texts (message_id, source, ord, text) VALUES ('m-open', 'probe:second', 2, 'second'), ('m-open', 'probe:first', 1, 'first');
     INSERT INTO link_texts (url, source, text) VALUES ('https://example.com/open', 'probe', 'linked text');
   `);
+}
+
+/** Conversation links over the seeded messages (current schema only): a thread to a hidden parent, an orphan parent. */
+export function seedConversationLinks(db: Db): void {
+  db.exec(`INSERT INTO conversation_links (message_id, channel_id, ts, parent_id, kind, confidence) VALUES
+    ('m-open', 'c-open', 1, NULL, 'start', 0), ('m-ref-channel', 'c-open', 5, 'm-open', 'inferred', 0.5),
+    ('m-hide', 'c-hide', 2, NULL, 'start', 0), ('m-thread', 'c-thread', 3, 'm-hide', 'thread', 1),
+    ('m-ref-guild', 'c-open', 6, 'gone', 'reply', 1)`);
 }
 
 /** Privacy-neutral users and rules have only one view name. */

@@ -224,7 +224,7 @@ export interface CoreMethods {
   peopleByIds(ids: string[]): PersonMatch[];
   /** How these people's names show in a channel (null: no place), as Discord draws them there; unknown ids are left out. */
   personNames(ids: string[], channelId: string | null): PersonName[];
-  /** The exchange a message belongs to (reply chain, then nearby messages by its participants). */
+  /** The conversation a message belongs to, from its stored links (src/core/conversations). */
   conversation(messageId: string): ConversationView;
   /** Diagnostics: how well conversation links recover Discord replies hidden from the rules, over `channelIds` (default: all). */
   conversationLinkScore(channelIds?: string[]): Promise<LinkScore>;
