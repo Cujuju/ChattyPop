@@ -8,12 +8,13 @@ import { ensureExpressions } from '@/state/expressions';
 import { asReaction } from '@/state/reactions';
 import { look } from '@/theme/look';
 import { EmojiList } from '@/panels/chat/compose/EmojiList';
+import styles from './ChatEmoji.module.css';
 
 /** A reaction emoji at reaction size: Unicode text or a custom emoji's image. */
 export function ChatEmoji(props: { emoji: ArchiveEmoji }) {
   return (
     <Show when={props.emoji.id} fallback={<span class={look.emojiGlyph}>{props.emoji.name}</span>}>
-      {(id) => <EmojiImage class={look.emojiGlyph} emoji={{ id: id(), animated: props.emoji.animated }} alt={`:${props.emoji.name}:`} />}
+      {(id) => <EmojiImage class={`${styles.image} ${look.emojiGlyph}`} emoji={{ id: id(), animated: props.emoji.animated }} alt={`:${props.emoji.name}:`} />}
     </Show>
   );
 }

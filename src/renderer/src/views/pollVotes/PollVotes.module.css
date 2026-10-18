@@ -12,7 +12,7 @@
   color: var(--cp-text-1);
   font-size: var(--cp-text-base);
   font-weight: var(--cp-weight-semibold);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .columns {
@@ -21,7 +21,7 @@
   min-height: 0;
 }
 
-/* Answers: a tab list, as Settings' is, on the header's band. */
+/* Answers: a tab list, as Settings' is, ruled off from the voters. */
 .answers {
   display: flex;
   flex: 0 0 var(--cp-poll-votes-answers-w);
@@ -30,30 +30,27 @@
   padding: var(--cp-space-4);
   overflow-y: auto;
   border-inline-end: var(--cp-border-w) solid var(--cp-border);
-  background: var(--cp-surface-2);
 }
 
 .answer {
   display: flex;
   align-items: center;
-  gap: var(--cp-space-3);
+  gap: var(--cp-space-4);
   min-height: var(--cp-btn-h);
-  padding: var(--cp-space-2) var(--cp-space-4);
+  padding: var(--cp-space-3) var(--cp-space-4);
   font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
   text-align: start;
 }
 
 .answerText {
   flex: 1 1 auto;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .count {
-  flex: 0 0 auto;
-  color: var(--cp-text-muted);
-  font-size: var(--cp-text-xs);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .voters {
@@ -75,7 +72,7 @@
   list-style: none;
 }
 
-/* A voter: avatar, their name as the channel draws it, then their username. */
+/* A voter: avatar, then their name as the channel draws it over their username. */
 .voter {
   display: flex;
   align-items: center;
@@ -83,7 +80,6 @@
   width: 100%;
   padding: var(--cp-space-2) var(--cp-space-4);
   color: var(--cp-text-1);
-  font-size: var(--cp-text-sm);
   text-align: start;
 }
 
@@ -93,20 +89,28 @@
   height: var(--cp-avatar-md);
 }
 
-.name {
+.names {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name,
+.username {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.name {
+  font-size: var(--cp-text-base);
+}
+
 .username {
-  min-width: 0;
-  overflow: hidden;
   color: var(--cp-text-muted);
   font-size: var(--cp-text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .status {

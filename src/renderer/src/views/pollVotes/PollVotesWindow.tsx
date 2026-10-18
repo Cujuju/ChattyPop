@@ -1,5 +1,5 @@
-// A poll's votes (View votes), as Discord's: its answers down the side, the chosen answer's voters beside them, read
-// from Discord a page at a time. Each voter opens their profile.
+// A poll's votes (View votes), as Discord's: its answers down the side (emoji, answer, its count), the chosen answer's
+// voters beside them (avatar, name over username), read from Discord a page at a time. Each voter opens their profile.
 import { For, Show, createEffect, createSignal, on } from 'solid-js';
 import type { PersonMatch } from '@shared/contract';
 import { openPerson } from '@/state/person';
@@ -61,8 +61,9 @@ export function PollVotesWindow() {
             {(a) => (
               <button type="button" class={`${styles.answer} ${look.navItem}`} aria-current={answerId() === a.id ? 'page' : undefined} onClick={() => setAnswerId(a.id)}>
                 <Show when={a.emoji}>{(e) => <ChatEmoji emoji={e()} />}</Show>
-                <span class={styles.answerText}>{a.text}</span>
-                <span class={styles.count}>{a.votes}</span>
+                <span class={styles.answerText}>
+                  {a.text} <span class={styles.count}>({a.votes})</span>
+                </span>
               </button>
             )}
           </For>
@@ -75,8 +76,10 @@ export function PollVotesWindow() {
                   <li>
                     <button type="button" class={`${styles.voter} ${look.row}`} data-hover="raise" onClick={() => openPerson(person.id, channelId())}>
                       <PersonFace userId={person.id} channelId={channelId()} class={styles.face} />
-                      <AuthorName author={drawnName(person.id, channelId(), person.name)} class={styles.name} />
-                      <Show when={person.username}>{(u) => <span class={styles.username}>{u()}</span>}</Show>
+                      <span class={styles.names}>
+                        <AuthorName author={drawnName(person.id, channelId(), person.name)} class={styles.name} />
+                        <Show when={person.username}>{(u) => <span class={styles.username}>{u()}</span>}</Show>
+                      </span>
                     </button>
                   </li>
                 )}

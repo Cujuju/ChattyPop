@@ -1,0 +1,7 @@
+/* A custom emoji's image at reaction size: the look role sizes a Unicode glyph by its font, which an image ignores. */
+.image {
+  flex: none;
+  width: var(--cp-reaction-emoji);
+  height: var(--cp-reaction-emoji);
+  object-fit: contain;
+}
