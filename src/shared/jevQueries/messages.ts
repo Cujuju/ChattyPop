@@ -84,4 +84,22 @@ export const MESSAGE_QUERIES: readonly JevQueryDef[] = [
       minProbability: 0.6,
     },
   },
+  {
+    id: 'conversations.parent',
+    group: 'Messages',
+    label: 'Which message it continues',
+    features: ['linkConversations'],
+    sees: '`message` (author: text) and `earlier` (the likeliest earlier messages it may continue, numbered, oldest first). Asked only when the app is unsure.',
+    use: 'dynamic-options',
+    optionsNote: 'The options are the numbered `earlier` messages, plus "none", so only the question and threshold can change.',
+    condition: 'Link the messages',
+    defaults: {
+      type: 'choice',
+      question: 'Which message in `earlier` does `message` reply to, answer or continue? Pick "none" if it starts something new.',
+      options: [],
+      alertOn: [],
+      // A link joins two conversations: only when more likely right than wrong.
+      minProbability: 0.5,
+    },
+  },
 ];

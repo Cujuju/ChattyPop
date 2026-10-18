@@ -91,7 +91,9 @@ const queued = (db: Db) => db.prepare('SELECT COUNT(*) FROM conversation_link_qu
 /** `count` question-and-answer pairs, ten minutes apart. */
 const pairs = (count: number): RawMessage[] => Array.from({ length: count }, (_, i) => {
   const asked = say('c', i * 10, `question ${i}?`);
-  return [asked, say('c', i * 10 + 1, `answer ${i}`, bob, replyTo(asked))];
+  // The answer's id low bits (Discord's per-process counter) alternate, so both halves of the score's split occur.
+  const answer = say('c', i * 10 + 1, `answer ${i}`, bob, replyTo(asked));
+  return [asked, { ...answer, id: (BigInt(answer.id) + BigInt(i)).toString() }];
 }).flat();
 
 describe('conversation link job', () => {
@@ -191,6 +193,7 @@ describe('conversation link job', () => {
     await new ConversationLinkJob(() => db).run();
     const answers = messages.filter((m) => m.message_reference);
     const held = answers.filter((m) => isHeldOut(m.id)).length;
+    expect(held).toBeGreaterThan(0);
     const score = await scoreReplyHoldout(db);
     expect(score).toMatchObject({ replies: held, previousExact: held, messages: 40, queuedChannels: 0, fit: { samples: answers.length - held } });
     expect(score.levels[0]).toMatchObject({ minConfidence: 0, exact: held, sameConversation: held, conversations: { count: 20, median: 2, max: 2, inRunaway: 0 } });

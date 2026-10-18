@@ -27,11 +27,18 @@ function softmax(rows: Float64Array, count: number, w: Weights, p: Float64Array)
   for (let j = 0; j < count; j++) p[j]! /= sum;
 }
 
-/** The most probable parent of `m` among `candidates` (oldest first, at least one). */
-export function choose(m: ChooserMessage, candidates: readonly ChooserMessage[], w: Weights): Choice {
+/** Each candidate's probability of being the parent of `m`, given one of them is (same order as `candidates`). */
+export function probabilities(m: ChooserMessage, candidates: readonly ChooserMessage[], w: Weights): Float64Array {
   const { rows, count } = fitSample(m, candidates, 0);
   const p = new Float64Array(count);
   softmax(rows, count, w, p);
+  return p;
+}
+
+/** The most probable parent of `m` among `candidates` (oldest first, at least one). */
+export function choose(m: ChooserMessage, candidates: readonly ChooserMessage[], w: Weights): Choice {
+  const p = probabilities(m, candidates, w);
+  const count = p.length;
   let best = 0;
   for (let j = 1; j < count; j++) if (p[j]! > p[best]!) best = j;
   return { index: best, probability: p[best]! };

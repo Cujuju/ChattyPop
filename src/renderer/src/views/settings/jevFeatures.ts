@@ -57,6 +57,12 @@ export const JEV_FEATURE_INFO: Readonly<Record<HostJevFeature, JevFeatureInfo>> 
     label: 'Right-click Jev check',
     hint: 'Right-click a message to run Jev checks on it, or ask your own question. Sends only that message, only when you ask.',
   },
+  linkConversations: {
+    group: 'Messages & search',
+    label: 'Link unsure conversations',
+    hint: 'When the app can’t tell which earlier message a new one answers, Jev picks among the likeliest few. Its picks also teach the app. Never sends local-AI-only channels.',
+    perMessage: '1 question per unsure message',
+  },
   suggestChannels: { group: 'Tools', label: 'Suggest channels to archive', hint: 'Samples channels you don’t archive and ranks them against your rules.' },
   pluginDecide: { group: 'Tools', label: 'Let plugins ask Jev', hint: 'Plugins may call ai.decide(); it bills to your Jev key.' },
 };

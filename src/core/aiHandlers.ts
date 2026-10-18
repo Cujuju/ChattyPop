@@ -1,5 +1,6 @@
 // Core methods for AI providers and Jev's on-demand checks.
 import type { AppEvent, CoreMethods } from '@shared/contract';
+import { scoreJevOnReplies } from './conversations/jevScore';
 import { errorMessage } from '@shared/errors';
 import type { AiSettings } from '@shared/settings';
 import type { DecisionProvider } from './ai/decisions';
@@ -29,9 +30,11 @@ type Handlers = Pick<
   | 'jevStatus'
   | 'jevCheckMessage'
   | 'jevAskRange'
+  | 'conversationJevScore'
 >;
 
 const MESSAGE_CHECK_HINT = 'Turn on Settings → Jev → Right-click Jev check, with a Jev connection set up (OpenRouter or TypeSafe).';
+const LINK_CONVERSATIONS_HINT = 'Turn on Settings → Jev → Link unsure conversations, with a Jev connection set up (OpenRouter or TypeSafe).';
 
 export function aiHandlers(o: {
   db: () => Db;
@@ -39,7 +42,7 @@ export function aiHandlers(o: {
   jevLedger: JevSpendLedger;
   aiSettings: () => AiSettings;
   /** A Jev decider for a per-feature switch, or throws `hint`. */
-  requireDecider: (feature: 'messageCheck', hint: string) => DecisionProvider;
+  requireDecider: (feature: 'messageCheck' | 'linkConversations', hint: string) => DecisionProvider;
   emit: (e: AppEvent) => void;
 }): Handlers {
   const { providers } = o;
@@ -69,5 +72,6 @@ export function aiHandlers(o: {
       const db = o.db();
       return askRange(db, new MessageJudge(db), jev, ask);
     },
+    conversationJevScore: (perBand) => scoreJevOnReplies(o.db(), o.requireDecider('linkConversations', LINK_CONVERSATIONS_HINT), perBand),
   };
 }
