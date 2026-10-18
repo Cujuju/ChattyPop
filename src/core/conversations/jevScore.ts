@@ -3,7 +3,7 @@ import type { JevBucketScore, JevLinkScore } from '@shared/conversationScore';
 import { sumCosts, type DecisionProvider } from '../ai/decisions';
 import { assertHostedMayRead, localOnlyChannelIds } from '../channelPolicy';
 import type { Db } from '../db';
-import { askedMessages, askParent, JEV_CANDIDATES } from './ask';
+import { askedMessages, askParent } from './ask';
 import { probabilities } from './chooser';
 import { fittedWeights, replySamples } from './fit';
 import { CANDIDATE_MAX, ruleLink } from './linker';
@@ -17,14 +17,14 @@ export const JEV_SCORE_PER_BAND = 50;
 /** Held-out replies examined at most: a band rare in this archive stays short instead of the scan reading every reply. */
 export const JEV_SCORE_SCAN_MAX = 10_000;
 
-interface Case { channelId: string; message: string; candidates: string[]; target: string; chooserPick: string; inTop: boolean; band: number }
+interface Case { channelId: string; message: string; candidates: string[]; target: string; chooserPick: string; band: number }
 
 const bandOf = (p: number): number => {
   for (let b = JEV_SCORE_BANDS.length - 2; b >= 0; b--) if (p >= JEV_SCORE_BANDS[b]!) return b;
   return 0;
 };
 
-/** Newest held-out replies the chooser would decide, in channels hosted AI may read, up to `perBand` per band. */
+/** Newest held-out replies the chooser would decide (Jev sees all its candidates, oldest first), in channels hosted AI may read, up to `perBand` per band. */
 function cases(db: Db, perBand: number, weights: readonly number[]): { cases: Case[]; outOfReach: number } {
   const localOnly = localOnlyChannelIds(db);
   const counts = new Array<number>(JEV_SCORE_BANDS.length - 1).fill(0);
@@ -48,9 +48,8 @@ function cases(db: Db, perBand: number, weights: readonly number[]): { cases: Ca
     const band = bandOf(p[order[0]!]!);
     if (counts[band]! >= perBand) continue;
     counts[band]!++;
-    const top = order.slice(0, JEV_CANDIDATES).sort((a, b) => a - b);
-    found.push({ channelId: r.channelId, message: m.id, candidates: top.map((i) => candidates[i]!.id), target: r.parentId,
-      chooserPick: candidates[order[0]!]!.id, inTop: top.includes(target), band });
+    found.push({ channelId: r.channelId, message: m.id, candidates: candidates.map((c) => c.id), target: r.parentId,
+      chooserPick: candidates[order[0]!]!.id, band });
   }
   return { cases: found, outOfReach };
 }
@@ -61,7 +60,7 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, perBand =
   const { cases: found, outOfReach } = cases(db, perBand, weights);
   const texts = askedMessages(db, found.flatMap((c) => [c.message, ...c.candidates]));
   const bands: JevBucketScore[] = JEV_SCORE_BANDS.slice(0, -1).map((from, i) => ({
-    from, to: JEV_SCORE_BANDS[i + 1]!, asked: 0, answered: 0, chooserExact: 0, inTop: 0, jevExact: 0, jevLinks: 0, jevLinksExact: 0, jevNone: 0,
+    from, to: JEV_SCORE_BANDS[i + 1]!, asked: 0, answered: 0, chooserExact: 0, jevExact: 0, jevLinks: 0, jevLinksExact: 0, jevNone: 0,
   }));
   const costs: number[] = [];
   let failed = 0;
@@ -69,7 +68,6 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, perBand =
     const b = bands[c.band]!;
     b.asked++;
     if (c.chooserPick === c.target) b.chooserExact++;
-    if (c.inTop) b.inTop++;
     try {
       const { pick, costUsd } = await askParent(jev, texts.get(c.message)!, c.candidates.map((id) => texts.get(id)!), () => assertHostedMayRead(db, c.channelId), signal);
       if (costUsd !== null) costs.push(costUsd);

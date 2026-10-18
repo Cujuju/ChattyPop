@@ -46,16 +46,20 @@ describe('conversation Jev score', () => {
     await new ConversationLinkJob(() => db).run();
     const jev = new FakeJev(pickQuestion, 0.001);
     const score = await scoreJevOnReplies(db, jev);
-    const total = (k: 'asked' | 'answered' | 'jevExact' | 'jevLinks' | 'jevLinksExact' | 'inTop') => score.bands.reduce((n, b) => n + b[k], 0);
+    const total = (k: 'asked' | 'answered' | 'jevExact' | 'jevLinks' | 'jevLinksExact') => score.bands.reduce((n, b) => n + b[k], 0);
     const held = messages.filter((m) => m.channel_id === 'open' && m.message_reference && isHeldOut(m.id)).length;
     // Held-out replies a rule decides (bob answering right after himself) aren't the chooser's to compare.
     const asked = total('asked');
     expect(asked).toBeGreaterThan(0);
     expect(asked).toBeLessThanOrEqual(held);
-    expect([total('answered'), total('jevExact'), total('jevLinks'), total('jevLinksExact'), total('inTop')]).toEqual([asked, asked, asked, asked, asked]);
+    expect([total('answered'), total('jevExact'), total('jevLinks'), total('jevLinksExact')]).toEqual([asked, asked, asked, asked]);
     expect(jev.requests).toHaveLength(asked);
     expect(jev.requests.map((r) => JSON.stringify(r.state)).filter((s) => !s.includes('open') || s.includes('secret'))).toEqual([]);
     expect(jev.requests.every((r) => typeof r.admit === 'function')).toBe(true);
+    // Every option carries its own message text; earlier lines say how long before they came.
+    const criteria = jev.requests.map((r) => (r.questions.parent as { criteria: Record<string, string | null> }).criteria);
+    expect(criteria.every((c) => Object.values(c).every((d) => !!d))).toBe(true);
+    expect(jev.requests.every((r) => (r.state as { earlier: string[] }).earlier.every((l) => /^\d+\. \(\d+ min before\) /.test(l)))).toBe(true);
     expect(score.costUsd).toBeCloseTo(asked * 0.001);
     expect(score.failed).toBe(0);
   });

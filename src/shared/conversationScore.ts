@@ -47,8 +47,6 @@ export interface JevBucketScore {
   answered: number;
   /** The chooser's pick was the reply's target. */
   chooserExact: number;
-  /** The target was among the candidates Jev saw. */
-  inTop: number;
   jevExact: number;
   /** Jev's pick met the query's condition to link (its probability threshold), and how many of those were right. */
   jevLinks: number;
