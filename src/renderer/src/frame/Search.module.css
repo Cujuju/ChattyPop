@@ -63,10 +63,10 @@
   grid-column: 1 / -1;
 }
 
-/* A channel's run of results: its sigil and name, then its server, ruled off from the run above. */
+/* A channel's run of results: its server's icon, its sigil and name, then its server, ruled off from the run above. */
 .channel {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--cp-space-2);
   min-width: 0;
   margin-top: var(--cp-space-2);
@@ -75,6 +75,14 @@
   color: var(--cp-text-muted);
   font-size: var(--cp-text-xs);
   white-space: nowrap;
+}
+
+/* The server icon at a line of text's size, centred on the heading. */
+.serverIcon {
+  --guild-icon-size: var(--cp-avatar-xs);
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin-right: var(--cp-space-2);
 }
 
 .channelSigil {

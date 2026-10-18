@@ -5,6 +5,7 @@ import { DM_GUILD_ID } from '@shared/discord';
 import { avatarUrl } from '@shared/media';
 import { channelById, channelSigil, directory } from '@/state/directory';
 import { look } from '@/theme/look';
+import { GuildIcon } from '@/ui/GuildIcon';
 import { shortDateTime } from '@/ui/format';
 import { Markdown } from '@/ui/Markdown';
 import styles from './Search.module.css';
@@ -28,18 +29,25 @@ function channelRuns(hits: readonly SearchHit[]): ChannelRun[] {
   return runs;
 }
 
-/** A run's heading: the channel's sigil and name, then its server's (none for a DM). */
+/** A run's heading: its server's icon, the channel's sigil and name, then the server's name (no server for a DM). */
 function ChannelHeading(props: { run: ChannelRun }) {
   const channel = () => channelById(props.run.channelId);
   const server = () => {
     const guildId = channel()?.guildId;
-    return guildId && guildId !== DM_GUILD_ID ? directory().find((g) => g.id === guildId)?.name : undefined;
+    return guildId && guildId !== DM_GUILD_ID ? directory().find((g) => g.id === guildId) : undefined;
   };
   return (
     <li class={styles.channel} role="presentation">
+      <Show when={server()}>
+        {(g) => (
+          <span class={styles.serverIcon}>
+            <GuildIcon id={g().id} name={g().name} icon={g().icon} />
+          </span>
+        )}
+      </Show>
       <span class={styles.channelSigil}>{channel() ? channelSigil(channel()!) : '#'}</span>
       <span class={styles.channelName}>{props.run.channelName}</span>
-      <Show when={server()}>{(name) => <span class={styles.server}>{name()}</span>}</Show>
+      <Show when={server()}>{(g) => <span class={styles.server}>{g().name}</span>}</Show>
     </li>
   );
 }

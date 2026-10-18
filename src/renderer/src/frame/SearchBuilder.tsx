@@ -90,14 +90,13 @@ export function FilterList(props: Nav & { filters: readonly SearchFilter[]; save
   );
 }
 
-/** A person's avatar, a server's icon or a channel's sigil, in one fixed-width column. */
+/** A person's avatar or a server's icon, in one fixed-width column. */
 function Lead(props: { lead: ChoiceLead }) {
   return (
     <span class={styles.lead}>
       <Switch>
         <Match when={props.lead.kind === 'person' && props.lead}>{(p) => <img class={`${styles.avatar} ${look.avatar}`} src={avatarUrl(p().id, p().avatar)} alt="" loading="lazy" />}</Match>
         <Match when={props.lead.kind === 'server' && props.lead}>{(g) => <GuildIcon id={g().id} name={g().name} icon={g().icon} />}</Match>
-        <Match when={props.lead.kind === 'channel' && props.lead}>{(c) => <span class={styles.sigil}>{c().sigil}</span>}</Match>
       </Switch>
     </span>
   );
@@ -142,7 +141,12 @@ export function ValuePicker(props: Nav & { pending: PendingFilter; choices: read
             {(c, i) => (
               <li class={styles.named} {...option(props, i(), () => props.onPick(c))}>
                 <Show when={c.lead}>{(lead) => <Lead lead={lead()} />}</Show>
-                <span class={styles.namedLabel}>{c.label}</span>
+                <span class={styles.namedLabel}>
+                  <Show when={c.sigil}>
+                    <span class={styles.sigil}>{c.sigil}</span>
+                  </Show>
+                  {c.label}
+                </span>
                 <Show when={c.detail}>
                   <span class={styles.namedDetail}>{c.detail}</span>
                 </Show>

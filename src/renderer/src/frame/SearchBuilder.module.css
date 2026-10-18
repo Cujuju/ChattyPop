@@ -118,8 +118,8 @@
 }
 
 .sigil {
+  margin-right: var(--cp-space-1);
   color: var(--cp-text-muted);
-  font-size: var(--cp-text-base);
   font-weight: var(--cp-weight-semibold);
 }
 

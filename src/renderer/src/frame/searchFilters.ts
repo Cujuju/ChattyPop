@@ -2,11 +2,8 @@
 import { HAS_KINDS, IS_KINDS } from '@shared/searchQuery';
 import type { SearchToken } from '@shared/searchTokens';
 
-/** A person's avatar, a server's icon, or a channel's sigil ('#'). */
-export type ChoiceLead =
-  | { kind: 'person'; id: string; avatar: string | null }
-  | { kind: 'server'; id: string; name: string; icon: string | null }
-  | { kind: 'channel'; sigil: string };
+/** A person's avatar, or a server's icon (a channel shows its server's). */
+export type ChoiceLead = { kind: 'person'; id: string; avatar: string | null } | { kind: 'server'; id: string; name: string; icon: string | null };
 
 export interface FilterChoice {
   label: string;
@@ -15,6 +12,8 @@ export interface FilterChoice {
   detail?: string;
   /** What shows before the label of a named choice. */
   lead?: ChoiceLead;
+  /** Written just before the label: a channel's '#'. */
+  sigil?: string;
   /** A term added after the value to narrow it, as `server:` after a channel name other servers share too. */
   narrow?: string;
 }

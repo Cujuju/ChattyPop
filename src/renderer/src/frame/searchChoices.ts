@@ -28,15 +28,17 @@ async function people(partial: string): Promise<FilterChoice[]> {
   }));
 }
 
-/** Archived server channels (DMs have no name `in:` matches). One whose name another server's channel contains also adds `server:`. */
+/** Archived server channels (DMs have no name `in:` matches), with their server's icon. One whose name another server's channel contains also adds `server:`. */
 function channels(partial: string): FilterChoice[] {
   const all = archivedChannels().filter((c) => c.guildId !== DM_GUILD_ID);
+  const icons = new Map(directory().map((g) => [g.id, g.icon]));
   const sharedElsewhere = (c: (typeof all)[number]): boolean => all.some((o) => o.guildId !== c.guildId && lower(o.name).includes(lower(c.name)));
   return best(all, (c) => c.name, partial).map((c) => ({
     label: c.name,
     value: c.name,
     detail: c.guildName,
-    lead: { kind: 'channel', sigil: channelSigil(c) },
+    lead: { kind: 'server', id: c.guildId, name: c.guildName, icon: icons.get(c.guildId) ?? null },
+    sigil: channelSigil(c),
     narrow: sharedElsewhere(c) ? serverTerm(c.guildName) : undefined,
   }));
 }
