@@ -233,7 +233,7 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   // Conversations: each message's link to the earlier message it continues (src/core/conversations), and the ranges to (re)link.
   `
   CREATE TABLE conversation_links (message_id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, ts INTEGER NOT NULL,
-    parent_id TEXT, kind TEXT NOT NULL) WITHOUT ROWID;
+    parent_id TEXT, kind TEXT NOT NULL, confidence REAL NOT NULL) WITHOUT ROWID;
   CREATE INDEX conversation_links_parent ON conversation_links(parent_id) WHERE parent_id IS NOT NULL;
   CREATE INDEX conversation_links_channel_ts ON conversation_links(channel_id, ts);
   CREATE TABLE conversation_link_queue (channel_id TEXT PRIMARY KEY, from_ts INTEGER NOT NULL, until_ts INTEGER NOT NULL) WITHOUT ROWID;

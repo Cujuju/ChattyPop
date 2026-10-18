@@ -1,25 +1,39 @@
 // How well conversation links recover Discord replies decided as if unmarked (src/core/conversations/score.ts).
 
-export interface KindScore {
-  /** Held-out replies the rules linked by this kind. */
-  replies: number;
-  /** ...to the message the reply answered. */
+/** Conversations by links: messages per conversation. */
+export interface ConversationSizes {
+  count: number;
+  median: number;
+  p90: number;
+  max: number;
+  /** Messages in runaway conversations (score.ts RUNAWAY_CONVERSATION or more messages). */
+  inRunaway: number;
+}
+
+/** The outcome had inferred links been kept only at or above `minConfidence`. */
+export interface LevelScore {
+  minConfidence: number;
+  /** Held-out replies linked to the message they answered. */
   exact: number;
-  /** ...to a message in that message's conversation (by stored links). */
+  /** ...to a message in that message's conversation. */
   sameConversation: number;
+  conversations: ConversationSizes;
 }
 
 export interface LinkScore {
-  /** Discord replies to earlier messages of their own channel, decided with the reply hidden. */
+  /** Held-out Discord replies to earlier messages of their own channel, decided with the reply hidden. */
   replies: number;
-  exact: number;
-  sameConversation: number;
-  /** By the link kind the rules chose. */
-  byKind: Record<string, KindScore>;
   /** Baseline: always choosing the previous message. */
   previousExact: number;
-  /** Every stored link, by kind: how much each rule decides. */
+  /** Archived messages scored. */
+  messages: number;
+  /** The level linking uses now, and each compared level. */
+  minConfidence: number;
+  levels: LevelScore[];
+  /** The chooser fitted on the other half of the replies: its examples and weights by feature. */
+  fit: { samples: number; weights: Record<string, number> };
+  /** Every stored link, by kind. */
   stored: Record<string, number>;
-  /** Channels still queued: their stored links (and sameConversation) may be stale. */
+  /** Channels still queued for linking. */
   queuedChannels: number;
 }
