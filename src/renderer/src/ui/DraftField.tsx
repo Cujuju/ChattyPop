@@ -3,7 +3,7 @@ import { batchWrites, onCleanup } from '@plugin-sdk/renderer/containment';
 import { createEffect } from 'solid-js';
 import { DISCORD_TEXT_MAX } from '@shared/discord';
 import { expandEmojiTokens } from '@shared/compose';
-import { emojiUrl } from '@shared/emoji';
+import { emojiUrl, type CustomEmoji } from '@shared/emoji';
 import { customEmojiEntries, draftText, setDraftText } from '@/state/drafts';
 import { draftFieldBoundary, draftFieldParts } from './draftFieldText';
 import { draftFieldOffset, readDraftField, selectDraftField } from './draftFieldDom';
@@ -23,13 +23,12 @@ export interface DraftFieldHandle {
   replaceText(text: string, start?: number, end?: number, refocus?: boolean): void;
 }
 
-export function DraftField(props: {
-  channelId: string;
+interface FieldProps {
   class?: string;
   label: string;
   placeholder: string;
   disabled?: boolean;
-  enterkeyhint?: 'send' | 'enter';
+  enterkeyhint?: 'send' | 'enter' | 'done';
   ref: (handle: DraftFieldHandle) => void;
   onInput?: () => void;
   onBeforeInput?: (event: InputEvent) => void;
@@ -40,14 +39,32 @@ export function DraftField(props: {
   onBlur?: () => void;
   onPaste?: (event: ClipboardEvent) => void;
   onDrop?: (event: DragEvent) => void;
-}) {
+}
+
+/** The text an EmojiTextField edits. A new `textKey` resets its caret and undo history; `picked` maps `:token:`s to emoji. */
+interface TextSource {
+  textKey: string;
+  text: () => string;
+  setText: (text: string) => void;
+  picked: () => ReadonlyMap<string, CustomEmoji>;
+}
+
+/** The composer's field over a channel's draft. */
+export function DraftField(props: FieldProps & { channelId: string }) {
+  return (
+    <EmojiTextField {...props} textKey={props.channelId} text={() => draftText(props.channelId)}
+      setText={(text) => setDraftText(props.channelId, text)} picked={() => new Map(customEmojiEntries(props.channelId))} />
+  );
+}
+
+/** A text field showing picked shortcuts and Discord emoji markup as inline emoji images. */
+export function EmojiTextField(props: FieldProps & TextSource) {
   let field!: HTMLDivElement;
   let replacing = false;
   let caret = { start: 0, end: 0 };
   let beforeEdit: FieldSelection = caret;
-  let history = new DraftFieldHistory(draftText(props.channelId));
-  let currentChannel = props.channelId;
-  const picked = () => new Map(customEmojiEntries(props.channelId));
+  let history = new DraftFieldHistory(props.text());
+  let currentKey = props.textKey;
   const remember = (): void => {
     const selection = window.getSelection();
     if (!selection?.rangeCount || !field.contains(selection.anchorNode) || !field.contains(selection.focusNode)) return;
@@ -61,7 +78,7 @@ export function DraftField(props: {
   /** Creates every node/attribute ourselves; pasted HTML is never inserted. */
   const fragment = (text: string): HTMLDivElement => {
     const container = document.createElement('div');
-    for (const part of draftFieldParts(text, picked())) {
+    for (const part of draftFieldParts(text, props.picked())) {
       if (!part.emoji) container.append(document.createTextNode(part.text));
       else {
         const image = document.createElement('img');
@@ -84,7 +101,7 @@ export function DraftField(props: {
   };
   /** Writes the draft, then tells the owner. A listener's throw is reported, not raised: raised, it aborts the update and the draft's readers never run. */
   const commit = (text: string): void => batchWrites(() => {
-    setDraftText(props.channelId, text);
+    props.setText(text);
     try { props.onInput?.(); } catch (error) { reportError(error); }
   });
   const show = (text: string, selection: FieldSelection): void => {
@@ -97,7 +114,7 @@ export function DraftField(props: {
     remember();
     const text = readDraftField(field);
     // Composition/autocorrect can edit without a cancellable beforeinput. Keep the textarea's original limit.
-    if (text.length > DISCORD_TEXT_MAX) { if (!composing) show(draftText(props.channelId), beforeEdit); return; }
+    if (text.length > DISCORD_TEXT_MAX) { if (!composing) show(props.text(), beforeEdit); return; }
     if (composing) return commit(text);
     history.record(text, beforeEdit, caret, typing);
     show(text, caret);
@@ -114,7 +131,7 @@ export function DraftField(props: {
     focus: () => field.focus(), blur: () => field.blur(), setSelectionRange: select,
     replaceText: (text, start = handle.selectionStart, end = handle.selectionEnd, refocus = true) => {
       if (props.disabled) return;
-      const parts = draftFieldParts(handle.value, picked());
+      const parts = draftFieldParts(handle.value, props.picked());
       const selected = start !== end;
       start = draftFieldBoundary(parts, start);
       end = draftFieldBoundary(parts, end, selected);
@@ -134,15 +151,15 @@ export function DraftField(props: {
       else if (refocus && !focused) props.onFocus?.();
     },
   };
-  // The draft changed elsewhere (sent, restored, another channel): the field shows it, ending a composition under way.
+  // The text changed elsewhere (sent, restored, another channel): the field shows it, ending a composition under way.
   createEffect(() => {
-    const text = draftText(props.channelId);
+    const text = props.text();
     if (!field) return;
-    const changedChannel = currentChannel !== props.channelId;
-    if (changedChannel) { currentChannel = props.channelId; caret = { start: text.length, end: text.length }; }
-    if (!changedChannel && readDraftField(field) === text) return;
+    const changedKey = currentKey !== props.textKey;
+    if (changedKey) { currentKey = props.textKey; caret = { start: text.length, end: text.length }; }
+    if (!changedKey && readDraftField(field) === text) return;
     history = new DraftFieldHistory(text);
-    if (!changedChannel) remember();
+    if (!changedKey) remember();
     field.replaceChildren(...fragment(text).childNodes);
     if (document.activeElement === field) select(Math.min(caret.start, text.length), Math.min(caret.end, text.length));
   });
@@ -150,16 +167,17 @@ export function DraftField(props: {
     remember();
     if (caret.start === caret.end) return;
     event.preventDefault();
-    event.clipboardData?.setData('text/plain', expandEmojiTokens(handle.value.slice(caret.start, caret.end), picked()));
+    event.clipboardData?.setData('text/plain', expandEmojiTokens(handle.value.slice(caret.start, caret.end), props.picked()));
     if (cut) handle.replaceText('');
   };
   const selectionChanged = (): void => remember();
   document.addEventListener('selectionchange', selectionChanged);
   onCleanup(() => document.removeEventListener('selectionchange', selectionChanged));
-  return <div ref={(element) => { field = element; props.ref(handle); }} class={`${styles.field} ${props.class ?? ''}`}
+  // Filled at creation, so an owner's onMount can already place the caret in the text.
+  return <div ref={(element) => { field = element; field.replaceChildren(...fragment(props.text()).childNodes); props.ref(handle); }} class={`${styles.field} ${props.class ?? ''}`}
     role="textbox" aria-label={props.label} aria-multiline="true" aria-disabled={props.disabled || undefined}
     contentEditable={!props.disabled} tabIndex={props.disabled ? -1 : 0} enterkeyhint={props.enterkeyhint}
-    data-placeholder={props.placeholder} data-empty={!draftText(props.channelId)} spellcheck="true"
+    data-placeholder={props.placeholder} data-empty={!props.text()} spellcheck="true"
     onInput={(event) => publish(event.inputType === 'insertText', event.isComposing)}
     onCompositionStart={() => { remember(); beforeEdit = { ...caret }; }}
     onCompositionEnd={() => publish()}

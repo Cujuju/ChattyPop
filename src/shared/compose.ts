@@ -269,7 +269,7 @@ export function expandMentionTokens(text: string, picked: Map<string, MentionPic
 }
 
 /** Replaces picked `:token:`s with Discord's custom emoji markup; other text stays as typed. */
-export const expandEmojiTokens = (text: string, picked: Map<string, CustomEmoji>): string =>
+export const expandEmojiTokens = (text: string, picked: ReadonlyMap<string, CustomEmoji>): string =>
   text.replace(/<(?:a?):\w{2,32}:\d{15,21}>|(?<!<|<a):([\w~]+):/g, (whole, token?: string) => {
     if (!token) return whole;
     const e = picked.get(token);
