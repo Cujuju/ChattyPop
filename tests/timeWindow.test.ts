@@ -1,7 +1,17 @@
 // The time window picker's contract: presets resolve against the clock, fixed bounds stay put, and each reads short.
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY, MS_PER_HOUR } from '@shared/units';
-import { TIME_PRESETS, isTimeRange, timeBounds, timeRangeLabel } from '@/ui/timeWindow';
+
+type TimeRange = { since: number | null; until: number | null };
+type TimeWindow = { last: string } | TimeRange;
+// A renderer module: imported by path so the node type-check doesn't follow it.
+const timeWindowPath = '../src/renderer/src/ui/timeWindow';
+const { TIME_PRESETS, isTimeRange, timeBounds, timeRangeLabel } = (await import(timeWindowPath)) as {
+  TIME_PRESETS: readonly { id: string; label: string; ms: number }[];
+  isTimeRange(w: TimeWindow): w is TimeRange;
+  timeBounds(w: TimeWindow | null, now: number): TimeRange;
+  timeRangeLabel(r: TimeRange): string;
+};
 
 const NOW = 100 * MS_PER_DAY;
 
