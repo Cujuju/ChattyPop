@@ -26,6 +26,7 @@ const derivedTexts = 'SELECT seq, message_id, source, ord, text, part FROM deriv
 const search = 'SELECT rowid AS seq, fts_messages AS query, rank FROM fts_messages';
 const names = `SELECT c.id AS channel_id, mem.user_id, mem.nick AS name
   FROM members mem JOIN channels c ON c.guild_id = mem.guild_id`;
+const conversationLinks = 'SELECT l.message_id, l.channel_id, l.ts, l.parent_id, l.kind, l.confidence FROM conversation_links l';
 
 /** Managed archive_* views use explicit columns. openDb installs current definitions after migrations and removes retired views. */
 export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
@@ -50,6 +51,10 @@ export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_search: `${search} WHERE rowid IN (SELECT seq FROM archive_messages)`,
   archive_all_names: names,
   archive_names: `${names} WHERE ${visibleChannelSql('c.id')}`,
+  archive_all_conversation_links: conversationLinks,
+  // A hidden parent drops the link, so conversations never pass through a hidden message.
+  archive_conversation_links: `${conversationLinks} WHERE EXISTS (SELECT 1 FROM messages m WHERE m.id = l.message_id AND ${visibleMessageSql('m')})
+    AND (l.parent_id IS NULL OR NOT EXISTS (SELECT 1 FROM messages p WHERE p.id = l.parent_id AND NOT ${visibleMessageSql('p')}))`,
 };
 
 /** A managed view's CREATE statement, exactly as sqlite_schema stores it. */

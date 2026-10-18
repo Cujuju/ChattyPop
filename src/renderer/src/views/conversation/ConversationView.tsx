@@ -8,7 +8,7 @@ import { Markdown } from '@/ui/Markdown';
 import chrome from '@/ui/WindowChrome.module.css';
 import styles from './ConversationView.module.css';
 
-/** The exchange a message belongs to (right-click → View conversation). Reply-linked messages are marked; the rest were grouped by time. */
+/** The conversation a message belongs to (right-click → View conversation). Reply-linked messages are marked; the rest were linked by who answered whom. */
 export function ConversationView() {
   const linked = (): Set<string> => new Set(conversation()?.linkedIds ?? []);
   return (
@@ -26,8 +26,11 @@ export function ConversationView() {
               <p class="cp-hint">
                 {shortDate(c().messages[0]!.ts)} · {countText(c().messages.length, 'message')} ·{' '}
                 {/* linkedIds always holds the message itself; more than one means Discord replies joined others. */}
-                {c().linkedIds.length > 1 ? `${c().linkedIds.length} joined by replies (marked)` : 'no replies'}; the rest grouped by who took part and short gaps.
+                {c().linkedIds.length > 1 ? `${c().linkedIds.length} joined by replies (marked)` : 'no replies'}; the rest linked by who answered whom.
               </p>
+              <Show when={c().pending}>
+                <p class="cp-hint">Still linking this channel: the conversation may change.</p>
+              </Show>
               <ol class={styles.list}>
                 <For each={c().messages}>
                   {(m) => (

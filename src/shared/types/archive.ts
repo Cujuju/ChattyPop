@@ -409,5 +409,8 @@ export interface PendingAttachment {
 /** One message's exchange, oldest first. `linkedIds`: joined to it by Discord replies; the rest grouped by time and participants. */
 export interface ConversationView {
   messages: ArchiveMessage[];
+  /** The opened message and those joined by Discord replies; the rest were linked by the chooser and its rules. */
   linkedIds: string[];
+  /** The channel is still being linked from before these messages: the conversation may change. */
+  pending: boolean;
 }

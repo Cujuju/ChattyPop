@@ -8,7 +8,7 @@ import { adoptBundledData } from '../src/core/plugins/adoption';
 import { probe as ruleProbe } from './pluginRuleDescriptor';
 import { noHiddenRefSql, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from '../src/core/queries/privacy';
 import { tempDb } from './helpers';
-import { seedArchiveViews, VIEW_COLUMNS, archiveViewNames } from './archiveViewsFixture';
+import { seedArchiveViews, seedConversationLinks, VIEW_COLUMNS, archiveViewNames } from './archiveViewsFixture';
 
 /** Adopts the legacy built-in transcription queue table. */
 const tableAdopter = definePlugin({
@@ -23,6 +23,7 @@ let db: Db;
 beforeEach(() => {
   db = tempDb();
   seedArchiveViews(db);
+  seedConversationLinks(db);
 });
 const ids = (sql: string): unknown[] => db.prepare(sql).pluck().all();
 const count = (view: string): number => db.prepare(`SELECT COUNT(*) FROM ${view}`).pluck().get() as number;
@@ -104,18 +105,26 @@ describe('archive views', () => {
         `SELECT ml.message_id FROM message_links ml LEFT JOIN messages m ON m.id = ml.message_id WHERE m.id IS NULL OR ${visibleMessageSql('m')} ORDER BY ml.message_id, ml.link_id`,
       ));
       expect(ids('SELECT seq FROM archive_search ORDER BY seq')).toEqual(ids(`SELECT m.seq FROM messages m WHERE ${visibleMessageSql('m')} ORDER BY m.seq`));
+      expect(ids('SELECT message_id FROM archive_conversation_links ORDER BY message_id')).toEqual(ids(
+        `SELECT l.message_id FROM conversation_links l JOIN messages m ON m.id = l.message_id LEFT JOIN messages p ON p.id = l.parent_id
+          WHERE ${visibleMessageSql('m')} AND (p.id IS NULL OR ${visibleMessageSql('p')}) ORDER BY l.message_id`,
+      ));
       expect(ids('SELECT channel_id FROM archive_names ORDER BY channel_id')).toEqual(ids(
         `SELECT c.id FROM members mem JOIN channels c ON c.guild_id = mem.guild_id WHERE ${visibleChannelSql('c.id')} ORDER BY c.id`,
       ));
       if (mode) {
         expect(ids('SELECT id FROM archive_messages ORDER BY id')).toEqual(['m-missing', 'm-open']);
         expect(ids('SELECT id FROM archive_attachments ORDER BY id')).toEqual(['a-orphan', 'm-missing', 'm-open']);
+        expect(ids('SELECT message_id FROM archive_conversation_links ORDER BY message_id')).toEqual(['m-open']);
+      } else {
+        // Privacy off: every link, an orphan parent included.
+        expect(ids('SELECT message_id FROM archive_conversation_links ORDER BY message_id')).toEqual(['m-hide', 'm-open', 'm-ref-channel', 'm-ref-guild', 'm-thread']);
       }
     }
   });
 
   it('keeps all rows in every all-data view, with matching columns and no stale privacy snapshot', () => {
-    const counts: Record<string, number> = { messages: 7, channels: 4, guilds: 2, users: 2, attachments: 9, derived_texts: 2, rules: 1, links: 5, message_links: 5, search: 7, names: 4 };
+    const counts: Record<string, number> = { messages: 7, channels: 4, guilds: 2, users: 2, attachments: 9, derived_texts: 2, rules: 1, links: 5, message_links: 5, search: 7, names: 4, conversation_links: 5 };
     const visible = db.prepare('SELECT id FROM archive_messages ORDER BY id');
     for (const mode of [false, true, false]) {
       setSetting(db, 'privacyMode', mode);

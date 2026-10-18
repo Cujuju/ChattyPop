@@ -14,6 +14,7 @@ import { preferenceOf, readPreference } from '@shared/preferences';
 import { scopedCompletion } from '@core/ai/readScope';
 import { ProviderRegistry } from '@core/ai/registry';
 import { Archive } from '@core/archive';
+import { ConversationLinkJob } from '@core/conversations/job';
 import { archiveHandlers } from '@core/archiveHandlers';
 import { getSetting, openDb, setSetting, type Db } from '@core/db';
 import { archiveReadPrivacyChanged, closeArchiveReads } from '@core/reads/archiveReads';
@@ -213,6 +214,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
         host.archiveChanged(channelIds);
         return raws.map((m) => m.id);
       },
+      linkConversations: () => new ConversationLinkJob(() => db).run(),
       // As the channel list changes it: through core's handler, with the events windows and main act on.
       setChannel: (channelId, policy) => archiveService.setChannelPolicy(channelId, channelPolicy(policy)),
       setPrivacyMode: (on) => saveSetting(SETTINGS_KEYS.privacyMode, on),
