@@ -1,9 +1,10 @@
 // The time window picker of filter bars and headers: Any, short presets back from now, a set range, or a custom range in a popover.
-import { Show, createSignal, createUniqueId } from 'solid-js';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
+import { Show, createEffect, createSignal, createUniqueId } from 'solid-js';
 import { MS_PER_DAY } from '@shared/units';
 import { localRange, toLocalInput } from './format';
 import { keepOnScreen } from './keepOnScreen';
-import { onPointerDownOutside } from './listen';
+import { listen, onPointerDownOutside } from './listen';
 import { HeaderButton } from './PanelHeader';
 import { Select } from './Select';
 import { TIME_PRESETS, isTimeRange, timeBounds, timeRangeLabel, type TimePreset, type TimeWindow } from './timeWindow';
@@ -56,17 +57,22 @@ export function TimeWindowSelect(props: TimeWindowSelectProps) {
     setCustom(null);
     select()?.focus({ preventScroll: true });
   };
+  /** Under the select (over it when there's no room), inside the window and clear of the phone's keyboard. */
+  const place = (): void => {
+    const anchor = select();
+    if (!pop?.isConnected || !anchor) return;
+    const r = anchor.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(pop).getPropertyValue('--cp-popover-gap')) || 0;
+    keepOnScreen(pop, r.left, r.bottom + gap, { x: r.right, y: r.top - gap });
+  };
   const openCustom = (): void => {
     const now = Date.now();
     const shown = timeBounds(props.window, now);
     setCustom({ from: toLocalInput(shown.since ?? now - CUSTOM_START_MS), to: toLocalInput(shown.until ?? now) });
     queueMicrotask(() => {
-      const anchor = select();
-      if (!pop?.isConnected || !anchor) return;
+      if (!pop?.isConnected) return;
       pop.showPopover();
-      const r = anchor.getBoundingClientRect();
-      const gap = parseFloat(getComputedStyle(pop).getPropertyValue('--cp-popover-gap')) || 0;
-      keepOnScreen(pop, r.left, r.bottom + gap, { x: r.right, y: r.top - gap });
+      place();
       pop.querySelector('input')?.focus({ preventScroll: true });
     });
   };
@@ -84,8 +90,23 @@ export function TimeWindowSelect(props: TimeWindowSelectProps) {
     close();
   };
   onPointerDownOutside(() => root, () => custom() !== null, () => setCustom(null));
+  // The editor follows its select while open: window resizes, scrolls under it, and the phone's keyboard, whose inset
+  // the iPhone app publishes on <html>'s style without resizing the window.
+  listen(window, 'resize', () => custom() && place());
+  listen(window, 'scroll', (e) => custom() && !pop?.contains(e.target as Node) && place(), { capture: true, passive: true });
+  createEffect(() => {
+    if (!custom()) return;
+    const inset = new MutationObserver(place);
+    inset.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    onCleanup(() => inset.disconnect());
+  });
+  /** Focus leaving for another control (Tab past Cancel) closes the editor, so a later Escape or close can't strand it. */
+  const onFocusOut = (e: FocusEvent): void => {
+    const to = e.relatedTarget;
+    if (custom() && to instanceof Node && !root.contains(to)) setCustom(null);
+  };
   return (
-    <span class={styles.root} ref={root}>
+    <span class={styles.root} ref={root} onFocusOut={onFocusOut}>
       <Select id={props.id} label={props.label} class={props.class} value={value()} options={options()} disabled={props.disabled}
         onChange={choose} />
       <Show when={custom()}>{(c) => (
