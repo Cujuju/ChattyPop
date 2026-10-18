@@ -17,6 +17,15 @@
   flex-direction: column;
 }
 
+/* A form's window (a plugin's form): a bot form's width, as tall as its content up to Settings' height. Two classes, so
+   it overrides .dialog and the frame's own size whatever order they load in. */
+.dialog.form {
+  width: min(var(--cp-bot-modal-w), calc(100vw - 2 * var(--cp-dialog-inset)));
+  min-width: var(--cp-window-min-w);
+  height: auto;
+  max-height: min(var(--cp-dialog-h), calc(100vh - 2 * var(--cp-dialog-inset)));
+}
+
 /* Header: an F2 panel header band. */
 .header {
   display: flex;

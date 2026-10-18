@@ -15,7 +15,7 @@ type ViewOf<K extends ByIdKind> = NonNullable<LooseContributions[K]> extends Rea
 
 const BY_ID: { readonly [K in ByIdKind]: FieldPolicies<ViewOf<K>> } = {
   panels: { view: 'panel', unread: 'keep' },
-  windows: { title: 'name', view: 'block' },
+  windows: { title: 'name', view: 'block', size: 'keep' },
   settings: { body: 'block', meta: 'keep', muted: 'keep' },
   shortcuts: {},
   providers: { rows: 'line', note: 'keep', modelAction: 'nothing' },

@@ -7,9 +7,10 @@ import { lookupPanel } from '@/panels/registry';
 import { panelIdentity, panelImportance } from '@/panels/titles';
 import { markSeenWhileShown } from '@/ui/seen';
 import { Overlays } from './Overlays';
+import { PluginWindows } from '@/views/pluginWindows/PluginWindows';
 import { Contained, createViewShown } from '@/ui/contained';
 
-/** A panel in its own window: just the panel, filling the window, with the overlays panels open (menus, image viewer, Jev). */
+/** A panel in its own window: just the panel, filling the window, with the overlays and plugin windows its panel opens. */
 export function PanelWindow(props: { id: string }) {
   const view = createViewShown();
   const def = () => lookupPanel(props.id);
@@ -21,6 +22,7 @@ export function PanelWindow(props: { id: string }) {
     // data-section/-importance: the same theme scope the panel gets in a layout slot.
     <div ref={frame} class={styles.frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, width: '100%', height: '100%' }}>
       <view.Watch><Dynamic component={def()?.component ?? (() => <p>Panel unavailable: {props.id}</p>)} /></view.Watch>
+      <Contained name="Plugin windows" shows="block"><PluginWindows /></Contained>
       <Contained name="Menus and viewers" shows="line"><Overlays /></Contained>
     </div>
   );

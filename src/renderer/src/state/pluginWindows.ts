@@ -24,7 +24,7 @@ export const pluginWindowKind = (r: PluginWindowRef): string => `plugin:${r.plug
 export const pluginWindowOpen = (plugin: PluginDescriptor, window: string, key: string): boolean =>
   openPluginWindows().some((w) => sameWindow(w, refOf(plugin, window, key)));
 
-/** Opens `plugin`'s window `window` for `key` in the main window, or brings it to the front. */
+/** Opens `plugin`'s window `window` for `key` in this app window, or brings it to the front. */
 export function openPluginWindow(plugin: PluginDescriptor, window: string, key: string): void {
   const ref = refOf(plugin, window, key);
   if (pluginWindowOpen(plugin, window, key)) raiseWindow(pluginWindowId(ref));

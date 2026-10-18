@@ -25,6 +25,8 @@ export interface PluginWindowView {
   /** Its title bar's text for `key`. */
   title: Component<{ key: string }>;
   view: Component<{ key: string }>;
+  /** form: a form's window (a bot's form width, as tall as its content); else a tool's (Settings' size). */
+  size?: 'form';
 }
 
 /** A declared settings page's view: a tab's page, or a section on a host page. */
@@ -52,7 +54,7 @@ type Views<K extends string, Field extends string, V> = [K] extends [never] ? { 
 /** The host's slots a plugin's renderer side may add to without declaring (docs/plugin-architecture.md §3). */
 export interface SlotContributions extends Omit<ReadContributions & FrameContributions & MessageContributions, SlotKind | 'notificationKinds'> {
   rules?: RuleSlots;
-  /** Window kinds by id, opened in the main window per key (openPluginWindow). */
+  /** Window kinds by id, opened per key in the window that asks (openPluginWindow). */
   windows?: Readonly<Record<string, PluginWindowView>>;
   composer?: {
     /** Lines of the composer's `/` menu for commands ChattyPop answers. */
