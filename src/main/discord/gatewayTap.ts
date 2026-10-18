@@ -45,10 +45,13 @@ export interface GatewaySend {
 
 /**
  * Reads the embedded client's own gateway traffic through CDP; sends nothing to Discord. `sent` is a frame the client sent.
- * Must attach before the page opens its socket: compressed streams can't be decoded mid-stream.
+ * Network events must be on before the page opens its socket (compressed streams can't be decoded mid-stream): load the
+ * client only once `ready` settles. CDP turns them on only when a page process exists, so a blank page must load first.
  */
 export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend] }> {
   readonly stats: GatewayTapStats = { url: null, compress: null, frames: 0, decodeErrors: 0, events: {} };
+  /** Settles once Network events are on, or failed to turn on (diagnosed): the client may load then. */
+  readonly ready: Promise<void>;
   private readonly decoders = new Map<string, Decoder>();
   private readonly diagnosticStarted = performance.now();
   private readonly diagnosticMethods: Record<string, number> = {};
@@ -98,7 +101,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     timer.unref();
     wc.on('destroyed', () => { clearInterval(timer); snapshot('destroyed'); });
     snapshot('attached');
-    void wc.debugger.sendCommand('Network.enable').then(
+    this.ready = wc.debugger.sendCommand('Network.enable').then(
       () => { this.diagnosticNetwork = 'enabled'; snapshot('network-enabled'); },
       (error: unknown) => {
         this.diagnosticNetwork = 'failed';

@@ -21,6 +21,9 @@ const DISCORD_APP_URL = `${DISCORD_ORIGIN}/app`;
 const LAST_ROUTE_FILE = 'discord-route.json';
 const DISCORD_HOSTS = new Set(['discord.com', 'www.discord.com', 'canary.discord.com', 'ptb.discord.com']);
 
+/** Loaded before the client so the gateway tap's Network events are on before the client's page runs. */
+const BLANK_PAGE = 'about:blank';
+
 const isDiscordUrl = (url: string): boolean => {
   try {
     const u = new URL(url);
@@ -107,6 +110,8 @@ export class DiscordView {
     });
     guardNavigation(wc, isDiscordUrl);
     const notePath = (url: string): void => {
+      // The blank page loaded before the client (see the load below) is no Discord route.
+      if (!isDiscordUrl(url)) return;
       const path = new URL(url).pathname;
       const atLogin = path.startsWith('/login');
       if (atLogin) diag('discord-login-page', { path });
@@ -124,12 +129,17 @@ export class DiscordView {
     wc.on('did-navigate', (_e, url) => notePath(url));
     wc.on('did-navigate-in-page', (_e, url) => notePath(url));
     wc.on('dom-ready', () => {
+      if (!isDiscordUrl(wc.getURL())) return;
       this.pageCssKey = undefined;
       this.applyPageCss();
       this.onDomReady?.();
     });
-    // Load now, hidden, after the tap is attached: header and gateway capture run even when the panel isn't shown.
-    void wc.loadURL(startUrl());
+    // Load now, hidden, so header and gateway capture run even when the panel isn't shown. A blank page first gives the
+    // tap a page process to turn Network events on in; the client loads once they are on, so its gateway socket is seen.
+    void wc.loadURL(BLANK_PAGE)
+      .then(() => this.tap.ready)
+      .then(() => wc.loadURL(startUrl()))
+      .catch((err: unknown) => diag('discord-load-failed', { message: errorMessage(err) }));
   }
 
   get webContents(): Electron.WebContents {
