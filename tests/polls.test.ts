@@ -11,6 +11,7 @@ import {
   pollFrom,
   pollTimeLeft,
   type PollDraft,
+  type PollDraftAnswer,
   type RawPoll,
 } from '@shared/polls';
 import type { Archive } from '../src/core/archive';
@@ -30,16 +31,21 @@ const FRIEND = '100000000000000002';
 const NOW = Date.UTC(2026, 9, 7);
 const HOUR_MS = 3_600_000;
 
-const draft = (d: Partial<PollDraft> = {}): PollDraft => ({ question: 'Lunch?', answers: ['Pizza', 'Tacos'], durationHours: 24, multiselect: false, ...d });
+const answer = (text: string, emoji: PollDraftAnswer['emoji'] = null): PollDraftAnswer => ({ text, emoji });
+const answers = (...texts: string[]): PollDraftAnswer[] => texts.map((t) => answer(t));
+const draft = (d: Partial<PollDraft> = {}): PollDraft => ({ question: 'Lunch?', answers: answers('Pizza', 'Tacos'), durationHours: 24, multiselect: false, ...d });
+const CUSTOM_EMOJI_ID = '400000000000000001';
 
 describe('a new poll', () => {
   it('is refused before any request for what Discord would refuse', () => {
     expect(() => checkPollDraft(draft({ question: '  ' }))).toThrow('Ask a question.');
     expect(() => checkPollDraft(draft({ question: 'x'.repeat(POLL_QUESTION_MAX + 1) }))).toThrow(`${POLL_QUESTION_MAX}`);
     expect(() => checkPollDraft(draft({ answers: [] }))).toThrow('answers');
-    expect(() => checkPollDraft(draft({ answers: Array(POLL_ANSWERS_MAX + 1).fill('a') }))).toThrow('answers');
-    expect(() => checkPollDraft(draft({ answers: ['Pizza', ' '] }))).toThrow('Fill in every answer');
-    expect(() => checkPollDraft(draft({ answers: ['x'.repeat(POLL_ANSWER_MAX + 1)] }))).toThrow(`${POLL_ANSWER_MAX}`);
+    expect(() => checkPollDraft(draft({ answers: answers(...Array<string>(POLL_ANSWERS_MAX + 1).fill('a')) }))).toThrow('answers');
+    expect(() => checkPollDraft(draft({ answers: answers('Pizza', ' ') }))).toThrow('Fill in every answer');
+    expect(() => checkPollDraft(draft({ answers: answers('x'.repeat(POLL_ANSWER_MAX + 1)) }))).toThrow(`${POLL_ANSWER_MAX}`);
+    expect(() => checkPollDraft(draft({ answers: [answer('Pizza', { id: 'x', name: 'pizza', animated: false })] }))).toThrow('Not a poll.');
+    expect(() => checkPollDraft(draft({ answers: [answer('Pizza', { id: null, name: '', animated: false })] }))).toThrow('Not a poll.');
     expect(() => checkPollDraft(draft({ durationHours: POLL_DURATION_HOURS_MAX + 1 }))).toThrow('poll length');
     expect(() => checkPollDraft(draft({ durationHours: 0.5 }))).toThrow('poll length');
     expect(() => checkPollDraft({ question: 'q' })).toThrow('Not a poll.');
@@ -53,16 +59,25 @@ describe('a new poll', () => {
         return { id: '1' };
       },
     } as unknown as DiscordApi;
-    const message: OwnerMessage = { channelId: CHANNEL, text: '', replyTo: null, files: [], stickerId: null, gif: null, poll: draft({ question: ' Lunch? ', answers: [' Pizza', 'Tacos '], multiselect: true }), nonce: NONCE };
+    const message: OwnerMessage = { channelId: CHANNEL, text: '', replyTo: null, files: [], stickerId: null, gif: null, poll: draft({ question: ' Lunch? ', answers: [answer(' Pizza', { id: null, name: '🍕', animated: false }), answer('Tacos ', { id: CUSTOM_EMOJI_ID, name: 'taco', animated: true })], multiselect: true }), nonce: NONCE };
     await sendOwnerMessage(api, message);
     expect(posts[0]![0]).toBe(`channels/${CHANNEL}/messages`);
     expect(posts[0]![1]['poll']).toEqual({
       question: { text: 'Lunch?' },
-      answers: [{ poll_media: { text: 'Pizza' } }, { poll_media: { text: 'Tacos' } }],
+      answers: [{ poll_media: { text: 'Pizza', emoji: { name: '🍕' } } }, { poll_media: { text: 'Tacos', emoji: { id: CUSTOM_EMOJI_ID } } }],
       duration: 24,
       allow_multiselect: true,
       layout_type: 1,
     });
+  });
+
+  it('takes a bare string as an answer without an emoji (a queued poll, or a plugin built before emoji)', () => {
+    expect(checkPollDraft({ ...draft(), answers: [' Pizza', 'Tacos'] }).answers).toEqual(answers('Pizza', 'Tacos'));
+  });
+
+  it('sends a Unicode emoji without its redundant selector, as reactions do', () => {
+    const checked = checkPollDraft(draft({ answers: [answer('Star', { id: null, name: '⭐️', animated: false })] }));
+    expect(checked.answers[0]!.emoji).toEqual({ id: null, name: '⭐', animated: false });
   });
 
   it('refuses a bad poll in a message before any request', async () => {

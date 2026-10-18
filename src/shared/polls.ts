@@ -1,5 +1,6 @@
 // Discord polls: the limits Discord holds a new poll to, the owner's draft and its payload, and a stored poll as the
 // Archive shows it (read from the message's raw `poll`).
+import { isReactionEmoji, normalizeUnicodeReaction } from './discord';
 import type { ArchiveEmoji } from './types/archive';
 
 /** Longest question Discord takes. */
@@ -27,10 +28,16 @@ export const POLL_DURATION_DEFAULT_HOURS = HOURS_PER_DAY;
 /** Discord's only poll layout. */
 const POLL_LAYOUT_DEFAULT = 1;
 
+/** One answer the owner writes: its text, and the emoji Discord shows before it (null: none). */
+export interface PollDraftAnswer {
+  text: string;
+  emoji: ArchiveEmoji | null;
+}
+
 /** A poll the owner writes. */
 export interface PollDraft {
   question: string;
-  answers: string[];
+  answers: PollDraftAnswer[];
   durationHours: number;
   multiselect: boolean;
 }
@@ -38,7 +45,7 @@ export interface PollDraft {
 /** Why Discord would refuse `d`, or null when it would take it. Text is trimmed first, as it is sent. */
 export function pollDraftError(d: PollDraft): string | null {
   const question = d.question.trim();
-  const answers = d.answers.map((a) => a.trim());
+  const answers = d.answers.map((a) => a.text.trim());
   if (!question) return 'Ask a question.';
   if (question.length > POLL_QUESTION_MAX) return `A question is at most ${POLL_QUESTION_MAX} characters.`;
   if (answers.length < POLL_ANSWERS_MIN || answers.length > POLL_ANSWERS_MAX) return `A poll has ${POLL_ANSWERS_MIN} to ${POLL_ANSWERS_MAX} answers.`;
@@ -48,21 +55,39 @@ export function pollDraftError(d: PollDraft): string | null {
   return null;
 }
 
+/**
+ * One answer from the renderer, its text trimmed; null when it isn't one. A bare string is an answer without an emoji:
+ * a poll queued (the outbox keeps its queue) or a plugin built before answers carried one.
+ */
+function checkPollAnswer(v: unknown): PollDraftAnswer | null {
+  if (typeof v === 'string') return { text: v.trim(), emoji: null };
+  const a = v as Partial<PollDraftAnswer> | null;
+  if (!a || typeof a.text !== 'string') return null;
+  if (a.emoji === null) return { text: a.text.trim(), emoji: null };
+  if (!isReactionEmoji(a.emoji)) return null;
+  const e = a.emoji;
+  return { text: a.text.trim(), emoji: { id: e.id, name: e.id ? e.name : normalizeUnicodeReaction(e.name), animated: e.animated } };
+}
+
 /** `v` checked as a PollDraft (it comes from the renderer), its text trimmed; throws the reason Discord would refuse it. */
 export function checkPollDraft(v: unknown): PollDraft {
-  const p = v as Partial<PollDraft> | null;
-  if (!p || typeof p.question !== 'string' || !Array.isArray(p.answers) || !p.answers.every((a) => typeof a === 'string') || typeof p.durationHours !== 'number' || typeof p.multiselect !== 'boolean')
+  const p = v as { question?: unknown; answers?: unknown; durationHours?: unknown; multiselect?: unknown } | null;
+  const answers = p && Array.isArray(p.answers) ? p.answers.map(checkPollAnswer) : null;
+  if (!p || typeof p.question !== 'string' || !answers || answers.some((a) => !a) || typeof p.durationHours !== 'number' || typeof p.multiselect !== 'boolean')
     throw new Error('Not a poll.');
-  const draft: PollDraft = { question: p.question.trim(), answers: p.answers.map((a) => a.trim()), durationHours: p.durationHours, multiselect: p.multiselect };
+  const draft: PollDraft = { question: p.question.trim(), answers: answers as PollDraftAnswer[], durationHours: p.durationHours, multiselect: p.multiselect };
   const error = pollDraftError(draft);
   if (error) throw new Error(error);
   return draft;
 }
 
+/** An answer's emoji as Discord takes it on a new poll: only the id (custom) or the name (Unicode). */
+const answerEmoji = (e: ArchiveEmoji): { id: string } | { name: string } => (e.id ? { id: e.id } : { name: e.name });
+
 /** The message's `poll` field for a checked draft, as Discord's client sends it. */
 export const pollPayload = (d: PollDraft): Record<string, unknown> => ({
   question: { text: d.question },
-  answers: d.answers.map((text) => ({ poll_media: { text } })),
+  answers: d.answers.map((a) => ({ poll_media: { text: a.text, ...(a.emoji ? { emoji: answerEmoji(a.emoji) } : {}) } })),
   duration: d.durationHours,
   allow_multiselect: d.multiselect,
   layout_type: POLL_LAYOUT_DEFAULT,

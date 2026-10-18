@@ -127,7 +127,7 @@ describe('scheduled REST contracts', () => {
   });
   it('passes a poll payload without requiring text or attachments', async () => {
     const { api, service } = setup();
-    await service.create({ ...draft(), text: '', poll: { question: 'Ready?', answers: ['Yes', 'No'], durationHours: 24, multiselect: false } });
+    await service.create({ ...draft(), text: '', poll: { question: 'Ready?', answers: [{ text: 'Yes', emoji: null }, { text: 'No', emoji: null }], durationHours: 24, multiselect: false } });
     expect(api.postOnce.mock.calls[0]?.[1]).toMatchObject({ content: '', poll: { question: { text: 'Ready?' }, answers: [{ poll_media: { text: 'Yes' } }, { poll_media: { text: 'No' } }] } });
   });
   it('validates ids, content, flags, and time before a write', () => {

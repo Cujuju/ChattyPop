@@ -17,6 +17,8 @@ export function EmojiPicker(props: {
   guildId: string;
   onPick: OnPick;
   onClose: () => void;
+  /** Where it renders (default: the body). A modal dialog's opener passes the dialog: outside it, the page is inert. */
+  mount?: Node;
 }) {
   let root!: HTMLDivElement;
   const cover = `emoji-picker-${createUniqueId()}`;
@@ -47,7 +49,7 @@ export function EmojiPicker(props: {
   }, true);
 
   return (
-    <Portal>
+    <Portal mount={props.mount}>
       <div ref={root} class={styles.root} role="dialog" aria-label="Emoji picker">
         <EmojiList guildId={props.guildId} onPick={props.onPick} />
       </div>

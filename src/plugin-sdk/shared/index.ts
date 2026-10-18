@@ -129,6 +129,7 @@ export {
   POLL_QUESTION_MAX,
   pollDraftError,
   type PollDraft,
+  type PollDraftAnswer,
 } from '@shared/polls';
 
 export { avatarUrl, mediaSize } from '@shared/media';
