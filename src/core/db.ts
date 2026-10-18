@@ -4,6 +4,7 @@ import type { ArchiveEncryption, CoreStatus } from '@shared/contract';
 import { dropArchiveViews, installArchiveViews } from './archiveViews';
 import { MIGRATIONS, applyMigration, type Migration } from './migrations';
 import { rawJsonText } from './rawJson';
+import { configureArchiveReads } from './reads/archiveReads';
 
 export type Db = Database.Database;
 
@@ -62,6 +63,7 @@ const keyLiteral = (key: string): string => {
 export function rekey(db: Db, key: string | null): void {
   db.pragma('journal_mode = DELETE');
   db.pragma(`rekey = '${key === null ? '' : keyLiteral(key)}'`);
+  configureArchiveReads(db, key);
   db.pragma('journal_mode = WAL');
 }
 
@@ -113,6 +115,7 @@ export function openDb(path: string, key: string | null = null): Db {
   db.pragma('wal_checkpoint(TRUNCATE)');
   // SQL reads of the payload go through msg_json() so compressed rows read like plain ones.
   db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
+  configureArchiveReads(db, plaintext ? null : key);
   return db;
 }
 

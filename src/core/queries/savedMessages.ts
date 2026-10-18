@@ -2,17 +2,17 @@
 import { savedAuthor, savedTarget, type SavedMessage, type SavedTarget, type SavedVisible, type SavedChannelAccess } from '@shared/savedMessages';
 import { DM_CHANNEL_TYPES, THREAD_CHANNEL_TYPES } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE, PERMISSIONS, can } from '@shared/permissions';
-import type { PluginDb } from '../plugins/pluginDb';
+import type { PluginSql } from '../plugins/pluginDb';
 import type { Db } from '../db';
 import { NOTHING_HIDDEN_SQL, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from './privacy';
 import { accessOf, memberFacts } from './mentions';
 import { displayNameSql } from './names';
 
-export function savedTargetVisible(db: PluginDb, value: SavedTarget): boolean {
+export function savedTargetVisible(db: PluginSql, value: SavedTarget): boolean {
   const target = savedTarget(value);
   return !!db.prepare(`SELECT ${visibleMessageRefSql('?', '?')} AND (${NOTHING_HIDDEN_SQL} OR EXISTS (SELECT 1 FROM channels WHERE id = ?)) AND NOT EXISTS (SELECT 1 FROM messages WHERE id = ? AND channel_id != ?)`).pluck().get(target.channelId, target.messageId, target.channelId, target.messageId, target.channelId);
 }
-export function filterSavedMessages(db: PluginDb, items: SavedMessage[], bookmarkIds: string[]): SavedVisible {
+export function filterSavedMessages(db: PluginSql, items: SavedMessage[], bookmarkIds: string[]): SavedVisible {
   const scope = db.prepare('SELECT id FROM hidden_ids').pluck().all() as string[];
   const eligible = items.filter((m) => savedTargetVisible(db, m));
   // Existing visible archive data fills legacy/deleted records' missing names and avatars in one local query.

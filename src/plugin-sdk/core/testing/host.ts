@@ -16,6 +16,7 @@ import { ProviderRegistry } from '@core/ai/registry';
 import { Archive } from '@core/archive';
 import { archiveHandlers } from '@core/archiveHandlers';
 import { getSetting, openDb, setSetting, type Db } from '@core/db';
+import { archiveReadPrivacyChanged, closeArchiveReads } from '@core/reads/archiveReads';
 import { allMuted } from '@core/queries/notificationMute';
 import { storeDerivedText, storeLinkText } from '@core/derivedText';
 import { storeLinkImages } from '@core/messageImages';
@@ -74,7 +75,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   let host!: PluginHost;
   // Clones emitted events per process; subsequent mutations do not propagate.
   const emit = (e: AppEvent): void => {
-    if (e.type === 'privacy-changed') host?.privacyChanged();
+    if (e.type === 'privacy-changed') { archiveReadPrivacyChanged(db); host?.privacyChanged(); }
     events.push(structuredClone(e));
     listeners.forEach((fn) => fn(structuredClone(e)));
   };
@@ -236,6 +237,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     dispose: async () => {
       for (const p of installed) await host.setEnabled(p.manifest.id, false);
       unlinkCore(link);
+      await closeArchiveReads(db);
       db.close();
       rmSync(dir, { recursive: true, force: true });
     },

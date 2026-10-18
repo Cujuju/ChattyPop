@@ -4,7 +4,7 @@ import { clipMessage } from '../ai/clip';
 import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type DecisionRequest, type DecisionResult, type Question } from '../ai/decisions';
 import { scopedDecider } from '../ai/readScope';
 import { isLocalOnly } from '../channelPolicy';
-import type { PluginDb } from '../plugins/pluginDb';
+import type { PluginSql } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
 import { LINKED_TEXT_SQL, MESSAGE_TEXT_SQL } from '../queries/messageText';
 import { plainNameSql } from '../queries/names';
@@ -52,7 +52,7 @@ export interface BatchResult {
 
 /** Live requests combine all message questions; catch-up batches messages. Stores answer values/labels with reply and two preceding messages as context. */
 export class MessageJudge {
-  constructor(private readonly db: PluginDb) {}
+  constructor(private readonly db: PluginSql) {}
 
   /** Fire-and-forget judgment with text-certain answers. Returns false if nothing settles; otherwise invokes exactly one fresh-answer or failure callback. */
   judge(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, onAnswers: (a: Answers) => void, onFailed: () => void, certain: Answers = {}, fresh: Fresh = ALWAYS_FRESH): boolean {

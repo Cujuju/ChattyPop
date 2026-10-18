@@ -1,12 +1,12 @@
 // Privacy mode hides marked servers/channels. Trigger-maintained hidden_ids and hidden_channels are empty when disabled.
 import type { PrivacyScope } from '@shared/contract';
-import type { PluginDb } from '../plugins/pluginDb';
+import type { PluginSql } from '../plugins/pluginDb';
 
 /** SQL true when channel id `column` is not hidden. */
 export const visibleChannelSql = (column: string): string => `${column} NOT IN (SELECT id FROM hidden_channels)`;
 
 /** Which of `channelIds` privacy mode leaves visible: an event about a hidden one reaches no view, phone or plugin. */
-export const visibleChannelIds = (db: PluginDb, channelIds: string[]): Set<string> =>
+export const visibleChannelIds = (db: PluginSql, channelIds: string[]): Set<string> =>
   new Set(db.prepare(`SELECT value FROM json_each(?) WHERE ${visibleChannelSql('value')}`).pluck().all(JSON.stringify(channelIds)) as string[]);
 
 /** Uncorrelated SQL guard evaluates once per statement; hidden-id scans occur per row only when privacy scope is nonempty. */
@@ -32,7 +32,7 @@ export const visibleMessageRefSql = (channelColumn: string, idColumn: string): s
 export const VISIBLE_REPLY_SOURCE_SQL = `(NOT EXISTS (SELECT 1 FROM messages rm WHERE rm.id = @id AND NOT ${visibleMessageSql('rm')})
   AND ${visibleChannelSql('@channel')} AND ${noHiddenRefSql('@text')})`;
 
-export function privacyScope(db: PluginDb): PrivacyScope {
+export function privacyScope(db: PluginSql): PrivacyScope {
   return {
     guildIds: db.prepare('SELECT id FROM hidden_ids WHERE id NOT IN (SELECT id FROM hidden_channels)').pluck().all() as string[],
     channelIds: db.prepare('SELECT id FROM hidden_channels').pluck().all() as string[],
@@ -61,7 +61,7 @@ export interface Privacy {
 }
 
 /** What privacy mode hides right now, for filtering rows built outside SQL. */
-export function privacy(db: PluginDb): Privacy {
+export function privacy(db: PluginSql): Privacy {
   const scope = privacyScope(db);
   const names = (table: 'channels' | 'guilds', ids: string[]): string[] =>
     ids.length ? (db.prepare(`SELECT name FROM ${table} WHERE id IN (${ids.map(() => '?').join(',')})`).pluck().all(...ids) as string[]) : [];

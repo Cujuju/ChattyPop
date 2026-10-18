@@ -2,6 +2,8 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
+import { readArchive } from '../reads/archiveReads';
+import { checkReadStatement } from '../reads/protocol';
 
 type RawStatement = Database.Statement<unknown[], unknown>;
 
@@ -33,7 +35,7 @@ export type PluginTransaction<F extends TransactionBody> = ((...params: Transact
 };
 
 /** A plugin's database: the archive's statement surface, writes fenced by a lifetime. */
-export interface PluginDb {
+export interface PluginSql {
   /** The archive is open (it closes while it moves). */
   readonly open: boolean;
   /**
@@ -45,15 +47,10 @@ export interface PluginDb {
   transaction<F extends TransactionBody>(fn: F): PluginTransaction<F>;
 }
 
-/** Whitespace, SQL comments and empty statements (`;`), which SQLite skips before a statement's first keyword. */
-const TRIVIA = String.raw`(?:\s|--[^\n]*(?:\n|$)|/\*[\s\S]*?(?:\*/|$)|;)*`;
-/** Statements that change the connection the host and every plugin share, rather than rows; plugins use `transaction`. */
-const CONNECTION_KEYWORDS = ['pragma', 'attach', 'detach', 'begin', 'commit', 'end', 'rollback', 'savepoint', 'release', 'vacuum'];
-/** A connection statement, alone or under EXPLAIN [QUERY PLAN] (SQLite's only statement prefix). */
-const CONNECTION_STATEMENT = new RegExp(
-  String.raw`^${TRIVIA}(?:explain\b${TRIVIA}(?:query\b${TRIVIA}plan\b${TRIVIA})?)?(?:${CONNECTION_KEYWORDS.join('|')})\b`,
-  'i',
-);
+export interface PluginDb extends PluginSql {
+  /** Off-thread read-only rows from committed archive data. Abort stops native work and rejects with the signal's reason. */
+  read<R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<R[]>;
+}
 
 /**
  * `db` (read at each use: the archive can move) for plugin `pluginId`: statements that write throw PluginInactiveError
@@ -67,8 +64,13 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
     get open() {
       return db().open;
     },
+    read: async (source, params = [], options = {}) => {
+      options.signal?.throwIfAborted();
+      checkReadStatement(source);
+      return readArchive(db(), source, params, options.signal);
+    },
     prepare: (source) => {
-      if (CONNECTION_STATEMENT.test(source)) throw new Error(`${pluginId} may not run statements that change the shared connection`);
+      checkReadStatement(source);
       return fencedStatement(db().prepare(source), fence) as never;
     },
     transaction: (fn) => {
