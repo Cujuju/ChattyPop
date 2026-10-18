@@ -1,6 +1,6 @@
 // Plugin search shares the app's indexes, with explicit scopes and no operator parsing.
 import { describe, expect, it, onTestFinished } from 'vitest';
-import { ARCHIVE_SEARCH_MAX, defineCorePlugin, type CoreContext } from '@plugin-sdk/core';
+import { ARCHIVE_SEARCH_GROUPS_MAX, ARCHIVE_SEARCH_MAX, defineCorePlugin, type ArchiveSearchGroup, type ArchiveSearchOptions, type CoreContext } from '@plugin-sdk/core';
 import { definePlugin } from '@plugin-sdk/shared';
 import { testPlugin } from '@plugin-sdk/core/testing';
 import { snowflakeFromMs } from '@shared/discord';
@@ -25,7 +25,11 @@ function start() {
   });
   onTestFinished(() => t.dispose());
   ctx.archive.derivedText.settle(messageId(2), { key: 'text', order: 1, text: 'quartz', queuedAt: START });
-  return { t, ctx, search: (query = 'quartz', opts = {}) => ctx.archive.search(query, { channelIds: ['c1', 'c2', 'c3'], limit: ARCHIVE_SEARCH_MAX, ...opts }) };
+  return { t, ctx,
+    search: (query = 'quartz', opts: Partial<ArchiveSearchOptions> = {}) => ctx.archive.search(query, { channelIds: ['c1', 'c2', 'c3'], limit: ARCHIVE_SEARCH_MAX, ...opts }),
+    count: (query: string | null = 'quartz', opts: Partial<ArchiveSearchOptions> = {}, group: ArchiveSearchGroup = 'channel') =>
+      ctx.archive.searchCount(query, { channelIds: ['c1', 'c2', 'c3'], limit: ARCHIVE_SEARCH_GROUPS_MAX, ...opts }, group),
+  };
 }
 
 describe('plugin archive search', () => {
@@ -90,5 +94,79 @@ describe('plugin archive search', () => {
 
   it.each([0, -1, ARCHIVE_SEARCH_MAX + 1, 1.5, NaN, Infinity])('rejects invalid limit %s', (limit) => {
     expect(() => start().search('quartz', { limit })).toThrow(RangeError);
+  });
+});
+
+describe('plugin archive grouped counts', () => {
+  it('counts every text index once, using the same query and scope as search', () => {
+    const h = start();
+    h.ctx.archive.derivedText.settle(messageId(1), { key: 'duplicate', order: 1, text: 'quartz', queuedAt: START });
+    h.ctx.archive.derivedText.settle(messageId(3), { key: 'duplicate-link', order: 1, text: 'quartz', queuedAt: START });
+    h.ctx.archive.derivedText.settle(messageId(2), { key: 'duplicate-derived', order: 2, text: 'quartz', queuedAt: START });
+    for (const query of ['quartz', 'quar', 'What did people decide about quartz?', 'quartz missing', 'quartz from:u2', 'what did the', '!!!', 'AI do']) {
+      for (const scope of [{}, { channelIds: ['c1'] }, { authorIds: ['u2'] }, { since: START + 1, until: START + 1 },
+        { channelIds: ['c2'], since: START + 2, until: START + 2 }, { channelIds: [] }, { authorIds: [] }, { since: START + 4 }]) {
+        expect(h.count(query, scope).reduce((sum, r) => sum + r.count, 0)).toBe(h.search(query, scope).length);
+      }
+    }
+    expect(h.count()).toMatchObject([{ key: 'c1', count: 2 }, { key: 'c2', count: 1 }, { key: 'c3', count: 1 }]);
+  });
+
+  it('checks live privacy for candidates in every index, including hidden-id mentions', () => {
+    const h = start();
+    h.t.archive.arrive([
+      { id: messageId(5), channelId: 'c1', content: 'quartz <#c3>', ts: START + 4 },
+      { id: messageId(6), channelId: 'c1', content: '<#c3>', ts: START + 5 },
+      { id: messageId(7), channelId: 'c2', content: 'https://example.com/hidden <#c3>', ts: START + 6,
+        extra: { embeds: [{ url: 'https://example.com/hidden', title: 'quartz' }] } },
+    ]);
+    h.ctx.archive.derivedText.settle(messageId(6), { key: 'mention', order: 1, text: 'quartz', queuedAt: START });
+    h.ctx.archive.derivedText.settle(messageId(4), { key: 'hidden', order: 1, text: 'quartz', queuedAt: START });
+    h.t.archive.setPrivacyMode(true);
+    expect(h.count()).toMatchObject([{ key: 'c1', count: 2 }, { key: 'c2', count: 1 }]);
+    expect(h.count().reduce((sum, r) => sum + r.count, 0)).toBe(h.search().length);
+    h.t.archive.setPrivacyMode(false);
+    expect(h.count().reduce((sum, r) => sum + r.count, 0)).toBe(7);
+    expect(h.search()).toHaveLength(7);
+  });
+
+  it('bounds groups without capping messages and keeps ties ordered by key', () => {
+    const h = start();
+    const extra = ARCHIVE_SEARCH_MAX + 5;
+    h.t.archive.arrive(Array.from({ length: extra }, (_, i) => ({ id: messageId(i + 5), channelId: 'c1', ts: START + i + 4, content: 'quartz' })));
+    expect(h.search()).toHaveLength(ARCHIVE_SEARCH_MAX);
+    expect(h.count('quartz', { limit: 1 })).toMatchObject([{ key: 'c1', count: extra + 2 }]);
+    expect(h.count('quartz', { channelIds: ['c2', 'c3'] }).map((r) => r.key)).toEqual(['c2', 'c3']);
+  });
+
+  it('counts textless messages only with a null query and supplies scoped author names', () => {
+    const h = start();
+    h.t.archive.arrive([{ id: messageId(5), channelId: 'c1', ts: START + 4, content: '', authorId: 'textless', authorName: 'Textless' }]);
+    expect(h.count(null, { authorIds: ['textless'] }, 'author')).toEqual([{ key: 'textless', count: 1, name: 'Textless', username: 'Textless' }]);
+    expect(h.count('', { authorIds: ['textless'] })).toEqual([]);
+    expect(h.count('quartz', { authorIds: ['textless'] })).toEqual([]);
+  });
+
+  it.each(['day', 'hour', 'weekday'] as const)('groups %s in the local timezone', (group) => {
+    const h = start();
+    const date = new Date(START);
+    const key = group === 'day' ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      : group === 'hour' ? String(date.getHours()).padStart(2, '0') : String(date.getDay());
+    expect(h.count('quartz', {}, group)).toEqual([{ key, count: 4, name: key, username: null }]);
+  });
+
+  it('returns no groups after unload', async () => {
+    const h = start();
+    await h.t.off();
+    expect(h.count()).toEqual([]);
+    expect(h.count(null)).toEqual([]);
+  });
+
+  it.each([0, -1, ARCHIVE_SEARCH_GROUPS_MAX + 1, 1.5, NaN, Infinity])('rejects invalid group limit %s', (limit) => {
+    expect(() => start().count('quartz', { limit })).toThrow(RangeError);
+  });
+
+  it('rejects unknown groups', () => {
+    expect(() => start().count('quartz', {}, 'constructor' as ArchiveSearchGroup)).toThrow(RangeError);
   });
 });

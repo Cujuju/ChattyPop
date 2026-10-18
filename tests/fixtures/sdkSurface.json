@@ -170,6 +170,7 @@
       "visibleTable"
     ],
     "@plugin-sdk/core": [
+      "ARCHIVE_SEARCH_GROUPS_MAX",
       "ARCHIVE_SEARCH_MAX",
       "ARCHIVE_TOOL_LINES_MAX",
       "ARRIVAL",
@@ -824,6 +825,8 @@
       "ArchiveReplyExists",
       "ArchiveReplyReader",
       "ArchiveReplyTargets",
+      "ArchiveSearchCount",
+      "ArchiveSearchGroup",
       "ArchiveSearchHit",
       "ArchiveSearchOptions",
       "ArchiveTool",
