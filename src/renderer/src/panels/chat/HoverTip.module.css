@@ -1,5 +1,5 @@
-/* A reaction's who-reacted tip, as Discord's: the emoji large beside the names, floating above its pill.
-   Placed by ReactionTip (fixed left/top: the pill's centre and top edge). */
+/* A who-did-it tip (a reaction's, a poll answer's), as Discord's reaction tooltip: the emoji large beside the names,
+   floating above what it names. Placed by PeopleTip (fixed left/top: the anchor's centre and top edge). */
 .tip {
   position: fixed;
   z-index: var(--cp-z-tooltip);
@@ -36,13 +36,13 @@
   line-height: var(--cp-leading-tight);
 }
 
-.name {
+.label {
   color: var(--cp-text-1);
   font-weight: var(--cp-weight-semibold);
 }
 
-/* A reactor: their avatar beside their name, kept together on one line. */
-.reactor {
+/* A person: their avatar beside their name, kept together on one line. */
+.person {
   display: inline-flex;
   align-items: center;
   gap: var(--cp-space-2);

@@ -1,10 +1,11 @@
 // A message's Discord poll, as Discord shows it: pick answers and Vote while it runs; once voted (or ended), each answer's
-// share, and View votes for who chose each.
-import { For, Show, createSignal } from 'solid-js';
+// share, and View votes for who chose each. Resting on a result names its voters, as a reaction's tip does.
+import { For, Show, createResource, createSignal } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { pollTimeLeft, type ArchivePoll } from '@shared/polls';
 import { now } from '@/state/clock';
-import { openPollVotes, pollOpen, votePoll } from '@/state/polls';
+import { answerTipVoters, openPollVotes, pollOpen, votePoll } from '@/state/polls';
+import { HoverTipAnchor, PeopleTip } from './HoverTip';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { errorText } from '@/ui/format';
 import styles from './Poll.module.css';
@@ -55,13 +56,17 @@ export function Poll(props: { message: ArchiveMessage }) {
             <Show
               when={!showResults()}
               fallback={
-                <div class={styles.answer} role="listitem" data-mine={a.mine} style={{ '--v': share(a.votes) }}>
-                  <span class={styles.fill} aria-hidden="true" />
-                  <AnswerText emoji={a.emoji} text={a.text} />
-                  <span class={styles.count}>
-                    {Math.round(share(a.votes) * PERCENT)}% · {a.votes}
-                  </span>
-                </div>
+                <HoverTipAnchor class={styles.answerAnchor} role="listitem" tip={(anchor) => (a.votes ? <AnswerTip message={props.message} answer={a} anchor={anchor} /> : null)}>
+                  {() => (
+                    <div class={styles.answer} data-mine={a.mine} style={{ '--v': share(a.votes) }}>
+                      <span class={styles.fill} aria-hidden="true" />
+                      <AnswerText emoji={a.emoji} text={a.text} />
+                      <span class={styles.count}>
+                        {Math.round(share(a.votes) * PERCENT)}% · {a.votes}
+                      </span>
+                    </div>
+                  )}
+                </HoverTipAnchor>
               }
             >
               <button
@@ -114,6 +119,23 @@ export function Poll(props: { message: ArchiveMessage }) {
         </p>
       </Show>
     </section>
+  );
+}
+
+/** Who chose `answer`: its first voters, then "N others". */
+function AnswerTip(props: { message: ArchiveMessage; answer: ArchivePoll['answers'][number]; anchor: HTMLElement }) {
+  const [people] = createResource(() => answerTipVoters(props.message, props.answer.id, props.answer.votes));
+  return (
+    <PeopleTip
+      anchor={props.anchor}
+      emoji={props.answer.emoji}
+      label={props.answer.text}
+      verb="voted by"
+      people={people.error ? null : (people() ?? null)}
+      count={props.answer.votes}
+      channelId={props.message.channelId}
+      status={people.error ? `${props.answer.votes} voted · Discord couldn't be reached` : 'Loading…'}
+    />
   );
 }
 

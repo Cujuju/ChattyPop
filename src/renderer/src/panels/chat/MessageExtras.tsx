@@ -12,7 +12,8 @@ import { setLightbox } from '@/state/ui';
 import { InlineMarkdown, Markdown } from '@/ui/Markdown';
 import { SolidIcon } from '@/ui/solidIcons';
 import { StickerArt } from '@/ui/StickerArt';
-import { ReactionTipAnchor } from './ReactionTip';
+import { HoverTipAnchor } from './HoverTip';
+import { ReactionTip } from './ReactionTip';
 import { MediaCaption, MediaFigure, Note } from './Attachment';
 import { presentedParts } from './ownedParts';
 import { pluginPresents } from '@/state/plugins';
@@ -59,7 +60,7 @@ export function Reactions(props: { message: ArchiveMessage }) {
       <div class={styles.reactions}>
         <For each={m().reactions}>
           {(r) => (
-            <ReactionTipAnchor message={m()} reaction={r} class={styles.reactionAnchor}>
+            <HoverTipAnchor class={styles.reactionAnchor} tip={(anchor) => <ReactionTip message={m()} reaction={r} anchor={anchor} />}>
               {(consumeHold) => (
                 <button
                   type="button"
@@ -76,7 +77,7 @@ export function Reactions(props: { message: ArchiveMessage }) {
                   <span class={styles.reactionCount}>{r.count}</span>
                 </button>
               )}
-            </ReactionTipAnchor>
+            </HoverTipAnchor>
           )}
         </For>
         <Show when={canReact(m())}>

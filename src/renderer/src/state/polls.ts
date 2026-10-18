@@ -1,7 +1,7 @@
 // The owner's votes on Discord polls, and the poll whose voters View votes shows.
 import { createSignal } from 'solid-js';
 import { api } from '@/api';
-import type { ArchiveMessage } from '@shared/contract';
+import type { ArchiveMessage, PersonMatch } from '@shared/contract';
 import type { ArchivePoll, PollVoters } from '@shared/polls';
 import { errorText } from '@/ui/format';
 import { refreshLoaded } from './archive';
@@ -48,4 +48,22 @@ export async function pollVotersPage(p: PollVotesOf, answerId: number, after: st
   } catch (err) {
     throw new Error(`Couldn't load the votes: ${errorText(err)}`);
   }
+}
+
+/** Answers whose first voters hover tips keep; past it the oldest is dropped. */
+const VOTER_TIPS_KEPT = 50;
+const tipVoters = new Map<string, { votes: number; people: Promise<PersonMatch[]> }>();
+
+/** The first voters for an answer's hover tip, fetched once while its count holds: a vote changes the count. */
+export function answerTipVoters(m: ArchiveMessage, answerId: number, votes: number): Promise<PersonMatch[]> {
+  const key = `${m.id}:${answerId}`;
+  const kept = tipVoters.get(key);
+  if (kept?.votes === votes) return kept.people;
+  const people = api.discord.pollVoters(m.channelId, m.id, answerId, null).then((page) => page.people);
+  tipVoters.delete(key);
+  tipVoters.set(key, { votes, people });
+  if (tipVoters.size > VOTER_TIPS_KEPT) tipVoters.delete(tipVoters.keys().next().value!);
+  // A failed fetch isn't kept: the next hover asks again.
+  people.catch(() => tipVoters.get(key)?.people === people && tipVoters.delete(key));
+  return people;
 }

@@ -35,6 +35,12 @@
   gap: var(--cp-space-2);
 }
 
+/* A result's hover tip anchor: the row it wraps fills it. */
+.answerAnchor {
+  display: flex;
+  flex-direction: column;
+}
+
 /* A choice, or a result over its share (--v, 0-1, set by Poll); the owner's own in the accent. */
 .answer {
   position: relative;
