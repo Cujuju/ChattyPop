@@ -15,11 +15,14 @@ export function findPeople(db: Db, query: string, limit: number): PersonMatch[] 
   const escaped = q.replace(LIKE_SPECIAL, (c) => `${LIKE_ESCAPE}${c}`);
   const matches = `LIKE @like ESCAPE '${LIKE_ESCAPE}'`;
   const starts = `LIKE @prefix ESCAPE '${LIKE_ESCAPE}'`;
+  // One pass over users and one over nicknames: members has no user_id index, so a per-user nickname lookup scans it per user.
   return db
     .prepare(
-      `SELECT ${COLUMNS} FROM users u
-       WHERE u.username ${matches} OR u.global_name ${matches}
-          OR EXISTS (SELECT 1 FROM members mem WHERE mem.user_id = u.id AND mem.nick ${matches} AND mem.guild_id NOT IN (SELECT id FROM hidden_ids))
+      `WITH found(id) AS (
+         SELECT id FROM users WHERE username ${matches} OR global_name ${matches}
+         UNION SELECT user_id FROM members WHERE nick ${matches} AND guild_id NOT IN (SELECT id FROM hidden_ids)
+       )
+       SELECT ${COLUMNS} FROM found JOIN users u ON u.id = found.id
        ORDER BY (name ${starts} OR u.username ${starts}) DESC, name COLLATE NOCASE LIMIT @limit`,
     )
     .all({ like: `%${escaped}%`, prefix: `${escaped}%`, limit }) as PersonMatch[];
