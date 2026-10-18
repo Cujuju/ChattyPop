@@ -105,6 +105,7 @@ export { isDmChannel, type DmChannel } from '@/state/dmRules';
 export { foldGesture, showThreads, threadsShown, unseenInThreads } from '@/state/threadFolds';
 export { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
+export { openPanel } from './openPanel';
 // The SDK's openPerson keeps its optional place; the host's own requires one.
 export { openPersonFromPlugin as openPerson } from '@/state/person';
 // In-app windows a plugin opens per key, several of a kind at once (its renderer side's `windows`).

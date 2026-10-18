@@ -9,8 +9,13 @@ type EventOf<T extends AppEvent['type']> = Extract<AppEvent, { type: T }>;
 type Listener<T extends AppEvent['type']> = (e: EventOf<T>) => void;
 const listeners = new Map<AppEvent['type'], Set<(e: AppEvent) => void>>();
 
-// One bridge subscription for the whole renderer; stores subscribe by event type. A listener's failure is reported, not passed on.
-api.onEvent((e) => listeners.get(e.type)?.forEach((l) => runIsolated(() => l(e), reportFailure)));
+/** Delivers a local or bridge event to this window's listeners, isolating each listener's failures. */
+export function dispatchAppEvent(e: AppEvent): void {
+  listeners.get(e.type)?.forEach((l) => runIsolated(() => l(e), reportFailure));
+}
+
+// One bridge subscription for the whole renderer; local navigation shares its listeners.
+api.onEvent(dispatchAppEvent);
 
 /** Calls `listener` with each app event of `type`; returns an unsubscribe function. */
 export function onAppEvent<T extends AppEvent['type']>(type: T, listener: Listener<T>): () => void {

@@ -442,6 +442,7 @@
       "openArchiveAt",
       "openMenuAt",
       "openMessageMenuById",
+      "openPanel",
       "openPerson",
       "openPluginWindow",
       "openRule",
