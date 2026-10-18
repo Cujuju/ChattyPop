@@ -21,9 +21,12 @@ export function plainDiscordText(text: string, names: MentionNames = {}): string
   });
 }
 
-/** Moves snippet cuts to token starts or, with past, token ends, preserving whole renderable tokens. */
+/** What a snippet cut must not split: a Discord token, a masked link `[text](url)` or a bare URL. */
+const WHOLE_SPAN = new RegExp(`${DISCORD_TOKEN.source}|\\[[^\\]\\n]*\\]\\(<?https?://[^\\s)]+>?\\)|https?://[^\\s<]+`, 'g');
+
+/** Moves snippet cuts to span starts or, with past, span ends, preserving whole renderable tokens, links and URLs. */
 export function cutOutsideTokens(text: string, i: number, past: boolean): number {
-  for (const m of text.matchAll(DISCORD_TOKEN)) {
+  for (const m of text.matchAll(WHOLE_SPAN)) {
     const start = m.index;
     const end = start + m[0].length;
     if (start >= i) break;

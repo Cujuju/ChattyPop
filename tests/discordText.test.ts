@@ -36,6 +36,17 @@ describe('Discord text in snippets', () => {
     expect(snippet(`${EMOJI} tail`, null, 5)).toBe(`${EMOJI}…`);
   });
 
+  it('keeps masked links and bare URLs whole, so their markdown still renders', () => {
+    const link = '[FxTwitter](https://fxtwitter.com/i/status/2111588056188797000)';
+    const url = 'https://x.com/someone/status/2111588056188797000?s=46';
+    const text = `${'a '.repeat(40)}${link} target ${url} ${'b '.repeat(40)}`;
+    for (const max of [20, 50, 80, 120]) {
+      const s = snippet(text, /target/, max);
+      expect(s.includes('[FxTwitter]') ? s.includes(link) : !s.includes('fxtwitter')).toBe(true);
+      expect(s.includes('x.com') ? s.includes(url) : true).toBe(true);
+    }
+  });
+
   it('repairs snippets stored with a token cut at either end', () => {
     const db = new Database(':memory:') as unknown as Db;
     db.exec('CREATE TABLE alerts (id INTEGER PRIMARY KEY, snippet TEXT NOT NULL)');
