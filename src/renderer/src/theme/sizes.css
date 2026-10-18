@@ -20,6 +20,7 @@
   --cp-statusbar-h: 28px;
   --cp-sidebar-w: 232px;
   --cp-search-w: 420px;
+  --cp-search-snippet-lines: 3; /* a search result's text, cut to this many lines (unitless): enough to read the match in context */
   --cp-splitter-size: 10px;
   --cp-resize-grab: 8px; /* pointer hit area centred on a 1px split divider; takes no layout space */
   --cp-dialog-w: 760px; /* settings: tab list plus a ~580px section column */

@@ -36,7 +36,7 @@ const QUERY_DEBOUNCE_MS = 150;
 const RANK_PAUSE_MS = 1000;
 const RESULT_LIMIT = 30;
 
-const hit = (id: string): SearchHit => ({ messageId: id, channelId: 'c', channelName: 'c', authorName: 'a', ts: 1, snippet: id, mentions: {} });
+const hit = (id: string): SearchHit => ({ messageId: id, channelId: 'c', channelName: 'c', authorId: 'u', authorName: 'a', authorAvatar: null, ts: 1, snippet: id, mentions: {} });
 const FULL_TEXT = ['a', 'b', 'c'].map(hit);
 const RANKED = ['c', 'a', 'b'].map((id) => ({ ...hit(id), relevance: 0.9 }));
 const shown = (): string[] => searchHits().map((h) => h.messageId);

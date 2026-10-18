@@ -1,4 +1,5 @@
-import { For, Match, Switch, createSignal, useContext, type JSX } from 'solid-js';
+import { For, Match, Switch, createContext, createSignal, useContext, type JSX } from 'solid-js';
+import { SEARCH_MATCH_END, SEARCH_MATCH_START } from '@shared/contract';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
@@ -53,6 +54,28 @@ function Spoiler(props: { children: JSX.Element; inert: boolean }) {
   );
 }
 
+/** Search snippets: text shows its matches (between SEARCH_MATCH_START and _END) highlighted, the delimiters hidden. */
+const MatchMarks = createContext(false);
+const MATCH_DELIMITER = new RegExp(`([${SEARCH_MATCH_START}${SEARCH_MATCH_END}])`);
+
+/** Text split at match delimiters; a delimiter a match was cut at (by the snippet's edge or a token) just ends it. */
+function matchParts(text: string): { text: string; hit: boolean }[] {
+  let hit = false;
+  return text.split(MATCH_DELIMITER).flatMap((part) => {
+    if (part === SEARCH_MATCH_START || part === SEARCH_MATCH_END) {
+      hit = part === SEARCH_MATCH_START;
+      return [];
+    }
+    return part ? [{ text: part, hit }] : [];
+  });
+}
+
+/** A text leaf: plain, or with its search matches marked inside MatchMarks. */
+function Text(props: { text: string }) {
+  if (!useContext(MatchMarks)) return <>{props.text}</>;
+  return <For each={matchParts(props.text)}>{(p) => (p.hit ? <mark class={styles.match}>{p.text}</mark> : p.text)}</For>;
+}
+
 /** `inert`: drawn inside a clickable row, so links are text and spoilers don't open. */
 function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; jumbo: boolean; inert?: boolean }) {
   const channelName = (id: string): string => channelById(id)?.name ?? 'unknown-channel';
@@ -60,7 +83,7 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
     <For each={props.nodes}>
       {(n) => (
         <Switch>
-          <Match when={n.k === 'text' && n}>{(t) => t().text}</Match>
+          <Match when={n.k === 'text' && n}>{(t) => <Text text={t().text} />}</Match>
           <Match when={n.k === 'strong' && n}>{(x) => <strong><Inline nodes={x().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></strong>}</Match>
           <Match when={n.k === 'em' && n}>{(x) => <em><Inline nodes={x().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></em>}</Match>
           <Match when={n.k === 'u' && n}>{(x) => <u><Inline nodes={x().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></u>}</Match>
@@ -72,7 +95,7 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
               </Spoiler>
             )}
           </Match>
-          <Match when={n.k === 'code' && n}>{(c) => <code class={styles.code}>{c().text}</code>}</Match>
+          <Match when={n.k === 'code' && n}>{(c) => <code class={styles.code}><Text text={c().text} /></code>}</Match>
           <Match when={n.k === 'link' && props.inert && n}>
             {(l) => (
               <span class={styles.link}>
@@ -111,17 +134,17 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
   );
 }
 
-function Blocks(props: { blocks: MdBlock[]; mentions: Record<string, string>; jumbo: boolean }) {
+function Blocks(props: { blocks: MdBlock[]; mentions: Record<string, string>; jumbo: boolean; inert?: boolean }) {
   return (
     <For each={props.blocks}>
       {(b) => (
         <Switch>
-          <Match when={b.k === 'p' && b}>{(p) => <span class={styles.p}><Inline nodes={p().children} mentions={props.mentions} jumbo={props.jumbo} /></span>}</Match>
-          <Match when={b.k === 'h' && b}>{(h) => <span class={styles.h} data-level={h().level}><Inline nodes={h().children} mentions={props.mentions} jumbo={false} /></span>}</Match>
-          <Match when={b.k === 'subtext' && b}>{(x) => <span class={styles.subtext}><Inline nodes={x().children} mentions={props.mentions} jumbo={false} /></span>}</Match>
-          <Match when={b.k === 'li' && b}>{(x) => <span class={styles.li}><Inline nodes={x().children} mentions={props.mentions} jumbo={false} /></span>}</Match>
-          <Match when={b.k === 'quote' && b}>{(q) => <span class={styles.quote}><Blocks blocks={q().blocks} mentions={props.mentions} jumbo={false} /></span>}</Match>
-          <Match when={b.k === 'codeblock' && b}>{(c) => <code class={styles.codeblock} data-lang={c().lang || undefined}>{c().text}</code>}</Match>
+          <Match when={b.k === 'p' && b}>{(p) => <span class={styles.p}><Inline nodes={p().children} mentions={props.mentions} jumbo={props.jumbo} inert={props.inert} /></span>}</Match>
+          <Match when={b.k === 'h' && b}>{(h) => <span class={styles.h} data-level={h().level}><Inline nodes={h().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></span>}</Match>
+          <Match when={b.k === 'subtext' && b}>{(x) => <span class={styles.subtext}><Inline nodes={x().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></span>}</Match>
+          <Match when={b.k === 'li' && b}>{(x) => <span class={styles.li}><Inline nodes={x().children} mentions={props.mentions} jumbo={false} inert={props.inert} /></span>}</Match>
+          <Match when={b.k === 'quote' && b}>{(q) => <span class={styles.quote}><Blocks blocks={q().blocks} mentions={props.mentions} jumbo={false} inert={props.inert} /></span>}</Match>
+          <Match when={b.k === 'codeblock' && b}>{(c) => <code class={styles.codeblock} data-lang={c().lang || undefined}><Text text={c().text} /></code>}</Match>
         </Switch>
       )}
     </For>
@@ -130,11 +153,15 @@ function Blocks(props: { blocks: MdBlock[]; mentions: Record<string, string>; ju
 
 /**
  * Discord-flavoured markdown as elements (never HTML strings). `jumbo` enlarges emoji in an emoji-only message.
- * Rendered with spans so it can sit inside a <p>.
+ * Rendered with spans so it can sit inside a <p>. `inert` for text inside a clickable row; `marks` for a search snippet.
  */
-export function Markdown(props: { text: string; mentions?: Record<string, string>; jumbo?: boolean }) {
+export function Markdown(props: { text: string; mentions?: Record<string, string>; jumbo?: boolean; inert?: boolean; marks?: boolean }) {
   const blocks = () => parseMarkdown(props.text);
-  return <Blocks blocks={blocks()} mentions={props.mentions ?? {}} jumbo={props.jumbo ?? false} />;
+  return (
+    <MatchMarks.Provider value={props.marks ?? false}>
+      <Blocks blocks={blocks()} mentions={props.mentions ?? {}} jumbo={props.jumbo ?? false} inert={props.inert} />
+    </MatchMarks.Provider>
+  );
 }
 
 /**

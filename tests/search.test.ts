@@ -90,6 +90,25 @@ describe('search operators against the archive', () => {
     expect(hits('from:<@u2>')).toEqual(['alpha two']);
   });
 
+  it('names each hit\'s author by id and avatar, with words and without', () => {
+    db.prepare("UPDATE users SET avatar = 'hash2' WHERE id = 'u2'").run();
+    for (const q of ['alpha two', 'from:<@u2>']) {
+      expect(searchMessages(db, q, 1, 'relevance')[0]).toMatchObject({ authorId: 'u2', authorName: 'Theo', authorAvatar: 'hash2' });
+    }
+  });
+
+  it('gives a short hit its whole text with line breaks, and a long one a window that keeps its link whole', () => {
+    const link = '[post](https://example.com/a/very/long/path/to/a/post/123456789)';
+    archive.ingestMessages([
+      rawMessage('c1', sept(4), 'quartz first line\n> quoted second'),
+      rawMessage('c1', sept(5), `${'filler '.repeat(30)}${link} jasper ${'tail '.repeat(30)}`),
+    ], ARRIVAL.gateway);
+    expect(hits('quartz')).toEqual(['quartz first line\n> quoted second']);
+    const [long] = hits('jasper');
+    expect(long).toContain(`${link} jasper`);
+    expect(long!.startsWith('…') && long!.endsWith('…')).toBe(true);
+  });
+
   it('negates an operator even when the author has no display name', () => {
     expect(hits('alpha -from:alice')).toEqual(['alpha two']);
   });

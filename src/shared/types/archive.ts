@@ -324,7 +324,10 @@ export interface SearchHit {
   messageId: string;
   channelId: string;
   channelName: string;
+  authorId: string;
   authorName: string;
+  /** The author's Discord avatar hash; null for the default avatar. */
+  authorAvatar: string | null;
   ts: number;
   snippet: string;
   /** Display names of the users the message mentions, by id, for writing <@id> in the snippet. */

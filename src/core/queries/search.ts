@@ -11,10 +11,12 @@ import { displayNameSql } from './names';
 import { visibleMessageSql } from './privacy';
 import { searchIndexUnion } from './searchIndexes';
 
-/** Tokens (words) of context FTS5 keeps around matches in a result snippet. */
-const SNIPPET_TOKENS = 14;
-/** Snippet length for filter-only searches (no words to centre on). */
-const PLAIN_SNIPPET_CHARS = 160;
+/**
+ * About what a result row shows before it clamps (three lines of the search panel): a text this long or shorter shows
+ * whole, its line breaks kept; a longer one as a window this long around its first match.
+ */
+const RESULT_TEXT_CHARS = 160;
+const FIRST_MATCH = new RegExp(SEARCH_MATCH_START);
 /** Time direction per sort; relevance has no score without words, so a filter-only search lists newest first. */
 const TIME_ORDER: Readonly<Record<SearchSort, 'ASC' | 'DESC'>> = { newest: 'DESC', oldest: 'ASC', relevance: 'DESC' };
 
@@ -100,6 +102,9 @@ export function parseSearch(text: string): SearchFilters {
   return { words: parsed.words, where, params };
 }
 
+/** A hit's text: whole when short, else cut around its first match (or from its start) with tokens, links and URLs whole. */
+const resultText = (text: string): string => (text.length <= RESULT_TEXT_CHARS ? text : snippet(text, FIRST_MATCH, RESULT_TEXT_CHARS));
+
 /** A hit as selected: its mentions still JSON. */
 type HitRow = Omit<SearchHit, 'mentions'> & { mentionsJson: string | null };
 
@@ -110,27 +115,26 @@ export function searchMessages(db: Db, text: string, limit: number, sort: Search
   if (!q && !f.where.length) return [];
   const filters = ` AND ${[...f.where, visibleMessageSql('m')].join(' AND ')}`;
   const select = `SELECT m.id AS messageId, m.channel_id AS channelId, COALESCE(c.name, m.channel_id) AS channelName,
-                         ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName, m.ts, ${rawJsonSql('$.mentions')} AS mentionsJson`;
+                         m.author_id AS authorId, ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName, u.avatar AS authorAvatar, m.ts, ${rawJsonSql('$.mentions')} AS mentionsJson`;
   const joins = 'LEFT JOIN channels c ON c.id = m.channel_id LEFT JOIN users u ON u.id = m.author_id';
   if (q) {
     const hits = (fts: string): string =>
-      `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score`;
+      `${select}, highlight(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}') AS snippet, bm25(${fts}) AS score`;
     // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
     const union = searchIndexUnion(q, hits, joins, filters, f.params, {
       sql: `EXISTS (SELECT 1 FROM messages m ${joins} WHERE m.id = s.id${filters})`, params: f.params,
     });
     const rows = db
       .prepare(
-        `SELECT messageId, channelId, channelName, authorName, ts, mentionsJson, snippet, MIN(score) AS score FROM (
+        `SELECT messageId, channelId, channelName, authorId, authorName, authorAvatar, ts, mentionsJson, snippet, MIN(score) AS score FROM (
            ${union.sql}
          ) GROUP BY messageId ORDER BY ${sort === 'relevance' ? 'score' : `ts ${TIME_ORDER[sort]}`} LIMIT ?`,
       )
       .all(...union.params, limit) as (HitRow & { score: number })[];
-    return rows.map(({ score: _score, mentionsJson, ...hit }) => ({ ...hit, mentions: mentionsFrom(mentionsJson) }));
+    return rows.map(({ score: _score, mentionsJson, ...hit }) => ({ ...hit, snippet: resultText(hit.snippet), mentions: mentionsFrom(mentionsJson) }));
   }
   const rows = db
     .prepare(`${select}, m.content AS snippet FROM messages m ${joins} WHERE 1${filters} ORDER BY m.ts ${TIME_ORDER[sort]} LIMIT ?`)
     .all(...f.params, limit) as HitRow[];
-  // Cut here, not in SQL, so Discord tokens stay whole.
-  return rows.map(({ mentionsJson, ...hit }) => ({ ...hit, snippet: snippet(hit.snippet ?? '', null, PLAIN_SNIPPET_CHARS), mentions: mentionsFrom(mentionsJson) }));
+  return rows.map(({ mentionsJson, ...hit }) => ({ ...hit, snippet: resultText(hit.snippet ?? ''), mentions: mentionsFrom(mentionsJson) }));
 }

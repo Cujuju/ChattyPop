@@ -1,38 +1,59 @@
 // Archive search field and its panel: the query builder, a filter's value picker, or results with operator feedback.
-import { For, Match, Show, Switch, createEffect, createMemo, on } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, on } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
-import { SEARCH_MATCH_END, SEARCH_MATCH_START, type SearchHit } from '@shared/contract';
-import { plainDiscordText } from '@shared/discordText';
-import { channelById } from '@/state/directory';
+import type { SearchHit } from '@shared/contract';
 import { searchTokens } from '@/plugins/slots';
 import { SEARCH_SORTS, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import { openArchive } from '@/state/archive';
 import { isSavedSearch, querySearch, savedSearches, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
 import { inCompanion } from '@/state/ui';
-import { shortDateTime } from '@/ui/format';
 import { listen } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
-import { pendingFilter, searchFilters, withFilter, withValue } from './searchFilters';
+import { namedChoiceSources } from './searchChoices';
+import { pendingFilter, searchFilters, withChoice, withFilter, type FilterChoice, type PendingFilter } from './searchFilters';
 import { AddFilterStrip, FilterList, ValuePicker } from './SearchBuilder';
+import { SearchHits } from './SearchResults';
 import { Icon } from '@/ui/icons';
 import styles from './Search.module.css';
 
 const SORT_LABELS: Readonly<Record<SearchSort, string>> = { newest: 'Newest', oldest: 'Oldest', relevance: 'Relevance' };
 
-/** A hit's text with its matches marked; Discord tokens as words (a token split by a match mark stays raw). Delimiters are control characters, so plain splitting is safe. */
-function Snippet(props: { text: string; mentions: Record<string, string> }) {
-  const text = () => plainDiscordText(props.text, { users: props.mentions, channel: (id) => channelById(id)?.name });
-  const parts = () => text().split(SEARCH_MATCH_START).flatMap((chunk, i) => (i === 0 ? [{ text: chunk, hit: false }] : chunk.split(SEARCH_MATCH_END).map((t, j) => ({ text: t, hit: j === 0 }))));
-  return <For each={parts()}>{(p) => (p.hit ? <mark class={styles.mark}>{p.text}</mark> : p.text)}</For>;
+/** The choices offered for one pending value. */
+interface OfferedChoices {
+  pending: PendingFilter;
+  list: readonly FilterChoice[];
 }
 
-/** Leader then / focuses archive search. Empty queries show filters/saved searches; trailing key: offers values; results open Archive messages. */
+/** Choices for `pending`, now when its filter has them at hand, else when they arrive (people). */
+function offeredChoices(pending: PendingFilter): OfferedChoices | Promise<OfferedChoices> {
+  const list = pending.filter.choices(pending.partial);
+  return list instanceof Promise ? list.then((l) => ({ pending, list: l })) : { pending, list };
+}
+
+/** Leader then / focuses archive search. Empty queries show filters/saved searches; a `key:` being typed offers matching values; results open Archive messages. */
 export function Search() {
   let input!: HTMLInputElement;
   let root!: HTMLDivElement;
-  const filters = createMemo(() => searchFilters(searchTokens()));
-  const pending = () => pendingFilter(searchText(), filters());
-  const mode = (): 'filters' | 'value' | 'results' => (searchText().trim() === '' ? 'filters' : pending() ? 'value' : 'results');
+  const filters = createMemo(() => searchFilters(searchTokens(), namedChoiceSources));
+  const pending = createMemo(() => pendingFilter(searchText(), filters()));
+  const [offered] = createResource(pending, offeredChoices);
+  /** The latest choices for the filter being typed; while newer ones load, the previous list stays to avoid a flash. */
+  const choices = (): readonly FilterChoice[] => {
+    const o = offered.error ? undefined : offered.latest;
+    return o && o.pending.filter === pending()?.filter ? o.list : [];
+  };
+  /** Only choices for exactly what is typed now may be picked. */
+  const current = (): boolean => !offered.error && offered.latest?.pending === pending();
+  /** A pending value shows its picker until it is typed and matches nothing, when its results show instead. */
+  const picking = (): boolean => {
+    const p = pending();
+    return !!p && (p.partial === '' || choices().length > 0 || (offered.loading && !!p.filter.named));
+  };
+  const mode = (): 'filters' | 'value' | 'results' => (searchText().trim() === '' ? 'filters' : picking() ? 'value' : 'results');
+  const pick = (choice: FilterChoice | undefined): void => {
+    const p = pending();
+    if (p && choice && current()) edit(withChoice(searchText(), p, choice));
+  };
   const problems = () => parseSearchQuery(searchText(), searchTokens().map((t) => t.key)).problems;
   /** Replaces the query, keeping the field focused and the panel open. */
   const edit = (query: string): void => {
@@ -53,17 +74,14 @@ export function Search() {
   };
   const rowCount = (): number => {
     if (mode() === 'filters') return filters().length + savedSearches().length;
-    if (mode() === 'value') return pending()!.choices().length;
+    if (mode() === 'value') return choices().length;
     return searchHits().length;
   };
   const { active, setActive, onKey } = createListNav(rowCount, {
     onEnter: (i) => {
-      const f = pending();
       if (mode() === 'results') open(searchHits()[i]);
-      else if (f) {
-        const choice = f.choices()[i];
-        if (choice) edit(withValue(searchText(), choice.value));
-      } else if (i < filters().length) edit(withFilter(searchText(), filters()[i]!.key));
+      else if (mode() === 'value') pick(choices()[i]);
+      else if (i < filters().length) edit(withFilter(searchText(), filters()[i]!.key));
       else if (savedSearches()[i - filters().length]) edit(savedSearches()[i - filters().length]!);
     },
     onEscape: close,
@@ -144,7 +162,7 @@ export function Search() {
                 onRemoveSaved={toggleSavedSearch}
               />
             </Match>
-            <Match when={pending()}>{(f) => <ValuePicker {...nav} filter={f()} onPick={(c) => edit(withValue(searchText(), c.value))} />}</Match>
+            <Match when={mode() === 'value' && pending()}>{(p) => <ValuePicker {...nav} pending={p()} choices={choices()} onPick={pick} />}</Match>
             <Match when={mode() === 'results'}>
               <AddFilterStrip filters={filters()} onFilter={(f) => edit(withFilter(searchText(), f.key))} />
               {/* mousedown kept from the buttons: focus (and the panel) stays in the field. */}
@@ -166,19 +184,7 @@ export function Search() {
                 </li>
               </Show>
               <Show when={searchHits().length} fallback={<li class={styles.empty}>No matches</li>}>
-                <For each={searchHits()}>
-                  {(hit, i) => (
-                    // mousedown, not click: fires before the input's blur closes the list.
-                    <li id={`search-row-${i()}`} role="option" aria-selected={active() === i()} onMouseEnter={() => setActive(i())} class={styles.hit} onMouseDown={(e) => (e.preventDefault(), open(hit))}>
-                      <span class={styles.meta}>
-                        #{hit.channelName} · {hit.authorName} · {shortDateTime(hit.ts)}
-                      </span>
-                      <span class={styles.snippet}>
-                        <Snippet text={hit.snippet} mentions={hit.mentions} />
-                      </span>
-                    </li>
-                  )}
-                </For>
+                <SearchHits {...nav} hits={searchHits()} onOpen={open} />
               </Show>
             </Match>
           </Switch>

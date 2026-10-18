@@ -139,3 +139,10 @@
   width: var(--cp-emoji-jumbo);
   height: var(--cp-emoji-jumbo);
 }
+
+/* A search match inside a result's snippet. */
+.match {
+  border-radius: var(--cp-radius-xs);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-text-1);
+}

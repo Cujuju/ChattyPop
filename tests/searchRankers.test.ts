@@ -12,7 +12,7 @@ const ranking = (id: string) => definePlugin({ manifest: { id, name: id, version
 const first = ranking('rankfirst');
 const second = ranking('ranksecond');
 
-const hit = (id: string): SearchHit => ({ messageId: id, channelId: 'c', channelName: 'c', authorName: 'a', ts: 1, snippet: `snippet ${id}`, mentions: {} });
+const hit = (id: string): SearchHit => ({ messageId: id, channelId: 'c', channelName: 'c', authorId: 'u', authorName: 'a', authorAvatar: null, ts: 1, snippet: `snippet ${id}`, mentions: {} });
 const HITS: readonly SearchHit[] = ['a', 'b', 'c'].map(hit);
 const ids = (hits: readonly SearchHit[] | null): string[] | null => hits?.map((h) => h.messageId) ?? null;
 const reversed: SearchRanker = async (_query, hits) => [...hits].reverse();

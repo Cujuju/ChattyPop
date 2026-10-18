@@ -1,6 +1,6 @@
 import { api } from '@/api';
 import { createSignal } from 'solid-js';
-import type { SearchHit } from '@shared/contract';
+import type { PersonMatch, SearchHit } from '@shared/contract';
 import { DEFAULT_SEARCH_SORT, normalizeSavedSearches, normalizeSearchSort, type SearchSort } from '@shared/searchQuery';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { onAppEvent } from './events';
@@ -15,6 +15,12 @@ const QUERY_DEBOUNCE_MS = 150;
  * finished: one request per search, not per keystroke.
  */
 const RANK_PAUSE_MS = 1000;
+
+/** People, channels or servers listed for a `from:`, `in:` or `server:` value: as many as Discord's autocomplete lists. */
+export const SEARCH_CHOICES_MAX = 10;
+
+/** People whose name, username or a server nickname contains `query`. */
+export const findSearchPeople = (query: string): Promise<PersonMatch[]> => api.core.findPeople(query, SEARCH_CHOICES_MAX);
 
 export const [searchText, setSearchText] = createSignal('');
 export const [searchHits, setSearchHits] = createSignal<SearchHit[]>([]);

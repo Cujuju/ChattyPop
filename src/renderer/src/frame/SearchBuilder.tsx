@@ -1,6 +1,9 @@
 // Query builder renders filters, pending values and add-filter strip. Listbox row ids match field aria-activedescendant.
-import { For, Show } from 'solid-js';
-import { FILTER_GROUPS, type FilterChoice, type SearchFilter } from './searchFilters';
+import { For, Match, Show, Switch } from 'solid-js';
+import { avatarUrl } from '@shared/media';
+import { look } from '@/theme/look';
+import { GuildIcon } from '@/ui/GuildIcon';
+import { FILTER_GROUPS, type ChoiceLead, type FilterChoice, type PendingFilter, type SearchFilter } from './searchFilters';
 import { Icon } from '@/ui/icons';
 import panel from './Search.module.css';
 import styles from './SearchBuilder.module.css';
@@ -87,33 +90,71 @@ export function FilterList(props: Nav & { filters: readonly SearchFilter[]; save
   );
 }
 
-/** A typed `key:` awaiting its value: its choices as chips, or how to type a free-text value. */
-export function ValuePicker(props: Nav & { filter: SearchFilter; onPick: (c: FilterChoice) => void }) {
+/** A person's avatar, a server's icon or a channel's sigil, in one fixed-width column. */
+function Lead(props: { lead: ChoiceLead }) {
+  return (
+    <span class={styles.lead}>
+      <Switch>
+        <Match when={props.lead.kind === 'person' && props.lead}>{(p) => <img class={`${styles.avatar} ${look.avatar}`} src={avatarUrl(p().id, p().avatar)} alt="" loading="lazy" />}</Match>
+        <Match when={props.lead.kind === 'server' && props.lead}>{(g) => <GuildIcon id={g().id} name={g().name} icon={g().icon} />}</Match>
+        <Match when={props.lead.kind === 'channel' && props.lead}>{(c) => <span class={styles.sigil}>{c().sigil}</span>}</Match>
+      </Switch>
+    </span>
+  );
+}
+
+/** A `key:` awaiting its value, maybe partly typed: matching people or places as rows, short values as chips, or how to type it. */
+export function ValuePicker(props: Nav & { pending: PendingFilter; choices: readonly FilterChoice[]; onPick: (c: FilterChoice) => void }) {
+  const filter = () => props.pending.filter;
   return (
     <>
       <li class={styles.valueHead} role="presentation">
-        <Token filter={props.filter} />
-        <span class={styles.filterDesc}>{props.filter.description}</span>
+        <Token filter={filter()} />
+        <span class={styles.filterDesc}>{filter().description}</span>
       </li>
       <Show
-        when={props.filter.choices().length}
+        when={props.choices.length}
         fallback={
           <li class={styles.tip} role="presentation">
-            Type a {props.filter.value} after <code>{props.filter.key}:</code> and quote it if it has spaces.
+            <Show when={filter().named} fallback={<>Type a {filter().value} after <code>{filter().key}:</code> and quote it if it has spaces.</>}>
+              Type a {filter().value} to see matches.
+            </Show>
           </li>
         }
       >
-        <li role="presentation">
-          <ul class={styles.choices} role="group" aria-label={`${props.filter.key} values`}>
-            <For each={props.filter.choices()}>
-              {(c, i) => (
-                <li class={styles.choice} {...option(props, i(), () => props.onPick(c))} title={c.label === c.value ? undefined : c.value}>
-                  {c.label}
-                </li>
-              )}
-            </For>
-          </ul>
-        </li>
+        <Show
+          when={filter().named}
+          fallback={
+            <li role="presentation">
+              <ul class={styles.choices} role="group" aria-label={`${filter().key} values`}>
+                <For each={props.choices}>
+                  {(c, i) => (
+                    <li class={styles.choice} {...option(props, i(), () => props.onPick(c))} title={c.label === c.value ? undefined : c.value}>
+                      {c.label}
+                    </li>
+                  )}
+                </For>
+              </ul>
+            </li>
+          }
+        >
+          <For each={props.choices}>
+            {(c, i) => (
+              <li class={styles.named} {...option(props, i(), () => props.onPick(c))}>
+                <Show when={c.lead}>{(lead) => <Lead lead={lead()} />}</Show>
+                <span class={styles.namedLabel}>{c.label}</span>
+                <Show when={c.detail}>
+                  <span class={styles.namedDetail}>{c.detail}</span>
+                </Show>
+              </li>
+            )}
+          </For>
+        </Show>
+        <Show when={props.pending.partial}>
+          <li class={styles.tip} role="presentation">
+            Enter picks. A space searches for what you typed.
+          </li>
+        </Show>
       </Show>
     </>
   );

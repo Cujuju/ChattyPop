@@ -63,10 +63,49 @@
   grid-column: 1 / -1;
 }
 
-.hit {
+/* A channel's run of results: its sigil and name, then its server, ruled off from the run above. */
+.channel {
   display: flex;
-  flex-direction: column;
-  gap: var(--cp-space-1);
+  align-items: baseline;
+  gap: var(--cp-space-2);
+  min-width: 0;
+  margin-top: var(--cp-space-2);
+  padding: var(--cp-space-4) var(--cp-space-5) var(--cp-space-2);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
+}
+
+.channelSigil {
+  font-weight: var(--cp-weight-semibold);
+}
+
+.channelName {
+  min-width: 0;
+  color: var(--cp-text-2);
+  font-weight: var(--cp-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.server {
+  min-width: 0;
+  margin-left: var(--cp-space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* One result as a chat message reads: the avatar beside the author line and the message's formatted text. */
+.hit {
+  display: grid;
+  grid-template-columns: var(--cp-avatar-md) minmax(0, 1fr);
+  grid-template-areas:
+    'avatar byline'
+    'avatar snippet';
+  align-items: start;
+  column-gap: var(--cp-space-5);
+  row-gap: var(--cp-space-1);
   padding: var(--cp-space-3) var(--cp-space-5);
   border-radius: var(--cp-radius-sm);
   cursor: pointer;
@@ -76,26 +115,48 @@
   background: var(--cp-surface-4);
 }
 
-.meta {
-  color: var(--cp-text-muted);
-  font-family: var(--cp-font-sans);
-  font-size: var(--cp-text-xs);
+.avatar {
+  grid-area: avatar;
+  width: var(--cp-avatar-md);
+  height: var(--cp-avatar-md);
+}
+
+.byline {
+  grid-area: byline;
+  display: flex;
+  align-items: baseline;
+  gap: var(--cp-space-4);
+  min-width: 0;
+}
+
+.author {
+  min-width: 0;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.snippet {
-  color: var(--cp-text-1);
-  font-size: var(--cp-text-md);
-  line-height: var(--cp-leading-normal);
-  overflow-wrap: anywhere;
+.time {
+  flex: 0 0 auto;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  white-space: nowrap;
 }
 
-.mark {
-  border-radius: var(--cp-radius-xs);
-  background: var(--cp-accent-wash-strong);
-  color: var(--cp-text-1);
+/* The message's text, Discord-formatted, cut to a few lines. */
+.snippet {
+  grid-area: snippet;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--cp-search-snippet-lines);
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-normal);
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 /* Quiet caption: a builder group, "Saved searches", or "Top results ordered by Jev" above re-ranked results. */
