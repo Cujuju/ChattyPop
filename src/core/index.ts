@@ -33,6 +33,7 @@ import { archiveHandlers } from './archiveHandlers';
 import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
 import { encryptedOnDisk, encryptionOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
+import { archiveReadPrivacyChanged, closeArchiveReads, resumeArchiveReads } from './reads/archiveReads';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
 import { mediaQueueHandlers } from './mediaQueue';
@@ -104,7 +105,10 @@ function ready(): { db: Db; archive: Archive } {
 }
 
 function emit(event: AppEvent): void {
-  if (event.type === 'privacy-changed') plugins?.privacyChanged();
+  if (event.type === 'privacy-changed') {
+    if (db) archiveReadPrivacyChanged(db);
+    plugins?.privacyChanged();
+  }
   process.parentPort.postMessage({ kind: 'event', event } satisfies CoreEventMessage);
 }
 
@@ -253,11 +257,13 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
       rulesOf().list(),
       samples,
     ),
-  setEncryption: (key) => {
+  setEncryption: async (key) => {
+    await closeArchiveReads(ready().db);
     try {
       rekey(ready().db, key);
     } finally {
       encrypted = encryptedOnDisk(dbPath); // a failed rekey may still have changed the file
+      resumeArchiveReads(ready().db);
     }
   },
   archiveEncryption: () => {
@@ -268,6 +274,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   closeArchive: async () => {
     const { db: open } = ready();
     await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
+    await closeArchiveReads(open);
     jevLedger.flush(); // Flush spend before archive-move restart.
     open.pragma('wal_checkpoint(TRUNCATE)');
     open.close();

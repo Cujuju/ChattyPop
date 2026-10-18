@@ -31,6 +31,8 @@ export default defineConfig(({ command }) => {
             // Client mode (--connect): a server's desktop UI in this app's windows; no core, no Discord.
             client: resolve(import.meta.dirname, 'src/main/client/clientApp.ts'),
             core: resolve(import.meta.dirname, 'src/core/index.ts'),
+            archiveReadProcess: resolve(import.meta.dirname, 'src/core/reads/archiveReadProcess.ts'),
+            archiveReadWorker: resolve(import.meta.dirname, 'src/core/reads/archiveReadWorker.ts'),
           },
         },
       },
