@@ -1,6 +1,6 @@
 // Typed renderer/main/core API contracts re-export shared data types and renderer interfaces from one import.
 import type { PluginCallResult } from './pluginCall';
-import type { LinkScore } from './conversationScore';
+import type { JevLinkScore, LinkScore } from './conversationScore';
 import type { FreeResult, ReplaceStored, StoredAttachmentFile } from './types/attachmentStore';
 export * from './types/attachmentStore';
 import type { SavedMessage, SavedTarget, SavedVisible, SavedChannelAccess } from './savedMessages';
@@ -228,6 +228,8 @@ export interface CoreMethods {
   conversation(messageId: string): ConversationView;
   /** Diagnostics: how well conversation links recover Discord replies hidden from the rules, over `channelIds` (default: all). */
   conversationLinkScore(channelIds?: string[]): Promise<LinkScore>;
+  /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band (asks Jev: costs a few cents). */
+  conversationJevScore(perBand?: number): Promise<JevLinkScore>;
   /** The signed-in user's most-used emoji in their archived messages, most used first; empty before READY names them. */
   ownEmoji(limit: number): UsedEmoji[];
   /** The signed-in user's most-used reactions in the archive, most used first. */

@@ -37,3 +37,30 @@ export interface LinkScore {
   /** Channels still queued for linking. */
   queuedChannels: number;
 }
+
+/** Jev against the chooser on held-out replies whose chooser confidence was in [from, to). */
+export interface JevBucketScore {
+  from: number;
+  to: number;
+  asked: number;
+  /** Jev gave a usable answer. */
+  answered: number;
+  /** The chooser's pick was the reply's target. */
+  chooserExact: number;
+  /** The target was among the candidates Jev saw. */
+  inTop: number;
+  jevExact: number;
+  /** Jev's pick met the query's condition to link (its probability threshold), and how many of those were right. */
+  jevLinks: number;
+  jevLinksExact: number;
+  /** Jev answered "none of them". */
+  jevNone: number;
+}
+
+export interface JevLinkScore {
+  bands: JevBucketScore[];
+  failed: number;
+  /** Held-out replies skipped because their target wasn't among the candidates. */
+  outOfReach: number;
+  costUsd: number | null;
+}

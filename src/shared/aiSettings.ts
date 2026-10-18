@@ -46,7 +46,7 @@ export interface ProviderSettings {
 export const JEV_CONNECTIONS = ['openrouter', 'typesafe'] as const;
 export type JevConnection = (typeof JEV_CONNECTIONS)[number];
 
-/** Opt-in host Jev switches control meaning, badges, retention, tags, suggestions, plugin decisions, checks, classes and rule questions. */
+/** Opt-in host Jev switches control meaning, badges, retention, tags, suggestions, plugin decisions, checks, classes, rule questions and conversation links. */
 export const HOST_JEV_FEATURES = [
   'topicMeaning',
   'catchUpBadges',
@@ -57,6 +57,7 @@ export const HOST_JEV_FEATURES = [
   'messageCheck',
   'messageClasses',
   'ruleQuestions',
+  'linkConversations',
 ] as const;
 export type HostJevFeature = (typeof HOST_JEV_FEATURES)[number];
 /** A plugin's switch as stored and asked for: `<plugin id>.<its key>` (descriptor `jev.features`), stamped by the host. */
