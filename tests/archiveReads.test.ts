@@ -1,4 +1,5 @@
 import { fork } from 'node:child_process';
+import { renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
 import { compressRawJson, openDb, rekey, setSetting, type Db } from '../src/core/db';
@@ -116,6 +117,23 @@ describe('off-thread plugin archive reads', () => {
     const start = performance.now();
     await pool.close();
     expect(performance.now() - start).toBeLessThan(SHUTDOWN_BUDGET_MS);
+  });
+
+  it('ends a helper busy in native SQLite when the core IPC pipe closes, releasing the archive file', async () => {
+    const path = join(tempDir(), 'orphan.db');
+    openDb(path).close();
+    const helper = fork(ENTRY, [], { execArgv: [], serialization: 'advanced', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+    onTestFinished(() => { if (helper.exitCode === null && helper.signalCode === null) helper.kill('SIGKILL'); });
+    const started = new Promise<void>((resolve) => helper.on('message', (m: { kind: string }) => { if (m.kind === 'started') resolve(); }));
+    const exited = new Promise<void>((resolve) => helper.once('exit', () => resolve()));
+    helper.send({ path, key: null });
+    helper.send({ sql: HEAVY, params: [] });
+    await started;
+    await delay(HEAD_START_MS);
+    helper.disconnect();
+    const timedOut = await Promise.race([exited.then(() => false), delay(SHUTDOWN_BUDGET_MS).then(() => true)]);
+    expect(timedOut).toBe(false);
+    expect(() => renameSync(path, `${path}.moved`)).not.toThrow();
   });
 
   it('opens encrypted archives read-only and refreshes the key after rekey', async () => {

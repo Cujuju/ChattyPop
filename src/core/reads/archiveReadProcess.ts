@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import type { ReadConnection, ReadQuery, ReadReply } from './protocol';
 
 let worker: Worker | undefined;
+let failed = false;
 process.on('message', (message: ReadConnection | ReadQuery) => {
   if ('path' in message) {
     worker = new Worker(join(import.meta.dirname, 'archiveReadWorker.js'), { workerData: message });
@@ -17,12 +18,12 @@ process.on('message', (message: ReadConnection | ReadQuery) => {
       process.send?.(reply);
     });
     worker.on('error', (error) => {
-      process.send?.({ kind: 'error', message: error.message, fatal: true } satisfies ReadReply);
-      process.exitCode = 1;
-      process.disconnect();
+      // The worker has stopped, so exit can't hang; exit once the reply is sent.
+      failed = true;
+      process.send?.({ kind: 'error', message: error.message, fatal: true } satisfies ReadReply, () => process.exit(1));
     });
-    worker.on('exit', () => process.exit());
+    worker.on('exit', () => { if (!failed) process.exit(); });
   } else worker!.postMessage(message);
 });
-// The core owns the IPC pipe. Its death must also end readers, including a worker blocked in native code.
-process.on('disconnect', () => process.exit());
+// The core owns the IPC pipe. process.exit() waits for a worker blocked in native SQLite, so end through the OS instead.
+process.on('disconnect', () => process.kill(process.pid, 'SIGKILL'));
