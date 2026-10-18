@@ -4,6 +4,7 @@ import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
 import { privacy } from '../queries/privacy';
 import { joined, untilRevoked } from './revocable';
+import type { AiReader } from './readScope';
 
 export interface ArchiveToolScope {
   /** Privacy-visible channels permitted for the caller's provider. Read nothing else. */
@@ -11,6 +12,8 @@ export interface ArchiveToolScope {
   /** Inclusive millisecond bounds; null means unbounded. */
   readonly since: number | null;
   readonly until: number | null;
+  /** Recipient for scoped metadata; omitted means hosted. */
+  readonly reader?: AiReader;
 }
 
 export interface ArchiveToolLine {
@@ -66,7 +69,8 @@ function visibleScope(db: Db, scope: ArchiveToolScope): ArchiveToolScope {
   }
   const channelIds = db.prepare('SELECT id FROM archive_channels WHERE id IN (SELECT value FROM json_each(?))')
     .pluck().all(JSON.stringify(scope.channelIds)) as string[];
-  return Object.freeze({ channelIds: Object.freeze(channelIds), since, until });
+  const reader = scope.reader === undefined ? undefined : scope.reader === 'hosted' ? 'hosted' : Object.freeze({ provider: scope.reader.provider });
+  return Object.freeze({ channelIds: Object.freeze(channelIds), since, until, ...(reader ? { reader } : {}) });
 }
 
 /** Validates lines against current archive visibility, redacts text, and records discarded lines once. */

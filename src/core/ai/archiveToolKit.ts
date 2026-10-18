@@ -94,7 +94,7 @@ export function clampToolScope(scope: ArchiveToolScope, args: { since?: string; 
   if (start !== undefined && end !== undefined && start > end) throw new Error('since must be <= until.');
   const since = start === undefined ? scope.since : scope.since === null ? start : Math.max(scope.since, start);
   const until = end === undefined ? scope.until : scope.until === null ? end : Math.min(scope.until, end);
-  return { channelIds: since !== null && until !== null && since > until ? [] : scope.channelIds, since, until };
+  return { channelIds: since !== null && until !== null && since > until ? [] : scope.channelIds, since, until, ...(scope.reader ? { reader: scope.reader } : {}) };
 }
 
 /** Scope predicates use exact channel membership, including threads only when explicitly listed. */

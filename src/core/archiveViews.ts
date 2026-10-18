@@ -4,7 +4,8 @@ import type { Db } from './db';
 import { MESSAGE_TEXT_SQL, LINKED_TEXT_SQL } from './queries/messageText';
 import { displayNameSql, plainNameSql } from './queries/names';
 import { attachmentKindSql } from './queries/attachmentKind';
-import { NOTHING_HIDDEN_SQL, noHiddenRefSql, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from './queries/privacy';
+import { archiveLinksSql } from './queries/linkMetadata';
+import { NOTHING_HIDDEN_SQL, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from './queries/privacy';
 
 const messages = `SELECT m.id, m.seq, m.channel_id, m.author_id, m.ts, m.edited_ts, m.deleted_at, m.pruned_at,
   m.content, m.raw_json, m.arrived_via, ${MESSAGE_TEXT_SQL} AS text, ${LINKED_TEXT_SQL} AS linked,
@@ -20,10 +21,6 @@ const attachments = `SELECT id, message_id, channel_id, filename, content_type, 
   url, sha256, status, error, stored_bytes, stored_ext, compressed_at, removed_at, ts,
   ${attachmentKindSql('content_type', 'filename')} AS kind FROM attachments`;
 const rules = 'SELECT id, name, builtin AS managed_key FROM rules';
-const links = `SELECT l.id, l.url, l.platform, l.title, l.description, l.thumbnail_url, l.site,
-  l.first_message_id, l.first_channel_id, l.first_author_id, l.first_ts,
-  ${displayNameSql('l.first_author_id', 'l.first_channel_id')} AS author_name
-  FROM links l LEFT JOIN users u ON u.id = l.first_author_id`;
 const shares = 'SELECT message_id, link_id FROM message_links';
 const derivedTexts = 'SELECT seq, message_id, source, ord, text, part FROM derived_texts d';
 const search = 'SELECT rowid AS seq, fts_messages AS query, rank FROM fts_messages';
@@ -44,9 +41,8 @@ export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_all_derived_texts: derivedTexts,
   archive_derived_texts: `${derivedTexts} WHERE EXISTS (SELECT 1 FROM messages m WHERE m.id = d.message_id AND ${visibleMessageSql('m')})`,
   archive_rules: rules,
-  archive_all_links: links,
-  archive_links: `${links}
-    WHERE ${visibleMessageRefSql('l.first_channel_id', 'l.first_message_id')} AND ${noHiddenRefSql('l.url')}`,
+  archive_all_links: archiveLinksSql('1', true),
+  archive_links: archiveLinksSql(),
   archive_all_message_links: shares,
   archive_message_links: `${shares}
     WHERE ${NOTHING_HIDDEN_SQL} OR NOT EXISTS (SELECT 1 FROM messages m WHERE m.id = message_id AND NOT ${visibleMessageSql('m')})`,

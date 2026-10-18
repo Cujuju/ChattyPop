@@ -128,6 +128,11 @@ describe('archive tool host guards', () => {
     expect(received).toEqual({ channelIds: ['c1'], since: START, until: END });
     expect(Object.isFrozen(received)).toBe(true);
     expect(Object.isFrozen(received.channelIds)).toBe(true);
+    const reader = { provider: 'local-probe' };
+    await h.run({ ...scope, reader });
+    expect(received.reader).toEqual(reader);
+    expect(received.reader).not.toBe(reader);
+    expect(Object.isFrozen(received.reader)).toBe(true);
     await h.run({ ...scope, channelIds: [] });
     expect(received.channelIds).toEqual([]);
   });

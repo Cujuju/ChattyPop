@@ -1,7 +1,8 @@
-// Grouped archive counts share search's scope, text indexes and live privacy.
+// Grouped archive counts share search's scope, text indexes, live privacy and provider policy.
 import type { Db } from '../db';
 import { ftsQuery } from '../ai/tools';
-import { archiveSearchScope, type ArchiveSearchOptions } from './archiveSearch';
+import type { AiSources } from '../ai/readScope';
+import { archiveSearchScope, metadataSearchScope, type ArchiveSearchOptions } from './archiveSearch';
 import { displayNameSql } from './names';
 import { searchIndexUnion } from './searchIndexes';
 
@@ -32,16 +33,16 @@ export interface ArchiveSearchCount {
 }
 
 /** null query counts all scoped messages, including textless messages. limit bounds groups only. */
-export function archiveSearchCount(db: Db, query: string | null, opts: ArchiveSearchOptions, group: ArchiveSearchGroup): ArchiveSearchCount[] {
+export function archiveSearchCount(db: Db, query: string | null, opts: ArchiveSearchOptions, group: ArchiveSearchGroup, sources?: AiSources): ArchiveSearchCount[] {
   if (!Number.isInteger(opts.limit) || opts.limit < 1 || opts.limit > ARCHIVE_SEARCH_GROUPS_MAX) {
     throw new RangeError(`Archive count limit must be between 1 and ${ARCHIVE_SEARCH_GROUPS_MAX}.`);
   }
   if (!Object.hasOwn(GROUPS, group)) throw new RangeError('Unknown archive count group.');
   const q = query === null ? null : ftsQuery(query);
   if ((query !== null && !q) || !opts.channelIds.length) return [];
-  const scope = archiveSearchScope(opts);
+  const scope = archiveSearchScope(opts, sources);
   const matches = q
-    ? searchIndexUnion(q, () => 'SELECT m.id', '', ` AND ${scope.sql}`, scope.params)
+    ? searchIndexUnion(q, () => 'SELECT m.id', '', ` AND ${scope.sql}`, scope.params, metadataSearchScope(scope))
     : { sql: `SELECT m.id FROM messages m WHERE ${scope.sql}`, params: scope.params };
   const spec = GROUPS[group];
   const name = 'name' in spec ? spec.name : spec.key;

@@ -116,7 +116,9 @@ export function searchMessages(db: Db, text: string, limit: number, sort: Search
     const hits = (fts: string): string =>
       `${select}, snippet(${fts}, 0, '${SEARCH_MATCH_START}', '${SEARCH_MATCH_END}', '…', ${SNIPPET_TOKENS}) AS snippet, bm25(${fts}) AS score`;
     // Deduplicates content, derived-text and link-text hits by best match. Applies requested ordering before limiting results.
-    const union = searchIndexUnion(q, hits, joins, filters, f.params);
+    const union = searchIndexUnion(q, hits, joins, filters, f.params, {
+      sql: `EXISTS (SELECT 1 FROM messages m ${joins} WHERE m.id = s.id${filters})`, params: f.params,
+    });
     const rows = db
       .prepare(
         `SELECT messageId, channelId, channelName, authorName, ts, mentionsJson, snippet, MIN(score) AS score FROM (

@@ -16,6 +16,9 @@ import { messageImages, type LinkImage, type MessageImage } from '../messageImag
 import { messagesByIds } from '../queries/messages';
 import { archiveSearch, type ArchiveSearchHit, type ArchiveSearchOptions } from '../queries/archiveSearch';
 import { archiveSearchCount, type ArchiveSearchCount, type ArchiveSearchGroup } from '../queries/archiveSearchCount';
+import { archiveLinksSql, metadataScopeSql } from '../queries/linkMetadata';
+import { aiSources, type AiReader } from '../ai/readScope';
+import type { ArchiveToolScope } from '../ai/archiveTools';
 import { lastReader, messageRead } from '../queries/readMarks';
 import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
@@ -38,6 +41,8 @@ export interface PluginArchive {
   search(query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[];
   /** Counts all search matches once, highest count first, with bounded groups. null query counts all scoped messages. */
   searchCount(query: string | null, opts: ArchiveSearchOptions, group: ArchiveSearchGroup): ArchiveSearchCount[];
+  /** Read-only link SELECT with scoped metadata and metadata_channel_ids provenance. Scoped reads default to hosted policy; unscoped reads are for display. */
+  linksSql(scope?: ArchiveToolScope, reader?: AiReader | 'display'): string;
   /** Payload metadata for selected ids, including compressed payloads; background reads retain their original scope. */
   payloads: ArchivePayloadReader;
   /** Indexed early-exit reply check over original archive data. */
@@ -165,9 +170,14 @@ export function pluginArchive(
 ): PluginArchive {
   const { bundled } = deps;
   const settle = derivedTextSettler(id, bundled, plugins);
+  const sources = aiSources(bundled.ready, (provider) => bundled.providers.isLocal(provider));
   return {
-    search: (query, opts) => live() ? archiveSearch(bundled.ready(), query, opts) : [],
-    searchCount: (query, opts, group) => live() ? archiveSearchCount(bundled.ready(), query, opts, group) : [],
+    search: (query, opts) => live() ? archiveSearch(bundled.ready(), query, opts, sources) : [],
+    searchCount: (query, opts, group) => live() ? archiveSearchCount(bundled.ready(), query, opts, group, sources) : [],
+    linksSql: (scope, reader = scope?.reader) => {
+      const policy = reader !== 'display' && (scope || reader) ? sources.sql('s.channel_id', reader ?? 'hosted') : '1';
+      return archiveLinksSql(live() ? `${scope ? metadataScopeSql(scope) : '1'} AND ${policy}` : '0', false, true);
+    },
     payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
     replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
     messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),
