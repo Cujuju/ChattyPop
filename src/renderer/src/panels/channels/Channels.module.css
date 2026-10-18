@@ -120,10 +120,6 @@
   font-size: var(--cp-text-md);
 }
 
-:global(html[data-surface='companion']) .threadGlyph {
-  height: calc(var(--cp-row-h) / 2);
-}
-
 :global(html[data-surface='companion']) .group > :global(.cp-sidebar-heading) {
   height: var(--cp-row-h);
   font-size: var(--cp-text-lg);
@@ -137,9 +133,18 @@
 
 /* Centers # in a section-tile-width icon column. Names align with section labels; counts mirror glyph edge inset. */
 :global(html[data-surface='companion']) .channel {
+  position: relative;
   gap: var(--cp-space-4);
   padding-left: calc(var(--cp-drawer-icon-x) - var(--cp-space-4) - var(--cp-drawer-mark-w) / 2);
   padding-right: var(--cp-header-inset);
+}
+
+/* The fold chevron sits in that inset, so the '#' keeps its column. */
+:global(html[data-surface='companion']) .channel > [data-fold-slot] {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: calc(var(--cp-drawer-icon-x) - var(--cp-space-4) - var(--cp-drawer-mark-w) / 2);
 }
 
 :global(html[data-surface='companion']) .channelHash {
@@ -158,7 +163,8 @@
   gap: var(--cp-space-3);
   width: 100%;
   height: var(--cp-row-h);
-  padding: 0 var(--cp-space-2) 0 var(--cp-space-3);
+  /* The fold slot (ui/ThreadFold) fills the start, so the inset before it is small. */
+  padding: 0 var(--cp-space-2) 0 var(--cp-space-1);
   border: 0;
   border-radius: var(--cp-radius-sm);
   background: transparent;
@@ -198,27 +204,13 @@
   color: var(--cp-accent);
 }
 
-/* Thread or forum post under its parent channel: shorter, smaller, muted, hung off a spine under the parent's '#'. */
+/* Thread or forum post under its parent channel: shorter, smaller, muted, hung off a spine (ui/ThreadFold) under the
+   parent's '#', which sits past the parent's inset, fold slot and gap. */
 .thread {
   height: var(--cp-row-h-sm);
-  padding-left: var(--cp-space-4);
+  padding-left: calc(var(--cp-space-1) + var(--cp-icon-sm) + var(--cp-space-3) + var(--cp-space-1));
   color: var(--cp-text-muted);
   font-size: var(--cp-text-xs);
-}
-
-/* Spine: a hooked line from the parent row down into the thread name (Discord's thread idiom). */
-.threadGlyph {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  width: var(--cp-space-5);
-  height: calc(var(--cp-row-h-sm) / 2);
-  border-bottom: var(--cp-border-w) solid var(--cp-border-strong);
-  border-left: var(--cp-border-w) solid var(--cp-border-strong);
-  border-bottom-left-radius: var(--cp-radius-md);
-}
-
-.thread[aria-current='true'] .threadGlyph {
-  border-color: var(--cp-accent);
 }
 
 .channelName {

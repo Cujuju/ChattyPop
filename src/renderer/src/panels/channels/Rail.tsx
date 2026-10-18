@@ -7,28 +7,43 @@ import { setSidebarCollapsed } from '@/state/layout';
 import { GuildIcon } from '@/ui/GuildIcon';
 import { Icon } from '@/ui/icons';
 import { DmFace } from '@/ui/DmFace';
+import { ThreadsBadge } from '@/ui/ThreadFold';
+import { foldGesture, threadsShown, unseenInThreads } from '@/state/threadFolds';
 import styles from './Rail.module.css';
 
 const INITIALS_MAX = 2;
 /** A channel's tile text: its first letters, ignoring leading symbols and emoji. */
 const channelInitials = (name: string): string => (name.match(/[\p{L}\p{N}]/gu) ?? ['#']).slice(0, INITIALS_MAX).join('');
 
-/** One channel or thread tile; threads sit under their channel, marked by data-kind; data-mentioned: unread pings. */
-function RailTile(props: { channel: DirectoryChannel; label: string; thread?: boolean }) {
-  const mentions = () => props.channel.mentionCount;
-  const label = () => (mentions() > 0 ? `${props.label} · ${mentions()} mentioning you` : props.label);
+/**
+ * One channel or thread tile; threads sit under their channel, marked by data-kind; data-mentioned: unread pings. A
+ * channel with threads folds them (state/threadFolds.ts); folded, its corner counts their new messages.
+ */
+function RailTile(props: { channel: DirectoryChannel; label: string; thread?: boolean; foldable?: boolean }) {
+  const id = () => props.channel.id;
+  const folded = () => (props.foldable && !threadsShown(id()) ? unseenInThreads(id()) : { newCount: 0, mentionCount: 0 });
+  const mentions = () => props.channel.mentionCount + folded().mentionCount;
+  const label = () =>
+    [props.label, mentions() > 0 ? `${mentions()} mentioning you` : '', folded().newCount > 0 ? `${folded().newCount} new in threads` : ''].filter(Boolean).join(' · ');
+  const fold = (e: MouseEvent | KeyboardEvent): boolean => !!props.foldable && foldGesture(e, id());
   return (
     <button
       type="button"
       class={styles.railChannel}
       data-kind={props.thread ? 'thread' : 'channel'}
       data-mentioned={mentions() > 0}
-      aria-current={shownChannelId() === props.channel.id}
+      aria-current={shownChannelId() === id()}
+      aria-expanded={props.foldable ? threadsShown(id()) : undefined}
       aria-label={label()}
       title={label()}
-      onClick={() => openChannel(props.channel)}
+      onClick={(e) => { if (!fold(e)) openChannel(props.channel); }}
+      onDblClick={fold}
+      onKeyDown={fold}
     >
       {channelInitials(props.channel.name)}
+      <Show when={folded().newCount > 0}>
+        <ThreadsBadge count={folded().newCount} compact class={styles.railThreads} />
+      </Show>
     </button>
   );
 }
@@ -77,8 +92,11 @@ export function Rail(props: { guilds: DirectoryGuild[] }) {
             <For each={g.channels}>
               {(c) => (
                 <>
-                  <RailTile channel={c} label={channelLabel(c, g.name)} />
-                  <For each={threadsOf(c.id)}>{(t) => <RailTile channel={t} thread label={`${isPrivateThread(t) ? 'Private thread' : 'Thread'} ${t.name} in ${channelLabel(c, g.name)}`} />}</For>
+                  <RailTile channel={c} label={channelLabel(c, g.name)} foldable={threadsOf(c.id).length > 0} />
+                  {/* Folded, the open thread stays in sight. */}
+                  <For each={threadsOf(c.id).filter((t) => threadsShown(c.id) || t.id === shownChannelId())}>
+                    {(t) => <RailTile channel={t} thread label={`${isPrivateThread(t) ? 'Private thread' : 'Thread'} ${t.name} in ${channelLabel(c, g.name)}`} />}
+                  </For>
                 </>
               )}
             </For>

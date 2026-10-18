@@ -12,6 +12,7 @@ export const REMOTE_DEVICE_SETTINGS: readonly string[] = [
   SETTINGS_KEYS.layoutCustom,
   SETTINGS_KEYS.layoutCollapsedPanels,
   SETTINGS_KEYS.layoutSidebarCollapsed,
+  SETTINGS_KEYS.threadsOpen,
   SETTINGS_KEYS.archiveDensity,
   // Hiding what is private on one screen (sharing it) must not hide it on the others.
   SETTINGS_KEYS.privacyMode,

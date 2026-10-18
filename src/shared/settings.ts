@@ -32,6 +32,8 @@ export const SETTINGS_KEYS = {
   layoutSidebarCollapsed: 'layout.sidebarCollapsed',
   /** Panels picked in tab groups, most recent first (state/layout.ts). */
   layoutTabPicks: 'layout.tabPicks',
+  /** Channels whose threads show under them in channel lists; the rest are folded (renderer state/threadFolds.ts). */
+  threadsOpen: 'channels.threadsOpen',
   /** Servers mode lists every server to choose channels (state/layout.ts). */
   channelsBrowsing: 'channels.browsing',
   /** The DM list's filter (state/dms.ts). */

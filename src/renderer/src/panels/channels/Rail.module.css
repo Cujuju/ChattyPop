@@ -60,6 +60,7 @@
 }
 
 .railChannel {
+  position: relative;
   display: inline-grid;
   place-content: center;
   width: var(--cp-rail-tile);
@@ -77,10 +78,6 @@
 }
 
 /* Unread messages that pinged the owner: a dot in the mention colour on the tile's corner. */
-.railChannel[data-mentioned='true'] {
-  position: relative;
-}
-
 .railChannel[data-mentioned='true']::after {
   content: '';
   position: absolute;
@@ -160,4 +157,12 @@
   font-weight: var(--cp-weight-semibold);
   line-height: var(--cp-badge-line-h);
   text-align: center;
+}
+
+/* A folded channel's threads with new messages: the compact badge (ui/ThreadFold) on the tile's bottom corner, opposite
+   the mention dot, as a DM's count sits on its face. */
+.railThreads {
+  position: absolute;
+  right: calc(-1 * var(--cp-space-2));
+  bottom: calc(-1 * var(--cp-space-2));
 }

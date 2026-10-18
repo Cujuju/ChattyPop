@@ -101,6 +101,9 @@ export { now } from '@/state/clock';
 export { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } from '@/state/countedBots';
 export { archivedChannels, channelById, channelLabel, channelSigil, directory, isThread, loadDirectory } from '@/state/directory';
 export { isDmChannel, type DmChannel } from '@/state/dmRules';
+// Threads folded under their channel in channel lists; one saved choice per channel, shared by every list.
+export { foldGesture, showThreads, threadsShown, unseenInThreads } from '@/state/threadFolds';
+export { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 // The SDK's openPerson keeps its optional place; the host's own requires one.
 export { openPersonFromPlugin as openPerson } from '@/state/person';

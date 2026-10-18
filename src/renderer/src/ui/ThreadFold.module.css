@@ -1,0 +1,87 @@
+/* Threads folded under channels (state/threadFolds.ts): a channel row's chevron, its folded threads' badge, a thread's spine.
+   Hooks: [data-fold-slot] (every slot), [data-open]; .badge[data-size='compact']; a spine turns accent in an aria-current row. */
+
+/* The fold slot: on every channel row, a chevron only where there are threads. Row-tall, so the target is the row's height. */
+.chevron {
+  display: inline-grid;
+  flex: 0 0 auto;
+  align-self: stretch;
+  place-content: center;
+  width: var(--cp-icon-sm);
+  color: var(--cp-text-muted);
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+@media (hover: hover) {
+  .chevron[data-fold-chevron]:hover {
+    color: var(--cp-text-1);
+  }
+}
+
+.chevronIcon {
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+  transition: rotate var(--cp-duration-fast) var(--cp-ease);
+}
+
+.chevron[data-open='true'] .chevronIcon {
+  rotate: 90deg;
+}
+
+/* In a row: the thread mark and count on an accent wash, quieter than the channel's own solid new-count pill beside it. */
+.badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-1);
+  height: var(--cp-row-count-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-sm);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-accent);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--cp-leading-none);
+}
+
+.badgeIcon {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+/* On a rail tile's corner: a solid pill cut out of the rail's ground, as the rail's DM counts are. */
+.badge[data-size='compact'] {
+  gap: var(--cp-space-px);
+  height: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent);
+  box-shadow: 0 0 0 var(--cp-ring-cutout-w) var(--cp-surface-0);
+  color: var(--cp-text-on-accent);
+}
+
+.badge[data-size='compact'] .badgeIcon {
+  width: var(--cp-icon-xs);
+  height: var(--cp-icon-xs);
+}
+
+/* Half a thread row tall: the hook meets the name's middle. */
+.spine {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: var(--cp-space-5);
+  height: calc(var(--cp-row-h-sm) / 2);
+  border-bottom: var(--cp-border-w) solid var(--cp-border-strong);
+  border-left: var(--cp-border-w) solid var(--cp-border-strong);
+  border-bottom-left-radius: var(--cp-radius-md);
+}
+
+:is([aria-current='true'], [aria-current='page']) > .spine {
+  border-color: var(--cp-accent);
+}
+
+:global(html[data-surface='companion']) .spine {
+  height: calc(var(--cp-row-h) / 2);
+}

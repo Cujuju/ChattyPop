@@ -16,6 +16,8 @@ import { PanelHeader, headerStyles as hs } from '@/ui/PanelHeader';
 import { Browse } from './Browse';
 import { Dms } from './Dms';
 import { Icon } from '@/ui/icons';
+import { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
+import { foldGesture, threadsShown, unseenInThreads } from '@/state/threadFolds';
 import styles from './Channels.module.css';
 import { Rail } from './Rail';
 
@@ -134,7 +136,8 @@ function Watched(props: { guilds: DirectoryGuild[]; onBrowse: () => void; totalT
               {(c) => (
                 <>
                   <ChannelRow channel={c} />
-                  <For each={threadsOf(c.id)}>{(t) => <ChannelRow channel={t} />}</For>
+                  {/* Folded, the open thread stays in sight. */}
+                  <For each={threadsOf(c.id).filter((t) => threadsShown(c.id) || t.id === shownChannelId())}>{(t) => <ChannelRow channel={t} />}</For>
                 </>
               )}
             </For>
@@ -145,19 +148,28 @@ function Watched(props: { guilds: DirectoryGuild[]; onBrowse: () => void; totalT
   );
 }
 
-/** A channel, or a thread nested under its parent. */
+/** A channel, or a thread nested under its parent. A channel with threads folds them (state/threadFolds.ts). */
 function ChannelRow(props: { channel: DirectoryChannel }) {
   const c = () => props.channel;
+  const foldable = (): boolean => !isThread(c()) && threadsOf(c().id).length > 0;
+  /** Its folded threads' unseen messages and mentions; none while they show. */
+  const folded = () => (foldable() && !threadsShown(c().id) ? unseenInThreads(c().id) : { newCount: 0, mentionCount: 0 });
+  const mentions = (): number => c().mentionCount + folded().mentionCount;
+  const fold = (e: MouseEvent | KeyboardEvent): boolean => foldable() && foldGesture(e, c().id);
   return (
     <button
       type="button"
       class={isThread(c()) ? `${styles.channel} ${styles.thread}` : styles.channel}
       aria-current={shownChannelId() === c().id}
+      aria-expanded={foldable() ? threadsShown(c().id) : undefined}
       data-local-only={c().localAiOnly}
-      onClick={() => openChannel(c())}
+      onClick={(e) => { if (!fold(e)) openChannel(c()); }}
+      onDblClick={fold}
+      onKeyDown={fold}
       onContextMenu={(e) => openContextMenu(e, channelMenu(c()))}
     >
-      <Show when={!isThread(c())} fallback={<span class={styles.threadGlyph} aria-hidden="true" />}>
+      <Show when={!isThread(c())} fallback={<ThreadSpine />}>
+        <FoldChevron foldable={foldable()} open={threadsShown(c().id)} />
         <span class={styles.channelHash} aria-hidden="true">
           {channelSigil(c())}
         </span>
@@ -186,10 +198,13 @@ function ChannelRow(props: { channel: DirectoryChannel }) {
           ★{c().notableCount}
         </span>
       </Show>
-      <Show when={c().mentionCount > 0}>
-        <span class={styles.mentions} title={`${c().mentionCount} mentioning you since you last opened it`}>
-          @{c().mentionCount}
+      <Show when={mentions() > 0}>
+        <span class={styles.mentions} title={`${mentions()} mentioning you since you last opened it${folded().mentionCount > 0 ? `, ${folded().mentionCount} in its threads` : ''}`}>
+          @{mentions()}
         </span>
+      </Show>
+      <Show when={folded().newCount > 0}>
+        <ThreadsBadge count={folded().newCount} />
       </Show>
       <span class={styles.count} data-new={c().newCount > 0} title={`${c().newCount} new since you last opened it · ${c().messageCount} archived`}>
         {c().newCount}
