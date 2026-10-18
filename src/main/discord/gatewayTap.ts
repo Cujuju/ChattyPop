@@ -36,6 +36,9 @@ const TAP_DIAGNOSTIC_FAILURES_LOGGED = 3;
 
 type Decoder = { write(chunk: Buffer): Promise<string> };
 
+/** Opened: a gateway socket the tap reads, whose session starts anew. Ended: the tap reads none now (last one closed, or detached). */
+export type GatewayChange = 'opened' | 'ended';
+
 /** A frame sent on the gateway socket: its opcode and payload. */
 export interface GatewaySend {
   socketId?: string;
@@ -48,7 +51,7 @@ export interface GatewaySend {
  * Network events must be on before the page opens its socket (compressed streams can't be decoded mid-stream): load the
  * client only once `ready` settles. CDP turns them on only when a page process exists, so a blank page must load first.
  */
-export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend] }> {
+export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend]; gateway: [GatewayChange] }> {
   readonly stats: GatewayTapStats = { url: null, compress: null, frames: 0, decodeErrors: 0, events: {} };
   /** Settles once Network events are on, or failed to turn on (diagnosed): the client may load then. */
   readonly ready: Promise<void>;
@@ -56,13 +59,16 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
   private readonly diagnosticStarted = performance.now();
   private readonly diagnosticMethods: Record<string, number> = {};
   private readonly diagnosticOrphans = new Set<string>();
-  private diagnosticNetwork: 'pending' | 'enabled' | 'failed' = 'pending';
+  /** Whether Network events are on; listen() turns them on again unless they are. */
+  private network: 'pending' | 'enabled' | 'failed' = 'pending';
+  /** Logs the tap's metadata-only state (set in the constructor). */
+  private readonly snapshot: (reason: string) => void;
   private diagnosticReceived = 0;
   private diagnosticUntracked = 0;
   private diagnosticSessionMessages = 0;
   private diagnosticPayloads = 0;
 
-  constructor(wc: WebContents) {
+  constructor(private readonly wc: WebContents) {
     super();
     wc.debugger.attach(CDP_PROTOCOL_VERSION);
     wc.debugger.on('message', (_e, method, params, sessionId) => {
@@ -75,7 +81,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
       diag('gateway-tap-snapshot', {
         reason, webContentsId: wc.id, elapsedMs: Math.round(performance.now() - this.diagnosticStarted),
         destroyed, attached: !destroyed && wc.debugger.isAttached(),
-        rendererPid: destroyed ? null : wc.getOSProcessId(), network: this.diagnosticNetwork,
+        rendererPid: destroyed ? null : wc.getOSProcessId(), network: this.network,
         sockets: this.decoders.size, socketObserved: this.stats.url !== null, compress: this.stats.compress,
         rawReceived: this.diagnosticReceived, untrackedReceived: this.diagnosticUntracked,
         sessionMessages: this.diagnosticSessionMessages, payloads: this.diagnosticPayloads,
@@ -86,6 +92,10 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     wc.debugger.on('detach', (_e, reason) => {
       diag('gateway-tap-detached', { webContentsId: wc.id, reason });
       snapshot('detach');
+      this.network = 'pending';
+      if (this.decoders.size === 0) return;
+      this.decoders.clear();
+      this.emit('gateway', 'ended');
     });
     wc.on('did-start-navigation', (_e, _url, inPlace, mainFrame) => {
       if (mainFrame && !inPlace) snapshot('navigation-start');
@@ -101,14 +111,35 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
     timer.unref();
     wc.on('destroyed', () => { clearInterval(timer); snapshot('destroyed'); });
     snapshot('attached');
-    this.ready = wc.debugger.sendCommand('Network.enable').then(
-      () => { this.diagnosticNetwork = 'enabled'; snapshot('network-enabled'); },
+    this.snapshot = snapshot;
+    this.ready = this.enable();
+  }
+
+  private enable(): Promise<void> {
+    const { wc } = this;
+    return wc.debugger.sendCommand('Network.enable').then(
+      () => { this.network = 'enabled'; this.snapshot('network-enabled'); },
       (error: unknown) => {
-        this.diagnosticNetwork = 'failed';
+        this.network = 'failed';
         diag('gateway-tap-network-failed', { webContentsId: wc.id, message: error instanceof Error ? error.message : String(error) });
-        snapshot('network-failed');
+        this.snapshot('network-failed');
       },
     );
+  }
+
+  /** Attaches again if detached and turns Network events on if they are off; settles as `ready` does. Load the client after. */
+  listen(): Promise<void> {
+    const { wc } = this;
+    if (wc.isDestroyed()) return Promise.resolve();
+    if (!wc.debugger.isAttached()) {
+      try {
+        wc.debugger.attach(CDP_PROTOCOL_VERSION);
+      } catch (error) {
+        diag('gateway-tap-attach-failed', { webContentsId: wc.id, message: error instanceof Error ? error.message : String(error) });
+        return Promise.resolve();
+      }
+    }
+    return this.network === 'enabled' ? Promise.resolve() : this.enable();
   }
 
   private onCdp(method: string, params: Record<string, unknown>): void {
@@ -125,6 +156,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
       this.stats.url = url;
       this.stats.compress = compress;
       this.decoders.set(String(params['requestId']), makeDecoder(compress));
+      this.emit('gateway', 'opened');
       return;
     }
     if (method === 'Network.webSocketFrameSent') {
@@ -132,7 +164,9 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
       return;
     }
     if (method === 'Network.webSocketClosed') {
-      if (this.decoders.delete(String(params['requestId']))) diag('gateway-socket-closed');
+      if (!this.decoders.delete(String(params['requestId']))) return;
+      diag('gateway-socket-closed');
+      if (this.decoders.size === 0) this.emit('gateway', 'ended');
       return;
     }
     if (method !== 'Network.webSocketFrameReceived') return;

@@ -142,6 +142,16 @@ export class DiscordView {
       .catch((err: unknown) => diag('discord-load-failed', { message: errorMessage(err) }));
   }
 
+  /** Loads the client again once the tap listens, so the tap reads its new gateway session from the start. */
+  async reconnect(): Promise<void> {
+    await this.tap.listen();
+    const wc = this.view.webContents;
+    if (wc.isDestroyed()) return;
+    // Still blank when the first load failed: open the client as at start.
+    if (isDiscordUrl(wc.getURL())) wc.reload();
+    else await wc.loadURL(startUrl());
+  }
+
   get webContents(): Electron.WebContents {
     return this.view.webContents;
   }

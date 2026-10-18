@@ -132,3 +132,18 @@
   width: var(--cp-icon-lg);
   height: var(--cp-icon-lg);
 }
+
+/* Live updates off: icon, words and Reconnect on one line; the look's danger status paints it. */
+.liveWarning {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cp-space-2);
+  padding: var(--cp-space-1) var(--cp-space-1) var(--cp-space-1) var(--cp-space-3);
+  white-space: nowrap;
+}
+
+.liveWarningIcon {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
