@@ -8,6 +8,7 @@ import { createMessagePings } from './derive/pings';
 import { rawJsonText } from './rawJson';
 import { HIDDEN_SCOPE_RENAMES, HIDDEN_SCOPE_TABLE } from './hiddenScope';
 import { refreshLinkSearch } from './linkSearch';
+import { addLinkMetadataSources } from './derive/linkMetadata';
 import type { Migration } from './migrations';
 import { recordDerivableOwners, recordHolders } from './plugins/tableOwners';
 import { topicsIntoRules } from './topicsIntoRules';
@@ -228,6 +229,7 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   reserveTableOwners,
   // Duplicate posting counts and newest-first hash lookups avoid scanning the archive per tile.
   'CREATE INDEX attachments_sha256 ON attachments(sha256, ts, id) WHERE sha256 IS NOT NULL;',
+  addLinkMetadataSources,
 ];
 
 /**

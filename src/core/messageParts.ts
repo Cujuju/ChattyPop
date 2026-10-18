@@ -98,7 +98,7 @@ export function messageParts(db: Db, ids: readonly string[]): Map<string, Messag
     .prepare(
       `SELECT ml.message_id AS messageId, l.url,
               (SELECT t.text FROM link_texts t WHERE t.url = l.url AND t.text != '' ORDER BY t.rowid LIMIT 1) AS post,
-              ${linkTextSql('l')} AS text
+              ${linkTextSql('l', 's.id = ml.message_id')} AS text
        FROM message_links ml JOIN links l ON l.id = ml.link_id
        WHERE ml.message_id IN (SELECT value FROM json_each(?)) ORDER BY ml.link_id`,
     )

@@ -61,7 +61,7 @@ export function personProfile(db: Db, userId: string): PersonProfile | null {
       .prepare(
         // One row per link at their latest share of it (SQLite fills bare columns from the MAX row).
         `SELECT l.url, l.platform, l.title, m.id AS messageId, m.channel_id AS channelId, MAX(m.ts) AS ts
-         FROM message_links ml JOIN messages m ON m.id = ml.message_id JOIN links l ON l.id = ml.link_id
+         FROM message_links ml JOIN messages m ON m.id = ml.message_id JOIN archive_links l ON l.id = ml.link_id
          WHERE ${theirs} GROUP BY l.id ORDER BY ts DESC LIMIT @limit`,
       )
       .all({ user: userId, limit: PERSON_RECENT_LINKS }) as PersonProfile['links'],

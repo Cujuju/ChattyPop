@@ -1,6 +1,7 @@
 // Host message text.
 import type { Db } from '../db';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from '../arrival';
+import { linkMetadataFieldSql } from './linkMetadata';
 
 /** SQL combines message content and ordered derived text for AI. Omits markers to avoid accidental pattern matches; m aliases messages. */
 export const MESSAGE_TEXT_SQL = `COALESCE((SELECT group_concat(part, char(10)) FROM (
@@ -8,12 +9,20 @@ export const MESSAGE_TEXT_SQL = `COALESCE((SELECT group_concat(part, char(10)) F
                                     UNION ALL SELECT d.ord, d.text FROM derived_texts d WHERE d.message_id = m.id AND d.text != '' ORDER BY k)), '')`;
 
 /** SQL chooses plugin link text before Discord preview title/description. Returns null if neither exists; l aliases links. */
-export const linkTextSql = (l: string): string => `COALESCE(
-  (SELECT t.text FROM link_texts t WHERE t.url = ${l}.url AND t.text != '' ORDER BY t.rowid LIMIT 1),
+export const pluginLinkTextSql = (l: string): string => `(SELECT t.text FROM link_texts t WHERE t.url = ${l}.url AND t.text != '' ORDER BY t.rowid LIMIT 1)`;
+
+/** Raw index input; search checks supplying shares before returning any hit or snippet. */
+export const rawLinkTextSql = (l: string): string => `COALESCE(
+  ${pluginLinkTextSql(l)},
   NULLIF(trim(COALESCE(${l}.title, '') || char(10) || COALESCE(${l}.description, ''), char(10) || ' '), ''))`;
 
+/** Scoped preview fallback; a message never borrows another channel's embed text. */
+export const linkTextSql = (l: string, scope: string): string => `COALESCE(
+  ${pluginLinkTextSql(l)},
+  NULLIF(trim(COALESCE(${linkMetadataFieldSql(l, 'title', scope)}, '') || char(10) || COALESCE(${linkMetadataFieldSql(l, 'description', scope)}, ''), char(10) || ' '), ''))`;
+
 /** Each link of message `messageId` (an SQL expression) with its text (linkTextSql). */
-const linkTextsSql = (messageId: string): string => `SELECT ml.link_id AS k, ${linkTextSql('l')} AS text
+const linkTextsSql = (messageId: string): string => `SELECT ml.link_id AS k, ${linkTextSql('l', `s.id = ${messageId}`)} AS text
                         FROM message_links ml JOIN links l ON l.id = ml.link_id
                         WHERE ml.message_id = ${messageId}`;
 
@@ -35,7 +44,7 @@ export function textMessage(db: Db, messageId: string): TextMessage | undefined 
 
 /** How many of a message's links have text; a rise means linked text arrived after the message did. */
 export function textedLinkCount(db: Db, messageId: string): number {
-  return db.prepare(`SELECT COUNT(text) FROM (${linkTextsSql('?')})`).pluck().get(messageId) as number;
+  return db.prepare(`SELECT COUNT(text) FROM (${linkTextsSql('@message')})`).pluck().get({ message: messageId }) as number;
 }
 
 /** Added derived/link text retains original arrival source with supplied timestamp. Legacy messages count as fetched, never live. */

@@ -1,14 +1,14 @@
 // Indexes plugin link text or Discord previews in fts_links using links.id. Triggers synchronize links and link_texts.
 import type { Db } from './db';
-import { linkTextSql } from './queries/messageText';
+import { rawLinkTextSql } from './queries/messageText';
 
 /** Re-indexes the links matching `where` (over links alias `l`); a link with no text has no row. */
 const reindexSql = (where: string): string => `
     DELETE FROM fts_links WHERE rowid IN (SELECT l.id FROM links l WHERE ${where});
     INSERT INTO fts_links (rowid, text)
-      SELECT id, text FROM (SELECT l.id, ${linkTextSql('l')} AS text FROM links l WHERE ${where}) WHERE text IS NOT NULL;`;
+      SELECT id, text FROM (SELECT l.id, ${rawLinkTextSql('l')} AS text FROM links l WHERE ${where}) WHERE text IS NOT NULL;`;
 
-/** The index and its triggers. Live, not frozen: a change to linkTextSql appends refreshLinkSearch as a migration. */
+/** The index and its triggers. A change to rawLinkTextSql appends refreshLinkSearch as a migration. */
 const LINK_SEARCH = `
   CREATE VIRTUAL TABLE fts_links USING fts5(text);
   CREATE TRIGGER links_search_ai AFTER INSERT ON links BEGIN ${reindexSql('l.id = new.id')} END;
