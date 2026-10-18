@@ -222,8 +222,10 @@
   --cp-attach-action-disc: var(--cp-quick-reaction-phone); /* an attach action's disc: the message sheet's quick-reaction size, so the phone's sheets share one disc */
   --cp-typing-h: 20px; /* the "is typing…" line above the message box: one line of xs text, 4px above and below */
   --cp-composer-typing-slot: calc(var(--cp-space-4) + var(--cp-typing-h)); /* the typing line's slot over the message box: the line under 8px of clearance; the phone's is taller (phone.css) */
-  --cp-stash-flag-notch: 6px; /* the V cut into the stash flag's free end: a tab, not a pill; under a third of its height */
-  --cp-stash-flag-band-w: 3px; /* the flag's sticky end at the box's edge: a strip, inside its parts' padding */
+  --cp-stash-sheet-strip: var(--cp-typing-h); /* what shows of a stashed draft's sheet above the one in front: a line of xs text */
+  --cp-stash-sheet-tuck: var(--cp-space-4); /* how far a sheet's foot runs under the sheet or box in front of it */
+  --cp-stash-sheet-w: 40ch; /* the front sheet: a draft's first words, short of the box's middle on a desktop */
+  --cp-stash-sheet-step: var(--cp-space-4); /* each sheet further back is narrower by this on each side, so the stack reads as a pile */
   --cp-frost-reach: 0px; /* how far the composer's glass reaches above its box: none until the typing line shows */
   --cp-picker-w: 424px; /* GIF / sticker / emoji picker: nine emoji or four stickers a row */
   --cp-picker-h: 440px;
