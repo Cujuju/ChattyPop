@@ -1,7 +1,7 @@
 // Search syntax and archive filtering.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SEARCH_MATCH_END, SEARCH_MATCH_START } from '@shared/contract';
-import { normalizeSavedSearches, normalizeSearchSort, parsePeriod, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
+import { normalizeSavedSearches, normalizeSearchSort, parsePeriod, parseSearchQuery, searchQuerySpans, type SearchSort } from '@shared/searchQuery';
 import type { Archive } from '../src/core/archive';
 import type { Db } from '../src/core/db';
 import { storeLinkText } from '../src/core/derivedText';
@@ -44,6 +44,24 @@ describe('search query syntax', () => {
     expect(parsePeriod('2026-12')).toEqual({ start: new Date(2026, 11, 1).getTime(), end: new Date(2027, 0, 1).getTime() });
     expect(parsePeriod('2026')).toEqual({ start: new Date(2026, 0, 1).getTime(), end: new Date(2027, 0, 1).getTime() });
     expect(parsePeriod('2026-13')).toBeNull();
+  });
+
+  it('cuts a query into the spans the field draws, rejoining to the exact text', () => {
+    const texts = ['', 'cats', 'cats from:theo  -has:link x', 'in:"two words" has:nothing', 'https://a.b note:x tag:y', 'cats from:', 'from:"Ada L', 'during:2026 is:'];
+    for (const t of texts) {
+      expect(searchQuerySpans(t, ['tag']).map((s) => (s.kind === 'text' ? s.text : s.key + s.value)).join('')).toBe(t);
+    }
+    expect(searchQuerySpans('cats from:theo  -has:link x')).toEqual([
+      { kind: 'text', text: 'cats ' },
+      { kind: 'term', key: 'from:', value: 'theo', state: 'ok' },
+      { kind: 'text', text: '  ' },
+      { kind: 'term', key: '-has:', value: 'link', state: 'ok' },
+      { kind: 'text', text: ' x' },
+    ]);
+    expect(searchQuerySpans('in:"two words" has:nothing').map((s) => s.kind === 'term' && s.state)).toEqual(['ok', false, 'problem']);
+    expect(searchQuerySpans('https://a.b note:x tag:y', ['tag']).map((s) => s.kind)).toEqual(['text', 'term']);
+    expect(searchQuerySpans('cats from:').at(-1)).toEqual({ kind: 'term', key: 'from:', value: '', state: 'typing' });
+    expect(searchQuerySpans('from:"Ada L')).toEqual([{ kind: 'term', key: 'from:', value: '"Ada L', state: 'typing' }]);
   });
 
   it('builds no SQL for a problem operator', () => {

@@ -2,7 +2,7 @@
 import { expect, it, vi } from 'vitest';
 import { HOST_SEARCH_KEYS } from '@shared/searchTokens';
 import { parseSearchQuery } from '@shared/searchQuery';
-import { pendingFilter, searchFilters, serverTerm, withChoice, withFilter, withValue, type FilterChoice } from '../src/renderer/src/frame/searchFilters';
+import { pendingFilter, searchFilters, serverTerm, termBeforeCaret, withChoice, withFilter, withValue, type FilterChoice } from '../src/renderer/src/frame/searchFilters';
 
 const tag = { key: 'tag', description: 'Tagged', value: 'tag name' };
 
@@ -58,4 +58,13 @@ it('builds queries the parser reads as the picked filters', () => {
 it('offers date choices the parser accepts', () => {
   const during = searchFilters([]).find((f) => f.key === 'during')!;
   for (const c of during.choices('') as FilterChoice[]) expect(parseSearchQuery(`during:${c.value}`).problems).toEqual([]);
+});
+
+it('removes a finished term whole on Backspace just past its space, but a term being typed one character at a time', () => {
+  const text = 'cats from:theo has:link ';
+  expect(termBeforeCaret(text, text.length, [])).toEqual({ start: 15, end: text.length });
+  expect(termBeforeCaret(text, 15, [])).toEqual({ start: 5, end: 15 });
+  expect(termBeforeCaret('cats from:theo', 14, [])).toBeNull();
+  expect(termBeforeCaret('cats ', 5, [])).toBeNull();
+  expect(termBeforeCaret('note:x ', 7, [])).toBeNull();
 });

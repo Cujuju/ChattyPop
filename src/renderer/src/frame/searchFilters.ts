@@ -1,5 +1,5 @@
 // The search builder's catalog: every `key:` filter the parser accepts, grouped and described, with its value choices.
-import { HAS_KINDS, IS_KINDS } from '@shared/searchQuery';
+import { HAS_KINDS, IS_KINDS, searchQuerySpans } from '@shared/searchQuery';
 import type { SearchToken } from '@shared/searchTokens';
 
 /** A person's avatar, or a server's icon (a channel shows its server's). */
@@ -131,6 +131,20 @@ export function withValue(text: string, value: string, narrow?: string): string 
 /** `text` with the pending value set to `choice`. A negated term drops `narrow`, which would stay un-negated. */
 export const withChoice = (text: string, pending: PendingFilter, choice: FilterChoice): string =>
   withValue(text, choice.value, pending.negated ? undefined : choice.narrow);
+
+/**
+ * The finished term (badge) a Backspace at `caret` removes whole, with the space after it: [start, end), or null when the
+ * caret isn't just past one. A term still being typed (no space after it yet) loses one character at a time.
+ */
+export function termBeforeCaret(text: string, caret: number, pluginKeys: readonly string[]): { start: number; end: number } | null {
+  let at = 0;
+  for (const s of searchQuerySpans(text, pluginKeys)) {
+    const length = s.kind === 'text' ? s.text.length : s.key.length + s.value.length;
+    if (s.kind === 'term' && s.state !== 'typing' && at + length + 1 === caret && /\s/.test(text[caret - 1] ?? '')) return { start: at, end: caret };
+    at += length;
+  }
+  return null;
+}
 
 /** The `server:` term naming one server. */
 export const serverTerm = (name: string): string => `server:${quoted(name)}`;

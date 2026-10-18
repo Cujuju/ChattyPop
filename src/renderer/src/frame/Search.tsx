@@ -1,5 +1,5 @@
 // Archive search field and its panel: the query builder, a filter's value picker, or results with operator feedback.
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, on } from 'solid-js';
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import type { SearchHit } from '@shared/contract';
 import { searchTokens } from '@/plugins/slots';
@@ -10,7 +10,8 @@ import { inCompanion } from '@/state/ui';
 import { listen } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
 import { namedChoiceSources } from './searchChoices';
-import { pendingFilter, searchFilters, withChoice, withFilter, type FilterChoice, type PendingFilter } from './searchFilters';
+import { pendingFilter, searchFilters, termBeforeCaret, withChoice, withFilter, type FilterChoice, type PendingFilter } from './searchFilters';
+import { QueryBadges } from './QueryBadges';
 import { AddFilterStrip, FilterList, ValuePicker } from './SearchBuilder';
 import { SearchHits } from './SearchResults';
 import { Icon } from '@/ui/icons';
@@ -54,7 +55,21 @@ export function Search() {
     const p = pending();
     if (p && choice && current()) edit(withChoice(searchText(), p, choice));
   };
-  const problems = () => parseSearchQuery(searchText(), searchTokens().map((t) => t.key)).problems;
+  const pluginKeys = createMemo(() => searchTokens().map((t) => t.key));
+  const problems = () => parseSearchQuery(searchText(), pluginKeys()).problems;
+  /** The field's horizontal scroll, which the badges drawn over it follow. Typing scrolls it with no scroll event, so it is read after each change. */
+  const [scrollLeft, setScrollLeft] = createSignal(0);
+  const followScroll = (): void => void requestAnimationFrame(() => setScrollLeft(input.scrollLeft));
+  createEffect(on(searchText, followScroll, { defer: true }));
+  /** Backspace just past a finished term removes it whole, as Discord removes a badge. */
+  const onBackspace = (e: KeyboardEvent): void => {
+    if (e.key !== 'Backspace' || input.selectionStart === null || input.selectionStart !== input.selectionEnd) return;
+    const cut = termBeforeCaret(searchText(), input.selectionStart, pluginKeys());
+    if (!cut) return;
+    e.preventDefault();
+    edit(searchText().slice(0, cut.start) + searchText().slice(cut.end));
+    input.setSelectionRange(cut.start, cut.start);
+  };
   /** Replaces the query, keeping the field focused and the panel open. */
   const edit = (query: string): void => {
     querySearch(query);
@@ -131,8 +146,13 @@ export function Search() {
           value={searchText()}
           onInput={(e) => edit(e.currentTarget.value)}
           onFocus={() => setSearchOpen(true)}
-          onKeyDown={onKey}
+          onKeyDown={(e) => (onBackspace(e), onKey(e), followScroll())}
+          onKeyUp={followScroll}
+          onPointerDown={followScroll}
+          onPointerMove={(e) => e.buttons && followScroll()}
+          onScroll={followScroll}
         />
+        <QueryBadges class={styles.badges} text={searchText()} pluginKeys={pluginKeys()} scrollLeft={scrollLeft()} />
         <Show when={mode() !== 'filters'}>
           <button
             type="button"

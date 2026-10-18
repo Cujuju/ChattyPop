@@ -33,14 +33,33 @@
   height: 100%;
 }
 
-/* With cp-stroke, the message box's edge, over a fill one step above the bar's ground. */
-.input {
-  --cp-stroke-fill: var(--cp-surface-2);
+/* With cp-stroke, the message box's edge, over a fill one step above the bar's ground. Its text is drawn by .badges. */
+.input,
+.badges {
   width: 100%;
   height: var(--cp-btn-h);
   padding: 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4)) 0 calc(var(--cp-space-5) + var(--cp-icon-lg) + var(--cp-space-4));
   font-family: var(--cp-font-sans);
   font-size: var(--cp-text-sm);
+}
+
+.input {
+  --cp-stroke-fill: var(--cp-surface-2);
+  color: transparent;
+  caret-color: var(--cp-text-1);
+}
+
+/* The query over the field, glyph for glyph: the same box, border and font, so badges sit under the caret's text. */
+.badges {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  border: var(--cp-stroke-w) solid transparent;
+  color: var(--cp-text-1);
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* With cp-popover. A two-column grid: filter rows are subgrids, so every description lines up after the widest token. */
@@ -293,10 +312,16 @@
   color: var(--cp-danger);
 }
 /* Phone: the top bar's thumb height, beside its icon buttons; its icons the size of the bar's own (the search button). */
-:global(html[data-surface='companion']) .input {
+:global(html[data-surface='companion']) .input,
+:global(html[data-surface='companion']) .badges {
   height: var(--cp-thumb-btn);
   /* Text clears the magnifier and the star, each a thumb-wide tap target. */
   padding-inline: var(--cp-thumb-btn);
+}
+
+/* Phone fields take the phone text size (theme/forms.css); the query over the field follows. */
+:global(html[data-surface='companion']) .badges {
+  font-size: var(--cp-phone-text);
 }
 
 /* Phone: the magnifier is a full-height tap target at the field's start, like the save star at its end. */
