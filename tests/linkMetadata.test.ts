@@ -30,7 +30,13 @@ function start() {
   }])[0]!;
   const read = (window = scope(), reader?: Parameters<typeof ctx.archive.linksSql>[1]) =>
     t.db.prepare(`SELECT title, description, thumbnail_url, site FROM (${ctx.archive.linksSql(window, reader)})`).get();
-  const search = (channelIds = ['open'], options = {}) => ctx.archive.search('quartz', { channelIds, limit: 100, ...options });
+  // Every search also checks searchCount: both share the link preview rule and provider policy.
+  const search = (channelIds = ['open'], options = {}) => {
+    const hits = ctx.archive.search('quartz', { channelIds, limit: 100, ...options });
+    const counted = ctx.archive.searchCount('quartz', { channelIds, limit: 100, ...options }, 'channel');
+    expect(counted.reduce((n, g) => n + g.count, 0)).toBe(hits.length);
+    return hits;
+  };
   const appSearch = (query = 'quartz') => searchMessages(t.db as unknown as Db, query, 10, 'relevance');
   return { t, ctx, preview, read, search, appSearch };
 }
