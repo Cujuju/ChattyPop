@@ -1,5 +1,5 @@
 // Archive message pages with attachments, host judgments and plugin labels.
-import { pollFrom, type RawPoll } from '@shared/polls';
+import { pollFrom, pollResultFrom, type RawPoll } from '@shared/polls';
 import type { ArchiveAttachment, ArchiveEmbed, ArchiveMessage, AttachmentNote, MessageLabel, MessageWindow, MessagePageQuery } from '@shared/contract';
 import { questionLabels } from '../jev/messageQuestions';
 import type { MessageAnnotation } from '@shared/plugins';
@@ -57,6 +57,9 @@ interface Row extends AuthorRow {
   interactionJson: string | null;
   legacyInteractionJson: string | null;
   pollJson: string | null;
+  /** Discord's message type, and the message its reference names (a reply's target, a poll result's poll). */
+  type: number | null;
+  refMessageId: string | null;
 }
 
 /** Every column an ArchiveMessage is built from; callers add the WHERE clause. */
@@ -68,7 +71,8 @@ const SELECT_MESSAGE = `SELECT ${rawJsonSql('$.nonce')} AS nonce, m.id, m.channe
                          ${rawJsonSql('$.sticker_items')} AS stickersJson, ${rawJsonSql('$.referenced_message')} AS refJson,
                          ${rawJsonSql('$.mentions')} AS mentionsJson, ${rawJsonSql('$.mention_everyone')} AS mentionEveryone, ${rawJsonSql('$.flags')} AS flags, ${rawJsonSql('$.application_id')} AS applicationId,
                          ${rawJsonSql('$.components')} AS componentsJson, ${rawJsonSql('$.interaction_metadata')} AS interactionJson,
-                         ${rawJsonSql('$.interaction')} AS legacyInteractionJson, ${rawJsonSql('$.poll')} AS pollJson
+                         ${rawJsonSql('$.interaction')} AS legacyInteractionJson, ${rawJsonSql('$.poll')} AS pollJson,
+                         ${rawJsonSql('$.type')} AS type, ${rawJsonSql('$.message_reference.message_id')} AS refMessageId
                   FROM messages m LEFT JOIN users u ON u.id = m.author_id`;
 
 /** A message's author as the Archive draws them in the row's channel: name, avatar and style there. */
@@ -260,6 +264,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       components,
       interaction: interactionFrom(r.interactionJson, r.legacyInteractionJson),
       poll: pollFrom(parseJson(r.pollJson) as RawPoll | null),
+      pollResult: pollResultFrom(r.type, parseJson(r.embedsJson), r.refMessageId),
     };
   });
 }

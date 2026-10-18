@@ -1,5 +1,5 @@
 // Archive data as the renderer and core exchange it: directory, messages, search hits, download queues.
-import type { ArchivePoll } from '../polls';
+import type { ArchivePoll, ArchivePollResult } from '../polls';
 import type { MessageComponent } from '../components';
 import type { NameFont } from '../nameFonts';
 import type { MessageAnnotation } from '../plugins';
@@ -306,6 +306,8 @@ export interface ArchiveMessage {
   interaction: ArchiveInteraction | null;
   /** A Discord poll, with its votes as the archive last heard them. */
   poll: ArchivePoll | null;
+  /** A poll's closing notice: its question and winning answer. */
+  pollResult: ArchivePollResult | null;
 }
 
 /** Who ran which slash command, shown above the app's reply ("Ann used /roll"). `command` is null when Discord didn't say. */

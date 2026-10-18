@@ -216,6 +216,25 @@ describe('a stored poll', () => {
     expect(votes(id)).toEqual([[1, 0, false], [2, 1, true]]);
   });
 
+  it('reads a poll’s closing notice: its question and winning answer, and the poll it closed', () => {
+    const field = (name: string, value: string) => ({ name, value });
+    const closed = rawMessage(CHANNEL, NOW + HOUR_MS, '', {
+      type: 46,
+      message_reference: { channel_id: CHANNEL, message_id: MESSAGE },
+      embeds: [{ type: 'poll_result', fields: [
+        field('poll_question_text', 'Lunch?'), field('victor_answer_votes', '3'), field('total_votes', '5'),
+        field('victor_answer_id', '2'), field('victor_answer_text', 'Tacos'), field('victor_answer_emoji_name', '🌮'),
+      ] }],
+    });
+    const id = applyAndId(closed);
+    const m = messagesByIds(db, [id])[0]!;
+    expect(m.pollResult).toEqual({ pollMessageId: MESSAGE, question: 'Lunch?', totalVotes: 5, winner: { text: 'Tacos', emoji: { id: null, name: '🌮', animated: false }, votes: 3 } });
+    expect(m.embeds).toEqual([]);
+    const tie = rawMessage(CHANNEL, NOW + 2 * HOUR_MS, '', { type: 46, embeds: [{ type: 'poll_result', fields: [field('poll_question_text', 'Lunch?'), field('total_votes', '2')] }] });
+    expect(messagesByIds(db, [applyAndId(tie)])[0]!.pollResult).toEqual({ pollMessageId: null, question: 'Lunch?', totalVotes: 2, winner: null });
+    expect(messagesByIds(db, [applyAndId(rawMessage(CHANNEL, NOW + 3 * HOUR_MS, 'plain'))])[0]!.pollResult).toBeNull();
+  });
+
   it('a message without a poll takes no votes', () => {
     const id = applyAndId(rawMessage(CHANNEL, NOW, 'plain'));
     vote('MESSAGE_POLL_VOTE_ADD', id, FRIEND, 1);

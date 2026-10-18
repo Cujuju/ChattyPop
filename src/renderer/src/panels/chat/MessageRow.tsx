@@ -1,5 +1,6 @@
 // Archive message rows, content, labels and attachment rendering.
 import { Poll } from './Poll';
+import { PollResult } from './PollResult';
 import { coverageText } from '@/plugins/presentation';
 import { For, Show, children, createMemo, createSignal, type JSX } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
@@ -282,6 +283,9 @@ function MessageBody(props: { message: ArchiveMessage; editing: boolean }) {
           <MessageComponents message={m()} />
           <Show when={m().poll}>
             <Poll message={m()} />
+          </Show>
+          <Show when={m().pollResult}>
+            <PollResult message={m()} />
           </Show>
           <Show when={chat().renderReactions}>
             <Reactions message={m()} />

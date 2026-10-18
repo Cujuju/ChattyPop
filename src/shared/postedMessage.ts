@@ -4,7 +4,7 @@ import type { RawMember, RawMessage } from './discord';
 import { VERIFIED_BOT_FLAG } from './discord';
 import { componentsFrom } from './components';
 import { isAnimatedImage, isSpoiler } from './media';
-import { pollFrom, type RawPoll } from './polls';
+import { pollFrom, pollResultFrom, type RawPoll } from './polls';
 import { REPLY_MESSAGE_TYPE, embedsFrom, interactionFrom, mentionIdsFrom, mentionsFrom, nameFontFrom, reactionsFrom, serverTagFrom, stickersFrom } from './messageExtras';
 
 interface PostedAttachment {
@@ -61,5 +61,6 @@ export function postedArchiveMessage(m: RawMessage, nonce: string): ArchiveMessa
     components: componentsFrom(json(m.components)),
     interaction: interactionFrom(json(m.interaction_metadata), json(m.interaction)),
     poll: pollFrom(m.poll as RawPoll | undefined),
+    pollResult: pollResultFrom(m.type, m.embeds, ref?.message_id ?? null),
   };
 }

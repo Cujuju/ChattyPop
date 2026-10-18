@@ -1,4 +1,5 @@
 // Maintains gateway read states and unread mentions, and acknowledges channels read from ChattyPop.
+import { POLL_RESULT_MESSAGE_TYPE } from '@shared/polls';
 import type { ReadStateCount, ReadStateScope } from '@shared/contract';
 import { DM_CHANNEL_TYPES, MUTED_FOREVER, compareSnowflakes } from '@shared/discord';
 import type { DiscordApi } from './api';
@@ -9,7 +10,6 @@ import { entriesOf } from './readyLists';
 const CHANNEL_READ_STATE = 0;
 /** Message types that never count in a DM (a member removed) or never reset it when the owner sent them (a poll's result). */
 const RECIPIENT_REMOVE_MESSAGE = 2;
-const POLL_RESULT_MESSAGE = 46;
 
 interface RawReadState {
   id: string;
@@ -274,7 +274,7 @@ export class ReadStates {
     if (this.self !== null && m.author?.id === this.self) {
       // Sending reads the channel up to it; a late or replayed older message moves nothing back.
       const newer = !state.ackId || compareSnowflakes(m.id, state.ackId) > 0;
-      if (m.type !== POLL_RESULT_MESSAGE && newer) this.confirm(m.channel_id, { ackId: m.id, counted: 0, pings: [...state.pings.filter((id) => compareSnowflakes(id, m.id) > 0)] });
+      if (m.type !== POLL_RESULT_MESSAGE_TYPE && newer) this.confirm(m.channel_id, { ackId: m.id, counted: 0, pings: [...state.pings.filter((id) => compareSnowflakes(id, m.id) > 0)] });
       return;
     }
     if (state.ackId && compareSnowflakes(m.id, state.ackId) <= 0) return;

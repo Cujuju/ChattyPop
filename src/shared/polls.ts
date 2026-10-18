@@ -94,6 +94,43 @@ export const pollPayload = (d: PollDraft): Record<string, unknown> => ({
   layout_type: POLL_LAYOUT_DEFAULT,
 });
 
+/** Discord's message type for a poll's closing notice; its `poll_result` embed carries the result. */
+export const POLL_RESULT_MESSAGE_TYPE = 46;
+const POLL_RESULT_EMBED = 'poll_result';
+
+/** A poll's closing notice as the Archive shows it. */
+export interface ArchivePollResult {
+  /** The poll's own message, which View Poll opens; null when Discord didn't say. */
+  pollMessageId: string | null;
+  question: string;
+  totalVotes: number;
+  /** The answer with the most votes; null when Discord names none (no votes, or a tie). */
+  winner: { text: string; emoji: ArchiveEmoji | null; votes: number } | null;
+}
+
+/** A message's poll result from its raw type, embeds and referenced message id; null when it isn't one. */
+export function pollResultFrom(type: unknown, embeds: unknown, pollMessageId: string | null): ArchivePollResult | null {
+  if (type !== POLL_RESULT_MESSAGE_TYPE || !Array.isArray(embeds)) return null;
+  const embed = (embeds as { type?: unknown; fields?: unknown }[]).find((e) => e?.type === POLL_RESULT_EMBED);
+  if (!embed || !Array.isArray(embed.fields)) return null;
+  // Discord sends the result as name/value text fields.
+  const fields = new Map((embed.fields as { name?: unknown; value?: unknown }[]).flatMap((f) => (typeof f?.name === 'string' && typeof f.value === 'string' ? [[f.name, f.value] as const] : [])));
+  const count = (name: string): number => {
+    const n = Number(fields.get(name));
+    return Number.isSafeInteger(n) && n >= 0 ? n : 0;
+  };
+  const emojiId = fields.get('victor_answer_emoji_id') || null;
+  const emojiName = fields.get('victor_answer_emoji_name') ?? '';
+  return {
+    pollMessageId,
+    question: fields.get('poll_question_text') ?? '',
+    totalVotes: count('total_votes'),
+    winner: fields.has('victor_answer_id')
+      ? { text: fields.get('victor_answer_text') ?? '', emoji: emojiId || emojiName ? { id: emojiId, name: emojiName, animated: fields.get('victor_answer_emoji_animated') === 'true' } : null, votes: count('victor_answer_votes') }
+      : null,
+  };
+}
+
 /** One answer of a stored poll. */
 export interface ArchivePollAnswer {
   id: number;

@@ -1,0 +1,97 @@
+/* A poll's closing notice: its sentence, then a card with the winning answer and View Poll, at a poll card's width. */
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  width: 100%;
+  max-width: var(--cp-poll-w);
+  font-family: var(--cp-font-sans);
+}
+
+.line {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+  overflow-wrap: break-word;
+}
+
+.question {
+  color: var(--cp-text-1);
+  font-weight: var(--cp-weight-semibold);
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-5);
+  padding: var(--cp-space-4) var(--cp-space-5);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-lg);
+  background: var(--cp-surface-2);
+}
+
+/* The winner's emoji on a square, as Discord's. */
+.tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--cp-poll-result-tile);
+  height: var(--cp-poll-result-tile);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-4);
+}
+
+.tileIcon {
+  width: var(--cp-icon-lg);
+  height: var(--cp-icon-lg);
+  color: var(--cp-text-muted);
+}
+
+.text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.answer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  overflow-wrap: break-word;
+}
+
+/* The winner's mark: a tick on a success-green disc. */
+.check {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--cp-poll-result-check);
+  height: var(--cp-poll-result-check);
+  border-radius: var(--cp-radius-full);
+  background: var(--cp-success);
+  color: var(--cp-text-on-accent);
+}
+
+.checkIcon {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+  stroke-width: var(--cp-poll-result-check-stroke);
+}
+
+.meta,
+.none {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+}
+
+.none {
+  flex: 1 1 auto;
+}
+
+.view {
+  flex: none;
+}
