@@ -1,5 +1,6 @@
 import { ipcMain, type BrowserWindow, type Session } from 'electron';
-import { votePollAsOwner } from '../discord/polls';
+import { fetchPollVoters, votePollAsOwner } from '../discord/polls';
+import type { PollVoters } from '@shared/polls';
 import { handleMain } from './mainCalls';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { CommandChoice, CommandIndex, GuildRole, InteractionOutcome } from '@shared/commands';
@@ -209,12 +210,16 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     const users = await fetchReactors(d.owner, snowflakeArg(channelId, 'channel'), msg, emoji);
     return d.core.call('storeReactors', msg, emoji.id ?? emoji.name, users, count as number, Date.now());
   };
+  const pollVoters = async (channelId: unknown, messageId: unknown, answerId: unknown, after: unknown): Promise<PollVoters> => {
+    const { users, next } = await fetchPollVoters(d.owner, channelId, messageId, answerId, after);
+    return { people: await d.core.call('storeUsers', users), next };
+  };
 
   const recent = trackRecentMessageEvents(d.discord.tap);
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
   handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked; each is an owner action.
-  const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, setChatSettings }));
+  const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, pollVoters, setChatSettings }));
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

@@ -130,6 +130,7 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       profile: relay('profile'),
       mutualFriends: relay('mutualFriends'),
       reactors: relay('reactors'),
+      pollVoters: relay('pollVoters'),
       setChatSettings: relay('setChatSettings'),
       // Managing DMs stays on the desktop (docs/dms.md §4.1).
       friends: unavailable('Starting a conversation'),

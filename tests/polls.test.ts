@@ -7,6 +7,7 @@ import {
   POLL_ANSWERS_MAX,
   POLL_DURATION_HOURS_MAX,
   POLL_QUESTION_MAX,
+  POLL_VOTERS_PAGE,
   checkPollDraft,
   pollFrom,
   pollTimeLeft,
@@ -19,7 +20,8 @@ import type { Db } from '../src/core/db';
 import { applyGatewayEvent } from '../src/core/gatewayEvents';
 import { messagesByIds } from '../src/core/queries/messages';
 import type { DiscordApi } from '../src/main/discord/api';
-import { votePollAsOwner } from '../src/main/discord/polls';
+import { fetchPollVoters, votePollAsOwner } from '../src/main/discord/polls';
+import { storeUsers } from '../src/core/discordProfiles';
 import { sendOwnerMessage } from '../src/main/discord/send';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
@@ -110,6 +112,38 @@ describe('the owner’s vote', () => {
       await expect(votePollAsOwner(api, { channelId: CHANNEL, messageId: MESSAGE, answerIds })).rejects.toThrow('Not a poll vote.');
     await expect(votePollAsOwner(api, { channelId: 'x', messageId: MESSAGE, answerIds: [1] })).rejects.toThrow();
     expect(puts).toEqual([]);
+  });
+});
+
+describe('an answer’s voters', () => {
+  const user = (n: number) => ({ id: String(100000000000000100n + BigInt(n)), username: `voter${n}`, global_name: null, avatar: null });
+  const reader = (users: unknown) => {
+    const gets: [string, unknown][] = [];
+    const api = { get: async (path: string, query: unknown) => (gets.push([path, query]), { users }) } as unknown as DiscordApi;
+    return { api, gets };
+  };
+
+  it('reads a page as the client does, the next starting after its last voter while the page is full', async () => {
+    const full = Array.from({ length: POLL_VOTERS_PAGE }, (_, i) => user(i));
+    const { api, gets } = reader(full);
+    expect((await fetchPollVoters(api, CHANNEL, MESSAGE, 2, null)).next).toBe(full.at(-1)!.id);
+    expect(gets[0]).toEqual([`channels/${CHANNEL}/polls/${MESSAGE}/answers/2`, { limit: POLL_VOTERS_PAGE }]);
+    const last = reader([user(1)]);
+    expect(await fetchPollVoters(last.api, CHANNEL, MESSAGE, 2, FRIEND)).toEqual({ users: [user(1)], next: null });
+    expect(last.gets[0]![1]).toEqual({ limit: POLL_VOTERS_PAGE, after: FRIEND });
+  });
+
+  it('refuses what isn’t an answer before any request, and an answer that isn’t a list', async () => {
+    const { api, gets } = reader([]);
+    for (const answer of [0, 1.5, '1']) await expect(fetchPollVoters(api, CHANNEL, MESSAGE, answer, null)).rejects.toThrow('Not a poll answer.');
+    await expect(fetchPollVoters(api, CHANNEL, MESSAGE, 1, 'x')).rejects.toThrow('Not a user id.');
+    expect(gets).toEqual([]);
+    await expect(fetchPollVoters(reader({}).api, CHANNEL, MESSAGE, 1, null)).rejects.toThrow('unexpected voter list');
+  });
+
+  it('stores voters as people, in Discord’s order', () => {
+    const db = tempDb();
+    expect(storeUsers(db, [user(2), user(1)]).map((p) => p.id)).toEqual([user(2).id, user(1).id]);
   });
 });
 

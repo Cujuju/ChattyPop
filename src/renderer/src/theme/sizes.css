@@ -36,6 +36,9 @@
   --cp-forward-h: 640px; /* ten destinations in view above the message and its note */
   --cp-forward-preview-lines: 3; /* the forwarded message's text before it is cut */
   --cp-forward-min-h: 440px; /* header, search, three destinations and the whole compose band */
+  --cp-poll-votes-w: 560px; /* Poll votes: the answers' column beside their voters, as Discord's */
+  --cp-poll-votes-h: 480px; /* ten voters in view under the question */
+  --cp-poll-votes-answers-w: 200px; /* the answers' column: an emoji, a short answer and its count */
   --cp-switcher-w: 480px; /* channel switcher: a channel name and its server on one line */
   --cp-switcher-h: 440px; /* about ten channels under the search field */
   --cp-grip-w: 40px;

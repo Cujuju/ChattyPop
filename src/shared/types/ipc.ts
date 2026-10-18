@@ -223,6 +223,7 @@ export const MAIN_INVOKE = {
     profile: 'discord:profile',
     mutualFriends: 'discord:mutual-friends',
     reactors: 'discord:reactors',
+    pollVoters: 'discord:poll-voters',
     friends: 'discord:friends',
     startDm: 'discord:start-dm',
     dmWith: 'discord:dm-with',

@@ -12,12 +12,13 @@ import { JevCheck } from '@/views/jev/JevCheck';
 import { PersonView } from '@/views/person/PersonView';
 import { ConversationView } from '@/views/conversation/ConversationView';
 import { ForwardWindow } from '@/views/forward/ForwardWindow';
+import { PollVotesWindow } from '@/views/pollVotes/PollVotesWindow';
 import { NewMessageWindow } from '@/views/newMessage/NewMessageWindow';
 import { DmDialog } from '@/views/dmDialog/DmDialog';
 import { DeleteMessageDialog } from '@/views/deleteMessage/DeleteMessageDialog';
 import { DeleteAttachmentDialog, ModifyAttachmentDialog } from '@/views/attachment/AttachmentDialogs';
 
-/** Mounts shared panel overlays: viewers, message/DM dialogs, bot forms, reaction picker, context menu and confirmations in every panel window. */
+/** Mounts shared panel overlays: viewers, message/DM dialogs, poll votes, bot forms, reaction picker, context menu and confirmations in every panel window. */
 export function Overlays() {
   return (
     <>
@@ -27,6 +28,7 @@ export function Overlays() {
       <PersonView />
       <ConversationView />
       <ForwardWindow />
+      <PollVotesWindow />
       {/* Their stores never open them while posting is locked; unmounted then as well. */}
       <Show when={postingUnlocked()}>
         <ReminderDialog />

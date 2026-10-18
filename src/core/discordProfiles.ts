@@ -110,3 +110,9 @@ export function cachedReactors(db: Db, messageId: string, emojiKey: string): Rea
     .get(messageId, emojiKey) as { ids: string; count: number; fetchedAt: number } | undefined;
   return row ? { people: peopleInOrder(db, JSON.parse(row.ids) as string[]), count: row.count, fetchedAt: row.fetchedAt } : null;
 }
+
+/** Users Discord listed (a poll answer's voters) stored, as people in its order. */
+export function storeUsers(db: Db, users: RawUser[]): PersonMatch[] {
+  db.transaction(() => upsertUsers(db, users))();
+  return peopleInOrder(db, users.map((u) => u.id));
+}

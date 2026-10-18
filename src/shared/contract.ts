@@ -212,6 +212,8 @@ export interface CoreMethods {
   /** Who reacted with an emoji (a custom emoji's id, else the emoji); null before the first fetch. */
   reactors(messageId: string, emojiKey: string): ReactionUsers | null;
   storeReactors(messageId: string, emojiKey: string, users: RawUser[], count: number, fetchedAt: number): ReactionUsers;
+  /** Users Discord listed, stored as people, in its order. */
+  storeUsers(users: RawUser[]): PersonMatch[];
   /** People whose name, username or a server nickname contains `query`: a name or username starting with it first, then by name. */
   findPeople(query: string, limit: number): PersonMatch[];
   /**

@@ -14,7 +14,7 @@ import { ownerModerates } from './queries/moderation';
 import { findPeople, findSearchAuthors, peopleByIds } from './queries/people';
 import { personNames } from './queries/personNames';
 import { personProfile } from './queries/person';
-import { cachedMutualFriends, cachedProfile, cachedReactors, storeMutualFriends, storeProfile, storeReactors } from './discordProfiles';
+import { cachedMutualFriends, cachedProfile, cachedReactors, storeMutualFriends, storeProfile, storeReactors, storeUsers } from './discordProfiles';
 import { parseSearch } from './queries/search';
 import { searchOffThread } from './searchRuns';
 import type { RuleService } from './rules/ruleService';
@@ -38,7 +38,7 @@ export const ruleHandlers = (
 export const queryHandlers = (
   db: () => Db,
   selfId: () => string | null,
-): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'findPeople' | 'findSearchAuthors' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'conversationLinkScore' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
+): Pick<CoreMethods, 'searchMessages' | 'personProfile' | 'discordProfile' | 'storeDiscordProfile' | 'mutualFriends' | 'storeMutualFriends' | 'reactors' | 'storeReactors' | 'storeUsers' | 'findPeople' | 'findSearchAuthors' | 'peopleByIds' | 'personNames' | 'mentionCandidates' | 'ownAuthor' | 'ownerModerates' | 'conversation' | 'conversationLinkScore' | 'ownEmoji' | 'ownReactions' | 'ownCommands' | 'rankSearch'> => ({
   searchMessages: (text, limit, sort, caller) => searchOffThread(db(), text, limit, normalizeSearchSort(sort), typeof caller === 'string' ? caller : null),
   personProfile: (userId) => personProfile(db(), userId),
   discordProfile: (userId, guildId) => cachedProfile(db(), userId, guildId),
@@ -47,6 +47,7 @@ export const queryHandlers = (
   storeMutualFriends: (userId, friends, at) => storeMutualFriends(db(), userId, friends, at),
   reactors: (messageId, emojiKey) => cachedReactors(db(), messageId, emojiKey),
   storeReactors: (messageId, emojiKey, users, count, at) => storeReactors(db(), messageId, emojiKey, users, count, at),
+  storeUsers: (users) => storeUsers(db(), users),
   findPeople: (query, limit) => findPeople(db(), query, limit),
   findSearchAuthors: (name, query, shownChannelId, limit) => findSearchAuthors(db(), name, query, shownChannelId, limit),
   peopleByIds: (ids) => peopleByIds(db(), ids),

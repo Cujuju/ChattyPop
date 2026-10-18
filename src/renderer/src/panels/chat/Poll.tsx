@@ -1,9 +1,10 @@
-// A message's Discord poll, as Discord shows it: pick answers and Vote while it runs; once voted (or ended), each answer's share.
+// A message's Discord poll, as Discord shows it: pick answers and Vote while it runs; once voted (or ended), each answer's
+// share, and View votes for who chose each.
 import { For, Show, createSignal } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { pollTimeLeft, type ArchivePoll } from '@shared/polls';
 import { now } from '@/state/clock';
-import { pollOpen, votePoll } from '@/state/polls';
+import { openPollVotes, pollOpen, votePoll } from '@/state/polls';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { errorText } from '@/ui/format';
 import styles from './Poll.module.css';
@@ -80,6 +81,11 @@ export function Poll(props: { message: ArchiveMessage }) {
       </div>
       <div class={styles.footer}>
         <span class={styles.meta}>{footer()}</span>
+        <Show when={showResults() && total() > 0}>
+          <button type="button" class={styles.link} onClick={() => openPollVotes(props.message, poll())}>
+            View votes
+          </button>
+        </Show>
         <Show when={open()}>
           <Show
             when={showResults()}

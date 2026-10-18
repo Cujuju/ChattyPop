@@ -2,6 +2,7 @@
 // Archive shows it (read from the message's raw `poll`).
 import { isReactionEmoji, normalizeUnicodeReaction } from './discord';
 import type { ArchiveEmoji } from './types/archive';
+import type { PersonMatch } from './types/people';
 
 /** Longest question Discord takes. */
 export const POLL_QUESTION_MAX = 300;
@@ -145,6 +146,15 @@ export function pollFrom(raw: RawPoll | null | undefined): ArchivePoll | null {
     expiresAt: Number.isFinite(expiry) ? expiry : null,
     finalized: raw.results?.is_finalized === true,
   };
+}
+
+/** Voters of one answer Discord lists per request, its most. */
+export const POLL_VOTERS_PAGE = 100;
+
+/** One answer's voters a page at a time, as Discord lists them: `next` is the voter to list after, null at the end. */
+export interface PollVoters {
+  people: PersonMatch[];
+  next: string | null;
 }
 
 /** The owner's vote on a poll: every answer they now choose; none takes their vote back. */

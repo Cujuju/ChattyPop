@@ -1,7 +1,8 @@
-// The owner's votes on Discord polls.
+// The owner's votes on Discord polls, and the poll whose voters View votes shows.
+import { createSignal } from 'solid-js';
 import { api } from '@/api';
 import type { ArchiveMessage } from '@shared/contract';
-import type { ArchivePoll } from '@shared/polls';
+import type { ArchivePoll, PollVoters } from '@shared/polls';
 import { errorText } from '@/ui/format';
 import { refreshLoaded } from './archive';
 
@@ -16,5 +17,35 @@ export async function votePoll(m: ArchiveMessage, answerIds: number[]): Promise<
     await refreshLoaded([m.id]);
   } catch (err) {
     throw new Error(`Couldn't ${answerIds.length ? 'vote' : 'remove the vote'}: ${errorText(err)}`);
+  }
+}
+
+/** A poll View votes shows: its message, and its question and answers as they were when it opened. */
+export interface PollVotesOf {
+  channelId: string;
+  messageId: string;
+  question: string;
+  answers: Pick<ArchivePoll['answers'][number], 'id' | 'text' | 'emoji' | 'votes'>[];
+}
+
+const [votesOf, setVotesOf] = createSignal<PollVotesOf | null>(null);
+export const pollVotesOf = votesOf;
+
+/** Shows who voted on `m`'s poll. Plain copies: the message is a store proxy, which IPC can't clone. */
+export const openPollVotes = (m: ArchiveMessage, poll: ArchivePoll): void =>
+  void setVotesOf({
+    channelId: m.channelId,
+    messageId: m.id,
+    question: poll.question,
+    answers: poll.answers.map((a) => ({ id: a.id, text: a.text, emoji: a.emoji && { ...a.emoji }, votes: a.votes })),
+  });
+export const closePollVotes = (): void => void setVotesOf(null);
+
+/** A page of who voted for `answerId`, after voter `after` (null: the first page), fetched from Discord now. */
+export async function pollVotersPage(p: PollVotesOf, answerId: number, after: string | null): Promise<PollVoters> {
+  try {
+    return await api.discord.pollVoters(p.channelId, p.messageId, answerId, after);
+  } catch (err) {
+    throw new Error(`Couldn't load the votes: ${errorText(err)}`);
   }
 }

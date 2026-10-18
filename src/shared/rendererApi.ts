@@ -6,7 +6,7 @@ import type { FolderSaveResult } from './types/attachmentStore';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
 import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerSend, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot, WrittenAs } from './compose';
-import type { OwnerPollVote } from './polls';
+import type { OwnerPollVote, PollVoters } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
 import type { DesktopSettings, DesktopState } from './desktop';
@@ -128,6 +128,8 @@ export interface RendererApi {
     mutualFriends(userId: string): Promise<MutualFriends>;
     /** The first people who reacted with moji, fetched now; count is the reaction's count shown. Also cached. */
     reactors(channelId: string, messageId: string, emoji: ArchiveEmoji, count: number): Promise<ReactionUsers>;
+    /** A page of who voted for one poll answer, after voter `after` (null: the first page), fetched now. */
+    pollVoters(channelId: string, messageId: string, answerId: number, after: string | null): Promise<PollVoters>;
     /** The owner's friends whose names are known, by name (the New message picker). */
     friends(): Promise<Friend[]>;
     /** Starts one-person/group DMs; existing open DMs send nothing. Applies archive choices to newly created channels and resolves after core storage; Discord errors reject. */
