@@ -17,7 +17,7 @@ import { pluginCompletions, type CompletionLedger, type PluginCompletions } from
 import { pluginJev, type PluginJev } from './jevContext';
 import { lifetimeFetch, pluginLifetime, type Lifetime } from './lifetime';
 import { descriptorFetch, type PluginFetch } from './net';
-import { pluginDb, type PluginDb } from './pluginDb';
+import { archiveRead, pluginDb, type ArchiveRead, type PluginDb } from './pluginDb';
 import { corePreferences } from './preferences';
 import type { CorePreferences } from '@shared/preferences';
 import { pluginRules, type PluginRules } from './rules';
@@ -40,6 +40,8 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
      * long held, throw PluginInactiveError once this activation ended; reads stay open.
      */
     readonly db: PluginDb;
+    /** Read-only rows off the core thread, from committed data with `db`'s views and tables. Aborting stops the query and rejects with the signal's reason. */
+    read: ArchiveRead;
     /** Runs `fn` in one transaction of `db`, returning its result; its writes are fenced as `db`'s. */
     transaction<T>(fn: () => T): T;
     /** Its table `name` as stored: p_<plugin id>_<name>. */
@@ -132,6 +134,7 @@ export function createCoreContext<D extends PluginDescriptor>(
     session: { lastSeenAt: () => bundled.lastSeenAt?.() ?? bundled.now(), resumed: plugins.resumed ?? false },
     storage: {
       db,
+      read: archiveRead(bundled.ready),
       transaction: (fn) => db.transaction(fn)(),
       table: (name) => pluginTableName(id, name),
       migrate: (steps) => {

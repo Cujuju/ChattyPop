@@ -2,7 +2,7 @@
 import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
-import { pluginDb } from '../src/core/plugins/pluginDb';
+import { archiveRead } from '../src/core/plugins/pluginDb';
 import { closeArchiveReads, configureArchiveReads } from '../src/core/reads/archiveReads';
 import type { ReadReply } from '../src/core/reads/protocol';
 import { ARCHIVE_READ_POOL_SIZE } from '../src/core/reads/pool';
@@ -17,7 +17,7 @@ const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 process.parentPort.on('message', async ({ data }: { data: { path: string } }) => {
   const db = new Database(data.path, { readonly: true, fileMustExist: true });
   configureArchiveReads(db, null);
-  const api = pluginDb(() => db, () => false, 'readprobe');
+  const read = archiveRead(() => db);
   try {
     // Direct worker in utilityProcess proves the native module also works without the killable process wrapper.
     const worker = new Worker(join(import.meta.dirname, 'archiveReadWorker.js'), { workerData: { path: data.path, key: null } });
@@ -30,21 +30,21 @@ process.parentPort.on('message', async ({ data }: { data: { path: string } }) =>
       worker.postMessage({ sql: 'SELECT count(*) AS count FROM archive_messages', params: [] });
     });
     await worker.terminate();
-    await Promise.all(Array.from({ length: ARCHIVE_READ_POOL_SIZE }, () => api.read('SELECT 1')));
+    await Promise.all(Array.from({ length: ARCHIVE_READ_POOL_SIZE }, () => read('SELECT 1')));
     const control = new AbortController();
     let ticks = 0;
     const timer = setInterval(() => ticks++, TIMER_INTERVAL_MS);
-    const pending = api.read(HEAVY, [], { signal: control.signal }).catch((error: unknown) => error);
+    const pending = read(HEAVY, [], { signal: control.signal }).catch((error: unknown) => error);
     await delay(QUERY_HEAD_START_MS);
     const unrelatedStart = performance.now();
-    const unrelated = await api.read('SELECT 42 AS answer');
+    const unrelated = await read('SELECT 42 AS answer');
     const unrelatedMs = performance.now() - unrelatedStart;
     const start = performance.now();
     control.abort(new Error('Stopped'));
     const error = await pending;
     const abortMs = performance.now() - start;
     clearInterval(timer);
-    const replacement = await api.read('SELECT 7 AS answer');
+    const replacement = await read('SELECT 7 AS answer');
     const closeStart = performance.now();
     await closeArchiveReads(db);
     const closeMs = performance.now() - closeStart;

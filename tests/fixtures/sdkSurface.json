@@ -1,5 +1,5 @@
 {
-  "version": "3.6.0",
+  "version": "3.7.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -831,6 +831,7 @@
       "Answers",
       "ArchivePayload",
       "ArchivePayloadReader",
+      "ArchiveRead",
       "ArchiveReplyExists",
       "ArchiveReplyReader",
       "ArchiveReplyTargets",

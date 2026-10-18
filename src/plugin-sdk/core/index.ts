@@ -33,7 +33,7 @@ export type { PartText } from '@core/derivedText';
 export type { SearchRanker } from '@core/searchRankers';
 export type { PluginFetch } from '@core/plugins/net';
 export type { CoreFinalize, PluginCompletions } from '@core/plugins/completions';
-export type { PluginDb, PluginStatement } from '@core/plugins/pluginDb';
+export type { ArchiveRead, PluginDb, PluginStatement } from '@core/plugins/pluginDb';
 export { PluginInactiveError } from '@shared/pluginCall';
 
 /** A plugin's core side. `activate` runs synchronously when the plugin turns on; return a disposer only for resources it made itself. */

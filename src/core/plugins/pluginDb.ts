@@ -35,7 +35,7 @@ export type PluginTransaction<F extends TransactionBody> = ((...params: Transact
 };
 
 /** A plugin's database: the archive's statement surface, writes fenced by a lifetime. */
-export interface PluginSql {
+export interface PluginDb {
   /** The archive is open (it closes while it moves). */
   readonly open: boolean;
   /**
@@ -47,9 +47,16 @@ export interface PluginSql {
   transaction<F extends TransactionBody>(fn: F): PluginTransaction<F>;
 }
 
-export interface PluginDb extends PluginSql {
-  /** Off-thread read-only rows from committed archive data. Abort stops native work and rejects with the signal's reason. */
-  read<R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<R[]>;
+/** Off-thread read-only rows from committed archive data. Abort stops native work and rejects with the signal's reason. */
+export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<R[]>;
+
+/** `ctx.storage.read` over `db` (read at each use: the archive can move). Separate from PluginDb, which a raw connection satisfies. */
+export function archiveRead(db: () => Db): ArchiveRead {
+  return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: { signal?: AbortSignal } = {}): Promise<R[]> => {
+    options.signal?.throwIfAborted();
+    checkReadStatement(source);
+    return readArchive<R>(db(), source, params, options.signal);
+  };
 }
 
 /**
@@ -63,11 +70,6 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
   const facade: PluginDb = {
     get open() {
       return db().open;
-    },
-    read: async (source, params = [], options = {}) => {
-      options.signal?.throwIfAborted();
-      checkReadStatement(source);
-      return readArchive(db(), source, params, options.signal);
     },
     prepare: (source) => {
       checkReadStatement(source);

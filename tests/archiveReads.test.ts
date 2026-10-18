@@ -2,7 +2,7 @@ import { fork } from 'node:child_process';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
 import { compressRawJson, openDb, rekey, setSetting, type Db } from '../src/core/db';
-import { pluginDb, type PluginDb } from '../src/core/plugins/pluginDb';
+import { archiveRead, pluginDb, type ArchiveRead, type PluginDb } from '../src/core/plugins/pluginDb';
 import { createArchiveRefViews } from '../src/core/plugins/archiveRefs';
 import { archiveReadPrivacyChanged, closeArchiveReads } from '../src/core/reads/archiveReads';
 import { ArchiveReadPool, ARCHIVE_READ_POOL_SIZE, ARCHIVE_READ_QUEUE_MAX } from '../src/core/reads/pool';
@@ -25,7 +25,8 @@ const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 const outcome = <T>(p: Promise<T>): Promise<T | unknown> => p.catch((e: unknown) => e);
 let db: Db;
 let api: PluginDb;
-beforeEach(() => { db = tempDb(); seedArchiveViews(db); api = pluginDb(() => db, () => true, 'readprobe'); });
+let readRows: ArchiveRead;
+beforeEach(() => { db = tempDb(); seedArchiveViews(db); api = pluginDb(() => db, () => true, 'readprobe'); readRows = archiveRead(() => db); });
 afterEach(async () => { await closeArchiveReads(db); if (db.open) db.close(); });
 
 describe('off-thread plugin archive reads', () => {
@@ -34,11 +35,11 @@ describe('off-thread plugin archive reads', () => {
     const sql = `SELECT id, text, author_name, raw_json, msg_json(raw_json) AS payload FROM archive_messages WHERE ts >= @since ORDER BY id`;
     for (const privacy of [false, true, false]) {
       setSetting(db, 'privacyMode', privacy);
-      expect(await api.read(sql, { since: 0 })).toEqual(api.prepare(sql).all({ since: 0 }));
+      expect(await readRows(sql, { since: 0 })).toEqual(api.prepare(sql).all({ since: 0 }));
       const counts = 'SELECT channel_id, count(*) AS count FROM archive_messages GROUP BY channel_id ORDER BY channel_id';
-      expect(await api.read(counts)).toEqual(api.prepare(counts).all());
+      expect(await readRows(counts)).toEqual(api.prepare(counts).all());
       const search = "SELECT seq FROM archive_search WHERE query MATCH ? ORDER BY seq";
-      expect(await api.read(search, ['hello'])).toEqual(api.prepare(search).all('hello'));
+      expect(await readRows(search, ['hello'])).toEqual(api.prepare(search).all('hello'));
     }
   });
 
@@ -49,9 +50,9 @@ describe('off-thread plugin archive reads', () => {
     createArchiveRefViews(db, descriptor);
     setSetting(db, 'privacyMode', true);
     const view = `SELECT * FROM ${visibleTable(descriptor, 'notes')} ORDER BY text`;
-    expect(await api.read(view)).toEqual(api.prepare(view).all());
+    expect(await readRows(view)).toEqual(api.prepare(view).all());
     db.prepare(`INSERT INTO ${table} VALUES (?, ?)`).run('c-open', 'later');
-    expect(await api.read(`SELECT * FROM ${table} ORDER BY text`)).toEqual(api.prepare(`SELECT * FROM ${table} ORDER BY text`).all());
+    expect(await readRows(`SELECT * FROM ${table} ORDER BY text`)).toEqual(api.prepare(`SELECT * FROM ${table} ORDER BY text`).all());
   });
 
   it('enforces read-only statements and connection guards without changing later reads', async () => {
@@ -60,33 +61,33 @@ describe('off-thread plugin archive reads', () => {
       'PRAGMA query_only = OFF', "ATTACH ':memory:' AS side", 'BEGIN', 'VACUUM',
       '; /* skip */ EXPLAIN QUERY PLAN PRAGMA writable_schema = ON',
       "SELECT 1; DELETE FROM messages", 'SELECT load_extension(?)',
-    ]) await expect(api.read(sql)).rejects.toThrow();
-    expect(await api.read('SELECT count(*) AS count FROM archive_messages')).toEqual(api.prepare('SELECT count(*) AS count FROM archive_messages').all());
+    ]) await expect(readRows(sql)).rejects.toThrow();
+    expect(await readRows('SELECT count(*) AS count FROM archive_messages')).toEqual(api.prepare('SELECT count(*) AS count FROM archive_messages').all());
     let pending!: Promise<unknown[]>;
-    db.transaction(() => { pending = api.read('SELECT 1'); })();
+    db.transaction(() => { pending = readRows('SELECT 1'); })();
     await expect(pending).rejects.toThrow(/uncommitted/);
   });
 
   it('cancels an older native snapshot when privacy changes and reads the new visibility afterwards', async () => {
-    await api.read('SELECT 1');
-    const pending = outcome(api.read(HEAVY));
+    await readRows('SELECT 1');
+    const pending = outcome(readRows(HEAVY));
     await delay(HEAD_START_MS);
     setSetting(db, 'privacyMode', true);
     archiveReadPrivacyChanged(db);
     expect(await pending).toMatchObject({ message: 'Archive visibility changed; repeat the lookup' });
     const sql = 'SELECT id FROM archive_messages ORDER BY id';
-    expect(await api.read(sql)).toEqual(api.prepare(sql).all());
+    expect(await readRows(sql)).toEqual(api.prepare(sql).all());
   });
 
   it('cancels native work promptly, keeps timers and another reader responsive, and replaces helpers repeatedly', async () => {
-    await api.read('SELECT 1');
+    await readRows('SELECT 1');
     for (let i = 0; i < ABORT_REPETITIONS; i++) {
       const control = new AbortController();
-      const pending = outcome(api.read(HEAVY, [], { signal: control.signal }));
+      const pending = outcome(readRows(HEAVY, [], { signal: control.signal }));
       let ticks = 0;
       const timer = setInterval(() => ticks++, TIMER_INTERVAL_MS);
       await delay(HEAD_START_MS);
-      expect(await api.read('SELECT 42 AS answer')).toEqual([{ answer: 42 }]);
+      expect(await readRows('SELECT 42 AS answer')).toEqual([{ answer: 42 }]);
       const start = performance.now();
       control.abort(new Error('Stop lookup'));
       expect(await pending).toBe(control.signal.reason);
@@ -95,7 +96,7 @@ describe('off-thread plugin archive reads', () => {
       expect(abortMs).toBeLessThan(ABORT_BUDGET_MS);
       expect(ticks).toBeGreaterThan(5);
       console.info('archive read abort', { iteration: i, abortMs, ticks });
-      expect(await api.read('SELECT 7 AS answer')).toEqual([{ answer: 7 }]);
+      expect(await readRows('SELECT 7 AS answer')).toEqual([{ answer: 7 }]);
     }
     const start = performance.now();
     await closeArchiveReads(db);
@@ -120,12 +121,12 @@ describe('off-thread plugin archive reads', () => {
   it('opens encrypted archives read-only and refreshes the key after rekey', async () => {
     const path = join(tempDir(), 'encrypted.db');
     const encrypted = openDb(path, 'fixture_key');
-    const read = pluginDb(() => encrypted, () => false, 'readprobe');
+    const read = archiveRead(() => encrypted);
     try {
-      expect(await read.read('SELECT count(*) AS count FROM archive_messages')).toEqual([{ count: 0 }]);
+      expect(await read('SELECT count(*) AS count FROM archive_messages')).toEqual([{ count: 0 }]);
       await closeArchiveReads(encrypted);
       rekey(encrypted, 'replacement_key');
-      expect(await read.read('SELECT 9 AS answer')).toEqual([{ answer: 9 }]);
+      expect(await read('SELECT 9 AS answer')).toEqual([{ answer: 9 }]);
     } finally { await closeArchiveReads(encrypted); encrypted.close(); }
   });
 

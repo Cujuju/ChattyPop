@@ -2,7 +2,7 @@
 import type { Db } from '../db';
 import { rawJsonSql } from '../queries/messageContent';
 import { REPLY_MESSAGE_TYPE } from '../queries/messageExtras';
-import type { PluginSql } from './pluginDb';
+import type { PluginDb } from './pluginDb';
 
 export type ArchiveReplyReader = (ids: readonly string[]) => Map<string, { isReply: number | null }>;
 export type ArchiveReplyExists = (channelId: string, afterTs: number, authorId: string, messageId: string) => boolean;
@@ -34,7 +34,7 @@ export function archiveReplyFlags(db: Db, ids: readonly string[]): ReturnType<Ar
 }
 
 /** What selected replies answer, read from the target Discord embedded in each (compressed payloads included). */
-export function archiveReplyTargets(db: PluginSql, ids: readonly string[]): Map<string, ReplyTarget> {
+export function archiveReplyTargets(db: PluginDb, ids: readonly string[]): Map<string, ReplyTarget> {
   if (!ids.length) return new Map();
   const rows = db
     .prepare(
