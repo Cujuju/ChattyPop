@@ -6,9 +6,9 @@ import type { ArchiveMessage, ArchiveReaction, PersonMatch } from '@shared/contr
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { api } from '@/api';
 import { cachedThenLive } from '@/state/cachedLive';
-import { personName } from '@/state/personNames';
 import { onPointerDownOutside } from '@/ui/listen';
-import { PersonFace } from './PersonName';
+import { AuthorName } from './AuthorName';
+import { PersonFace, drawnName } from './PersonName';
 import styles from './ReactionTip.module.css';
 
 /** Pointer dwell delay before showing/fetching reaction tips. */
@@ -28,12 +28,12 @@ export function listSeparator(i: number, n: number): string {
   return i === n - 1 ? ' and ' : ', ';
 }
 
-/** A reactor's avatar and name as the channel shows it (server nickname, else display name). */
+/** A reactor's avatar and styled name as the channel shows it (server nickname and role colour, else display name and Nitro style). */
 function Reactor(props: { person: PersonMatch; channelId: string }) {
   return (
     <span class={styles.reactor}>
       <PersonFace userId={props.person.id} channelId={props.channelId} class={styles.face} />
-      {personName(props.person.id, props.channelId)?.name ?? props.person.name}
+      <AuthorName author={drawnName(props.person.id, props.channelId, props.person.name)} />
     </span>
   );
 }

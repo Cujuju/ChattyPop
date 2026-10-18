@@ -13,7 +13,7 @@ import styles from './PersonName.module.css';
 const UNKNOWN_PERSON = 'Unknown person';
 
 /** `userId`'s name as Discord draws it in `channelId` (null: no place); `fallback` (a stored snapshot) until core answers. */
-const drawnName = (userId: string, channelId: string | null, fallback: string | undefined): DrawnName =>
+export const drawnName = (userId: string, channelId: string | null, fallback: string | undefined): DrawnName =>
   personName(userId, channelId) ?? { name: fallback ?? UNKNOWN_PERSON, color: null, gradient: null, font: null };
 
 /**
