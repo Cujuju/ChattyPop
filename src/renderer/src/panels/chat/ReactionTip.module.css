@@ -40,3 +40,18 @@
   color: var(--cp-text-1);
   font-weight: var(--cp-weight-semibold);
 }
+
+/* A reactor: their avatar beside their name, kept together on one line. */
+.reactor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cp-space-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.face {
+  flex: none;
+  width: var(--cp-avatar-xs);
+  height: var(--cp-avatar-xs);
+}

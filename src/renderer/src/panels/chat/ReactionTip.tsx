@@ -1,12 +1,14 @@
-// Reaction tooltips show emoji and reactor names after pointer rests or touch holds. Long presses suppress reaction toggles.
+// Reaction tooltips show emoji and reactors (avatar, name in the place) after pointer rests or touch holds. Long presses suppress reaction toggles.
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { Show, createMemo, createSignal, onMount, type JSX } from 'solid-js';
+import { For, Show, createMemo, createSignal, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import type { ArchiveMessage, ArchiveReaction, PersonMatch } from '@shared/contract';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { api } from '@/api';
 import { cachedThenLive } from '@/state/cachedLive';
+import { personName } from '@/state/personNames';
 import { onPointerDownOutside } from '@/ui/listen';
+import { PersonFace } from './PersonName';
 import styles from './ReactionTip.module.css';
 
 /** Pointer dwell delay before showing/fetching reaction tips. */
@@ -14,12 +16,26 @@ const HOVER_DELAY_MS = 300;
 /** Viewport clearance for overflowing reaction tips. */
 const EDGE_GAP_PX = 8;
 
-/** "A", "A and B", "A, B and C", "A, B, C and 4 others". */
-export function reactorText(people: PersonMatch[], count: number): string {
-  const names = people.map((p) => p.name);
-  const others = count - names.length;
-  if (others > 0) names.push(others === 1 ? '1 other' : `${others} others`);
-  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : (names[0] ?? '');
+/** The people Discord listed, then "1 other" / "N others" for the rest of `count`. */
+export function reactorItems(people: PersonMatch[], count: number): (PersonMatch | string)[] {
+  const others = count - people.length;
+  return others > 0 ? [...people, others === 1 ? '1 other' : `${others} others`] : people;
+}
+
+/** What precedes item `i` of `n`: "A", "A and B", "A, B and C". */
+export function listSeparator(i: number, n: number): string {
+  if (i === 0) return '';
+  return i === n - 1 ? ' and ' : ', ';
+}
+
+/** A reactor's avatar and name as the channel shows it (server nickname, else display name). */
+function Reactor(props: { person: PersonMatch; channelId: string }) {
+  return (
+    <span class={styles.reactor}>
+      <PersonFace userId={props.person.id} channelId={props.channelId} class={styles.face} />
+      {personName(props.person.id, props.channelId)?.name ?? props.person.name}
+    </span>
+  );
 }
 
 function Tip(props: { message: ArchiveMessage; reaction: ArchiveReaction; anchor: HTMLElement }) {
@@ -36,11 +52,11 @@ function Tip(props: { message: ArchiveMessage; reaction: ArchiveReaction; anchor
     // A cached list whose count still matches is current: reacting changes the count.
     (copy, k) => !copy || copy.count !== k.count,
   );
-  const text = (): string => {
+  const items = (): (PersonMatch | string)[] | null => {
     const v = reactors.value();
-    if (v?.people.length) return `reacted by ${reactorText(v.people, r().count)}`;
-    return reactors.stale() ? `${r().count} reacted · Discord couldn't be reached` : 'Loading…';
+    return v?.people.length ? reactorItems(v.people, r().count) : null;
   };
+  const status = (): string => (reactors.stale() ? `${r().count} reacted · Discord couldn't be reached` : 'Loading…');
   let tip!: HTMLDivElement;
   const [left, setLeft] = createSignal(0);
   const rect = props.anchor.getBoundingClientRect();
@@ -55,7 +71,22 @@ function Tip(props: { message: ArchiveMessage; reaction: ArchiveReaction; anchor
           {(id) => <EmojiImage class={styles.emoji} emoji={{ id: id(), animated: r().emoji.animated }} alt="" />}
         </Show>
         <p class={styles.text}>
-          <span class={styles.name}>:{r().emoji.name}:</span> {text()}
+          <span class={styles.name}>:{r().emoji.name}:</span>{' '}
+          <Show when={items()} fallback={status()}>
+            {(list) => (
+              <>
+                reacted by{' '}
+                <For each={list()}>
+                  {(item, i) => (
+                    <>
+                      {listSeparator(i(), list().length)}
+                      {typeof item === 'string' ? item : <Reactor person={item} channelId={props.message.channelId} />}
+                    </>
+                  )}
+                </For>
+              </>
+            )}
+          </Show>
         </p>
       </div>
     </Portal>
