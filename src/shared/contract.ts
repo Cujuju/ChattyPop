@@ -208,7 +208,7 @@ export interface CoreMethods {
   /** Who reacted with an emoji (a custom emoji's id, else the emoji); null before the first fetch. */
   reactors(messageId: string, emojiKey: string): ReactionUsers | null;
   storeReactors(messageId: string, emojiKey: string, users: RawUser[], count: number, fetchedAt: number): ReactionUsers;
-  /** People whose name, username or a server nickname contains `query`, by name. */
+  /** People whose name, username or a server nickname contains `query`: a name or username starting with it first, then by name. */
   findPeople(query: string, limit: number): PersonMatch[];
   /** Mention autocomplete returns eligible people, permitted everyone/here, then roles within one limit. */
   mentionCandidates(channelId: string, query: string, limit: number): MentionCandidate[];

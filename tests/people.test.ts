@@ -21,4 +21,19 @@ describe('people by name', () => {
     expect(findPeople(db, '  ', 10)).toEqual([]);
     expect(peopleByIds(db, ['2', 'nobody']).map((p) => p.name)).toEqual(['stat']);
   });
+
+  it('ranks names starting with the query before the limit, ahead of ones only containing it', () => {
+    const db = tempDb();
+    const archive = seedArchive(db, [{ id: 'c1' }]);
+    archive.ingestMessages(
+      [
+        rawMessage('c1', 1, 'a', { author: { id: '1', username: 'xan', global_name: '!Dana' } }),
+        rawMessage('c1', 2, 'b', { author: { id: '2', username: 'annie', global_name: 'Zed' } }),
+        rawMessage('c1', 3, 'c', { author: { id: '3', username: 'anna', global_name: null } }),
+      ],
+      ARRIVAL.gateway,
+    );
+    expect(findPeople(db, 'an', 2).map((p) => p.id)).toEqual(['3', '2']);
+    expect(findPeople(db, 'an', 10).map((p) => p.id)).toEqual(['3', '2', '1']);
+  });
 });
