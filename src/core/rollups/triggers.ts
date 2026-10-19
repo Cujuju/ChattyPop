@@ -12,8 +12,9 @@ export function installRollupTriggers(db: Db): void {
   installMetadataTriggers(db);
   installRollupChanges(db);
   const mark = (alias: string, channel: string, ts: string, kinds: string[]) => `
-    INSERT INTO rollup_changes(channel_id, day, kind) VALUES
-      ${kinds.map((kind) => `(${alias}.${channel}, date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch'), '${kind}')`).join(', ')}
+    INSERT INTO rollup_changes(channel_id, day, kind)
+      SELECT ${alias}.${channel}, date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch'), column1
+      FROM (VALUES ${kinds.map((kind) => `('${kind}')`).join(', ')}) WHERE ${alias}.${ts} IS NOT NULL
       ON CONFLICT(channel_id, day, kind) DO NOTHING;`;
   for (const [table, channel, ts, kind] of [
     ['messages', 'channel_id', 'ts', 'messages'], ['attachments', 'channel_id', 'ts', 'attachments'],

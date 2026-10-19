@@ -49,3 +49,12 @@ it('coalesces marks inside outer upserts without inheriting their conflict polic
   db.transaction(() => { upsert.run(START + 1); upsert.run(START); })();
   expect(db.prepare('SELECT * FROM rollup_changes').all()).toEqual([{ channel_id: 'channel', day: '2026-01-01', kind: 'links' }]);
 });
+
+it('waits for a nullable attachment timestamp before recording its partition', () => {
+  const db = tempDb(); onTestFinished(() => { db.close(); });
+  installRollupStore(db); installRollupTriggers(db);
+  db.exec("INSERT INTO attachments(id, message_id, channel_id, filename, url) VALUES ('file', 'message', 'channel', 'file', 'https://example.test')");
+  expect(db.prepare('SELECT * FROM rollup_changes').all()).toEqual([]);
+  db.prepare("UPDATE attachments SET ts = ? WHERE id = 'file'").run(START);
+  expect(db.prepare('SELECT * FROM rollup_changes').all()).toEqual([{ channel_id: 'channel', day: '2026-01-01', kind: 'attachments' }]);
+});
