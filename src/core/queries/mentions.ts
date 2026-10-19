@@ -106,19 +106,24 @@ export function memberFacts(db: Db, guildId: string, userId: string): MemberFact
   return { roles: row?.roles ? (JSON.parse(row.roles) as string[]) : [], timedOutUntil: row?.timedOutUntil ?? null };
 }
 
-/** Who decides access to the channel: the server's owner and roles, and the channel's overwrites (a thread's parent's). */
-export function accessOf(db: Db, guildId: string, channelId: string, thread: boolean): PermissionContext {
+/** What decides access across a server: its owner and roles' permissions. */
+type ServerAccess = Pick<PermissionContext, 'guildId' | 'ownerId' | 'rolePermissions'>;
+
+function serverAccess(db: Db, guildId: string): ServerAccess {
   const owner = db.prepare('SELECT owner_id AS ownerId FROM guilds WHERE id = ?').get(guildId) as { ownerId: string | null } | undefined;
   const roles = db.prepare("SELECT id, json_extract(raw_json, '$.permissions') AS permissions FROM roles WHERE guild_id = ?").all(guildId) as { id: string; permissions: unknown }[];
-  const ch = db.prepare('SELECT overwrites FROM channels WHERE id = ?').get(channelId) as { overwrites: string | null } | undefined;
-  return {
-    guildId,
-    ownerId: owner?.ownerId ?? null,
-    rolePermissions: new Map(roles.map((r) => [r.id, permissionBits(r.permissions)])),
-    overwrites: ch?.overwrites ? (JSON.parse(ch.overwrites) as RawOverwrite[]) : [],
-    thread,
-  };
+  return { guildId, ownerId: owner?.ownerId ?? null, rolePermissions: new Map(roles.map((r) => [r.id, permissionBits(r.permissions)])) };
 }
+
+/** `server`'s access with the channel's overwrites (a thread's parent's). */
+function withOverwrites(db: Db, server: ServerAccess, channelId: string, thread: boolean): PermissionContext {
+  const ch = db.prepare('SELECT overwrites FROM channels WHERE id = ?').get(channelId) as { overwrites: string | null } | undefined;
+  return { ...server, overwrites: ch?.overwrites ? (JSON.parse(ch.overwrites) as RawOverwrite[]) : [], thread };
+}
+
+/** Who decides access to the channel: the server's owner and roles, and the channel's overwrites (a thread's parent's). */
+export const accessOf = (db: Db, guildId: string, channelId: string, thread: boolean): PermissionContext =>
+  withOverwrites(db, serverAccess(db, guildId), channelId, thread);
 
 interface ChannelRow {
   guildId: string;
@@ -147,6 +152,50 @@ export function forgetMentionPools(channelId: string): void {
   staleChannels.add(channelId);
 }
 
+const CHANNEL_SQL = 'SELECT guild_id AS guildId, kind, parent_id AS parentId FROM channels WHERE id = ?';
+
+/** The channel whose overwrites decide who sees `channelId`: a thread, public or private, its parent's (in a private one, mentioning someone adds them). */
+function accessChannel(ch: ChannelRow, channelId: string): { id: string; thread: boolean } {
+  const thread = THREAD_CHANNEL_TYPES.has(ch.kind) && ch.parentId !== null;
+  return { id: thread ? ch.parentId! : channelId, thread };
+}
+
+/** Members who see any of a set of channels, kept per database for the last set asked: a search asks again per keystroke. */
+const seers = new WeakMap<Db, { key: string; writes: number; ids: { id: string; guildId: string }[] }>();
+
+/**
+ * Current members, by server, who can see any of `channelIds`: the people a composer's pool holds who need not have posted.
+ * One whose roles the server's member list hasn't named is left out, as the pool leaves them out unless they posted.
+ */
+export function membersWhoSee(db: Db, channelIds: readonly string[]): { id: string; guildId: string }[] {
+  const key = channelIds.join();
+  const writes = nameWriteCount(db);
+  const hit = seers.get(db);
+  if (hit && hit.key === key && hit.writes === writes) return hit.ids;
+  // By server, the channels deciding access, each once: threads share their parent's.
+  const byGuild = new Map<string, Map<string, boolean>>();
+  const channel = db.prepare(CHANNEL_SQL);
+  for (const id of channelIds) {
+    const ch = channel.get(id) as ChannelRow | undefined;
+    if (!ch || ch.guildId === DM_GUILD_ID) continue;
+    const target = accessChannel(ch, id);
+    byGuild.set(ch.guildId, (byGuild.get(ch.guildId) ?? new Map<string, boolean>()).set(target.id, target.thread));
+  }
+  const members = db.prepare('SELECT user_id AS id, roles FROM members WHERE guild_id = ? AND left_at IS NULL AND roles IS NOT NULL');
+  const ids = [...byGuild].flatMap(([guildId, targets]) => {
+    const server = serverAccess(db, guildId);
+    const accesses = [...targets].map(([id, thread]) => withOverwrites(db, server, id, thread));
+    return (members.all(guildId) as { id: string; roles: string }[])
+      .filter((m) => {
+        const facts = { roles: JSON.parse(m.roles) as string[] };
+        return accesses.some((access) => can(access, m.id, facts, PERMISSIONS.VIEW_CHANNEL));
+      })
+      .map((m) => ({ id: m.id, guildId }));
+  });
+  if (writes !== null) seers.set(db, { key, writes, ids });
+  return ids;
+}
+
 function poolOf(db: Db, ch: ChannelRow, channelId: string): Pool {
   const kept = pools.get(db) ?? new Map<string, Pool>();
   pools.set(db, kept);
@@ -156,9 +205,8 @@ function poolOf(db: Db, ch: ChannelRow, channelId: string): Pool {
   const writes = nameWriteCount(db);
   const hit = kept.get(channelId);
   if (hit && hit.writes === writes) return hit;
-  // A thread, public or private, offers whoever can see its parent: in a private one, mentioning someone adds them.
-  const thread = THREAD_CHANNEL_TYPES.has(ch.kind) && ch.parentId !== null;
-  const access = accessOf(db, ch.guildId, thread ? ch.parentId! : channelId, thread);
+  const target = accessChannel(ch, channelId);
+  const access = accessOf(db, ch.guildId, target.id, target.thread);
   const sees = (p: Person): boolean => (p.roles === null ? p.lastTs !== null : can(access, p.id, { roles: p.roles }, PERMISSIONS.VIEW_CHANNEL));
   const visible = people(db, channelId, ch.guildId).filter(sees).map(ranked);
   const talked = visible.filter((p) => p.lastTs !== null).sort((a, b) => b.lastTs! - a.lastTs!);
@@ -172,7 +220,7 @@ function poolOf(db: Db, ch: ChannelRow, channelId: string): Pool {
 
 /** Suggests eligible channel members, then permitted roles/everyone/here within capacity. Display order is people, everyone/here, roles; bare queries prioritize recent posters. */
 export function mentionCandidates(db: Db, selfId: string | null, channelId: string, query: string, limit: number): MentionCandidate[] {
-  const ch = db.prepare('SELECT guild_id AS guildId, kind, parent_id AS parentId FROM channels WHERE id = ?').get(channelId) as ChannelRow | undefined;
+  const ch = db.prepare(CHANNEL_SQL).get(channelId) as ChannelRow | undefined;
   if (!ch) return [];
   const q = query.trim();
   // A DM's people are its own: no roles, @everyone or @here.

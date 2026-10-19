@@ -1,6 +1,7 @@
 // People by name, for pickers (a rule's Who, search's from:): display name, username, and server nicknames outside hidden servers.
 import type { PersonMatch } from '@shared/contract';
 import type { Db } from '../db';
+import { membersWhoSee } from './mentions';
 import { plainNameSql } from './names';
 import { visibleChannelSql } from './privacy';
 import { placeSql } from './search';
@@ -36,23 +37,30 @@ export function findPeople(db: Db, query: string, limit: number): PersonMatch[] 
 }
 
 /**
- * People a `from:` in `query` can find: those who posted in the visible channels its `in:` and `server:` terms leave
- * (every visible channel without them), matching `name` (all when empty). A name starting with it first, then those
- * who posted in the shown channel's server, then the most messages there.
+ * People a `from:` in `query` can find, matching `name` (all when empty), as the composer's `@` reads a channel: those
+ * who posted in the archived channels its `in:` and `server:` terms leave (every visible one without them), and the
+ * current members who can see one. A name starting with it first, then those in the shown channel's server, then the
+ * most messages there.
  */
 export function findSearchAuthors(db: Db, name: string, query: string, shownChannelId: string | null, limit: number): PersonMatch[] {
   const q = name.trim();
   const place = placeSql(query);
-  const sql = `WITH posted AS (
-      SELECT ca.author_id, SUM(ca.messages) AS messages,
-             IFNULL(MAX(c.guild_id = (SELECT guild_id FROM channels WHERE id = @shown)), 0) AS here
-      FROM channel_authors ca JOIN channels c ON c.id = ca.channel_id
-      WHERE ${[visibleChannelSql('c.id'), ...place.where].join(' AND ')}
-      GROUP BY ca.author_id)
-    SELECT ${COLUMNS} FROM posted p JOIN users u ON u.id = p.author_id
-    ${q ? `WHERE p.author_id IN (${NAMED_IDS})` : ''}
-    ORDER BY ${q ? `${PREFIX_FIRST}, ` : ''}p.here DESC, p.messages DESC, name COLLATE NOCASE LIMIT @limit`;
-  return db.prepare(sql).all(...place.params, { ...(q ? likeParams(q) : {}), shown: shownChannelId, limit }) as PersonMatch[];
+  const channels = db
+    .prepare(`SELECT c.id FROM channels c WHERE ${['c.id IN (SELECT channel_id FROM channel_authors)', visibleChannelSql('c.id'), ...place.where].join(' AND ')}`)
+    .pluck()
+    .all(...place.params) as string[];
+  const sql = `WITH place(id) AS (SELECT value FROM json_each(@place)),
+      shown(guild_id) AS (SELECT guild_id FROM channels WHERE id = @shown),
+      posted AS (SELECT ca.author_id AS id, ca.messages, c.guild_id FROM channel_authors ca JOIN channels c ON c.id = ca.channel_id
+                 WHERE ca.channel_id IN (SELECT id FROM place)),
+      seen AS (SELECT json_extract(value, '$.id') AS id, 0 AS messages, json_extract(value, '$.guildId') AS guild_id FROM json_each(@seen)),
+      found AS (SELECT id, SUM(messages) AS messages, MAX(guild_id IN (SELECT guild_id FROM shown)) AS here
+                FROM (SELECT * FROM posted UNION ALL SELECT * FROM seen) GROUP BY id)
+    SELECT ${COLUMNS} FROM found f JOIN users u ON u.id = f.id
+    ${q ? `WHERE f.id IN (${NAMED_IDS})` : ''}
+    ORDER BY ${q ? `${PREFIX_FIRST}, ` : ''}f.here DESC, f.messages DESC, name COLLATE NOCASE LIMIT @limit`;
+  const params = { place: JSON.stringify(channels), seen: JSON.stringify(membersWhoSee(db, channels)), shown: shownChannelId, limit };
+  return db.prepare(sql).all({ ...(q ? likeParams(q) : {}), ...params }) as PersonMatch[];
 }
 
 export function peopleByIds(db: Db, ids: string[]): PersonMatch[] {
