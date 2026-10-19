@@ -78,7 +78,7 @@ describe('remote desktop calls', () => {
     expect(t.calls).toEqual([
       { group: 'core', method: 'setSetting', params: ['k', 1] },
       { group: 'discord', method: 'setOptIn', params: ['c', true] },
-      { group: 'plugins', method: 'callCore', params: ['relay', 'go', [1]] },
+      { group: 'plugins', method: 'callCore', params: ['relay', 'go', [1], undefined] },
       { group: 'main', method: MAIN_INVOKE.providerKeys.setKey, params: ['probe@api', 'test-key'] },
       { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe@api'] },
       { group: 'main', method: MAIN_INVOKE.storage.info, params: [] },

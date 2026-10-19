@@ -34,16 +34,16 @@ export interface PagedChangeOptions<T> {
   /** Descending Person lists page older rows from the last visual row. */
   oldestAtEnd?: boolean;
   atNewest?: () => boolean;
-  newer?: (newest: T) => Promise<T[]>;
-  reload?: () => Promise<unknown>;
+  newer?: (newest: T, signal?: AbortSignal) => Promise<T[]>;
+  reload?: (signal?: AbortSignal) => Promise<unknown>;
 }
 
 export interface PagedList<T> {
   state: PagedState<T>;
   /** Inserts read past the newest cursor; other changes reload the first page. */
-  applyChange(change: ArchiveChangeSet): Promise<void>;
+  applyChange(change: ArchiveChangeSet, signal?: AbortSignal): Promise<void>;
   /** Replaces rows from fetch results; superseded reloads return false without changes. */
-  reload(fetch: () => Promise<{ items: T[]; reachedStart: boolean }>): Promise<boolean>;
+  reload(fetch: (signal?: AbortSignal) => Promise<{ items: T[]; reachedStart: boolean }>, signal?: AbortSignal): Promise<boolean>;
   /** Prepends the previous (older) page; resolves with how many rows were added (the view keeps its scroll anchor). */
   loadOlder(): Promise<number>;
   /** Appends newer pages and returns length; short pages reach newest. Returns null for missing fetchers, active loads or superseded reads. */
@@ -53,7 +53,7 @@ export interface PagedList<T> {
    * results with false. `apply` returns the rows, or the rows and whether they now reach the start (a reread of the
    * loaded span learns it too).
    */
-  update<R>(fetch: () => Promise<R>, apply: (result: R, items: readonly T[]) => T[] | Updated<T>): Promise<boolean>;
+  update<R>(fetch: (signal?: AbortSignal) => Promise<R>, apply: (result: R, items: readonly T[]) => T[] | Updated<T>): Promise<boolean>;
   /** Replaces the rows in place, keeping row identity by id; only for rows already in hand (no read since). */
   setItems(items: T[]): void;
   /** Clears a scope immediately and invalidates every in-flight page, including while its view is hidden. */
@@ -63,12 +63,13 @@ export interface PagedList<T> {
 /** Loads chronological lists newest page first. Generation tokens discard superseded pages/updates after filter, channel or privacy changes. */
 export function createPagedList<T extends { id: string | number }>(
   pageSize: number,
-  fetchOlder: (oldest: T) => Promise<T[]>,
-  fetchNewer?: (newest: T) => Promise<T[]>,
+  fetchOlder: (oldest: T, signal?: AbortSignal) => Promise<T[]>,
+  fetchNewer?: (newest: T, signal?: AbortSignal) => Promise<T[]>,
   changeOptions: PagedChangeOptions<T> = {},
 ): PagedList<T> {
   const [state, setState] = createStore<PagedState<T>>({ items: [], loading: false, reachedStart: false });
   let generation = 0;
+  let controller = new AbortController();
   /** Earlier updates cannot overwrite later applied reads. */
   let updates = 0;
   let appliedUpdate = 0;
@@ -79,16 +80,20 @@ export function createPagedList<T extends { id: string | number }>(
   let newerBusy = false;
   const showLoading = (): void => void setState('loading', reloading || olderBusy || newerBusy);
 
-  let lastReload: (() => Promise<Updated<T>>) | undefined;
-  const reload: PagedList<T>['reload'] = async (fetch) => {
+  let lastReload: ((signal?: AbortSignal) => Promise<Updated<T>>) | undefined;
+  const reload: PagedList<T>['reload'] = async (fetch, signal) => {
+    controller.abort();
+    controller = new AbortController();
+    const readSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     lastReload = fetch;
     const mine = ++generation;
     reloading = true;
     olderBusy = newerBusy = false;
     showLoading();
     try {
-      const r = await fetch();
+      const r = await fetch(readSignal);
       if (mine !== generation) return false;
+      readSignal.throwIfAborted();
       setState({ items: r.items, reachedStart: r.reachedStart });
       return true;
     } finally {
@@ -107,7 +112,7 @@ export function createPagedList<T extends { id: string | number }>(
     olderBusy = true;
     showLoading();
     try {
-      const page = await fetchOlder(oldest);
+      const page = await fetchOlder(oldest, controller.signal);
       if (mine !== generation) return 0;
       setState({ items: atStart ? [...state.items, ...page] : [...page, ...state.items], reachedStart: page.length < pageSize });
       return page.length;
@@ -126,7 +131,7 @@ export function createPagedList<T extends { id: string | number }>(
     newerBusy = true;
     showLoading();
     try {
-      const page = await fetchNewer(newest);
+      const page = await fetchNewer(newest, controller.signal);
       if (mine !== generation) return null;
       // An in-place refresh may have added some of these meanwhile.
       const have = new Set(state.items.map((i) => i.id));
@@ -145,7 +150,7 @@ export function createPagedList<T extends { id: string | number }>(
   const update: PagedList<T>['update'] = async (fetch, apply) => {
     const mine = generation;
     const turn = ++updates;
-    const result = await fetch();
+    const result = await fetch(controller.signal);
     if (mine !== generation || turn < appliedUpdate) return false;
     appliedUpdate = turn;
     const next = apply(result, state.items);
@@ -154,13 +159,14 @@ export function createPagedList<T extends { id: string | number }>(
     return true;
   };
 
-  const applyChange = async (change: ArchiveChangeSet): Promise<void> => {
+  const applyChange = async (change: ArchiveChangeSet, signal?: AbortSignal): Promise<void> => {
+    signal?.throwIfAborted();
     const insertOnly = change.channelIds.size > 0 && [...change.channelIds].every((id) => id !== '' && change.insertOnly(id));
     if (insertOnly && changeOptions.atNewest?.() === false) return;
     const newer = changeOptions.newer ?? fetchNewer;
     if (!insertOnly || changeOptions.chronological?.() === false || !newer || !state.items.length) {
-      if (changeOptions.reload) await changeOptions.reload();
-      else if (lastReload) await reload(lastReload);
+      if (changeOptions.reload) await changeOptions.reload(signal);
+      else if (lastReload) await reload(lastReload, signal);
       return;
     }
     const mine = generation;
@@ -168,8 +174,10 @@ export function createPagedList<T extends { id: string | number }>(
     do {
       const atStart = changeOptions.newestAtStart?.() ?? false;
       const newest = atStart ? state.items[0]! : state.items.at(-1)!;
-      const page = await newer(newest);
+      const readSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
+      const page = await newer(newest, readSignal);
       if (mine !== generation) return;
+      readSignal.throwIfAborted();
       const cursor = JSON.stringify(newest);
       const incoming = new Set(page.map((row) => row.id));
       const kept = state.items.filter((row) => !incoming.has(row.id));
@@ -181,6 +189,8 @@ export function createPagedList<T extends { id: string | number }>(
   };
 
   const reset = (): void => {
+    controller.abort();
+    controller = new AbortController();
     generation++;
     reloading = olderBusy = newerBusy = false;
     setState({ items: [], loading: false, reachedStart: false });

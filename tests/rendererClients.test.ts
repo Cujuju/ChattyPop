@@ -27,6 +27,7 @@ const desktop = {
   },
   core: { plugins: async () => [{ id: reader.manifest.id, bundled: true, status: env.on ? 'active' : 'disabled' }] },
   plugins: {
+    cancelCore: async () => undefined,
     callCore: (_id: string, _name: string, args: unknown[]) => {
       env.sent.push(args);
       return new Promise<Answer>((resolve) => env.pending.push(resolve));

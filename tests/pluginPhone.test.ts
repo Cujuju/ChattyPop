@@ -207,7 +207,7 @@ describe('phone gateway', () => {
     await gateway.call('core', 'directory', []);
     expect(h.core.call).toHaveBeenLastCalledWith('directory');
     await gateway.call('plugins', 'callCore', ['tags', 'list', [1]]);
-    expect(h.core.call).toHaveBeenLastCalledWith('pluginCall', 'phone', 'tags', 'list', [1]);
+    expect(h.core.call).toHaveBeenLastCalledWith('pluginCall', 'phone', 'tags', 'list', [1], undefined);
     await expect(gateway.call('discord', 'send', [{ text: 'hi' }])).resolves.toBe('sent');
     for (const [group, method, params] of [['core', 'setSetting', []], ['core', 'pluginCall', ['main', 'x', 'y', []]], ['discord', 'probe', []], ['plugins', 'callMain', ['x', 'y', []]], ['plugins', 'callCore', [{}, 'y', []]]] as const) {
       await expect(gateway.call(group, method, [...params])).rejects.toBeInstanceOf(PhoneCallRefused);

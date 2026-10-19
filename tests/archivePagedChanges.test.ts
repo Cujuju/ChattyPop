@@ -32,8 +32,8 @@ describe('paged change application', () => {
     const list = createPagedList(PAGE_SIZE, older, undefined, { newestAtStart: () => true, oldestAtEnd: true, newer });
     await list.reload(async () => ({ items: [{ id: 'new' }, { id: 'old' }], reachedStart: false }));
     await list.applyChange(inserted); await list.loadOlder();
-    expect(newer).toHaveBeenCalledWith({ id: 'new' });
-    expect(older).toHaveBeenCalledWith({ id: 'old' });
+    expect(newer).toHaveBeenCalledWith({ id: 'new' }, expect.any(AbortSignal));
+    expect(older).toHaveBeenCalledWith({ id: 'old' }, expect.any(AbortSignal));
     expect(list.state.items.map((row) => row.id)).toEqual(['newest', 'new', 'old', 'oldest']);
   });
   it('cannot restore rows cleared by a privacy reset while a first-page read is pending', async () => {
@@ -44,6 +44,27 @@ describe('paged change application', () => {
     answer({ items: [{ id: 'private' }], reachedStart: true });
     expect(await pending).toBe(false);
     expect(list.state.items).toEqual([]);
+  });
+
+  it('carries gate cancellation through a second incremental page', async () => {
+    const controller = new AbortController();
+    let pages = 0;
+    let active: AbortSignal | undefined;
+    const list = createPagedList<{ id: string }>(1, async () => [], async (_edge, signal) => {
+      if (++pages === 1) return [{ id: 'new' }];
+      active = signal;
+      return new Promise((_resolve, reject) => signal!.addEventListener('abort', () => reject(signal!.reason), { once: true }));
+    });
+    await list.reload(async () => ({ items: [{ id: 'old' }], reachedStart: true }));
+    const pending = list.applyChange(inserted, controller.signal);
+    const outcome = pending.catch((error: unknown) => error);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(pages).toBe(2);
+    controller.abort(new Error('gate superseded'));
+    expect(active!.aborted).toBe(true);
+    expect(await outcome).toBe(controller.signal.reason);
+    expect(list.state.items.map((row) => row.id)).toEqual(['old', 'new']);
   });
 
 });

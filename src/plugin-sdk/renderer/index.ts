@@ -40,6 +40,9 @@ export const defineRendererPlugin = <const D extends PluginDescriptor>(plugin: D
   contributions,
 });
 
+export type { CallOptions } from './call';
+export type { ReadPriority } from '@shared/readPriority';
+
 // Channels (§5).
 export { coreClient, desktopCoreClient, mainClient, phoneCoreClient, type WindowAudience, type WindowClient, type WindowMember } from './clients';
 export { callable } from './pluginList';

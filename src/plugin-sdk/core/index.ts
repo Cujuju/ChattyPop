@@ -42,6 +42,8 @@ export const defineCorePlugin = <const D extends PluginDescriptor>(plugin: D, ac
   activate,
 });
 
+export type { CallContext, ReadPriority } from '@shared/readPriority';
+
 // Storage.
 export { fromJson, parseRawJson } from '@core/db';
 export type { Importer } from '@core/plugins/archiveContext';

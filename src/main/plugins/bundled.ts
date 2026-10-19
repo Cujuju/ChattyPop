@@ -1,6 +1,7 @@
 // Bundled plugins' main side (docs/plugin-architecture.md §5): starts each plugin's main side, hands core's plugin
 // events for main to its listeners, and serves windows' plugin calls (the app's and remote desktops'), stamping them
 // as a window's.
+import { checkCallRequest } from '@shared/readPriority';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { MAIN_INVOKE } from '@shared/contract';
 import { PLUGIN_ID_PATTERN } from '@shared/plugins';
@@ -22,7 +23,11 @@ export function startMainPlugins(plugins: readonly MainPlugin[], d: MainPluginDe
     void d.tailnet.reconcile((id) => d.states.active(id));
   });
   d.core.on('event', (e) => sides.deliver(e));
-  handleMain(MAIN_INVOKE.plugins.callCore, (pluginId: unknown, name: unknown, args: unknown) => d.core.call('pluginCall', 'renderer', ...checkCall(pluginId, name, args)));
+  handleMain(MAIN_INVOKE.plugins.callCore, (pluginId: unknown, name: unknown, args: unknown, request: unknown) => d.core.call('pluginCall', 'renderer', ...checkCall(pluginId, name, args), checkCallRequest(request)));
+  handleMain(MAIN_INVOKE.plugins.cancelCore, (pluginId: unknown, id: unknown) => {
+    if (typeof pluginId !== 'string' || !PLUGIN_ID_PATTERN.test(pluginId) || typeof id !== 'string') throw new Error('Bad plugin cancel');
+    return d.core.call('cancelPluginCall', 'renderer', pluginId, id);
+  });
   handleMain(MAIN_INVOKE.plugins.callMain, (pluginId: unknown, name: unknown, args: unknown) => sides.callMain(...checkCall(pluginId, name, args)));
   return { stop: () => sides.stop() };
 }

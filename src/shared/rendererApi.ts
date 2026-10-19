@@ -174,8 +174,9 @@ export interface RendererApi {
   /** Calls into plugins; main stamps them as this window's. Arguments and results must be cloneable. */
   plugins: {
     /** A plugin's core call: a folder plugin's rpc.handle, or a bundled plugin's member for windows. */
-    callCore(pluginId: string, name: string, args: unknown[]): Promise<PluginCallResult>;
+    callCore(pluginId: string, name: string, args: unknown[], request?: import('./readPriority').PluginCallRequest): Promise<PluginCallResult>;
     /** A bundled plugin's main call. */
+    cancelCore(pluginId: string, id: string): Promise<void>;
     callMain(pluginId: string, name: string, args: unknown[]): Promise<PluginCallResult>;
   };
   /** Settings → Plugins → Marketplaces: installable plugins from GitHub repos. */

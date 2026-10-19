@@ -82,7 +82,8 @@ export function createRemoteRendererApi(transport: RemoteTransport, shell: Deskt
     },
     storage: { ...viaMain('storage'), move: serverOnly('Moving the archive') },
     plugins: {
-      callCore: (pluginId, name, args) => call('plugins', 'callCore', [pluginId, name, args]) as Promise<PluginCallResult>,
+      callCore: (pluginId, name, args, request) => call('plugins', 'callCore', [pluginId, name, args, request]) as Promise<PluginCallResult>,
+      cancelCore: (pluginId, id) => call('plugins', 'cancelCore', [pluginId, id]) as Promise<void>,
       callMain: (pluginId, name, args) => call('plugins', 'callMain', [pluginId, name, args]) as Promise<PluginCallResult>,
     },
     marketplace: viaMain('marketplace'),

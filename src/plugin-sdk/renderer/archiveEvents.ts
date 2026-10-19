@@ -1,3 +1,4 @@
+import { withCallOptions } from './call';
 import { createComputed, untrack } from 'solid-js';
 import { onAppEvent, ARCHIVE_REFRESH_DEBOUNCE_MS } from './appEvents';
 import { containedRoot, onCleanup, ownedOrContained, reportFailure } from './containment';
@@ -12,7 +13,7 @@ export type { ArchiveChange, ArchiveChangeKind } from '@shared/contract';
 export function onArchiveChange(deps: ArchiveDeps, fn: (change: ArchiveChangeSet, signal: AbortSignal) => unknown): () => void {
   return ownedOrContained(() => {
     const dispose = containedRoot((end) => {
-      const gate = createArchiveGate(deps, (change, signal) => untrack(() => fn(change, signal)), archiveGuild, ARCHIVE_REFRESH_DEBOUNCE_MS, reportFailure);
+      const gate = createArchiveGate(deps, (change, signal) => untrack(() => withCallOptions({ signal, priority: deps.shown?.() === false ? 'background' : 'interactive' }, () => fn(change, signal))), archiveGuild, ARCHIVE_REFRESH_DEBOUNCE_MS, reportFailure);
       const off = onAppEvent('archive-changed', (change) => untrack(() => gate.accept(change)));
       createComputed(() => { deps.shown?.(); untrack(() => gate.visibilityChanged()); });
       onCleanup(() => { off(); gate.dispose(); });

@@ -5,6 +5,7 @@ import { defineMainPlugin } from '@plugin-sdk/main';
 import { MAIN_INVOKE } from '@shared/contract';
 import type { PluginCallResult } from '@shared/pluginCall';
 import type { PluginInfo } from '@shared/plugins';
+import { randomUUID } from 'node:crypto';
 
 const env = vi.hoisted(() => ({ ipc: new Map<string, (...args: unknown[]) => unknown>(), dialogs: 0 }));
 vi.mock('electron', () => ({
@@ -32,6 +33,17 @@ const dialogs = {
 };
 
 describe('a window calling a main side', () => {
+  it('forwards a call identity, priority and cancellation with a renderer origin', async () => {
+    const call = vi.fn(async () => undefined);
+    const states = new PluginStates(async () => [], () => undefined);
+    startMainPlugins([], { core: { call, on: () => undefined }, states, diag: () => undefined } as never);
+    const id = randomUUID();
+    await env.ipc.get(MAIN_INVOKE.plugins.callCore)!({}, 'readprobe', 'scan', [], { id, priority: 'interactive' });
+    expect(call).toHaveBeenLastCalledWith('pluginCall', 'renderer', 'readprobe', 'scan', [], { id, priority: 'interactive' });
+    await env.ipc.get(MAIN_INVOKE.plugins.cancelCore)!({}, 'readprobe', id);
+    expect(call).toHaveBeenLastCalledWith('cancelPluginCall', 'renderer', 'readprobe', id);
+  });
+
   it('gets the inactive answer, and no dialog opens, once core has the plugin off', async () => {
     let on = true;
     const list = async (): Promise<PluginInfo[]> => (on ? [{ id: 'dialogs', bundled: true, status: 'active' } as PluginInfo] : []);

@@ -1,5 +1,6 @@
 // One transport plugin carries phone calls/events/pushes and remote desktops' calls and events; other plugins register
 // routes. Disconnected traffic is dropped.
+import { checkCallRequest } from '@shared/readPriority';
 import { MAIN_INVOKE, type AppEvent, type CoreMethod } from '@shared/contract';
 import type { DeliveredNotification } from '@shared/notifications';
 import { PluginInactiveError, pluginCallResult, type PluginCallResult } from '@shared/pluginCall';
@@ -154,7 +155,9 @@ export class PhoneHub {
     if (group === 'core' && phoneMayCallCore(method)) return await this.d.core.call(method as CoreMethod, ...(params as []));
     // Stamped 'phone' here: core answers only members whose audiences include the phone.
     if (group === 'plugins' && method === 'callCore' && typeof params[0] === 'string' && typeof params[1] === 'string' && Array.isArray(params[2]))
-      return await this.d.core.call('pluginCall', 'phone', params[0], params[1], params[2] as unknown[]);
+      return await this.d.core.call('pluginCall', 'phone', params[0], params[1], params[2] as unknown[], checkCallRequest(params[3]));
+    if (group === 'plugins' && method === 'cancelCore' && typeof params[0] === 'string' && typeof params[1] === 'string')
+      return await this.d.core.call('cancelPluginCall', 'phone', params[0], params[1]);
     if (group === 'main' && phoneMayCallMain(method)) return await this.d.main(method, params);
     if (group === 'discord' && discordMethods.has(method)) return await this.d.discord()[method as PhoneDiscordMethod](...params);
     throw new PhoneCallRefused(`Not available on the phone: ${String(group)}.${method}`);
@@ -164,7 +167,7 @@ export class PhoneHub {
   private async desktopCall(group: PhoneCallGroup, method: string, params: unknown[]): Promise<unknown> {
     if (group === 'core' && remoteMayCallCore(method)) return await this.d.core.call(method as CoreMethod, ...(params as []));
     // Stamped 'renderer' by main's own plugin calls (plugins/bundled.ts), which check them as a window's.
-    if (group === 'plugins' && (method === 'callCore' || method === 'callMain')) return await this.d.main(MAIN_INVOKE.plugins[method], params);
+    if (group === 'plugins' && (method === 'callCore' || method === 'callMain' || method === 'cancelCore')) return await this.d.main(MAIN_INVOKE.plugins[method], params);
     if (group === 'discord' && remoteMayCallDiscord(method)) {
       // The calls the phone shares have one gated set (ipc/discord.ts); the rest are main's by channel.
       if (discordMethods.has(method)) return await this.d.discord()[method as PhoneDiscordMethod](...params);

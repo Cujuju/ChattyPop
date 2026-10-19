@@ -154,10 +154,11 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     storage: { info: viaMain(storage.info), move: unavailable('Moving the archive'), deletePrevious: unavailable('Deleting the previous archive'), dismissNotice: unavailable('Archive notices'), setEncrypted: viaMain(storage.setEncrypted) },
     plugins: {
       // A member whose audiences leave out the phone fails here, not at the desktop.
-      callCore: (pluginId, name, args) =>
+      callCore: (pluginId, name, args, request) =>
         phoneMayCallPlugin(pluginId, name)
-          ? (transport.call({ group: 'plugins', method: 'callCore', params: [pluginId, name, args] }) as Promise<PluginCallResult>)
+          ? (transport.call({ group: 'plugins', method: 'callCore', params: [pluginId, name, args, request] }) as Promise<PluginCallResult>)
           : unavailable('This plugin feature')(),
+      cancelCore: (pluginId, id) => transport.call({ group: 'plugins', method: 'cancelCore', params: [pluginId, id] }) as Promise<void>,
       callMain: unavailable('This plugin feature'),
     },
     rules: { pickFile: unavailable('Rule files') },

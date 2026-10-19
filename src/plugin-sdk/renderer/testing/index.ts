@@ -30,7 +30,8 @@ function desktopApi(core: CorePort, main: MainPort | null, deliver: (fn: (e: App
   return {
     core: new Proxy({} as RendererApi['core'], { get: (_t, method) => (typeof method === 'string' ? (...params: unknown[]) => core.call(method, ...params) : undefined) }),
     plugins: {
-      callCore: (pluginId, name, args) => core.call('pluginCall', 'renderer', pluginId, name, args) as Promise<PluginCallResult>,
+      callCore: (pluginId, name, args, request) => core.call('pluginCall', 'renderer', pluginId, name, args, request) as Promise<PluginCallResult>,
+      cancelCore: (pluginId, id) => core.call('cancelPluginCall', 'renderer', pluginId, id) as Promise<void>,
       callMain: main ? (pluginId, name, args) => main.callMain(pluginId, name, args) : absent('main process'),
     },
     openRouter: without('openRouter'),

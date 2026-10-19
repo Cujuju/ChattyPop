@@ -39,12 +39,7 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
 ): PluginResource<ResultOf<D, K> | F> {
   return ownedOrContained(() => {
     type T = ResultOf<D, K> | F;
-    const client = coreClient(plugin) as Record<string, ((...a: unknown[]) => Promise<unknown>) | undefined>;
     const on = (): boolean => callable(plugin, member);
-    const read = async (a: unknown[]): Promise<T> => {
-      const call = client[member];
-      return (call ? call(...a) : fallback) as Promise<T> | T;
-    };
     const shown = options.shown ?? options.refreshOn?.shown ?? (() => true);
     const [value, setValue] = (options.storage ? options.storage(fallback) : createSignal<T>(fallback)) as [Accessor<T | undefined>, Setter<T | undefined>];
     const [loading, setLoading] = createSignal(false);
@@ -67,7 +62,10 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
       setLoading(true);
       flight = (async () => {
         try {
-          const result = await pluginData(() => read(fresh), fallback);
+          const result = await pluginData(() => {
+            const client = coreClient(plugin, { signal: mine.signal, priority: untrack(shown) ? 'interactive' : 'background' }) as Record<string, (...args: unknown[]) => Promise<T>>;
+            return client[member]!(...fresh);
+          }, fallback);
           if (!mine.signal.aborted && !disposed) { setValue(() => result); setError(null); }
         } catch (e) {
           if (!mine.signal.aborted && !disposed) { setValue(() => fallback); setError(String(e instanceof Error ? e.message : e)); }
