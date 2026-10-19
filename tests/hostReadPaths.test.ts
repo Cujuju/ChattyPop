@@ -54,7 +54,7 @@ describe('heavy host read paths', () => {
           expect(await messageWindowAsync(db, { ...query, around: page[0]!.id })).toEqual(window);
           expect(await ownEmojiAsync(db, 'owner', PAGE_ROWS)).toEqual(emoji);
           expect(coreSql).not.toHaveBeenCalled();
-          console.log(JSON.stringify({ privacy, rows: HISTORY_ROWS, pageRows: PAGE_ROWS, reactionSyncMs, pageSyncMs, dispatchMs, responsiveTurns: turns }));
+          process.stdout.write(JSON.stringify({ privacy, rows: HISTORY_ROWS, pageRows: PAGE_ROWS, reactionSyncMs, pageSyncMs, dispatchMs, responsiveTurns: turns }) + '\n');
         } finally { clearInterval(heartbeat); coreSql.mockRestore(); }
       }
       const controller = new AbortController();

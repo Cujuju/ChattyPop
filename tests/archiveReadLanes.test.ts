@@ -14,7 +14,7 @@ class FakeChild extends EventEmitter {
   }
   finish(): void { this.emit('message', { kind: 'rows', rows: [{ done: this.sent.at(-1)!.sql }] }); }
 }
-vi.mock('node:child_process', () => ({ fork: () => { const child = new FakeChild(); fixture.children.push(child); return child; } }));
+vi.mock('../src/core/reads/helperProcess', () => ({ forkReadHelper: () => { const child = new FakeChild(); fixture.children.push(child); return child; } }));
 const { ArchiveReadPool, ARCHIVE_READ_RESPAWN_DELAY_MS, ARCHIVE_READ_INTERACTIVE_BURST } = await import('../src/core/reads/pool');
 let pool: InstanceType<typeof ArchiveReadPool>;
 const jobs: Promise<unknown>[] = [];

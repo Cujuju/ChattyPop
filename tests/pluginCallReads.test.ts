@@ -1,4 +1,4 @@
-import * as processes from 'node:child_process';
+import * as processes from '../src/core/reads/helperProcess';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { defineChannels, definePlugin } from '@plugin-sdk/shared';
@@ -7,9 +7,9 @@ import { testPlugin } from '@plugin-sdk/core/testing';
 import { corePort } from '../src/plugin-sdk/shared/testing/ports';
 import { pluginCalls } from '../src/core/plugins/callContext';
 
-vi.mock('node:child_process', async (original) => {
-  const actual = await original<typeof import('node:child_process')>();
-  return { ...actual, fork: vi.fn(actual.fork) };
+vi.mock('../src/core/reads/helperProcess', async (original) => {
+  const actual = await original<typeof import('../src/core/reads/helperProcess')>();
+  return { ...actual, forkReadHelper: vi.fn(actual.forkReadHelper) };
 });
 
 const probe = definePlugin({
@@ -69,10 +69,10 @@ describe('served read execution', () => {
 
   it('answers messagePage and directory while a plugin aggregation is still running', async () => {
     const { t, port, calls } = start();
-    const fork = vi.mocked(processes.fork).getMockImplementation()!;
+    const fork = vi.mocked(processes.forkReadHelper).getMockImplementation()!;
     let started!: () => void;
     const workerStarted = new Promise<void>((resolve) => { started = resolve; });
-    const spy = vi.spyOn(processes, 'fork').mockImplementation((...args: Parameters<typeof fork>) => {
+    const spy = vi.spyOn(processes, 'forkReadHelper').mockImplementation((...args: Parameters<typeof fork>) => {
       const child = fork(...args);
       child.on('message', (reply: { kind: string }) => { if (reply.kind === 'started') started(); });
       return child;

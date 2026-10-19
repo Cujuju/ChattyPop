@@ -1,4 +1,4 @@
-import { fork, type ChildProcess } from 'node:child_process';
+import { forkReadHelper, type ReadProcess } from './helperProcess';
 import { serialize } from 'node:v8';
 import type { ReadPriority } from '@shared/readPriority';
 import type { HostRead, ReadCompute, ReadConnection, ReadQuery, ReadReply } from './protocol';
@@ -22,7 +22,7 @@ interface Job extends ReadQuery {
   reject(error: unknown): void;
   cleanups: Set<() => void>;
 }
-interface Slot { process: ChildProcess; job?: Job; stopping: boolean; exited: Promise<void> }
+interface Slot { process: ReadProcess; job?: Job; stopping: boolean; exited: Promise<void> }
 
 export class ArchiveReadPool {
   private readonly slots = new Set<Slot>();
@@ -127,10 +127,7 @@ export class ArchiveReadPool {
   }
 
   private spawn(): Slot {
-    const child = fork(this.entry, [], {
-      execPath: process.execPath, execArgv: [], serialization: 'advanced',
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true,
-    });
+    const child = forkReadHelper(this.entry);
     const slot: Slot = { process: child, stopping: false, exited: new Promise((resolve) => child.once('close', () => resolve())) };
     let stderr = '';
     child.stderr?.on('data', (data) => { stderr = (stderr + String(data)).slice(-ARCHIVE_READ_STDERR_TAIL_CHARS); });
