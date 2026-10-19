@@ -61,20 +61,22 @@
   border-left-color: var(--cp-success);
 }
 
-/* Unlinked: dashed stripe; the whole message (text, avatar, pictures) zoomed smaller and set back until pointed at. */
+/* Unlinked: dashed stripe; body text a ramp step down in the secondary text colour (AA on every surface, themeContrast),
+   avatar and media re-scoped smaller. Name, time and controls keep their sizes and touch targets. */
 .row[data-member='false'] {
   border-left-style: dashed;
   border-left-color: var(--cp-border-strong);
 }
 
 .row[data-member='false'] > article {
-  zoom: var(--cp-conversation-unlinked-scale);
-  opacity: var(--cp-conversation-unlinked-opacity);
-  transition: opacity var(--cp-duration-fast) var(--cp-ease);
-}
-
-.row[data-member='false']:is(:hover, :focus-within) > article {
-  opacity: 1;
+  --cp-text-1: var(--cp-text-2);
+  --cp-chat-avatar: var(--cp-conversation-unlinked-avatar);
+  --cp-avatar-decoration: calc(var(--cp-chat-avatar) * var(--cp-avatar-decoration-scale));
+  --cp-attachment-w: var(--cp-conversation-unlinked-attachment-w);
+  --cp-attachment-max-h: var(--cp-conversation-unlinked-attachment-max-h);
+  --cp-embed-max-w: var(--cp-conversation-unlinked-embed-max-w);
+  --cp-sticker: var(--cp-conversation-unlinked-sticker);
+  font-size: var(--cp-text-md);
 }
 
 .note {

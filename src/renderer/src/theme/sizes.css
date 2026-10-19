@@ -151,9 +151,16 @@
   --cp-log-end-pad: 24px; /* space after the last row of the Links panel, so it never meets the edge (the Archive's composer clears its own) */
   --cp-rail-tile: 36px; /* channel tile and server icon cell in the rail */
   --cp-chat-avatar: 36px; /* author avatar heading a cozy Archive group */
-  --cp-avatar-decoration: calc(var(--cp-chat-avatar) * 1.2); /* the frame around it: Discord draws decorations at 1.2x the avatar */
+  --cp-avatar-decoration-scale: 1.2; /* Discord draws avatar decorations at 1.2x the avatar */
+  --cp-avatar-decoration: calc(var(--cp-chat-avatar) * var(--cp-avatar-decoration-scale)); /* the frame around it */
   --cp-conversation-message-min-w: 28ch; /* a Conversation window message (avatar, name, text) before its mark buttons wrap below it */
-  --cp-conversation-unlinked-scale: 0.875; /* an unlinked message there, zoomed whole: plainly smaller, its 14px text still over 12px */
+  /* An unlinked message there: content smaller, controls and the type ramp's floor untouched (ConversationView.module.css). */
+  --cp-conversation-unlinked-avatar: var(--cp-avatar-md); /* a step under the Archive's avatar */
+  --cp-conversation-unlinked-media-scale: 0.75; /* its pictures, embeds and stickers: plainly smaller, still recognisable */
+  --cp-conversation-unlinked-attachment-w: calc(var(--cp-attachment-w) * var(--cp-conversation-unlinked-media-scale));
+  --cp-conversation-unlinked-attachment-max-h: calc(var(--cp-attachment-max-h) * var(--cp-conversation-unlinked-media-scale));
+  --cp-conversation-unlinked-embed-max-w: calc(var(--cp-embed-max-w) * var(--cp-conversation-unlinked-media-scale));
+  --cp-conversation-unlinked-sticker: calc(var(--cp-sticker) * var(--cp-conversation-unlinked-media-scale));
   /* The Person window: Discord's profile as a rail beside the archive's view of the person. */
   --cp-profile-card-w: 300px; /* the profile rail, Discord's profile width */
   --cp-profile-banner-h: 88px; /* the avatar's height: a person with no banner image gets no blank block */
