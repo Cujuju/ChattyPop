@@ -27,6 +27,8 @@ async function readDirectory(): Promise<DirectoryGuild[]> {
   } catch (error) {
     // A failed read must not throw from directory() into every view; the next invalidation reads again.
     reportFailure(error);
+    // A bridge may throw synchronously during createResource's first fetch, before directoryResult is assigned.
+    await Promise.resolve();
     return untrack(() => directoryResult.latest) ?? [];
   } finally {
     if (sinceRead === patches) sinceRead = null;
