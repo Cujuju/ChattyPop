@@ -44,7 +44,7 @@ export class RuleService {
   /** After a rule's match may have changed: its history over the archive, and the lookback window asked again. */
   private rematch(id: number, jevChanged: boolean): void {
     if (jevChanged) this.matcher.forget(ruleSubject(id)); // answers to the old question no longer apply
-    this.matcher.catchUpJudgments();
+    this.matcher.requestCatchUp();
   }
 
   list(): Rule[] {

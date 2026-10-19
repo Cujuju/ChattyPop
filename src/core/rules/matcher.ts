@@ -6,10 +6,9 @@ import { sumCosts, type DecisionProvider, type Question } from '../ai/decisions'
 import { MATCH_KIND, type Hit } from './hit';
 import { liveAtOf, type Arrived, type LiveAt, type TextMessage } from '../arrival';
 import type { Db } from '../db';
-import { MEANING_LOOKBACK_MS, MessageJudge, type Answers, type BatchResult, type Fresh } from '../jev/messageJudge';
+import { MessageJudge, type Answers, type BatchResult, type Fresh } from '../jev/messageJudge';
 import { featuresOf, isRegistered, messageQuestions, type MessageQuestion, type QuestionContext } from '../jev/messageQuestions';
 import type { RuleQuestion } from '../jev/questions';
-import { TEXT_MESSAGE_COLUMNS } from '../queries/messageText';
 import {
   directMatch,
   questionMatch,
@@ -21,6 +20,8 @@ import {
 } from './compile';
 import { hasHistory, type RuleEngine } from './engine';
 import { questionSignature } from './ruleStore';
+import { RuleCatchUp } from './catchUp';
+import { errorMessage } from '@shared/errors';
 
 /** One message's Jev request: its questions, and who acts on each answer. */
 interface Request {
@@ -42,7 +43,8 @@ interface Request {
 const PAST: QuestionContext = { live: false, edit: false, mayAct: () => false };
 
 export class RuleMatcher {
-  private catchUpQueued = false;
+  private readonly catchUp: RuleCatchUp;
+  private ended = false;
   private readonly judge: MessageJudge;
   /** The signed-in Discord user; unknown until main reports it. */
   private self: RawUser | null = null;
@@ -54,13 +56,16 @@ export class RuleMatcher {
     private readonly jevFor: (feature: JevFeature) => DecisionProvider | null,
   ) {
     this.judge = new MessageJudge(db);
+    this.catchUp = new RuleCatchUp(db, (messages, judged) => this.matchPast(messages, judged));
   }
 
   setSelf(user: RawUser): void {
     const first = this.self === null;
     this.self = user;
-    if (first) this.catchUpJudgments(); // "Aimed at you" can only be judged once the owner is known
+    if (first) this.requestCatchUp(); // "Aimed at you" can only be judged once the owner is known
   }
+
+  dispose(): void { this.ended = true; this.catchUp.dispose(); }
 
   /** Processes new/edited messages after derivation. arrived records text source/time; askJev false permits direct matches and text-certain answers only. */
   check(m: TextMessage, arrived: Arrived, askJev = true): void {
@@ -231,21 +236,15 @@ export class RuleMatcher {
 
   /** Coalesces catch-up until synchronous plugin activation and settings callbacks finish. */
   requestCatchUp(): void {
-    if (this.catchUpQueued) return;
-    this.catchUpQueued = true;
-    queueMicrotask(() => {
-      this.catchUpQueued = false;
-      this.catchUpJudgments();
+    void this.catchUp.request(true).catch((error: unknown) => {
+      if (!this.ended && this.db.open) console.warn('[rules] catch-up interrupted:', errorMessage(error));
     });
   }
 
   /** Rematches lookback and asks unanswered subjects after interruptions, disablement, rule edits or newly known owner identity. */
-  catchUpJudgments(): void {
-    const since = Date.now() - MEANING_LOOKBACK_MS;
-    const judged = this.judge.judgedSince(since);
-    const recent = this.db
-      .prepare(`SELECT ${TEXT_MESSAGE_COLUMNS} FROM messages m WHERE m.ts >= ? ORDER BY m.ts`)
-      .all(since) as TextMessage[];
+  catchUpJudgments(): Promise<void> { return this.catchUp.request(true); }
+
+  private matchPast(recent: TextMessage[], judged: Set<string>): void {
     const due: { m: TextMessage; req: Request }[] = [];
     for (const m of recent) {
       const eventId = this.engine.nextEventId();
@@ -260,7 +259,9 @@ export class RuleMatcher {
       if (req) due.push({ m, req });
       else this.engine.kinds.settle({ eventId, m, answers: null });
     }
-    void this.judgeAll(due);
+    void this.judgeAll(due).catch((error: unknown) => {
+      if (!this.ended && this.db.open) console.warn('[rules] catch-up judgment failed:', errorMessage(error));
+    });
   }
 
   /** Batches past-message judgments and processes results as missed messages. All feature questions share the first request’s provider route. */
@@ -271,6 +272,7 @@ export class RuleMatcher {
       jev,
       due.map(({ m, req }) => ({ m, questions: req.questions, certain: req.certain, fresh: req.fresh })),
     );
+    if (this.ended || !this.db.open) return r;
     for (const { m, req } of due) {
       const a = r.answers.get(m.id);
       if (a) this.apply(m, a, req, null);

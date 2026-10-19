@@ -6,8 +6,7 @@ import type { Db } from './db';
 import type { PluginHost } from './plugins/host';
 import { conversation } from './queries/conversation';
 import { scoreReplyHoldout } from './conversations/score';
-import { ownCommands } from './queries/ownCommands';
-import { ownEmojiAsync, ownReactionsAsync } from './queries/hostAsync';
+import { ownCommandsAsync, ownEmojiAsync, ownReactionsAsync } from './queries/hostAsync';
 import { mentionCandidates } from './queries/mentions';
 import { ownAuthor } from './queries/messages';
 import { ownerModerates } from './queries/moderation';
@@ -62,9 +61,9 @@ export const queryHandlers = (
     return id ? ownEmojiAsync(db(), id, limit) : [];
   },
   ownReactions: (limit) => ownReactionsAsync(db(), limit),
-  ownCommands: (limit) => {
+  ownCommands: async (limit) => {
     const id = selfId();
-    return id ? ownCommands(db(), id, limit) : [];
+    return id ? ownCommandsAsync(db(), id, limit) : [];
   },
   rankSearch: (text, hits) => rankSearch(parseSearch(text).words, hits),
 });

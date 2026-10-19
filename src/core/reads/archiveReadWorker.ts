@@ -12,6 +12,10 @@ import { linkPreviews } from '../queries/linkPreviews';
 import { archivePayloads } from '../plugins/archivePayloads';
 import { messageParts } from '../messageParts';
 import { partTexts } from '../derivedText';
+import { ownCommands } from '../queries/ownCommands';
+import { savedWritableChannels } from '../queries/savedWritableChannels';
+import { syncState } from '../queries/syncState';
+import { catchUpPage } from '../rules/catchUpRead';
 
 const { path, key } = workerData as ReadConnection;
 parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
@@ -45,6 +49,10 @@ parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
         case 'status': rows = [statusMetadata(db)]; break;
         case 'linkPreviews': rows = [...linkPreviews(db, host.ids, host.scope)]; break;
         case 'ownEmoji': rows = ownEmoji(db, host.authorId, host.limit); break;
+        case 'ownCommands': rows = ownCommands(db, host.userId, host.limit); break;
+        case 'savedWritableChannels': rows = savedWritableChannels(db, host.accountId); break;
+        case 'syncState': rows = [syncState(db, host.channelId)]; break;
+        case 'ruleCatchUp': rows = [catchUpPage(db, host.since, host.cursor)]; break;
         case 'messagePage': rows = [messagePageSnapshot(db, host.query)]; break;
         case 'messageWindow': rows = [messageWindowSnapshot(db, host.query)]; break;
         case 'messages': rows = [messageSnapshotByIds(db, host.ids)]; break;

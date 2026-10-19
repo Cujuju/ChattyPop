@@ -10,9 +10,9 @@ import { directoryMatch } from './queries/directory';
 import type { DirectoryGuild } from '@shared/contract';
 import { archivedBots } from './queries/bots';
 import { messagesByIds } from './queries/messages';
-import { messagePageAsync, messageWindowAsync } from './queries/hostAsync';
+import { messagePageAsync, messageWindowAsync, savedWritableChannelsAsync, syncStateAsync } from './queries/hostAsync';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
-import { filterSavedMessages, savedTargetVisible, savedWritableChannels } from './queries/savedMessages';
+import { filterSavedMessages, savedTargetVisible } from './queries/savedMessages';
 import { lastReader, markRead, newestMessageId, unreadMark, unreadSnapshot } from './queries/readMarks';
 import { putGuildOrder } from './queries/guildOrder';
 import { putReadStates } from './queries/readStates';
@@ -160,7 +160,11 @@ export function archiveHandlers(o: {
     privacyScope: () => privacyScope(o.ready().db),
     filterSavedMessages: (items, ids) => filterSavedMessages(o.ready().db, items, ids),
     savedTargetVisible: (target) => savedTargetVisible(o.ready().db, target),
-    savedWritableChannels: (accountId) => o.selfId() === accountId ? savedWritableChannels(o.ready().db, accountId) : [],
+    savedWritableChannels: async (accountId) => {
+      if (o.selfId() !== accountId) return [];
+      const rows = await savedWritableChannelsAsync(o.ready().db, accountId);
+      return o.selfId() === accountId ? rows : [];
+    },
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
       const r = archive().ingestMessages(messages, ARRIVAL.sync);
@@ -204,7 +208,7 @@ export function archiveHandlers(o: {
     applyOwnPollVote: (v) => {
       if (archive().applyOwnPollVote(v)) noteMessageChanges(o.ready().db, o.noteChanged, v.channelId, ['polls'], [v.messageId]);
     },
-    syncState: (channelId) => archive().syncState(channelId),
+    syncState: (channelId) => syncStateAsync(o.ready().db, channelId),
     reconcileDeletes: (channelId, seenIds, fromId, throughId) => {
       const at = Date.now();
       const n = archive().reconcileDeletes(channelId, seenIds, fromId, throughId, at);

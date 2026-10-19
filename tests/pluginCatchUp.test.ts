@@ -66,7 +66,7 @@ function judgeHost() {
   }, [core], [judge]);
   host.startBundled();
   onTestFinished(() => host.setEnabled('judge', false)); // its registrations are process-wide
-  return { jev, host, archive, judged, catchUps: () => catchUps };
+  return { jev, host, archive, judged, matcher: stack.matcher, catchUps: () => catchUps };
 }
 
 it('judges messages that arrived while the plugin was off once it is turned back on', async () => {
@@ -79,6 +79,7 @@ it('judges messages that arrived while the plugin was off once it is turned back
   expect(h.jev.requests).toEqual([]);
   const before = h.catchUps();
   await h.host.setEnabled('judge', true);
+  await h.matcher.catchUpJudgments();
   await settleAsync();
   expect(h.catchUps() - before).toBe(1);
   expect(h.judged).toEqual([m.id]);

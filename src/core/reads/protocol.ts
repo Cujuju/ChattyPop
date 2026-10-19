@@ -1,5 +1,6 @@
 import type { MessagePageQuery } from '@shared/contract';
 import type { ArchiveToolScope } from '../ai/archiveTools';
+import type { CatchUpCursor } from '../rules/catchUpRead';
 
 export interface ReadConnection { path: string; key: string | null }
 export interface ReadFold { table: string; keys: string[]; values: Record<string, 'sum' | 'max' | 'min' | 'latest' | 'earliest'>; orderBy?: string }
@@ -10,6 +11,10 @@ export type HostRead = { kind: 'directory'; unseen: number; self: string | null;
   | { kind: 'ownReactions'; limit: number }
   | { kind: 'status' }
   | { kind: 'ownEmoji'; authorId: string; limit: number }
+  | { kind: 'ownCommands'; userId: string; limit: number }
+  | { kind: 'savedWritableChannels'; accountId: string }
+  | { kind: 'syncState'; channelId: string }
+  | { kind: 'ruleCatchUp'; since: number; cursor?: CatchUpCursor }
   | { kind: 'messagePage' | 'messageWindow'; query: MessagePageQuery }
   | { kind: 'linkPreviews'; ids: number[]; scope?: ArchiveToolScope }
   | { kind: 'messages' | 'payloads' | 'parts'; ids: string[] };

@@ -45,6 +45,7 @@ it('drops an answer to a rule question edited while Jev was asked, so it neither
   const hold = holdJev(h.jev);
   const m = h.say('GB closes friday');
   h.rules.update(id, probeRule({ meaning: 'keyboard reviews' }));
+  await h.matcher.catchUpJudgments();
   hold.release();
   await settleAsync();
   expect(runsOf(h, id)).toEqual([]);
@@ -147,7 +148,7 @@ it('does not store a per-message answer that arrives after its plugin turned off
   expect(judgments(h.db, m.id)).toEqual([]);
   hold.holding = false;
   const offAgain = stocksQuestion();
-  h.matcher.catchUpJudgments();
+  await h.matcher.catchUpJudgments();
   await settleAsync();
   expect(judgments(h.db, m.id)).toEqual([{ subject: 'r2:stocks', value: 0.99 }]);
   offAgain();

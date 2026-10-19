@@ -1,5 +1,8 @@
 import type { ArchiveEmoji, MessagePageQuery, MessageWindow } from '@shared/contract';
 import type { UsedEmoji } from '@shared/compose';
+import type { UsedCommand } from '@shared/commands';
+import type { SavedChannelAccess } from '@shared/savedMessages';
+import type { SyncState } from '@shared/contract';
 import type { Db } from '../db';
 import { archiveReadFence, readHost } from '../reads/archiveReads';
 import { decorateMessagesAsync, type MessageSnapshot } from './messageDecorations';
@@ -10,6 +13,17 @@ export const ownReactionsAsync = (db: Db, limit: number, signal?: AbortSignal): 
 
 export const ownEmojiAsync = (db: Db, authorId: string, limit: number, signal?: AbortSignal): Promise<UsedEmoji[]> =>
   readHost(db, { kind: 'ownEmoji', authorId, limit }, signal, 'interactive');
+
+export const ownCommandsAsync = (db: Db, userId: string, limit: number, signal?: AbortSignal): Promise<UsedCommand[]> =>
+  readHost(db, { kind: 'ownCommands', userId, limit }, signal, 'interactive');
+
+export const savedWritableChannelsAsync = (db: Db, accountId: string, signal?: AbortSignal): Promise<SavedChannelAccess[]> =>
+  readHost(db, { kind: 'savedWritableChannels', accountId }, signal, 'interactive');
+
+export async function syncStateAsync(db: Db, channelId: string, signal?: AbortSignal): Promise<SyncState> {
+  const [state] = await readHost<SyncState>(db, { kind: 'syncState', channelId }, signal, 'interactive');
+  return state!;
+}
 
 export async function messagePageAsync(db: Db, query: MessagePageQuery, signal?: AbortSignal) {
   const fence = archiveReadFence(db);

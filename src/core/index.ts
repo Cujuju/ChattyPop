@@ -283,6 +283,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   },
   closeArchive: async () => {
     const { db: open } = ready();
+    ruleMatcher?.dispose();
     await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
     await closeArchiveReads(open);
     conversationJudge?.stop();

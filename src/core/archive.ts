@@ -37,6 +37,7 @@ import { applyReactionEvent, type ReactionEvent } from './reactions';
 import { applyOwnPollVoteTo, applyPollVoteEvent, type PollVoteEvent } from './pollVotes';
 import type { OwnerPollVote } from '@shared/polls';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from './arrival';
+import { syncCursor, syncState } from './queries/syncState';
 
 /** Archive reads/writes. All message mutation goes through here so edits and deletes are never lost. */
 export class Archive {
@@ -156,7 +157,7 @@ export class Archive {
         if (!stmt.run(t.id, t.name, t.type, t.parent_id).changes) continue;
         this.optedIn.add(t.id);
         const cutoffMs = typeof backfillFromMs === 'number' ? backfillFromMs : backfillFromMs(t.id);
-        const s = this.syncState(t.id);
+        const s = syncCursor(this.db, t.id);
         const newer = t.last_message_id && (!s.newestId || compareSnowflakes(t.last_message_id, s.newestId) > 0);
         const backfillLeft = !s.backfillComplete && (!s.oldestId || snowflakeToMs(s.oldestId) > cutoffMs);
         if (newer || (backfillLeft && t.last_message_id)) stale.push(t.id);
@@ -260,10 +261,7 @@ export class Archive {
   }
 
   syncState(channelId: string): SyncState {
-    const { count } = this.db.prepare('SELECT COUNT(*) AS count FROM messages WHERE channel_id = ?').get(channelId) as { count: number };
-    const c = this.db.prepare('SELECT sync_oldest_id AS o, sync_newest_id AS n, backfill_complete AS done FROM channels WHERE id = ?').get(channelId) as
-      { o: string | null; n: string | null; done: number } | undefined;
-    return { channelId, oldestId: c?.o ?? null, newestId: c?.n ?? null, count, backfillComplete: c?.done === 1 };
+    return syncState(this.db, channelId);
   }
 
   /**
@@ -277,7 +275,7 @@ export class Archive {
       if (!this.syncable(channelId, selfId)) return;
       result = page.length ? this.ingestMessages(page, ARRIVAL.sync) : { inserted: 0, edited: 0, skipped: 0 };
       const ids = page.map((m) => m.id).sort(compareSnowflakes);
-      const cur = this.syncState(channelId);
+      const cur = syncCursor(this.db, channelId);
       const newest = ids.length && (!cur.newestId || compareSnowflakes(ids.at(-1)!, cur.newestId) > 0) ? ids.at(-1)! : cur.newestId;
       const oldest = ids.length && (!cur.oldestId || compareSnowflakes(ids[0]!, cur.oldestId) < 0) ? ids[0]! : cur.oldestId;
       this.db

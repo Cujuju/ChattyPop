@@ -11,6 +11,7 @@ import { createRuleActions } from '../src/core/rules/hostKinds';
 import { RuleEngine } from '../src/core/rules/engine';
 import { RuleMatcher } from '../src/core/rules/matcher';
 import { RuleService } from '../src/core/rules/ruleService';
+import { onTestFinished } from 'vitest';
 import type {
   LegacyRuleMatch as RuleMatch,
   LegacyRuleNarrow as RuleNarrow,
@@ -36,6 +37,7 @@ export function hostRuleStack(
   const actions = createRuleActions(db, deps, emit, now);
   const engine = new RuleEngine(db, emit, actions, now);
   const matcher = new RuleMatcher(db, engine, jevFor);
+  onTestFinished(() => matcher.dispose());
   const rules = new RuleService(db, emit, engine, matcher, now);
   return { engine, actions, matcher, rules };
 }

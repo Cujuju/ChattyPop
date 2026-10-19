@@ -87,6 +87,7 @@ describe('explicit rule event settlement', () => {
     const arrivalId = h.settled[0]!.eventId;
     h.settled.length = 0;
     h.rules.create(ruleInput([ACTION], { gates: { missed: true } }));
+    await h.matcher.catchUpJudgments();
     expect(h.settled).toHaveLength(1);
     expect(h.settled[0]).toMatchObject({ m: { id: m.id }, answers: null });
     expect(h.pending()).toBe(0);
@@ -107,9 +108,14 @@ describe('explicit rule event settlement', () => {
     h.jev.on.topicMeaning = true;
     h.jev.values[`rule:${id}`] = 1;
     h.jev.fail = fail;
+    const decide = h.jev.decide.bind(h.jev);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    h.jev.decide = async (req) => { await gate; return decide(req); };
     const m = h.say(false);
-    h.matcher.catchUpJudgments();
+    await h.matcher.catchUpJudgments();
     expect(h.pending()).toBe(1);
+    release();
     await vi.waitFor(() => expect(h.settled).toHaveLength(1));
     expect(h.pending()).toBe(0);
     expect(h.settled[0]!.answers === null).toBe(fail);

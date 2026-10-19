@@ -151,7 +151,7 @@ export interface CoreMethods {
   /** Main-only filtering of native saved-message summaries through the archive's privacy scope. */
   filterSavedMessages(items: SavedMessage[], bookmarkIds: string[]): SavedVisible;
   savedTargetVisible(target: SavedTarget): boolean;
-  savedWritableChannels(accountId: string): SavedChannelAccess[];
+  savedWritableChannels(accountId: string): Promise<SavedChannelAccess[]>;
   /** Encrypts the database with `key`, or decrypts it (null). Main stores the key; core never persists it. */
   setEncryption(key: string | null): void;
   /** Main-only: the database file's encryption, read from disk now. Throws when the read fails. */
@@ -186,7 +186,7 @@ export interface CoreMethods {
   applyOwnReaction(r: OwnerReaction): void;
   /** The owner's poll vote, applied to the archive before the call resolves. */
   applyOwnPollVote(v: OwnerPollVote): void;
-  syncState(channelId: string): SyncState;
+  syncState(channelId: string): Promise<SyncState>;
   /** Marks deleted every stored message of the channel from `fromId` through `throughId` that a fresh fetch no longer returned; returns how many. */
   reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string): number;
   /** The channel's newest stored message, deleted ones included; null when none is stored. */
@@ -246,7 +246,7 @@ export interface CoreMethods {
   /** The signed-in user's most-used reactions in the archive, most used first. */
   ownReactions(limit: number): Promise<ArchiveEmoji[]>;
   /** The signed-in user's most-used slash commands in apps' archived replies, most used first; empty before READY names them. */
-  ownCommands(limit: number): UsedCommand[];
+  ownCommands(limit: number): Promise<UsedCommand[]>;
   /** Search hits through the active plugins' rankers (ctx.search.rerank); null when none changed them, so the full-text order stands. */
   rankSearch(text: string, hits: SearchHit[]): Promise<SearchHit[] | null>;
   /** The owner's rules, in run order. */

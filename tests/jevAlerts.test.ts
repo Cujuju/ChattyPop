@@ -93,12 +93,13 @@ describe('Jev catch-up after an interrupted rescan', () => {
     store('a3', 'plans: friday at 6', Date.now() - MS_PER_MIN, OWNER.id);
     store('old', 'ancient friday plans', Date.now() - 2 * MS_PER_DAY);
     const plans = topic('', 'making plans to meet up');
+    await w.catchUpJudgments();
     await settleAsync();
     expect(jev.requests).toHaveLength(0);
 
     jev.on.topicMeaning = true;
     jev.values = { [`rule:${plans}`]: 0.1 };
-    w.catchUpJudgments();
+    await w.catchUpJudgments();
     await settleAsync();
     // a1, a2 and the owner's own a3 (meaning rules judge everyone's messages) in one batched request; 'old' is outside the lookback
     expect(jev.requests).toHaveLength(1);
@@ -107,7 +108,7 @@ describe('Jev catch-up after an interrupted rescan', () => {
     );
 
     jev.requests = [];
-    w.catchUpJudgments();
+    await w.catchUpJudgments();
     await settleAsync();
     expect(jev.requests).toHaveLength(0);
   });
@@ -117,9 +118,10 @@ describe('Jev catch-up after an interrupted rescan', () => {
     store('b1', 'shall we meet on friday');
     store('b2', 'the patch notes are out');
     topic('friday', 'making plans to meet up'); // keywords or meaning: b1 matches on keywords
+    await w.catchUpJudgments();
     await settleAsync();
     jev.on.topicMeaning = true;
-    w.catchUpJudgments();
+    await w.catchUpJudgments();
     await settleAsync();
     expect(jev.requests).toHaveLength(1);
     expect(JSON.stringify(jev.requests[0]!.state)).toContain('patch notes');
