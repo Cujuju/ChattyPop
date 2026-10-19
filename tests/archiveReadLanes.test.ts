@@ -130,4 +130,15 @@ describe('archive read lane contracts', () => {
     await new Promise((r) => setTimeout(r));
     expect(diag).toHaveBeenCalledOnce();
   });
+
+  it('reports a spawn error before stopping the helper, without misreporting its requested exit', async () => {
+    const diag = vi.fn();
+    pool = new ArchiveReadPool({ path: 'unused', key: null }, 'unused-entry', diag);
+    const pending = read('spawn fails');
+    const failed = new Error('spawn ENOENT');
+    fixture.children[0]!.emit('error', failed);
+    await expect(pending).rejects.toBe(failed);
+    await Promise.resolve();
+    expect(diag).toHaveBeenCalledExactlyOnceWith('archive-read-helper-error', { message: failed.message, stderr: '' });
+  });
 });

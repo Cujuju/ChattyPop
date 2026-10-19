@@ -13,8 +13,8 @@ const stage = join(repo, 'out/package-read-stage');
 const main = join(stage, 'out/main');
 mkdirSync(main, { recursive: true });
 cpSync(join(repo, 'out/read-tests'), main, { recursive: true });
-for (const entry of ['archiveReadProcess.js', 'archiveReadWorker.js']) cpSync(join(repo, 'out/main', entry), join(main, entry));
-cpSync(join(repo, 'out/main/chunks'), join(main, 'chunks'), { recursive: true });
+// Include Core itself: a separately built probe cannot detect Core's helper path moving into a shared chunk.
+cpSync(join(repo, 'out/main'), main, { recursive: true });
 writeFileSync(join(stage, 'package.json'), JSON.stringify({ type: 'module' }));
 const require = createRequire(import.meta.url);
 const native = dirname(require.resolve('better-sqlite3-multiple-ciphers/package.json'));
@@ -36,23 +36,31 @@ const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 const profile = join(repo, 'out/package-read-profile');
 mkdirSync(profile, { recursive: true });
-const child = fork(join(repo, 'tests/fixtures/archiveReadElectron.cjs'), [join(asar, 'out/main/archiveReadProbe.js'), path, profile], {
-  execPath: require('electron'), env, execArgv: [], stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true,
-});
-let stderr = '';
-child.stderr.on('data', (data) => stderr += String(data));
-const exited = new Promise((resolve) => child.once('exit', resolve));
-const timer = setTimeout(() => child.kill(), PROBE_TIMEOUT_MS);
-try {
-  const result = await new Promise((resolve, reject) => {
-    child.once('message', resolve);
-    child.once('error', reject);
-    child.once('exit', (code) => reject(new Error(`Probe exited ${code}: ${stderr}`)));
+async function probe(launcher, entry, archive, profile) {
+  const child = fork(join(repo, 'tests/fixtures', launcher), [join(asar, 'out/main', entry), archive, profile], {
+    execPath: require('electron'), env, execArgv: [], stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true,
   });
-  console.log(JSON.stringify({ packagedAsar: true, ...result }, null, 2));
-  if (!result.ok || !result.aborted) throw new Error('Packaged archive reader failed');
-} finally {
-  clearTimeout(timer);
-  child.kill();
-  await exited;
+  let stderr = '';
+  child.stderr.on('data', (data) => stderr += String(data));
+  const exited = new Promise((resolve) => child.once('exit', resolve));
+  const timer = setTimeout(() => child.kill(), PROBE_TIMEOUT_MS);
+  try {
+    const result = await new Promise((resolve, reject) => {
+      child.once('message', resolve);
+      child.once('error', reject);
+      child.once('exit', (code) => reject(new Error(`Probe exited ${code}: ${stderr}`)));
+    });
+    console.log(JSON.stringify({ packagedAsar: true, ...result }, null, 2));
+    if (!result.ok || (entry === 'archiveReadProbe.js' && !result.aborted)) throw new Error('Packaged archive reader failed');
+  } finally {
+    clearTimeout(timer);
+    child.kill();
+    await exited;
+  }
 }
+await probe('archiveReadElectron.cjs', 'archiveReadProbe.js', path, profile);
+const coreArchive = join(repo, 'out/package-core-read-data');
+const coreProfile = join(repo, 'out/package-core-read-profile');
+mkdirSync(coreArchive, { recursive: true });
+mkdirSync(coreProfile, { recursive: true });
+await probe('coreReadElectron.cjs', 'core.js', coreArchive, coreProfile);

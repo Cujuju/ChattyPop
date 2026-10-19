@@ -152,6 +152,7 @@ export class ArchiveReadPool {
       this.drain();
     });
     child.on('error', (error) => {
+      if (!slot.stopping) this.diag?.('archive-read-helper-error', { message: error.message, stderr: stderr.trim() });
       if (slot.job) this.fail(slot.job, error);
       slot.job = undefined;
       this.stop(slot);

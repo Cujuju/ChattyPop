@@ -6,9 +6,14 @@ if (!profile) throw new Error('An isolated probe profile folder is required');
 app.setPath('userData', profile);
 app.whenReady().then(() => {
   const proc = utilityProcess.fork(process.argv[2], [], { stdio: 'pipe' });
+  proc.stderr.on('data', (data) => process.stderr.write(data));
+  let sending = 0;
+  let exitCode;
+  const finish = () => { if (exitCode !== undefined && !sending) app.exit(exitCode); };
   proc.on('spawn', () => proc.postMessage({ path: process.argv[3] }));
   proc.on('message', (message) => {
-    process.send(message);
+    sending++;
+    process.send(message, () => { sending--; finish(); });
   });
-  proc.on('exit', () => app.exit(0));
+  proc.on('exit', (code) => { exitCode = code; finish(); });
 });
