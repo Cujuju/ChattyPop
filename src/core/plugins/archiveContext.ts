@@ -25,7 +25,7 @@ import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
 import { archiveAsync, type ArchiveAsyncReads } from './archiveAsync';
 import { archiveReadDb } from './archiveReadDb';
-import { activePluginCall, pluginCalls } from './callContext';
+import { decorationReads } from './decorationReads';
 
 /** The archive's ingest for an importer (archive.store()); every write throws PluginInactiveError once the activation ended. */
 export interface Importer {
@@ -183,12 +183,6 @@ export function pluginArchive(
   const settle = derivedTextSettler(id, bundled, plugins);
   const sources = aiSources(bundled.ready, (provider) => bundled.providers.isLocal(provider));
   const syncDb = archiveReadDb(bundled.ready, live, id);
-  // Live decorations are Core-owned callbacks over one page, with the same indexed-lookup budgets as syncReads.
-  const enrichment = <T>(member: string, fn: () => T): T => {
-    const call = activePluginCall();
-    return call ? pluginCalls.run({ ...call, plugin: id, member, reads: false, diagnosed: false,
-      syncReads: { reason: 'Indexed live decoration of one archive page.' } }, fn) : fn();
-  };
   return {
     read: archiveAsync(bundled.ready, live),
     search: (query, opts) => live() ? archiveSearch(syncDb(), query, opts, sources) : [],
@@ -242,20 +236,20 @@ export function pluginArchive(
     },
     messageLabels: {
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerMessageLabels(id, buildIndex, (ids) => enrichment('archive.messageLabels', () => ask(() => fn(ids), new Map()))));
+        if (live()) reg.disposers.push(registerMessageLabels(id, buildIndex, (ids) => ask(() => decorationReads(id, 'archive.messageLabels', deps, ids, fn), new Map())));
       },
       changed: (messageIds) => send({ type: 'message-labels-changed', messageIds }),
     },
     attachmentNotes: {
       // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => enrichment('archive.attachmentNotes', () => ask(() => fn(ids), new Map<string, PluginNote>()))));
+        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => ask(() => decorationReads(id, 'archive.attachmentNotes', deps, ids, fn), new Map<string, PluginNote>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },
     notes: {
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => enrichment('archive.notes', () => ask(() => fn(ids), new Map<string, Map<string, PluginNote>>()))));
+        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => ask(() => decorationReads(id, 'archive.notes', deps, ids, fn), new Map<string, Map<string, PluginNote>>())));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },

@@ -8,6 +8,7 @@ import { unjudged } from '../conversations/unjudged';
 import { messageSnapshotByIds, messagePageSnapshot, messageWindowSnapshot } from '../queries/messages';
 import { ownEmoji, ownReactions } from '../queries/ownEmoji';
 import { statusMetadata } from '../archiveStatus';
+import { linkPreviews } from '../queries/linkPreviews';
 import { archivePayloads } from '../plugins/archivePayloads';
 import { messageParts } from '../messageParts';
 import { partTexts } from '../derivedText';
@@ -42,6 +43,7 @@ parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
         case 'unjudged': rows = unjudged(db, host.now, host.limit); break;
         case 'ownReactions': rows = ownReactions(db, host.limit); break;
         case 'status': rows = [statusMetadata(db)]; break;
+        case 'linkPreviews': rows = [...linkPreviews(db, host.ids, host.scope)]; break;
         case 'ownEmoji': rows = ownEmoji(db, host.authorId, host.limit); break;
         case 'messagePage': rows = [messagePageSnapshot(db, host.query)]; break;
         case 'messageWindow': rows = [messageWindowSnapshot(db, host.query)]; break;

@@ -1,4 +1,5 @@
 import type { MessagePageQuery } from '@shared/contract';
+import type { ArchiveToolScope } from '../ai/archiveTools';
 
 export interface ReadConnection { path: string; key: string | null }
 export interface ReadFold { table: string; keys: string[]; values: Record<string, 'sum' | 'max' | 'min' | 'latest' | 'earliest'>; orderBy?: string }
@@ -10,6 +11,7 @@ export type HostRead = { kind: 'directory'; unseen: number; self: string | null;
   | { kind: 'status' }
   | { kind: 'ownEmoji'; authorId: string; limit: number }
   | { kind: 'messagePage' | 'messageWindow'; query: MessagePageQuery }
+  | { kind: 'linkPreviews'; ids: number[]; scope?: ArchiveToolScope }
   | { kind: 'messages' | 'payloads' | 'parts'; ids: string[] };
 export interface ReadQuery { sql: string; params: readonly unknown[] | Record<string, unknown>; compute?: ReadCompute; host?: HostRead }
 export type ReadReply = { kind: 'started' } | { kind: 'rows'; rows: unknown[] } | { kind: 'error'; message: string; code?: string; fatal?: boolean };

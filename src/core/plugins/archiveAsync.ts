@@ -7,10 +7,14 @@ import type { ArchiveReadOptions } from './pluginDb';
 import type { ArchivePayload } from './archivePayloads';
 import type { MessagePart } from '../messageParts';
 import type { PartText } from '../derivedText';
+import type { ArchiveToolScope } from '../ai/archiveTools';
+import type { LinkPreview } from '../queries/linkPreviews';
 
 type Options = Pick<ArchiveReadOptions, 'signal' | 'priority'>;
 /** Host projections use the same cancellation, priority and committed snapshot contract as storage.read. */
 export interface ArchiveAsyncReads {
+  /** Bounded preview results; sharing-message enumeration, decompression and card choice run in the helper. */
+  linkPreviews(ids: readonly number[], scope?: ArchiveToolScope, options?: Options): Promise<Map<number, LinkPreview>>;
   messages(ids: string[], options?: Options): Promise<ArchiveMessage[]>;
   /** Selected ids retain the caller's scope, including for compressed payloads. */
   payloads(ids: readonly string[], options?: Options): Promise<Map<string, ArchivePayload>>;
@@ -26,6 +30,13 @@ export function archiveAsync(ready: () => Db, live: () => boolean): ArchiveAsync
     return { signal, priority: options.priority ?? call?.priority ?? 'background' };
   };
   return {
+    linkPreviews: async (ids, scope, options) => {
+      const { signal, priority } = context(options);
+      if (!live() || !ids.length) return new Map();
+      const entries = await readHost<[number, LinkPreview]>(ready(), { kind: 'linkPreviews', ids: [...ids], scope }, signal, priority);
+      signal?.throwIfAborted();
+      return live() ? new Map(entries) : new Map();
+    },
     messages: async (ids, options) => {
       const { signal, priority } = context(options);
       if (!live() || !ids.length) return [];
