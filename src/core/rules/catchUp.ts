@@ -23,20 +23,22 @@ export class RuleCatchUp {
     this.throughSeq = this.db.prepare('SELECT COALESCE(MAX(seq), 0) FROM messages').pluck().get() as number;
     this.since = Date.now() - MEANING_LOOKBACK_MS;
     this.requested = true;
-    if (!this.pending) this.pending = this.drain().finally(() => { this.pending = undefined; });
+    if (!this.pending) this.pending = this.drain();
     return this.pending;
   }
 
   dispose(): void { this.requested = false; this.controller.abort(new Error('Rule catch-up stopped')); }
 
   private async drain(): Promise<void> {
-    await yieldTurn();
-    while (this.requested && this.db.open && !this.controller.signal.aborted) {
-      this.requested = false;
-      if (!this.throughSeq) continue;
-      try { await this.scan(this.since, this.throughSeq); }
-      catch (error) { if (!this.requested) throw error; }
-    }
+    try {
+      await yieldTurn();
+      while (this.requested && this.db.open && !this.controller.signal.aborted) {
+        this.requested = false;
+        if (!this.throughSeq) continue;
+        try { await this.scan(this.since, this.throughSeq); }
+        catch (error) { if (!this.requested) throw error; }
+      }
+    } finally { this.pending = undefined; }
   }
 
   private async scan(since: number, throughSeq: number): Promise<void> {
