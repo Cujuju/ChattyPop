@@ -69,6 +69,8 @@ export interface JevLinkScore {
   byJevConfidence: JevConfidenceScore[];
   /** The combination fitted on every answered case: weights on the chooser's log probability, the Score position's log-odds and the top level's log probability. */
   combinedWeights: Record<string, number>;
+  /** Answered cases only one of chooser and combination got right, for a paired (McNemar) test of their difference. */
+  discordant: { chooserOnly: number; combinedOnly: number };
   failed: number;
   /** The first failed request's error: other Jev features' successes clear Settings' last error. */
   failure: string | null;

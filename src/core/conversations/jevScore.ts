@@ -105,6 +105,7 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
   const combinedPicks = crossFittedPicks(combined);
   const bands: JevBucketScore[] = emptyBands((from, to) => ({ from, to, asked: 0, answered: 0, chooserExact: 0, relatesExact: 0, combinedExact: 0, respondsYes: 0 }));
   const byJevConfidence: JevConfidenceScore[] = emptyBands((from, to) => ({ from, to, asked: 0, exact: 0 }));
+  const discordant = { chooserOnly: 0, combinedOnly: 0 };
   for (const c of found) {
     bands[c.band]!.asked++;
     if (argmax(c.chooser) === c.target) bands[c.band]!.chooserExact++;
@@ -115,6 +116,8 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
     const best = argmax(combined[k]!.level);
     if (best === c.target) b.relatesExact++;
     if (combinedPicks[k] === c.target) b.combinedExact++;
+    const chooserRight = argmax(c.chooser) === c.target;
+    if (chooserRight !== (combinedPicks[k] === c.target)) discordant[chooserRight ? 'chooserOnly' : 'combinedOnly']++;
     if (v.responds >= EVEN_ODDS) b.respondsYes++;
     const conf = byJevConfidence[bandOf(v.relates[best]!.top)]!;
     conf.asked++;
@@ -126,6 +129,7 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
     bands,
     byJevConfidence,
     combinedWeights: Object.fromEntries(COMBINED_SIGNALS.map((name, k) => [name, w[k]!])),
+    discordant,
     failed,
     failure,
     outOfReach,

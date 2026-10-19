@@ -60,6 +60,9 @@ describe('conversation Jev score', () => {
     expect(asked).toBeLessThanOrEqual(held);
     expect([total('answered'), total('relatesExact'), total('respondsYes')]).toEqual([asked, asked, asked]);
     expect(score.byJevConfidence.reduce((n, b) => n + b.exact, 0)).toBe(asked);
+    const chooserExact = score.bands.reduce((n, b) => n + b.chooserExact, 0);
+    const combinedExact = score.bands.reduce((n, b) => n + b.combinedExact, 0);
+    expect(score.discordant.combinedOnly - score.discordant.chooserOnly).toBe(combinedExact - chooserExact);
     expect(jev.requests).toHaveLength(asked);
     expect(jev.requests.map((r) => JSON.stringify(r)).filter((s) => !s.includes('open') || s.includes('secret'))).toEqual([]);
     expect(jev.requests.every((r) => typeof r.admit === 'function')).toBe(true);
