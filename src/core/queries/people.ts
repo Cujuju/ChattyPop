@@ -39,14 +39,14 @@ export function findPeople(db: Db, query: string, limit: number): PersonMatch[] 
 /**
  * People a `from:` in `query` can find, matching `name` (all when empty), as the composer's `@` reads a channel: those
  * who posted in the archived channels its `in:` and `server:` terms leave (every visible one without them), and the
- * current members who can see one. A name starting with it first, then those in the shown channel's server, then the
+ * current members who can see one. An archived channel is opted in, or holds messages (a thread of an opted-in one). A name starting with it first, then those in the shown channel's server, then the
  * most messages there.
  */
 export function findSearchAuthors(db: Db, name: string, query: string, shownChannelId: string | null, limit: number): PersonMatch[] {
   const q = name.trim();
   const place = placeSql(query);
   const channels = db
-    .prepare(`SELECT c.id FROM channels c WHERE ${['c.id IN (SELECT channel_id FROM channel_authors)', visibleChannelSql('c.id'), ...place.where].join(' AND ')}`)
+    .prepare(`SELECT c.id FROM channels c WHERE ${['(c.opted_in = 1 OR c.id IN (SELECT channel_id FROM channel_authors))', visibleChannelSql('c.id'), ...place.where].join(' AND ')}`)
     .pluck()
     .all(...place.params) as string[];
   const sql = `WITH place(id) AS (SELECT value FROM json_each(@place)),

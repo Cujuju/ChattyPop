@@ -44,7 +44,7 @@ describe('people by name', () => {
 describe('people a search can find', () => {
   const setup = () => {
     const db = tempDb();
-    const archive = seedArchive(db, [{ id: 'c1', name: 'general', guildId: 'g1' }, { id: 'c2', name: 'trading', guildId: 'g2' }, { id: 'c3', name: 'random', guildId: 'g1' }], {
+    const archive = seedArchive(db, [{ id: 'c1', name: 'general', guildId: 'g1' }, { id: 'c2', name: 'trading', guildId: 'g2' }, { id: 'c3', name: 'random', guildId: 'g1' }, { id: 'c4', name: 'quiet', guildId: 'g1' }], {
       guilds: [{ id: 'g1', name: 'Home' }, { id: 'g2', name: 'Markets' }],
     });
     const by = (id: string, username: string) => ({ author: { id, username, global_name: null } });
@@ -87,6 +87,7 @@ describe('people a search can find', () => {
     );
     expect(ids(db, '', '', 'c1')).toEqual(['cal', 'ann', 'eve', 'mo', 'bob']);
     expect(ids(db, '', 'in:random')).toEqual(['cal', 'mo']);
+    expect(ids(db, '', 'in:quiet')).toEqual(['eve', 'mo']); // archived, nothing stored yet
     expect(ids(db, '', 'server:markets')).toEqual(['bob']);
     expect(ids(db, 'e', '')).toEqual(['eve']);
   });
