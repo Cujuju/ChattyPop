@@ -3,7 +3,7 @@ import { api } from '@/api';
 import type { ConversationMark } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { createSignal } from 'solid-js';
-import { onAppEvent } from './events';
+import { onAppEvent, onArchiveChange, onMessagePartsChanged } from './events';
 import { keyedResource } from './keyedResource';
 
 export const [conversationFor, setConversationFor] = createSignal<string | null>(null);
@@ -81,4 +81,20 @@ onAppEvent('conversations-changed', (e) => {
   // Still loading: the read in flight may predate these links, so read again.
   const shown = conversation()?.messages;
   if (!shown || shown.some((m) => e.channelIds.includes(m.channelId))) conversation.refetch();
+});
+
+onArchiveChange({
+  kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 'attachments', 'links', 'names', 'plugin'],
+  shown: () => conversationFor() !== null,
+  scope: () => {
+    const shown = conversation()?.messages;
+    // Before the first answer, any channel could belong to this conversation.
+    return shown ? { channelIds: [...new Set(shown.map((m) => m.channelId))] } : 'all';
+  },
+}, () => conversation.refetch());
+
+onMessagePartsChanged((ids) => {
+  if (!conversationFor()) return;
+  const shown = conversation()?.messages;
+  if (!ids || !shown || shown.some((m) => ids.includes(m.id))) conversation.refetch();
 });

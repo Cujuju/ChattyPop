@@ -15,7 +15,7 @@ export const CONVERSATION_MAX = 200;
 export const UNLINKED_MAX = 100;
 
 export interface ConversationOptions {
-  /** Extend unlinked messages past the last shown root-channel member by the channel's reach; in-between messages always show. */
+  /** Extend unlinked messages past the latest shown member by the root channel's reach; in-between messages always show. */
   nearby?: boolean;
 }
 
@@ -34,10 +34,10 @@ function branchSizes(rows: readonly ConversationLinkRow[]): Map<string, number> 
 /** Visible root-channel non-members within the shown members' span, optionally extended by reach, nearest the anchor first. */
 function unlinked(db: Db, rows: readonly ConversationLinkRow[], shown: readonly ConversationLinkRow[], anchorTs: number, later: boolean): { ids: string[]; more: boolean } {
   const root = rows[0]!;
-  const positions = shown.map((r) => ({ id: r.message_id, ts: r.ts, channelId: r.channel_id }))
+  const positions = shown.map((r) => ({ id: r.message_id, ts: r.ts }))
     .sort((a, b) => messageBefore(a, b) ? -1 : messageBefore(b, a) ? 1 : 0);
   const first = positions[0];
-  const last = positions.findLast((r) => r.channelId === root.channel_id);
+  const last = positions.at(-1);
   if (!first || !last) return { ids: [], more: false };
   const rootPosition = { id: root.message_id, ts: root.ts };
   const from = messageBefore(first, rootPosition) ? rootPosition : first;

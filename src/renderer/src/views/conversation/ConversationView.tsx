@@ -14,6 +14,7 @@ import { countText, shortDate } from '@/ui/format';
 import { FloatingWindow, WindowHeader } from '@/ui/FloatingWindow';
 import chrome from '@/ui/WindowChrome.module.css';
 import { canGroupMessage } from '@/ui/messageGrouping';
+import { keyedRows } from '@/ui/keyedRows';
 import { ConversationRow, markedLabel } from './ConversationRow';
 import styles from './ConversationView.module.css';
 
@@ -30,6 +31,7 @@ const grouped = (c: Conversation, index: number): boolean => {
 
 /** The owner's conversation window: Archive rows, link evidence, corrections and missed messages to add. */
 export function ConversationView() {
+  const rows = keyedRows(() => conversation()?.messages ?? []);
   const linked = (): Set<string> => new Set(conversation()?.linkedIds ?? []);
   /** Removed here and no longer shown: Undo lives in the list above the messages. */
   const removed = () => {
@@ -98,15 +100,15 @@ export function ConversationView() {
                 </ul>
               </Show>
               <ol class={styles.list}>
-                <For each={c().messages}>
-                  {(m, index) => (
+                <For each={rows.ids()}>
+                  {(id, index) => (
                     <ConversationRow
-                      message={m}
-                      member={c().members[m.id]}
-                      mark={c().marks[m.id]}
-                      root={m.id === c().rootId}
-                      linked={linked().has(m.id)}
-                      anchor={m.id === conversationFor()}
+                      message={rows.item(id)!}
+                      member={c().members[id]}
+                      mark={c().marks[id]}
+                      root={id === c().rootId}
+                      linked={linked().has(id)}
+                      anchor={id === conversationFor()}
                       grouped={grouped(c(), index())}
                     />
                   )}

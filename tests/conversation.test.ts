@@ -75,9 +75,14 @@ describe('unlinked messages in the shown conversation window', () => {
   const unlinkedIds = (view: ReturnType<typeof conversation>): string[] => view.messages.filter((m) => !view.members[m.id]).map((m) => m.id);
   const seed = (members: RawMessage[], others: RawMessage[]) => {
     archive.ingestMessages([...members, ...others], ARRIVAL.sync);
-    writeLinks(db, 'c1', members.map((m, i) => ({
+    const links = members.map((m, i) => ({
       messageId: m.id, parentId: i ? members[0]!.id : null, kind: i ? LINK_KIND.inferred : LINK_KIND.start, confidence: 1,
-    })), new Map(members.map((m) => [m.id, snowflakeToMs(m.id)])));
+    }));
+    const times = new Map(members.map((m) => [m.id, snowflakeToMs(m.id)]));
+    for (const channelId of new Set(members.map((m) => m.channel_id))) {
+      const ids = new Set(members.filter((m) => m.channel_id === channelId).map((m) => m.id));
+      writeLinks(db, channelId, links.filter((l) => ids.has(l.messageId)), times);
+    }
   };
 
   beforeEach(() => {
@@ -119,6 +124,35 @@ describe('unlinked messages in the shown conversation window', () => {
     const head = conversation(db, members[0]!.id);
     expect(unlinkedIds(head)).toEqual(extras.slice(0, 3).map((m) => m.id));
     expect(unlinkedIds(conversation(db, members.at(-1)!.id, { nearby: true }))).toEqual(extras.slice(2).map((m) => m.id));
+  });
+
+  it('includes root-channel non-members through the latest shown member in another channel', () => {
+    const root = message(0);
+    const thread = rawMessage('other', at(10), 'thread member');
+    const middle = message(5);
+    seed([root, thread], [middle, message(11), rawMessage('other', at(6), 'thread non-member')]);
+    expect(ids(conversation(db, root.id))).toEqual([root.id, middle.id, thread.id]);
+  });
+
+  it('extends nearby from the latest shown member across channels using the root channel reach', () => {
+    const root = message(0);
+    const thread = rawMessage('other', at(10), 'thread member');
+    const middle = message(5);
+    const until = at(10) + channelReach(db, 'c1');
+    const edge = rawMessage('c1', until, 'root-channel reach endpoint');
+    seed([root, thread], [middle, edge, rawMessage('c1', until + 1, 'beyond reach'), rawMessage('other', until, 'thread non-member')]);
+    expect(ids(conversation(db, root.id, { nearby: true }))).toEqual([root.id, middle.id, thread.id, edge.id]);
+  });
+
+  it('compares numeric ids across channels at a shared upper-bound timestamp', () => {
+    const root = { ...message(-1), id: '8' };
+    const firstThread = { ...rawMessage('other', at(0), 'earlier thread member'), id: '9' };
+    const lastThread = { ...rawMessage('other', at(0), 'latest thread member'), id: '11' };
+    const between = { ...message(0), id: '10' };
+    const after = { ...message(0), id: '12' };
+    seed([root, lastThread, firstThread], [between, after]);
+    expect(ids(conversation(db, root.id))).toEqual(['8', '9', '10', '11']);
+    expect(ids(conversation(db, root.id, { nearby: true }))).toEqual(['8', '9', '10', '11', '12']);
   });
 
   it('uses one nearest-first cap for in-between and later non-members and reports overflow', () => {
