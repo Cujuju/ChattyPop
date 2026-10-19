@@ -131,6 +131,9 @@ export function createPagedList<T extends { id: string | number }>(
       activeSignal.throwIfAborted();
       setState({ items: r.items, reachedStart: r.reachedStart });
       return true;
+    } catch (error) {
+      if (!activeSignal.aborted) throw error;
+      return false;
     } finally {
       if (mine === generation) {
         reloading = false;
@@ -146,12 +149,17 @@ export function createPagedList<T extends { id: string | number }>(
     const mine = generation;
     olderBusy = true;
     showLoading();
+    const activeSignal = readSignal();
     try {
-      controller.signal.throwIfAborted();
-      const page = await fetchOlder(oldest, readSignal());
+      activeSignal.throwIfAborted();
+      const page = await fetchOlder(oldest, activeSignal);
       if (mine !== generation) return 0;
+      activeSignal.throwIfAborted();
       setState({ items: atStart ? [...state.items, ...page] : [...page, ...state.items], reachedStart: page.length < pageSize });
       return page.length;
+    } catch (error) {
+      if (!activeSignal.aborted) throw error;
+      return 0;
     } finally {
       if (mine === generation) {
         olderBusy = false;
@@ -166,14 +174,19 @@ export function createPagedList<T extends { id: string | number }>(
     const mine = generation;
     newerBusy = true;
     showLoading();
+    const activeSignal = readSignal();
     try {
-      controller.signal.throwIfAborted();
-      const page = await fetchNewer(newest, readSignal());
+      activeSignal.throwIfAborted();
+      const page = await fetchNewer(newest, activeSignal);
       if (mine !== generation) return null;
+      activeSignal.throwIfAborted();
       // An in-place refresh may have added some of these meanwhile.
       const have = new Set(state.items.map((i) => i.id));
       setState('items', [...state.items, ...page.filter((i) => !have.has(i.id))]);
       return page.length;
+    } catch (error) {
+      if (!activeSignal.aborted) throw error;
+      return null;
     } finally {
       if (mine === generation) {
         newerBusy = false;
@@ -187,43 +200,59 @@ export function createPagedList<T extends { id: string | number }>(
   const update: PagedList<T>['update'] = async (fetch, apply) => {
     const mine = generation;
     const turn = ++updates;
-    controller.signal.throwIfAborted();
-    const result = await fetch(readSignal());
-    if (mine !== generation || turn < appliedUpdate) return false;
-    appliedUpdate = turn;
-    const next = apply(result, state.items);
-    if (Array.isArray(next)) setItems(next);
-    else batchWrites(() => { setItems(next.items); setState('reachedStart', next.reachedStart); });
-    return true;
+    const activeSignal = readSignal();
+    try {
+      activeSignal.throwIfAborted();
+      const result = await fetch(activeSignal);
+      if (mine !== generation || turn < appliedUpdate) return false;
+      activeSignal.throwIfAborted();
+      appliedUpdate = turn;
+      const next = apply(result, state.items);
+      if (Array.isArray(next)) setItems(next);
+      else batchWrites(() => { setItems(next.items); setState('reachedStart', next.reachedStart); });
+      return true;
+    } catch (error) {
+      if (!activeSignal.aborted) throw error;
+      return false;
+    }
   };
 
   const applyChange = async (change: ArchiveChangeSet, signal?: AbortSignal): Promise<void> => {
-    signal?.throwIfAborted();
+    if (signal?.aborted) return;
     const insertOnly = change.channelIds.size > 0 && [...change.channelIds].every((id) => id !== '' && change.insertOnly(id));
     if (insertOnly && changeOptions.chronological?.() !== false && changeOptions.atNewest?.() === false) return;
     const newer = changeOptions.newer ?? fetchNewer;
     if (!insertOnly || changeOptions.chronological?.() === false || !newer || !state.items.length) {
-      if (changeOptions.reload) await changeOptions.reload(signal);
-      else if (lastReload) await reload(lastReload, signal);
+      try {
+        if (changeOptions.reload) await changeOptions.reload(signal);
+        else if (lastReload) await reload(lastReload, signal);
+      } catch (error) {
+        if (!signal?.aborted) throw error;
+      }
       return;
     }
     const mine = generation;
-    let added: number;
-    do {
-      const atStart = changeOptions.newestAtStart?.() ?? false;
-      const newest = atStart ? state.items[0]! : state.items.at(-1)!;
-      const activeSignal = readSignal(signal);
-      const page = await newer(newest, activeSignal);
-      if (mine !== generation) return;
+    const activeSignal = readSignal(signal);
+    try {
       activeSignal.throwIfAborted();
-      const cursor = JSON.stringify(newest);
-      const incoming = new Set(page.map((row) => row.id));
-      const kept = state.items.filter((row) => !incoming.has(row.id));
-      setItems(atStart ? [...page, ...kept] : [...kept, ...page]);
-      added = page.length;
-      // A source returning an unchanged full page must not spin indefinitely.
-      if (JSON.stringify(atStart ? state.items[0] : state.items.at(-1)) === cursor) return;
-    } while (added === pageSize);
+      let added: number;
+      do {
+        const atStart = changeOptions.newestAtStart?.() ?? false;
+        const newest = atStart ? state.items[0]! : state.items.at(-1)!;
+        const page = await newer(newest, activeSignal);
+        if (mine !== generation) return;
+        activeSignal.throwIfAborted();
+        const cursor = JSON.stringify(newest);
+        const incoming = new Set(page.map((row) => row.id));
+        const kept = state.items.filter((row) => !incoming.has(row.id));
+        setItems(atStart ? [...page, ...kept] : [...kept, ...page]);
+        added = page.length;
+        // A source returning an unchanged full page must not spin indefinitely.
+        if (JSON.stringify(atStart ? state.items[0] : state.items.at(-1)) === cursor) return;
+      } while (added === pageSize);
+    } catch (error) {
+      if (!activeSignal.aborted) throw error;
+    }
   };
 
   const reset = (): void => {

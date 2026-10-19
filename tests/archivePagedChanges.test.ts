@@ -109,7 +109,7 @@ describe('paged change application', () => {
     expect(pages).toBe(2);
     controller.abort(new Error('gate superseded'));
     expect(active!.aborted).toBe(true);
-    expect(await outcome).toBe(controller.signal.reason);
+    expect(await outcome).toBeUndefined();
     expect(list.state.items.map((row) => row.id)).toEqual(['old', 'new']);
   });
 
