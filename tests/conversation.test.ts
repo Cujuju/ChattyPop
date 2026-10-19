@@ -55,7 +55,7 @@ describe('conversation view', () => {
   });
 
   it('is empty for a message not in the archive', () => {
-    expect(conversation(db, 'nope')).toEqual({ messages: [], linkedIds: [], pending: false });
+    expect(conversation(db, 'nope')).toEqual({ messages: [], linkedIds: [], pending: false, rootId: null, members: {}, marks: {}, memberCount: 0, nearbyMore: false });
   });
 
   it('leaves out hidden channels in privacy mode', () => {

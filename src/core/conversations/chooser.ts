@@ -36,12 +36,17 @@ export function probabilities(m: ChooserMessage, candidates: readonly ChooserMes
   return p;
 }
 
+/** The index of the largest value (the first on a tie). */
+export const argmax = (xs: ArrayLike<number>): number => {
+  let best = 0;
+  for (let j = 1; j < xs.length; j++) if (xs[j]! > xs[best]!) best = j;
+  return best;
+};
+
 /** The most probable parent of `m` among `candidates` (oldest first, at least one). */
 export function choose(m: ChooserMessage, candidates: readonly ChooserMessage[], w: Weights): Choice {
   const p = probabilities(m, candidates, w);
-  const count = p.length;
-  let best = 0;
-  for (let j = 1; j < count; j++) if (p[j]! > p[best]!) best = j;
+  const best = argmax(p);
   return { index: best, probability: p[best]! };
 }
 

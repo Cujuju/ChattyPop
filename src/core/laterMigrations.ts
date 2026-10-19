@@ -253,6 +253,15 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
     DELETE FROM channel_authors WHERE channel_id = OLD.channel_id AND author_id = OLD.author_id AND messages <= 0;
   END;
   `,
+  // Conversations: Jev's answers about a message's candidates (keyed by what was asked), and the owner's marks with their history.
+  `
+  CREATE TABLE conversation_judgments (message_id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, ts INTEGER NOT NULL, input_key TEXT NOT NULL,
+    model TEXT NOT NULL, responds REAL, relates TEXT, failed_at INTEGER, at INTEGER NOT NULL) WITHOUT ROWID;
+  CREATE TABLE conversation_marks (message_id TEXT PRIMARY KEY, channel_id TEXT NOT NULL, mark TEXT NOT NULL, parent_id TEXT,
+    conversation_of TEXT NOT NULL, at INTEGER NOT NULL) WITHOUT ROWID;
+  CREATE TABLE conversation_mark_log (seq INTEGER PRIMARY KEY, message_id TEXT NOT NULL, mark TEXT, parent_id TEXT,
+    replaced_parent_id TEXT, conversation_of TEXT NOT NULL, at INTEGER NOT NULL);
+  `,
 ];
 
 /**

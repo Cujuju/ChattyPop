@@ -25,6 +25,10 @@ export interface JevView {
   relates: (Relation | null)[];
 }
 
+/** A view with every question answered. */
+export type Answered = { responds: number; relates: Relation[] };
+export const isAnswered = (v: JevView | null): v is Answered => !!v && v.responds !== null && v.relates.every((r) => r !== null);
+
 /** Author names, times and text of stored messages, by id. */
 export function askedMessages(db: Db, ids: readonly string[]): Map<string, AskedMessage> {
   const rows = db.prepare(`SELECT m.id, m.ts, ${plainNameSql('m.author_id')} AS author, m.content AS text FROM messages m LEFT JOIN users u ON u.id = m.author_id

@@ -1,5 +1,5 @@
 // Links each message to the earlier message it continues, from archive evidence alone (no AI). Pure: the job and the scorer share it.
-import { choose, type Weights } from './chooser';
+import { argmax, probabilities, type Weights } from './chooser';
 import type { ChooserMessage } from './features';
 
 /** Why a message continues another; `start` begins a conversation. */
@@ -14,6 +14,10 @@ export const LINK_KIND = {
   continuation: 'continuation',
   /** The chooser's pick among recent messages. */
   inferred: 'inferred',
+  /** The chooser's unsure pick, re-ranked with Jev's judgment of each candidate (conversations/judge.ts). */
+  judged: 'judged',
+  /** The owner's mark in the Conversation view (conversations/marks.ts). */
+  owner: 'owner',
   start: 'start',
 } as const;
 export type LinkKind = (typeof LINK_KIND)[keyof typeof LINK_KIND];
@@ -30,7 +34,12 @@ export const LINK_MIN_CONFIDENCE = 0.3;
 export interface LinkInput extends ChooserMessage {
   /** The message a Discord reply answers. */
   replyTo: string | null;
+  /** Its text, for judgments' freshness (conversations/judge.ts). */
+  text: string;
 }
+
+/** Re-ranks the chooser's pick: the candidate index and its probability, or null without a current judgment. */
+export type Judge = (m: LinkInput, recent: readonly LinkInput[], chooser: Float64Array) => { index: number; probability: number } | null;
 
 export interface Link {
   messageId: string;
@@ -51,7 +60,14 @@ export interface LinkContext {
   minConfidence?: number;
   /** A thread started from a message: its first message and that starter message. */
   thread?: { firstId: string; starterId: string };
+  /** The owner's mark on a message: the parent it sets (null: it starts a conversation). */
+  marked?: (messageId: string) => { parentId: string | null } | undefined;
+  /** Re-ranks picks below JUDGE_BELOW with Jev's stored judgments. */
+  judge?: Judge;
 }
+
+/** Picks below this the judge may re-rank: on held-out replies the chooser + Jev gained nothing at 0.7 or more (#305). */
+export const JUDGE_BELOW = 0.7;
 
 export interface LinkOptions {
   /** Scoring: decide replies as if Discord hadn't marked them, to measure the chooser. */
@@ -74,13 +90,17 @@ function linkOne(m: LinkInput, recent: readonly LinkInput[], ctx: LinkContext, o
   const to = (parentId: string | null, kind: LinkKind, confidence: number): Link => ({ messageId: m.id, parentId, kind, confidence });
   if (m.replyTo && !options.hideReplies) return to(m.replyTo, LINK_KIND.reply, 1);
   if (ctx.thread?.firstId === m.id) return to(ctx.thread.starterId, LINK_KIND.thread, 1);
+  const mark = options.hideReplies ? undefined : ctx.marked?.(m.id);
+  if (mark) return to(mark.parentId, LINK_KIND.owner, 1);
   const rule = ruleLink(m, recent);
   if (rule) return to(rule.parentId, rule.kind, 1);
   if (!recent.length) return to(null, LINK_KIND.start, 0);
-  const choice = choose(m, recent, ctx.weights);
-  return choice.probability >= (ctx.minConfidence ?? LINK_MIN_CONFIDENCE)
-    ? to(recent[choice.index]!.id, LINK_KIND.inferred, choice.probability)
-    : to(null, LINK_KIND.start, choice.probability);
+  const p = probabilities(m, recent, ctx.weights);
+  const best = argmax(p);
+  if (p[best]! < (ctx.minConfidence ?? LINK_MIN_CONFIDENCE)) return to(null, LINK_KIND.start, p[best]!);
+  // Only links the chooser already made are re-ranked: whether a message starts a conversation isn't Jev's to decide yet (#314).
+  const judged = p[best]! < JUDGE_BELOW ? ctx.judge?.(m, recent, p) : null;
+  return judged ? to(recent[judged.index]!.id, LINK_KIND.judged, judged.probability) : to(recent[best]!.id, LINK_KIND.inferred, p[best]!);
 }
 
 /**

@@ -4,7 +4,7 @@ import { errorMessage } from '@shared/errors';
 import { sumCosts, type DecisionProvider } from '../ai/decisions';
 import { assertHostedMayRead, localOnlyChannelIds } from '../channelPolicy';
 import type { Db } from '../db';
-import { askedMessages, askParent, type JevView, type Relation } from './ask';
+import { askedMessages, askParent, isAnswered, type JevView } from './ask';
 import { probabilities } from './chooser';
 import { fittedWeights, replySamples } from './fit';
 import { argmax, COMBINED_SIGNALS, crossFittedPicks, fitCombined, type CombinedCase } from './jevCombine';
@@ -56,9 +56,6 @@ function cases(db: Db, perBand: number, weights: readonly number[]): { cases: Ca
   return { cases: found, outOfReach };
 }
 
-/** A view with every question answered. */
-type Answered = { responds: number; relates: Relation[] };
-const isAnswered = (v: JevView | null): v is Answered => !!v && v.responds !== null && v.relates.every((x) => x !== null);
 
 export interface JevScoreOptions {
   perBand?: number;

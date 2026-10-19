@@ -60,8 +60,8 @@ export const JEV_FEATURE_INFO: Readonly<Record<HostJevFeature, JevFeatureInfo>> 
   linkConversations: {
     group: 'Messages & search',
     label: 'Link unsure conversations',
-    hint: 'When the app can’t tell which earlier message a new one answers, Jev picks among the likeliest few. Its picks also teach the app. Never sends local-AI-only channels.',
-    perMessage: '1 question per unsure message',
+    hint: 'When the app is unsure which earlier message a new one answers, Jev weighs in on the likeliest few (the last 30 days and new messages). Mark unsure links in the Conversation window to correct them. Never sends local-AI-only channels.',
+    perMessage: '1 request per unsure message, one question per likely earlier message',
   },
   suggestChannels: { group: 'Tools', label: 'Suggest channels to archive', hint: 'Samples channels you don’t archive and ranks them against your rules.' },
   pluginDecide: { group: 'Tools', label: 'Let plugins ask Jev', hint: 'Plugins may call ai.decide(); it bills to your Jev key.' },

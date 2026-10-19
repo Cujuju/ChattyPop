@@ -45,6 +45,8 @@ import { registerTags } from './jev/tags';
 import { JevSpendLedger } from './jevSpend';
 import { startLastSeen } from './lastSeen';
 import { ConversationLinkJob } from './conversations/job';
+import { ConversationJudgeJob } from './conversations/judgeJob';
+import { markConversation } from './conversations/marks';
 import { lastReader, recordReader } from './queries/readMarks';
 import type { BundledDeps } from './plugins/bundled';
 import { PluginHost } from './plugins/host';
@@ -87,6 +89,8 @@ let ruleEngine: RuleEngine | undefined;
 /** Every stored message text runs through it; created with the engine. */
 let ruleMatcher: RuleMatcher | undefined;
 let plugins: PluginHost | undefined;
+let conversationLinks: ConversationLinkJob | undefined;
+let conversationJudge: ConversationJudgeJob | undefined;
 /** Settles once the plugins folder has loaded, so every plugin is listed. */
 let pluginsLoaded: Promise<void> | undefined;
 /** Plugins' data folders (PluginDataDirs.root). */
@@ -228,6 +232,8 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     plugins?.settingChanged(key);
     if (key === SETTINGS_KEYS.ai) {
       matcher().requestCatchUp(); // Jev may just have been turned on
+      if (deciderFor('linkConversations')) conversationJudge?.kick();
+      else conversationJudge?.stop();
     }
     if (key === SETTINGS_KEYS.archive) {
       applyAttachmentCap();
@@ -276,10 +282,15 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     const { db: open } = ready();
     await plugins?.endActivations(); // before the close: their last writes (deactivate, pending work) still land
     await closeArchiveReads(open);
+    conversationJudge?.stop();
     jevLedger.flush(); // Flush spend before archive-move restart.
     open.pragma('wal_checkpoint(TRUNCATE)');
     open.close();
     initError = new Error('The archive is being moved; ChattyPop restarts when it is done.');
+  },
+  conversationMark: (messageId, conversationOf, mark) => {
+    markConversation(ready().db, messageId, conversationOf, mark);
+    conversationLinks?.kick();
   },
   integrityCheck: () => String(ready().db.pragma('quick_check', { simple: true })),
   ...queryHandlers(
@@ -389,7 +400,12 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
         { start: installedStart(), failed: failedCore },
       );
       const pluginHost = plugins;
-      const conversationLinks = new ConversationLinkJob(() => (!initError && db?.open ? db : null));
+      const linkDb = () => (!initError && db?.open ? db : null);
+      const judge = (conversationJudge = new ConversationJudgeJob(linkDb, () => deciderFor('linkConversations'), () => links.kick()));
+      const links = (conversationLinks = new ConversationLinkJob(linkDb, (channelIds) => {
+        judge.kick();
+        if (channelIds.length) emit({ type: 'conversations-changed', channelIds });
+      }));
       archive = new Archive(
         db,
         (m, arrived) => {
@@ -399,7 +415,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
         linkedText,
         (id) => {
           pluginHost.imagesShown(id);
-          conversationLinks.kick(); // a stored message may have queued links
+          links.kick(); // a stored message may have queued links
         },
       );
       adoptBundledData(db, BUNDLED_PLUGINS); // before any plugin reads its tables or settings
@@ -408,7 +424,8 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       // After archive is set: aiSettings() reads through ready().
       watcher.requestCatchUp(); // judgments an earlier session didn't finish
       rederiveIfStale(db, () => pluginHost.linksRebuilt());
-      conversationLinks.start();
+      links.start();
+      judge.kick();
       applyAttachmentCap();
       void applyTextTier();
       setInterval(() => void applyTextTier().catch(() => undefined), TEXT_RETENTION_INTERVAL_MS); // fails only while the archive is moving

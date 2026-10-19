@@ -17,7 +17,7 @@ const T0 = Date.UTC(2026, 8, 1, 12);
 const REACH = 10 * MS_PER_MIN;
 const msg = (id: string, authorId: string, minute: number, text = '', extra: Partial<LinkInput> = {}): LinkInput => ({
   id, authorId, ts: T0 + minute * MS_PER_MIN, replyTo: null, mentions: [], repliesToAuthor: null,
-  words: topicWords(text), question: text.includes('?'), ...extra,
+  words: topicWords(text), question: text.includes('?'), text, ...extra,
 });
 const link = (before: LinkInput[], messages: LinkInput[], options = {}) =>
   linkMessages(before, messages, { reachMs: REACH, weights: DEFAULT_WEIGHTS, thread: { firstId: 't1', starterId: 'starter' } }, options);
@@ -183,6 +183,23 @@ describe('conversation link job', () => {
     db.exec(`UPDATE settings SET value = json_set(value, '$.weights[0]', 9) WHERE key = 'conversations.chooser'`);
     await new ConversationLinkJob(() => db).run();
     expect(storedChooser(db, LINKER_VERSION)!.weights[0]).toBe(9);
+    // The oldest fitted reply (the first answer) bounds the judge's held-out replies; a fit without it is refitted.
+    expect(storedChooser(db, LINKER_VERSION)!.sampleFromTs).toBe(T0 + MS_PER_MIN);
+    db.exec(`UPDATE settings SET value = json_remove(value, '$.sampleFromTs') WHERE key = 'conversations.chooser'`);
+    await new ConversationLinkJob(() => db).run();
+    expect(storedChooser(db, LINKER_VERSION)).toMatchObject({ sampleFromTs: T0 + MS_PER_MIN });
+    expect(storedChooser(db, LINKER_VERSION)!.weights[0]).not.toBe(9);
+  });
+
+  it('reports the channels each run linked when the queue empties', async () => {
+    const db = tempDb();
+    const archive = seedArchive(db, [{ id: 'c' }, { id: 'd' }]);
+    const runs: string[][] = [];
+    const job = new ConversationLinkJob(() => db, (ids) => runs.push(ids.sort()));
+    archive.ingestMessages([say('c', 0, 'hi'), say('d', 1, 'hello')], ARRIVAL.sync);
+    await job.run();
+    await job.run();
+    expect(runs).toEqual([['c', 'd'], []]);
   });
 
   it('scores hidden replies against what they answered, the previous-message baseline and conversation sizes', async () => {

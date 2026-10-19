@@ -23,7 +23,7 @@ const inputSql = (where: string): string => `SELECT x.*, (SELECT p.author_id FRO
 
 interface InputRow { id: string; authorId: string; ts: number; content: string; replyTo: string | null; repliesToAuthor: string | null }
 const toInput = (r: InputRow): LinkInput => ({
-  id: r.id, authorId: r.authorId, ts: r.ts, replyTo: r.replyTo, repliesToAuthor: r.repliesToAuthor,
+  id: r.id, authorId: r.authorId, ts: r.ts, replyTo: r.replyTo, repliesToAuthor: r.repliesToAuthor, text: r.content,
   words: topicWords(r.content), question: r.content.includes('?'),
   mentions: [...new Set([...r.content.matchAll(USER_MENTION)].map((x) => x[1]!))],
 });

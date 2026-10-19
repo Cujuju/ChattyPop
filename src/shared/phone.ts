@@ -40,6 +40,8 @@ export const PHONE_CORE_METHODS = [
   'ownAuthor',
   'ownerModerates',
   'conversation',
+  // The Conversation window's marks.
+  'conversationMark',
   'ownEmoji',
   'ownReactions',
   'ownCommands',
@@ -108,6 +110,7 @@ export const PHONE_EVENT_TYPES = [
   // Another account signed in: the directory (its DMs) is read again.
   'self-changed',
   'privacy-changed',
+  'conversations-changed',
   'saved-messages-changed',
   'rules-changed',
   'message-labels-changed',

@@ -1,7 +1,9 @@
 // Links queued message ranges in the background, a batch per step, yielding to other core work between batches.
 import { getSetting, setSetting, type Db } from '../db';
-import { chooserWeights, FIT_MIN_REPLIES, fittedWeights, REFIT_GROWTH, replySamples, saveChooser, storedChooser } from './fit';
+import { chooserWeights, FIT_MIN_REPLIES, fittedWeights, REFIT_GROWTH, sampledReplies, saveChooser, storedChooser } from './fit';
+import { currentJudge, judgeFor } from './judge';
 import { CANDIDATE_MAX, linkMessages } from './linker';
+import { markedLinks } from './marks';
 import { channelReach, contextInputs, linkInputs, queueAllConversationLinks, storedReplyCount, threadStart, writeLinks } from './store';
 
 /** Bump when linking rules or the chooser's features change: every channel is relinked and the chooser refitted on the next start. */
@@ -20,8 +22,13 @@ export class ConversationLinkJob {
   /** The chooser's refit is checked once per run of the app, before its first linking; a failed fit waits for the next run. */
   private fitChecked = false;
 
-  /** `db` is null while the archive is closed or moving. */
-  constructor(private readonly db: () => Db | null) {}
+  /**
+   * @param db null while the archive is closed or moving
+   * @param drained the queue emptied, with the channels this run linked: views may re-read, new unsure links may await the judge
+   */
+  constructor(private readonly db: () => Db | null, private readonly drained: (channelIds: string[]) => void = () => undefined) {}
+  /** Channels linked since the queue was last empty. */
+  private linked = new Set<string>();
 
   /** Queues every channel when the rules changed since the last run, then links. */
   start(): void {
@@ -64,21 +71,30 @@ export class ConversationLinkJob {
       }
       const queued = db.prepare('SELECT channel_id AS channelId, from_ts AS fromTs, until_ts AS untilTs FROM conversation_link_queue LIMIT 1')
         .get() as Queued | undefined;
-      if (!queued) return;
+      if (!queued) {
+        const channelIds = [...this.linked];
+        this.linked.clear();
+        this.drained(channelIds);
+        return;
+      }
       await this.linkRange(db, queued);
       await yieldToQueue();
     }
   }
 
-  /** Fits the chooser when it has none for this version, or the stored replies doubled since; a new fit relinks everything. */
+  /**
+   * Fits the chooser when it has none for this version, the stored replies doubled since, or it predates `sampleFromTs` (the
+   * judge's calibration needs it); a new fit relinks everything.
+   */
   private async refitIfDue(db: Db): Promise<void> {
     const stored = storedChooser(db, LINKER_VERSION);
     const replies = storedReplyCount(db);
-    if (replies < FIT_MIN_REPLIES || (stored && replies < stored.replies * REFIT_GROWTH)) return;
-    const weights = [...fittedWeights(await replySamples(db))];
+    if (replies < FIT_MIN_REPLIES || (stored?.sampleFromTs !== undefined && replies < stored.replies * REFIT_GROWTH)) return;
+    const { samples, fromTs } = await sampledReplies(db);
+    const weights = [...fittedWeights(samples)];
     if (this.db() !== db) return;
     db.transaction(() => {
-      saveChooser(db, { weights, replies, linkerVersion: LINKER_VERSION });
+      saveChooser(db, { weights, replies, linkerVersion: LINKER_VERSION, ...(fromTs !== undefined ? { sampleFromTs: fromTs } : {}) });
       queueAllConversationLinks(db);
     })();
   }
@@ -88,6 +104,8 @@ export class ConversationLinkJob {
     const reachMs = channelReach(db, q.channelId);
     const weights = chooserWeights(db, LINKER_VERSION);
     const thread = threadStart(db, q.channelId);
+    const judge = currentJudge(db, weights);
+    const extra = { ...(thread ? { thread } : {}), ...(judge ? { judge: judgeFor(db, judge) } : {}), marked: markedLinks(db) };
     const endTs = q.untilTs + reachMs;
     let from = q.fromTs;
     let cursor = { ts: q.fromTs, id: '' };
@@ -98,12 +116,13 @@ export class ConversationLinkJob {
       const last = batch.at(-1);
       const done = batch.length < LINK_BATCH;
       const kept = db.transaction(() => {
-        if (batch.length) writeLinks(db, q.channelId, linkMessages(context, batch, { reachMs, weights, ...(thread ? { thread } : {}) }), new Map(batch.map((m) => [m.id, m.ts])));
+        if (batch.length) writeLinks(db, q.channelId, linkMessages(context, batch, { reachMs, weights, ...extra }), new Map(batch.map((m) => [m.id, m.ts])));
         // Compare-and-set: ingest may have widened the range since it was read.
         return done
           ? db.prepare('DELETE FROM conversation_link_queue WHERE channel_id = ? AND from_ts = ? AND until_ts = ?').run(q.channelId, from, q.untilTs).changes
           : db.prepare('UPDATE conversation_link_queue SET from_ts = ? WHERE channel_id = ? AND from_ts = ?').run(last!.ts, q.channelId, from).changes;
       })();
+      this.linked.add(q.channelId);
       if (done || !kept) return;
       from = last!.ts;
       cursor = { ts: last!.ts, id: last!.id };
