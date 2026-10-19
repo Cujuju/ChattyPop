@@ -82,4 +82,3 @@ export async function seedRollupReferences(db: Db, signal: AbortSignal): Promise
   }
   return rollupReferencesReady(db);
 }
-
