@@ -168,7 +168,8 @@ export function archiveHandlers(o: {
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
       const a = archive();
-      return a.ingestMessagesBatched(messages, ARRIVAL.sync, () => o.ready().archive === a);
+      const owner = o.selfId();
+      return a.ingestMessagesBatched(messages, ARRIVAL.sync, () => o.ready().archive === a && o.selfId() === owner);
     },
     applyGatewayEvent: (t, d) => applyGatewayEvent(archive(), t, d, gatewayDeps),
     applyDmWrite: (accountId, t, d, archiving) => {

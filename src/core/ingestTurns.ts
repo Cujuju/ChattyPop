@@ -20,7 +20,8 @@ export async function ingestInTurns(
     total.inserted += result.inserted; total.edited += result.edited; total.skipped += result.skipped;
     offset += batch.length;
     limit = Math.max(1, Math.min(INGEST_MAX_ROWS, Math.floor(batch.length * INGEST_TARGET_MS / Math.max(1, performance.now() - started))));
-    if (offset < messages.length) await new Promise<void>((resolve) => setImmediate(resolve));
+    // Small successive imports must also yield; awaiting resolved promises alone never releases Core to I/O.
+    await new Promise<void>((resolve) => setImmediate(resolve));
   } while (offset < messages.length);
   return total;
 }

@@ -79,6 +79,14 @@ it('never leaves an atomic transaction across a yield and lets another task run 
   await pending;
 });
 
+it('yields even for a single-row call so successive awaited imports cannot starve I/O', async () => {
+  const { archive } = fixture();
+  let otherTurn = false;
+  setImmediate(() => { otherTurn = true; });
+  await archive.ingestMessagesBatched(page().slice(0, 1), ARRIVAL.import);
+  expect(otherTurn).toBe(true);
+});
+
 it('reuses writer bytecode across commits and still observes rollback and schema changes', () => {
   const { db } = fixture();
   const prepare = vi.spyOn(db, 'prepare');
