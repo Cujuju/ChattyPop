@@ -1,5 +1,5 @@
 import { writeStatement } from '../writeStatements';
-import { utcDay } from '../archiveChangeSource';
+import { MS_PER_S } from '@shared/units';
 import type { ArchiveChangeKind } from '@shared/contract';
 import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
@@ -108,9 +108,10 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
     linkMessage.run(m.id, id, ...values);
     linkIds.push(id);
     if (existed) {
-      const shares = writeStatement(db, 'SELECT DISTINCT m.channel_id AS channelId, m.ts FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?')
-        .all(id) as { channelId: string; ts: number }[];
-      for (const r of shares) relatedLinks.push({ channelId: r.channelId, day: utcDay(r.ts) });
+      const shares = writeStatement(db, `SELECT DISTINCT m.channel_id AS channelId, date(m.ts / ${MS_PER_S}, 'unixepoch') AS day
+        FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?`)
+        .all(id) as { channelId: string; day: string }[];
+      for (const row of shares) relatedLinks.push(row);
     }
   }
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
