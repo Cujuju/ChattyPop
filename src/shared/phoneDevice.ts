@@ -30,6 +30,8 @@ export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
   SETTINGS_KEYS.chatSource,
   SETTINGS_KEYS.archiveChannel,
   SETTINGS_KEYS.archivePlace,
+  SETTINGS_KEYS.bookmarksPlace,
+  SETTINGS_KEYS.bookmarksChannelsHidden,
   // The desktop's own chat choices; each phone keeps its own through its transport (PHONE_DEVICE_SETTINGS).
   SETTINGS_KEYS.chatDevice,
 ];
