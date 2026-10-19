@@ -261,9 +261,10 @@ class MaintainedRollup implements Rollup {
       && meta.revision === this.meta()!.revision && !metadataAffects(db, this.id)
       && !db.prepare(`SELECT ${pendingChangesSql('?', '?')}`).pluck().get(this.id, pending.channel_id)
       && !db.prepare('SELECT 1 FROM rollup_dirty WHERE rollup = ? AND channel_id = ? LIMIT 1').get(this.id, pending.channel_id);
-    if (!current()) return !this.signal.aborted && epoch === this.epoch;
-    await publishMaterializedFold(db, this.id, this.table, this.spec.fold, pending.channel_id, pending.revision, computed!.rows, current);
-    return true;
+    if (!current()) { this.schedule(); return false; }
+    const published = await publishMaterializedFold(db, this.id, this.table, this.spec.fold, pending.channel_id, pending.revision, computed!.rows, current);
+    if (!published) this.schedule();
+    return published;
   }
 
   private async expandSpans(): Promise<void> {

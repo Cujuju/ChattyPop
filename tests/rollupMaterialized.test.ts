@@ -13,7 +13,7 @@ function start() {
   let rollup!: Rollup;
   const core = defineCorePlugin(probe, (ctx) => {
     rollup = ctx.rollups.define('counts', {
-      version: 1, columns: { key: 'TEXT', n: 'INTEGER' }, key: ['key'], dependsOn: ['messages', 'edits', 'deletes'],
+      version: 1, columns: { key: 'TEXT', n: 'INTEGER' }, key: ['key'], dependsOn: ['messages', 'edits', 'deletes', 'names'],
       compute: (p, read) => read(`SELECT 'n' AS key, COUNT(*) AS n FROM archive_all_rollup_messages WHERE channel_id = ? AND ts >= ? AND ts < ?`, [p.channelId, p.startTs, p.endTs]),
       fold: { columns: { key: 'TEXT', n: 'INTEGER' }, key: ['key'],
         compute: (channel, read, _signal, data) => read(`SELECT key, SUM(n) AS n FROM "${data.table}" WHERE channel_id = ? GROUP BY key`, [channel]) },
@@ -43,7 +43,7 @@ it('publishes exact materialized folds after arrivals, deletion and rebuild', as
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
 });
 
-it('rejects a fold computed before a concurrent mutation and repairs it before becoming clean', async () => {
+it.each(['message', 'name'])('rejects a fold computed before a concurrent %s mutation and repairs it', async (mutation) => {
   const { t, rollup, settle } = start(); await settle();
   const original = reads.computeArchive;
   let inserted = false;
@@ -51,7 +51,8 @@ it('rejects a fold computed before a concurrent mutation and repairs it before b
     const result = await original(...args);
     if (typeof args[1].partition === 'string' && !inserted) {
       inserted = true;
-      t.archive.arrive([{ channelId: 'channel', ts: START + MS_PER_DAY, content: 'second' }]);
+      if (mutation === 'message') t.archive.arrive([{ channelId: 'channel', ts: START + MS_PER_DAY, content: 'second' }]);
+      else t.db.prepare("UPDATE users SET global_name = 'Renamed' WHERE id = 'u1'").run();
       expect(rollup().snapshot()).toBeNull();
       expect(await t.client('renderer').rows()).toEqual([]);
     }
@@ -61,5 +62,5 @@ it('rejects a fold computed before a concurrent mutation and repairs it before b
     t.archive.arrive([{ channelId: 'channel', ts: START, content: 'first' }]); await settle();
   } finally { spy.mockRestore(); }
   expect(inserted).toBe(true);
-  expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
+  expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: mutation === 'message' ? 2 : 1 }]);
 });
