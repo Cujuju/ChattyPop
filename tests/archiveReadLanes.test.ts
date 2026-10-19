@@ -15,7 +15,7 @@ class FakeChild extends EventEmitter {
   finish(): void { this.emit('message', { kind: 'rows', rows: [{ done: this.sent.at(-1)!.sql }] }); }
 }
 vi.mock('node:child_process', () => ({ fork: () => { const child = new FakeChild(); fixture.children.push(child); return child; } }));
-const { ArchiveReadPool, ARCHIVE_READ_RESPAWN_DELAY_MS, ARCHIVE_READ_INTERACTIVE_BURST, ARCHIVE_READ_INTERACTIVE_QUEUE_MAX, ARCHIVE_READ_BACKGROUND_QUEUE_MAX } = await import('../src/core/reads/pool');
+const { ArchiveReadPool, ARCHIVE_READ_RESPAWN_DELAY_MS, ARCHIVE_READ_INTERACTIVE_BURST } = await import('../src/core/reads/pool');
 let pool: InstanceType<typeof ArchiveReadPool>;
 const jobs: Promise<unknown>[] = [];
 const read = (sql: string, lane: ReadPriority = 'background', signal?: AbortSignal) => {
@@ -55,17 +55,20 @@ describe('archive read lane contracts', () => {
     expect(child.sent.at(-1)!.sql).toBe('background');
   });
 
-  it('shares an identical queued promise within its lane, including at capacity', async () => {
+  it('shares an identical queued promise within its lane', () => {
     occupy();
     const first = read('same');
     expect(read('same')).toBe(first);
-    for (let i = 1; i < ARCHIVE_READ_BACKGROUND_QUEUE_MAX; i++) void read(`background-${i}`);
-    expect(read('same')).toBe(first);
-    await expect(read('overflow')).rejects.toThrow('background read queue is full');
-    const interactive = read('same', 'interactive');
-    expect(interactive).not.toBe(first);
-    for (let i = 1; i < ARCHIVE_READ_INTERACTIVE_QUEUE_MAX; i++) void read(`interactive-${i}`, 'interactive');
-    await expect(read('overflow', 'interactive')).rejects.toThrow('interactive read queue is full');
+    expect(read('same', 'interactive')).not.toBe(first);
+  });
+
+  it('queues a large fan-out instead of rejecting any of it', async () => {
+    occupy();
+    const FAN_OUT = 64;
+    const fan = Array.from({ length: FAN_OUT }, (_, i) => read(`fan-${i}`));
+    for (let done = 0; done < FAN_OUT + 2; done++) fixture.children[done % 2]!.finish();
+    const rows = await Promise.all(fan);
+    expect(rows.map((r) => (r as { done: string }[])[0]!.done)).toEqual(fan.map((_, i) => `fan-${i}`));
   });
 
   it('bounds background starvation while interactive reads keep arriving', () => {

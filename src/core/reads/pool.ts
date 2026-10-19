@@ -6,10 +6,6 @@ import type { ReadDiag } from './helperEntry';
 
 /** Two concurrent readers allow unrelated lookups without multiplying archive scans across every plugin. */
 export const ARCHIVE_READ_POOL_SIZE = 2;
-/** Visible resources may burst together; retain at most 32 distinct waiting interactive queries. */
-export const ARCHIVE_READ_INTERACTIVE_QUEUE_MAX = 32;
-/** Background scans retain fewer queries so hidden work cannot exhaust interactive admission. */
-export const ARCHIVE_READ_BACKGROUND_QUEUE_MAX = 16;
 /** Admit one waiting background query after eight interactive dispatches, bounding starvation without preempting native reads. */
 export const ARCHIVE_READ_INTERACTIVE_BURST = 8;
 /** Limit repeated abort/crash process churn; replacements are demand-driven after exit, and failed jobs are never retried. */
@@ -51,6 +47,7 @@ export class ArchiveReadPool {
     return this.enqueue({ sql: '', params: [], host }, signal, lane);
   }
 
+  // Queues are unbounded: a caller's fan-out waits its turn. Lanes keep interactive reads ahead; cancellation drops superseded work.
   private enqueue<R>(query: ReadQuery, signal: AbortSignal | undefined, lane: ReadPriority): Promise<R[]> {
     if (signal?.aborted) return Promise.reject(signal.reason);
     if (this.closed) return Promise.reject(new Error('Archive reader is closed'));
@@ -58,8 +55,6 @@ export class ArchiveReadPool {
     const key = serialize([query.sql, normalized, query.compute, query.host, lane]).toString('base64');
     let job = this.queued.get(key);
     if (!job) {
-      const cap = lane === 'interactive' ? ARCHIVE_READ_INTERACTIVE_QUEUE_MAX : ARCHIVE_READ_BACKGROUND_QUEUE_MAX;
-      if (this.queues[lane].length >= cap) return Promise.reject(new Error(`Archive ${lane} read queue is full`));
       let resolve!: Job['resolve'];
       let reject!: Job['reject'];
       const promise = new Promise<unknown[]>((yes, no) => { resolve = yes; reject = no; });
