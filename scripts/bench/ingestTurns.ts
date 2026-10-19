@@ -7,7 +7,7 @@ import { snowflakeFromMs, type RawMessage } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_S } from '@shared/units';
 import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 const HISTORY = 400_000; // Matches the Analytics real-scale fixture without accessing a profile.
 const BULK = 20_000; // Matches the reopened issue's backfill size.
@@ -24,6 +24,7 @@ const LINK_VARIANTS = 4_000; // Repeated URLs exercise shared-link partition not
 const FILE_BYTES = 8_192; // Fixed synthetic attachment size, without any real files.
 const SNOWFLAKE_STEP = 4_194_304; // Discord reserves the lower 22 bits for worker/sequence fields.
 const SQL_SAMPLES = 5; // Retain the dominant execution queries without flooding the result file.
+const TEMP_PREFIX = 'cp-ingest-turns-'; // Cleanup is restricted to this benchmark's disposable namespace.
 
 function messages(count: number, offset = HISTORY): RawMessage[] {
   return Array.from({ length: count }, (_, n) => {
@@ -40,7 +41,8 @@ function messages(count: number, offset = HISTORY): RawMessage[] {
 export async function main() {
   const t = testPlugin(attachments, { with: [links, stats], archive: { channels: [{ id: CHANNEL }] } });
   const source = t.db.prepare("SELECT file FROM pragma_database_list WHERE name = 'main'").pluck().get() as string;
-  const dir = mkdtempSync(join(tmpdir(), 'cp-ingest-turns-'));
+  const tempRoot = resolve(tmpdir());
+  const dir = mkdtempSync(join(tempRoot, TEMP_PREFIX));
   const path = join(dir, 'archive.db');
   const original = openDb(source);
   original.pragma('wal_checkpoint(TRUNCATE)'); original.close();
@@ -98,5 +100,9 @@ export async function main() {
         topSql: [...sql].sort((a, b) => b[1] - a[1]).slice(0, SQL_SAMPLES) }));
       await new Promise<void>((done) => setImmediate(done));
     }
-  } finally { db.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally {
+    db.close();
+    if (dirname(dir) !== tempRoot || !basename(dir).startsWith(TEMP_PREFIX)) throw new Error('Unexpected benchmark cleanup directory');
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
