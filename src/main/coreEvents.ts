@@ -1,7 +1,7 @@
 // Core event routing to windows, the phone and main-process services.
 import type { BrowserWindow } from 'electron';
 import { privacyScopedNotice, rendererGetsEvent } from '@shared/bundledPlugins';
-import { APP_EVENT_CHANNEL, sharedEvent, type AppEvent } from '@shared/contract';
+import { APP_EVENT_CHANNEL, sharedEvent, type AppEvent, type ArchiveChangeKind } from '@shared/contract';
 import { SETTINGS_KEYS, normalizeNotificationSettings } from '@shared/settings';
 import { notifyDesktop } from './desktopNotifications';
 import { noticesFor } from '@shared/notices';
@@ -12,6 +12,9 @@ import { errorMessage } from '@shared/errors';
 import type { CoreClient } from './coreClient';
 import type { AttachmentDownloader } from './media/attachmentDownloader';
 import type { PanelWindows } from './panelWindows';
+
+/** Custom emoji arrive in messages, edits and reactions; attachments also wake the media queues. */
+const MEDIA_QUEUE_KINDS: ReadonlySet<ArchiveChangeKind> = new Set(['messages', 'edits', 'reactions', 'attachments']);
 
 export interface CoreEventDeps {
   win: BrowserWindow;
@@ -69,7 +72,7 @@ export function routeCoreEvents(d: CoreEventDeps): EventSinks {
   core.on('event', publish);
   core.on('event', (e) => {
     if (e.type === 'privacy-changed') notifications.privacyChanged();
-    if (e.type === 'archive-changed' && Object.values(e.changes).some((kinds) => kinds.includes('attachments'))) d.downloader.kick();
+    if (e.type === 'archive-changed' && Object.values(e.changes).some((kinds) => kinds.some((kind) => MEDIA_QUEUE_KINDS.has(kind)))) d.downloader.kick();
     for (const notice of noticesFor(e)) {
       void notifications.show(notificationRequest(notice)).catch((error: unknown) => {
         diag('notification-failed', { message: errorMessage(error) });
