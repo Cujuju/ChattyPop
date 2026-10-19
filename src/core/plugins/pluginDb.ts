@@ -2,7 +2,7 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
-import { readArchive } from '../reads/archiveReads';
+import { computeArchive, readArchive } from '../reads/archiveReads';
 import type { ReadPriority } from '@shared/readPriority';
 import { checkSyncRead, pluginCalls } from './callContext';
 import { checkReadStatement } from '../reads/protocol';
@@ -50,15 +50,26 @@ export interface PluginDb {
 }
 
 /** Off-thread read-only rows from committed archive data. Abort stops native work and rejects with the signal's reason. */
-export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal; priority?: ReadPriority }) => Promise<R[]>;
+export interface ArchiveReadOptions {
+  signal?: AbortSignal;
+  priority?: ReadPriority;
+  /** Closure-free rollup-compatible function, run in one worker snapshot; returns rows directly to the caller. */
+  fold?: { source: string; data: unknown };
+}
+export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: ArchiveReadOptions) => Promise<R[]>;
 
 /** `ctx.storage.read` over `db` (read at each use: the archive can move). Separate from PluginDb, which a raw connection satisfies. */
 export function archiveRead(db: () => Db): ArchiveRead {
-  return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: { signal?: AbortSignal; priority?: ReadPriority } = {}): Promise<R[]> => {
+  return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: ArchiveReadOptions = {}): Promise<R[]> => {
     const call = pluginCalls.getStore();
     const signal = call ? (options.signal ? AbortSignal.any([call.signal, options.signal]) : call.signal) : options.signal;
     signal?.throwIfAborted();
     checkReadStatement(source);
+    if (options.fold) {
+      const [result] = await computeArchive<{ rows: R[] }>(db(), { ...options.fold, partition: null }, signal,
+        options.priority ?? call?.priority ?? 'background');
+      return result!.rows;
+    }
     return readArchive<R>(db(), source, params, signal, options.priority ?? call?.priority ?? 'background');
   };
 }

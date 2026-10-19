@@ -12,6 +12,8 @@ export interface RollupSpec<R extends object, D = undefined> {
   columns: Record<keyof R & string, 'TEXT' | 'INTEGER' | 'REAL'>;
   key: readonly (keyof R & string)[];
   indexes?: readonly (readonly (keyof R & string)[])[];
+  /** A changed message invalidates every UTC day of an overlapping stored run, including possible split openers. */
+  span?: { start: keyof R & string; end: keyof R & string; paddingMs: number };
   /** Optional materialized fold across days, retaining channel privacy and the partition's key grain. */
   allTime?: { values: ReadFold['values']; orderBy?: keyof R & string };
   dependsOn: readonly ArchiveChangeKind[];

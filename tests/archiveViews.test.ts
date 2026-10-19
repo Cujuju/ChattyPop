@@ -45,8 +45,8 @@ describe('archive views', () => {
 
   it('reads every persistent view and adopts tables on a reopened connection without application functions', () => {
     db.prepare("UPDATE messages SET raw_json = ? WHERE id = 'm-open'").run(compressRawJson('{"flags":8192}'));
-    const rollups = ['messages', 'attachments', 'links'].flatMap((name) => [`archive_all_rollup_${name}`, `archive_residual_${name}`]);
-    const documented = [...Object.keys(VIEW_COLUMNS).flatMap(archiveViewNames), ...rollups, 'archive_rollup_attachments'].sort();
+    const rollups = [...['messages', 'attachments', 'links'].flatMap((name) => [`archive_all_rollup_${name}`, `archive_residual_${name}`]), 'archive_rollup_messages', 'archive_rollup_attachments'];
+    const documented = [...Object.keys(VIEW_COLUMNS).flatMap(archiveViewNames), ...rollups].sort();
     expect(db.prepare("SELECT name FROM sqlite_schema WHERE type = 'view' AND name GLOB 'archive_*' ORDER BY name").pluck().all()).toEqual(documented);
     const bare = new Database(db.name);
     try {

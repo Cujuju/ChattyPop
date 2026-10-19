@@ -1,5 +1,5 @@
 {
-  "version": "4.1.0",
+  "version": "4.2.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -355,6 +355,7 @@
       "ProviderSelect",
       "QrCode",
       "RemovableChip",
+      "RollupControls",
       "Row",
       "RuleBadge",
       "RuleLookback",

@@ -41,8 +41,8 @@ export class ArchiveReadPool {
     return this.enqueue({ sql, params }, signal, lane);
   }
 
-  compute<R>(compute: ReadCompute, signal?: AbortSignal): Promise<R[]> {
-    return this.enqueue({ sql: '', params: [], compute }, signal, 'background');
+  compute<R>(compute: ReadCompute, signal?: AbortSignal, lane: ReadPriority = 'background'): Promise<R[]> {
+    return this.enqueue({ sql: '', params: [], compute }, signal, lane);
   }
 
   private enqueue<R>(query: ReadQuery, signal: AbortSignal | undefined, lane: ReadPriority): Promise<R[]> {

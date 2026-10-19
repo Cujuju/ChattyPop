@@ -95,25 +95,28 @@ class MaintainedRollup implements Rollup {
     if (this.signal.aborted) throw new PluginInactiveError(this.pluginId);
     this.checkZone();
     const { dirty } = this.ready().prepare('SELECT COUNT(*) AS dirty FROM rollup_dirty WHERE rollup = ?').get(this.id) as { dirty: number };
+    const { spans } = this.ready().prepare('SELECT COUNT(*) AS spans FROM rollup_span_dirty WHERE rollup = ?').get(this.id) as { spans: number };
     const referencesReady = rollupReferencesReady(this.ready());
-    if ((dirty || !referencesReady) && !this.running) this.schedule();
+    if ((dirty || spans || !referencesReady) && !this.running) this.schedule();
     const { total } = this.ready().prepare(`SELECT COUNT(*) AS total FROM (
       SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ?)`)
       .get(this.id, this.id) as { total: number };
-    return { building: Boolean(!referencesReady || this.meta()?.backfill || dirty || this.running), dirty, total, error: this.error };
+    return { building: Boolean(!referencesReady || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
   }
 
   snapshot(): string | null {
     this.signal.throwIfAborted();
     this.checkZone();
     if (this.running) return null;
-    const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision
+    const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision, v.revision AS visibility_revision
       FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
+        JOIN rollup_visibility_state v ON v.singleton = 1
       WHERE m.rollup = ? AND m.backfill = 0 AND r.ready = 1
-        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup)`)
-      .get(this.id) as { version: number; zone: string; revision: number; references_revision: number } | undefined;
+        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup)
+        AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty WHERE rollup = m.rollup)`)
+      .get(this.id) as { version: number; zone: string; revision: number; references_revision: number; visibility_revision: number } | undefined;
     if (!row) { this.schedule(); return null; }
-    return `${row.version}:${row.revision}:${row.references_revision}:${row.zone}`;
+    return `${row.version}:${row.revision}:${row.references_revision}:${row.visibility_revision}:${row.zone}`;
   }
 
   rebuild(scope?: { channelIds?: readonly string[] }): void {
@@ -186,6 +189,7 @@ class MaintainedRollup implements Rollup {
       await this.discover(Boolean(meta.backfill), meta.queued_through_seq, this.epoch);
       while (!this.signal.aborted) {
         if (this.meta()?.backfill) { this.schedule(); break; }
+        await this.expandSpans();
         const db = this.ready();
         const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
         if (!dirty) break;
@@ -207,6 +211,24 @@ class MaintainedRollup implements Rollup {
       this.running = false;
       if (!this.signal.aborted && this.ready().open) this.progress(true);
     }
+  }
+
+  private async expandSpans(): Promise<void> {
+    const db = this.ready();
+    if (!db.prepare('SELECT 1 FROM rollup_span_dirty WHERE rollup = ? LIMIT 1').get(this.id)) return;
+    const [result] = await readArchive<{ requests: string; partitions: string }>(db, `WITH RECURSIVE
+      pending AS (SELECT channel_id, first_day, last_day, revision FROM rollup_span_dirty WHERE rollup = ?),
+      days(channel_id, day, last) AS (
+        SELECT channel_id, first_day, last_day FROM pending
+        UNION ALL SELECT channel_id, date(day, '+1 day'), last FROM days WHERE day < last)
+      SELECT (SELECT json_group_array(json_object('channel', channel_id, 'first', first_day, 'last', last_day, 'revision', revision)) FROM pending) AS requests,
+        (SELECT json_group_array(json_object('channel_id', channel_id, 'day', day)) FROM (SELECT DISTINCT channel_id, day FROM days)) AS partitions`, [this.id], this.signal, 'background');
+    if (this.signal.aborted || db !== this.ready()) return;
+    db.transaction(() => {
+      markPartitions(db, this.id, JSON.parse(result!.partitions));
+      const remove = db.prepare('DELETE FROM rollup_span_dirty WHERE rollup = ? AND channel_id = ? AND first_day = ? AND last_day = ? AND revision = ?');
+      for (const r of JSON.parse(result!.requests)) remove.run(this.id, r.channel, r.first, r.last, r.revision);
+    })();
   }
 
   private progress(force = false): void {

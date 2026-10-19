@@ -4,6 +4,7 @@ import type { Db } from '../db';
 import { visibleChannelSql } from '../queries/privacy';
 import type { RollupPartition, RollupRow, RollupSpec } from './types';
 import type { FoldResult } from '../reads/protocol';
+import { installSpanTriggers } from './spans';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
 export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number }
@@ -20,7 +21,16 @@ export function installRollupStore(db: Db): void {
     CREATE INDEX IF NOT EXISTS rollup_dirty_newest ON rollup_dirty (rollup, day DESC, channel_id);
     CREATE TABLE IF NOT EXISTS rollup_partitions (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, day TEXT NOT NULL, watermark INTEGER NOT NULL,
-      PRIMARY KEY (rollup, channel_id, day));`);
+      PRIMARY KEY (rollup, channel_id, day));
+    CREATE TABLE IF NOT EXISTS rollup_visibility_state (singleton INTEGER PRIMARY KEY, revision INTEGER NOT NULL);
+    INSERT OR IGNORE INTO rollup_visibility_state VALUES (1, 0);
+    CREATE TABLE IF NOT EXISTS rollup_span_dirty (
+      rollup TEXT NOT NULL, channel_id TEXT NOT NULL, first_day TEXT NOT NULL, last_day TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (rollup, channel_id, first_day, last_day));`);
+  for (const table of ['hidden_ids']) for (const operation of ['INSERT', 'UPDATE', 'DELETE']) {
+    db.exec(`CREATE TRIGGER IF NOT EXISTS rollup_visibility_${table}_${operation.toLowerCase()} AFTER ${operation} ON ${table}
+      BEGIN UPDATE rollup_visibility_state SET revision = revision + 1 WHERE singleton = 1; END;`);
+  }
 }
 
 export function rollupTable<R extends object, D>(db: Db, pluginId: string, name: string, spec: RollupSpec<R, D>): string {
@@ -35,7 +45,8 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
   const table = pluginTableName(pluginId, `rollup_${name}_v${spec.version}`);
   const id = `${pluginId}.${name}`;
   const ready = `(SELECT ready FROM rollup_reference_state WHERE singleton = 1) = 1
-    AND (SELECT backfill FROM rollup_meta WHERE rollup = '${id}') = 0`;
+    AND (SELECT backfill FROM rollup_meta WHERE rollup = '${id}') = 0${spec.span ? `
+    AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id)` : ''}`;
   const clean = `NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = '${id}')`;
   db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (channel_id TEXT NOT NULL, day TEXT NOT NULL,
     ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
@@ -46,6 +57,7 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
     if (!keys.length || keys.some((key) => !Object.hasOwn(spec.columns, key))) throw new Error('Invalid rollup index');
     db.exec(`CREATE INDEX IF NOT EXISTS "${table}_read_${index}" ON "${table}" (${keys.map((key) => `"${key}"`).join(', ')})`);
   }
+  if (spec.span) installSpanTriggers(db, id, table, spec.columns, spec.span);
   if (spec.allTime) {
     if (Object.keys(spec.allTime.values).length !== columns.length - spec.key.length || columns.some(([column]) => !keys.includes(column) && !['sum', 'min', 'max', 'latest', 'earliest'].includes(spec.allTime!.values[column] ?? ''))) throw new Error('Invalid all-time fold columns');
     if (Object.values(spec.allTime.values).some((value) => value === 'latest' || value === 'earliest') && (!spec.allTime.orderBy || !Object.hasOwn(spec.columns, spec.allTime.orderBy))) throw new Error('Ordered fold needs its ordering column');

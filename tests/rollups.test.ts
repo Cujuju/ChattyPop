@@ -173,6 +173,12 @@ describe('host rollup contract', () => {
     expect(rollup().snapshot()).toBeNull();
     await settled(rollup());
     expect(rollup().snapshot()).not.toBe(beforeCatalog);
+    const beforeVisibility = rollup().snapshot();
+    t.archive.setPrivacyMode(true);
+    expect(rollup().snapshot()).not.toBe(beforeVisibility);
+    const hidden = rollup().snapshot();
+    t.archive.setPrivacyMode(false);
+    expect(rollup().snapshot()).not.toBe(hidden);
   });
 
   it('resumes only remaining partitions newest first when completed coverage trails queued coverage', async () => {

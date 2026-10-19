@@ -16,6 +16,8 @@ import type { ArchiveRead, PluginDb } from '../../src/core/plugins/pluginDb';
 /** Instrumentable reader for SQL-plan tests; testPlugin uses the real off-thread reader. */
 export const statementRead = (db: PluginDb): ArchiveRead => async <R,>(sql: string, params: readonly unknown[] | Record<string, unknown> = [], options = {}) => {
   (options as { signal?: AbortSignal }).signal?.throwIfAborted();
+  const fold = (options as import('../../src/core/plugins/pluginDb').ArchiveReadOptions).fold;
+  if (fold) return new Function(`return (${fold.source})`)()(null, statementRead(db), new AbortController().signal, fold.data);
   const statement = db.prepare(sql);
   return (Array.isArray(params) ? statement.all(...params) : statement.all(params)) as R[];
 };

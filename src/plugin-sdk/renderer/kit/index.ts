@@ -10,6 +10,7 @@ export { FileIcon } from '@/panels/chat/FileIcon';
 export { Select } from '@/ui/Select';
 export { Switch } from '@/ui/Switch';
 export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type HeaderButtonVariant } from '@/ui/PanelHeader';
+export { RollupControls } from './RollupControls';
 export { createAction } from '@/ui/action';
 // The app's own confirmation and notice dialogs, in place of the browser's unthemed confirm() and alert().
 export { confirmDialog, failureNotice, noticeDialog, type ConfirmOptions, type NoticeOptions } from '@/state/dialogs';
