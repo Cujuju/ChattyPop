@@ -635,6 +635,7 @@ Values in a plugin module are tokens (`var(--…)`), keywords, zero, counts (uni
 | `row` | List row: a hover wash that fades in | `data-hover="raise"` (a rounded tile lifting to surface-4), `data-press` (pressed wash), `data-state="dimmed"` |
 | `valueRow`, `coverControl` | A settings row showing its value, and the native control laid unseen over it | — |
 | `option` | A popover checklist choice | — |
+| `identityOption`, `identityTile` | A popover checklist choice in its identity colour: a label holding its checkbox, checked taking the colour, unchecked muted (SDK 3.13); a rounded tile with an identity's mark in its colour (`--cp-identity-tile`), muted in an unchecked `identityOption` | `data-platform` |
 | `disclosure` | A heading button that folds what follows it; its `cp-chevron` child points right while closed | `aria-expanded` |
 | `insetFocus` | Focus ring drawn inside a flush control | — |
 | `chip` | Raised pill toggle; pressed in the section colour | `aria-pressed` |

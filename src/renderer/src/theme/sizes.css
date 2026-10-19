@@ -142,6 +142,7 @@
   --cp-radio-dot: 6px; /* the dot inside a chosen mark */
   --cp-rail-w: 56px; /* collapsed sidebar */
   --cp-menu-min-w: 200px; /* right-click menu */
+  --cp-identity-tile: var(--cp-section-tile); /* a source's mark tile in a checklist row: a panel header's tile, so it reads as an icon, not an avatar */
   --cp-search-list-max-h: 320px; /* searchable select's option list */
   --cp-search-popover-max-w: 320px; /* searchable select's list: a server or channel name reads whole; longer ones ellipsize */
   --cp-search-lead: var(--cp-avatar-sm); /* a searchable select option's icon column: a server's avatar as in the sidebar */
