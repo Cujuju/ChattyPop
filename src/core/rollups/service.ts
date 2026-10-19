@@ -12,6 +12,7 @@ import { metadataAffects, metadataPending, seedRollupMetadata } from './metadata
 import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 import { spanGeneration } from './spans';
+import { seedSpanInputs } from './spanInputs';
 import { pendingChangesSql, seedRollupChanges } from './changes';
 import { publishMaterializedFold } from './materialized';
 
@@ -222,6 +223,7 @@ class MaintainedRollup implements Rollup {
       while (!this.signal.aborted) {
         await seedRollupChanges(this.ready(), this.signal);
         if (this.meta()?.backfill) { this.schedule(); break; }
+        if (this.spec.span && !await seedSpanInputs(this.ready(), this.id, this.table, this.spec.span, this.signal)) { this.schedule(); break; }
         await this.expandSpans();
         const db = this.ready();
         const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;

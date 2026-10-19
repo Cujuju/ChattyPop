@@ -25,10 +25,10 @@ describe('persistent generated rollup definitions', () => {
     installRollupStore(db); installRollupTriggers(db);
     reconcileDefinition(db, 'rollup_reference_messages/triggers', `CREATE TRIGGER rollup_reference_messages_insert AFTER INSERT ON messages BEGIN SELECT 1; END;`);
     installRollupReferences(db);
-    expect(db.prepare("SELECT sql FROM sqlite_schema WHERE name = 'rollup_reference_messages_insert'").pluck().get()).toContain('rollup_reference_pending');
+    expect(db.prepare("SELECT sql FROM sqlite_schema WHERE name = 'rollup_reference_messages_insert'").pluck().get()).toContain('rollup_reference_changes');
     db.exec('DROP TRIGGER rollup_reference_messages_insert; CREATE TRIGGER rollup_reference_messages_insert AFTER INSERT ON messages BEGIN SELECT 1; END;');
     installRollupReferences(db);
-    expect(db.prepare("SELECT sql FROM sqlite_schema WHERE name = 'rollup_reference_messages_insert'").pluck().get()).toContain('rollup_reference_pending');
+    expect(db.prepare("SELECT sql FROM sqlite_schema WHERE name = 'rollup_reference_messages_insert'").pluck().get()).toContain('rollup_reference_changes');
     db.exec('ALTER TABLE attachments ADD COLUMN fixture_revision INTEGER');
     installRollupTriggers(db);
     db.exec("INSERT INTO rollup_meta(rollup, version, zone) VALUES ('probe.files', 1, 'UTC'); INSERT INTO rollup_kinds VALUES ('probe.files', 'attachments')");

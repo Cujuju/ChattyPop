@@ -2,6 +2,7 @@ import type { Db } from '../db';
 import { readArchive } from '../reads/archiveReads';
 import { MS_PER_S } from '@shared/units';
 import { reconcileDefinition } from './definitions';
+import { referencePartitionSql, installReferenceChanges, acknowledgeReferenceChanges } from './referenceChanges';
 
 const REFERENCE_APPLY_BATCH_SIZE = 128; // Bounded transactions yield Core during large reference-index updates.
 const draining = new WeakMap<Db, Promise<boolean>>();
@@ -22,17 +23,27 @@ export function installRollupReferences(db: Db): void {
   if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_reference_state') WHERE name = 'mutation'").get()) db.exec('ALTER TABLE rollup_reference_state ADD COLUMN mutation INTEGER NOT NULL DEFAULT 0');
   if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_reference_pending') WHERE name = 'revision'").get()) db.exec('ALTER TABLE rollup_reference_pending ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
   db.exec('CREATE INDEX IF NOT EXISTS rollup_reference_pending_revision ON rollup_reference_pending(revision)');
+  installReferenceChanges(db);
   for (const [table, kind, target, column, text] of [
     ['messages', 'message', 'rollup_reference_messages', 'message_id', 'content'],
     ['links', 'link', 'rollup_reference_links', 'link_id', 'url'],
   ]) {
-    const enqueue = `UPDATE rollup_reference_state SET mutation = mutation + 1 WHERE singleton = 1;
-      INSERT INTO rollup_reference_pending(kind, id, revision) SELECT '${kind}', new.id, mutation FROM rollup_reference_state WHERE singleton = 1
-        ON CONFLICT(kind, id) DO UPDATE SET revision = excluded.revision;`;
+    const channel = kind === 'message' ? 'channel_id' : 'first_channel_id';
+    const ts = kind === 'message' ? 'ts' : 'first_ts';
+    const queued = `SELECT 1 FROM rollup_reference_changes WHERE kind = '${kind}' AND channel_id = new.${channel}
+      AND day = date(new.${ts} / ${MS_PER_S}, 'unixepoch') AND revision = (SELECT mutation FROM rollup_reference_state WHERE singleton = 1)
+      UNION ALL SELECT 1 FROM rollup_reference_pending WHERE new.${ts} IS NULL AND kind = '${kind}' AND id = new.id
+        AND revision = (SELECT mutation FROM rollup_reference_state WHERE singleton = 1)`;
+    const enqueue = `INSERT INTO rollup_reference_changes(kind, channel_id, day, revision)
+      SELECT '${kind}', new.${channel}, date(new.${ts} / ${MS_PER_S}, 'unixepoch'), mutation FROM rollup_reference_state WHERE singleton = 1 AND new.${ts} IS NOT NULL
+      ON CONFLICT(kind, channel_id, day) DO UPDATE SET revision = excluded.revision;
+      INSERT INTO rollup_reference_pending(kind, id, revision)
+      SELECT '${kind}', new.id, mutation FROM rollup_reference_state WHERE singleton = 1 AND new.${ts} IS NULL
+      ON CONFLICT(kind, id) DO UPDATE SET revision = excluded.revision;`;
     reconcileDefinition(db, `${target}/triggers`, `CREATE TRIGGER IF NOT EXISTS ${target}_insert AFTER INSERT ON ${table}
-      BEGIN ${enqueue} END;
+      WHEN NOT EXISTS (${queued}) BEGIN ${enqueue} END;
       CREATE TRIGGER IF NOT EXISTS ${target}_update AFTER UPDATE OF ${text} ON ${table} WHEN old.${text} IS NOT new.${text}
-      BEGIN ${enqueue} END;
+      AND NOT EXISTS (${queued}) BEGIN ${enqueue} END;
       CREATE TRIGGER IF NOT EXISTS ${target}_delete AFTER DELETE ON ${table}
       BEGIN DELETE FROM ${target} WHERE ${column} = old.id;
         DELETE FROM rollup_reference_pending WHERE kind = '${kind}' AND id = old.id; END;`);
@@ -48,6 +59,7 @@ export function installRollupReferences(db: Db): void {
 
 export const rollupReferencesReady = (db: Db): boolean => Boolean(db.prepare('SELECT ready FROM rollup_reference_state WHERE singleton = 1').pluck().get());
 export const referenceWorkPending = (db: Db): boolean => !rollupReferencesReady(db) || Boolean(db.prepare(`SELECT 1 FROM rollup_reference_pending
+  UNION ALL SELECT 1 FROM rollup_reference_changes
   UNION ALL SELECT 1 FROM rollup_reference_catalog LIMIT 1`).get());
 
 /** Pending catalog ids suppress only matching partitions until background classification completes, including privacy changes during discovery. */
@@ -64,6 +76,8 @@ interface ReferenceRow { kind: string; id: string | number; channel_id: string; 
 async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
   if (!referenceWorkPending(db)) return true;
   const state = db.prepare('SELECT ready, revision, mutation FROM rollup_reference_state WHERE singleton = 1').get() as { ready: number; revision: number; mutation: number };
+  // Writers arriving after this snapshot retain the next epoch, even for an already queued day.
+  db.prepare('UPDATE rollup_reference_state SET mutation = mutation + 1 WHERE singleton = 1').run();
   let rows: ReferenceRow[] = [];
   for (const [table, kind, text, channel, ts, target, column] of [
     ['messages', 'message', 'content', 'channel_id', 'ts', 'rollup_reference_messages', 'message_id'],
@@ -72,6 +86,7 @@ async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
     rows = rows.concat(await readArchive<ReferenceRow>(db, `WITH candidates AS (
       SELECT id FROM ${table} WHERE @bootstrap
       UNION SELECT t.id FROM rollup_reference_pending p CROSS JOIN ${table} t ON t.id = p.id WHERE p.kind = '${kind}'
+      UNION ${referencePartitionSql(table!, kind!, channel!, ts!)}
       UNION SELECT t.id FROM rollup_reference_catalog c CROSS JOIN ${table} t WHERE instr(t.${text}, c.id) > 0)
       SELECT '${kind}' AS kind, t.id, t.${channel} AS channel_id, date(t.${ts} / ${MS_PER_S}, 'unixepoch') AS day,
         t.${text} AS text, ${knownReferenceSql(`t.${text}`)} AS referenced FROM candidates c JOIN ${table} t ON t.id = c.id
@@ -109,6 +124,8 @@ async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
     signal.throwIfAborted();
     if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   }
+  await acknowledgeReferenceChanges(db, state.mutation, signal);
+  if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   db.transaction(() => {
     db.exec('DELETE FROM rollup_reference_catalog');
     db.prepare('UPDATE rollup_reference_state SET ready = 1 WHERE singleton = 1').run();
