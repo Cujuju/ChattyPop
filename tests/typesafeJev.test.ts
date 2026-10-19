@@ -32,6 +32,20 @@ describe('Jev connection: OpenRouter or TypeSafe directly', () => {
     expect(normalizeAiSettings({ jevConnection: 'bogus' }).jevConnection).toBe('openrouter');
   });
 
+  it('a cancel while the answer is read stays a cancel, not an empty answer', async () => {
+    const reg = new ProviderRegistry(vi.fn());
+    reg.setOpenRouterKeys([jevKey]);
+    const abort = new AbortController();
+    vi.stubGlobal('fetch', async () => ({
+      ok: true, status: 200, headers: new Headers(),
+      json: async () => {
+        abort.abort();
+        throw new DOMException('aborted', 'AbortError');
+      },
+    }));
+    await expect(reg.decider(on('openrouter'), 'summaries.citationCheck')!.decide({ ...question, signal: abort.signal })).rejects.toThrow();
+  });
+
   it('OpenRouter requests are unchanged: OpenRouter endpoint, OpenRouter key, reported cost', async () => {
     const spent = vi.fn();
     const reg = new ProviderRegistry(spent);

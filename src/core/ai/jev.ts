@@ -158,10 +158,11 @@ export class JevProvider {
     for (let attempt = 1; ; attempt++) {
       req.admit?.();
       const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+      const signal = req.signal ? AbortSignal.any([req.signal, timeout]) : timeout;
       const res = await fetch(route.endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...route.headers },
-        signal: req.signal ? AbortSignal.any([req.signal, timeout]) : timeout,
+        signal,
         body,
       });
       if (RETRY_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS) {
@@ -169,7 +170,11 @@ export class JevProvider {
         await sleep(Number.isFinite(after) && after > 0 ? after * MS_PER_S : RETRY_BASE_MS * 2 ** (attempt - 1));
         continue;
       }
-      const json = (await res.json().catch(() => ({}))) as SystemOneResponse;
+      // An unreadable body reads as no answers; a cancel or timeout while reading stays one.
+      const json = (await res.json().catch(() => {
+        signal.throwIfAborted();
+        return {};
+      })) as SystemOneResponse;
       if (!res.ok || json.error) throw new Error(`Jev: ${route.errorText(json, res.status)}`);
       const answers: Record<string, unknown> = {};
       for (const [id, q] of Object.entries(req.questions)) if (isAnswerTo(q, json.answers?.[id])) answers[id] = json.answers![id];
