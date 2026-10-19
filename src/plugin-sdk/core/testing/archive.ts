@@ -11,7 +11,7 @@ import type { SeedArchive, SeedChannel, SeedGuild, SeedMessage } from './types';
 const GUILD_TEXT_CHANNEL = 0;
 const PUBLIC_THREAD = 11;
 /** The server channels go in when a test seeds none. */
-const DEFAULT_GUILD: SeedGuild = { id: '1000000000000000001', name: 'Server' };
+export const DEFAULT_GUILD: SeedGuild = { id: '1000000000000000001', name: 'Server' };
 /** The author of a message that names none. */
 const DEFAULT_AUTHOR: RawUser = { id: 'u1', username: 'alice', global_name: 'Alice' };
 
