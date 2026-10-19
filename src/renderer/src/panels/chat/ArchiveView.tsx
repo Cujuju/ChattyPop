@@ -1,5 +1,5 @@
 import { batchWrites, onCleanup } from '@plugin-sdk/renderer/containment';
-import { For, Show, createEffect, createSignal, on, onMount } from 'solid-js';
+import { For, Show, createEffect, createMemo, createSignal, on, onMount } from 'solid-js';
 import type { UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
 import {
@@ -15,7 +15,7 @@ import { firstUnreadAbove } from '@/state/lastReadRules';
 import { listen } from '@/ui/listen';
 import { editingId } from '@/state/ownMessages';
 import { postingUnlocked } from '@/state/posting';
-import { archivedChannels, channelById } from '@/state/directory';
+import { archivedChannelById, archivedChannels, channelById } from '@/state/directory';
 import { isDmChannel, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
 import { JumpToNewest } from '@/ui/JumpToNewest';
 import { UnreadBanner } from '@/ui/UnreadBanner';
@@ -77,7 +77,7 @@ export function ArchiveView() {
   });
 
   const channels = () => archivedChannels({ threads: true });
-  const current = () => channels().find((c) => c.id === archiveChannelId());
+  const current = createMemo(() => archivedChannelById(archiveChannelId() ?? ''));
   /** A DM open without archiving on (docs/dms.md §3.6): 'stopped' shows its history read-only, 'never' an offer to archive it. */
   const openDm = (): DmChannel | undefined => {
     const c = channelById(archiveChannelId() ?? '');

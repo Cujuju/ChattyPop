@@ -1,6 +1,6 @@
 import { containedRoot, createStore, reportFailure } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, createSignal, untrack } from 'solid-js';
+import { createMemo, createResource, createSignal, untrack } from 'solid-js';
 import type { AppEvent, DirectoryChannel, DirectoryGuild, ReadStateCount } from '@shared/contract';
 import { DM_CHANNEL_TYPES, DM_GUILD_ID, THREAD_CHANNEL_TYPES, byDmActivity, compareSnowflakes } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
@@ -112,20 +112,32 @@ export const channelSigil = (c: DirectoryChannel): string => (DM_CHANNEL_TYPES.h
 /** An archived channel with its server's name. */
 export type ArchivedChannel = DirectoryChannel & { guildName: string };
 
+/** Lookups derive once per directory change: hot readers (a composer per keystroke) must not rescan every channel. */
+const derived = containedRoot(() => {
+  const listOf = (threads: boolean, hostedAi: boolean) => createMemo((): readonly ArchivedChannel[] =>
+    directory().flatMap((g) =>
+      g.channels.filter((c) => c.optedIn && (threads || !isThread(c)) && !(hostedAi && c.localAiOnly)).map((c) => ({ ...c, guildName: g.name })),
+    ));
+  const lists = { ff: listOf(false, false), tf: listOf(true, false), fh: listOf(false, true), th: listOf(true, true) };
+  return {
+    lists,
+    byId: createMemo(() => new Map(directory().flatMap((g) => g.channels.map((c) => [c.id, c] as const)))),
+    archivedById: createMemo(() => new Map(lists.tf().map((c) => [c.id, c] as const))),
+  };
+});
+
 /** Archived channels in directory order: threads only when `threads`, and no local-AI-only ones when `hostedAi` (Jev reads them). */
-export const archivedChannels = (opts: { threads?: boolean; hostedAi?: boolean } = {}): ArchivedChannel[] =>
-  directory().flatMap((g) =>
-    g.channels.filter((c) => c.optedIn && (opts.threads || !isThread(c)) && !(opts.hostedAi && c.localAiOnly)).map((c) => ({ ...c, guildName: g.name })),
-  );
+export const archivedChannels = (opts: { threads?: boolean; hostedAi?: boolean } = {}): readonly ArchivedChannel[] =>
+  derived.lists[`${opts.threads ? 't' : 'f'}${opts.hostedAi ? 'h' : 'f'}` as keyof typeof derived.lists]();
+
+/** An archived channel or thread by id. */
+export const archivedChannelById = (id: string): ArchivedChannel | undefined => derived.archivedById().get(id);
 
 /** '#name' (or '@name' for a DM), then ' · server' when `guildName` is given. */
 export const channelLabel = (c: DirectoryChannel, guildName?: string): string => `${channelSigil(c)}${c.name}${guildName ? ` · ${guildName}` : ''}`;
 
 /** A known channel by id. */
-export const channelById = (id: string): DirectoryChannel | undefined =>
-  directory()
-    .flatMap((g) => g.channels)
-    .find((c) => c.id === id);
+export const channelById = (id: string): DirectoryChannel | undefined => derived.byId().get(id);
 
 /** Archived threads (and forum posts) of a channel that hold messages, most recently active first. */
 export const threadsOf = (parentId: string): DirectoryChannel[] =>
