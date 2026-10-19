@@ -1,5 +1,6 @@
-// Who-did-it tips over a message's parts (a reaction, a poll answer), as Discord's reaction tooltip: an emoji large beside
-// "<what> <verb> A, B and 3 others", shown after the pointer rests or a touch holds. Long presses suppress the click.
+// Who-did-it tips over a message's parts (a reaction, a poll answer), after Discord's reaction tooltip: an emoji large beside
+// "<what> <verb>", then one person per row and "and 3 others". Shown after the pointer rests or a touch holds; long presses
+// suppress the click.
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { For, Show, createSignal, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
@@ -17,26 +18,22 @@ const EDGE_GAP_PX = 8;
 /** People a tip names before "N others", as Discord's reaction tooltip. */
 export const TIP_PEOPLE_SHOWN = 3;
 
-/** The first people listed, then "1 other" / "N others" for the rest of `count`. */
-export function peopleItems(people: PersonMatch[], count: number): (PersonMatch | string)[] {
+/** The people a tip names, and "and 1 other" / "and N others" for the rest of `count` (null: none left). */
+export function tipPeople(people: PersonMatch[], count: number): { named: PersonMatch[]; others: string | null } {
   const named = people.slice(0, TIP_PEOPLE_SHOWN);
-  const others = count - named.length;
-  return others > 0 ? [...named, others === 1 ? '1 other' : `${others} others`] : named;
-}
-
-/** What precedes item `i` of `n`: "A", "A and B", "A, B and C". */
-export function listSeparator(i: number, n: number): string {
-  if (i === 0) return '';
-  return i === n - 1 ? ' and ' : ', ';
+  const rest = count - named.length;
+  return { named, others: rest > 0 ? `and ${rest} ${rest === 1 ? 'other' : 'others'}` : null };
 }
 
 /** A person's avatar and styled name as the channel shows it (server nickname and role colour, else display name and Nitro style). */
 function TipPerson(props: { person: PersonMatch; channelId: string }) {
   return (
-    <span class={styles.person}>
+    <li class={styles.person}>
       <PersonFace userId={props.person.id} channelId={props.channelId} class={styles.face} />
-      <AuthorName author={drawnName(props.person.id, props.channelId, props.person.name)} />
-    </span>
+      <span class={styles.name}>
+        <AuthorName author={drawnName(props.person.id, props.channelId, props.person.name)} />
+      </span>
+    </li>
   );
 }
 
@@ -61,7 +58,7 @@ export function PeopleTip(props: {
     const half = tip.offsetWidth / 2;
     setLeft(Math.min(Math.max(rect.left + rect.width / 2, half + EDGE_GAP_PX), window.innerWidth - half - EDGE_GAP_PX));
   });
-  const items = (): (PersonMatch | string)[] | null => (props.people?.length ? peopleItems(props.people, props.count) : null);
+  const list = (): ReturnType<typeof tipPeople> | null => (props.people?.length ? tipPeople(props.people, props.count) : null);
   return (
     <Portal>
       <div ref={tip} class={styles.tip} role="tooltip" style={{ left: `${left()}px`, top: `${rect.top}px` }}>
@@ -72,24 +69,19 @@ export function PeopleTip(props: {
             </Show>
           )}
         </Show>
-        <p class={styles.text}>
-          <span class={styles.label}>{props.label}</span>{' '}
-          <Show when={items()} fallback={props.status}>
-            {(list) => (
-              <>
-                {props.verb}{' '}
-                <For each={list()}>
-                  {(item, i) => (
-                    <>
-                      {listSeparator(i(), list().length)}
-                      {typeof item === 'string' ? item : <TipPerson person={item} channelId={props.channelId} />}
-                    </>
-                  )}
-                </For>
-              </>
+        <div class={styles.body}>
+          <p class={styles.heading}>
+            <span class={styles.label}>{props.label}</span> <Show when={list()} fallback={props.status}>{props.verb}</Show>
+          </p>
+          <Show when={list()}>
+            {(l) => (
+              <ul class={styles.people}>
+                <For each={l().named}>{(person) => <TipPerson person={person} channelId={props.channelId} />}</For>
+                <Show when={l().others}>{(others) => <li class={styles.others}>{others()}</li>}</Show>
+              </ul>
             )}
           </Show>
-        </p>
+        </div>
       </div>
     </Portal>
   );

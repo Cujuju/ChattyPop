@@ -1,5 +1,5 @@
-/* A who-did-it tip (a reaction's, a poll answer's), as Discord's reaction tooltip: the emoji large beside the names,
-   floating above what it names. Placed by PeopleTip (fixed left/top: the anchor's centre and top edge). */
+/* A who-did-it tip (a reaction's, a poll answer's), after Discord's reaction tooltip: the emoji large beside a heading
+   and one person per row, floating above what it names. Placed by PeopleTip (fixed left/top: the anchor's centre and top edge). */
 .tip {
   position: fixed;
   z-index: var(--cp-z-tooltip);
@@ -29,7 +29,14 @@
   line-height: var(--cp-leading-none);
 }
 
-.text {
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-3);
+  min-width: 0;
+}
+
+.heading {
   margin: 0;
   color: var(--cp-text-2);
   font-size: var(--cp-text-base);
@@ -41,17 +48,39 @@
   font-weight: var(--cp-weight-semibold);
 }
 
-/* A person: their avatar beside their name, kept together on one line. */
-.person {
-  display: inline-flex;
-  align-items: center;
+/* One person per row, evenly spaced. */
+.people {
+  display: flex;
+  flex-direction: column;
   gap: var(--cp-space-2);
-  vertical-align: middle;
-  white-space: nowrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cp-text-base);
+  line-height: var(--cp-leading-tight);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+  min-width: 0;
 }
 
 .face {
   flex: none;
   width: var(--cp-avatar-xs);
   height: var(--cp-avatar-xs);
+}
+
+/* A name past the tip's width is clipped rather than wrapping its row. */
+.name {
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.others {
+  color: var(--cp-text-muted);
 }
