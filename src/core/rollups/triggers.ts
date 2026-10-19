@@ -1,3 +1,5 @@
+import { installMetadataTriggers } from './metadata';
+import { reconcileDefinition } from './definitions';
 import type { Db } from '../db';
 import { MS_PER_S } from '@shared/units';
 
@@ -6,6 +8,7 @@ const MESSAGE_COLUMNS = ['content', 'channel_id', 'ts', 'deleted_at', 'pruned_at
 
 /** Durable invalidation includes both sides when a message, attachment or first link share moves between partitions. */
 export function installRollupTriggers(db: Db): void {
+  installMetadataTriggers(db);
   db.exec(`CREATE TABLE IF NOT EXISTS rollup_kinds (rollup TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (rollup, kind));`);
   const mark = (alias: string, channel: string, ts: string, kinds: string[]) => `
     INSERT INTO rollup_dirty(rollup, channel_id, day)
@@ -20,7 +23,7 @@ export function installRollupTriggers(db: Db): void {
     const columns = table === 'messages' ? MESSAGE_COLUMNS : db.prepare('SELECT name FROM pragma_table_info(?)').pluck().all(table) as string[];
     const updateColumns = table === 'messages' ? ` OF ${columns.join(', ')}` : '';
     const changedRow = columns.map((column) => `old."${column}" IS NOT new."${column}"`).join(' OR ');
-    db.exec(`CREATE TRIGGER IF NOT EXISTS rollup_${table}_insert AFTER INSERT ON ${table}
+    reconcileDefinition(db, `rollup/${table}`, `CREATE TRIGGER IF NOT EXISTS rollup_${table}_insert AFTER INSERT ON ${table}
       BEGIN ${mark('new', channel, ts, [kind])} END;
       CREATE TRIGGER IF NOT EXISTS rollup_${table}_update AFTER UPDATE${updateColumns} ON ${table} WHEN ${changedRow}
       BEGIN ${mark('old', channel, ts, changed)} ${mark('new', channel, ts, changed)} END;

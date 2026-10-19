@@ -4,6 +4,8 @@ import type { Db } from '../db';
 import { visibleChannelSql } from '../queries/privacy';
 import type { RollupPartition, RollupRow, RollupSpec } from './types';
 import type { FoldResult } from '../reads/protocol';
+import { reconcileDefinition } from './definitions';
+import { pendingReferenceSql } from './privacy';
 import { installSpanTriggers } from './spans';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
@@ -22,13 +24,16 @@ export function installRollupStore(db: Db): void {
     CREATE TABLE IF NOT EXISTS rollup_partitions (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, day TEXT NOT NULL, watermark INTEGER NOT NULL,
       PRIMARY KEY (rollup, channel_id, day));
+    CREATE INDEX IF NOT EXISTS rollup_partitions_channel ON rollup_partitions(channel_id, day);
+    CREATE INDEX IF NOT EXISTS rollup_messages_author ON messages(author_id, channel_id, ts);
+    CREATE INDEX IF NOT EXISTS rollup_links_author ON links(first_author_id, first_channel_id, first_ts);
     CREATE TABLE IF NOT EXISTS rollup_visibility_state (singleton INTEGER PRIMARY KEY, revision INTEGER NOT NULL);
     INSERT OR IGNORE INTO rollup_visibility_state VALUES (1, 0);
     CREATE TABLE IF NOT EXISTS rollup_span_dirty (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, first_day TEXT NOT NULL, last_day TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (rollup, channel_id, first_day, last_day));`);
   for (const table of ['hidden_ids']) for (const operation of ['INSERT', 'UPDATE', 'DELETE']) {
-    db.exec(`CREATE TRIGGER IF NOT EXISTS rollup_visibility_${table}_${operation.toLowerCase()} AFTER ${operation} ON ${table}
+    reconcileDefinition(db, `visibility/${table}/${operation}`, `CREATE TRIGGER IF NOT EXISTS rollup_visibility_${table}_${operation.toLowerCase()} AFTER ${operation} ON ${table}
       BEGIN UPDATE rollup_visibility_state SET revision = revision + 1 WHERE singleton = 1; END;`);
   }
 }
@@ -51,7 +56,7 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
   db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (channel_id TEXT NOT NULL, day TEXT NOT NULL,
     ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
     PRIMARY KEY (channel_id, day, ${spec.key.map((key) => `"${key}"`).join(', ')}))`);
-  db.exec(`CREATE VIEW IF NOT EXISTS "${table}_visible" AS SELECT * FROM "${table}" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready}
+  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS SELECT * FROM "${table}" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready} AND ${pendingReferenceSql('r.channel_id', 'r.day')}
     AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id AND (d.day = r.day OR d.day = '')))`);
   for (const [index, keys] of (spec.indexes ?? []).entries()) {
     if (!keys.length || keys.some((key) => !Object.hasOwn(spec.columns, key))) throw new Error('Invalid rollup index');
@@ -65,7 +70,8 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
       CREATE TABLE IF NOT EXISTS "${table}_all_time" (channel_id TEXT NOT NULL,
         ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
         PRIMARY KEY(channel_id, ${spec.key.map((key) => `"${key}"`).join(', ')}));
-      CREATE VIEW IF NOT EXISTS "${table}_all_time_visible" AS SELECT * FROM "${table}_all_time" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready}
+`);
+    reconcileDefinition(db, `${table}/all-time-visible`, `CREATE VIEW IF NOT EXISTS "${table}_all_time_visible" AS SELECT * FROM "${table}_all_time" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready} AND ${pendingReferenceSql('r.channel_id')}
         AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id))`);
   }
   return table;

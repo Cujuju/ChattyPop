@@ -1,3 +1,4 @@
+import { reconcileDefinition } from './definitions';
 import type { Db } from '../db';
 import { MS_PER_S } from '@shared/units';
 
@@ -15,6 +16,6 @@ export function installSpanTriggers(db: Db, id: string, table: string, columns: 
     ON CONFLICT(rollup, channel_id, first_day, last_day) DO UPDATE SET revision = revision + 1;`;
   for (const [operation, body] of [['insert', mark('new')], ['delete', mark('old')], ['update', mark('old') + mark('new')]] as const) {
     const changed = operation === 'update' ? ' WHEN old.channel_id IS NOT new.channel_id OR old.ts IS NOT new.ts OR old.content IS NOT new.content OR old.author_id IS NOT new.author_id OR old.deleted_at IS NOT new.deleted_at OR old.pruned_at IS NOT new.pruned_at' : '';
-    db.exec(`CREATE TRIGGER IF NOT EXISTS "${table}_span_${operation}" AFTER ${operation.toUpperCase()} ON messages${changed} BEGIN ${body} END`);
+    reconcileDefinition(db, `${table}/span/${operation}`, `CREATE TRIGGER IF NOT EXISTS "${table}_span_${operation}" AFTER ${operation.toUpperCase()} ON messages${changed} BEGIN ${body} END`);
   }
 }

@@ -7,7 +7,8 @@ import { computeArchive, readArchive } from '../reads/archiveReads';
 import { installRollupStore, markPartitions, PARTITIONS_SQL, partition, replacePartition, rollupTable, type Dirty, type Meta } from './store';
 import type { PluginRollups, Rollup, RollupRow, RollupSpec, RollupStatus } from './types';
 import { installRollupTriggers } from './triggers';
-import { rollupReferencesReady, seedRollupReferences } from './privacy';
+import { referenceWorkPending, seedRollupReferences } from './privacy';
+import { metadataAffects, metadataPending, seedRollupMetadata } from './metadata';
 import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 
@@ -96,18 +97,18 @@ class MaintainedRollup implements Rollup {
     this.checkZone();
     const { dirty } = this.ready().prepare('SELECT COUNT(*) AS dirty FROM rollup_dirty WHERE rollup = ?').get(this.id) as { dirty: number };
     const { spans } = this.ready().prepare('SELECT COUNT(*) AS spans FROM rollup_span_dirty WHERE rollup = ?').get(this.id) as { spans: number };
-    const referencesReady = rollupReferencesReady(this.ready());
-    if ((dirty || spans || !referencesReady) && !this.running) this.schedule();
+    const referencesPending = referenceWorkPending(this.ready()) || metadataPending(this.ready());
+    if ((dirty || spans || referencesPending) && !this.running) this.schedule();
     const { total } = this.ready().prepare(`SELECT COUNT(*) AS total FROM (
       SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ?)`)
       .get(this.id, this.id) as { total: number };
-    return { building: Boolean(!referencesReady || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
+    return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
   }
 
   snapshot(): string | null {
     this.signal.throwIfAborted();
     this.checkZone();
-    if (this.running) return null;
+    if (metadataAffects(this.ready(), this.id)) { this.schedule(); return null; }
     const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision, v.revision AS visibility_revision
       FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
         JOIN rollup_visibility_state v ON v.singleton = 1
@@ -146,8 +147,10 @@ class MaintainedRollup implements Rollup {
 
   changed(channelId: string, kinds: readonly ArchiveChangeKind[], day?: string): void {
     if (this.signal.aborted) return;
-    if (!rollupReferencesReady(this.ready())) this.schedule();
+    if (referenceWorkPending(this.ready()) || metadataPending(this.ready())) this.schedule();
     if (!kinds.some((kind) => this.spec.dependsOn.includes(kind))) return;
+    const triggerKinds = ['messages', 'edits', 'deletes', 'attachments', 'links', 'names', 'channels'];
+    if (kinds.filter((kind) => this.spec.dependsOn.includes(kind)).every((kind) => triggerKinds.includes(kind))) { this.schedule(); return; }
     if (channelId && day) markPartitions(this.ready(), this.id, [{ channel_id: channelId, day }]);
     else if (channelId) this.rebuild({ channelIds: [channelId] });
     else this.invalidate();
@@ -159,15 +162,16 @@ class MaintainedRollup implements Rollup {
     this.timer = setTimeout(() => { this.timer = undefined; void this.drain(); }, delay).unref();
   }
 
-  private async discover(full: boolean, watermark: number, epoch: number): Promise<void> {
+  private async discover(full: boolean, epoch: number): Promise<void> {
     const db = this.ready();
     const scopes = db.prepare("SELECT channel_id, revision FROM rollup_dirty WHERE rollup = ? AND day = ''").all(this.id) as { channel_id: string; revision: number }[];
+    if (!full && !scopes.length) return;
     const [discovered] = await readArchive<{ watermark: number; partitions: string }>(db, `SELECT
       (SELECT COALESCE(MAX(seq), 0) FROM messages) AS watermark,
       json_group_array(json_object('channel_id', channel_id, 'day', day)) AS partitions FROM (
         SELECT DISTINCT channel_id, day FROM (${PARTITIONS_SQL})
-        WHERE @full OR seq > @watermark OR channel_id IN (SELECT value FROM json_each(@scopes)) ORDER BY day DESC)`,
-      { rollup: this.id, full: Number(full), watermark, scopes: JSON.stringify(scopes.map((s) => s.channel_id)) }, this.signal, 'background');
+        WHERE @full OR channel_id IN (SELECT value FROM json_each(@scopes)) ORDER BY day DESC)`,
+      { rollup: this.id, full: Number(full), scopes: JSON.stringify(scopes.map((s) => s.channel_id)) }, this.signal, 'background');
     if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) return;
     db.transaction(() => {
       markPartitions(db, this.id, JSON.parse(discovered!.partitions) as { channel_id: string; day: string }[]);
@@ -182,11 +186,11 @@ class MaintainedRollup implements Rollup {
     if (this.running || this.signal.aborted) return;
     this.running = true;
     try {
-      const referencesReady = rollupReferencesReady(this.ready());
-      if (!await seedRollupReferences(this.ready(), this.signal)) { this.schedule(); return; }
-      if (!referencesReady) for (const service of services.get(this.ready()) ?? []) service.schedule();
+      const referencesPending = referenceWorkPending(this.ready()) || metadataPending(this.ready());
+      if (!await seedRollupReferences(this.ready(), this.signal) || !await seedRollupMetadata(this.ready(), this.signal)) { this.schedule(); return; }
+      if (referencesPending) for (const service of services.get(this.ready()) ?? []) if (service !== this) service.schedule();
       const meta = this.meta()!;
-      await this.discover(Boolean(meta.backfill), meta.queued_through_seq, this.epoch);
+      await this.discover(Boolean(meta.backfill), this.epoch);
       while (!this.signal.aborted) {
         if (this.meta()?.backfill) { this.schedule(); break; }
         await this.expandSpans();

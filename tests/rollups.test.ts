@@ -3,6 +3,8 @@ import * as readers from '../src/core/reads/archiveReads';
 import { defineChannels, definePlugin, MS_PER_DAY } from '@plugin-sdk/shared';
 import { defineCorePlugin, type Rollup, type RollupRow } from '@plugin-sdk/core';
 import { testPlugin, type TestPlugin } from '@plugin-sdk/core/testing';
+import { noteRollupChange } from '../src/core/rollups/service';
+import { seedRollupReferences } from '../src/core/rollups/privacy';
 
 const START = Date.UTC(2026, 0, 1);
 const CHANNEL = '200000000000000001';
@@ -23,7 +25,7 @@ function start(version = () => 1, zone = false) {
     rollup = ctx.rollups.define('counts', {
       version: version(), columns: { bucket: 'TEXT', n: 'INTEGER', sum: 'INTEGER' }, key: ['bucket'],
       allTime: { values: { n: 'sum', sum: 'sum' } },
-      dependsOn: ['messages', 'edits', 'deletes'], timeZoneSensitive: zone,
+      dependsOn: ['messages', 'edits', 'deletes', 'names', 'channels'], timeZoneSensitive: zone,
       compute: async (part, read) => {
         if ((globalThis as Record<string, unknown>).rollupCoreSentinel) throw new Error('Compute ran on Core');
         return read<RollupRow>(`SELECT ? AS bucket, COUNT(*) AS n, COALESCE(SUM(length(content)), 0) AS sum
@@ -42,6 +44,62 @@ async function settled(rollup: Rollup) {
 }
 
 describe('host rollup contract', () => {
+  it('keeps clean snapshots and unaffected rows serving when a thread is inserted or deleted', async () => {
+    const reads = vi.spyOn(readers, 'readArchive');
+    const { t, rollup } = start();
+    t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'unaffected' }]);
+    await settled(rollup());
+    const db = reads.mock.calls[0]![0]; reads.mockRestore();
+    for (const sql of [
+      `INSERT INTO channels(id, name, kind, parent_id) VALUES ('new-thread', 'Thread', 11, '${CHANNEL}')`,
+      "DELETE FROM channels WHERE id = 'new-thread'",
+    ]) {
+      t.db.prepare(sql).run();
+      noteRollupChange(db, '', ['names', 'channels']);
+      expect(rollup().snapshot()).not.toBeNull();
+      expect(t.db.prepare(`SELECT n FROM ${rollup().view}`).pluck().all()).toEqual([1]);
+      await settled(rollup());
+      expect(rollup().snapshot()).not.toBeNull();
+    }
+  });
+
+  it('searches only changed catalog ids and dirties only partitions that reference them', async () => {
+    const reads = vi.spyOn(readers, 'readArchive');
+    const { t, rollup } = start();
+    const thread = '300000000000000099';
+    t.archive.arrive([
+      { channelId: CHANNEL, ts: START, content: `<#${thread}>` },
+      { channelId: CHANNEL, ts: START + MS_PER_DAY, content: 'unaffected' },
+    ]);
+    await settled(rollup());
+    const db = reads.mock.calls[0]![0];
+    reads.mockRestore();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const original = readers.computeArchive;
+    const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => { await held; return original(...args) as never; });
+    try {
+      t.db.prepare('INSERT INTO channels(id, name, kind, parent_id) VALUES (?, ?, 11, ?)').run(thread, 'Thread', CHANNEL);
+      await seedRollupReferences(db, new AbortController().signal);
+      expect(t.db.prepare('SELECT DISTINCT day FROM rollup_dirty').pluck().all()).toEqual(['2026-01-01']);
+      expect(t.db.prepare(`SELECT n FROM ${rollup().view} WHERE day = '2026-01-02'`).pluck().all()).toEqual([1]);
+    } finally { release(); compute.mockRestore(); }
+    await settled(rollup());
+  });
+
+  it('performs zero full partition discoveries during an ordinary message drain', async () => {
+    const { t, rollup } = start();
+    await settled(rollup());
+    const spy = vi.spyOn(readers, 'readArchive');
+    try {
+      t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'ordinary delta' }]);
+      await settled(rollup());
+      const discoveries = spy.mock.calls.filter(([, sql]) => sql.includes('AS watermark,') && sql.includes('AS partitions FROM'));
+      expect(discoveries).toHaveLength(0);
+      expect((await t.client('renderer').rows())[0]!.n).toBe(1);
+    } finally { spy.mockRestore(); }
+  });
+
   it.each([[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]])('folds arrival order %j independently of sequence', async (...order) => {
     const { t, rollup } = start();
     for (const day of order) {
@@ -170,7 +228,7 @@ describe('host rollup contract', () => {
     expect(rollup().snapshot()).not.toBe(first);
     const beforeCatalog = rollup().snapshot();
     t.db.prepare("INSERT INTO channels(id, name, kind) VALUES ('new', 'New', 0)").run();
-    expect(rollup().snapshot()).toBeNull();
+    expect(rollup().snapshot()).not.toBeNull();
     await settled(rollup());
     expect(rollup().snapshot()).not.toBe(beforeCatalog);
     const beforeVisibility = rollup().snapshot();
