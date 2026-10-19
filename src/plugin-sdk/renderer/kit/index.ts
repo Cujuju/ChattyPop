@@ -108,6 +108,8 @@ export { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
 export { PlaceRail, type PlaceCounts, type PlaceRailProps, type RailPlace } from '@/ui/PlaceRail';
 // A time window picker for filter bars and headers, and its window type.
 export { TimeWindowSelect, type TimeWindowSelectProps } from '@/ui/TimeWindowSelect';
+// A filter's "which of these to show" checklist menu under a plugin's own button.
+export { FilterMenu, type FilterMenuItem, type FilterMenuProps } from '@/ui/FilterMenu';
 export { TIME_PRESETS, isTimeRange, timeBounds, timeRangeLabel, type TimePreset, type TimeRange, type TimeWindow } from '@/ui/timeWindow';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPanel } from './openPanel';
