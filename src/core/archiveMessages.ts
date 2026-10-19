@@ -10,6 +10,7 @@ import { mergeFullPayload, olderVersion } from './messageVersion';
 import { guildOf, putMember, upsertUser, type UserMergeMode } from './people';
 import { addedTextArrival, textMessage, textedLinkCount } from './queries/messageText';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from './arrival';
+import { writeStatement } from './writeStatements';
 
 /** Message writes, derived media and precise notifications share one mutation boundary. */
 export class ArchiveMessages {
@@ -29,11 +30,11 @@ export class ArchiveMessages {
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult {
     const changes: Parameters<NoteArchiveChange>[] = [];
     const result: IngestResult = { inserted: 0, edited: 0, skipped: 0 };
-    const getMsg = this.db.prepare('SELECT content, edited_ts, raw_json, pruned_at FROM messages WHERE id = ?');
-    const insert = this.db.prepare(
+    const getMsg = writeStatement(this.db, 'SELECT content, edited_ts, raw_json, pruned_at FROM messages WHERE id = ?');
+    const insert = writeStatement(this.db,
       'INSERT INTO messages (id, channel_id, author_id, ts, edited_ts, content, raw_json, arrived_via, ephemeral) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
-    const refresh = this.db.prepare('UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?');
+    const refresh = writeStatement(this.db, 'UPDATE messages SET edited_ts = ?, raw_json = ? WHERE id = ?');
     const now = Date.now();
     const newestBefore = new Map<string, string | undefined>();
     this.db.transaction(() => {

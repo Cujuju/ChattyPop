@@ -1,3 +1,4 @@
+import { writeStatement } from '../writeStatements';
 import { utcDay } from '../archiveChangeSource';
 import type { ArchiveChangeKind } from '@shared/contract';
 import { snowflakeToMs } from '@shared/discord';
@@ -56,31 +57,31 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
   const kinds = new Set<ArchiveChangeKind>();
   let insertOnly = true;
   const relatedLinks: DerivedChange['relatedLinks'] = [];
-  const addAttachment = db.prepare(
+  const addAttachment = writeStatement(db, 
     `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags, ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET url = excluded.url, filename = excluded.filename, description = excluded.description, flags = excluded.flags,
        status = CASE WHEN ${REQUEUE} THEN 'pending' ELSE status END, attempts = CASE WHEN ${REQUEUE} THEN 0 ELSE attempts END,
        retry_at = CASE WHEN ${REQUEUE} THEN NULL ELSE retry_at END, error = CASE WHEN ${REQUEUE} THEN NULL ELSE error END`,
   );
-  const ts = m.attachments?.length ? db.prepare('SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
+  const ts = m.attachments?.length ? writeStatement(db, 'SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
   for (const a of m.attachments ?? []) {
     kinds.add('attachments');
     addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null, a.flags ?? null, ts ?? snowflakeToMs(m.id));
   }
   // Only a payload that lists attachments says which remain; a partial update without the field says nothing.
   if (Array.isArray(m.attachments)) {
-    const removed = db.prepare(
+    const removed = writeStatement(db, 
       `UPDATE attachments SET removed_at = ? WHERE message_id = ? AND removed_at IS NULL
        AND id NOT IN (SELECT value FROM json_each(?))`,
     ).run(Date.now(), m.id, JSON.stringify(m.attachments.map((a) => a.id)));
     if (removed.changes) kinds.add('attachments');
   }
 
-  const addEmoji = db.prepare('INSERT OR IGNORE INTO emojis (id, name, animated) VALUES (?, ?, ?)');
+  const addEmoji = writeStatement(db, 'INSERT OR IGNORE INTO emojis (id, name, animated) VALUES (?, ?, ?)');
   for (const e of customEmojis(m)) addEmoji.run(e.id, e.name, e.animated ? 1 : 0);
 
-  const upsertLink = db.prepare(
+  const upsertLink = writeStatement(db, 
     `INSERT INTO links (url, platform, title, description, thumbnail_url, site, first_message_id, first_channel_id, first_author_id, first_ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(url) DO UPDATE SET
@@ -92,13 +93,13 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
        ${LINK_METADATA_UPDATES}
      RETURNING id`,
   );
-  const linkMessage = db.prepare(`INSERT INTO message_links (message_id, link_id, ${LINK_METADATA_FIELDS.map((f) => `metadata_${f}`).join(', ')})
+  const linkMessage = writeStatement(db, `INSERT INTO message_links (message_id, link_id, ${LINK_METADATA_FIELDS.map((f) => `metadata_${f}`).join(', ')})
     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(message_id, link_id) DO UPDATE SET
     ${LINK_METADATA_FIELDS.map((f) => `metadata_${f} = excluded.metadata_${f}`).join(', ')}`);
   const linkIds: number[] = [];
   for (const l of extractLinks(m.content ?? '', m.embeds, m.author?.bot === true)) {
     kinds.add('links');
-    const existed = db.prepare('SELECT id FROM links WHERE url = ?').get(l.url);
+    const existed = writeStatement(db, 'SELECT id FROM links WHERE url = ?').get(l.url);
     if (existed) insertOnly = false;
     const values = [l.title, l.description, l.thumbnailUrl, l.site];
     const { id } = upsertLink.get(l.url, l.platform, ...values, m.id, m.channel_id, authorId, snowflakeToMs(m.id)) as {
@@ -107,7 +108,7 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
     linkMessage.run(m.id, id, ...values);
     linkIds.push(id);
     if (existed) {
-      const shares = db.prepare('SELECT DISTINCT m.channel_id AS channelId, m.ts FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?')
+      const shares = writeStatement(db, 'SELECT DISTINCT m.channel_id AS channelId, m.ts FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?')
         .all(id) as { channelId: string; ts: number }[];
       for (const r of shares) relatedLinks.push({ channelId: r.channelId, day: utcDay(r.ts) });
     }
@@ -115,7 +116,7 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
   // The link rows stay, as other messages and the link history refer to them.
   if (typeof m.content === 'string' && Array.isArray(m.embeds)) {
-    const removed = db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?)) RETURNING link_id')
+    const removed = writeStatement(db, 'DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?)) RETURNING link_id')
       .all(m.id, JSON.stringify(linkIds)) as { link_id: number }[];
     if (removed.length) kinds.add('links');
     for (const r of removed) linkIds.push(r.link_id);

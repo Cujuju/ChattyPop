@@ -1,3 +1,4 @@
+import { writeStatement } from '../writeStatements';
 // Each share retains its own preview evidence; readers match it against the URL's current fields.
 import type { Db } from '../db';
 import { rawJsonText } from '../rawJson';
@@ -17,7 +18,7 @@ export const LINK_METADATA_UPDATES = LINK_METADATA_FIELDS.map((field) =>
 /** After edits or removals, keep supported values or adopt the newest remaining share's evidence. */
 export function reconcileLinkMetadata(db: Db, ids: number[]): void {
   if (!ids.length) return;
-  db.prepare(`UPDATE links SET ${LINK_METADATA_FIELDS.map((field) => `${field} = CASE
+  writeStatement(db, `UPDATE links SET ${LINK_METADATA_FIELDS.map((field) => `${field} = CASE
     WHEN EXISTS (SELECT 1 FROM message_links ml WHERE ml.link_id = links.id AND ml.metadata_${field} = links.${field})
     THEN links.${field} ELSE (SELECT ml.metadata_${field} FROM message_links ml JOIN messages m ON m.id = ml.message_id
       WHERE ml.link_id = links.id AND ml.metadata_${field} IS NOT NULL ORDER BY m.seq DESC LIMIT 1) END`).join(', ')}
@@ -27,10 +28,10 @@ export function reconcileLinkMetadata(db: Db, ids: number[]): void {
 /** Additive, unshipped upgrade: missing or damaged payloads supply no evidence and never disqualify another share. */
 export function addLinkMetadataSources(db: Db): void {
   for (const field of LINK_METADATA_FIELDS) db.exec(`ALTER TABLE message_links ADD COLUMN metadata_${field} TEXT`);
-  const batch = db.prepare(`SELECT ml.rowid AS share_rowid, ml.message_id, ml.link_id, l.url, m.raw_json
+  const batch = writeStatement(db, `SELECT ml.rowid AS share_rowid, ml.message_id, ml.link_id, l.url, m.raw_json
     FROM message_links ml JOIN messages m ON m.id = ml.message_id JOIN links l ON l.id = ml.link_id
     WHERE ml.rowid > ? ORDER BY ml.rowid LIMIT ?`);
-  const update = db.prepare(`UPDATE message_links SET ${LINK_METADATA_FIELDS.map((f) => `metadata_${f} = ?`).join(', ')}
+  const update = writeStatement(db, `UPDATE message_links SET ${LINK_METADATA_FIELDS.map((f) => `metadata_${f} = ?`).join(', ')}
     WHERE message_id = ? AND link_id = ?`);
   for (let after = 0; ;) {
     const rows = batch.all(after, BACKFILL_BATCH) as {

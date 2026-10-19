@@ -1,3 +1,4 @@
+import { writeStatement } from './writeStatements';
 // Users and their server nicknames and roles (members), as message authors and member events report them.
 import type { MemberPayloadMode, RawMemberPatch, RawUserPatch } from '@shared/discord';
 import type { Db } from './db';
@@ -24,10 +25,10 @@ export type UserMergeMode = 'merge' | 'keep';
 export function upsertUser(db: Db, u: RawUserPatch, mode: UserMergeMode = 'merge'): void {
   if (!u.id || !Object.entries(u).some(([key, value]) => key !== 'id' && value !== undefined)) return;
   // Unknown id-only users stay unknown until Discord supplies a username. Existing users accept partial updates.
-  const username = u.username ?? (db.prepare('SELECT username FROM users WHERE id = ?').pluck().get(u.id) as string | undefined);
+  const username = u.username ?? (writeStatement(db, 'SELECT username FROM users WHERE id = ?').pluck().get(u.id) as string | undefined);
   if (!username) return;
   const tag = serverTag(u);
-  db.prepare(
+  writeStatement(db, 
     `INSERT INTO users (id, username, global_name, avatar, tag_guild_id, tag, tag_badge, name_style, decoration, bot)
      VALUES (@id, @username, @globalName, @avatar, @tagGuildId, @tag, @tagBadge, @nameStyle, @decoration, @bot)
      ON CONFLICT(id) DO UPDATE SET username = excluded.username, ${userUpdates}
@@ -64,7 +65,7 @@ export function putMember(db: Db, guildId: string | null, userId: string, mem: R
   if (!guildId) return;
   // A payload without roles or a timeout (some member-list items) keeps the stored ones. A newer one than their leaving
   // means they rejoined.
-  db.prepare(
+  writeStatement(db, 
     `INSERT INTO members (guild_id, user_id, nick, roles, timed_out_until, updated_at) VALUES (@guildId, @userId, @nick, @roles, @timedOutUntil, @seenAt)
      ON CONFLICT(guild_id, user_id) DO UPDATE SET nick = CASE WHEN @nickKnown THEN excluded.nick ELSE members.nick END,
        roles = COALESCE(excluded.roles, members.roles),
@@ -85,7 +86,7 @@ export function putMember(db: Db, guildId: string | null, userId: string, mem: R
 
 /** They left the server (GUILD_MEMBER_REMOVE) at `seenAt`: kept for their old messages, no longer a member. */
 export function markMemberLeft(db: Db, guildId: string, userId: string, seenAt: number): void {
-  db.prepare(
+  writeStatement(db, 
     `INSERT INTO members (guild_id, user_id, updated_at, left_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(guild_id, user_id) DO UPDATE SET updated_at = excluded.updated_at, left_at = excluded.left_at
      WHERE excluded.updated_at >= members.updated_at`,
@@ -108,5 +109,5 @@ export function upsertMembers(db: Db, guildId: string, members: RawMemberPatch[]
 
 /** The server a channel belongs to; null when the channel is unknown or has none. */
 export function guildOf(db: Db, channelId: string): string | null {
-  return (db.prepare('SELECT guild_id AS guildId FROM channels WHERE id = ?').get(channelId) as { guildId: string | null } | undefined)?.guildId ?? null;
+  return (writeStatement(db, 'SELECT guild_id AS guildId FROM channels WHERE id = ?').get(channelId) as { guildId: string | null } | undefined)?.guildId ?? null;
 }
