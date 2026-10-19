@@ -3,6 +3,10 @@ import type { Db } from '../db';
 import { ARRIVAL, type Arrival, type Arrived, type TextMessage } from '../arrival';
 import { linkMetadataFieldSql } from './linkMetadata';
 
+// Statements stay on the writer connection so checks observe the current ingest transaction and privacy state.
+const textStatements = new WeakMap<Db, ReturnType<Db['prepare']>>();
+const countStatements = new WeakMap<Db, ReturnType<Db['prepare']>>();
+
 /** SQL combines message content and ordered derived text for AI. Omits markers to avoid accidental pattern matches; m aliases messages. */
 export const MESSAGE_TEXT_SQL = `COALESCE((SELECT group_concat(part, char(10)) FROM (
                                     SELECT 0 AS k, m.content AS part WHERE m.content != ''
@@ -37,14 +41,22 @@ export const TEXT_MESSAGE_COLUMNS = `${MESSAGE_ROW_COLUMNS}, ${LINKED_TEXT_SQL} 
 
 /** One stored message with its full text; undefined when not archived. */
 export function textMessage(db: Db, messageId: string): TextMessage | undefined {
-  return db
-    .prepare(`SELECT ${TEXT_MESSAGE_COLUMNS} FROM messages m WHERE m.id = ?`)
-    .get(messageId) as TextMessage | undefined;
+  let statement = textStatements.get(db);
+  if (!statement) {
+    statement = db.prepare(`SELECT ${TEXT_MESSAGE_COLUMNS} FROM messages m WHERE m.id = ?`);
+    textStatements.set(db, statement);
+  }
+  return statement.get(messageId) as TextMessage | undefined;
 }
 
 /** How many of a message's links have text; a rise means linked text arrived after the message did. */
 export function textedLinkCount(db: Db, messageId: string): number {
-  return db.prepare(`SELECT COUNT(text) FROM (${linkTextsSql('@message')})`).pluck().get({ message: messageId }) as number;
+  let statement = countStatements.get(db);
+  if (!statement) {
+    statement = db.prepare(`SELECT COUNT(text) FROM (${linkTextsSql('@message')})`).pluck();
+    countStatements.set(db, statement);
+  }
+  return statement.get({ message: messageId }) as number;
 }
 
 /** Added derived/link text retains original arrival source with supplied timestamp. Legacy messages count as fetched, never live. */
