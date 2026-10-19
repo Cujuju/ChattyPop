@@ -1,5 +1,5 @@
 {
-  "version": "4.5.0",
+  "version": "4.6.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -236,11 +236,13 @@
       "questionSignature",
       "readPrivacy",
       "resolveCli",
+      "resolveCliAsync",
       "rollupRange",
       "rollupView",
       "sessionModels",
       "signedInCli",
       "snippet",
+      "spawnCli",
       "specMatch",
       "storedAttachmentPath",
       "sumCosts",
@@ -884,6 +886,8 @@
       "ChatTurn",
       "CliAccountsSpec",
       "CliKeyAuth",
+      "CliProcess",
+      "CliSpawnOptions",
       "CliSpec",
       "CompletionEvent",
       "CompletionImage",
