@@ -278,7 +278,7 @@ export interface CoreMethods {
   pendingEmojis(limit: number): PendingEmoji[];
   /** `error` null = stored. */
   emojiDone(id: string, error: string | null): void;
-  /** Stores a sync page and advances the channel's sync cursors atomically; null (nothing stored or moved) once sync no longer keeps the channel. */
+  /** Commits a sync page in bounded slices with matching cursor progress; null once sync no longer keeps the channel (earlier slices remain committed). */
   ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): Promise<IngestResult | null>;
 }
 
