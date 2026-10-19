@@ -139,6 +139,14 @@ class MaintainedRollup implements Rollup {
     return `${row.version}:${row.revision}:${row.references_revision}:${row.visibility_revision}:${row.zone}`;
   }
 
+  visibilityToken(): string {
+    this.signal.throwIfAborted();
+    this.checkZone();
+    const row = this.ready().prepare(`SELECT r.revision AS references_revision, v.revision AS visibility_revision
+      FROM rollup_reference_state r JOIN rollup_visibility_state v ON v.singleton = r.singleton WHERE r.singleton = 1`).get();
+    return JSON.stringify([this.spec.version, this.zone, row]);
+  }
+
   rebuild(scope?: { channelIds?: readonly string[] }): void {
     this.signal.throwIfAborted();
     this.error = null;

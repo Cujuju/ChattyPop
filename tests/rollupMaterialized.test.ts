@@ -26,14 +26,18 @@ function start() {
   return { t, rollup: () => rollup, settle };
 }
 
-it('publishes exact materialized folds after arrivals, edits, deletion, rebuild and restart', async () => {
+it('publishes exact materialized folds after arrivals, deletion and rebuild', async () => {
   const { t, rollup, settle } = start();
   const ids = t.archive.arrive([2, 0, 1].map((day) => ({ channelId: 'channel', ts: START + day * MS_PER_DAY, content: 'text' })));
   await settle();
+  const visibility = rollup().visibilityToken();
   expect(rollup().snapshot()).not.toBeNull();
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 3 }]);
   t.db.prepare('DELETE FROM messages WHERE id = ?').run(ids[0]); await settle();
+  expect(rollup().visibilityToken()).toBe(visibility);
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
+  t.db.prepare("INSERT INTO hidden_ids(id, kind) VALUES ('channel', 'channel')").run();
+  expect(rollup().visibilityToken()).not.toBe(visibility);
   rollup().rebuild(); await settle();
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
 });

@@ -36,6 +36,8 @@ export interface Rollup {
   readonly view: string;
   readonly allTimeView: string | null;
   readonly foldView: string | null;
+  /** Stable across data rebuilds; changes when cached results may violate current privacy or calendar semantics. */
+  visibilityToken(): string;
   status(): RollupStatus;
   /** Opaque clean-build token for the requested channels and opener days. Recheck after reads; changed tokens require a retry. */
   snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null;
