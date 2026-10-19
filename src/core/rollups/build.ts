@@ -1,4 +1,5 @@
 import type { Db } from '../db';
+import type { Dirty } from './store';
 
 /** Build coverage is finite; newer dirty/reference/span work belongs to maintenance. */
 export function installRollupBuilds(db: Db): void {
@@ -26,4 +27,12 @@ export function finishRollupBuild(db: Db, id: string): void {
 export function acknowledgeBuildPart(db: Db, id: string, channel: string, day: string): void {
   db.prepare('DELETE FROM rollup_build_parts WHERE rollup = ? AND channel_id = ? AND day = ?').run(id, channel, day);
   finishRollupBuild(db, id);
+}
+
+/** Alternate incremental ends so a continuously dirtied newest day cannot starve history. */
+export function nextRollupPart(db: Db, id: string, oldest: boolean): Dirty | undefined {
+  return (db.prepare(`SELECT d.channel_id, d.day, d.revision FROM rollup_build_parts b
+    JOIN rollup_dirty d USING(rollup, channel_id, day) WHERE b.rollup = ? AND b.day != '' ORDER BY b.day DESC, b.channel_id LIMIT 1`).get(id)
+    ?? db.prepare(`SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != ''
+      ORDER BY day ${oldest ? 'ASC' : 'DESC'}, channel_id LIMIT 1`).get(id)) as Dirty | undefined;
 }

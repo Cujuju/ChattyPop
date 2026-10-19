@@ -4,7 +4,7 @@ import { MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
 import { computeArchive, readArchive } from '../reads/archiveReads';
-import { installRollupStore, markPartitions, PARTITIONS_SQL, partition, replacePartition, rollupTable, type Dirty, type Meta } from './store';
+import { installRollupStore, markPartitions, PARTITIONS_SQL, partition, replacePartition, rollupTable, type Meta } from './store';
 import type { PluginRollups, Rollup, RollupRow, RollupSpec, RollupStatus } from './types';
 import { installRollupTriggers } from './triggers';
 import { referenceWorkPending, rollupReferencesReady, seedRollupReferences } from './privacy';
@@ -16,7 +16,7 @@ import { spanGeneration } from './spans';
 import { expandSpanPartitions, seedSpanInputs } from './spanInputs';
 import { pendingChangesSql, seedRollupChanges } from './changes';
 import { publishMaterializedFold } from './materialized';
-import { acknowledgeBuildPart, finishRollupBuild } from './build';
+import { acknowledgeBuildPart, finishRollupBuild, nextRollupPart } from './build';
 
 /** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
 const RETRY_MS = MS_PER_S;
@@ -53,6 +53,7 @@ class MaintainedRollup implements Rollup {
   private readonly table: string;
   private readonly source: string;
   private running = false;
+  private oldestNext = false;
   private timer?: NodeJS.Timeout;
   private error: string | null = null;
   private zone = systemZone();
@@ -234,14 +235,13 @@ class MaintainedRollup implements Rollup {
         if (this.spec.span) await seedSpanInputs(this.ready(), this.id, this.table, this.spec.span, this.signal);
         await expandSpanPartitions(this.ready(), this.id, this.signal);
         const db = this.ready();
-        const dirty = (db.prepare(`SELECT d.channel_id, d.day, d.revision FROM rollup_build_parts b
-          JOIN rollup_dirty d USING(rollup, channel_id, day) WHERE b.rollup = ? AND b.day != '' ORDER BY b.day DESC, b.channel_id LIMIT 1`).get(this.id)
-          ?? db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id)) as Dirty | undefined;
+        const dirty = nextRollupPart(db, this.id, this.oldestNext);
         if (!dirty) {
           if (await this.foldChannel()) continue;
           finishRollupBuild(db, this.id);
           break;
         }
+        this.oldestNext = !this.oldestNext;
         const epoch = this.epoch;
         const generation = this.spec.span ? spanGeneration(db, this.id, dirty.channel_id) : 0;
         const [computed] = await computeArchive<{ rows: RollupRow[]; watermark: number; fold?: FoldResult }>(db, {

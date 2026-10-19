@@ -12,7 +12,7 @@ const SETTLE_MS = 20_000;
 const probe = definePlugin({ manifest: { id: 'buildprobe', name: 'Build probe', version: '1', description: '' },
   channels: defineChannels<{ core: { count(): { n: number }[] } }>()({ core: { count: { audiences: ['renderer'], reads: true } } }) });
 
-it('finishes enumerated work while every compute is superseded by live inserts and references remain pending', async () => {
+function fixture() {
   let rollup!: Rollup;
   const core = defineCorePlugin(probe, (ctx) => {
     rollup = ctx.rollups.define('counts', { version: 1, columns: { bucket: 'TEXT', n: 'INTEGER' }, key: ['bucket'], dependsOn: ['messages'],
@@ -28,6 +28,11 @@ it('finishes enumerated work while every compute is superseded by live inserts a
     ({ channelId: 'c', ts: START + day * MS_PER_DAY, content: 'stored' })) } });
   onTestFinished(() => t.dispose());
   const settle = () => expect.poll(() => rollup.status().maintaining, { timeout: SETTLE_MS }).toBe(false);
+  return { t, rollup, settle };
+}
+
+it('finishes enumerated work while every compute is superseded by live inserts and references remain pending', async () => {
+  const { t, rollup, settle } = fixture();
   await settle();
   const original = readers.computeArchive;
   let inserted = 0, continuous = true;
@@ -51,6 +56,26 @@ it('finishes enumerated work while every compute is superseded by live inserts a
   await settle();
   expect(await t.client('renderer').count()).toEqual([{ n: DAYS + inserted }]);
   rollup.rebuild(); await settle();
+  expect(await t.client('renderer').count()).toEqual([{ n: DAYS + inserted }]);
+});
+
+it('drains older work when every compute is followed by another newest-day insert', async () => {
+  const { t, rollup, settle } = fixture();
+  await settle();
+  const original = readers.computeArchive;
+  let inserted = 0, continuous = true;
+  const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
+    const result = await original(...args);
+    if (continuous && args[1].partition) t.archive.arrive([{ channelId: 'c', ts: START + (DAYS - 1) * MS_PER_DAY + ++inserted, content: 'newest' }]);
+    return result as never;
+  });
+  try {
+    rollup.markDirty([{ channelId: 'c', day: '2026-01-01' }, { channelId: 'c', day: '2026-01-03' }]);
+    await expect.poll(() => Boolean(t.db.prepare("SELECT 1 FROM rollup_dirty WHERE day = '2026-01-01'").get()), { timeout: SETTLE_MS }).toBe(false);
+    expect(inserted).toBeGreaterThan(0);
+    expect(rollup.status()).toMatchObject({ building: false, maintaining: true });
+  } finally { continuous = false; spy.mockRestore(); }
+  await settle();
   expect(await t.client('renderer').count()).toEqual([{ n: DAYS + inserted }]);
 });
 
