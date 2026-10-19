@@ -214,3 +214,4 @@ export type { DirectoryGuild } from '@shared/contract';
 export { ACCOUNT_SEPARATOR, ACCOUNT_AUTHS, accountProvider, accountKey, newAccountId, type AccountAuth, type ProviderAuth, type ProviderAccountSettings } from '@shared/providerAccounts';
 
 export type { ArchiveChange, ArchiveChangeKind, ArchiveChangedEvent } from '@shared/contract';
+export { rollupView, type RollupStatus } from '@shared/rollups';

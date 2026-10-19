@@ -1,4 +1,5 @@
 import { ArchiveChanges } from '@shared/archiveChanges';
+import { noteRollupChange } from '@core/rollups/service';
 // Runs core plugins through real host adapters with scripted AI, network stand-ins and injected clocks.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -95,12 +96,14 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   let batchingArchive = false;
   const flushArchiveChanges = (): void => {
     const change = archiveChanges.take();
+    archiveChanges.takeTouched();
     if (!Object.keys(change.changes).length) return;
     emit({ type: 'archive-changed', ...change });
     host?.archiveChanged(change);
   };
   const noteChanged: import('@shared/archiveChanges').NoteArchiveChange = (channelId, kinds, opts) => {
     archiveChanges.add(channelId, kinds, opts);
+    noteRollupChange(db, channelId, kinds, opts);
     if (!batchingArchive) flushArchiveChanges();
   };
   const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id), noteChanged);

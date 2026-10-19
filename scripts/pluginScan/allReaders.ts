@@ -4,6 +4,8 @@ import { basename, dirname, join } from 'node:path';
 
 /** The host's grants: the public marketplace's plugins. */
 export const ALL_READERS: Readonly<Record<string, string>> = {
+  'attachments/core/rollups.ts': 'Background partition folds preserve hidden-channel data; known channel/server references remain live.',
+  'links/core/rollups.ts': 'Background partition folds preserve hidden-channel data; known channel/server references and destinations remain live.',
   'alerts/core/dedupe.ts': 'Background duplicate judgment reads original text regardless of privacy.',
   'exchange/core/exchange.ts': 'Owner export preserves every selected message and stored attachment.',
   'links/core/feed.ts': 'Visible links retain unfiltered share counts, preview candidates and scope metadata.',

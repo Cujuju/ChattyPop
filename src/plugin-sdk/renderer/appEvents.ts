@@ -32,8 +32,7 @@ export const onPluginEvent = (pluginId: string, name: string, listener: (payload
     if (e.pluginId === pluginId && e.name === name) listener(e.payload);
   });
 
-/** Backfill emits many archive changes; lists derived from the archive re-read at most this often. */
-export const ARCHIVE_REFRESH_DEBOUNCE_MS = 2000;
+export { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 
 /** Subscribes to changed plugin message parts. ids targets rows; null covers plugin toggles. Snapshot views re-read affected messages; returns unsubscribe. */
 export function onMessagePartsChanged(fn: (ids: string[] | null) => void): () => void {

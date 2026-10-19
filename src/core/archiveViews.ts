@@ -6,6 +6,7 @@ import { displayNameSql, plainNameSql } from './queries/names';
 import { attachmentKindSql } from './queries/attachmentKind';
 import { archiveLinksSql } from './queries/linkMetadata';
 import { NOTHING_HIDDEN_SQL, visibleChannelSql, visibleMessageRefSql, visibleMessageSql } from './queries/privacy';
+import { installRollupReferences, messageResidualSql } from './rollups/privacy';
 
 const messages = `SELECT m.id, m.seq, m.channel_id, m.author_id, m.ts, m.edited_ts, m.deleted_at, m.pruned_at,
   m.content, m.raw_json, m.arrived_via, ${MESSAGE_TEXT_SQL} AS text, ${LINKED_TEXT_SQL} AS linked,
@@ -32,6 +33,8 @@ const conversationLinks = 'SELECT l.message_id, l.channel_id, l.ts, l.parent_id,
 export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_all_messages: messages,
   archive_messages: `${messages} WHERE ${visibleMessageSql('m')}`,
+  archive_all_rollup_messages: `${messages} WHERE m.id NOT IN (SELECT message_id FROM rollup_reference_messages)`,
+  archive_residual_messages: `${messages} WHERE m.id IN (SELECT message_id FROM rollup_reference_messages) AND ${visibleMessageSql('m')}`,
   archive_all_channels: channels,
   archive_channels: `${channels} WHERE ${visibleChannelSql('c.id')}`,
   archive_all_guilds: guilds,
@@ -39,11 +42,18 @@ export const ARCHIVE_VIEWS: Readonly<Record<string, string>> = {
   archive_users: users,
   archive_all_attachments: attachments,
   archive_attachments: `${attachments} WHERE ${visibleMessageRefSql('channel_id', 'message_id')}`,
+  archive_all_rollup_attachments: `${attachments} WHERE NOT ${messageResidualSql('message_id')}`,
+  archive_rollup_attachments: `${attachments} WHERE NOT ${messageResidualSql('message_id')} AND ${visibleChannelSql('channel_id')}`,
+  archive_residual_attachments: `${attachments} WHERE ${messageResidualSql('message_id')} AND ${visibleMessageRefSql('channel_id', 'message_id')}`,
   archive_all_derived_texts: derivedTexts,
   archive_derived_texts: `${derivedTexts} WHERE EXISTS (SELECT 1 FROM messages m WHERE m.id = d.message_id AND ${visibleMessageSql('m')})`,
   archive_rules: rules,
   archive_all_links: archiveLinksSql('1', true),
   archive_links: archiveLinksSql(),
+  archive_all_rollup_links: `SELECT * FROM (${archiveLinksSql('1', true)}) rl
+    WHERE rl.id NOT IN (SELECT link_id FROM rollup_reference_links) AND NOT ${messageResidualSql('rl.first_message_id')}`,
+  archive_residual_links: `SELECT * FROM (${archiveLinksSql()}) rl
+    WHERE rl.id IN (SELECT link_id FROM rollup_reference_links) OR ${messageResidualSql('rl.first_message_id')}`,
   archive_all_message_links: shares,
   archive_message_links: `${shares}
     WHERE ${NOTHING_HIDDEN_SQL} OR NOT EXISTS (SELECT 1 FROM messages m WHERE m.id = message_id AND NOT ${visibleMessageSql('m')})`,
@@ -73,6 +83,7 @@ export function dropArchiveViews(db: Db): void {
 
 /** Reconciles managed views and checks binding inside the caller transaction. Unchanged views require no writes; invalid definitions fail the transaction. */
 export function installArchiveViews(db: Db): void {
+  installRollupReferences(db);
   const stored = storedArchiveViews(db);
   for (const name of stored.keys()) if (!Object.hasOwn(ARCHIVE_VIEWS, name)) db.exec(`DROP VIEW "${name}"`);
   for (const name of Object.keys(ARCHIVE_VIEWS)) {

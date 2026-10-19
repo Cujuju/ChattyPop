@@ -1,0 +1,217 @@
+import type { AppEvent, ArchiveChangeKind } from '@shared/contract';
+import type { ArchiveChangeOptions } from '@shared/archiveChanges';
+import { MS_PER_MIN, MS_PER_S } from '@shared/units';
+import { PluginInactiveError } from '@shared/pluginCall';
+import type { Db } from '../db';
+import { computeArchive, readArchive } from '../reads/archiveReads';
+import { installRollupStore, markPartitions, PARTITIONS_SQL, partition, replacePartition, rollupTable, type Dirty, type Meta } from './store';
+import type { PluginRollups, Rollup, RollupRow, RollupSpec, RollupStatus } from './types';
+import { installRollupTriggers } from './triggers';
+import { rollupReferencesReady, seedRollupReferences } from './privacy';
+import type { FoldResult } from '../reads/protocol';
+import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
+
+/** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
+const RETRY_MS = MS_PER_S;
+/** Operating-system zone changes have no app event; check once a minute and before status reads. */
+const ZONE_CHECK_MS = MS_PER_MIN;
+const services = new WeakMap<Db, Set<MaintainedRollup>>();
+const systemZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** Called at the mutation boundary, before the renderer's debounced change event. Dirty work survives a crash. */
+export function noteRollupChange(db: Db, channelId: string, kinds: readonly ArchiveChangeKind[], opts: ArchiveChangeOptions = {}): void {
+  for (const service of services.get(db) ?? []) service.changed(channelId, kinds, opts.day);
+}
+
+export function pluginRollups(db: () => Db, pluginId: string, signal: AbortSignal, resumed: boolean, emit: (e: AppEvent) => void): PluginRollups {
+  const defined = new Set<string>();
+  return {
+    define: (name, spec) => {
+      signal.throwIfAborted();
+      if (defined.has(name)) throw new Error(`${pluginId} already defines rollup ${name}`);
+      defined.add(name);
+      return new MaintainedRollup(db, pluginId, name, spec as RollupSpec<RollupRow, unknown>, signal, resumed, emit);
+    },
+  };
+}
+
+class MaintainedRollup implements Rollup {
+  readonly view: string;
+  readonly allTimeView: string | null;
+  private readonly id: string;
+  private readonly table: string;
+  private readonly source: string;
+  private running = false;
+  private timer?: NodeJS.Timeout;
+  private error: string | null = null;
+  private zone = systemZone();
+  private epoch = 0;
+  private progressAt = -Infinity;
+
+  constructor(private readonly ready: () => Db, private readonly pluginId: string, private readonly name: string,
+    private readonly spec: RollupSpec<RollupRow, unknown>, private readonly signal: AbortSignal,
+    resumed: boolean, private readonly emit: (event: AppEvent) => void) {
+    const db = ready();
+    installRollupStore(db);
+    installRollupTriggers(db);
+    this.id = `${pluginId}.${name}`;
+    this.table = rollupTable(db, pluginId, name, spec);
+    this.view = `${this.table}_visible`;
+    this.allTimeView = spec.allTime ? `${this.table}_all_time_visible` : null;
+    this.source = spec.compute.toString().replace(/^(async\s+)?compute\s*\(/, '$1function compute(');
+    db.transaction(() => {
+      db.prepare('DELETE FROM rollup_kinds WHERE rollup = ?').run(this.id);
+      for (const kind of spec.dependsOn) db.prepare('INSERT INTO rollup_kinds VALUES (?, ?)').run(this.id, kind);
+    })();
+    const meta = this.meta();
+    db.prepare(`INSERT INTO rollup_meta(rollup, version, zone) VALUES (?, ?, ?) ON CONFLICT(rollup) DO NOTHING`).run(this.id, spec.version, this.zone);
+    if (!resumed || !meta || meta.version !== spec.version || (spec.timeZoneSensitive && meta.zone !== this.zone)) this.invalidate();
+    const active = services.get(db) ?? new Set();
+    if ([...active].some((service) => service.id === this.id)) throw new Error(`Rollup ${this.id} already active`);
+    active.add(this);
+    services.set(db, active);
+    const zoneTimer = setInterval(() => this.checkZone(), ZONE_CHECK_MS).unref();
+    signal.addEventListener('abort', () => { active.delete(this); clearTimeout(this.timer); clearInterval(zoneTimer); this.epoch++; }, { once: true });
+    // Activation may still be in the host's registration transaction.
+    this.schedule();
+  }
+
+  private meta(): Meta | undefined {
+    return this.ready().prepare('SELECT version, zone, revision, built_through_seq, queued_through_seq, backfill FROM rollup_meta WHERE rollup = ?').get(this.id) as Meta | undefined;
+  }
+
+  private invalidate(): void {
+    this.epoch++;
+    this.ready().prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
+  }
+
+  private checkZone(): void {
+    if (this.signal.aborted || !this.spec.timeZoneSensitive || !this.ready().open) return;
+    const zone = systemZone();
+    if (zone !== this.zone) { this.zone = zone; this.invalidate(); this.schedule(); this.progress(); }
+  }
+
+  status(): RollupStatus {
+    if (this.signal.aborted) throw new PluginInactiveError(this.pluginId);
+    this.checkZone();
+    const { dirty } = this.ready().prepare('SELECT COUNT(*) AS dirty FROM rollup_dirty WHERE rollup = ?').get(this.id) as { dirty: number };
+    const referencesReady = rollupReferencesReady(this.ready());
+    if ((dirty || !referencesReady) && !this.running) this.schedule();
+    const { total } = this.ready().prepare(`SELECT COUNT(*) AS total FROM (
+      SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ?)`)
+      .get(this.id, this.id) as { total: number };
+    return { building: Boolean(!referencesReady || this.meta()?.backfill || dirty || this.running), dirty, total, error: this.error };
+  }
+
+  snapshot(): string | null {
+    this.signal.throwIfAborted();
+    this.checkZone();
+    if (this.running) return null;
+    const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision
+      FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
+      WHERE m.rollup = ? AND m.backfill = 0 AND r.ready = 1
+        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup)`)
+      .get(this.id) as { version: number; zone: string; revision: number; references_revision: number } | undefined;
+    if (!row) { this.schedule(); return null; }
+    return `${row.version}:${row.revision}:${row.references_revision}:${row.zone}`;
+  }
+
+  rebuild(scope?: { channelIds?: readonly string[] }): void {
+    this.signal.throwIfAborted();
+    this.error = null;
+    if (!scope?.channelIds) this.invalidate();
+    else {
+      // Persist the request synchronously; enumeration and archive scans remain off Core's thread.
+      this.ready().prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day) SELECT ?, value, '' FROM json_each(?)
+        WHERE 1 ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`).run(this.id, JSON.stringify(scope.channelIds));
+      this.epoch++;
+    }
+    this.schedule();
+    this.progress(true);
+  }
+
+  markDirty(parts: readonly { channelId: string; day: string }[]): void {
+    this.signal.throwIfAborted();
+    for (const part of parts) {
+      const parsed = partition(part.channelId, part.day, this.zone);
+      if (!part.channelId || new Date(parsed.startTs).toISOString().slice(0, 10) !== part.day) throw new Error('Invalid rollup partition');
+    }
+    markPartitions(this.ready(), this.id, parts.map((part) => ({ channel_id: part.channelId, day: part.day })));
+    this.schedule();
+    this.progress();
+  }
+
+  changed(channelId: string, kinds: readonly ArchiveChangeKind[], day?: string): void {
+    if (this.signal.aborted) return;
+    if (!rollupReferencesReady(this.ready())) this.schedule();
+    if (!kinds.some((kind) => this.spec.dependsOn.includes(kind))) return;
+    if (channelId && day) markPartitions(this.ready(), this.id, [{ channel_id: channelId, day }]);
+    else if (channelId) this.rebuild({ channelIds: [channelId] });
+    else this.invalidate();
+    this.schedule();
+  }
+
+  private schedule(delay = 0): void {
+    if (this.signal.aborted || this.timer) return;
+    this.timer = setTimeout(() => { this.timer = undefined; void this.drain(); }, delay).unref();
+  }
+
+  private async discover(full: boolean, watermark: number, epoch: number): Promise<void> {
+    const db = this.ready();
+    const scopes = db.prepare("SELECT channel_id, revision FROM rollup_dirty WHERE rollup = ? AND day = ''").all(this.id) as { channel_id: string; revision: number }[];
+    const [discovered] = await readArchive<{ watermark: number; partitions: string }>(db, `SELECT
+      (SELECT COALESCE(MAX(seq), 0) FROM messages) AS watermark,
+      json_group_array(json_object('channel_id', channel_id, 'day', day)) AS partitions FROM (
+        SELECT DISTINCT channel_id, day FROM (${PARTITIONS_SQL})
+        WHERE @full OR seq > @watermark OR channel_id IN (SELECT value FROM json_each(@scopes)) ORDER BY day DESC)`,
+      { rollup: this.id, full: Number(full), watermark, scopes: JSON.stringify(scopes.map((s) => s.channel_id)) }, this.signal, 'background');
+    if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) return;
+    db.transaction(() => {
+      markPartitions(db, this.id, JSON.parse(discovered!.partitions) as { channel_id: string; day: string }[]);
+      for (const scope of scopes) db.prepare("DELETE FROM rollup_dirty WHERE rollup = ? AND channel_id = ? AND day = '' AND revision = ?").run(this.id, scope.channel_id, scope.revision);
+      if (full) db.prepare('UPDATE rollup_meta SET backfill = 0 WHERE rollup = ?').run(this.id);
+      // Queued coverage survives partial builds; using only completed coverage would enqueue finished partitions again after restart.
+      db.prepare('UPDATE rollup_meta SET queued_through_seq = MAX(queued_through_seq, ?) WHERE rollup = ?').run(discovered!.watermark, this.id);
+    })();
+  }
+
+  private async drain(): Promise<void> {
+    if (this.running || this.signal.aborted) return;
+    this.running = true;
+    try {
+      const referencesReady = rollupReferencesReady(this.ready());
+      if (!await seedRollupReferences(this.ready(), this.signal)) { this.schedule(); return; }
+      if (!referencesReady) for (const service of services.get(this.ready()) ?? []) service.schedule();
+      const meta = this.meta()!;
+      await this.discover(Boolean(meta.backfill), meta.queued_through_seq, this.epoch);
+      while (!this.signal.aborted) {
+        if (this.meta()?.backfill) { this.schedule(); break; }
+        const db = this.ready();
+        const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
+        if (!dirty) break;
+        const epoch = this.epoch;
+        const [computed] = await computeArchive<{ rows: RollupRow[]; watermark: number; fold?: FoldResult }>(db, {
+          source: this.source, partition: partition(dirty.channel_id, dirty.day, this.zone), data: this.spec.data,
+          fold: this.spec.allTime ? { table: this.table, keys: [...this.spec.key], ...this.spec.allTime } : undefined,
+        }, this.signal);
+        if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) { this.schedule(); break; }
+        replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold);
+        this.error = null;
+        this.progress();
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      this.error = null;
+    } catch (error) {
+      if (!this.signal.aborted) { this.error = (error as Error).message; this.schedule(RETRY_MS); }
+    } finally {
+      this.running = false;
+      if (!this.signal.aborted && this.ready().open) this.progress(true);
+    }
+  }
+
+  private progress(force = false): void {
+    if (!force && performance.now() - this.progressAt < ARCHIVE_REFRESH_DEBOUNCE_MS) return;
+    this.progressAt = performance.now();
+    if (!this.signal.aborted && this.ready().open) this.emit({ type: 'rollup-progress', pluginId: this.pluginId, name: this.name, ...this.status() });
+  }
+}

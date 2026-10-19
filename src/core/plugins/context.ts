@@ -26,6 +26,8 @@ import type { CorePreferences } from '@shared/preferences';
 import { pluginRules, type PluginRules } from './rules';
 import { pluginRuleRuns, type BundledDeps, type HostPlugins } from './bundled';
 import { registration, SEARCH_RANKER } from './registrationCheck';
+import { pluginRollups } from '../rollups/service';
+import type { PluginRollups } from '../rollups/types';
 
 /** Services and extension points scoped to one bundled plugin. */
 export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
@@ -59,6 +61,7 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
   /** Its declared preferences (descriptor `preferences`), stored as plugin.<id>.<name>. */
   preferences: CorePreferences<D>;
   archive: PluginArchive;
+  rollups: PluginRollups;
   identity: {
     names(): string[] | null;
     /** The signed-in Discord user, once main reports it (at once when already known). */
@@ -150,6 +153,7 @@ export function createCoreContext<D extends PluginDescriptor>(
       mediaDir: bundled.mediaDir,
     },
     preferences: corePreferences(plugin, bundled, reg, live),
+    rollups: pluginRollups(bundled.ready, id, lifetime.signal, plugins.resumed ?? false, emit),
     archive: pluginArchive(id, buildIndex, deps, reg, plugins, live, ask, send),
     identity: {
       names: () => bundled.readerNames?.() ?? null,

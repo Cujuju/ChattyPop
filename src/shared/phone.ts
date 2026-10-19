@@ -100,6 +100,7 @@ export const phoneMayCallMain = (channel: string): boolean => mainCalls.has(chan
 export const PHONE_EVENT_TYPES = [
   // Shares desktop's ArchiveChangedEvent, including kinds, insert ranges and plugin ids.
   'archive-changed',
+  'rollup-progress',
   'sync-progress',
   'opt-in-changed',
   'dm-activity',

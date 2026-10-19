@@ -45,7 +45,8 @@ describe('archive views', () => {
 
   it('reads every persistent view and adopts tables on a reopened connection without application functions', () => {
     db.prepare("UPDATE messages SET raw_json = ? WHERE id = 'm-open'").run(compressRawJson('{"flags":8192}'));
-    const documented = Object.keys(VIEW_COLUMNS).flatMap(archiveViewNames).sort();
+    const rollups = ['messages', 'attachments', 'links'].flatMap((name) => [`archive_all_rollup_${name}`, `archive_residual_${name}`]);
+    const documented = [...Object.keys(VIEW_COLUMNS).flatMap(archiveViewNames), ...rollups, 'archive_rollup_attachments'].sort();
     expect(db.prepare("SELECT name FROM sqlite_schema WHERE type = 'view' AND name GLOB 'archive_*' ORDER BY name").pluck().all()).toEqual(documented);
     const bare = new Database(db.name);
     try {
@@ -54,6 +55,7 @@ describe('archive views', () => {
           expect(() => bare.prepare(`SELECT ${columns} FROM ${view}`).all()).not.toThrow();
         }
       }
+      for (const name of rollups) expect(() => bare.prepare(`SELECT * FROM ${name}`).all()).not.toThrow();
       expect(() => adoptBundledData(bare, [tableAdopter])).not.toThrow();
       expect(bare.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name IN ('transcripts', 'p_adopter_jobs')").pluck().all()).toEqual(['p_adopter_jobs']);
       expect(archivePayloads(bare, ['m-open']).get('m-open')?.flags).toBe(8192);

@@ -1,5 +1,6 @@
 // Electron utility process owning SQLite, AI and core plugins.
 import { ArchiveChanges, type NoteArchiveChange } from '@shared/archiveChanges';
+import { noteRollupChange } from './rollups/service';
 import { noteAttachmentChange } from './archiveChangeSource';
 import { join } from 'node:path';
 import bundledCore, { failed as failedCore } from 'virtual:bundled-plugins/core';
@@ -119,10 +120,13 @@ let changeTimer: NodeJS.Timeout | undefined;
 const noteChanged: NoteArchiveChange = (channelId, kinds, opts) => {
   if (!kinds.length) return;
   changed.add(channelId, kinds, opts);
+  if (db) noteRollupChange(db, channelId, kinds, opts);
   if (kinds.some((k) => ['messages', 'edits', 'deletes', 'names'].includes(k))) forgetMentionPools(channelId);
   changeTimer ??= setTimeout(() => {
     changeTimer = undefined;
     const changes = changed.take();
+    const touched = changed.takeTouched();
+    if (db) for (const part of touched) noteRollupChange(db, part.channelId, changes.changes[part.channelId] ?? [], { day: part.utcDay });
     emit({ type: 'archive-changed', ...changes });
     plugins?.archiveChanged(changes);
   }, CHANGE_EVENT_DEBOUNCE_MS);
