@@ -86,3 +86,5 @@ export const aiUsageSince = (provider: ProviderId, sinceTs: number): Promise<App
 export { onArchiveChange, type ArchiveDeps, type ArchiveChangeSet, type ArchiveChangeKind, type ArchiveChange } from './archiveEvents';
 export { panelShown, pageShown } from './panelShown';
 export { coalescedRead } from './coalescedRead';
+
+export { visibilitySignal } from './visibilitySignal';

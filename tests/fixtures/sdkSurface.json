@@ -1,5 +1,5 @@
 {
-  "version": "4.2.0",
+  "version": "4.3.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -183,6 +183,10 @@
       "OPENROUTER_APP_HEADERS",
       "PluginInactiveError",
       "ProviderUnavailableError",
+      "ROLLUP_FIRST_DAY",
+      "ROLLUP_FIRST_TS",
+      "ROLLUP_LAST_DAY",
+      "ROLLUP_LAST_TS",
       "ROLLUP_READ_BUDGET_MS",
       "ROUND_SEPARATOR",
       "SerialLoop",
@@ -230,6 +234,7 @@
       "queryStrength",
       "questionSignature",
       "resolveCli",
+      "rollupRange",
       "rollupView",
       "sessionModels",
       "signedInCli",
@@ -305,7 +310,8 @@
       "pluginResource",
       "pluginsLoaded",
       "sameIds",
-      "settled"
+      "settled",
+      "visibilitySignal"
     ],
     "@plugin-sdk/renderer/kit": [
       "AddPicker",
