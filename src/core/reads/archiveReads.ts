@@ -1,7 +1,6 @@
-import { join } from 'node:path';
-import { existsSync } from 'node:fs';
 import type { Db } from '../db';
 import { ArchiveReadPool } from './pool';
+import { archiveReadEntry } from './helperEntry';
 import type { ReadPriority } from '@shared/readPriority';
 import type { HostRead, ReadCompute, ReadQuery } from './protocol';
 
@@ -65,9 +64,9 @@ function poolOf(db: Db, signal?: AbortSignal): ArchiveReadPool {
     state.zone = zone;
   }
   if (db.inTransaction) throw new Error('Async archive reads cannot observe an uncommitted transaction');
-  // Vitest builds the same reader entries separately; production and development use entries adjacent to core.
-  const adjacent = join(import.meta.dirname, 'archiveReadProcess.js');
-  const entry = existsSync(adjacent) ? adjacent : process.env.VITEST ? join(import.meta.dirname, '../../../out/read-tests/archiveReadProcess.js') : adjacent;
-  state.pool ??= new ArchiveReadPool({ path: db.name, key: state.key }, entry);
+  if (!state.pool) {
+    const { path, diag } = archiveReadEntry();
+    state.pool = new ArchiveReadPool({ path: db.name, key: state.key }, path, diag);
+  }
   return state.pool;
 }

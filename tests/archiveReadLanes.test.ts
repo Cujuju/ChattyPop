@@ -6,6 +6,7 @@ import type { ReadQuery } from '../src/core/reads/protocol';
 const fixture = vi.hoisted(() => ({ children: [] as FakeChild[] }));
 class FakeChild extends EventEmitter {
   sent: ReadQuery[] = [];
+  stderr = new EventEmitter();
   kill = vi.fn(() => { queueMicrotask(() => this.emit('close')); return true; });
   send(message: ReadQuery, done: (error: Error | null) => void): void {
     if ('sql' in message) this.sent.push(message);
@@ -14,7 +15,7 @@ class FakeChild extends EventEmitter {
   finish(): void { this.emit('message', { kind: 'rows', rows: [{ done: this.sent.at(-1)!.sql }] }); }
 }
 vi.mock('node:child_process', () => ({ fork: () => { const child = new FakeChild(); fixture.children.push(child); return child; } }));
-const { ArchiveReadPool, ARCHIVE_READ_INTERACTIVE_BURST, ARCHIVE_READ_INTERACTIVE_QUEUE_MAX, ARCHIVE_READ_BACKGROUND_QUEUE_MAX } = await import('../src/core/reads/pool');
+const { ArchiveReadPool, ARCHIVE_READ_RESPAWN_DELAY_MS, ARCHIVE_READ_INTERACTIVE_BURST, ARCHIVE_READ_INTERACTIVE_QUEUE_MAX, ARCHIVE_READ_BACKGROUND_QUEUE_MAX } = await import('../src/core/reads/pool');
 let pool: InstanceType<typeof ArchiveReadPool>;
 const jobs: Promise<unknown>[] = [];
 const read = (sql: string, lane: ReadPriority = 'background', signal?: AbortSignal) => {
@@ -22,7 +23,7 @@ const read = (sql: string, lane: ReadPriority = 'background', signal?: AbortSign
   jobs.push(work.catch(() => undefined));
   return work;
 };
-beforeEach(() => { fixture.children.length = 0; pool = new ArchiveReadPool({ path: 'unused', key: null }); });
+beforeEach(() => { fixture.children.length = 0; pool = new ArchiveReadPool({ path: 'unused', key: null }, 'unused-entry'); });
 afterEach(async () => { await pool.close(); await Promise.all(jobs.splice(0)); });
 const occupy = () => { void read('active-a'); void read('active-b'); };
 
@@ -110,5 +111,23 @@ describe('archive read lane contracts', () => {
     b.abort();
     await expect(second).rejects.toBe(b.signal.reason);
     expect(child.kill).toHaveBeenCalledOnce();
+  });
+
+  it('logs a helper exit core did not ask for, with its error output, and fails its read', async () => {
+    const diag = vi.fn();
+    pool = new ArchiveReadPool({ path: 'unused', key: null }, 'unused-entry', diag);
+    const crashed = read('crashes');
+    const child = fixture.children[0]!;
+    child.stderr.emit('data', "Error: Cannot find module 'archiveReadProcess.js'\n");
+    child.emit('close', 1, null);
+    await expect(crashed).rejects.toThrow('Archive read helper exited');
+    expect(diag).toHaveBeenCalledWith('archive-read-helper-exit', { code: 1, signal: null, stderr: "Error: Cannot find module 'archiveReadProcess.js'" });
+    const aborted = new AbortController();
+    const cancelled = read('cancelled', 'background', aborted.signal);
+    await new Promise((r) => setTimeout(r, ARCHIVE_READ_RESPAWN_DELAY_MS * 2));
+    aborted.abort();
+    await expect(cancelled).rejects.toBe(aborted.signal.reason);
+    await new Promise((r) => setTimeout(r));
+    expect(diag).toHaveBeenCalledOnce();
   });
 });

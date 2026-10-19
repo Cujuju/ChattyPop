@@ -28,7 +28,7 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
   define: { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) },
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).
   test: {
-    include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'],
+    include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'], setupFiles: ['tests/setupReads.ts'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
     // The git tests run in throwaway repos: the owner's own git config (hooks, signing) mustn't reach them.

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import { archiveRead, type ArchiveRead } from '../src/core/plugins/pluginDb';
 import { closeArchiveReads, computeArchive, configureArchiveReads } from '../src/core/reads/archiveReads';
+import { setArchiveReadEntry } from '../src/core/reads/helperEntry';
 import type { ReadReply } from '../src/core/reads/protocol';
 import { ARCHIVE_READ_POOL_SIZE } from '../src/core/reads/pool';
 
@@ -13,6 +14,8 @@ const HEAVY = `WITH RECURSIVE n(x) AS (VALUES(0) UNION ALL SELECT x+1 FROM n WHE
 const QUERY_HEAD_START_MS = 300;
 const TIMER_INTERVAL_MS = 5;
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+// Like core's entry: this probe is a build entry beside the reader entries.
+setArchiveReadEntry(join(import.meta.dirname, 'archiveReadProcess.js'));
 
 process.parentPort.on('message', async ({ data }: { data: { path: string } }) => {
   const db = new Database(data.path, { readonly: true, fileMustExist: true });

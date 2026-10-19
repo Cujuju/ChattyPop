@@ -37,6 +37,7 @@ import { localSpoilerHandlers } from './localSpoilerHandlers';
 import { DirSize } from './diskUsage';
 import { encryptedOnDisk, encryptionOnDisk, getSetting, openDb, readStatus, rekey, setSetting, type Db } from './db';
 import { archiveReadPrivacyChanged, closeArchiveReads, resumeArchiveReads } from './reads/archiveReads';
+import { setArchiveReadEntry } from './reads/helperEntry';
 import { TextRetentionRunner, applyTextRetention } from './textRetention';
 import { suggestChannels } from './channelSuggestions';
 import { mediaQueueHandlers } from './mediaQueue';
@@ -72,6 +73,12 @@ import { forgetMentionPools } from './queries/mentions';
 
 /** Coalesces bursts of archive writes into one UI refresh. */
 const CHANGE_EVENT_DEBOUNCE_MS = 250;
+
+/** Writes a line to main's diagnostics log. */
+const coreDiag = (event: string, detail: Record<string, unknown>): void =>
+  process.parentPort.postMessage({ kind: 'diag', event, detail } satisfies import('@shared/contract').CoreDiagnosticMessage);
+// This module is the core build entry, so its folder is out/main, beside the reader entries.
+setArchiveReadEntry(join(import.meta.dirname, 'archiveReadProcess.js'), coreDiag);
 
 let db: Db | undefined;
 let archive: Archive | undefined;
@@ -390,7 +397,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       };
       plugins = new PluginHost(
         data.pluginsDir,
-        { db, emit, diag: (event, detail) => process.parentPort.postMessage({ kind: 'diag', event, detail } satisfies import('@shared/contract').CoreDiagnosticMessage), changed: noteChanged, ai: scopedCompletion(() => ready().db, providers, aiSettings), decider: () => deciderFor('pluginDecide'), bundled },
+        { db, emit, diag: coreDiag, changed: noteChanged, ai: scopedCompletion(() => ready().db, providers, aiSettings), decider: () => deciderFor('pluginDecide'), bundled },
         bundledCore,
         BUNDLED_PLUGINS,
         { start: installedStart(), failed: failedCore },
@@ -437,8 +444,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
   try {
     const handler = handlers[data.method] as (...p: unknown[]) => unknown;
     const result = data.method === 'pluginCall' ? await handler(...data.params)
-      : await measureCoreCall(data.method, () => handler(...data.params), (event, detail) =>
-        process.parentPort.postMessage({ kind: 'diag', event, detail } satisfies import('@shared/contract').CoreDiagnosticMessage));
+      : await measureCoreCall(data.method, () => handler(...data.params), coreDiag);
     reply({ id: data.id, ok: true, result });
   } catch (err) {
     reply({ id: data.id, ok: false, error: errorMessage(err) });

@@ -1,8 +1,8 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { serialize } from 'node:v8';
 import type { ReadPriority } from '@shared/readPriority';
-import { join } from 'node:path';
 import type { HostRead, ReadCompute, ReadConnection, ReadQuery, ReadReply } from './protocol';
+import type { ReadDiag } from './helperEntry';
 
 /** Two concurrent readers allow unrelated lookups without multiplying archive scans across every plugin. */
 export const ARCHIVE_READ_POOL_SIZE = 2;
@@ -14,6 +14,8 @@ export const ARCHIVE_READ_BACKGROUND_QUEUE_MAX = 16;
 export const ARCHIVE_READ_INTERACTIVE_BURST = 8;
 /** Limit repeated abort/crash process churn; replacements are demand-driven after exit, and failed jobs are never retried. */
 export const ARCHIVE_READ_RESPAWN_DELAY_MS = 50;
+/** Keep the end of a failed helper's error output: a startup error's cause fits; a long log can't grow core memory. */
+export const ARCHIVE_READ_STDERR_TAIL_CHARS = 2_000;
 
 interface Job extends ReadQuery {
   key: string;
@@ -35,7 +37,7 @@ export class ArchiveReadPool {
   private respawnAt = 0;
   private respawnTimer?: NodeJS.Timeout;
 
-  constructor(private readonly connection: ReadConnection, private readonly entry = join(import.meta.dirname, 'archiveReadProcess.js')) {}
+  constructor(private readonly connection: ReadConnection, private readonly entry: string, private readonly diag?: ReadDiag) {}
 
   read<R>(sql: string, params: ReadQuery['params'], signal?: AbortSignal, lane: ReadPriority = 'background'): Promise<R[]> {
     return this.enqueue({ sql, params }, signal, lane);
@@ -132,9 +134,11 @@ export class ArchiveReadPool {
   private spawn(): Slot {
     const child = fork(this.entry, [], {
       execPath: process.execPath, execArgv: [], serialization: 'advanced',
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'], windowsHide: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true,
     });
     const slot: Slot = { process: child, stopping: false, exited: new Promise((resolve) => child.once('close', () => resolve())) };
+    let stderr = '';
+    child.stderr?.on('data', (data) => { stderr = (stderr + String(data)).slice(-ARCHIVE_READ_STDERR_TAIL_CHARS); });
     this.slots.add(slot);
     child.on('message', (reply: ReadReply) => {
       if (reply.kind === 'started' || slot.stopping || !slot.job) return;
@@ -152,7 +156,9 @@ export class ArchiveReadPool {
       slot.job = undefined;
       this.stop(slot);
     });
-    child.on('close', () => {
+    child.on('close', (code, signal) => {
+      // An exit core didn't ask for is a helper fault; its error output names the cause.
+      if (!slot.stopping) this.diag?.('archive-read-helper-exit', { code, signal, stderr: stderr.trim() });
       if (slot.job) this.fail(slot.job, new Error('Archive read helper exited'));
       this.slots.delete(slot);
       if (!this.closed) { this.respawnAt = performance.now() + ARCHIVE_READ_RESPAWN_DELAY_MS; this.drain(); }

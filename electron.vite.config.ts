@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import solid from 'vite-plugin-solid';
+import type { Plugin } from 'vite';
 import { appVersion } from './appVersion';
 import { NO_PLUGIN_SOURCE, bundledPlugins, devPluginSource, pageInputs, pagesPlugin, pluginDirs } from './bundledPlugins';
 
@@ -10,6 +11,18 @@ const pluginSdk = resolve(import.meta.dirname, 'src/plugin-sdk');
 const hostAliases = { '@shared': shared, '@core': resolve(import.meta.dirname, 'src/core'), '@main': resolve(import.meta.dirname, 'src/main'), '@plugin-sdk': pluginSdk };
 /** Reads once at startup; main, core, and renderer share the value. */
 const versionDefine = { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) };
+/** A module's own folder is out/main only in an entry chunk; shared chunks land in out/main/chunks. */
+const ENTRY_RELATIVE_PATH = /import\.meta\.(?:dirname|filename)/;
+const entryPathsInEntries: Plugin = {
+  name: 'entry-paths-in-entries',
+  generateBundle(_, bundle) {
+    for (const chunk of Object.values(bundle)) {
+      if (chunk.type === 'chunk' && !chunk.isEntry && ENTRY_RELATIVE_PATH.test(chunk.code)) {
+        this.error(`${chunk.fileName} uses import.meta.dirname: pass the path from a build entry (src/core/index.ts) instead`);
+      }
+    }
+  },
+};
 /** electron-vite's renderer root: pages are named relative to it. */
 const rendererRoot = resolve(import.meta.dirname, 'src/renderer');
 export default defineConfig(({ command }) => {
@@ -18,7 +31,7 @@ export default defineConfig(({ command }) => {
   return {
     main: {
       resolve: { alias: hostAliases },
-      plugins: [bundledPlugins(import.meta.dirname, 'node', plugins)],
+      plugins: [bundledPlugins(import.meta.dirname, 'node', plugins), entryPathsInEntries],
       define: versionDefine,
       build: {
         // Source installs load plugin-build tools on demand as external packages.
