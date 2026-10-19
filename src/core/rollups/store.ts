@@ -113,11 +113,15 @@ export function replacePartition(db: Db, id: string, table: string, dirty: Dirty
       if (Object.keys(row).length !== columns.length || columns.some((c) => !Object.hasOwn(row, c))) throw new Error('Rollup returned unexpected columns');
       insert.run(dirty.channel_id, dirty.day, ...columns.map((c) => row[c]));
     }
-    if (fold) {
+    if (fold?.keys.length) {
       const keys = Object.keys(fold.keys[0] ?? {});
       const remove = db.prepare(`DELETE FROM "${table}_all_time" WHERE channel_id = ? AND ${keys.map((key) => `"${key}" = ?`).join(' AND ') || '0'}`);
-      for (const key of fold.keys) remove.run(dirty.channel_id, ...keys.map((column) => key[column]));
-      const folded = db.prepare(`INSERT INTO "${table}_all_time" (channel_id, ${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${Array(columns.length + 1).fill('?').join(', ')})`);
+      const retained = new Set(fold.rows.map((row) => JSON.stringify(keys.map((column) => row[column]))));
+      for (const key of fold.keys) if (!retained.has(JSON.stringify(keys.map((column) => key[column])))) remove.run(dirty.channel_id, ...keys.map((column) => key[column]));
+      const values = columns.filter((column) => !keys.includes(column));
+      const folded = db.prepare(`INSERT INTO "${table}_all_time" (channel_id, ${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${Array(columns.length + 1).fill('?').join(', ')})
+        ON CONFLICT(channel_id, ${keys.map((c) => `"${c}"`).join(', ')}) DO ${values.length ? `UPDATE SET ${values.map((c) => `"${c}" = excluded."${c}"`).join(', ')}
+          WHERE ${values.map((c) => `"${table}_all_time"."${c}" IS NOT excluded."${c}"`).join(' OR ')}` : 'NOTHING'}`);
       for (const row of fold.rows) folded.run(dirty.channel_id, ...columns.map((column) => row[column]));
     }
     db.prepare(`INSERT INTO rollup_partitions VALUES (?, ?, ?, ?)
