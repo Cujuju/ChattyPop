@@ -16,6 +16,9 @@ export function installRollupTriggers(db: Db): void {
       SELECT ${alias}.${channel}, date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch'), column1
       FROM (VALUES ${kinds.map((kind) => `('${kind}')`).join(', ')}) WHERE ${alias}.${ts} IS NOT NULL
       ON CONFLICT(channel_id, day, kind) DO NOTHING;`;
+  const missing = (alias: string, channel: string, ts: string, kinds: string[]) => `(${alias}.${ts} IS NOT NULL AND (
+    ${kinds.map((kind) => `NOT EXISTS (SELECT 1 FROM rollup_changes WHERE channel_id = ${alias}.${channel}
+      AND day = date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch') AND kind = '${kind}')`).join(' OR ')}))`;
   for (const [table, channel, ts, kind] of [
     ['messages', 'channel_id', 'ts', 'messages'], ['attachments', 'channel_id', 'ts', 'attachments'],
     ['links', 'first_channel_id', 'first_ts', 'links'],
@@ -25,10 +28,13 @@ export function installRollupTriggers(db: Db): void {
     const updateColumns = table === 'messages' ? ` OF ${columns.join(', ')}` : '';
     const changedRow = columns.map((column) => `old."${column}" IS NOT new."${column}"`).join(' OR ');
     reconcileDefinition(db, `rollup/${table}`, `CREATE TRIGGER IF NOT EXISTS rollup_${table}_insert AFTER INSERT ON ${table}
+      WHEN ${missing('new', channel, ts, [kind])}
       BEGIN ${mark('new', channel, ts, [kind])} END;
-      CREATE TRIGGER IF NOT EXISTS rollup_${table}_update AFTER UPDATE${updateColumns} ON ${table} WHEN ${changedRow}
+      CREATE TRIGGER IF NOT EXISTS rollup_${table}_update AFTER UPDATE${updateColumns} ON ${table} WHEN (${changedRow})
+        AND (${missing('old', channel, ts, changed)} OR ${missing('new', channel, ts, changed)})
       BEGIN ${mark('old', channel, ts, changed)} ${mark('new', channel, ts, changed)} END;
       CREATE TRIGGER IF NOT EXISTS rollup_${table}_delete AFTER DELETE ON ${table}
+      WHEN ${missing('old', channel, ts, table === 'messages' ? ['deletes'] : [kind])}
       BEGIN ${mark('old', channel, ts, table === 'messages' ? ['deletes'] : [kind])} END;`);
   }
 }
