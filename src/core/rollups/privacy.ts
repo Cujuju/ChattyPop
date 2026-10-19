@@ -20,7 +20,8 @@ export function installRollupReferences(db: Db): void {
     CREATE TABLE IF NOT EXISTS rollup_reference_state (singleton INTEGER PRIMARY KEY, ready INTEGER NOT NULL, revision INTEGER NOT NULL DEFAULT 0);
     INSERT OR IGNORE INTO rollup_reference_state(singleton, ready) VALUES (1, 0);
     CREATE TABLE IF NOT EXISTS rollup_reference_pending (kind TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY(kind, id));
-    CREATE TABLE IF NOT EXISTS rollup_reference_catalog (id TEXT PRIMARY KEY);`);
+    CREATE TABLE IF NOT EXISTS rollup_reference_catalog (id TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS rollup_reference_catalog_epochs (id TEXT PRIMARY KEY, revision INTEGER NOT NULL);`);
   if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_reference_state') WHERE name = 'mutation'").get()) db.exec('ALTER TABLE rollup_reference_state ADD COLUMN mutation INTEGER NOT NULL DEFAULT 0');
   if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_reference_pending') WHERE name = 'revision'").get()) db.exec('ALTER TABLE rollup_reference_pending ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
   db.exec('CREATE INDEX IF NOT EXISTS rollup_reference_pending_revision ON rollup_reference_pending(revision)');
@@ -54,7 +55,10 @@ export function installRollupReferences(db: Db): void {
     const name = `rollup_reference_${table}_${operation.split(' ')[0]!.toLowerCase()}`;
     const aliases = operation === 'INSERT' ? ['new'] : operation === 'DELETE' ? ['old'] : ['old', 'new'];
     reconcileDefinition(db, name, `CREATE TRIGGER IF NOT EXISTS ${name} AFTER ${operation} ON ${table}
-      BEGIN ${aliases.map((alias) => `INSERT OR IGNORE INTO rollup_reference_catalog VALUES (${alias}.id);`).join(' ')}
+      BEGIN ${aliases.map((alias) => `INSERT OR IGNORE INTO rollup_reference_catalog VALUES (${alias}.id);
+        INSERT INTO rollup_reference_catalog_epochs(id, revision)
+          SELECT ${alias}.id, revision + 1 FROM rollup_reference_state WHERE singleton = 1
+          ON CONFLICT(id) DO UPDATE SET revision = excluded.revision;`).join(' ')}
         UPDATE rollup_reference_state SET revision = revision + 1 WHERE singleton = 1; END;`);
   }
 }
@@ -127,7 +131,9 @@ async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
   await acknowledgeReferenceChanges(db, state.mutation, signal);
   db.transaction(() => {
     // New catalog work retains its partition gates; it cannot postpone the initial ready snapshot.
-    if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() === state.revision) db.exec('DELETE FROM rollup_reference_catalog');
+    db.prepare(`DELETE FROM rollup_reference_catalog WHERE id NOT IN (
+      SELECT id FROM rollup_reference_catalog_epochs WHERE revision > ?)`).run(state.revision);
+    db.prepare('DELETE FROM rollup_reference_catalog_epochs WHERE revision <= ?').run(state.revision);
     db.prepare('UPDATE rollup_reference_state SET ready = 1 WHERE singleton = 1').run();
   })();
   return !referenceWorkPending(db);

@@ -59,9 +59,26 @@ it('publishes bootstrap readiness while a newer catalog change remains gated', a
   onTestFinished(() => spy.mockRestore());
   expect(await seedRollupReferences(db, new AbortController().signal)).toBe(false);
   expect(db.prepare('SELECT ready FROM rollup_reference_state').pluck().get()).toBe(1);
-  expect(db.prepare('SELECT id FROM rollup_reference_catalog').pluck().all()).toContain('future-reference');
+  expect(db.prepare('SELECT id FROM rollup_reference_catalog').pluck().all()).toEqual(['future-reference']);
   expect(await seedRollupReferences(db, new AbortController().signal)).toBe(true);
   expect(db.prepare("SELECT message_id FROM rollup_reference_messages WHERE message_id = 'm-open'").pluck().get()).toBe('m-open');
+});
+
+it('acknowledges old catalog ids while retaining a same-id change from the next snapshot', async () => {
+  const db = tempDb(); seedArchiveViews(db); installRollupStore(db);
+  onTestFinished(() => { db.close(); });
+  let changed = false;
+  const original = readers.computeArchive;
+  const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
+    const rows = await original(...args);
+    if (!changed) { changed = true; db.exec("UPDATE channels SET id = id WHERE id = 'c-open'"); }
+    return rows as never;
+  });
+  onTestFinished(() => spy.mockRestore());
+  expect(await seedRollupReferences(db, new AbortController().signal)).toBe(false);
+  expect(db.prepare('SELECT id FROM rollup_reference_catalog').pluck().all()).toEqual(['c-open']);
+  expect(await seedRollupReferences(db, new AbortController().signal)).toBe(true);
+  expect(db.prepare('SELECT * FROM rollup_reference_catalog_epochs').all()).toEqual([]);
 });
 
 it.each([['a', 'b', 'c'], ['c', 'b', 'a'], ['b', 'a', 'c']])('coalesces reference work and matches a full classification for arrival order %j', async (...order) => {

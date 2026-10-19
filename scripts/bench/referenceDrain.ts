@@ -34,22 +34,31 @@ export async function main() {
     };
     console.log(JSON.stringify({ rows: ROWS, catalog: CATALOG, days: DAYS, liveMs: LIVE_MS }));
     const sql = `SELECT COUNT(*) AS n FROM messages WHERE ${knownReferenceSql('content')}`;
-    await measured('legacy-full-classification', () => readArchive(db, sql, []));
+    if (!process.env.REFERENCE_BENCH_SKIP_LEGACY) await measured('legacy-full-classification', () => readArchive(db, sql, []));
     await measured('worker-full-classification', () => seedRollupReferences(db, new AbortController().signal));
     let inserted = 0;
     const insert = db.prepare('INSERT INTO messages(id, channel_id, author_id, ts, content) VALUES (?, ?, ?, ?, ?)');
-    timer = setInterval(() => insert.run(`live-${++inserted}`, 'catalog-1', 'author', DAYS * MS_PER_DAY + inserted, 'live catalog-1999'), LIVE_MS);
+    const catalog = db.prepare("INSERT INTO channels(id, name, kind) VALUES (?, 'Live catalog', 0)");
+    timer = setInterval(() => {
+      insert.run(`live-${++inserted}`, 'catalog-1', 'author', DAYS * MS_PER_DAY + inserted, 'live catalog-1999');
+      catalog.run(`live-catalog-${inserted}`);
+    }, LIVE_MS);
     await new Promise((resolve) => setTimeout(resolve, LIVE_MS));
     db.prepare("UPDATE messages SET content = 'changed catalog-1999' WHERE ts >= ?").run((DAYS - 1) * MS_PER_DAY);
     const daySql = `${sql} AND channel_id = ? AND ts >= ?`;
-    await measured('legacy-day-classification', () => readArchive(db, daySql, ['catalog-1', (DAYS - 1) * MS_PER_DAY]));
-    await measured('worker-day-drain-with-live-inserts', () => seedRollupReferences(db, new AbortController().signal));
+    if (!process.env.REFERENCE_BENCH_SKIP_LEGACY) await measured('legacy-day-classification', () => readArchive(db, daySql, ['catalog-1', (DAYS - 1) * MS_PER_DAY]));
+    const pending = () => db.prepare('SELECT COUNT(*) FROM rollup_reference_catalog').pluck().get();
+    for (const pass of [1, 2]) {
+      await measured(`worker-drain-with-live-messages-and-catalog-${pass}`, () => seedRollupReferences(db, new AbortController().signal));
+      console.log(JSON.stringify({ pass, pendingCatalog: pending(), inserted }));
+    }
     clearInterval(timer); timer = undefined;
     await seedRollupReferences(db, new AbortController().signal);
     const actual = db.prepare('SELECT COUNT(*) FROM rollup_reference_messages').pluck().get();
     const expected = db.prepare(`SELECT COUNT(*) FROM messages WHERE instr(content, 'catalog-1999') > 0`).pluck().get();
     if (actual !== expected) throw new Error(`Reference mismatch: ${actual} != ${expected}`);
-    console.log(JSON.stringify({ exact: true, references: actual, liveInserts: inserted }));
+    if (pending() !== 0) throw new Error('Catalog work did not drain');
+    console.log(JSON.stringify({ exact: true, references: actual, liveInserts: inserted, pendingCatalog: pending() }));
   } finally {
     clearInterval(timer); await closeArchiveReads(db); db.close();
     rmSync(dir, { recursive: true, force: true });
