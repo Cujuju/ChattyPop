@@ -4,12 +4,13 @@ import { textedLinkCount } from '@core/queries/messageText';
 import { ArchiveMessages } from '@core/archiveMessages';
 import { ARRIVAL } from '@core/arrival';
 import { snowflakeFromMs, type RawMessage } from '@shared/discord';
-import type { Db } from '@core/db';
+import { openDb } from '@core/db';
 
 const RUNS = 3; // Three samples match the original stall-attribution measurement.
 const MESSAGES = 20_000; // Original mixed-write fixture: 8k files and 3.2k shares.
 const REFETCH_MESSAGES = 1_000; // A catch-up page large enough to expose repeated preparation.
 const START = Date.UTC(2026, 0, 1);
+const MICROSECONDS_PER_MILLISECOND = 1_000; // Node reports process CPU time in microseconds.
 const FAMILIES = ['partition', 'reference', 'span', 'metadata'] as const;
 type Family = typeof FAMILIES[number];
 const family = (name: string): Family | undefined => name.includes('_span_') ? 'span'
@@ -19,37 +20,43 @@ const yieldTurn = () => new Promise<void>((done) => setImmediate(done));
 
 /** The writer runs synchronously on Core; its uninterrupted operation is the blocking turn. */
 function turn(fn: () => unknown) {
+  const cpu = process.cpuUsage();
   const start = performance.now(); fn();
   const ms = performance.now() - start;
-  return { ms, longestBlockingTurnMs: ms };
+  const used = process.cpuUsage(cpu);
+  return { ms, longestBlockingTurnMs: ms, cpuMs: (used.user + used.system) / MICROSECONDS_PER_MILLISECOND };
 }
 
 export async function main() {
-  const samples: { run: number; mode: string; ms: number; longestBlockingTurnMs: number; triggers: number }[] = [];
+  const samples: { run: number; mode: string; ms: number; cpuMs: number; sqliteChanges: number; longestBlockingTurnMs: number; triggers: number }[] = [];
   for (let run = 0; run < RUNS; run++) for (const mode of ['none', ...FAMILIES, 'all']) {
     const t = testPlugin(attachments, { with: [links, stats], archive: { channels: [{ id: CHANNEL }] } });
+    const db = openDb(t.db.prepare("SELECT file FROM pragma_database_list WHERE name = 'main'").pluck().get() as string);
     try {
-      const triggers = t.db.prepare("SELECT name FROM sqlite_schema WHERE type = 'trigger'").all() as { name: string }[];
+      const triggers = db.prepare("SELECT name FROM sqlite_schema WHERE type = 'trigger'").all() as { name: string }[];
       const rollupTriggers = triggers.filter(({ name }) => name.startsWith('rollup_') || name.includes('_span_'));
       for (const { name } of rollupTriggers) if (mode !== 'all' && (mode === 'none' || family(name) !== mode)) {
-        t.db.prepare(`DROP TRIGGER "${name.replaceAll('"', '""')}"`).run();
+        db.prepare(`DROP TRIGGER "${name.replaceAll('"', '""')}"`).run();
       }
       let counts: object = {};
-      const timing = turn(() => { counts = seed(t.db, MESSAGES); });
-      const sample = { run, mode, triggers: rollupTriggers.length, ...counts, ...timing };
+      const changed = () => db.prepare('SELECT total_changes()').pluck().get() as number;
+      const before = changed();
+      const timing = turn(() => { counts = seed(db, MESSAGES); });
+      const sample = { run, mode, triggers: rollupTriggers.length, sqliteChanges: changed() - before, ...counts, ...timing };
       samples.push(sample); console.log(JSON.stringify({ benchmark: 'trigger-family', ...sample }));
-    } finally { await t.dispose(); }
+    } finally { db.close(); await t.dispose(); }
     await yieldTurn();
   }
   const median = (values: number[]) => values.sort((a, b) => a - b)[Math.floor(values.length / 2)]!;
   console.log(JSON.stringify({ benchmark: 'mixed-write-summary', modes: ['none', ...FAMILIES, 'all'].map((mode) => {
     const rows = samples.filter((row) => row.mode === mode);
-    return { mode, medianMs: median(rows.map((row) => row.ms)), longestBlockingTurnMs: Math.max(...rows.map((row) => row.longestBlockingTurnMs)) };
+    return { mode, medianMs: median(rows.map((row) => row.ms)), medianCpuMs: median(rows.map((row) => row.cpuMs)),
+      sqliteChanges: rows[0]!.sqliteChanges, longestBlockingTurnMs: Math.max(...rows.map((row) => row.longestBlockingTurnMs)) };
   }) }));
   for (let run = 0; run < RUNS; run++) {
     const t = testPlugin(attachments, { archive: { channels: [{ id: CHANNEL }] } });
+    const db = openDb(t.db.prepare("SELECT file FROM pragma_database_list WHERE name = 'main'").pluck().get() as string);
     try {
-      const db = t.db as unknown as Db;
       const messages: RawMessage[] = Array.from({ length: REFETCH_MESSAGES }, (_, n) => ({
         id: snowflakeFromMs(START + n), channel_id: CHANNEL, author: { id: 'author', username: 'Author' },
         content: `https://example.test/${n}`, timestamp: new Date(START + n).toISOString(), edited_timestamp: null,
@@ -76,6 +83,6 @@ export async function main() {
       db.prepare = prepare;
       const count = textedLinkCount(db, messages[0]!.id);
       if (count !== 1) throw new Error(`Expected linked text, got ${count}`);
-    } finally { await t.dispose(); }
+    } finally { db.close(); await t.dispose(); }
   }
 }
