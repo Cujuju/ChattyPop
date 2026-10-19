@@ -22,7 +22,7 @@ function fixture() {
   const db = tempDb(), archive = seedArchive(db, [{ id: CHANNEL }]);
   installRollupStore(db); installRollupTriggers(db); installRollupReferences(db);
   const changes = new ArchiveChanges(); archive.reportChangesWith(changes.add.bind(changes));
-  onTestFinished(() => db.close());
+  onTestFinished(() => { db.close(); });
   return { db, archive, changes };
 }
 

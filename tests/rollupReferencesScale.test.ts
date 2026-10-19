@@ -4,6 +4,7 @@ import { seedArchiveViews } from './archiveViewsFixture';
 import { installRollupStore } from '../src/core/rollups/store';
 import { seedRollupReferences, knownReferenceSql } from '../src/core/rollups/privacy';
 import * as readers from '../src/core/reads/archiveReads';
+import { MS_PER_DAY } from '@shared/units';
 
 const MESSAGES = 200_000; // Exceeds the native argument-count limit and represents a substantial bootstrap.
 it('classifies bootstrap in the worker and transfers only index mismatches', async () => {
@@ -46,7 +47,7 @@ it('retains a queued edit made after worker classification until the next drain'
 
 it.each([['a', 'b', 'c'], ['c', 'b', 'a'], ['b', 'a', 'c']])('coalesces reference work and matches a full classification for arrival order %j', async (...order) => {
   const db = tempDb(); seedArchiveViews(db); installRollupStore(db);
-  onTestFinished(() => db.close());
+  onTestFinished(() => { db.close(); });
   await seedRollupReferences(db, new AbortController().signal);
   const epoch = db.prepare('SELECT mutation FROM rollup_reference_state').pluck().get();
   const insert = db.prepare('INSERT INTO messages(id, channel_id, author_id, ts, content) VALUES (?, ?, ?, ?, ?)');
@@ -55,6 +56,7 @@ it.each([['a', 'b', 'c'], ['c', 'b', 'a'], ['b', 'a', 'c']])('coalesces referenc
   expect(db.prepare('SELECT mutation FROM rollup_reference_state').pluck().get()).toBe(epoch);
   for (const change of [() => {},
     () => db.exec("UPDATE messages SET content = 'ordinary' WHERE id = 'b'"),
+    () => db.exec(`UPDATE messages SET content = 'no longer referenced' WHERE id = 'a'; UPDATE messages SET ts = ts + ${MS_PER_DAY} WHERE id = 'a'`),
     () => db.exec("DELETE FROM messages WHERE id = 'c'"),
     () => db.exec("UPDATE messages SET content = 'future-channel' WHERE id = 'a'; INSERT INTO channels(id, name, kind) VALUES ('future-channel', 'New', 0)"),
     () => db.exec("DELETE FROM channels WHERE id = 'future-channel'"),

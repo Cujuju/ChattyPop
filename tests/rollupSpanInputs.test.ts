@@ -17,7 +17,7 @@ function fixture() {
   db.exec(`CREATE TABLE ${TABLE}(channel_id TEXT, first_ts INTEGER, last_ts INTEGER)`);
   db.prepare(`INSERT INTO ${TABLE} VALUES (?, ?, ?)`).run('c-open', START, START + 2 * MS_PER_DAY);
   installSpanTriggers(db, ID, TABLE, { first_ts: 'INTEGER', last_ts: 'INTEGER' }, SPAN);
-  onTestFinished(() => db.close());
+  onTestFinished(() => { db.close(); });
   return db;
 }
 

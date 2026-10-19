@@ -42,7 +42,8 @@ export function installRollupReferences(db: Db): void {
       ON CONFLICT(kind, id) DO UPDATE SET revision = excluded.revision;`;
     reconcileDefinition(db, `${target}/triggers`, `CREATE TRIGGER IF NOT EXISTS ${target}_insert AFTER INSERT ON ${table}
       WHEN NOT EXISTS (${queued}) BEGIN ${enqueue} END;
-      CREATE TRIGGER IF NOT EXISTS ${target}_update AFTER UPDATE OF ${text} ON ${table} WHEN old.${text} IS NOT new.${text}
+      CREATE TRIGGER IF NOT EXISTS ${target}_update AFTER UPDATE OF ${text}, ${channel}, ${ts} ON ${table}
+      WHEN (old.${text} IS NOT new.${text} OR old.${channel} IS NOT new.${channel} OR old.${ts} IS NOT new.${ts})
       AND NOT EXISTS (${queued}) BEGIN ${enqueue} END;
       CREATE TRIGGER IF NOT EXISTS ${target}_delete AFTER DELETE ON ${table}
       BEGIN DELETE FROM ${target} WHERE ${column} = old.id;
