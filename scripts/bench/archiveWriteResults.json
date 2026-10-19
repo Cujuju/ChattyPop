@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-19",
+  "runtime": "v24.21.0",
+  "sourceCommits": {
+    "beforeHost": "d632f22bd83246eef140ba8852ce9d3ab99eddf8",
+    "afterHost": "e5607dfccf6846a1e6e18643812b8712546774c2",
+    "beforePlugins": "9a064950b3a7fa3bc03040a06b59a9e08d30cfc7",
+    "afterPlugins": "fa66da32a24114f72656742af18af62f44e7c59b",
+    "writerHarness": "d392a2ebe32b0eea0096522ad36f6fb4afb1c4dc"
+  },
+  "method": "Three native-writer samples per mode on disposable, unencrypted archives. CPU is process CPU; longest turn is the uninterrupted synchronous operation. External machine load was not controlled. SQL change counts include triggers and FTS. Metadata is an inactive-write noise control; spans have no stored runs.",
+  "before": {
+    "samples": [
+      {"benchmark":"trigger-family","run":0,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2264.8904999999995,"longestBlockingTurnMs":2264.8904999999995,"cpuMs":2234},
+      {"benchmark":"trigger-family","run":0,"mode":"partition","triggers":42,"sqliteChanges":324319,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3134.3760999999995,"longestBlockingTurnMs":3134.3760999999995,"cpuMs":3109},
+      {"benchmark":"trigger-family","run":0,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3048.2178000000004,"longestBlockingTurnMs":3048.2178000000004,"cpuMs":2766},
+      {"benchmark":"trigger-family","run":0,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2778.618300000002,"longestBlockingTurnMs":2778.618300000002,"cpuMs":2547},
+      {"benchmark":"trigger-family","run":0,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":1992.667300000001,"longestBlockingTurnMs":1992.667300000001,"cpuMs":1937},
+      {"benchmark":"trigger-family","run":0,"mode":"all","triggers":42,"sqliteChanges":385599,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4308.490599999997,"longestBlockingTurnMs":4308.490599999997,"cpuMs":4282},
+      {"benchmark":"trigger-family","run":1,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2433.4052999999985,"longestBlockingTurnMs":2433.4052999999985,"cpuMs":2438},
+      {"benchmark":"trigger-family","run":1,"mode":"partition","triggers":42,"sqliteChanges":324319,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3570.397000000001,"longestBlockingTurnMs":3570.397000000001,"cpuMs":3546},
+      {"benchmark":"trigger-family","run":1,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3933.901999999998,"longestBlockingTurnMs":3933.901999999998,"cpuMs":3750},
+      {"benchmark":"trigger-family","run":1,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2973.9761999999973,"longestBlockingTurnMs":2973.9761999999973,"cpuMs":2938},
+      {"benchmark":"trigger-family","run":1,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2380.652200000004,"longestBlockingTurnMs":2380.652200000004,"cpuMs":2391},
+      {"benchmark":"trigger-family","run":1,"mode":"all","triggers":42,"sqliteChanges":385599,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4296.207699999999,"longestBlockingTurnMs":4296.207699999999,"cpuMs":4203},
+      {"benchmark":"trigger-family","run":2,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2126.980499999998,"longestBlockingTurnMs":2126.980499999998,"cpuMs":2079},
+      {"benchmark":"trigger-family","run":2,"mode":"partition","triggers":42,"sqliteChanges":324319,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3365.887600000002,"longestBlockingTurnMs":3365.887600000002,"cpuMs":3235},
+      {"benchmark":"trigger-family","run":2,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3133.6398000000045,"longestBlockingTurnMs":3133.6398000000045,"cpuMs":3109},
+      {"benchmark":"trigger-family","run":2,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2417.4146000000037,"longestBlockingTurnMs":2417.4146000000037,"cpuMs":2375},
+      {"benchmark":"trigger-family","run":2,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2242.559699999998,"longestBlockingTurnMs":2242.559699999998,"cpuMs":2203},
+      {"benchmark":"trigger-family","run":2,"mode":"all","triggers":42,"sqliteChanges":385599,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4395.080399999992,"longestBlockingTurnMs":4395.080399999992,"cpuMs":4328}
+    ],
+    "summary": [
+      {"mode":"none","medianMs":2264.8904999999995,"medianCpuMs":2234,"sqliteChanges":218399,"longestBlockingTurnMs":2433.4052999999985},
+      {"mode":"partition","medianMs":3365.887600000002,"medianCpuMs":3235,"sqliteChanges":324319,"longestBlockingTurnMs":3570.397000000001},
+      {"mode":"reference","medianMs":3133.6398000000045,"medianCpuMs":3109,"sqliteChanges":259679,"longestBlockingTurnMs":3933.901999999998},
+      {"mode":"span","medianMs":2778.618300000002,"medianCpuMs":2547,"sqliteChanges":238399,"longestBlockingTurnMs":2973.9761999999973},
+      {"mode":"metadata","medianMs":2242.559699999998,"medianCpuMs":2203,"sqliteChanges":218399,"longestBlockingTurnMs":2380.652200000004},
+      {"mode":"all","medianMs":4308.490599999997,"medianCpuMs":4282,"sqliteChanges":385599,"longestBlockingTurnMs":4395.080399999992}
+    ],
+    "refetch": [
+      {"benchmark":"unchanged-refetch","run":0,"messages":1000,"ms":1899.6953999999969,"longestBlockingTurnMs":1899.6953999999969,"cpuMs":1938,"prepares":2000,"executions":2000,"prepareMs":412.8375999999116,"executionMs":70.29020000017772},
+      {"benchmark":"unchanged-refetch","run":1,"messages":1000,"ms":2021.4262000000017,"longestBlockingTurnMs":2021.4262000000017,"cpuMs":2172,"prepares":2000,"executions":2000,"prepareMs":431.9594000001671,"executionMs":78.76749999991443},
+      {"benchmark":"unchanged-refetch","run":2,"messages":1000,"ms":2433.1417999999976,"longestBlockingTurnMs":2433.1417999999976,"cpuMs":2453,"prepares":2000,"executions":2000,"prepareMs":521.8691999997391,"executionMs":107.62570000022242}
+    ]
+  },
+  "after": {
+    "samples": [
+      {"benchmark":"trigger-family","run":0,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3301.1488,"longestBlockingTurnMs":3301.1488,"cpuMs":3218},
+      {"benchmark":"trigger-family","run":0,"mode":"partition","triggers":42,"sqliteChanges":219257,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4404.577800000001,"longestBlockingTurnMs":4404.577800000001,"cpuMs":4109},
+      {"benchmark":"trigger-family","run":0,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3910.5721000000012,"longestBlockingTurnMs":3910.5721000000012,"cpuMs":3782},
+      {"benchmark":"trigger-family","run":0,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3922.2219000000005,"longestBlockingTurnMs":3922.2219000000005,"cpuMs":3718},
+      {"benchmark":"trigger-family","run":0,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2994.171699999999,"longestBlockingTurnMs":2994.171699999999,"cpuMs":2984},
+      {"benchmark":"trigger-family","run":0,"mode":"all","triggers":42,"sqliteChanges":280537,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4804.144100000001,"longestBlockingTurnMs":4804.144100000001,"cpuMs":4765},
+      {"benchmark":"trigger-family","run":1,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2993.1511000000028,"longestBlockingTurnMs":2993.1511000000028,"cpuMs":2703},
+      {"benchmark":"trigger-family","run":1,"mode":"partition","triggers":42,"sqliteChanges":219257,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3178.993999999999,"longestBlockingTurnMs":3178.993999999999,"cpuMs":2923},
+      {"benchmark":"trigger-family","run":1,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3022.3001000000004,"longestBlockingTurnMs":3022.3001000000004,"cpuMs":2875},
+      {"benchmark":"trigger-family","run":1,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2758.3399000000063,"longestBlockingTurnMs":2758.3399000000063,"cpuMs":2656},
+      {"benchmark":"trigger-family","run":1,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2523.0483999999997,"longestBlockingTurnMs":2523.0483999999997,"cpuMs":2515},
+      {"benchmark":"trigger-family","run":1,"mode":"all","triggers":42,"sqliteChanges":280537,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3764.143299999996,"longestBlockingTurnMs":3764.143299999996,"cpuMs":3656},
+      {"benchmark":"trigger-family","run":2,"mode":"none","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2411.2471000000005,"longestBlockingTurnMs":2411.2471000000005,"cpuMs":2328},
+      {"benchmark":"trigger-family","run":2,"mode":"partition","triggers":42,"sqliteChanges":219257,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2795.5002999999997,"longestBlockingTurnMs":2795.5002999999997,"cpuMs":2733},
+      {"benchmark":"trigger-family","run":2,"mode":"reference","triggers":42,"sqliteChanges":259679,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4942.929800000005,"longestBlockingTurnMs":4942.929800000005,"cpuMs":4485},
+      {"benchmark":"trigger-family","run":2,"mode":"span","triggers":42,"sqliteChanges":238399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":4074.0486999999994,"longestBlockingTurnMs":4074.0486999999994,"cpuMs":3406},
+      {"benchmark":"trigger-family","run":2,"mode":"metadata","triggers":42,"sqliteChanges":218399,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":2217.4704000000056,"longestBlockingTurnMs":2217.4704000000056,"cpuMs":2188},
+      {"benchmark":"trigger-family","run":2,"mode":"all","triggers":42,"sqliteChanges":280537,"messages":20000,"attachments":8000,"linkShares":3200,"days":390,"authors":30,"ingestion":"newest first","ms":3799.6339000000007,"longestBlockingTurnMs":3799.6339000000007,"cpuMs":3781}
+    ],
+    "summary": [
+      {"mode":"none","medianMs":2993.1511000000028,"medianCpuMs":2703,"sqliteChanges":218399,"longestBlockingTurnMs":3301.1488},
+      {"mode":"partition","medianMs":3178.993999999999,"medianCpuMs":2923,"sqliteChanges":219257,"longestBlockingTurnMs":4404.577800000001},
+      {"mode":"reference","medianMs":3910.5721000000012,"medianCpuMs":3782,"sqliteChanges":259679,"longestBlockingTurnMs":4942.929800000005},
+      {"mode":"span","medianMs":3922.2219000000005,"medianCpuMs":3406,"sqliteChanges":238399,"longestBlockingTurnMs":4074.0486999999994},
+      {"mode":"metadata","medianMs":2523.0483999999997,"medianCpuMs":2515,"sqliteChanges":218399,"longestBlockingTurnMs":2994.171699999999},
+      {"mode":"all","medianMs":3799.6339000000007,"medianCpuMs":3781,"sqliteChanges":280537,"longestBlockingTurnMs":4804.144100000001}
+    ],
+    "refetch": [
+      {"benchmark":"unchanged-refetch","run":0,"messages":1000,"ms":2501.8266000000003,"longestBlockingTurnMs":2501.8266000000003,"cpuMs":2421,"prepares":1,"executions":2000,"prepareMs":0.5149999999994179,"executionMs":75.988800000443},
+      {"benchmark":"unchanged-refetch","run":1,"messages":1000,"ms":1919.1656999999977,"longestBlockingTurnMs":1919.1656999999977,"cpuMs":1796,"prepares":1,"executions":2000,"prepareMs":0.35839999999734573,"executionMs":61.36960000016552},
+      {"benchmark":"unchanged-refetch","run":2,"messages":1000,"ms":1777.9195000000036,"longestBlockingTurnMs":1777.9195000000036,"cpuMs":1703,"prepares":1,"executions":2000,"prepareMs":0.4198000000033062,"executionMs":59.84600000003411}
+    ]
+  }
+}
