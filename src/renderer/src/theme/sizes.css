@@ -152,7 +152,8 @@
   --cp-rail-tile: 36px; /* channel tile and server icon cell in the rail */
   --cp-chat-avatar: 36px; /* author avatar heading a cozy Archive group */
   --cp-avatar-decoration: calc(var(--cp-chat-avatar) * 1.2); /* the frame around it: Discord draws decorations at 1.2x the avatar */
-  --cp-conversation-text-min-w: 16ch; /* a Conversation window message's text before its mark buttons wrap below it */
+  --cp-conversation-message-min-w: 28ch; /* a Conversation window message (avatar, name, text) before its mark buttons wrap below it */
+  --cp-conversation-unlinked-scale: 0.875; /* an unlinked message there, zoomed whole: plainly smaller, its 14px text still over 12px */
   /* The Person window: Discord's profile as a rail beside the archive's view of the person. */
   --cp-profile-card-w: 300px; /* the profile rail, Discord's profile width */
   --cp-profile-banner-h: 88px; /* the avatar's height: a person with no banner image gets no blank block */

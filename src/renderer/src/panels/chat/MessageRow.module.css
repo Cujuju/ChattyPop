@@ -130,6 +130,35 @@
   white-space: nowrap;
 }
 
+/* Compact: the View conversation button gets its own column between time and author, so icons align down the log. */
+.row:has(> .conversation) {
+  grid-template-columns: var(--cp-chat-time-col-w) auto var(--cp-chat-author-col-w) minmax(0, 1fr);
+}
+
+/* View conversation, after the time: a glyph on the time's line (its font size, so its baseline matches), muted like the
+   time. Cozy composes it (Cozy.module.css). */
+.conversation {
+  min-width: var(--cp-hit-min);
+  min-height: var(--cp-hit-min);
+  padding: 0 var(--cp-space-1);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-xs);
+  transition:
+    color var(--cp-duration-fast) var(--cp-ease),
+    background-color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.conversation > svg {
+  width: var(--cp-icon-sm);
+  height: var(--cp-icon-sm);
+}
+
+.conversation:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
 /* Author in semibold; AuthorName colours it as Discord does. */
 .author {
   min-width: 0;

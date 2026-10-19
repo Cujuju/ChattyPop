@@ -226,6 +226,7 @@
   --cp-opacity-disabled: 0.4;
   --cp-badge-hover-brightness: 1.15; /* a clickable badge lightens on hover, keeping its section colour */
   --cp-attachment-removed-opacity: 0.6; /* an attachment removed from its message on Discord: still legible, plainly set back */
+  --cp-conversation-unlinked-opacity: 0.7; /* an unlinked message in the Conversation window, until pointed at: behind the members, read at a glance */
 
   /* Spoiler cover over an attachment (Attachment.module.css): the media blurred past recognition, a ground veil, a pill. */
   --cp-spoiler-blur: 44px; /* Discord's: shapes and colours only, nothing readable */

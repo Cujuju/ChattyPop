@@ -4,9 +4,9 @@ import type { JSX } from 'solid-js';
 
 /** Each icon's shapes on the 24-unit grid. */
 const SOLID_ICONS = {
-  conversation: () => <path d="M5 2h11a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H8l-5 4V5a3 3 0 0 1 2-3ZM21 8h1v13l-5-3h-5v-1h4a5 5 0 0 0 5-5Z" />,
-  plus: () => <path d="M10.5 3h3v7.5H21v3h-7.5V21h-3v-7.5H3v-3h7.5Z" />,
-  archive: () => <path d="M3 2h18v5H3ZM4 9h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2ZM9 12v2h6v-2Z" />,
+  conversation: () => <path d="M5 2h9a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H7l-5 4V5a3 3 0 0 1 3-3ZM19 7a3 3 0 0 1 3 3v12l-5-4h-7a3 3 0 0 1-3-3h9a3 3 0 0 0 3-3Z" />,
+  plus: () => <path d="M12 3a1.5 1.5 0 0 1 1.5 1.5v6h6a1.5 1.5 0 0 1 0 3h-6v6a1.5 1.5 0 0 1-3 0v-6h-6a1.5 1.5 0 0 1 0-3h6v-6A1.5 1.5 0 0 1 12 3Z" />,
+  archive: () => <path d="M4 3h16a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM4 10h16v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3ZM9.5 12.5h5a1 1 0 0 1 0 2h-5a1 1 0 0 1 0-2Z" />,
   addReaction: () => (
     <>
       <path d="M10 6a8 8 0 1 0 0 16 8 8 0 1 0 0-16ZM7.4 10.8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8ZM12.6 10.8a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 1 0 0-2.8ZM6.3 15.3h7.4a3.7 3.7 0 0 1-7.4 0Z" />

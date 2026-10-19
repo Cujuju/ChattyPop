@@ -1,7 +1,9 @@
-/* Conversation window inside the shared window surface (ui/WindowChrome.module.css).
+/* Conversation window inside the shared window surface (ui/WindowChrome.module.css). Each row holds an Archive message row
+   (panels/chat/MessageRow) and its marks.
    Hooks: .row[data-linked='true'] (joined by replies), .row[data-anchor='true'] (the message it was opened from),
-   .row[data-member='false'] (a nearby message outside the conversation), .row[data-questionable='true'] (an unsure link not
-   yet marked), .row[data-mark='belongs'|'add'|'not'] (the owner's mark), .actions, .badge, .toolbar, .removed, .removedRow. */
+   .row[data-root='true'] (starts the conversation), .row[data-member='false'] (an unlinked message between or after them),
+   .row[data-questionable='true'] (an unsure link not yet marked), .row[data-mark='belongs'|'add'|'not'] (the owner's mark),
+   .actions, .badge, .note, .toolbar, .removed, .removedRow. */
 
 .list {
   display: flex;
@@ -13,23 +15,30 @@
   list-style: none;
 }
 
-/* Time | author | text | marks, as the compact archive log; marks wrap below once the text would fall under its minimum.
-   Grouped (not reply-linked) rows are quieter. */
+/* Message | marks; the marks wrap below, end-aligned, once the message would fall under its minimum. The message's own
+   inset (and its hover bar's) is re-scoped tighter than a panel's: the window body already insets the list. */
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cp-space-1) var(--cp-space-3);
-  align-items: baseline;
-  padding: var(--cp-space-2) var(--cp-space-3);
+  align-items: flex-start;
+  column-gap: var(--cp-space-3);
   border-left: var(--cp-section-stripe-h) solid transparent;
   border-radius: var(--cp-radius-sm);
-  color: var(--cp-text-2);
-  font-size: var(--cp-text-sm);
+  --cp-panel-pad-x: var(--cp-space-4);
+}
+
+/* The Archive row: its article is the hover bar's positioning context, so the bar stays clear of the marks. */
+.row > article {
+  flex: 1 1 0;
+  min-width: min(var(--cp-conversation-message-min-w), 100%);
+}
+
+.row[data-root='true'] {
+  border-left-color: var(--cp-border-strong);
 }
 
 .row[data-linked='true'] {
   border-left-color: var(--cp-accent);
-  color: var(--cp-text-1);
 }
 
 .row[data-anchor='true'] {
@@ -52,48 +61,20 @@
   border-left-color: var(--cp-success);
 }
 
-/* Nearby, outside the conversation: dashed stripe, muted text. */
+/* Unlinked: dashed stripe; the whole message (text, avatar, pictures) zoomed smaller and set back until pointed at. */
 .row[data-member='false'] {
   border-left-style: dashed;
   border-left-color: var(--cp-border-strong);
-  color: var(--cp-text-muted);
 }
 
-.row[data-member='false'] .author {
-  color: var(--cp-text-2);
+.row[data-member='false'] > article {
+  zoom: var(--cp-conversation-unlinked-scale);
+  opacity: var(--cp-conversation-unlinked-opacity);
+  transition: opacity var(--cp-duration-fast) var(--cp-ease);
 }
 
-.time,
-.author {
-  flex: none;
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
-.time {
-  color: var(--cp-text-muted);
-  font-family: var(--cp-font-mono);
-  font-size: var(--cp-text-xs);
-}
-
-.author {
-  color: var(--cp-text-1);
-  font-weight: var(--cp-weight-semibold);
-  white-space: nowrap;
-}
-
-.time:hover,
-.author:hover {
-  text-decoration: underline;
-}
-
-.text {
-  flex: 1 1 0;
-  min-width: min(var(--cp-conversation-text-min-w), 100%);
-  overflow-wrap: anywhere;
+.row[data-member='false']:is(:hover, :focus-within) > article {
+  opacity: 1;
 }
 
 .note {
@@ -101,15 +82,16 @@
   font-size: var(--cp-text-xs);
 }
 
-/* Marks at the row's end; on their own line, still end-aligned, when the row is too narrow. */
+/* Marks at the row's trailing side, level with the message's first line. */
 .actions {
   display: flex;
   flex: 0 1 auto;
-  margin-left: auto;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: var(--cp-space-2);
+  margin-left: auto;
+  padding: var(--cp-space-3) var(--cp-space-3) var(--cp-space-3) 0;
 }
 
 .actions:empty {
@@ -118,6 +100,18 @@
 
 .actions > button {
   padding: 0 var(--cp-space-3);
+}
+
+/* A button holding only an icon (add, open in the Archive): a compact square. */
+.actions > button:has(> svg:only-child) {
+  justify-content: center;
+  width: var(--cp-btn-h-sm);
+  padding: 0;
+}
+
+.actions > button > svg {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
 }
 
 .row[data-mark='belongs'] .actions > .note,

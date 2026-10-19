@@ -106,6 +106,16 @@
   white-space: nowrap;
 }
 
+/* View conversation, after the time: the compact row's button (MessageRow.module.css) on this time's line. */
+.conversation {
+  composes: conversation from './MessageRow.module.css';
+  flex: none;
+}
+
+.head > .conversation {
+  font-size: var(--cp-text-2xs);
+}
+
 /* Clicking an author's name or avatar opens their Person window. */
 .name,
 .avatar {
