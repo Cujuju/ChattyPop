@@ -11,9 +11,9 @@ export interface ReadProcess extends EventEmitter {
 
 /** Windows process creation can exceed a frame even before any archive work starts. */
 function forkWorker(): void {
-  const { parentPort: port, workerData } = require('node:worker_threads') as typeof import('node:worker_threads');
-  const { fork } = require('node:child_process') as typeof import('node:child_process');
-  const { serialize, deserialize } = require('node:v8') as typeof import('node:v8');
+  const { parentPort: port, workerData } = process.getBuiltinModule('node:worker_threads');
+  const { fork } = process.getBuiltinModule('node:child_process');
+  const { serialize, deserialize } = process.getBuiltinModule('node:v8');
   const child = fork(workerData.entry, [], {
     execPath: workerData.execPath, execArgv: [], serialization: 'advanced',
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: ['ignore', 'ignore', 'pipe', 'ipc'], windowsHide: true,

@@ -16,8 +16,8 @@ export interface CliProcess extends EventEmitter {
 
 /** Closure-free worker: even Windows CreateProcess and SDK executable probes stay off Core. */
 function processWorker(): void {
-  const { parentPort: port, workerData } = require('node:worker_threads') as typeof import('node:worker_threads');
-  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  const { parentPort: port, workerData } = process.getBuiltinModule('node:worker_threads');
+  const { spawn } = process.getBuiltinModule('node:child_process');
   const child = spawn(workerData.command, workerData.args, { ...workerData.options, stdio: 'pipe', windowsHide: true });
   let stopping = false;
   child.stdout.on('data', (data) => { if (!stopping) { child.stdout.pause(); port!.postMessage({ kind: 'stdout', data }); } });
