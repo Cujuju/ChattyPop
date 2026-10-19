@@ -1,7 +1,7 @@
 import type { ArchiveMessage } from '@shared/contract';
 import type { Db } from '../db';
-import { readHost } from '../reads/archiveReads';
-import { decorateMessages, type MessageSnapshot } from '../queries/messageDecorations';
+import { archiveReadFence, readHost } from '../reads/archiveReads';
+import { decorateMessagesAsync, type MessageSnapshot } from '../queries/messageDecorations';
 import { activePluginCall } from './callContext';
 import type { ArchiveReadOptions } from './pluginDb';
 import type { ArchivePayload } from './archivePayloads';
@@ -40,9 +40,10 @@ export function archiveAsync(ready: () => Db, live: () => boolean): ArchiveAsync
     messages: async (ids, options) => {
       const { signal, priority } = context(options);
       if (!live() || !ids.length) return [];
+      const fence = archiveReadFence(ready());
       const [snapshot] = await readHost<MessageSnapshot>(ready(), { kind: 'messages', ids }, signal, priority);
       signal?.throwIfAborted();
-      return live() ? decorateMessages(snapshot!) : [];
+      return decorateMessagesAsync(snapshot!, () => { signal?.throwIfAborted(); fence(); return live(); });
     },
     payloads: async (ids, options) => {
       const { signal, priority } = context(options);

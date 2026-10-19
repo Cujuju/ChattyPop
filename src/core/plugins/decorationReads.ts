@@ -3,8 +3,8 @@ import { activePluginCall, checkSyncRead, pluginCalls } from './callContext';
 import { CORE_SYNC_CALL_BUDGET_MS } from './syncReadBudget';
 import type { HostDeps } from './api';
 
-/** Eight messages leave room for multiple indexed part rows under the 64-row statement budget. */
-const DECORATION_IDS_PER_BATCH = 8;
+/** One entity keeps unrelated messages' part rows from accumulating against the 64-row statement budget. */
+const DECORATION_IDS_PER_BATCH = 1;
 const DECORATION_SYNC_READS = { reason: 'Indexed live decoration of a bounded archive page batch.' };
 
 /** The host declares the lookup exception for synchronous decoration providers, including on host pages. */

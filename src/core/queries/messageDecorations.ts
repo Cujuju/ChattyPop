@@ -9,6 +9,32 @@ export interface MessageSnapshot {
   judgments: { messageId: string; subject: string; value: number; label: string | null }[];
 }
 
+/** A short live-enrichment turn even when a restored window contains many loaded pages. */
+const MESSAGES_PER_DECORATION_TURN = 16;
+/** Large restored windows can carry many judgments per message; group only a small result page per turn. */
+const JUDGMENTS_PER_DECORATION_TURN = 256;
+
+export async function decorateMessagesAsync({ items, judgments }: MessageSnapshot, current: () => boolean): Promise<ArchiveMessage[]> {
+  const out: ArchiveMessage[] = [];
+  const byId = new Map<string, MessageSnapshot['judgments']>();
+  for (let index = 0; index < judgments.length; index++) {
+    if (index && index % JUDGMENTS_PER_DECORATION_TURN === 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (!current()) return [];
+    }
+    const row = judgments[index]!;
+    const own = byId.get(row.messageId) ?? [];
+    own.push(row); byId.set(row.messageId, own);
+  }
+  for (let offset = 0; offset < items.length; offset += MESSAGES_PER_DECORATION_TURN) {
+    if (!current()) return [];
+    const batch = items.slice(offset, offset + MESSAGES_PER_DECORATION_TURN);
+    out.push(...decorateMessages({ items: batch, judgments: batch.flatMap((m) => byId.get(m.id) ?? []) }));
+    if (offset + MESSAGES_PER_DECORATION_TURN < items.length) await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  return current() ? out : [];
+}
+
 /** Adds live plugin notes and labels only on Core; the archive snapshot itself is read in a helper. */
 export function decorateMessages({ items, judgments }: MessageSnapshot): ArchiveMessage[] {
   if (!items.length) return [];

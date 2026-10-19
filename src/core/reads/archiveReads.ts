@@ -4,19 +4,29 @@ import { archiveReadEntry } from './helperEntry';
 import type { ReadPriority } from '@shared/readPriority';
 import type { HostRead, ReadCompute, ReadQuery } from './protocol';
 
-interface Readers { key: string | null; pool?: ArchiveReadPool; closed: boolean; zone: string }
+interface Readers { key: string | null; pool?: ArchiveReadPool; closed: boolean; zone: string; generation: number }
 const readers = new WeakMap<Db, Readers>();
 
 /** An async snapshot must not outlive the privacy state that permitted its rows. */
 export function archiveReadPrivacyChanged(db: Db): void {
-  readers.get(db)?.pool?.cancel(new Error('Archive visibility changed; repeat the lookup'));
+  const state = readers.get(db);
+  if (state) { state.generation++; state.pool?.cancel(new Error('Archive visibility changed; repeat the lookup')); }
+}
+
+/** Also fences live enrichment that yields after the native snapshot has already replied. */
+export function archiveReadFence(db: Db): () => void {
+  const state = readers.get(db), generation = state?.generation;
+  return () => {
+    if (!db.open || !state || state.closed) throw new Error('Archive reader is closed');
+    if (state.generation !== generation) throw new Error('Archive visibility changed; repeat the lookup');
+  };
 }
 
 /** Called only after opening or rekeying; keys stay in core/helper memory. */
 export function configureArchiveReads(db: Db, key: string | null): void {
   const state = readers.get(db);
-  if (state) { state.key = key; state.closed = false; return; }
-  readers.set(db, { key, closed: false, zone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+  if (state) { state.key = key; state.closed = false; state.generation++; return; }
+  readers.set(db, { key, closed: false, zone: Intl.DateTimeFormat().resolvedOptions().timeZone, generation: 0 });
   const close = db.close.bind(db);
   db.close = () => { void closeArchiveReads(db); return close(); };
 }
@@ -26,6 +36,7 @@ export async function closeArchiveReads(db: Db): Promise<void> {
   const state = readers.get(db);
   if (!state) return;
   state.closed = true;
+  state.generation++;
   await state.pool?.close();
   state.pool = undefined;
 }
@@ -43,7 +54,10 @@ export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'],
 
 /** Exact host aggregates share the cancellable, prioritized read process with plugin queries. */
 export function readHost<R>(db: Db, query: HostRead, signal?: AbortSignal, priority: ReadPriority = 'background'): Promise<R[]> {
-  try { return poolOf(db, signal).host<R>(query, signal, priority); }
+  try {
+    const fence = archiveReadFence(db);
+    return poolOf(db, signal).host<R>(query, signal, priority).then((rows) => { fence(); return rows; });
+  }
   catch (error) { return Promise.reject(error); }
 }
 
