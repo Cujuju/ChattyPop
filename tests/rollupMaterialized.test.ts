@@ -38,6 +38,7 @@ it('publishes exact materialized folds after arrivals, deletion and rebuild', as
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
   t.db.prepare("INSERT INTO hidden_ids(id, kind) VALUES ('channel', 'channel')").run();
   expect(rollup().visibilityToken()).not.toBe(visibility);
+  t.db.prepare("DELETE FROM hidden_ids WHERE id = 'channel'").run();
   rollup().rebuild(); await settle();
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
 });
