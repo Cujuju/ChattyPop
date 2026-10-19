@@ -101,7 +101,7 @@ export interface CoreMethods {
   setSetting(key: string, value: unknown): void;
   /** Changes one personal spoiler mark against the archive's latest marks and returns the stored list. */
   setLocalSpoiler(key: string, marked: boolean): string[];
-  directory(): DirectoryGuild[];
+  directory(): Promise<DirectoryGuild[]>;
   /** Whether notices about these channels are muted (Settings → Notifications): there is one and every one is, whatever privacy mode hides. */
   allMuted(channelIds: readonly string[]): boolean;
   /** Unread results contain count/first or null. sinceId replaces Archive bounds; localReadId ignores own acknowledgment echoes while later Discord reads still clear banners. */

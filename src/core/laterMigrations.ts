@@ -262,6 +262,8 @@ export const LATER_MIGRATIONS: readonly Migration[] = [
   CREATE TABLE conversation_mark_log (seq INTEGER PRIMARY KEY, message_id TEXT NOT NULL, mark TEXT, parent_id TEXT,
     replaced_parent_id TEXT, conversation_of TEXT NOT NULL, at INTEGER NOT NULL);
   `,
+  // Candidate batches seek newest inferred links without scanning other kinds or sorting the archive.
+  'CREATE INDEX conversation_links_kind_ts ON conversation_links(kind, ts DESC);',
 ];
 
 /**

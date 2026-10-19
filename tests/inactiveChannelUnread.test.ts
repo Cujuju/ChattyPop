@@ -13,7 +13,7 @@ const OPEN = '200000000000000001';
 const OTHER = '200000000000000002';
 const NOW = Date.UTC(2026, 9, 6);
 
-it('projects live arrivals and external reads of an inactive channel to desktop and phone counts', () => {
+it('projects live arrivals and external reads of an inactive channel to desktop and phone counts', async () => {
   const db = tempDb();
   const archive = seedArchive(db, [{ id: OPEN }, { id: OTHER }], { guilds: [{ id: GUILD, name: 'Guild' }] });
   const events: AppEvent[] = [];
@@ -34,7 +34,7 @@ it('projects live arrivals and external reads of an inactive channel to desktop 
     if (t === 'MESSAGE_CREATE') handlers.applyGatewayEvent(t, d);
   });
   const send = (t: string, d: unknown): void => void tap.emit('dispatch', { t, d, s: null });
-  const row = (id: string) => handlers.directory().flatMap((g) => g.channels).find((c) => c.id === id)!;
+  const row = async (id: string) => (await handlers.directory()).flatMap((g) => g.channels).find((c) => c.id === id)!;
   const mark = rawMessage(OPEN, NOW, 'seen', { guild_id: GUILD });
   send('READY', { user: { id: ME }, read_state: { entries: [], partial: false } });
   send('MESSAGE_CREATE', mark);
@@ -47,21 +47,21 @@ it('projects live arrivals and external reads of an inactive channel to desktop 
   send('MESSAGE_CREATE', first);
   send('MESSAGE_CREATE', ping);
   send('MESSAGE_CREATE', ping);
-  expect(row(OPEN).newCount).toBe(0);
-  expect(row(OTHER)).toMatchObject({ messageCount: 2, newCount: 2, mentionCount: 1 });
+  expect((await row(OPEN)).newCount).toBe(0);
+  expect(await row(OTHER)).toMatchObject({ messageCount: 2, newCount: 2, mentionCount: 1 });
   expect(changes).toEqual([OTHER, OTHER]);
   expect(events.map(phoneAppEvent)).toEqual(events);
 
   send('MESSAGE_ACK', { channel_id: OTHER, message_id: first.id });
-  expect(row(OTHER)).toMatchObject({ newCount: 1, mentionCount: 1 });
+  expect(await row(OTHER)).toMatchObject({ newCount: 1, mentionCount: 1 });
   expect(handlers.channelUnread(OTHER)?.firstId).toBe(ping.id);
   expect(events.at(-1)).toMatchObject({ type: 'read-states-changed', states: [{ channelId: OTHER, ackId: first.id, mentionCount: 1 }] });
 
   send('MESSAGE_ACK', { channel_id: OTHER, message_id: ping.id, mention_count: 0 });
-  expect(row(OTHER)).toMatchObject({ newCount: 0, mentionCount: 0 });
+  expect(await row(OTHER)).toMatchObject({ newCount: 0, mentionCount: 0 });
   expect(handlers.channelUnread(OTHER)).toBeNull();
   const own = rawMessage(OTHER, NOW + 3, 'mine', { guild_id: GUILD, author: { id: ME, username: 'owner' } });
   send('MESSAGE_CREATE', own);
-  expect(row(OTHER)).toMatchObject({ messageCount: 3, newCount: 0, mentionCount: 0 });
+  expect(await row(OTHER)).toMatchObject({ messageCount: 3, newCount: 0, mentionCount: 0 });
   db.close();
 });

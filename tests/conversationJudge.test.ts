@@ -1,5 +1,6 @@
 // The judge job: Jev re-ranks the chooser's unsure links, never in local-AI-only channels or over the owner's marks; failures wait.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
+import * as readers from '@core/reads/archiveReads';
 import { MS_PER_MIN } from '@shared/units';
 import { snowflakeFromMs, type RawMessage } from '@shared/discord';
 import { ARRIVAL } from '@core/arrival';
@@ -90,6 +91,28 @@ describe('conversation judge job', () => {
     jev.requests = [];
     await judgeAndRelink();
     expect(jev.requests).toEqual([]);
+  });
+
+  it('rechecks owner marks written while the background candidate read is in flight', async () => {
+    calibrated();
+    const original = readers.readHost;
+    let selected!: () => void;
+    let release!: () => void;
+    const selection = new Promise<void>((resolve) => { selected = resolve; });
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const spy = vi.spyOn(readers, 'readHost').mockImplementation(async (...args) => {
+      const batch = await original(...args);
+      selected();
+      await gate;
+      return batch as never;
+    });
+    onTestFinished(() => spy.mockRestore());
+    const running = judge.run();
+    await selection;
+    markConversation(db, noon.id, noon.id, 'belongs');
+    release();
+    await running;
+    expect(asked()).toEqual([restart.content]);
   });
 
   it('waits a day after a failure, and asks again when the texts it judged change', async () => {

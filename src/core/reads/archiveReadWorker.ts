@@ -3,9 +3,11 @@ import Database from 'better-sqlite3-multiple-ciphers';
 import { rawJsonText } from '../rawJson';
 import { checkReadStatement, type ReadConnection, type ReadQuery, type ReadReply } from './protocol';
 import { foldRollup } from './rollupFold';
+import { directory } from '../queries/directory';
+import { unjudged } from '../conversations/unjudged';
 
 const { path, key } = workerData as ReadConnection;
-parentPort!.on('message', async ({ sql, params, compute }: ReadQuery) => {
+parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
   let db: Database.Database | undefined;
   let reply: ReadReply;
   try {
@@ -27,7 +29,11 @@ parentPort!.on('message', async ({ sql, params, compute }: ReadQuery) => {
       return Array.isArray(values) ? stmt.all(...values) : stmt.all(values);
     };
     let rows: unknown[];
-    if (compute) {
+    if (host) {
+      db.exec('BEGIN');
+      rows = host.kind === 'directory' ? directory(db, host.unseen, host.self, host.reader, host.notable) : unjudged(db, host.now, host.limit);
+      db.exec('COMMIT');
+    } else if (compute) {
       db.exec('BEGIN');
       const { seq } = db.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM messages').get() as { seq: number };
       // Functions are closure-free; explicit data carries table names and configuration across the worker boundary.

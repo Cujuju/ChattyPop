@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TestProject } from 'vitest/node';
 import { build } from 'vite';
+import { bundledPlugins, NO_PLUGIN_SOURCE } from '../bundledPlugins';
 
 /** Run folders are named `<prefix><pid>-<random>`: a run that crashed leaves one, and its pid tells whether it has ended. */
 export const RUN_DIR_PREFIX = 'chattypop-test-run-';
@@ -43,7 +44,8 @@ export default async function setup(project: TestProject): Promise<() => void> {
   const repo = join(import.meta.dirname, '..');
   await build({
     configFile: false, logLevel: 'silent',
-    resolve: { alias: { '@shared': join(repo, 'src/shared') } },
+    plugins: [bundledPlugins(repo, 'node', NO_PLUGIN_SOURCE)],
+    resolve: { alias: { '@shared': join(repo, 'src/shared'), '@plugin-sdk': join(repo, 'src/plugin-sdk') } },
     build: { ssr: true, target: 'node24', outDir: join(repo, 'out/read-tests'), emptyOutDir: false,
       rollupOptions: { input: {
         archiveReadProcess: join(repo, 'src/core/reads/archiveReadProcess.ts'),

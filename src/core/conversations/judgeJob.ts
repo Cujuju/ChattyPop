@@ -1,33 +1,17 @@
 // Asks Jev about the chooser's unsure links from the last 30 days, a batch at a time, then relinks them with the answers.
-import { MS_PER_DAY } from '@shared/units';
 import type { DecisionProvider } from '../ai/decisions';
-import { localOnlyChannelIds } from '../channelPolicy';
 import type { Db } from '../db';
 import { chooserWeights, storedChooser, type StoredChooser } from './fit';
 import { LINKER_VERSION } from './job';
 import { calibrateJudge, currentJudge, judgeMessage } from './judge';
-import { CANDIDATE_MAX, JUDGE_BELOW, LINK_KIND } from './linker';
+import { CANDIDATE_MAX } from './linker';
+import { readHost } from '../reads/archiveReads';
+import { JUDGE_RETRY_MS, type PendingJudgment as Pending } from './unjudged';
 import { channelReach, contextInputs, messageInput, queueConversationLinks } from './store';
+export { unjudged, JUDGE_LOOKBACK_MS, JUDGE_RETRY_MS } from './unjudged';
 
-/** The owner's choice (#303): new messages and the last 30 days, never the whole archive. */
-export const JUDGE_LOOKBACK_MS = 30 * MS_PER_DAY;
-/** A failed or stale judgment is asked again after this, so a message that keeps failing costs one request a day. */
-export const JUDGE_RETRY_MS = MS_PER_DAY;
 /** Messages asked about per step: five rounds of Jev's four requests in flight, so a switch-off stops within a few seconds. */
 export const JUDGE_BATCH = 20;
-
-interface Pending { id: string; channelId: string; ts: number }
-
-/** The newest unsure links that need a judgment: none yet, or a failed one due again. Marked messages are the owner's. */
-export function unjudged(db: Db, now: number, limit: number): Pending[] {
-  return db.prepare(`SELECT l.message_id AS id, l.channel_id AS channelId, l.ts FROM conversation_links l
-    LEFT JOIN conversation_judgments j ON j.message_id = l.message_id
-    WHERE l.kind = '${LINK_KIND.inferred}' AND l.confidence < ? AND l.ts >= ?
-      AND (j.message_id IS NULL OR j.failed_at < ?)
-      AND l.channel_id NOT IN (SELECT value FROM json_each(?))
-      AND NOT EXISTS (SELECT 1 FROM conversation_marks k WHERE k.message_id = l.message_id)
-    ORDER BY l.ts DESC LIMIT ?`).all(JUDGE_BELOW, now - JUDGE_LOOKBACK_MS, now - JUDGE_RETRY_MS, JSON.stringify([...localOnlyChannelIds(db)]), limit) as Pending[];
-}
 
 /** A fit's identity for the calibration latch: a refit with the same weights still moves its held-out boundary. */
 const fitKey = (fit: StoredChooser | undefined): string => JSON.stringify([fit?.weights ?? null, fit?.sampleFromTs ?? null]);
@@ -106,7 +90,9 @@ export class ConversationJudgeJob {
         this.relinked();
         continue;
       }
-      const batch = unjudged(db, Date.now(), JUDGE_BATCH);
+      const batch = await readHost<Pending>(db, { kind: 'unjudged', now: Date.now(), limit: JUDGE_BATCH }, abort.signal, 'background');
+      const current = this.jev();
+      if (abort.signal.aborted || db !== this.db() || !current || current.model !== jev.model) return;
       if (!batch.length) return;
       const judged = await Promise.all(batch.map((p) => this.judgeOne(db, jev, p, abort.signal)));
       this.relinked();
@@ -118,6 +104,7 @@ export class ConversationJudgeJob {
 
   /** Whether Jev answered. */
   private async judgeOne(db: Db, jev: DecisionProvider, p: Pending, signal: AbortSignal): Promise<boolean> {
+    if (db.prepare('SELECT 1 FROM conversation_marks WHERE message_id = ?').get(p.id)) return false;
     const m = messageInput(db, p.id);
     if (!m) return false;
     const candidates = contextInputs(db, p.channelId, m, channelReach(db, p.channelId), CANDIDATE_MAX);

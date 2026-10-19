@@ -10,8 +10,9 @@ import { unreadParams, unreadSql } from './readMarks';
 import { visibleChannelSql } from './privacy';
 
 /** Lists privacy-visible channels with Archive/Discord unread counts and Discord mention counts. Owned DMs sort by activity and include roster/display metadata. */
-export function directory(db: Db, unseenSince: number, selfId: string | null = null, readerId: string | null = selfId): DirectoryGuild[] {
-  const notable = storedMatchSql(NOTABLE_QUERY, 'j', 'notable_');
+export const directoryMatch = () => storedMatchSql(NOTABLE_QUERY, 'j', 'notable_');
+
+export function directory(db: Db, unseenSince: number, selfId: string | null = null, readerId: string | null = selfId, notable = directoryMatch()): DirectoryGuild[] {
   const guilds = db
     .prepare(`SELECT id, name, icon, hide_in_privacy AS hideInPrivacy FROM guilds LEFT JOIN guild_order o ON o.guild_id = guilds.id
        WHERE id NOT IN (SELECT id FROM hidden_ids) ORDER BY id != @dms, o.position IS NULL, o.position, name COLLATE NOCASE`)

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import type { Db } from '../db';
 import { ArchiveReadPool } from './pool';
 import type { ReadPriority } from '@shared/readPriority';
-import type { ReadCompute, ReadQuery } from './protocol';
+import type { HostRead, ReadCompute, ReadQuery } from './protocol';
 
 interface Readers { key: string | null; pool?: ArchiveReadPool; closed: boolean; zone: string }
 const readers = new WeakMap<Db, Readers>();
@@ -39,6 +39,12 @@ export function resumeArchiveReads(db: Db): void {
 
 export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'], signal?: AbortSignal, priority: ReadPriority = 'background'): Promise<R[]> {
   try { return poolOf(db, signal).read<R>(sql, params, signal, priority); }
+  catch (error) { return Promise.reject(error); }
+}
+
+/** Exact host aggregates share the cancellable, prioritized read process with plugin queries. */
+export function readHost<R>(db: Db, query: HostRead, signal?: AbortSignal, priority: ReadPriority = 'background'): Promise<R[]> {
+  try { return poolOf(db, signal).host<R>(query, signal, priority); }
   catch (error) { return Promise.reject(error); }
 }
 

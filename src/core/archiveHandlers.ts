@@ -5,7 +5,9 @@ import type { AppEvent, CoreMethods } from '@shared/contract';
 import type { Archive } from './archive';
 import type { Db } from './db';
 import { applyGatewayEvent, type GatewayDeps } from './gatewayEvents';
-import { directory } from './queries/directory';
+import { readHost } from './reads/archiveReads';
+import { directoryMatch } from './queries/directory';
+import type { DirectoryGuild } from '@shared/contract';
 import { archivedBots } from './queries/bots';
 import { messagePage, messageWindow, messagesByIds } from './queries/messages';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
@@ -101,7 +103,7 @@ export function archiveHandlers(o: {
   return {
     directory: () => {
       const db = o.ready().db;
-      return directory(db, o.lastSeenAt(), o.selfId(), reader(db));
+      return readHost<DirectoryGuild>(db, { kind: 'directory', unseen: o.lastSeenAt(), self: o.selfId(), reader: reader(db), notable: directoryMatch() }, undefined, 'interactive');
     },
     channelUnread: (channelId, sinceId, localReadId) => {
       const db = o.ready().db;
