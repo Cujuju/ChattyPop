@@ -67,5 +67,5 @@ export const closePerson = (): void => {
 
 // Privacy mode changed: hidden servers and channels leave or rejoin the profile.
 onAppEvent('privacy-changed', () => {
-  if (personId()) person.refetch();
+  void person.invalidate();
 });

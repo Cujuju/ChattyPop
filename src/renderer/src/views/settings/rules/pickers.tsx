@@ -1,5 +1,7 @@
 import { For, Show, createSignal, createUniqueId, type JSX } from 'solid-js';
 import { keyedResource } from '@/state/keyedResource';
+import { onAppEvent } from '@/state/events';
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { listen, onPointerDownOutside } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
 import { RemovableChip } from './TermChips';
@@ -55,6 +57,7 @@ export function AddPicker(props: {
   const listId = createUniqueId();
   // Only the open picker's current query's people: an earlier query's must not be pickable while this one loads.
   const found = keyedResource(() => (props.search && open() && query().trim() ? query() : null), (q) => props.search!(q));
+  onCleanup(onAppEvent('privacy-changed', () => { void found.invalidate(); }));
   const shown = (): PickOption[] => {
     if (props.search) return found() ?? [];
     const words = query().toLowerCase().split(/\s+/).filter(Boolean);

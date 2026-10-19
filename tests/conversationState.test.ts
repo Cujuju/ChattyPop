@@ -145,6 +145,27 @@ describe('conversation snapshot updates', () => {
     expect(shown()?.content).toBe('newer snapshot');
   });
 
+  it('hides cached and in-flight private messages until the privacy replacement settles', async () => {
+    let answerOld!: (value: ConversationView) => void;
+    let answerVisible!: (value: ConversationView) => void;
+    env.read
+      .mockImplementationOnce(() => new Promise((resolve) => { answerOld = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { answerVisible = resolve; }));
+    const old = structuredClone(env.view!);
+    old.messages[1]!.content = 'private message';
+    void state.conversation.refetch();
+    env.emit({ type: 'privacy-changed' });
+    expect(state.conversation()).toBeUndefined();
+    answerOld(old);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state.conversation()).toBeUndefined();
+    expect(state.conversation.loading).toBe(true);
+    const visible = { ...view(), messages: [message(ROOT, ROOT_CHANNEL)] };
+    answerVisible(visible);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(state.conversation()?.messages.map((m) => m.id)).toEqual([ROOT]);
+  });
+
   it.each(['archive', 'parts', 'mixed'] as const)('coalesces spaced %s events during a slow read into one rerun', async (kind) => {
     const answers: ((value: ConversationView) => void)[] = [];
     let active = 0;

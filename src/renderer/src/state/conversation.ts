@@ -40,7 +40,7 @@ export const conversation = keyedResource(source, (key) => {
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 /** Archive and message-part events share one debounce and the resource's pending reread. */
-const invalidate = (): void => {
+const scheduleRefresh = (): void => {
   const key = source();
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => {
@@ -88,7 +88,7 @@ export async function markConversationMessage(m: Omit<RecentMark, 'mark'>, mark:
 
 onAppEvent('privacy-changed', () => {
   resetMarks();
-  if (conversationFor()) conversation.refetch();
+  void conversation.invalidate();
 });
 
 onAppEvent('conversations-changed', (e) => {
@@ -108,11 +108,11 @@ const archiveDeps: ArchiveDeps = {
   },
 };
 onAppEvent('archive-changed', (event) => {
-  if (conversationFor() && Object.keys(matchingChange(event, archiveDeps, archiveGuild).changes).length) invalidate();
+  if (conversationFor() && Object.keys(matchingChange(event, archiveDeps, archiveGuild).changes).length) scheduleRefresh();
 });
 
 onMessagePartsChanged((ids) => {
   if (!conversationFor()) return;
   const shown = conversation()?.messages;
-  if (!ids || !shown || shown.some((m) => ids.includes(m.id))) invalidate();
+  if (!ids || !shown || shown.some((m) => ids.includes(m.id))) scheduleRefresh();
 });

@@ -6,13 +6,14 @@ import { describe, expect, it, vi } from 'vitest';
 // Uses Solid's browser runtime so resources load as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);
-const { createRoot, createSignal } = createRequire(import.meta.url)('solid-js/dist/solid.cjs') as typeof import('solid-js');
+const { batch, createComputed, createRoot, createSignal } = createRequire(import.meta.url)('solid-js/dist/solid.cjs') as typeof import('solid-js');
 
 interface KeyedResource<T> {
   (): T | undefined;
   readonly loading: boolean;
   readonly failure: string | null;
   refetch(): Promise<void>;
+  invalidate(): Promise<void>;
 }
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const keyedPath = '../src/renderer/src/state/keyedResource';
@@ -92,7 +93,7 @@ describe('a keyed resource', () => {
     expect(h.r()).toBe('second');
   });
 
-  it('coalesces invalidations during the initial read into one awaitable reread', async () => {
+  it('coalesces refreshes during the initial read into one awaitable reread', async () => {
     const h = harness();
     h.setTarget('A');
     const initial = h.pending.get('A')!;
@@ -106,6 +107,93 @@ describe('a keyed resource', () => {
     h.pending.get('A')!.answer('fresh');
     await first;
     expect(h.r()).toBe('fresh');
+  });
+
+  it.each([false, true])('discards a pre-invalidation answer, with an existing snapshot: %s', async (cached) => {
+    const h = harness();
+    const displayed: (string | undefined)[] = [];
+    const dispose = createRoot((dispose) => {
+      createComputed(() => { displayed.push(h.r()); });
+      return dispose;
+    });
+    try {
+      h.setTarget('A');
+      if (cached) {
+        h.pending.get('A')!.answer('cached private text');
+        await settle();
+        void h.r.refetch();
+      }
+      const old = h.pending.get('A')!;
+      displayed.length = 0;
+      const invalidated = h.r.invalidate();
+      const replacement = h.pending.get('A')!;
+      expect(replacement).not.toBe(old);
+      expect(h.r()).toBeUndefined();
+      old.answer('in-flight private text');
+      await settle();
+      expect(h.r()).toBeUndefined();
+      expect(h.r.loading).toBe(true);
+      replacement.answer('visible text');
+      await invalidated;
+      expect(h.r()).toBe('visible text');
+      expect(displayed).not.toContain('in-flight private text');
+      expect(displayed).not.toContain('cached private text');
+    } finally {
+      dispose();
+    }
+  });
+
+  it('keeps the replacement when a pre-invalidation answer resolves afterward', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const old = h.pending.get('A')!;
+    const invalidated = h.r.invalidate();
+    h.pending.get('A')!.answer('visible text');
+    await invalidated;
+    old.answer('private text');
+    await settle();
+    expect(h.r()).toBe('visible text');
+  });
+
+  it('supersedes a queued refresh and coalesces refreshes after invalidation', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const old = h.pending.get('A')!;
+    const before = h.r.refetch();
+    let invalidated!: Promise<void>;
+    batch(() => { invalidated = h.r.invalidate(); });
+    const replacement = h.pending.get('A')!;
+    const after = h.r.refetch();
+    expect(h.r.refetch()).toBe(after);
+    old.answer('private text');
+    await before;
+    expect(h.pending.get('A')).toBe(replacement);
+    expect(h.r()).toBeUndefined();
+    replacement.answer('visible text');
+    await invalidated;
+    await settle();
+    const refreshed = h.pending.get('A')!;
+    expect(refreshed).not.toBe(replacement);
+    refreshed.answer('newest visible text');
+    await after;
+    expect(h.r()).toBe('newest visible text');
+  });
+
+  it('invalidates again while its replacement is in flight', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const initial = h.pending.get('A')!;
+    const first = h.r.invalidate();
+    const superseded = h.pending.get('A')!;
+    const second = h.r.invalidate();
+    const current = h.pending.get('A')!;
+    initial.answer('first privacy state');
+    superseded.answer('second privacy state');
+    await first;
+    expect(h.r()).toBeUndefined();
+    current.answer('current privacy state');
+    await second;
+    expect(h.r()).toBe('current privacy state');
   });
 
   it('drops a queued reread after its source changes', async () => {

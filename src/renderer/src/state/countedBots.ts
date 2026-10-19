@@ -16,11 +16,15 @@ export function setBotCounted(id: string, on: boolean): Promise<void> {
 
 /** Load only while Settings shows the bot list; archive and privacy changes keep that list current. */
 export function createArchivedBots() {
-  const [bots, { refetch }] = createResource(pageShown, () => api.core.archivedBots());
+  const [bots, { refetch, mutate }] = createResource(pageShown, () => api.core.archivedBots());
   const refresh = () => { if (pageShown()) return refetch(); };
+  const invalidate = (): void => {
+    mutate(undefined);
+    if (pageShown()) void refetch(false);
+  };
   const offs = [
     onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'names'], shown: pageShown }, refresh),
-    onAppEvent('privacy-changed', () => void refresh()),
+    onAppEvent('privacy-changed', invalidate),
     onAppEvent('self-changed', () => void refresh()),
   ];
   onCleanup(() => offs.forEach((off) => off()));
