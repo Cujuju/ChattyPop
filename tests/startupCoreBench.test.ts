@@ -25,6 +25,7 @@ describe.runIf(process.env.CHATTYPOP_STARTUP_BENCH === '1')('startup Core turns 
     const db = startupFixture();
     const provider = new FakeJev();
     const { matcher } = hostRuleStack(db, () => {}, () => provider);
+    const nextMatcher = hostRuleStack(db, () => {}, () => provider).matcher;
     // A host probe reproduces the indexed payload lookup used by owner-directed rule matching.
     const unregister = registerMessageQuestion({ subject: 'startup-probe', feature: 'topicMeaning', question: (m) => {
       archiveReplyTargets(db, [m.id]); return null;
@@ -44,7 +45,7 @@ describe.runIf(process.env.CHATTYPOP_STARTUP_BENCH === '1')('startup Core turns 
       measure('syncState', () => archive.syncState('c0'));
       const after: Record<string, unknown> = {};
       for (const [name, fn] of Object.entries({
-        setSelf: () => matcher.catchUpJudgments(),
+        setSelf: async () => { nextMatcher.setSelf({ id: 'owner', username: 'owner' }); await nextMatcher.catchUpJudgments(); },
         savedWritableChannels: () => savedWritableChannelsAsync(db, 'owner'),
         ownCommands: () => ownCommandsAsync(db, 'owner', 50),
         ownEmoji: () => ownEmojiAsync(db, 'owner', 50),
@@ -59,6 +60,6 @@ describe.runIf(process.env.CHATTYPOP_STARTUP_BENCH === '1')('startup Core turns 
         if (name === 'savedWritableChannels') expect(value).toEqual(legacySavedWritableChannels(db, 'owner'));
       }
       process.stdout.write(JSON.stringify({ channels: STARTUP_CHANNELS, messages: STARTUP_MESSAGES, recent: STARTUP_RECENT, synchronousMs: rows, after }) + '\n');
-    } finally { unregister(); matcher.dispose(); await closeArchiveReads(db); db.close(); }
+    } finally { unregister(); matcher.dispose(); nextMatcher.dispose(); await closeArchiveReads(db); db.close(); }
   }, FIXTURE_TIMEOUT_MS);
 });
