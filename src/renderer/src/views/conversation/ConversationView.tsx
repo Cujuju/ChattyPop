@@ -13,17 +13,22 @@ import {
 import { countText, shortDate } from '@/ui/format';
 import { FloatingWindow, WindowHeader } from '@/ui/FloatingWindow';
 import chrome from '@/ui/WindowChrome.module.css';
+import { canGroupMessage } from '@/ui/messageGrouping';
 import { ConversationRow, markedLabel } from './ConversationRow';
 import styles from './ConversationView.module.css';
 
 const unsureCount = (c: Conversation): number => Object.entries(c.members).filter(([id, m]) => m.questionable && !c.marks[id]).length;
 const shownMembers = (c: Conversation): number => Object.keys(c.members).length;
+const hasUnlinked = (c: Conversation): boolean => c.messages.some((m) => !c.members[m.id]);
 
-/**
- * The conversation a message belongs to (right-click → View conversation). Reply-linked messages are marked; the rest were
- * linked by who answered whom. The owner confirms or removes unsure links and adds missed messages; their marks set the links
- * and are kept for training.
- */
+/** Member and unlinked rows keep separate author groups. */
+const grouped = (c: Conversation, index: number): boolean => {
+  const message = c.messages[index]!;
+  const previous = c.messages[index - 1];
+  return !!previous && !!c.members[previous.id] === !!c.members[message.id] && canGroupMessage(previous, message);
+};
+
+/** The owner's conversation window: Archive rows, link evidence, corrections and missed messages to add. */
 export function ConversationView() {
   const linked = (): Set<string> => new Set(conversation()?.linkedIds ?? []);
   /** Removed here and no longer shown: Undo lives in the list above the messages. */
@@ -66,11 +71,13 @@ export function ConversationView() {
               </Show>
               <div class={styles.toolbar}>
                 <button type="button" class="cp-button" aria-pressed={showNearby()} onClick={() => setShowNearby(!showNearby())}>
-                  {showNearby() ? 'Hide nearby messages' : 'Show nearby messages'}
+                  {showNearby() ? 'Hide later messages' : 'Show later messages'}
                 </button>
-                <Show when={showNearby()}>
+                <Show when={hasUnlinked(c())}>
                   <span class="cp-hint">
-                    {c().nearbyMore ? 'The nearby messages closest to this one' : 'Nearby messages'} not in the conversation: add any it missed.
+                    Messages between them that weren’t linked are shown smaller: + adds one that belongs.
+                    {showNearby() ? ' Later messages within reach are shown too.' : ''}
+                    {c().unlinkedMore ? ' Only those nearest this message are shown.' : ''}
                   </span>
                 </Show>
               </div>
@@ -92,7 +99,7 @@ export function ConversationView() {
               </Show>
               <ol class={styles.list}>
                 <For each={c().messages}>
-                  {(m) => (
+                  {(m, index) => (
                     <ConversationRow
                       message={m}
                       member={c().members[m.id]}
@@ -100,6 +107,7 @@ export function ConversationView() {
                       root={m.id === c().rootId}
                       linked={linked().has(m.id)}
                       anchor={m.id === conversationFor()}
+                      grouped={grouped(c(), index())}
                     />
                   )}
                 </For>

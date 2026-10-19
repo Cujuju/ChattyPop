@@ -233,7 +233,7 @@ export interface CoreMethods {
   peopleByIds(ids: string[]): PersonMatch[];
   /** How these people's names show in a channel (null: no place), as Discord draws them there; unknown ids are left out. */
   personNames(ids: string[], channelId: string | null): PersonName[];
-  /** The conversation a message belongs to, from its stored links (src/core/conversations); `nearby` adds the channel's other messages around it. */
+  /** The conversation and unlinked messages between shown members; `nearby` also adds later root-channel messages within reach. */
   conversation(messageId: string, options?: { nearby?: boolean }): ConversationView;
   /** The owner marks a message in the conversation of `conversationOf` (null clears the mark); its links are redone in the background. */
   conversationMark(messageId: string, conversationOf: string, mark: ConversationMark | null): void;

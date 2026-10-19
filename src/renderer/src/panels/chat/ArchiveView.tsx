@@ -1,36 +1,22 @@
 import { batchWrites, onCleanup } from '@plugin-sdk/renderer/containment';
-import { For, Show, createEffect, createMemo, createSignal, on, onMount } from 'solid-js';
-import type { ArchiveMessage, UnreadMark } from '@shared/contract';
+import { For, Show, createEffect, createSignal, on, onMount } from 'solid-js';
+import type { UnreadMark } from '@shared/contract';
 import { FORUM_CHANNEL_TYPE } from '@shared/discord';
-import { MS_PER_MIN } from '@shared/units';
 import {
-  archiveChannelId,
-  archiveDensity,
-  archiveLoads,
-  archiveOpening,
-  archiveState,
-  atNewest,
-  focusMessageId,
-  keepArchivePlace,
-  loadNewer,
-  loadOlder,
-  openArchive,
-  openRestoredArchive,
-  openingPlace,
-  readArchivePlaceWith,
+  archiveChannelId, archiveDensity, archiveLoads, archiveOpening, archiveState, atNewest,
+  focusMessageId, keepArchivePlace, loadNewer, loadOlder, openArchive, openRestoredArchive,
+  openingPlace, readArchivePlaceWith,
 } from '@/state/archive';
 import { attachFiles } from '@/state/composer';
-import { clearTicks, isSelected, selectThrough, selecting, stopSelecting, toggleSelected } from '@/state/messageSelection';
+import { clearTicks, selectThrough, selecting, stopSelecting, toggleSelected } from '@/state/messageSelection';
 import { preloadExpressions } from '@/state/expressions';
 import { dismissUnreadBanner, unreadBanner, watchArchive } from '@/state/lastRead';
 import { firstUnreadAbove } from '@/state/lastReadRules';
 import { listen } from '@/ui/listen';
-import { createOwnAuthor, editingId, isSelf } from '@/state/ownMessages';
-import { outgoing, type Outgoing } from '@/state/outbox';
+import { editingId } from '@/state/ownMessages';
 import { postingUnlocked } from '@/state/posting';
 import { archivedChannels, channelById } from '@/state/directory';
 import { isDmChannel, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
-import { DayDivider, dayLabel } from '@/ui/DayDivider';
 import { JumpToNewest } from '@/ui/JumpToNewest';
 import { UnreadBanner } from '@/ui/UnreadBanner';
 import { onUserScrollNewer } from '@/ui/scrollIntent';
@@ -44,13 +30,11 @@ import { noteKeyboardHeight } from '@/ui/keyboardPlace';
 import { createTallestBox } from '@/ui/tallestBox';
 import { HOST_FOOTER } from './archiveFooter';
 import { NotArchived, NotArchivingBar } from './DmState';
-import { MessageRow } from './MessageRow';
-import { PendingRow } from './PendingRow';
+import { ArchiveRows, createArchiveRows } from './ArchiveRows';
 import { SelectionBar } from './SelectionBar';
 import { TypingLine } from './TypingLine';
 import { createFollowBottom } from '@/ui/followBottom';
 import { createVirtualLog } from '@/ui/virtualLog';
-import { VirtualRows } from '@/ui/VirtualRows';
 import styles from './Archive.module.css';
 
 /** Initial row-height estimates cover authored/grouped messages and day dividers. Drawn measurements correct estimates during scrolling. */
@@ -62,47 +46,11 @@ const LOAD_OLDER_THRESHOLD_ROWS = 10;
 /** At the newest within this: an engine keeping whole-pixel offsets leaves a sub-pixel remainder. */
 const AT_NEWEST_SLOP_PX = 1;
 
-/** A day divider names the message it heads. */
-type Row =
-  | { kind: 'day'; key: string; label: string; messageId: string }
-  | { kind: 'msg'; key: string; message: ArchiveMessage; grouped: boolean }
-  | { kind: 'pending'; key: string; outgoing: Outgoing; own: ArchiveMessage['author'] | null; grouped: boolean };
-
 /** The layout panel the Archive is the body of (the phone's Archive section shares its id). */
 const CHAT_PANEL: PanelId = 'chat';
-
-/** Consecutive messages from one author within this gap share one avatar and name (cozy layout). */
-const GROUP_GAP_MS = 7 * MS_PER_MIN;
-
 /** ChattyPop's offline rendering of the archive for one channel. */
 export function ArchiveView() {
-  const ownAuthor = createOwnAuthor(archiveChannelId);
-  const rows = createMemo<Row[]>(() => {
-    const out: Row[] = [];
-    let lastDay = '';
-    let prev: ArchiveMessage | undefined;
-    for (const m of archiveState.items) {
-      const label = dayLabel(m.ts);
-      const newDay = label !== lastDay;
-      if (newDay) out.push({ kind: 'day', key: `day-${m.id}`, label, messageId: m.id });
-      lastDay = label;
-      const grouped = !newDay && prev !== undefined && prev.author.id === m.author.id && m.ts - prev.ts < GROUP_GAP_MS && m.replyToId === null;
-      out.push({ kind: 'msg', key: m.id, message: m, grouped });
-      prev = m;
-    }
-    // The owner's messages on their way follow the newest, under the owner's group when it's the last one.
-    const channelId = archiveChannelId();
-    if (channelId && atNewest()) {
-      // As their newest message here shows them; with none loaded, as the archive knows them in this channel.
-      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id))?.author ?? ownAuthor.latest ?? null;
-      let grouped = prev !== undefined && isSelf(prev.author.id) && Date.now() - prev.ts < GROUP_GAP_MS;
-      for (const o of outgoing(channelId)) {
-        out.push({ kind: 'pending', key: `pending-${o.id}`, outgoing: o, own, grouped });
-        grouped = true;
-      }
-    }
-    return out;
-  });
+  const rows = createArchiveRows();
   // Measures overlaid footer height to clear log content/overlays. Channel-keyed remounts re-observe it.
   const footer = createTallestBox();
   // A footer item's sheet in the keyboard's place: the view keeps the footer and the log's box above it (Archive.module.css).
@@ -323,37 +271,7 @@ export function ArchiveView() {
             onScroll={() => void vlog.onScroll()}
             style={{ flex: '1 1 0', 'min-height': 0, 'overflow-y': 'auto' }}
           >
-            <VirtualRows log={vlog} class={styles.canvas}>
-              {(row) => (
-                <Show
-                  when={row().kind !== 'pending'}
-                  fallback={
-                    <PendingRow
-                      outgoing={(row() as Extract<Row, { kind: 'pending' }>).outgoing}
-                      own={(row() as Extract<Row, { kind: 'pending' }>).own}
-                      grouped={(row() as Extract<Row, { kind: 'pending' }>).grouped}
-                      channelId={archiveChannelId()!}
-                    />
-                  }
-                >
-                <Show
-                  when={row().kind === 'day'}
-                  fallback={
-                    <MessageRow
-                      message={(row() as Extract<Row, { kind: 'msg' }>).message}
-                      grouped={(row() as Extract<Row, { kind: 'msg' }>).grouped}
-                      density={archiveDensity()}
-                      focused={focusMessageId() === row().key}
-                      selected={isSelected(row().key)}
-                      editing={editingId() === row().key}
-                    />
-                  }
-                >
-                  <DayDivider label={(row() as Extract<Row, { kind: 'day' }>).label} />
-                </Show>
-                </Show>
-              )}
-            </VirtualRows>
+            <ArchiveRows log={vlog} />
           </div>
           <Show when={selecting()}>
             <SelectionBar />

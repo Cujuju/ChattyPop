@@ -7,7 +7,7 @@ import { onAppEvent } from './events';
 import { keyedResource } from './keyedResource';
 
 export const [conversationFor, setConversationFor] = createSignal<string | null>(null);
-/** Also show the channel's nearby messages that aren't in the conversation, to add a missed one. */
+/** Also show later root-channel non-members within reach; unlinked messages between shown members always show. */
 export const [showNearby, setShowNearby] = createSignal(false);
 
 /** A mark made in this window, kept so it can be undone after its row has left the conversation. */

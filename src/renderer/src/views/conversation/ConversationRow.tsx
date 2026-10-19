@@ -1,12 +1,12 @@
-// One message of the Conversation window, with the owner's marks: unsure links to confirm or remove, nearby messages to add.
+// One Archive-rendered conversation row with the owner's marks and an action to add an unlinked message.
 import type { ArchiveMessage, ConversationMark, ConversationMember } from '@shared/contract';
 import { cutText } from '@shared/text';
 import { Match, Show, Switch } from 'solid-js';
-import { openArchive } from '@/state/archive';
+import { archiveDensity, openArchive } from '@/state/archive';
 import { markConversationMessage, recentMarks } from '@/state/conversation';
-import { openPerson } from '@/state/person';
-import { clockTime, countText } from '@/ui/format';
-import { Markdown } from '@/ui/Markdown';
+import { countText } from '@/ui/format';
+import { MessageRow } from '@/ui/MessageRow';
+import { SolidIcon } from '@/ui/solidIcons';
 import styles from './ConversationView.module.css';
 
 /** Text kept with a mark for the removed list: one line's worth. */
@@ -31,6 +31,7 @@ export function ConversationRow(props: {
   root: boolean;
   linked: boolean;
   anchor: boolean;
+  grouped: boolean;
 }) {
   const m = () => props.message;
   const mark = (value: ConversationMark | null) => void markConversationMessage(markTarget(m()), value);
@@ -50,22 +51,9 @@ export function ConversationRow(props: {
       data-member={props.member !== undefined}
       data-questionable={!!props.member?.questionable && !marked()}
       data-mark={marked() ?? undefined}
+      data-root={props.root}
     >
-      <button type="button" class={styles.time} title="Open in the Archive" onClick={() => void openArchive(m().channelId, m().id)}>
-        {clockTime(m().ts)}
-      </button>
-      <button type="button" class={styles.author} onClick={() => openPerson(m().author.id, m().channelId)}>
-        {m().author.name}
-      </button>
-      <div class={styles.text}>
-        <Show when={m().deletedAt}>
-          <span class={styles.note}>deleted · </span>
-        </Show>
-        <Markdown text={m().content} mentions={m().mentions} />
-        <Show when={m().attachments.length}>
-          <span class={styles.note}> [{countText(m().attachments.length, 'attachment')}]</span>
-        </Show>
-      </div>
+      <MessageRow message={m()} density={archiveDensity()} focused={false} conversationButton={false} grouped={props.grouped} />
       <div class={styles.actions}>
         <Switch>
           <Match when={marked()}>
@@ -79,8 +67,8 @@ export function ConversationRow(props: {
             )}
           </Match>
           <Match when={!props.member}>
-            <button type="button" class="cp-button" title="It continues this conversation but wasn’t linked" onClick={() => mark('add')}>
-              Add to conversation
+            <button type="button" class="cp-button" aria-label="Add to conversation" title="It continues this conversation but wasn’t linked" onClick={() => mark('add')}>
+              <SolidIcon name="plus" />
             </button>
           </Match>
           <Match when={!fixed()}>
@@ -95,6 +83,9 @@ export function ConversationRow(props: {
             </button>
           </Match>
         </Switch>
+        <button type="button" class="cp-button" aria-label="Open in the Archive" title="Open in the Archive" onClick={() => void openArchive(m().channelId, m().id)}>
+          <SolidIcon name="archive" />
+        </button>
       </div>
     </li>
   );

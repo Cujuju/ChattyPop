@@ -1,4 +1,4 @@
-// The owner's marks on conversation links: the linker's precedence, what marking stores and relinks, and the view's members and nearby messages.
+// Owner marks: linker precedence, stored corrections, relinking and unlinked messages in the conversation window.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { MS_PER_MIN } from '@shared/units';
 import type { RawMessage } from '@shared/discord';
@@ -88,7 +88,7 @@ describe('marking a conversation', () => {
     expect(c.members[answer.id]).toMatchObject({ kind: LINK_KIND.reply, questionable: false, explicit: true });
     // lunch's single candidate made its link certain.
     expect(c.members[lunch.id]).toMatchObject({ questionable: false, branch: 3 });
-    expect(c.nearbyMore).toBe(false);
+    expect(c.unlinkedMore).toBe(false);
   });
 
   it('removes a message with “not”, logs it, and Undo restores the link', async () => {
@@ -108,10 +108,9 @@ describe('marking a conversation', () => {
     expect(conversation(db, restart.id)).toMatchObject({ members: { [noon.id]: { questionable: false } }, marks: { [noon.id]: 'belongs' } });
   });
 
-  it('lists nearby non-members on request and adds one to the member it most likely continues', async () => {
+  it('always lists in-between non-members with their marks and adds one to the member it most likely continues', async () => {
     await mark(thanks.id, 'not');
-    expect(conversation(db, restart.id).messages.map((m) => m.id)).not.toContain(thanks.id);
-    const near = conversation(db, restart.id, { nearby: true });
+    const near = conversation(db, restart.id);
     expect(near.messages.map((m) => m.id)).toContain(thanks.id);
     expect(near.messages.map((m) => m.id)).not.toContain(elsewhere.id);
     expect(near.members[thanks.id]).toBeUndefined();
@@ -123,12 +122,29 @@ describe('marking a conversation', () => {
     expect(conversation(db, restart.id)).toMatchObject({ members: { [thanks.id]: { kind: LINK_KIND.owner } }, marks: { [thanks.id]: 'add' } });
   });
 
-  it('lists a nearby message sent in the root’s millisecond after it', async () => {
+  it('shows and adds an unlinked message sent in the root’s millisecond after it', async () => {
     const twin = { ...say('c', 0, 'also the dns settings', cy), id: (BigInt(proxy.id) + 1n).toString() };
     archive.ingestMessages([twin], ARRIVAL.sync);
     await job.run();
     await mark(twin.id, 'not', proxy.id);
-    expect(conversation(db, restart.id, { nearby: true }).messages.map((m) => m.id)).toContain(twin.id);
+    expect(conversation(db, restart.id).messages.map((m) => m.id)).toContain(twin.id);
+    await mark(twin.id, 'add', proxy.id);
+    expect(conversation(db, proxy.id)).toMatchObject({ members: { [twin.id]: { kind: LINK_KIND.owner } }, marks: { [twin.id]: 'add' } });
+  });
+
+  it('adds an unlinked Discord reply from another conversation and Undo restores its original reply', async () => {
+    const earlier = say('c', -20, 'another conversation', cy);
+    const missed = say('c', 2.5, 'also relevant here', bob, { type: 19, message_reference: { message_id: earlier.id } } as Partial<RawMessage>);
+    archive.ingestMessages([earlier, missed], ARRIVAL.sync);
+    await job.run();
+    const view = conversation(db, proxy.id);
+    expect(view.messages.map((m) => m.id)).toContain(missed.id);
+    expect(view.members[missed.id]).toBeUndefined();
+    await mark(missed.id, 'add', proxy.id);
+    expect(conversation(db, proxy.id)).toMatchObject({ members: { [missed.id]: { kind: LINK_KIND.owner } }, marks: { [missed.id]: 'add' } });
+    await mark(missed.id, null, proxy.id);
+    expect(linkOf(missed.id)).toEqual({ parentId: earlier.id, kind: LINK_KIND.reply });
+    expect(conversation(db, proxy.id).marks[missed.id]).toBeUndefined();
   });
 
   it('refuses marks that don’t fit the conversation', () => {

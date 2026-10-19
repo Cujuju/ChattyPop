@@ -60,8 +60,8 @@ export interface LinkContext {
   minConfidence?: number;
   /** A thread started from a message: its first message and that starter message. */
   thread?: { firstId: string; starterId: string };
-  /** The owner's mark on a message: the parent it sets (null: it starts a conversation). */
-  marked?: (messageId: string) => { parentId: string | null } | undefined;
+  /** The owner's parent; an explicit add moves an outside message even when Discord linked it elsewhere. */
+  marked?: (messageId: string) => { parentId: string | null; added?: boolean } | undefined;
   /** Re-ranks picks below JUDGE_BELOW with Jev's stored judgments. */
   judge?: Judge;
 }
@@ -88,9 +88,10 @@ export function linkMessages(before: readonly LinkInput[], messages: readonly Li
 
 function linkOne(m: LinkInput, recent: readonly LinkInput[], ctx: LinkContext, options: LinkOptions): Link {
   const to = (parentId: string | null, kind: LinkKind, confidence: number): Link => ({ messageId: m.id, parentId, kind, confidence });
+  const mark = options.hideReplies ? undefined : ctx.marked?.(m.id);
+  if (mark?.added) return to(mark.parentId, LINK_KIND.owner, 1);
   if (m.replyTo && !options.hideReplies) return to(m.replyTo, LINK_KIND.reply, 1);
   if (ctx.thread?.firstId === m.id) return to(ctx.thread.starterId, LINK_KIND.thread, 1);
-  const mark = options.hideReplies ? undefined : ctx.marked?.(m.id);
   if (mark) return to(mark.parentId, LINK_KIND.owner, 1);
   const rule = ruleLink(m, recent);
   if (rule) return to(rule.parentId, rule.kind, 1);

@@ -1,5 +1,6 @@
 // The owner's marks in the Conversation view: they set a message's link (kind `owner`) and are kept, with their history, as training data.
 import type { ConversationMark } from '@shared/types/archive';
+import { messageBefore as before } from '@shared/messageOrder';
 import { visibleMessageSql } from '../queries/privacy';
 import type { Db } from '../db';
 import { argmax, probabilities } from './chooser';
@@ -12,16 +13,15 @@ import { channelReach, contextInputs, messageInput, queueConversationLinks } fro
 export type { ConversationMark };
 
 /** Each marked message's parent (null: it starts a conversation), for the linker. */
-export function markedLinks(db: Db): (messageId: string) => { parentId: string | null } | undefined {
-  const get = db.prepare('SELECT parent_id AS parentId FROM conversation_marks WHERE message_id = ?');
-  return (id) => get.get(id) as { parentId: string | null } | undefined;
+export function markedLinks(db: Db): (messageId: string) => { parentId: string | null; added: boolean } | undefined {
+  const get = db.prepare('SELECT parent_id AS parentId, mark FROM conversation_marks WHERE message_id = ?');
+  return (id) => {
+    const row = get.get(id) as { parentId: string | null; mark: ConversationMark } | undefined;
+    return row && { parentId: row.parentId, added: row.mark === 'add' };
+  };
 }
 
 interface Placed { id: string; channelId: string; ts: number }
-
-/** Earlier in a channel: by time, then by id as a number (a shorter id is smaller). */
-const before = (a: Placed, b: Placed): boolean =>
-  a.ts < b.ts || (a.ts === b.ts && (a.id.length < b.id.length || (a.id.length === b.id.length && a.id < b.id)));
 
 function visible(db: Db, id: string): Placed {
   const m = db.prepare(`SELECT m.id, m.channel_id AS channelId, m.ts FROM messages m WHERE m.id = ? AND ${visibleMessageSql('m')}`).get(id) as Placed | undefined;
@@ -41,8 +41,8 @@ function memberParent(db: Db, x: Placed, rows: readonly ConversationLinkRow[]): 
     const p = probabilities(m, candidates, chooserWeights(db, LINKER_VERSION));
     return candidates[argmax(candidates.map((c, j) => (ids.has(c.id) ? p[j]! : -1)))]!.id;
   }
-  const earlier = rows.filter((r) => r.channel_id === x.channelId && before({ id: r.message_id, channelId: r.channel_id, ts: r.ts }, x));
-  const latest = earlier.reduce<ConversationLinkRow | null>((a, r) => (!a || before({ id: a.message_id, channelId: a.channel_id, ts: a.ts }, { id: r.message_id, channelId: r.channel_id, ts: r.ts }) ? r : a), null);
+  const earlier = rows.filter((r) => r.channel_id === x.channelId && before({ id: r.message_id, ts: r.ts }, x));
+  const latest = earlier.reduce<ConversationLinkRow | null>((a, r) => (!a || before({ id: a.message_id, ts: a.ts }, { id: r.message_id, ts: r.ts }) ? r : a), null);
   if (!latest) throw new Error('Only a message after the conversation’s first one can be added.');
   return latest.message_id;
 }
@@ -55,7 +55,10 @@ export function markConversation(db: Db, messageId: string, conversationOf: stri
   const x = visible(db, messageId);
   visible(db, conversationOf);
   const link = db.prepare('SELECT parent_id AS parentId, kind FROM conversation_links WHERE message_id = ?').get(x.id) as { parentId: string | null; kind: string } | undefined;
-  if (link?.kind === LINK_KIND.reply || link?.kind === LINK_KIND.thread) throw new Error('Discord linked this message itself, so it can’t be changed here.');
+  const added = db.prepare("SELECT 1 FROM conversation_marks WHERE message_id = ? AND mark = 'add'").get(x.id) !== undefined;
+  if ((link?.kind === LINK_KIND.reply || link?.kind === LINK_KIND.thread) && mark !== 'add' && !(mark === null && added)) {
+    throw new Error('Discord linked this message itself, so it can’t be changed here.');
+  }
   const rows = members(db, conversationOf);
   const member = rows.some((r) => r.message_id === x.id);
   const root = rows[0];
@@ -66,7 +69,7 @@ export function markConversation(db: Db, messageId: string, conversationOf: stri
     if (mark === 'belongs') parentId = link?.parentId ?? null;
   } else if (mark === 'add') {
     if (member) throw new Error('That message is already in this conversation.');
-    if (!root || root.channel_id !== x.channelId || !before({ id: root.message_id, channelId: root.channel_id, ts: root.ts }, x)) {
+    if (!root || root.channel_id !== x.channelId || !before({ id: root.message_id, ts: root.ts }, x)) {
       throw new Error('Only a later message of the same channel can be added.');
     }
     parentId = memberParent(db, x, rows);

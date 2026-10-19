@@ -426,7 +426,7 @@ export interface ConversationMember {
 
 /** One message's exchange, oldest first. `linkedIds`: joined to it by Discord replies; the rest grouped by time and participants. */
 export interface ConversationView {
-  /** Members, and with `nearby` the channel's other messages around them, oldest first. */
+  /** Members and unlinked root-channel messages between shown members; `nearby` also adds later messages within reach, oldest first. */
   messages: ArchiveMessage[];
   /** The opened message and those joined by Discord replies; the rest were linked by the chooser and its rules. */
   linkedIds: string[];
@@ -434,12 +434,12 @@ export interface ConversationView {
   pending: boolean;
   /** The first message, which starts the conversation. */
   rootId: string | null;
-  /** How each shown member is linked, by message id; a shown message without an entry is a nearby non-member. */
+  /** How each shown member is linked, by message id; a shown message without an entry is an unlinked non-member. */
   members: Record<string, ConversationMember>;
   /** The owner's mark on each shown message that has one, member or not. */
   marks: Record<string, ConversationMark>;
   /** Members in the conversation, shown or not (the view shows at most CONVERSATION_MAX). */
   memberCount: number;
-  /** More nearby messages than shown. */
-  nearbyMore: boolean;
+  /** More unlinked messages exist within the requested span than shown; only those nearest the opened message are returned. */
+  unlinkedMore: boolean;
 }
