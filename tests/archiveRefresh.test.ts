@@ -21,10 +21,10 @@ describe('SDK archive refresh gate over a fake event source', () => {
   it('matches a parent channel and its threads, excluding other parents', async () => {
     const path = '../src/plugin-sdk/renderer/archiveScope';
     const { setArchiveDirectory } = await import(path);
-    setArchiveDirectory([{ id: 'g', channels: [{ id: 'parent' }, { id: 'thread', parentId: 'parent' }, { id: 'other', parentId: 'elsewhere' }] }]);
+    setArchiveDirectory([{ id: 'g', channels: [{ id: 'parent' }, { id: 'thread', kind: 11, parentId: 'parent' }, { id: 'other', kind: 11, parentId: 'elsewhere' }, { id: 'category-child', kind: 0, parentId: 'parent' }] }]);
     const read = vi.fn();
     disposers.push(onArchiveChange({ kinds: ['edits'], scope: () => ({ channelIds: ['parent'] }) }, read));
-    send('other', ['edits']); await flush();
+    send('other', ['edits']); send('category-child', ['edits']); await flush();
     expect(read).not.toHaveBeenCalled();
     send('thread', ['edits']); await flush();
     expect(read).toHaveBeenCalledOnce();
