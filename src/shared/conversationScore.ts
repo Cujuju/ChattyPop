@@ -38,25 +38,40 @@ export interface LinkScore {
   queuedChannels: number;
 }
 
-/** Jev against the chooser on held-out replies whose chooser confidence was in [from, to). */
+/** Jev against the chooser on held-out replies whose chooser confidence was in [from, to): picks that were the reply's target. */
 export interface JevBucketScore {
   from: number;
   to: number;
   asked: number;
-  /** Jev gave a usable answer. */
+  /** Jev answered every question. */
   answered: number;
-  /** The chooser's pick was the reply's target. */
   chooserExact: number;
-  jevExact: number;
-  /** Jev's pick met the query's condition to link (its probability threshold), and how many of those were right. */
-  jevLinks: number;
-  jevLinksExact: number;
-  /** Jev answered "none of them". */
-  jevNone: number;
+  /** Jev's one pick among all candidates; "none" counts as wrong. */
+  choiceExact: number;
+  choiceNone: number;
+  /** The candidate Jev's yes/no answers rated likeliest, even when all were below even odds. */
+  continuesExact: number;
+  /** Every yes/no answer was below even odds. */
+  continuesNone: number;
+  /** The chooser and both Jev answers combined, weighted by a fit on the other half of the cases. */
+  combinedExact: number;
+}
+
+/** Answered cases whose Jev top probability was in [from, to), and how many of those picks were right. */
+export interface JevConfidenceScore {
+  from: number;
+  to: number;
+  choice: { asked: number; exact: number };
+  continues: { asked: number; exact: number };
 }
 
 export interface JevLinkScore {
+  /** The Jev release asked. */
+  model: string;
   bands: JevBucketScore[];
+  byJevConfidence: JevConfidenceScore[];
+  /** The combination fitted on every answered case: weights on the chooser's log probability, the yes/no log-odds and the pick's log probability. */
+  combinedWeights: Record<string, number>;
   failed: number;
   /** Held-out replies skipped because their target wasn't among the candidates. */
   outOfReach: number;

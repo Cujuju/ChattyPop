@@ -7,6 +7,7 @@ import { ConversationLinkJob } from '@core/conversations/job';
 import { scoreJevOnReplies } from '@core/conversations/jevScore';
 import { isHeldOut } from '@core/conversations/score';
 import { NO_PARENT } from '@core/conversations/ask';
+import { argmax, COMBINED_SIGNALS, combinedPick, crossFittedPicks, fitCombined, type CombinedCase } from '@core/conversations/jevCombine';
 import { choice, FakeJev, type JevRequest } from './fakeJev';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
@@ -28,12 +29,15 @@ function exchange(channel: string, word: string, start = T0): RawMessage[] {
   return out;
 }
 
-/** Picks the earlier line asking the answer's own question. */
+type Said = { from: string; text: string; minutes_before?: number };
+/** Rates the earlier message asking the answer's own question: the pick and its yes/no, both at 0.9. */
 const pickQuestion = (req: JevRequest): Record<string, unknown> => {
-  const state = req.state as { message: string; earlier: string[] };
-  const n = state.message.match(/answer (\d+)/)![1];
-  const line = state.earlier.find((l) => l.endsWith(`question ${n}?`));
-  return { parent: choice(line ? line.split('.')[0]! : NO_PARENT, 0.9) };
+  const state = req.state as { message: Said; earlier: Said[] };
+  const n = state.message.text.match(/answer (\d+)/)![1];
+  const i = state.earlier.findIndex((m) => m.text.endsWith(`question ${n}?`));
+  const answers: Record<string, unknown> = { parent: choice(i < 0 ? NO_PARENT : `earlier[${i}]`, 0.9) };
+  state.earlier.forEach((_, j) => (answers[`continues_${j}`] = { type: 'noul', noul: j === i ? 0.9 : 0.1 }));
+  return answers;
 };
 
 describe('conversation Jev score', () => {
@@ -45,21 +49,29 @@ describe('conversation Jev score', () => {
     archive.ingestMessages(messages, ARRIVAL.sync);
     await new ConversationLinkJob(() => db).run();
     const jev = new FakeJev(pickQuestion, 0.001);
-    const score = await scoreJevOnReplies(db, jev);
-    const total = (k: 'asked' | 'answered' | 'jevExact' | 'jevLinks' | 'jevLinksExact') => score.bands.reduce((n, b) => n + b[k], 0);
+    const score = await scoreJevOnReplies(db, jev, { release: 'jev-next' });
+    const total = (k: 'asked' | 'answered' | 'choiceExact' | 'continuesExact') => score.bands.reduce((n, b) => n + b[k], 0);
     const held = messages.filter((m) => m.channel_id === 'open' && m.message_reference && isHeldOut(m.id)).length;
     // Held-out replies a rule decides (bob answering right after himself) aren't the chooser's to compare.
     const asked = total('asked');
     expect(asked).toBeGreaterThan(0);
     expect(asked).toBeLessThanOrEqual(held);
-    expect([total('answered'), total('jevExact'), total('jevLinks'), total('jevLinksExact')]).toEqual([asked, asked, asked, asked]);
+    expect([total('answered'), total('choiceExact'), total('continuesExact')]).toEqual([asked, asked, asked]);
+    expect(score.byJevConfidence.reduce((n, b) => n + b.choice.exact, 0)).toBe(asked);
     expect(jev.requests).toHaveLength(asked);
     expect(jev.requests.map((r) => JSON.stringify(r.state)).filter((s) => !s.includes('open') || s.includes('secret'))).toEqual([]);
     expect(jev.requests.every((r) => typeof r.admit === 'function')).toBe(true);
-    // Every option carries its own message text; earlier lines say how long before they came.
-    const criteria = jev.requests.map((r) => (r.questions.parent as { criteria: Record<string, string | null> }).criteria);
-    expect(criteria.every((c) => Object.values(c).every((d) => !!d))).toBe(true);
-    expect(jev.requests.every((r) => (r.state as { earlier: string[] }).earlier.every((l) => /^\d+\. \(\d+ min before\) /.test(l)))).toBe(true);
+    expect(jev.requests.every((r) => r.release === 'jev-next')).toBe(true);
+    expect(score.model).toBe('jev-next');
+    // Structured state; one pick naming candidates by path, and one yes/no per candidate pointing at it.
+    for (const r of jev.requests) {
+      const earlier = (r.state as { earlier: Said[] }).earlier;
+      expect(earlier.every((m) => typeof m.from === 'string' && typeof m.text === 'string' && typeof m.minutes_before === 'number')).toBe(true);
+      const names = earlier.map((_, i) => `earlier[${i}]`);
+      expect(Object.keys((r.questions.parent as { criteria: object }).criteria)).toEqual([...names, NO_PARENT]);
+      expect(Object.keys(r.questions)).toEqual(['parent', ...names.map((_, i) => `continues_${i}`)]);
+      names.forEach((n, i) => expect(r.questions[`continues_${i}`]!.instructions).toContain(`\`${n}\``));
+    }
     expect(score.costUsd).toBeCloseTo(asked * 0.001);
     expect(score.failed).toBe(0);
   });
@@ -74,5 +86,35 @@ describe('conversation Jev score', () => {
     const score = await scoreJevOnReplies(db, jev);
     expect(score.failed).toBe(score.bands.reduce((n, b) => n + b.asked, 0));
     expect(score.bands.reduce((n, b) => n + b.answered, 0)).toBe(0);
+    expect(score.model).toBe('fake-jev');
+  });
+});
+
+describe('chooser and Jev combined', () => {
+  const CASES = 60;
+  const CANDIDATES = 5;
+  /** The chooser favours a wrong candidate; Jev's yes/no favours the target; its pick says nothing. */
+  const cases: CombinedCase[] = Array.from({ length: CASES }, (_, n) => {
+    const target = n % CANDIDATES;
+    const wrong = (target + 1) % CANDIDATES;
+    const idx = [...Array(CANDIDATES).keys()];
+    return {
+      chooser: idx.map((j) => (j === wrong ? 0.6 : 0.1)),
+      continues: idx.map((j) => (j === target ? 0.8 : 0.2)),
+      choice: idx.map(() => 1 / CANDIDATES),
+      target,
+    };
+  });
+
+  it('starts as the chooser alone and learns the signal that predicts', () => {
+    expect(cases.every((c) => argmax(c.chooser) !== c.target)).toBe(true);
+    const w = fitCombined(cases);
+    expect(w[COMBINED_SIGNALS.indexOf('continues')]).toBeGreaterThan(w[COMBINED_SIGNALS.indexOf('chooser')]!);
+    expect(cases.every((c) => combinedPick(c, w) === c.target)).toBe(true);
+    expect(fitCombined([])).toEqual([1, 0, 0]);
+  });
+
+  it('scores each case with weights fitted on the other half', () => {
+    expect(crossFittedPicks(cases)).toEqual(cases.map((c) => c.target));
   });
 });

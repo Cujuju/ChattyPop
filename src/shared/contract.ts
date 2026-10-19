@@ -236,8 +236,8 @@ export interface CoreMethods {
   conversation(messageId: string): ConversationView;
   /** Diagnostics: how well conversation links recover Discord replies hidden from the rules, over `channelIds` (default: all). */
   conversationLinkScore(channelIds?: string[]): Promise<LinkScore>;
-  /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band (asks Jev: costs a few cents). */
-  conversationJevScore(perBand?: number): Promise<JevLinkScore>;
+  /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band; `release` asks another Jev release (asks Jev: costs cents). */
+  conversationJevScore(perBand?: number, release?: string): Promise<JevLinkScore>;
   /** The signed-in user's most-used emoji in their archived messages, most used first; empty before READY names them. */
   ownEmoji(limit: number): UsedEmoji[];
   /** The signed-in user's most-used reactions in the archive, most used first. */

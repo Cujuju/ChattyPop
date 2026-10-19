@@ -5,6 +5,8 @@ import type { JevQueryDef } from './index';
 export const MESSAGE_SEES = '`message` (author: text, then the text of any post it links to), `earlier` (the two messages before it) and `replying_to` (what it replies to, if anything).';
 /** Appended to per-message questions; shared with tools.ts (Jev check). */
 export const CONTEXT_NOTE ='Read `earlier` and `replying_to` only to understand `message`.';
+/** What the conversation queries see. */
+const CONVERSATION_SEES = '`message` and `earlier` (the channel’s messages just before it, oldest first), each with `from` and `text`; each earlier one also has `minutes_before`. Asked only when the app is unsure.';
 /** From real data (Sept 2026, 1,700 messages): every wrong class label scored below 0.9, most right ones above. */
 const CLASS_AT = 0.9;
 
@@ -89,16 +91,34 @@ export const MESSAGE_QUERIES: readonly JevQueryDef[] = [
     group: 'Messages',
     label: 'Which message it continues',
     features: ['linkConversations'],
-    sees: '`message` (author: text) and `earlier` (the channel’s messages just before it, numbered, oldest first, each with how long before). Asked only when the app is unsure.',
+    sees: CONVERSATION_SEES,
     use: 'dynamic-options',
-    optionsNote: 'The options are the numbered `earlier` messages, plus "none", so only the question and threshold can change.',
+    optionsNote: 'The options are the `earlier` messages by position (`earlier[0]` is the oldest), plus "none", so only the question and threshold can change.',
     condition: 'Link the messages',
     defaults: {
       type: 'choice',
-      question: 'Which line in `earlier` does `message` reply to, answer or continue? Most messages continue one of them: pick "none" only when `message` clearly starts a new topic.',
+      question: 'Which message in `earlier` does `message` reply to, answer or continue? Most messages continue one of them.',
       options: [],
       alertOn: [],
       // A link joins two conversations: only when more likely right than wrong.
+      minProbability: 0.5,
+    },
+  },
+  {
+    id: 'conversations.continues',
+    group: 'Messages',
+    label: 'Whether it continues one message',
+    features: ['linkConversations'],
+    sees: `${CONVERSATION_SEES} Asked once for each message in \`earlier\`; {i} is its position.`,
+    use: 'rank',
+    placeholders: ['{i}'],
+    condition: null,
+    defaults: {
+      type: 'noul',
+      question: 'Does `message` reply to, answer or continue `earlier[{i}]`?',
+      yes: '`message` is about the same thing as that message: an answer, a reaction or the next step in its discussion.',
+      no: '`message` is about something else, or continues a different message.',
+      // Unused: the app ranks candidates by the answer (condition null).
       minProbability: 0.5,
     },
   },

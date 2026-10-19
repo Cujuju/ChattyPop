@@ -13,12 +13,13 @@ export interface Choice {
   probability: number;
 }
 
-/** Fills `p` with the softmax over `count` rows of `rows`. */
+/** Fills `p` with the softmax over `count` rows of `rows`; a row holds one value per weight. */
 function softmax(rows: Float64Array, count: number, w: Weights, p: Float64Array): void {
+  const width = w.length;
   let max = -Infinity;
   for (let j = 0; j < count; j++) {
     let s = 0;
-    for (let k = 0; k < FEATURE_COUNT; k++) s += w[k]! * rows[j * FEATURE_COUNT + k]!;
+    for (let k = 0; k < width; k++) s += w[k]! * rows[j * width + k]!;
     p[j] = s;
     if (s > max) max = s;
   }
@@ -44,7 +45,7 @@ export function choose(m: ChooserMessage, candidates: readonly ChooserMessage[],
   return { index: best, probability: p[best]! };
 }
 
-/** One training example: its candidates' rows and which is the parent. */
+/** One training example: its candidates' rows (one value per weight) and which is the parent. */
 export interface FitSample { rows: Float64Array; count: number; label: number }
 
 export function fitSample(m: ChooserMessage, candidates: readonly ChooserMessage[], parentIndex: number): FitSample {
@@ -62,7 +63,7 @@ export const FIT_TOLERANCE = 1e-9;
 /** Halvings of a step that would raise the loss before giving up. */
 const LINE_SEARCH_MAX = 30;
 
-/** Maximum a-posteriori fit (log-loss plus a Gaussian prior around `prior`), by Newton's method with a backtracking line search. */
+/** Maximum a-posteriori fit (log-loss plus a Gaussian prior around `prior`), by Newton's method with a backtracking line search. Rows hold `prior.length` values. */
 export function fitWeights(samples: readonly FitSample[], prior: Weights = DEFAULT_WEIGHTS): number[] {
   let w = [...prior];
   let current = loss(samples, w, prior);
@@ -93,7 +94,7 @@ function loss(samples: readonly FitSample[], w: Weights, prior: Weights): number
     softmax(s.rows, s.count, w, p);
     total -= Math.log(Math.max(p[s.label]!, Number.MIN_VALUE));
   }
-  for (let k = 0; k < FEATURE_COUNT; k++) total += (PRIOR_STRENGTH / 2) * (w[k]! - prior[k]!) ** 2;
+  for (let k = 0; k < w.length; k++) total += (PRIOR_STRENGTH / 2) * (w[k]! - prior[k]!) ** 2;
   return total;
 }
 
@@ -101,23 +102,24 @@ function derivatives(samples: readonly FitSample[], w: Weights, prior: Weights):
   const gradient = w.map((v, k) => PRIOR_STRENGTH * (v - prior[k]!));
   const hessian = gradient.map((_, i) => gradient.map((__, j) => (i === j ? PRIOR_STRENGTH : 0)));
   const p = new Float64Array(maxCount(samples));
-  const mean = new Float64Array(FEATURE_COUNT);
+  const width = w.length;
+  const mean = new Float64Array(width);
   for (const s of samples) {
     softmax(s.rows, s.count, w, p);
     mean.fill(0);
     for (let j = 0; j < s.count; j++) {
-      const row = j * FEATURE_COUNT;
-      for (let a = 0; a < FEATURE_COUNT; a++) {
+      const row = j * width;
+      for (let a = 0; a < width; a++) {
         const xa = s.rows[row + a]!;
         if (!xa) continue;
         mean[a]! += p[j]! * xa;
-        for (let b = 0; b < FEATURE_COUNT; b++) hessian[a]![b]! += p[j]! * xa * s.rows[row + b]!;
+        for (let b = 0; b < width; b++) hessian[a]![b]! += p[j]! * xa * s.rows[row + b]!;
       }
     }
-    const label = s.label * FEATURE_COUNT;
-    for (let a = 0; a < FEATURE_COUNT; a++) {
+    const label = s.label * width;
+    for (let a = 0; a < width; a++) {
       gradient[a]! += mean[a]! - s.rows[label + a]!;
-      for (let b = 0; b < FEATURE_COUNT; b++) hessian[a]![b]! -= mean[a]! * mean[b]!;
+      for (let b = 0; b < width; b++) hessian[a]![b]! -= mean[a]! * mean[b]!;
     }
   }
   return { gradient, hessian };

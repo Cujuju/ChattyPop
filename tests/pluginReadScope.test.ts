@@ -118,7 +118,7 @@ describe('the check at dispatch', () => {
   it("refuses a Jev request still waiting for a slot once a channel it reads turns local-only, sending nothing", async () => {
     /** Jev's cap on requests in flight (jev.ts MAX_IN_FLIGHT). */
     const IN_FLIGHT = 4;
-    const route: JevRoute = { label: 'test', endpoint: 'https://jev.test/decide', wireModel: 'jev', headers: {}, errorText: () => 'failed', cost: () => null };
+    const route: JevRoute = { label: 'test', endpoint: 'https://jev.test/decide', wireModel: () => 'jev', headers: {}, errorText: () => 'failed', cost: () => null };
     const replies: (() => void)[] = [];
     vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => replies.push(() => resolve(new Response(JSON.stringify({ answers: {} }))))));
     const scoped = scopedDecider(new JevProvider(() => undefined).via(route), () => db);

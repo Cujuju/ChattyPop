@@ -59,6 +59,16 @@ describe('Jev connection: OpenRouter or TypeSafe directly', () => {
     expect(jev.model).toBe(JEV_MODEL);
   });
 
+  it('a request may name another release: each route sends its own id for it', async () => {
+    const reg = new ProviderRegistry(vi.fn());
+    reg.setOpenRouterKeys([jevKey]);
+    reg.setTypeSafeKey('ts-direct');
+    const calls = stubFetch(200, { answers: { a: { type: 'noul', noul: 0.9 } } });
+    await reg.decider(on('openrouter'), 'summaries.citationCheck')!.decide({ ...question, release: 'jev-9.9' });
+    await reg.decider(on('typesafe'), 'summaries.citationCheck')!.decide({ ...question, release: 'jev-9.9' });
+    expect(calls.map((c) => c.body.model)).toEqual(['jev-9.9', 'jev-9.9.0']);
+  });
+
   it('TypeSafe chosen without a TypeSafe key: unavailable, and never falls back to OpenRouter', () => {
     const reg = new ProviderRegistry(() => {});
     reg.setOpenRouterKeys([jevKey]);

@@ -11,8 +11,8 @@ import { OPENROUTER_APP_HEADERS, openRouterErrorText, type OpenRouterError } fro
 const OPENROUTER_ENDPOINT = `${OPENROUTER_API}/systemone`;
 /** TypeSafe's own System One endpoint (docs.typesafe.ai/api), billed to the TypeSafe account. */
 const TYPESAFE_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
-/** TypeSafe's versioned id for the release OpenRouter calls jev-1.13 (docs.typesafe.ai/models). */
-const TYPESAFE_WIRE_MODEL = `${JEV_MODEL}.0`;
+/** TypeSafe's versioned id for a release OpenRouter names without the patch number, e.g. jev-1.13.0 (docs.typesafe.ai/models). */
+const typeSafeWireModel = (release: string): string => `${release}.0`;
 const TOKENS_PER_MILLION = 1_000_000;
 /** TypeSafe's published input price, $0.042 per million tokens; output is free. TypeSafe reports tokens, not cost. */
 const TYPESAFE_USD_PER_INPUT_TOKEN = 0.042 / TOKENS_PER_MILLION;
@@ -54,8 +54,8 @@ export interface JevRoute {
   /** Who pays, as Settings shows it. */
   label: string;
   endpoint: string;
-  /** This endpoint's id for the pinned release. */
-  wireModel: string;
+  /** This endpoint's id for a release (JEV_MODEL's form). */
+  wireModel(release: string): string;
   headers: Record<string, string>;
   /** Error text from a failed response. */
   errorText(json: SystemOneResponse, status: number): string;
@@ -67,7 +67,7 @@ export function openRouterJevRoute(k: OpenRouterKeyEntry): JevRoute {
   return {
     label: k.label,
     endpoint: OPENROUTER_ENDPOINT,
-    wireModel: JEV_MODEL,
+    wireModel: (release) => release,
     headers: { authorization: `Bearer ${k.key}`, ...OPENROUTER_APP_HEADERS },
     errorText: (json, status) =>
       typeof json.error === 'string' ? json.error : json.error || !json.detail ? openRouterErrorText(json.error, status, k.label) : JSON.stringify(json.detail),
@@ -79,7 +79,7 @@ export function typeSafeJevRoute(key: string): JevRoute {
   return {
     label: 'TypeSafe',
     endpoint: TYPESAFE_ENDPOINT,
-    wireModel: TYPESAFE_WIRE_MODEL,
+    wireModel: typeSafeWireModel,
     headers: { authorization: `Bearer ${key}` },
     errorText: (json, status) => {
       if (TYPESAFE_REJECTED.has(status)) return 'TypeSafe rejected the key. Check it in Settings → Jev.';
@@ -154,7 +154,7 @@ export class JevProvider {
   }
 
   private async post<Q extends Record<string, Question>>(route: JevRoute, req: DecisionRequest<Q>): Promise<{ result: DecisionResult<Q>; tokens: JevTokens | null }> {
-    const body = JSON.stringify({ model: route.wireModel, state: req.state, questions: req.questions }, wellFormed);
+    const body = JSON.stringify({ model: route.wireModel(req.release ?? JEV_MODEL), state: req.state, questions: req.questions }, wellFormed);
     for (let attempt = 1; ; attempt++) {
       req.admit?.();
       const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
