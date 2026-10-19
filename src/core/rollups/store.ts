@@ -26,6 +26,8 @@ export function installRollupStore(db: Db): void {
       PRIMARY KEY (rollup, channel_id, day));
     CREATE INDEX IF NOT EXISTS rollup_partitions_channel ON rollup_partitions(channel_id, day);
     CREATE INDEX IF NOT EXISTS rollup_messages_author ON messages(author_id, channel_id, ts);
+    CREATE INDEX IF NOT EXISTS rollup_attachments_channel_ts ON attachments(channel_id, ts);
+    CREATE INDEX IF NOT EXISTS rollup_links_channel_ts ON links(first_channel_id, first_ts);
     CREATE INDEX IF NOT EXISTS rollup_links_author ON links(first_author_id, first_channel_id, first_ts);
     CREATE TABLE IF NOT EXISTS rollup_visibility_state (singleton INTEGER PRIMARY KEY, revision INTEGER NOT NULL);
     INSERT OR IGNORE INTO rollup_visibility_state VALUES (1, 0);

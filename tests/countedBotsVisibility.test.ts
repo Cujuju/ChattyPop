@@ -6,10 +6,10 @@ const env = vi.hoisted(() => ({ read: vi.fn(async () => []), event: undefined as
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs'));
 vi.mock('@/api', () => ({ api: { core: { archivedBots: env.read }, onEvent: (fn: (e: AppEvent) => void) => { env.event = fn; } } }));
 vi.mock('../src/plugin-sdk/renderer/settings', () => ({ createSetting: () => [() => [], async () => {}, { loaded: Promise.resolve() }] }));
-vi.mock('../src/renderer/src/state/events', async () => ({
-  ...(await import('../src/plugin-sdk/renderer/appEvents')),
-  ...(await import('../src/plugin-sdk/renderer/archiveEvents')),
-}));
+vi.mock('../src/renderer/src/state/events', async () => {
+  const events = '../src/plugin-sdk/renderer/appEvents', archive = '../src/plugin-sdk/renderer/archiveEvents';
+  return { ...(await import(events)), ...(await import(archive)) };
+});
 
 it('starts no bot reads while hidden and refreshes once when shown', async () => {
   const page = { visibilityState: 'hidden', addEventListener: (_name: string, fn: () => void) => { env.visibility = fn; } };
@@ -28,7 +28,7 @@ it('starts no bot reads while hidden and refreshes once when shown', async () =>
     await vi.runAllTimersAsync();
     expect(env.read).toHaveBeenCalledOnce();
     page.visibilityState = 'hidden'; env.visibility!();
-    env.event!({ type: 'self-changed', self: null } as AppEvent);
+    env.event!({ type: 'self-changed', userId: 'new-owner' });
     await vi.runAllTimersAsync();
     expect(env.read).toHaveBeenCalledOnce();
     page.visibilityState = 'visible'; env.visibility!();

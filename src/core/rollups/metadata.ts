@@ -3,6 +3,7 @@ import { readArchive } from '../reads/archiveReads';
 import { MS_PER_S } from '@shared/units';
 import { reconcileDefinition } from './definitions';
 
+const APPLY_BATCH = 128; // Large entity histories yield Core after each bounded partition-write transaction.
 const active = new WeakMap<Db, Promise<boolean>>();
 
 /** Catalog/name events describe broad renderer dependencies; durable entity deltas bound aggregate invalidation to affected archive partitions. */
@@ -38,7 +39,11 @@ export function metadataAffects(db: Db, rollup: string): boolean {
         OR EXISTS (SELECT 1 FROM attachments a WHERE a.channel_id = p.id)
         OR EXISTS (SELECT 1 FROM links l WHERE l.first_channel_id = p.id)
         OR EXISTS (SELECT 1 FROM rollup_partitions r WHERE r.channel_id = p.id)))
-      OR (p.entity = 'guild' AND EXISTS (SELECT 1 FROM channels c JOIN messages m ON m.channel_id = c.id WHERE c.guild_id = p.id))
+      OR (p.entity = 'guild' AND EXISTS (SELECT 1 FROM channels c WHERE c.guild_id = p.id AND (
+        EXISTS (SELECT 1 FROM messages m WHERE m.channel_id = c.id)
+        OR EXISTS (SELECT 1 FROM attachments a WHERE a.channel_id = c.id)
+        OR EXISTS (SELECT 1 FROM links l WHERE l.first_channel_id = c.id)
+        OR EXISTS (SELECT 1 FROM rollup_partitions r WHERE r.channel_id = c.id))))
       OR (p.entity = 'user' AND (EXISTS (SELECT 1 FROM messages m WHERE m.author_id = p.id)
         OR EXISTS (SELECT 1 FROM links l WHERE l.first_author_id = p.id)))) LIMIT 1`).get(rollup));
 }
@@ -66,17 +71,22 @@ async function drain(db: Db, signal: AbortSignal): Promise<boolean> {
       FROM parts t WHERE t.entity = p.entity AND t.id = p.id) AS partitions FROM rollup_metadata_pending p`, [], signal, 'background');
   signal.throwIfAborted();
   for (const row of rows) {
-    db.transaction(() => {
-      if (db.prepare('SELECT revision FROM rollup_metadata_pending WHERE entity = ? AND id = ?').pluck().get(row.entity, row.id) !== row.revision) return;
-      const kinds = row.entity === 'user' ? ['names'] : ['names', 'channels'];
-      const mark = db.prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day)
-        SELECT DISTINCT rollup, ?, ? FROM rollup_kinds WHERE kind IN (SELECT value FROM json_each(?))
-        ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`);
-      for (const part of JSON.parse(row.partitions) as { channel: string; day: string }[]) mark.run(part.channel, part.day, JSON.stringify(kinds));
-      db.prepare('DELETE FROM rollup_metadata_pending WHERE entity = ? AND id = ?').run(row.entity, row.id);
-    })();
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    signal.throwIfAborted();
+    const parts = JSON.parse(row.partitions) as { channel: string; day: string }[];
+    for (let offset = 0; offset < parts.length || offset === 0; offset += APPLY_BATCH) {
+      const applied = db.transaction(() => {
+        if (db.prepare('SELECT revision FROM rollup_metadata_pending WHERE entity = ? AND id = ?').pluck().get(row.entity, row.id) !== row.revision) return false;
+        const kinds = JSON.stringify(row.entity === 'user' ? ['names'] : ['names', 'channels']);
+        const mark = db.prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day)
+          SELECT DISTINCT rollup, ?, ? FROM rollup_kinds WHERE kind IN (SELECT value FROM json_each(?))
+          ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`);
+        for (const part of parts.slice(offset, offset + APPLY_BATCH)) mark.run(part.channel, part.day, kinds);
+        if (offset + APPLY_BATCH >= parts.length) db.prepare('DELETE FROM rollup_metadata_pending WHERE entity = ? AND id = ?').run(row.entity, row.id);
+        return true;
+      })();
+      if (!applied) break;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      signal.throwIfAborted();
+    }
   }
   return !metadataPending(db);
 }
