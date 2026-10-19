@@ -13,6 +13,7 @@ import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 import { spanGeneration } from './spans';
 import { pendingChangesSql, seedRollupChanges } from './changes';
+import { publishMaterializedFold } from './materialized';
 
 /** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
 const RETRY_MS = MS_PER_S;
@@ -43,6 +44,7 @@ export function pluginRollups(db: () => Db, pluginId: string, signal: AbortSigna
 class MaintainedRollup implements Rollup {
   readonly view: string;
   readonly allTimeView: string | null;
+  readonly foldView: string | null;
   private readonly id: string;
   private readonly table: string;
   private readonly source: string;
@@ -63,6 +65,7 @@ class MaintainedRollup implements Rollup {
     this.table = rollupTable(db, pluginId, name, spec);
     this.view = `${this.table}_visible`;
     this.allTimeView = spec.allTime ? `${this.table}_all_time_visible` : null;
+    this.foldView = spec.fold ? `${this.table}_folded_visible` : null;
     this.source = spec.compute.toString().replace(/^(async\s+)?compute\s*\(/, '$1function compute(');
     db.transaction(() => {
       db.prepare('DELETE FROM rollup_kinds WHERE rollup = ?').run(this.id);
@@ -104,13 +107,14 @@ class MaintainedRollup implements Rollup {
       SELECT c.channel_id, c.day FROM rollup_changes c JOIN rollup_kinds k ON k.kind = c.kind WHERE k.rollup = ?)`)
       .get(this.id, this.id) as { dirty: number };
     const { spans } = this.ready().prepare('SELECT COUNT(*) AS spans FROM rollup_span_dirty WHERE rollup = ?').get(this.id) as { spans: number };
+    const folds = this.ready().prepare('SELECT COUNT(*) FROM rollup_fold_dirty WHERE rollup = ?').pluck().get(this.id) as number;
     const referencesPending = referenceWorkPending(this.ready()) || metadataPending(this.ready());
-    if ((dirty || spans || referencesPending) && !this.running) this.schedule();
+    if ((dirty || spans || folds || referencesPending) && !this.running) this.schedule();
     const { total } = this.ready().prepare(`SELECT COUNT(*) AS total FROM (
       SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ? UNION
       SELECT c.channel_id, c.day FROM rollup_changes c JOIN rollup_kinds k ON k.kind = c.kind WHERE k.rollup = ?)`)
       .get(this.id, this.id, this.id) as { total: number };
-    return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
+    return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || folds || this.running), dirty: dirty + spans + folds, total, error: this.error };
   }
 
   snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null {
@@ -121,6 +125,8 @@ class MaintainedRollup implements Rollup {
       FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
         JOIN rollup_visibility_state v ON v.singleton = 1
       WHERE m.rollup = @rollup AND m.backfill = 0 AND r.ready = 1
+        AND NOT EXISTS (SELECT 1 FROM rollup_fold_dirty f WHERE f.rollup = m.rollup
+          AND (@channels IS NULL OR f.channel_id IN (SELECT value FROM json_each(@channels))))
         AND NOT ${pendingChangesSql('m.rollup', undefined, undefined, '@first', '@channels')}
         AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup
           AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
@@ -211,7 +217,7 @@ class MaintainedRollup implements Rollup {
         await this.expandSpans();
         const db = this.ready();
         const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
-        if (!dirty) break;
+        if (!dirty) { if (await this.foldChannel()) continue; break; }
         const epoch = this.epoch;
         const generation = this.spec.span ? spanGeneration(db, this.id, dirty.channel_id) : 0;
         const [computed] = await computeArchive<{ rows: RollupRow[]; watermark: number; fold?: FoldResult }>(db, {
@@ -220,7 +226,7 @@ class MaintainedRollup implements Rollup {
         }, this.signal);
         if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) { this.schedule(); break; }
         if (this.spec.span && generation !== spanGeneration(db, this.id, dirty.channel_id)) continue;
-        replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold);
+        replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold, Boolean(this.spec.fold));
         this.error = null;
         this.progress();
         await new Promise<void>((resolve) => setImmediate(resolve));
@@ -232,6 +238,24 @@ class MaintainedRollup implements Rollup {
       this.running = false;
       if (!this.signal.aborted && this.ready().open) this.progress(true);
     }
+  }
+
+  private async foldChannel(): Promise<boolean> {
+    if (!this.spec.fold) return false;
+    const db = this.ready(), epoch = this.epoch, meta = this.meta()!;
+    const pending = db.prepare('SELECT channel_id, revision FROM rollup_fold_dirty WHERE rollup = ? LIMIT 1').get(this.id) as { channel_id: string; revision: number } | undefined;
+    if (!pending) return false;
+    const [computed] = await computeArchive<{ rows: RollupRow[] }>(db, {
+      source: this.spec.fold.compute.toString().replace(/^(async\s+)?compute\s*\(/, '$1function compute('),
+      partition: pending.channel_id, data: { table: this.table, config: this.spec.fold.data },
+    }, this.signal);
+    const current = () => !this.signal.aborted && db === this.ready() && epoch === this.epoch
+      && meta.revision === this.meta()!.revision && !metadataAffects(db, this.id)
+      && !db.prepare(`SELECT ${pendingChangesSql('?', '?')}`).pluck().get(this.id, pending.channel_id)
+      && !db.prepare('SELECT 1 FROM rollup_dirty WHERE rollup = ? AND channel_id = ? LIMIT 1').get(this.id, pending.channel_id);
+    if (!current()) return !this.signal.aborted && epoch === this.epoch;
+    await publishMaterializedFold(db, this.id, this.table, this.spec.fold, pending.channel_id, pending.revision, computed!.rows, current);
+    return true;
   }
 
   private async expandSpans(): Promise<void> {

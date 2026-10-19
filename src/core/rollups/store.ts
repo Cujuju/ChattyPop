@@ -7,6 +7,7 @@ import { reconcileDefinition } from './definitions';
 import { installSpanTriggers } from './spans';
 import { installRollupChanges, pendingChangesSql } from './changes';
 import { visibleRollupSql } from './views';
+import { installMaterializedFold, markMaterializedFold } from './materialized';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
 export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number }
@@ -21,6 +22,8 @@ export function installRollupStore(db: Db): void {
     CREATE TABLE IF NOT EXISTS rollup_dirty (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, day TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (rollup, channel_id, day));
+    CREATE TABLE IF NOT EXISTS rollup_fold_dirty (rollup TEXT, channel_id TEXT, revision INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY(rollup, channel_id));
     CREATE INDEX IF NOT EXISTS rollup_dirty_newest ON rollup_dirty (rollup, day DESC, channel_id);
     CREATE TABLE IF NOT EXISTS rollup_partitions (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, day TEXT NOT NULL, watermark INTEGER NOT NULL,
@@ -64,6 +67,7 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
     db.exec(`CREATE INDEX IF NOT EXISTS "${table}_read_${index}" ON "${table}" (${keys.map((key) => `"${key}"`).join(', ')})`);
   }
   if (spec.span) installSpanTriggers(db, id, table, spec.columns, spec.span);
+  if (spec.fold) installMaterializedFold(db, id, table, spec.fold);
   if (spec.allTime) {
     if (Object.keys(spec.allTime.values).length !== columns.length - spec.key.length || columns.some(([column]) => !keys.includes(column) && !['sum', 'min', 'max', 'latest', 'earliest'].includes(spec.allTime!.values[column] ?? ''))) throw new Error('Invalid all-time fold columns');
     if (Object.values(spec.allTime.values).some((value) => value === 'latest' || value === 'earliest') && (!spec.allTime.orderBy || !Object.hasOwn(spec.columns, spec.allTime.orderBy))) throw new Error('Ordered fold needs its ordering column');
@@ -95,11 +99,12 @@ export const PARTITIONS_SQL = `SELECT channel_id, date(ts / ${MS_PER_S}, 'unixep
   UNION ALL SELECT first_channel_id, date(first_ts / ${MS_PER_S}, 'unixepoch'), 0 FROM links
   UNION ALL SELECT channel_id, day, 0 FROM rollup_partitions WHERE rollup = @rollup`;
 
-export function replacePartition(db: Db, id: string, table: string, dirty: Dirty, columns: readonly string[], rows: RollupRow[], watermark: number, fold?: FoldResult): void {
+export function replacePartition(db: Db, id: string, table: string, dirty: Dirty, columns: readonly string[], rows: RollupRow[], watermark: number, fold?: FoldResult, materialized = false): void {
   db.transaction(() => {
     if (db.prepare(`SELECT ${pendingChangesSql('?', '?', '?')}`).pluck().get(id, dirty.channel_id, dirty.day)) return;
     const current = db.prepare('SELECT revision FROM rollup_dirty WHERE rollup = ? AND channel_id = ? AND day = ?').get(id, dirty.channel_id, dirty.day) as { revision: number } | undefined;
     if (current?.revision !== dirty.revision) return;
+    if (materialized) markMaterializedFold(db, id, dirty.channel_id);
     db.prepare(`DELETE FROM "${table}" WHERE channel_id = ? AND day = ?`).run(dirty.channel_id, dirty.day);
     const insert = db.prepare(`INSERT INTO "${table}" (channel_id, day, ${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${Array(columns.length + 2).fill('?').join(', ')})`);
     for (const row of rows) {

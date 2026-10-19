@@ -7,6 +7,14 @@ export type { RollupStatus } from '@shared/rollups';
 /** UTC partitions remain stable across viewer and operating-system time-zone changes. */
 export interface RollupPartition { channelId: string; day: string; startTs: number; endTs: number; timeZone: string }
 export type RollupRow = Record<string, string | number | null>;
+/** Query-ready indexes rebuilt off-thread after the channel's daily replacements settle. */
+export interface RollupFold {
+  columns: Record<string, 'TEXT' | 'INTEGER' | 'REAL'>;
+  key: readonly string[];
+  indexes?: readonly (readonly string[])[];
+  data?: unknown;
+  compute: (channel: string, read: ArchiveRead, signal: AbortSignal, data: any) => Promise<RollupRow[]>;
+}
 export interface RollupSpec<R extends object, D = undefined> {
   version: number;
   columns: Record<keyof R & string, 'TEXT' | 'INTEGER' | 'REAL'>;
@@ -16,6 +24,7 @@ export interface RollupSpec<R extends object, D = undefined> {
   span?: { start: keyof R & string; end: keyof R & string; paddingMs: number };
   /** Optional materialized fold across days, retaining channel privacy and the partition's key grain. */
   allTime?: { values: ReadFold['values']; orderBy?: keyof R & string };
+  fold?: RollupFold;
   dependsOn: readonly ArchiveChangeKind[];
   timeZoneSensitive?: boolean;
   /** Structured-cloneable configuration; compute cannot capture imports, module variables or the plugin context. */
@@ -26,6 +35,7 @@ export interface RollupSpec<R extends object, D = undefined> {
 export interface Rollup {
   readonly view: string;
   readonly allTimeView: string | null;
+  readonly foldView: string | null;
   status(): RollupStatus;
   /** Opaque clean-build token for the requested channels and opener days. Recheck after reads; changed tokens require a retry. */
   snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null;

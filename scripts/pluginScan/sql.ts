@@ -88,7 +88,7 @@ export function sqlLiterals(source: string): { sql: string; line: number }[] {
 /** Constant declarations whose values come directly from the table namespace helper. */
 export function tableConstants(source: string, visible = false): string[] {
   const helpers = visible ? ['visibleTable', 'rollupView'] : ['pluginTable'];
-  return [...source.matchAll(/\bconst\s+(\w+)\s*=\s*(pluginTable|visibleTable|rollupView)\(plugin,\s*['"][\w]+['"](?:\s*,\s*\w+)?(?:\s*,\s*'all-time')?\s*\)/g)]
+  return [...source.matchAll(/\bconst\s+(\w+)\s*=\s*(pluginTable|visibleTable|rollupView)\(plugin,\s*['"][\w]+['"](?:\s*,\s*\w+)?(?:\s*,\s*'(?:all-time|folded)')?\s*\)/g)]
     .filter((match) => helpers.includes(match[2]!)).map((match) => match[1]!);
 }
 
