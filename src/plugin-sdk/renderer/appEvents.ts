@@ -14,14 +14,15 @@ export function dispatchAppEvent(e: AppEvent): void {
   listeners.get(e.type)?.forEach((l) => runIsolated(() => l(e), reportFailure));
 }
 
-// One bridge subscription for the whole renderer; local navigation shares its listeners.
-api.onEvent(dispatchAppEvent);
+// The first listener opens the window's one bridge subscription; SDK leaves can load before a transport exists.
+let listening = false;
 
 /** Calls `listener` with each app event of `type`; returns an unsubscribe function. */
 export function onAppEvent<T extends AppEvent['type']>(type: T, listener: Listener<T>): () => void {
   const set = listeners.get(type) ?? new Set();
   set.add(listener as (e: AppEvent) => void);
   listeners.set(type, set);
+  if (!listening) { listening = true; api.onEvent(dispatchAppEvent); }
   return () => set.delete(listener as (e: AppEvent) => void);
 }
 
@@ -33,19 +34,6 @@ export const onPluginEvent = (pluginId: string, name: string, listener: (payload
 
 /** Backfill emits many archive changes; lists derived from the archive re-read at most this often. */
 export const ARCHIVE_REFRESH_DEBOUNCE_MS = 2000;
-
-/** Calls `fn` once a burst of `type` events has been quiet for `ms`. */
-export function onAppEventDebounced<T extends AppEvent['type']>(type: T, ms: number, fn: () => void): () => void {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const off = onAppEvent(type, () => {
-    clearTimeout(timer);
-    timer = setTimeout(fn, ms);
-  });
-  return () => {
-    clearTimeout(timer);
-    off();
-  };
-}
 
 /** Subscribes to changed plugin message parts. ids targets rows; null covers plugin toggles. Snapshot views re-read affected messages; returns unsubscribe. */
 export function onMessagePartsChanged(fn: (ids: string[] | null) => void): () => void {

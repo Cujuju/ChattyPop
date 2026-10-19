@@ -148,4 +148,27 @@ describe('pluginResource', () => {
     await answer({ status: 'ok', value: 'second' });
     expect(env.sent.slice(-2).map(([q]) => (q as RangeQuery).sinceTs)).toEqual([1_000, 2_000]);
   });
+  it('defers hidden reads and argument changes, then combines stale-on-show and source refresh into one read', async () => {
+    const { createRoot, createSignal } = await import('solid-js');
+    const { pluginResource } = await import(resourcePath) as {
+      pluginResource(p: typeof reader, member: 'read', args: () => [RangeQuery], fallback: null,
+        options: { shown: () => boolean; refreshOn: { kinds: readonly string[] } }): { (): unknown; refetch(): Promise<void> };
+    };
+    const [shown, setShown] = createSignal(false), [since, setSince] = createSignal(0);
+    let dispose!: () => void;
+    const before = env.sent.length;
+    const r = createRoot((end) => { dispose = end; return pluginResource(reader, 'read', () => [{ sinceTs: since() }], null,
+      { shown, refreshOn: { kinds: ['messages'] } }); });
+    const event = { type: 'archive-changed', changes: { c: ['messages'] }, insertOnlyChannelIds: ['c'] };
+    env.emit!(event); setSince(1); await r.refetch(); await settle();
+    expect(env.sent).toHaveLength(before);
+    setShown(true); await settle();
+    expect(env.sent).toHaveLength(before + 1);
+    expect(env.sent.at(-1)).toEqual([{ sinceTs: 1 }]);
+    await answer({ status: 'ok', value: 'shown' });
+    expect(r()).toBe('shown');
+    expect(env.sent).toHaveLength(before + 1);
+    dispose();
+  });
+
 });

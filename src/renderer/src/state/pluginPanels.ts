@@ -4,7 +4,7 @@ import { unwrapPluginCall } from '@shared/pluginCall';
 import { createResource } from 'solid-js';
 import { PLUGIN_SCHEME, pluginPanelId, type PluginInfo, type PluginPanelId } from '@shared/plugins';
 import type { PluginPanel } from '@/plugins/types';
-import { onAppEvent } from './events';
+import { onArchiveChange } from './events';
 import { plugins } from './plugins';
 
 export interface LoadedPanel extends PluginPanel {
@@ -45,6 +45,6 @@ export const pluginCall = (pluginId: string, name: string, args: unknown[]): Pro
 
 /** Archive changes relayed to a panel that subscribed (PanelApi.onArchiveChanged); returns the unsubscribe. */
 export const onArchiveChangedForPanels = (fn: (channelIds: string[]) => void): (() => void) => {
-  const off = onAppEvent('archive-changed', (e) => fn(e.channelIds));
+  const off = onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 'attachments', 'links', 'names', 'channels', 'disk', 'plugin'] }, (e) => fn([...e.channelIds]));
   return () => void off();
 };

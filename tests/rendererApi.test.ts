@@ -69,7 +69,7 @@ describe('a page whose transport installs after host stores load', () => {
     await settle();
     expect(t.calls).toEqual(expect.arrayContaining(['status', 'directory', 'jevQueryOverrides']));
     expect(coreStatus()).toEqual({ ok: true });
-    t.emit({ type: 'archive-changed' });
+    t.emit({ type: 'archive-changed', changes: { c: ['messages'] }, insertOnlyChannelIds: ['c'] });
     expect(seen).toEqual(['archive-changed']);
   });
 });

@@ -4,7 +4,7 @@ import { createSignal } from 'solid-js';
 import type { MentionCandidate } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
 import { api } from '@/api';
-import { onAppEvent } from './events';
+import { onArchiveChange } from './events';
 
 /** Listed for an `@name` in all, as Discord's autocomplete; typing more narrows them. */
 const MENTION_SUGGESTIONS_MAX = 10;
@@ -23,8 +23,7 @@ const [serverVersions, setServerVersions] = createStore<Record<string, number>>(
 export const membersVersion = (guildId?: string): number =>
   guildId === undefined ? anyVersion() : everyServerVersion() + (serverVersions[guildId] ?? 0);
 
-onAppEvent('archive-changed', (e) => {
-  if (!e.namesChanged) return;
+onArchiveChange({ kinds: ['names'] }, (e) => {
   setAnyVersion((v) => v + 1);
   if (!e.nameGuildIds) return void setEveryServerVersion((v) => v + 1);
   for (const id of e.nameGuildIds) setServerVersions(id, (v) => (v ?? 0) + 1);

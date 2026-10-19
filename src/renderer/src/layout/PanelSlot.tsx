@@ -1,3 +1,5 @@
+import { trackPanelShown } from '@plugin-sdk/renderer/panelShown';
+import { isPanelCollapsed } from '@/state/layout';
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { Show, createEffect, createSignal, on, onMount, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
@@ -27,6 +29,7 @@ export const fitHeight = (el: Element | null): number => {
 
 export function PanelSlot(props: { panel: PanelRef; size: SplitSize | undefined; axis?: 'row' | 'column'; hidden: boolean }) {
   const view = createViewShown();
+  trackPanelShown(() => props.panel.id, () => !props.hidden && !isPanelCollapsed(props.panel.id) && view.shows());
   const def = () => lookupPanel(props.panel.id);
   let slot!: HTMLDivElement;
   const [fitPx, setFitPx] = createSignal(0);

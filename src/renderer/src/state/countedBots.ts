@@ -3,7 +3,7 @@ import { api } from '@/api';
 import { createResource } from 'solid-js';
 import { SETTINGS_KEYS, normalizeCountedBots } from '@shared/settings';
 import { createSetting } from '@plugin-sdk/renderer/settings';
-import { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onAppEventDebounced } from './events';
+import { onAppEvent, onArchiveChange } from './events';
 
 export const [countedBots, setCountedBots, { loaded: countedBotsLoaded }] = createSetting<string[]>(SETTINGS_KEYS.countedBots, [], normalizeCountedBots);
 
@@ -17,7 +17,7 @@ export function setBotCounted(id: string, on: boolean): Promise<void> {
 export function createArchivedBots() {
   const [bots, { refetch }] = createResource(() => api.core.archivedBots());
   const offs = [
-    onAppEventDebounced('archive-changed', ARCHIVE_REFRESH_DEBOUNCE_MS, () => void refetch()),
+    onArchiveChange({ kinds: ['messages', 'deletes', 'names'] }, () => refetch()),
     onAppEvent('privacy-changed', () => void refetch()),
     onAppEvent('self-changed', () => void refetch()),
   ];

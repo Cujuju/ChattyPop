@@ -9,10 +9,11 @@ import { sentRows } from '../src/renderer/src/state/outboxSent';
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 const env = vi.hoisted(() => ({ page: vi.fn(), window: vi.fn(), listeners: new Map<string, (e: AppEvent) => Promise<void>>() }));
 vi.mock('@/api', () => ({ api: { core: { messagePage: env.page, messageWindow: env.window }, discord: { shownChannel: async () => null } } }));
-vi.mock('../src/renderer/src/state/events', () => ({
+vi.mock('../src/renderer/src/state/events', async () => { const { archiveListener } = await import('./archiveChangeFixture'); return ({
+  onArchiveChange: (deps: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveDeps, fn: (c: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveChangeSet, signal: AbortSignal) => unknown) => env.listeners.set('archive-changed', archiveListener(deps, fn) as never),
   onAppEvent: (type: string, handler: (e: AppEvent) => Promise<void>) => env.listeners.set(type, handler),
   onMessagePartsChanged: () => {},
-}));
+}); });
 vi.mock('../src/renderer/src/state/ui', () => ({ inCompanion: true, inPanelWindow: false }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => ({}), refetchDirectory: async () => {} }));
 vi.mock('../src/renderer/src/state/chat', () => ({ chatSource: () => 'archive', setChatSource: () => {} }));
@@ -29,7 +30,7 @@ const SECOND = '1420000000000000001';
 const row = (id: string): ArchiveMessage => ({
   ...postedArchiveMessage(acceptedMessage({ channelId: CHANNEL, text: id, nonce: id, files: [], replyTo: null, stickerId: null, gif: null }).message, id), id,
 });
-const event = (insertOnly: boolean): AppEvent => ({ type: 'archive-changed', channelIds: [CHANNEL], ...(insertOnly ? { insertOnlyChannelIds: [CHANNEL] } : {}) });
+const event = (insertOnly: boolean): AppEvent => ({ type: 'archive-changed', changes: { [CHANNEL]: [insertOnly ? 'messages' : 'edits'] }, insertOnlyChannelIds: insertOnly ? [CHANNEL] : [] });
 const change = (insertOnly: boolean) => env.listeners.get('archive-changed')!(event(insertOnly));
 
 beforeEach(async () => {
@@ -117,12 +118,12 @@ describe('archive arrival and restore latency', () => {
 describe('archive change batches', () => {
   it('marks only proved insert-only channels, regardless of write order', () => {
     const batch = new ArchiveChanges();
-    batch.add('insert', true);
-    batch.add('edited', false);
-    batch.add('edited', true);
-    batch.add('deleted', true);
-    batch.add('deleted', false);
-    expect(batch.take()).toEqual({ channelIds: ['insert', 'edited', 'deleted'], insertOnlyChannelIds: ['insert'] });
-    expect(batch.take()).toEqual({ channelIds: [], insertOnlyChannelIds: [] });
+    batch.add('insert', ['messages'], { insertOnly: true });
+    batch.add('edited', ['edits']);
+    batch.add('edited', ['messages'], { insertOnly: true });
+    batch.add('deleted', ['messages'], { insertOnly: true });
+    batch.add('deleted', ['deletes']);
+    expect(batch.take()).toEqual({ changes: { insert: ['messages'], edited: ['edits', 'messages'], deleted: ['messages', 'deletes'] }, insertOnlyChannelIds: ['insert'] });
+    expect(batch.take()).toEqual({ changes: {}, insertOnlyChannelIds: [] });
   });
 });

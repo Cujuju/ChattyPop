@@ -1,4 +1,5 @@
 import { createEffect, createMemo, createReaction, getOwner, on, runWithOwner, untrack, type Accessor } from 'solid-js';
+import { trackPanelShown } from '@plugin-sdk/renderer/panelShown';
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { isPanelCollapsed } from '@/state/layout';
 import { markPanelSeen, panelShown } from '@/state/unread';
@@ -19,6 +20,7 @@ export function markSeenWhileShown(el: Element, id: () => string, view?: ViewSho
   const owner = getOwner();
   const shown = createShown(el, id);
   const eligible = createMemo(() => shown() && (view?.shows() ?? true));
+  trackPanelShown(id, eligible);
   let disposed = false;
   let pendingShown = false;
   onCleanup(() => { disposed = true; });

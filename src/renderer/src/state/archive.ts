@@ -8,10 +8,11 @@ import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type A
 import { chatSource, setChatSource } from './chat';
 import { inCompanion, inPanelWindow } from './ui';
 import { channelById, refetchDirectory } from './directory';
-import { createPushedValue, onAppEvent, onMessagePartsChanged } from './events';
+import { createPushedValue, onArchiveChange, onAppEvent, onMessagePartsChanged } from './events';
 import { createPagedList } from './paged';
 import { messageBefore } from '@shared/messageOrder';
 import { textOrNull } from '@shared/normalize';
+import { panelShown } from '@plugin-sdk/renderer/panelShown';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { sentRows } from './outboxSent';
 
@@ -196,11 +197,11 @@ async function inTurn(channelId: string, read: () => Promise<void>): Promise<voi
 }
 
 /** Open-channel changes: a window at the newest catches up on arrivals; other changes (and name/role changes) re-read loaded rows in place. */
-onAppEvent('archive-changed', async (e) => {
+onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 'attachments', 'links', 'names', 'plugin'], shown: () => panelShown('chat')() || panelShown('archive')(), scope: () => ({ channelIds: archiveChannelId() ? [archiveChannelId()!] : [] }) }, async (e) => {
   const channelId = archiveChannelId();
-  const changed = channelId !== null && e.channelIds.includes(channelId);
-  if (!channelId || (!changed && !e.namesChanged)) return;
-  const insertOnly = e.insertOnlyChannelIds?.includes(channelId) === true;
+  const changed = channelId !== null && e.channelIds.has(channelId);
+  if (!channelId || (!changed && !e.kinds.has('names'))) return;
+  const insertOnly = e.insertOnly(channelId);
   await inTurn(channelId, async () => {
     // Rows appended after this one, and the newest page, are read after the change: already current.
     const last = list.state.items.at(-1);
@@ -209,7 +210,7 @@ onAppEvent('archive-changed', async (e) => {
       const reached = await catchUp(channelId);
       if (!reached || !insertOnly) fresh = await refreshNewest(channelId);
     }
-    if (e.namesChanged || (changed && !insertOnly)) {
+    if (e.kinds.has('names') || (changed && !insertOnly)) {
       await rereadRows(channelId, (m) => (!last || !messageBefore(last, m)) && (!fresh || messageBefore(m, fresh)));
     }
   });

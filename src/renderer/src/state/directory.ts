@@ -6,7 +6,9 @@ import { DM_CHANNEL_TYPES, DM_GUILD_ID, THREAD_CHANNEL_TYPES, byDmActivity, comp
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
 import { chatUnreadCount } from '@shared/unread';
 import { SETTINGS_KEYS } from '@shared/settings';
-import { onAppEvent } from './events';
+import { onAppEvent, onArchiveChange } from './events';
+import { setArchiveDirectory } from '@plugin-sdk/renderer/archiveScope';
+import { keyedById } from './paged';
 import { unreadCounts } from './unreadCounts';
 
 /** An in-place change to the directory an event carries, instead of reading it all again. */
@@ -19,20 +21,23 @@ async function readDirectory(): Promise<DirectoryGuild[]> {
   sinceRead = patches;
   try {
     const guilds = await api.core.directory();
-    return patches.reduce((g, patch) => patch(g), guilds);
+    const result = patches.reduce((g, patch) => patch(g), guilds);
+    setArchiveDirectory(result);
+    return result;
   } finally {
     if (sinceRead === patches) sinceRead = null;
   }
 }
 
 /** Servers and channels known to the archive, with opt-in flags and stored-message counts. */
-export const [directory, { refetch, mutate: mutateDirectory }] = containedRoot(() => createResource(readDirectory, { initialValue: [] }));
+const [directoryResult, { refetch, mutate: mutateDirectory }] = containedRoot(() => createResource(readDirectory, { initialValue: [], storage: keyedById }));
+export const directory = (): DirectoryGuild[] => directoryResult() ?? [];
 /** Each invalidation must read core again, including events in the same turn as a previous read. */
 export const refetchDirectory = () => refetch(false);
 
 function patchDirectory(patch: Patch): void {
   sinceRead?.push(patch);
-  mutateDirectory(patch);
+  mutateDirectory((previous) => patch(previous ?? []));
 }
 
 /** A DM's newest message rises to `lastMessageId` (never falls), and the DMs keep Discord's order. */
@@ -72,7 +77,7 @@ const applyReadStates =
     return guilds.map((g) => (g.channels.some((c) => byId.has(c.id)) ? { ...g, channels: g.channels.map(apply) } : g));
   };
 
-onAppEvent('archive-changed', () => void refetchDirectory());
+onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'names', 'channels'] }, () => refetchDirectory());
 // A read mark moved, here or on another surface: new and notable counts change.
 onAppEvent('channel-read', () => void refetchDirectory());
 onAppEvent('setting-changed', (e) => {

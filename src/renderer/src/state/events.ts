@@ -4,7 +4,7 @@ import { createSignal } from 'solid-js';
 import type { AppEvent } from '@shared/contract';
 import { onAppEvent } from '@plugin-sdk/renderer/appEvents';
 
-export { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onAppEventDebounced, onMessagePartsChanged, onPluginEvent } from '@plugin-sdk/renderer/appEvents';
+export { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onMessagePartsChanged, onPluginEvent } from '@plugin-sdk/renderer/appEvents';
 
 type EventOf<T extends AppEvent['type']> = Extract<AppEvent, { type: T }>;
 
@@ -31,3 +31,5 @@ export function createPushedValue<T, K extends AppEvent['type']>(
     return { value };
   });
 }
+
+export { onArchiveChange, type ArchiveDeps, type ArchiveChangeSet, type ArchiveChangeKind, type ArchiveChange } from '@plugin-sdk/renderer/archiveEvents';

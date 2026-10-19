@@ -14,7 +14,7 @@ export function reportFailure(error: unknown): void {
 }
 
 /** Disposes and raises setup failures; reports later failures. First-run computations inside an active update report after setup returns. */
-export function containedRoot<T>(make: () => T): T {
+export function containedRoot<T>(make: (dispose: () => void) => T): T {
   let live = false;
   let setup: { error: unknown } | undefined;
   let lastReported: string | undefined;
@@ -24,7 +24,7 @@ export function containedRoot<T>(make: () => T): T {
     return catchError(
       () => {
         try {
-          return make();
+          return make(dispose);
         } catch (error) {
           setup ??= { error };
           return undefined;

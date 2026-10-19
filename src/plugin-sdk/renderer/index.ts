@@ -74,8 +74,12 @@ export { pluginsLoaded } from './pluginList';
 export const isActive = (plugin: PluginDescriptor): boolean => pluginActive(plugin.manifest.id);
 
 // App events and session facts.
-export { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onAppEventDebounced, onMessagePartsChanged } from './appEvents';
+export { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onMessagePartsChanged } from './appEvents';
 /** When the previous app session was last seen: a watermark's first value ("since you were last here"). */
 export const lastSeenAt = (): Promise<number> => api.core.lastSeenAt();
 /** ChattyPop's completed AI runs and tokens on `provider` since `sinceTs`: every plugin's ctx.ai.usage, summed. */
 export const aiUsageSince = (provider: ProviderId, sinceTs: number): Promise<AppUsage> => api.core.aiUsageSince(provider, sinceTs);
+
+export { onArchiveChange, type ArchiveDeps, type ArchiveChangeSet, type ArchiveChangeKind, type ArchiveChange } from './archiveEvents';
+export { panelShown, pageShown } from './panelShown';
+export { coalescedRead } from './coalescedRead';

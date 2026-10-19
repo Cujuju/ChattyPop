@@ -3,7 +3,7 @@ import { createStore } from '@plugin-sdk/renderer/containment';
 import { reconcile } from 'solid-js/store';
 import type { PersonName } from '@shared/contract';
 import { api } from '@/api';
-import { onAppEvent } from './events';
+import { onAppEvent, onArchiveChange } from './events';
 
 /** No place: the name with no server context. */
 const NO_PLACE = '';
@@ -49,9 +49,7 @@ function askAgain(): void {
   byPlace.forEach((ids, channelId) => ask(channelId, ids));
 }
 
-onAppEvent('archive-changed', (e) => {
-  if (e.namesChanged) askAgain();
-});
+onArchiveChange({ kinds: ['names'] }, askAgain);
 // Cleared at once: names still shown read again (personName asks for what it lacks).
 onAppEvent('privacy-changed', () => {
   generation++;

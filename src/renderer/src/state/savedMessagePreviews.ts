@@ -4,7 +4,7 @@ import { createMemo, createResource, createSignal, type Accessor } from 'solid-j
 import type { ArchiveMessage } from '@shared/contract';
 import type { SavedTarget } from '@shared/savedMessages';
 import { api } from '@/api';
-import { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onAppEventDebounced, onMessagePartsChanged } from './events';
+import { onAppEvent, onArchiveChange, onMessagePartsChanged } from './events';
 import { savedMessages } from './savedMessages';
 
 /** A card's archive snapshot, fenced by its target/account/read state and disposed with the card. */
@@ -24,7 +24,7 @@ export function createSavedMessagePreview(target: Accessor<SavedTarget>): Access
   });
   const offs = [
     onAppEvent('privacy-changed', invalidate),
-    onAppEventDebounced('archive-changed', ARCHIVE_REFRESH_DEBOUNCE_MS, invalidate),
+    onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 'attachments', 'links', 'names', 'plugin'], scope: () => ({ channelIds: [target().channelId] }) }, invalidate),
     onMessagePartsChanged((ids) => { if (ids === null || ids.includes(target().messageId)) invalidate(); }),
   ];
   onCleanup(() => offs.forEach((off) => off()));

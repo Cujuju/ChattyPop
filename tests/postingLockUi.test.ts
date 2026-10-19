@@ -27,7 +27,7 @@ vi.mock('@/api', () => ({
 }));
 vi.mock('@/plugins/slots', () => ({ composerCommands: () => [] }));
 vi.mock('../src/renderer/src/state/events', () => ({
-  onAppEvent: (type: string, fn: (e: unknown) => unknown) => void env.events.set(type, fn),
+  onArchiveChange: () => () => undefined, onAppEvent: (type: string, fn: (e: unknown) => unknown) => void env.events.set(type, fn),
   createPushedValue: () => ({ value: () => SELF }),
 }));
 vi.mock('../src/renderer/src/state/archive', () => ({

@@ -34,10 +34,11 @@ vi.mock('@/api', () => ({
     discord: { shownChannel: async () => null },
   },
 }));
-vi.mock('../src/renderer/src/state/events', () => ({
+vi.mock('../src/renderer/src/state/events', async () => { const { archiveListener } = await import('./archiveChangeFixture'); return ({
+  onArchiveChange: (deps: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveDeps, fn: (c: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveChangeSet, signal: AbortSignal) => unknown) => env.listeners.set('archive-changed', archiveListener(deps, fn) as never),
   onAppEvent: (type: string, handler: (e: AppEvent) => Promise<void>) => env.listeners.set(type, handler),
   onMessagePartsChanged: () => {},
-}));
+}); });
 vi.mock('../src/renderer/src/state/ui', () => ({ inCompanion: true, inPanelWindow: false }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => ({}), refetchDirectory: async () => {} }));
 vi.mock('../src/renderer/src/state/chat', () => ({ chatSource: () => 'archive', setChatSource: () => {} }));
@@ -66,7 +67,7 @@ const row = (n: number): ArchiveMessage => ({ ...base, id: String(n), ts: n, con
 const rows = (from: number, to: number): ArchiveMessage[] => Array.from({ length: to - from + 1 }, (_, i) => row(from + i));
 const shown = (): number[] => archive.archiveState.items.map((m) => Number(m.id));
 const change = (insertOnly = false): Promise<void> =>
-  env.listeners.get('archive-changed')!({ type: 'archive-changed', channelIds: [CHANNEL], ...(insertOnly ? { insertOnlyChannelIds: [CHANNEL] } : {}) });
+  env.listeners.get('archive-changed')!({ type: 'archive-changed', changes: { [CHANNEL]: [insertOnly ? 'messages' : 'edits'] }, insertOnlyChannelIds: insertOnly ? [CHANNEL] : [] });
 /** Edits message `n` in the archive and marks it deleted. */
 const editAndDelete = (n: number): void => {
   env.rows = env.rows.map((m) => (m.id === String(n) ? { ...m, content: 'edited on Discord', deletedAt: 42 } : m));

@@ -185,7 +185,7 @@ function Tabs(props: { panels: PanelRef[]; initial: number; size: SplitSize | un
       <For each={props.panels}>
         {(p) => (
           <div role="tabpanel" hidden={tabs.shown() !== p.id} style={{ display: tabs.shown() === p.id ? 'flex' : 'none', flex: '1 1 0', 'min-height': 0, 'min-width': 0 }}>
-            <PanelSlot panel={p} size={1} hidden={false} />
+            <PanelSlot panel={p} size={1} hidden={props.hidden || tabs.shown() !== p.id} />
           </div>
         )}
       </For>

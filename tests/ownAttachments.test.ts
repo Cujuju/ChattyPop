@@ -18,7 +18,7 @@ vi.mock('@/api', () => ({
     },
   },
 }));
-vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: () => undefined, createPushedValue: () => ({ value: () => SELF }) }));
+vi.mock('../src/renderer/src/state/events', () => ({ onArchiveChange: () => () => undefined, onAppEvent: () => undefined, createPushedValue: () => ({ value: () => SELF }) }));
 vi.mock('../src/renderer/src/state/archive', () => ({ archiveChannelId: () => null, archiveState: { items: [] }, openArchive: async () => undefined }));
 vi.mock('../src/renderer/src/state/chat', () => ({ chatSource: () => 'archive' }));
 vi.mock('../src/renderer/src/state/ui', () => ({ inPanelWindow: false }));

@@ -20,7 +20,7 @@ import {
   type SyncedChatSettings,
 } from '@shared/chatSettings';
 import { SETTINGS_KEYS } from '@shared/settings';
-import { onAppEvent } from './events';
+import { onAppEvent, onArchiveChange } from './events';
 
 const [account] = createSetting<SyncedChatSettings>(SETTINGS_KEYS.discordChat, DEFAULT_SYNCED_CHAT_SETTINGS, normalizeSyncedChatSettings);
 const [record, setRecord] = createSetting<DeviceChatRecord>(SETTINGS_KEYS.chatDevice, DEFAULT_DEVICE_CHAT_RECORD, normalizeDeviceChatRecord);
@@ -64,7 +64,7 @@ const forgetModeration = (): void => {
   asked.clear();
   setModerates(reconcile({}));
 };
-onAppEvent('archive-changed', (e) => e.namesChanged && forgetModeration());
+onArchiveChange({ kinds: ['names'] }, forgetModeration);
 onAppEvent('self-changed', forgetModeration);
 
 /** Whether spoilers in `channelId` show uncovered (Discord's "Show spoiler content"). Reactive. */

@@ -1,13 +1,14 @@
 // Plugin SDK, renderer: a plugin core call as a Solid resource (docs/plugin-architecture.md §5), settled against the
 // window's audience, the plugin's switch and the deactivation race.
-import { ownedOrContained } from './containment';
-import { createResource, untrack, type ResourceOptions } from 'solid-js';
+import { onCleanup, ownedOrContained } from './containment';
+import { onArchiveChange, type ArchiveDeps } from './archiveEvents';
+import { createComputed, createSignal, untrack, type Accessor, type Setter, type ResourceOptions } from 'solid-js';
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import type { MembersFor } from '@shared/pluginChannels';
 import { coreClient, type WindowAudience, type WindowMember } from './clients';
 import { callable } from './pluginList';
 import { pluginData } from './data';
-import { failure, settled } from './settled';
+
 
 type Shapes<D> = MembersFor<ChannelsOf<D>, 'core', WindowAudience>;
 type ArgsOf<D, K extends WindowMember<D>> = Shapes<D>[K] extends (...args: infer A) => unknown ? A : never;
@@ -34,7 +35,7 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
   // A spread tuple, so an array literal `args` returns is read as the member's argument tuple.
   args: () => [...ArgsOf<D, K>] | null | undefined | false,
   fallback: F,
-  options: Pick<ResourceOptions<ResultOf<D, K> | F>, 'storage'> = {},
+  options: Pick<ResourceOptions<ResultOf<D, K> | F>, 'storage'> & { refreshOn?: ArchiveDeps; shown?: Accessor<boolean> } = {},
 ): PluginResource<ResultOf<D, K> | F> {
   return ownedOrContained(() => {
     type T = ResultOf<D, K> | F;
@@ -44,29 +45,68 @@ export function pluginResource<const D extends PluginDescriptor, K extends Windo
       const call = client[member];
       return (call ? call(...a) : fallback) as Promise<T> | T;
     };
-    const current = (): unknown[] | null => (on() && args()) || null;
-    // Solid's refetch reuses the source's last value; a refetch passes fresh arguments (a `Date.now()` window) as `refetching`.
-    const [resource, { mutate, refetch }] = createResource<T, unknown[], unknown[]>(
-      current,
-      (a, { refetching }) => pluginData(() => read(Array.isArray(refetching) ? refetching : a), fallback),
-      { initialValue: fallback, ...options },
-    );
-    const value = (): T => {
-      // Solid keeps a resource's last value while its source is null; no arguments asks for nothing, so nothing shows.
-      if (!current()) return fallback;
-      const v = settled(resource);
-      return v === undefined ? fallback : v;
+    const shown = options.shown ?? options.refreshOn?.shown ?? (() => true);
+    const [value, setValue] = (options.storage ? options.storage(fallback) : createSignal<T>(fallback)) as [Accessor<T | undefined>, Setter<T | undefined>];
+    const [loading, setLoading] = createSignal(false);
+    const [error, setError] = createSignal<string | null>(null);
+    const [enabled, setEnabled] = createSignal(false);
+    let pending = false;
+    let disposed = false;
+    let flight: Promise<void> | undefined;
+    let controller: AbortController | undefined;
+    let source: unknown[] | null = null;
+    let queued: Promise<void> | undefined;
+    const pump = async (): Promise<void> => {
+      if (flight) { await flight; return pump(); }
+      if (!pending || disposed || !untrack(shown) || !source) return;
+      pending = false;
+      const mine = new AbortController();
+      controller = mine;
+      const fresh = untrack(args);
+      if (!fresh || !untrack(on)) return;
+      setLoading(true);
+      flight = (async () => {
+        try {
+          const result = await pluginData(() => read(fresh), fallback);
+          if (!mine.signal.aborted && !disposed) { setValue(() => result); setError(null); }
+        } catch (e) {
+          if (!mine.signal.aborted && !disposed) { setValue(() => fallback); setError(String(e instanceof Error ? e.message : e)); }
+        } finally { flight = undefined; controller = undefined; setLoading(false); }
+      })();
+      await flight;
+      if (pending) await pump();
     };
-    return Object.defineProperties(value, {
-      loading: { get: () => resource.loading },
-      failure: { get: () => failure(resource) },
-      refetch: {
-        value: async (): Promise<void> => {
-          const fresh = untrack(current);
-          if (fresh) await refetch(fresh);
-        },
-      },
-      mutate: { value: (v: T): void => void mutate(() => v) },
+    const request = (): Promise<void> => {
+      pending = true;
+      if (source && untrack(shown)) setLoading(true);
+      controller?.abort();
+      // Source changes and a stale-on-show notification in the same turn share one read.
+      if (!queued) queued = Promise.resolve().then(async () => { queued = undefined; await pump(); });
+      return queued;
+    };
+    createComputed(() => {
+      source = (on() && args()) || null;
+      const visible = shown();
+      setEnabled(!!source);
+      untrack(() => {
+        controller?.abort();
+        if (!source) { pending = false; setValue(() => fallback); setError(null); }
+        else { pending = true; if (visible) void request(); }
+      });
+    });
+    if (options.refreshOn) onArchiveChange({ ...options.refreshOn, shown }, (_change, signal) => {
+      if (signal.aborted) return;
+      const abort = () => controller?.abort();
+      signal.addEventListener('abort', abort, { once: true });
+      return request().finally(() => signal.removeEventListener('abort', abort));
+    });
+    onCleanup(() => { disposed = true; controller?.abort(); });
+    const result = (): T => enabled() ? value() as T : fallback;
+    return Object.defineProperties(result, {
+      loading: { get: loading },
+      failure: { get: error },
+      refetch: { value: request },
+      mutate: { value: (v: T): void => { setValue(() => v); } },
     }) as PluginResource<T>;
   });
 }

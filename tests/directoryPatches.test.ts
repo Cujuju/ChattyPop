@@ -8,12 +8,15 @@ import { SETTINGS_KEYS } from '@shared/settings';
 // Uses Solid’s browser runtime so reactive state runs as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
+vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);
+
 const env = vi.hoisted(() => ({
   reads: [] as ((guilds: DirectoryGuild[]) => void)[],
   listeners: new Map<string, (e: unknown) => void>(),
 }));
 vi.mock('@/api', () => ({ api: { core: { directory: () => new Promise<DirectoryGuild[]>((resolve) => env.reads.push(resolve)) } } }));
-vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: (type: string, fn: (e: unknown) => void) => void env.listeners.set(type, fn) }));
+vi.mock('../src/renderer/src/state/events', async () => { const { archiveListener } = await import('./archiveChangeFixture'); return ({
+  onArchiveChange: (deps: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveDeps, fn: (c: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveChangeSet, signal: AbortSignal) => unknown) => env.listeners.set('archive-changed', archiveListener(deps, fn) as never), onAppEvent: (type: string, fn: (e: unknown) => void) => void env.listeners.set(type, fn) }); });
 
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const statePath = '../src/renderer/src/state/directory';
@@ -52,7 +55,7 @@ describe("the renderer's directory", () => {
   it('a DM message that lands while a read is in flight survives that read’s older answer', async () => {
     env.reads.shift()!(guilds(dmRow(OTHER, '500000000000000002'), dmRow(DM, '500000000000000001')));
     await settle();
-    send({ type: 'archive-changed', channelIds: [''] });
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
     send({ type: 'dm-activity', channelId: DM, lastMessageId: '500000000000000003' });
     expect(order()).toEqual([[DM, '500000000000000003'], [OTHER, '500000000000000002']]);
     // The read began before that message: its answer still has the older id.
@@ -60,7 +63,7 @@ describe("the renderer's directory", () => {
     await settle();
     expect(order()).toEqual([[DM, '500000000000000003'], [OTHER, '500000000000000002']]);
     // Directory reads retain newer activity IDs.
-    send({ type: 'archive-changed', channelIds: [''] });
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
     send({ type: 'dm-activity', channelId: DM, lastMessageId: '500000000000000004' });
     env.reads.shift()!(guilds(dmRow(DM, '500000000000000005'), dmRow(OTHER, '500000000000000002')));
     await settle();
@@ -68,7 +71,7 @@ describe("the renderer's directory", () => {
   });
 
   it("a read state change patches its row's count, last read and mute; a field it leaves out stays", async () => {
-    send({ type: 'archive-changed', channelIds: [''] });
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
     send({ type: 'read-states-changed', states: [{ channelId: DM, mentionCount: 2, ackId: '500000000000000004' }] });
     env.reads.shift()!(guilds(dmRow(DM, '500000000000000005')));
     await settle();
@@ -95,11 +98,24 @@ describe("the renderer's directory", () => {
     const old = { ...dmRow(OTHER, '500000000000000002'), newCount: 0 };
     send({ type: 'read-states-changed', states: [{ channelId: DM, mentionCount: 0 }] });
     const before = env.reads.shift()!;
-    send({ type: 'archive-changed', channelIds: [OTHER] });
+    send({ type: 'archive-changed', changes: { [OTHER]: ['messages'] }, insertOnlyChannelIds: [] });
     before(guilds(old));
     await settle();
     for (const resolve of env.reads.splice(0)) resolve(guilds({ ...old, newCount: 1 }));
     await settle();
     expect(directory()[0]!.channels[0]!.newCount).toBe(1);
   });
+  it('reconciles guilds and channels by id, preserving identities across updates and reordering', async () => {
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
+    env.reads.shift()!(guilds(dmRow(DM, '500000000000000005'), dmRow(OTHER, '500000000000000002')));
+    await settle();
+    const guild = directory()[0]!, channel = guild.channels[0]!;
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
+    env.reads.shift()!(guilds(dmRow(OTHER, '500000000000000006'), { ...dmRow(DM, '500000000000000005'), name: 'Renamed', messageCount: 1 }));
+    await settle();
+    expect(directory()[0]).toBe(guild);
+    expect(directory()[0]!.channels[1]).toBe(channel);
+    expect(channel).toMatchObject({ name: 'Renamed', messageCount: 1 });
+  });
+
 });

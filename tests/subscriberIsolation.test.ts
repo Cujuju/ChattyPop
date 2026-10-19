@@ -34,7 +34,7 @@ describe("the renderer's app-event hub", () => {
     onAppEvent('archive-changed', () => Promise.reject(new Error('plugin listener rejected')));
     onAppEvent('archive-changed', () => void heard.push('host store'));
     onAppEvent('archive-changed', () => void heard.push('other plugin'));
-    const event = { type: 'archive-changed' } as AppEvent;
+    const event = { type: 'archive-changed', changes: { c: ['messages'] }, insertOnlyChannelIds: ['c'] } as AppEvent;
     expect(() => bridge.emit(event)).not.toThrow();
     bridge.emit(event);
     await flush();
