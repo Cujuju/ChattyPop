@@ -1,8 +1,9 @@
 import type { Db } from '../db';
-import { readArchive } from '../reads/archiveReads';
+import { computeArchive } from '../reads/archiveReads';
 import { MS_PER_S } from '@shared/units';
 import { reconcileDefinition } from './definitions';
 import { referencePartitionSql, installReferenceChanges, acknowledgeReferenceChanges } from './referenceChanges';
+import { referenceWork, type ReferenceRow } from './referenceWork';
 
 const REFERENCE_APPLY_BATCH_SIZE = 128; // Bounded transactions yield Core during large reference-index updates.
 const draining = new WeakMap<Db, Promise<boolean>>();
@@ -71,9 +72,7 @@ export function pendingReferenceSql(channel: string, day?: string): string {
     OR EXISTS (SELECT 1 FROM links pl WHERE pl.first_channel_id = ${channel}${time('pl.first_ts')} AND instr(pl.url, rc.id) > 0))`;
 }
 
-interface ReferenceRow { kind: string; id: string | number; channel_id: string; day: string; text: string; referenced: number }
-
-/** Catalog enumeration scans only changed ids; ordinary drains join queued row ids through primary keys. */
+/** Catalog changes share one archive pass; ordinary drains seek queued channel/day ranges. */
 async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
   if (!referenceWorkPending(db)) return true;
   const state = db.prepare('SELECT ready, revision, mutation FROM rollup_reference_state WHERE singleton = 1').get() as { ready: number; revision: number; mutation: number };
@@ -84,18 +83,20 @@ async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
     ['messages', 'message', 'content', 'channel_id', 'ts', 'rollup_reference_messages', 'message_id'],
     ['links', 'link', 'url', 'first_channel_id', 'first_ts', 'rollup_reference_links', 'link_id'],
   ]) {
-    rows = rows.concat(await readArchive<ReferenceRow>(db, `WITH candidates AS (
-      SELECT id FROM ${table} WHERE @bootstrap
+    const sql = `WITH candidates AS (
+      SELECT id FROM ${table} WHERE @bootstrap OR EXISTS (SELECT 1 FROM rollup_reference_catalog)
       UNION SELECT t.id FROM rollup_reference_pending p CROSS JOIN ${table} t ON t.id = p.id WHERE p.kind = '${kind}'
       UNION ${referencePartitionSql(table!, kind!, channel!, ts!)}
-      UNION SELECT t.id FROM rollup_reference_catalog c CROSS JOIN ${table} t WHERE instr(t.${text}, c.id) > 0)
+      )
       SELECT '${kind}' AS kind, t.id, t.${channel} AS channel_id, date(t.${ts} / ${MS_PER_S}, 'unixepoch') AS day,
-        t.${text} AS text, ${knownReferenceSql(`t.${text}`)} AS referenced FROM candidates c JOIN ${table} t ON t.id = c.id
-      WHERE ${knownReferenceSql(`t.${text}`)} != EXISTS (SELECT 1 FROM ${target} indexed_row WHERE indexed_row.${column} = t.id)`,
-    { bootstrap: Number(!state.ready) }, signal, 'background'));
+        t.${text} AS text, EXISTS (SELECT 1 FROM ${target} indexed_row WHERE indexed_row.${column} = t.id) AS indexed
+      FROM candidates c JOIN ${table} t ON t.id = c.id`;
+    const [computed] = await computeArchive<{ rows: ReferenceRow[] }>(db, {
+      source: referenceWork.toString(), partition: null, data: { sql, bootstrap: Number(!state.ready) },
+    }, signal, 'background');
+    rows = rows.concat(computed!.rows);
   }
   signal.throwIfAborted();
-  if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   const statements = new Map(['message', 'link'].map((kind) => {
     const message = kind === 'message', table = message ? 'messages' : 'links', text = message ? 'content' : 'url';
     const target = message ? 'rollup_reference_messages' : 'rollup_reference_links', column = message ? 'message_id' : 'link_id';
@@ -116,19 +117,17 @@ async function drainReferences(db: Db, signal: AbortSignal): Promise<boolean> {
     })();
     await new Promise<void>((resolve) => setImmediate(resolve));
     signal.throwIfAborted();
-    if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   }
   const acknowledge = db.prepare(`DELETE FROM rollup_reference_pending WHERE rowid IN (
     SELECT rowid FROM rollup_reference_pending WHERE revision <= ? LIMIT ?)`);
   while (acknowledge.run(state.mutation, REFERENCE_APPLY_BATCH_SIZE).changes) {
     await new Promise<void>((resolve) => setImmediate(resolve));
     signal.throwIfAborted();
-    if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   }
   await acknowledgeReferenceChanges(db, state.mutation, signal);
-  if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() !== state.revision) return false;
   db.transaction(() => {
-    db.exec('DELETE FROM rollup_reference_catalog');
+    // New catalog work retains its partition gates; it cannot postpone the initial ready snapshot.
+    if (db.prepare('SELECT revision FROM rollup_reference_state WHERE singleton = 1').pluck().get() === state.revision) db.exec('DELETE FROM rollup_reference_catalog');
     db.prepare('UPDATE rollup_reference_state SET ready = 1 WHERE singleton = 1').run();
   })();
   return !referenceWorkPending(db);

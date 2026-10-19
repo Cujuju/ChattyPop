@@ -15,9 +15,9 @@ it('classifies bootstrap in the worker and transfers only index mismatches', asy
     INSERT INTO messages(id, channel_id, author_id, ts, content) SELECT 'bulk-' || n, 'c-open', 'u', n, 'ordinary prose' FROM numbers`).run(MESSAGES);
   db.exec("UPDATE messages SET content = '<#c-open>' WHERE id = 'bulk-1'; INSERT INTO rollup_reference_messages VALUES ('bulk-2')");
   let transferred = 0;
-  const original = readers.readArchive;
-  const spy = vi.spyOn(readers, 'readArchive').mockImplementation(async (...args) => {
-    const rows = await original(...args); transferred += rows.length; return rows as never;
+  const original = readers.computeArchive;
+  const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
+    const rows = await original<{ rows: unknown[] }>(...args); transferred += rows[0]!.rows.length; return rows as never;
   });
   onTestFinished(() => spy.mockRestore());
   expect(await seedRollupReferences(db, new AbortController().signal)).toBe(true);
@@ -32,8 +32,8 @@ it('retains a queued edit made after worker classification until the next drain'
   onTestFinished(() => { db.close(); });
   db.exec("DELETE FROM messages; DELETE FROM links; INSERT INTO messages(id, channel_id, author_id, ts, content) VALUES ('race', 'c-open', 'u', 0, 'ordinary')");
   let changed = false;
-  const original = readers.readArchive;
-  const spy = vi.spyOn(readers, 'readArchive').mockImplementation(async (...args) => {
+  const original = readers.computeArchive;
+  const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
     const rows = await original(...args);
     if (!changed) { changed = true; db.exec("UPDATE messages SET content = '<#c-open>' WHERE id = 'race'"); }
     return rows as never;
@@ -43,6 +43,25 @@ it('retains a queued edit made after worker classification until the next drain'
   expect(db.prepare('SELECT channel_id FROM rollup_reference_changes').pluck().all()).toEqual(['c-open']);
   expect(await seedRollupReferences(db, new AbortController().signal)).toBe(true);
   expect(db.prepare('SELECT message_id FROM rollup_reference_messages').pluck().all()).toEqual(['race']);
+});
+
+it('publishes bootstrap readiness while a newer catalog change remains gated', async () => {
+  const db = tempDb(); seedArchiveViews(db); installRollupStore(db);
+  onTestFinished(() => { db.close(); });
+  db.exec("UPDATE messages SET content = 'future-reference' WHERE id = 'm-open'");
+  let changed = false;
+  const original = readers.computeArchive;
+  const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
+    const rows = await original(...args);
+    if (!changed) { changed = true; db.exec("INSERT INTO channels(id, name, kind) VALUES ('future-reference', 'New', 0)"); }
+    return rows as never;
+  });
+  onTestFinished(() => spy.mockRestore());
+  expect(await seedRollupReferences(db, new AbortController().signal)).toBe(false);
+  expect(db.prepare('SELECT ready FROM rollup_reference_state').pluck().get()).toBe(1);
+  expect(db.prepare('SELECT id FROM rollup_reference_catalog').pluck().all()).toContain('future-reference');
+  expect(await seedRollupReferences(db, new AbortController().signal)).toBe(true);
+  expect(db.prepare("SELECT message_id FROM rollup_reference_messages WHERE message_id = 'm-open'").pluck().get()).toBe('m-open');
 });
 
 it.each([['a', 'b', 'c'], ['c', 'b', 'a'], ['b', 'a', 'c']])('coalesces reference work and matches a full classification for arrival order %j', async (...order) => {

@@ -64,7 +64,7 @@ describe('host rollup contract', () => {
     let inserted = false;
     const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
       const rows = await original(...args);
-      if (!inserted) {
+      if (!inserted && args[1].partition) {
         inserted = true;
         t.archive.arrive([{ channelId: CHANNEL, ts: START + 1, content: 'later' }]);
         expect(rollup().snapshot()).toBeNull();
@@ -113,7 +113,7 @@ describe('host rollup contract', () => {
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     const original = readers.computeArchive;
-    const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => { await held; return original(...args) as never; });
+    const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => { if (args[1].partition) await held; return original(...args) as never; });
     try {
       t.db.prepare('INSERT INTO channels(id, name, kind, parent_id) VALUES (?, ?, 11, ?)').run(thread, 'Thread', CHANNEL);
       await seedRollupReferences(db, new AbortController().signal);
@@ -261,7 +261,7 @@ describe('host rollup contract', () => {
     let invalidated = false;
     const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
       const rows = await original(...args);
-      if (!invalidated) { invalidated = true; t.db.prepare('UPDATE messages SET content = ? WHERE id = ?').run('newer', id); }
+      if (!invalidated && args[1].partition) { invalidated = true; t.db.prepare('UPDATE messages SET content = ? WHERE id = ?').run('newer', id); }
       return rows as never;
     });
     try {
@@ -305,7 +305,7 @@ describe('host rollup contract', () => {
     const days: string[] = [];
     const original = readers.computeArchive;
     const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
-      days.push((args[1].partition as { day: string }).day);
+      if (args[1].partition) days.push((args[1].partition as { day: string }).day);
       return await original(...args) as never;
     });
     const restarted = t.restart();
