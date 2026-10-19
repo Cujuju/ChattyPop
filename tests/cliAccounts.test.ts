@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ProviderAccount } from '@plugin-sdk/core';
-vi.mock('../src/core/ai/resolveCli', () => ({ resolveCli: () => ({ command: 'test-cli', args: [] }) }));
+vi.mock('../src/core/ai/asyncCli', () => ({ resolveCliAsync: async () => ({ command: 'test-cli', args: [] }) }));
 const { cliAccounts } = await import('../src/core/ai/cliProvider');
 const CHOICE = { model: null, effort: null };
 const CLI = { bin: 'test-cli', npm: 'test-cli', name: 'Test CLI' };

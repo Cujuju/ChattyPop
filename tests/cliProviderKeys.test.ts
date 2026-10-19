@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('@core/ai/resolveCli', () => ({ resolveCli: () => ({ command: 'test-cli', args: [] }) }));
+vi.mock('@core/ai/asyncCli', () => ({ resolveCliAsync: async () => ({ command: 'test-cli', args: [] }) }));
 const { signedInCli } = await import('../src/core/ai/cliProvider');
 import type { LlmProvider } from '../src/core/ai/types';
 

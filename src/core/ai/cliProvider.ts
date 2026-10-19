@@ -1,7 +1,7 @@
 // A provider driven through the owner's signed-in CLI (Claude Code, Codex): available while the CLI is on PATH.
 import { errorMessage } from '@shared/errors';
 import { sessionModels } from './modelCache';
-import { resolveCli } from './resolveCli';
+import { resolveCliAsync } from './asyncCli';
 import type { AccountLinkIo, LlmProvider, ProviderAccount, ProviderChoice, ProviderImpl, ProviderReport } from './types';
 
 /** A CLI ChattyPop drives: its command, its npm package (to follow a Windows shim) and its display name. */
@@ -30,7 +30,7 @@ export function signedInCli(cli: CliSpec, provider: LlmProvider, auth?: CliKeyAu
     create: () => provider,
     ...(auth ? { checkApiKey: auth.check } : {}),
     status: async (_choice, refresh): Promise<ProviderReport> => {
-      if (!resolveCli(cli.bin, cli.npm)) return { available: false, detail: `${cli.name} not found on PATH`, models: null };
+      if (!await resolveCliAsync(cli.bin, cli.npm, refresh)) return { available: false, detail: `${cli.name} not found on PATH`, models: null };
       const key = auth?.apiKey() ?? null;
       if (key !== listedKey) {
         listedKey = key;
@@ -79,7 +79,7 @@ export function cliAccounts(spec: CliAccountsSpec): ProviderImpl {
     },
     dispose: () => { for (const h of held.values()) h.provider.dispose?.(); held.clear(); },
     status: async (_choice, refresh, account) => {
-      if (!resolveCli(spec.cli.bin, spec.cli.npm)) return { available: false, detail: `${spec.cli.name} not found on PATH`, models: null };
+      if (!await resolveCliAsync(spec.cli.bin, spec.cli.npm, refresh)) return { available: false, detail: `${spec.cli.name} not found on PATH`, models: null };
       const h = get(account);
       let detail = `Uses your ${spec.cli.name} sign-in`;
       let available = true;

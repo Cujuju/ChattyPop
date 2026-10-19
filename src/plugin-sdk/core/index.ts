@@ -111,6 +111,8 @@ export { queryLabel, queryMatch, queryRequest } from '@core/jev/queries';
 export { SerialLoop } from '@core/serialLoop';
 export { deadline } from '@core/deadline';
 export { IS_WINDOWS, exeName, findExecutable, resolveCli, type Launch } from '@core/ai/resolveCli';
+export { resolveCliAsync } from '@core/ai/asyncCli';
+export { spawnCli, type CliProcess, type CliSpawnOptions } from '@core/ai/spawnCli';
 export { signedInCli, cliAccounts, type CliAccountsSpec, type CliSpec, type CliKeyAuth } from '@core/ai/cliProvider';
 
 export { toJson } from '@core/db';
