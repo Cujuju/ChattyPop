@@ -15,6 +15,7 @@ interface Surface {
   version: string;
   modules: Record<string, string[]>;
   types?: Record<string, string[]>;
+  contracts?: Record<string, string[]>;
 }
 
 const SDK_ROOT = join(import.meta.dirname, '../src/plugin-sdk');
@@ -56,10 +57,11 @@ function exportNames(file: string): string[] {
 /** Which part of an x.y.z version a change to the surface must raise; null when none changed. */
 function neededBump(recorded: Surface, now: Surface): { part: 'major' | 'minor'; names: string[] } | null {
   const diff = (from: Surface, to: Surface): string[] =>
-    SDK_MODULES.flatMap((id) => [
+    [...SDK_MODULES.flatMap((id) => [
       ...(from.modules[id] ?? []).filter((n) => !(to.modules[id] ?? []).includes(n)).map((n) => `${id} ${n}`),
       ...(from.types?.[id] ?? []).filter((n) => !(to.types?.[id] ?? []).includes(n)).map((n) => `${id} type ${n}`),
-    ]);
+    ]), ...Object.entries(from.contracts ?? {}).flatMap(([id, members]) =>
+      members.filter((member) => !to.contracts?.[id]?.includes(member)).map((member) => `${id}.${member}`))];
   const removed = diff(recorded, now);
   if (removed.length) return { part: 'major', names: removed };
   const added = diff(now, recorded);
@@ -70,7 +72,15 @@ const part = (version: string, at: 0 | 1): number => Number(version.split('.')[a
 
 describe('the Plugin SDK surface', () => {
   it('is recorded at the current PLUGIN_SDK_VERSION; a change raises it (minor: additions, major: removals)', () => {
-    const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {}, types: {} };
+    const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {}, types: {}, contracts: {} };
+    // Export-name checks alone miss additive fields on an existing SDK contract.
+    const contracts = parse(readFileSync(join(SHARED_ROOT, 'rollups.ts'), 'utf8'), { sourceType: 'module', plugins: ['typescript'] }).program;
+    for (const node of contracts.body) {
+      if (node.type !== 'ExportNamedDeclaration' || node.declaration?.type !== 'TSInterfaceDeclaration') continue;
+      const declaration = node.declaration;
+      now.contracts![declaration.id.name] = declaration.body.body.flatMap((member) =>
+        member.type === 'TSPropertySignature' && member.key.type === 'Identifier' ? [member.key.name] : []).sort();
+    }
     for (const id of SDK_MODULES) {
       const names = [...new Set(exportNames(moduleFile(join(SDK_ROOT, id.slice('@plugin-sdk/'.length)))))].sort();
       now.modules[id] = names.filter((n) => !n.startsWith('type '));

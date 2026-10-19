@@ -1,5 +1,5 @@
 {
-  "version": "4.8.0",
+  "version": "4.9.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -1151,6 +1151,15 @@
       "TouchPoint",
       "ViewShown",
       "WireDecoder"
+    ]
+  },
+  "contracts": {
+    "RollupStatus": [
+      "building",
+      "dirty",
+      "error",
+      "maintaining",
+      "total"
     ]
   }
 }
