@@ -9,6 +9,7 @@ import { archiveViolations } from './sql';
 import { containmentViolations } from './containment';
 import { PAGE_DIR, SHELL_TIER, TESTS_DIR, TEST_FILE, clockViolations, globalViolations, importViolations, importsOf, loopingMediaViolations, networkWarnings, tablePrefixViolations, userSelectViolations } from './rules';
 import { violation, type SourceFile } from './source';
+import { servedReadViolations } from './servedReads';
 
 /** Static page files copy without compilation. */
 const PAGE_PUBLIC = `${PAGE_DIR}/public`;
@@ -75,7 +76,7 @@ export function scanPlugin({ pluginDir: dirIn, isPhoneTransport, adoptedTables =
   const shell = scripts.flatMap((f) => importsOf(f).filter((i) => i.spec === SHELL_TIER).map((i) => violation(f.rel, i.line, `${SHELL_TIER}: only the phone transport's plugin may import it`)));
   if (!isPhoneTransport) found.push(...shell);
   found.push(...stampViolations(files), ...nestingViolations(pluginDir, id));
-  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir), adoptedTables)];
+  return [...found, ...archiveViolations(id, scripts, allReadersFor(pluginDir), adoptedTables), ...servedReadViolations(scripts)];
 }
 
 /** What the scan warns of without failing (rules.ts networkWarnings, clockViolations), as file:line: message. */

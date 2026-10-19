@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PluginCallRegistry } from './callRegistry';
-import { pluginCalls } from './callContext';
+import { servedCall } from './callStalls';
 import { checkCallRequest, type PluginCallRequest } from '@shared/readPriority';
 import { PluginInactiveError } from '@shared/pluginCall';
 import { errorMessage } from '@shared/errors';
@@ -29,7 +29,7 @@ import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting } from '../db';
 import { createPluginApi, emptyRegistrations, type HostDeps, type Registrations } from './api';
 import { unregisterMessageQuestion } from '../jev/messageQuestions';
-import { audiencesOf, completionOf, readsOf, type Audience } from '@shared/pluginChannels';
+import { audiencesOf, completionOf, readsOf, syncReadsOf, type Audience } from '@shared/pluginChannels';
 import { nestedTablesError, tableNamespacesNest, type PluginDescriptor } from '@shared/bundledTypes';
 import type { HostPlugins, TextSource } from './bundled';
 import { CompletionLedger } from './completions';
@@ -346,7 +346,7 @@ export class PluginHost {
       const call = this.calls.start(origin, pluginId, checkCallRequest(request));
       try {
         call.signal.throwIfAborted();
-        return await pluginCalls.run({ plugin: pluginId, member: name, reads: readsOf(p.entry?.plugin.channels, name),
+        return await servedCall({ plugin: pluginId, member: name, reads: readsOf(p.entry?.plugin.channels, name), syncReads: syncReadsOf(p.entry?.plugin.channels, name),
           signal: call.signal, priority: request?.priority ?? 'background', strict: this.deps.strictSyncReads ?? !!process.env.VITEST,
           diag: this.deps.diag ?? (() => undefined) }, () => fn(...args));
       } finally { call.end(); }

@@ -76,6 +76,17 @@ describe('pnpm plugin:check', () => {
     expect(r.output).toContain('shared/table.ts:1: literal table prefix p_checkprobe_');
   });
 
+  it('fails an unmarked served archive scan even without a test calling it', { timeout: CHECK_TIMEOUT_MS }, async () => {
+    const r = await check(pluginFolder({ 'core/index.ts': `import { defineCorePlugin } from '@plugin-sdk/core';
+      import plugin from '../shared';
+      export default defineCorePlugin(plugin, (ctx) => {
+        const count = () => ctx.storage.db.prepare('SELECT COUNT(*) FROM archive_messages').get();
+        ctx.channels.serve({ greet: (name) => name + String(count()) });
+      });` }));
+    expectFailedAt(r, 'scan');
+    expect(r.output).toContain('served greet: synchronous read via count');
+  });
+
   it('fails a folder not named by its id at scan, whose rules key on the id', { timeout: CHECK_TIMEOUT_MS }, async () => {
     const r = await check(pluginFolder({}, `${FIXTURE_ID}2`));
     expectFailedAt(r, 'scan');

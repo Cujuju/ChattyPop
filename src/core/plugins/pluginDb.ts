@@ -6,6 +6,8 @@ import { computeArchive, readArchive } from '../reads/archiveReads';
 import type { ReadPriority } from '@shared/readPriority';
 import { checkSyncRead, pluginCalls } from './callContext';
 import { checkReadStatement } from '../reads/protocol';
+import { pointLookup, CORE_SYNC_READ_ROWS_MAX, CORE_SYNC_CALL_BUDGET_MS } from './syncReadBudget';
+import { performance } from 'node:perf_hooks';
 
 type RawStatement = Database.Statement<unknown[], unknown>;
 
@@ -88,7 +90,13 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
     },
     prepare: (source) => {
       checkReadStatement(source);
-      return fencedStatement(db().prepare(source), fence) as never;
+      const stmt = db().prepare(source);
+      let bounded: boolean | undefined;
+      return fencedStatement(stmt, fence, (params) => {
+        const call = pluginCalls.getStore();
+        if (!call || call.completed) return;
+        checkSyncRead(!call.reads && !!call.syncReads && (bounded ??= pointLookup(db(), source, params)));
+      }) as never;
     },
     transaction: (fn) => {
       type Args = TransactionArgs<typeof fn>;
@@ -106,16 +114,18 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
 }
 
 /** `it` with `check` run before each step: a writing statement (INSERT … RETURNING) writes as it advances. */
-function fencedIterator<R>(it: IterableIterator<R>, check: () => void): IterableIterator<R> {
+function fencedIterator<R>(it: IterableIterator<R>, check: () => void, stepped?: (result: IteratorResult<R>) => void): IterableIterator<R> {
   const fenced: IterableIterator<R> = {
     next: () => {
       try {
         check();
+        const result = it.next();
+        stepped?.(result);
+        return result;
       } catch (err) {
         it.return?.(); // an open iterator keeps the shared connection busy
         throw err;
       }
-      return it.next();
     },
     return: (value?: unknown) => it.return?.(value) ?? { done: true, value: undefined as never },
     [Symbol.iterator]: () => fenced,
@@ -124,27 +134,45 @@ function fencedIterator<R>(it: IterableIterator<R>, check: () => void): Iterable
 }
 
 /** Fences writing statement runs. Modifiers return wrappers and retain better-sqlite3’s bare-call behavior. */
-function fencedStatement(stmt: RawStatement, fence: () => void): PluginStatement {
-  const check = stmt.readonly ? checkSyncRead : fence;
+function fencedStatement(stmt: RawStatement, fence: () => void, read: (params: unknown[]) => void): PluginStatement {
+  const check = (params: unknown[]) => stmt.readonly ? read(params) : fence();
+  const bounded = <T>(run: () => T, size: (value: T) => number): T => {
+    const call = pluginCalls.getStore();
+    if (!stmt.readonly || !call?.syncReads || call.completed) return run();
+    const start = performance.now();
+    const result = run();
+    if (size(result) > CORE_SYNC_READ_ROWS_MAX || performance.now() - start > CORE_SYNC_CALL_BUDGET_MS) checkSyncRead(false);
+    return result;
+  };
   const wrapper: PluginStatement = {
     source: stmt.source,
     reader: stmt.reader,
     readonly: stmt.readonly,
     run: (...params) => {
-      check();
-      return stmt.run(...params);
+      check(params);
+      return bounded(() => stmt.run(...params), () => 0);
     },
     get: (...params) => {
-      check();
-      return stmt.get(...params);
+      check(params);
+      return bounded(() => stmt.get(...params), () => 1);
     },
     all: (...params) => {
-      check();
-      return stmt.all(...params);
+      check(params);
+      return bounded(() => stmt.all(...params), (rows) => rows.length);
     },
     iterate: (...params) => {
-      check();
-      return fencedIterator(stmt.iterate(...params), check);
+      check(params);
+      let rows = 0;
+      let stepStart = 0;
+      let timed = false;
+      return fencedIterator(stmt.iterate(...params), () => {
+        check(params);
+        const call = pluginCalls.getStore();
+        timed = !!call?.syncReads && !call.completed;
+        if (timed) stepStart = performance.now();
+      }, (result) => {
+        if (timed && ((!result.done && ++rows > CORE_SYNC_READ_ROWS_MAX) || performance.now() - stepStart > CORE_SYNC_CALL_BUDGET_MS)) checkSyncRead(false);
+      });
     },
     pluck: (toggleState) => {
       stmt.pluck(toggleState ?? true);

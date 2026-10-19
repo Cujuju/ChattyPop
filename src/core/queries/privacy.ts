@@ -1,6 +1,7 @@
 // Privacy mode hides marked servers/channels. Trigger-maintained hidden_ids and hidden_channels are empty when disabled.
 import type { PrivacyScope } from '@shared/contract';
 import type { PluginDb } from '../plugins/pluginDb';
+import type { ArchiveRead } from '../plugins/pluginDb';
 
 /** SQL true when channel id `column` is not hidden. */
 export const visibleChannelSql = (column: string): string => `${column} NOT IN (SELECT id FROM hidden_channels)`;
@@ -81,8 +82,24 @@ export function privacy(db: PluginDb): Privacy {
   const scope = privacyScope(db);
   const names = (table: 'channels' | 'guilds', ids: string[]): string[] =>
     ids.length ? (db.prepare(`SELECT name FROM ${table} WHERE id IN (${ids.map(() => '?').join(',')})`).pluck().all(...ids) as string[]) : [];
-  const channels = namesPattern(names('channels', scope.channelIds));
-  const servers = namesPattern(names('guilds', scope.guildIds));
+  return privacyNames(scope, names('channels', scope.channelIds), names('guilds', scope.guildIds));
+}
+
+/** Privacy metadata is read in the same prioritized lane as the served call. */
+export async function readPrivacy(read: ArchiveRead): Promise<Privacy> {
+  const rows = await read<{ id: string; name: string | null; kind: string }>(`SELECT h.id, c.name, 'channel' AS kind
+    FROM hidden_channels h LEFT JOIN channels c ON c.id = h.id
+    UNION ALL SELECT h.id, g.name, 'guild' FROM hidden_ids h LEFT JOIN guilds g ON g.id = h.id
+    WHERE h.id NOT IN (SELECT id FROM hidden_channels)`);
+  const channels = rows.filter((r) => r.kind === 'channel');
+  const guilds = rows.filter((r) => r.kind === 'guild');
+  const names = (items: typeof rows) => items.flatMap((r) => r.name === null ? [] : [r.name]);
+  return privacyNames({ channelIds: channels.map((r) => r.id), guildIds: guilds.map((r) => r.id) }, names(channels), names(guilds));
+}
+
+function privacyNames(scope: PrivacyScope, channelNames: string[], guildNames: string[]): Privacy {
+  const channels = namesPattern(channelNames);
+  const servers = namesPattern(guildNames);
   return {
     active: scope.channelIds.length > 0 || scope.guildIds.length > 0,
     hiddenChannels: new Set(scope.channelIds),

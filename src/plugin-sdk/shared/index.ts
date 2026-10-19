@@ -215,3 +215,4 @@ export { ACCOUNT_SEPARATOR, ACCOUNT_AUTHS, accountProvider, accountKey, newAccou
 
 export type { ArchiveChange, ArchiveChangeKind, ArchiveChangedEvent } from '@shared/contract';
 export { rollupView, type RollupStatus } from '@shared/rollups';
+export { REPLY_MESSAGE_TYPE } from '@shared/messageExtras';

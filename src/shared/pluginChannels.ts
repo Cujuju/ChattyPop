@@ -34,8 +34,10 @@ export type Decoder<Args extends readonly unknown[] = readonly unknown[]> = (arg
 export interface CallMember<Args extends readonly unknown[] = readonly unknown[]> {
   readonly audiences: readonly Audience[];
   readonly writes?: boolean;
-  /** Read-only member; synchronous PluginDb reads are diagnosed across its async extent. */
+  /** Read-only intent. Every served member forbids synchronous reads unless syncReads grants budgeted indexed lookups. */
   readonly reads?: boolean;
+  /** Tiny indexed synchronous lookups only; the host enforces the shared row/time budget. */
+  readonly syncReads?: { readonly reason: string };
   readonly decode?: Decoder<Args>;
   /** Not a completion report (CompletionMember). */
   readonly completion?: never;
@@ -142,6 +144,11 @@ export const decoderOf = (c: AnyChannels | undefined, name: string): Decoder | n
 export const readsOf = (c: AnyChannels | undefined, name: string): boolean => {
   const m = memberOf(c, 'core', name);
   return m !== undefined && 'reads' in m && m.reads === true;
+};
+
+export const syncReadsOf = (c: AnyChannels | undefined, name: string): CallMember['syncReads'] => {
+  const m = memberOf(c, 'core', name);
+  return m !== undefined && 'syncReads' in m ? m.syncReads : undefined;
 };
 
 /** Member names of a section. */

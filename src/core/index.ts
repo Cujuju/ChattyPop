@@ -1,3 +1,4 @@
+import { measureCoreCall } from './callStalls';
 // Electron utility process owning SQLite, AI and core plugins.
 import { ArchiveChanges, type NoteArchiveChange } from '@shared/archiveChanges';
 import { noteRollupChange } from './rollups/service';
@@ -435,7 +436,10 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
   }
   try {
     const handler = handlers[data.method] as (...p: unknown[]) => unknown;
-    reply({ id: data.id, ok: true, result: await handler(...data.params) });
+    const result = data.method === 'pluginCall' ? await handler(...data.params)
+      : await measureCoreCall(data.method, () => handler(...data.params), (event, detail) =>
+        process.parentPort.postMessage({ kind: 'diag', event, detail } satisfies import('@shared/contract').CoreDiagnosticMessage));
+    reply({ id: data.id, ok: true, result });
   } catch (err) {
     reply({ id: data.id, ok: false, error: errorMessage(err) });
   } finally {

@@ -55,7 +55,7 @@ export { ARCHIVE_SEARCH_GROUPS_MAX, type ArchiveSearchCount, type ArchiveSearchG
 export { storedAttachmentPath } from '@core/attachmentRetention';
 // Typed domain operations.
 export { embedsFrom } from '@core/queries/messageExtras';
-export { privacy } from '@core/queries/privacy';
+export { privacy, readPrivacy } from '@core/queries/privacy';
 export { mutedPlaces, notificationMuted } from '@core/queries/notificationMute';
 // The link index (links, message_links).
 export { X_POST_URL_PREFIX, X_STATUS_PATH, normalizeUrl } from '@core/derive/links';

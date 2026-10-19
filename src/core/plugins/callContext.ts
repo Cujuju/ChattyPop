@@ -5,8 +5,10 @@ export interface PluginCallContext extends CallContext {
   plugin: string;
   member: string;
   reads: boolean;
+  syncReads?: { readonly reason: string };
   diagnosed?: boolean;
   strict: boolean;
+  completed?: boolean;
   diag(event: string, detail: Record<string, unknown>): void;
 }
 export const pluginCalls = new AsyncLocalStorage<PluginCallContext>();
@@ -18,9 +20,9 @@ export function currentCall(): CallContext {
 }
 
 /** Execution-time checks also cover statements and iterators prepared before the call. */
-export function checkSyncRead(): void {
+export function checkSyncRead(bounded = false): void {
   const call = pluginCalls.getStore();
-  if (!call?.reads) return;
+  if (!call || call.completed || (!call.reads && call.syncReads && bounded)) return;
   if (!call.diagnosed) {
     call.diagnosed = true;
     call.diag('plugin-sync-read', { plugin: call.plugin, member: call.member });

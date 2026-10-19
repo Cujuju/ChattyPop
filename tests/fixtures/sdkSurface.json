@@ -1,5 +1,5 @@
 {
-  "version": "4.3.0",
+  "version": "4.4.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -58,6 +58,7 @@
       "PROVIDER_DISPLAY_NAME_MAX",
       "PUBLIC_THREAD_TYPE",
       "REMOTE_DEVICE_SETTINGS",
+      "REPLY_MESSAGE_TYPE",
       "RULE_SPEC_VERSION",
       "SHELL_ASSET_SCHEME",
       "SHELL_BUNDLE_ID",
@@ -233,6 +234,7 @@
       "queryRequest",
       "queryStrength",
       "questionSignature",
+      "readPrivacy",
       "resolveCli",
       "rollupRange",
       "rollupView",

@@ -80,7 +80,7 @@ describe('served read execution', () => {
   it('records plugin/member diagnostics in production mode without throwing', async () => {
     const { context } = start();
     const diagnostics: unknown[] = [];
-    await pluginCalls.run({ plugin: 'readcalls', member: 'sync', reads: true, strict: false,
+    await pluginCalls.run({ plugin: 'readcalls', member: 'sync', reads: false, strict: false,
       signal: new AbortController().signal, priority: 'interactive', diag: (...args) => diagnostics.push(args) }, async () => {
       await Promise.resolve();
       expect(context.storage.db.prepare('SELECT 1').get()).toBeTruthy();

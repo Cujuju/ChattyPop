@@ -132,6 +132,9 @@ function checkChannels(id: string, channels: AnyChannels | undefined): void {
       if (call && section !== 'core') throw new Error(`${id} ${section} member ${name}: only core members take options.`);
       if (call?.reads !== undefined && typeof call.reads !== 'boolean') throw new Error(`${id} core call ${name}: reads must be boolean.`);
       if (call?.reads && call.writes) throw new Error(`${id} core call ${name}: a read member cannot declare writes.`);
+      if (call?.syncReads && (call.reads || typeof call.syncReads.reason !== 'string' || !call.syncReads.reason.trim())) {
+        throw new Error(`${id} core call ${name}: syncReads requires a reason and cannot accompany reads.`);
+      }
       if (call?.decode !== undefined && typeof call.decode !== 'function') throw new Error(`${id} core call ${name}: decode must be a function.`);
       if (section === 'core' && !completion && audiences.includes('phone')) {
         if (typeof call?.writes !== 'boolean') throw new Error(`${id} core call ${name}: the phone may make it, so it states writes (true or false).`);
