@@ -20,6 +20,8 @@ const RETRY_MS = MS_PER_S;
 const ZONE_CHECK_MS = MS_PER_MIN;
 const services = new WeakMap<Db, Set<MaintainedRollup>>();
 const systemZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+// These changes already have durable trigger marks; notifications only wake their consumers.
+const TRIGGER_KINDS = new Set<ArchiveChangeKind>(['messages', 'edits', 'deletes', 'attachments', 'links', 'names', 'channels']);
 
 /** Called at the mutation boundary, before the renderer's debounced change event. Dirty work survives a crash. */
 export function noteRollupChange(db: Db, channelId: string, kinds: readonly ArchiveChangeKind[], opts: ArchiveChangeOptions = {}): void {
@@ -158,10 +160,11 @@ class MaintainedRollup implements Rollup {
 
   changed(channelId: string, kinds: readonly ArchiveChangeKind[], day?: string): void {
     if (this.signal.aborted) return;
-    if (referenceWorkPending(this.ready()) || metadataPending(this.ready())) this.schedule();
-    if (!kinds.some((kind) => this.spec.dependsOn.includes(kind))) return;
-    const triggerKinds = ['messages', 'edits', 'deletes', 'attachments', 'links', 'names', 'channels'];
-    if (kinds.filter((kind) => this.spec.dependsOn.includes(kind)).every((kind) => triggerKinds.includes(kind))) { this.schedule(); return; }
+    // Shared trigger/reference queues are probed once during the drain, not once per arriving message.
+    this.schedule();
+    const matched = kinds.filter((kind) => this.spec.dependsOn.includes(kind));
+    if (!matched.length) return;
+    if (matched.every((kind) => TRIGGER_KINDS.has(kind))) return;
     if (channelId && day) markPartitions(this.ready(), this.id, [{ channel_id: channelId, day }]);
     else if (channelId) this.rebuild({ channelIds: [channelId] });
     else this.invalidate();

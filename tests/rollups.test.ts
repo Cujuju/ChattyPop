@@ -44,6 +44,19 @@ async function settled(rollup: Rollup) {
 }
 
 describe('host rollup contract', () => {
+  it('schedules trigger-covered catch-up notifications without querying the writer', async () => {
+    const reads = vi.spyOn(readers, 'readArchive');
+    const { rollup } = start();
+    await settled(rollup());
+    const db = reads.mock.calls[0]![0]; reads.mockRestore();
+    const prepare = vi.spyOn(db, 'prepare');
+    const notifications = 1_000; // A catch-up page must not multiply queue probes by its message count.
+    try {
+      for (let n = 0; n < notifications; n++) noteRollupChange(db, CHANNEL, ['messages'], { day: '2026-01-01' });
+      expect(prepare).not.toHaveBeenCalled();
+    } finally { prepare.mockRestore(); }
+    await settled(rollup());
+  });
   it('rejects publication when a same-partition write arrives after the helper snapshot', async () => {
     const { t, rollup } = start();
     await settled(rollup());
