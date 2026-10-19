@@ -30,7 +30,7 @@ import type {
   PlanUsageWindow,
   ProviderStatus,
 } from './types/ai';
-import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, MessageWindow, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
+import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationMark, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, MessageWindow, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
 import type { MentionCandidate, PersonMatch, PersonName, PersonProfile } from './types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
 import type { ArchivedGatewayEvent } from './types/ipc';
@@ -233,12 +233,14 @@ export interface CoreMethods {
   peopleByIds(ids: string[]): PersonMatch[];
   /** How these people's names show in a channel (null: no place), as Discord draws them there; unknown ids are left out. */
   personNames(ids: string[], channelId: string | null): PersonName[];
-  /** The conversation a message belongs to, from its stored links (src/core/conversations). */
-  conversation(messageId: string): ConversationView;
+  /** The conversation a message belongs to, from its stored links (src/core/conversations); `nearby` adds the channel's other messages around it. */
+  conversation(messageId: string, options?: { nearby?: boolean }): ConversationView;
+  /** The owner marks a message in the conversation of `conversationOf` (null clears the mark); its links are redone in the background. */
+  conversationMark(messageId: string, conversationOf: string, mark: ConversationMark | null): void;
   /** Diagnostics: how well conversation links recover Discord replies hidden from the rules, over `channelIds` (default: all). */
   conversationLinkScore(channelIds?: string[]): Promise<LinkScore>;
-  /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band (asks Jev: costs a few cents). */
-  conversationJevScore(perBand?: number): Promise<JevLinkScore>;
+  /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band; `release` asks another Jev release (asks Jev: costs cents). */
+  conversationJevScore(perBand?: number, release?: string): Promise<JevLinkScore>;
   /** The signed-in user's most-used emoji in their archived messages, most used first; empty before READY names them. */
   ownEmoji(limit: number): UsedEmoji[];
   /** The signed-in user's most-used reactions in the archive, most used first. */

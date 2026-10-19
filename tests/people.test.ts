@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { findPeople, findSearchAuthors, peopleByIds } from '../src/core/queries/people';
 import { ARRIVAL } from '../src/core/arrival';
+import { applyAccessFacts } from '../src/core/access';
+import type { RawRole } from '@shared/discord';
+import { PERMISSIONS } from '@shared/permissions';
+import { setSetting } from '../src/core/db';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
 describe('people by name', () => {
@@ -41,7 +46,7 @@ describe('people by name', () => {
 describe('people a search can find', () => {
   const setup = () => {
     const db = tempDb();
-    const archive = seedArchive(db, [{ id: 'c1', name: 'general', guildId: 'g1' }, { id: 'c2', name: 'trading', guildId: 'g2' }, { id: 'c3', name: 'random', guildId: 'g1' }], {
+    const archive = seedArchive(db, [{ id: 'c1', name: 'general', guildId: 'g1' }, { id: 'c2', name: 'trading', guildId: 'g2' }, { id: 'c3', name: 'random', guildId: 'g1' }, { id: 'c4', name: 'quiet', guildId: 'g1' }], {
       guilds: [{ id: 'g1', name: 'Home' }, { id: 'g2', name: 'Markets' }],
     });
     const by = (id: string, username: string) => ({ author: { id, username, global_name: null } });
@@ -66,6 +71,38 @@ describe('people a search can find', () => {
     expect(ids(db, '', 'in:general from:')).toEqual(['cal', 'ann']);
     expect(ids(db, '', 'server:markets cats')).toEqual(['bob']);
     expect(ids(db, '', '-in:general')).toEqual(['bob', 'cal']);
+  });
+
+  it("adds current members who can see where it looks, as the composer's @ does, after those who posted", () => {
+    const db = setup();
+    const archive = seedArchive(db, []);
+    const view = PERMISSIONS.VIEW_CHANNEL.toString();
+    // g1's @everyone sees its channels; only Mods see #random.
+    archive.applyRoleChange({ kind: 'replace', guildId: 'g1', roles: [{ id: 'g1', name: '@everyone', position: 0, permissions: view }, { id: 'rMods', name: 'Mods', position: 1, permissions: '0' }] as RawRole[] });
+    const member = (id: string, roles: string[]) => ({ user: { id, username: id, global_name: null }, nick: null, roles });
+    archive.upsertMembers('g1', [member('eve', []), member('mo', ['rMods']), member('gone', [])] as never);
+    db.prepare("UPDATE members SET left_at = 1 WHERE user_id = 'gone'").run();
+    applyAccessFacts(
+      db,
+      { owners: [], overwrites: [{ channelId: 'c3', overwrites: [{ id: 'g1', type: 0, allow: '0', deny: view }, { id: 'rMods', type: 0, allow: view, deny: '0' }] }], members: [] },
+      Date.now(),
+    );
+    expect(ids(db, '', '', 'c1')).toEqual(['cal', 'ann', 'eve', 'mo', 'bob']);
+    expect(ids(db, '', 'in:random')).toEqual(['cal', 'mo']);
+    expect(ids(db, '', 'in:quiet')).toEqual(['eve', 'mo']); // archived, nothing stored yet
+    expect(ids(db, '', 'server:markets')).toEqual(['bob']);
+    expect(ids(db, 'e', '')).toEqual(['eve']);
+  });
+
+  it('leaves out, in privacy mode, people tied only to hidden places', () => {
+    const db = setup();
+    seedArchive(db, []).upsertMembers('g2', [{ user: { id: 'ann', username: 'ann', global_name: null }, nick: null, roles: [] }] as never);
+    db.prepare("UPDATE guilds SET hide_in_privacy = 1 WHERE id = 'g2'").run();
+    setSetting(db, SETTINGS_KEYS.privacyMode, true);
+    expect(findPeople(db, 'b', 10).map((p) => p.id)).toEqual([]); // bob posted only in g2
+    expect(peopleByIds(db, ['bob', 'ann', 'dee']).map((p) => p.id).sort()).toEqual(['ann', 'dee']); // ann also posted in g1; dee is tied to nowhere
+    setSetting(db, SETTINGS_KEYS.privacyMode, false);
+    expect(findPeople(db, 'b', 10).map((p) => p.id)).toEqual(['bob']);
   });
 
   it('follows messages as they are stored and removed', () => {

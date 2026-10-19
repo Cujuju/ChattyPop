@@ -68,6 +68,8 @@ export interface DecisionRequest<Q extends Record<string, Question>> {
   signal?: AbortSignal;
   /** Run just before each send, retries included: a throw refuses the request unsent. The read scope sets it. */
   admit?: () => void;
+  /** A release to ask instead of the provider's pinned `model`, for measurements comparing releases; thresholds stay tuned to the pinned one. */
+  release?: string;
 }
 
 export interface DecisionResult<Q extends Record<string, Question>> {

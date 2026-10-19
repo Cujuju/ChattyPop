@@ -32,6 +32,20 @@ describe('Jev connection: OpenRouter or TypeSafe directly', () => {
     expect(normalizeAiSettings({ jevConnection: 'bogus' }).jevConnection).toBe('openrouter');
   });
 
+  it('a cancel while the answer is read stays a cancel, not an empty answer', async () => {
+    const reg = new ProviderRegistry(vi.fn());
+    reg.setOpenRouterKeys([jevKey]);
+    const abort = new AbortController();
+    vi.stubGlobal('fetch', async () => ({
+      ok: true, status: 200, headers: new Headers(),
+      json: async () => {
+        abort.abort();
+        throw new DOMException('aborted', 'AbortError');
+      },
+    }));
+    await expect(reg.decider(on('openrouter'), 'summaries.citationCheck')!.decide({ ...question, signal: abort.signal })).rejects.toThrow();
+  });
+
   it('OpenRouter requests are unchanged: OpenRouter endpoint, OpenRouter key, reported cost', async () => {
     const spent = vi.fn();
     const reg = new ProviderRegistry(spent);
@@ -57,6 +71,16 @@ describe('Jev connection: OpenRouter or TypeSafe directly', () => {
     expect(spent).toHaveBeenCalledWith(1, r.costUsd, { input: 1_000_000, output: 65 });
     // Same release name on both routes, so stored judgments and tuned thresholds carry across.
     expect(jev.model).toBe(JEV_MODEL);
+  });
+
+  it('a request may name another release: each route sends its own id for it', async () => {
+    const reg = new ProviderRegistry(vi.fn());
+    reg.setOpenRouterKeys([jevKey]);
+    reg.setTypeSafeKey('ts-direct');
+    const calls = stubFetch(200, { answers: { a: { type: 'noul', noul: 0.9 } } });
+    await reg.decider(on('openrouter'), 'summaries.citationCheck')!.decide({ ...question, release: 'jev-9.9' });
+    await reg.decider(on('typesafe'), 'summaries.citationCheck')!.decide({ ...question, release: 'jev-9.9' });
+    expect(calls.map((c) => c.body.model)).toEqual(['jev-9.9', 'jev-9.9.0']);
   });
 
   it('TypeSafe chosen without a TypeSafe key: unavailable, and never falls back to OpenRouter', () => {

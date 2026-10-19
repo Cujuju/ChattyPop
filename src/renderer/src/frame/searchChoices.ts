@@ -4,7 +4,7 @@ import { mentionedUserId } from '@shared/searchQuery';
 import { archivedChannels, channelSigil, directory } from '@/state/directory';
 import type { PersonMatch } from '@shared/contract';
 import { shownChannelId } from '@/state/archive';
-import { SEARCH_CHOICES_MAX, findSearchAuthors, findSearchPeople, searchPersonById, searchText } from '@/state/search';
+import { SEARCH_CHOICES_MAX, choicesRevision, findSearchAuthors, findSearchPeople, searchPersonById, searchText } from '@/state/search';
 import { serverTerm, type FilterChoice, type NamedChoiceSources, type QueryChip, type SearchFilter } from './searchFilters';
 
 const lower = (s: string): string => s.toLowerCase();
@@ -62,6 +62,8 @@ export const namedChoiceSources: NamedChoiceSources = { people, person, channels
 
 /** People a chip named, picked or looked up: their lookup is a core call, so a chip shows the answer once it has one. */
 const knownPeople = new Map<string, FilterChoice | null>();
+/** choicesRevision the known people were read at: a privacy change forgets them, as one may now be hidden. */
+let knownRevision = 0;
 const knownKey = (key: string, value: string): string => `${key}:${lower(value)}`;
 
 /** Keeps a picked person, so its chip names them at once. */
@@ -73,6 +75,12 @@ export const rememberChoice = (key: string, choice: FilterChoice): void => void 
  */
 export function chipChoice(chip: QueryChip, filter: SearchFilter | undefined, chips: readonly QueryChip[]): FilterChoice | null | Promise<FilterChoice | null> {
   if (!filter || chip.problem) return null;
+  // Tracked: a chip names its person again after a privacy change.
+  const revision = choicesRevision();
+  if (revision !== knownRevision) {
+    knownPeople.clear();
+    knownRevision = revision;
+  }
   const known = knownPeople.get(knownKey(chip.key, chip.value));
   if (known !== undefined) return known;
   const server = chips.find((c) => c.key === 'server' && !c.negated)?.value;
@@ -86,7 +94,7 @@ export function chipChoice(chip: QueryChip, filter: SearchFilter | undefined, ch
   return list.then(
     (l) => {
       const choice = exact(l);
-      knownPeople.set(knownKey(chip.key, chip.value), choice);
+      if (revision === knownRevision) knownPeople.set(knownKey(chip.key, chip.value), choice);
       return choice;
     },
     () => null,

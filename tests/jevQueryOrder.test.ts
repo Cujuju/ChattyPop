@@ -29,7 +29,7 @@ const queriesOf = (list: readonly (typeof FIXTURES)[number][]): JevQueryDef[] =>
 const anchorOf = catalogJevQueryAnchor(anchorCatalog(FIXTURES));
 const PLACED = [
   'rules.meaning', 'r2a.aimed', 'r2a.question',
-  'messages.notable', 'messages.classPolitical', 'messages.classFinance', 'messages.classTrading', 'messages.tags', 'r2a.plans', 'r2b.note', 'conversations.parent',
+  'messages.notable', 'messages.classPolitical', 'messages.classFinance', 'messages.classTrading', 'messages.tags', 'r2a.plans', 'r2b.note', 'conversations.responds', 'conversations.relates',
   'r2b.worth', 'r2b.rerank', 'channels.suggest',
   'check.trolling', 'check.manipulation', 'check.coordination', 'check.humor', 'check.context',
 ];

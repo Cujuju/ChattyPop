@@ -408,11 +408,38 @@ export interface PendingAttachment {
   contentType: string | null;
 }
 
+/** The owner's mark on a message in the Conversation view: it belongs, it doesn't (it starts its own), or it was added. */
+export type ConversationMark = 'belongs' | 'not' | 'add';
+
+/** How a member of a conversation is linked to the message it continues. */
+export interface ConversationMember {
+  /** Why it continues its parent: core/conversations/linker.ts LINK_KIND (reply, thread, mention, continuation, inferred, judged, owner, start). */
+  kind: string;
+  confidence: number;
+  /** A close call: Jev re-ranked it, or the chooser was unsure. */
+  questionable: boolean;
+  /** Discord linked it (a reply or thread): it can't be marked. */
+  explicit: boolean;
+  /** Members that continue it, directly or not: they move with it. */
+  branch: number;
+}
+
 /** One message's exchange, oldest first. `linkedIds`: joined to it by Discord replies; the rest grouped by time and participants. */
 export interface ConversationView {
+  /** Members, and with `nearby` the channel's other messages around them, oldest first. */
   messages: ArchiveMessage[];
   /** The opened message and those joined by Discord replies; the rest were linked by the chooser and its rules. */
   linkedIds: string[];
   /** The channel is still being linked from before these messages: the conversation may change. */
   pending: boolean;
+  /** The first message, which starts the conversation. */
+  rootId: string | null;
+  /** How each shown member is linked, by message id; a shown message without an entry is a nearby non-member. */
+  members: Record<string, ConversationMember>;
+  /** The owner's mark on each shown message that has one, member or not. */
+  marks: Record<string, ConversationMark>;
+  /** Members in the conversation, shown or not (the view shows at most CONVERSATION_MAX). */
+  memberCount: number;
+  /** More nearby messages than shown. */
+  nearbyMore: boolean;
 }

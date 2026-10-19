@@ -55,6 +55,56 @@
   background: var(--cp-surface-4);
 }
 
+/* A popover checklist choice in its identity colour (--cp-platform, from its own data-platform; without one, the
+   nearest [data-section]'s): a label holding its checkbox and an .identityTile. Checked, the box and tile take the
+   colour; unchecked, the row and tile go muted. */
+.identityOption {
+  --cp-identity-color: var(--cp-platform);
+  border-radius: var(--cp-radius-sm);
+  color: var(--cp-text-1);
+  cursor: pointer;
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.identityOption:not([data-platform]) {
+  --cp-identity-color: var(--cp-section);
+}
+
+.identityOption:hover {
+  background: var(--cp-surface-4);
+}
+
+.identityOption:not(:has(:checked)) {
+  color: var(--cp-text-muted);
+}
+
+.identityOption input[type='checkbox']:checked {
+  border-color: var(--cp-identity-color);
+  background: var(--cp-identity-color);
+}
+
+.identityOption:has(:disabled) {
+  cursor: default;
+}
+
+/* A rounded square holding an identity's mark: the mark in its colour (its .identityOption's, else --cp-platform) on
+   a wash of it. Muted in an unchecked .identityOption. */
+.identityTile {
+  border-radius: var(--cp-radius-md);
+  background: color-mix(in srgb, var(--cp-identity-color, var(--cp-platform)) var(--cp-platform-wash-mix), transparent);
+  color: var(--cp-identity-color, var(--cp-platform));
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.identityOption:not(:has(:checked)) .identityTile {
+  background: var(--cp-surface-4);
+  color: var(--cp-text-muted);
+}
+
 /* A heading that folds what follows it: a bare button whose cp-chevron points right while closed, brightening
    under the pointer. */
 .disclosure {

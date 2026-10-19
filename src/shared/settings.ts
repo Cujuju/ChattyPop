@@ -70,6 +70,9 @@ export const SETTINGS_KEYS = {
   localSpoilers: 'chat.localSpoilers',
   /** Plugin restore offers the owner dismissed or deferred (shared/pluginRestore.ts). */
   pluginsRestore: 'plugins.restore',
+  /** The Bookmarks panel's place (a RailPlace; null: everywhere) and its folded channel column (renderer state/savedMessages.ts). */
+  bookmarksPlace: 'bookmarks.place',
+  bookmarksChannelsHidden: 'bookmarks.channelsHidden',
 } as const;
 
 /** Bot ids only: defaults to none, drops malformed entries and duplicates. */

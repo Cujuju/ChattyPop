@@ -107,8 +107,12 @@ export { foldGesture, showThreads, threadsShown, unseenInThreads } from '@/state
 export { FoldChevron, ThreadSpine, ThreadsBadge } from '@/ui/ThreadFold';
 // Discord's server and channel columns as a place picker.
 export { PlaceRail, type PlaceCounts, type PlaceRailProps, type RailPlace } from '@/ui/PlaceRail';
+// The same place as one searchable picker, where a rail has no room (the phone).
+export { PlaceSelect, type PlaceSelectProps } from '@/ui/PlaceSelect';
 // A time window picker for filter bars and headers, and its window type.
 export { TimeWindowSelect, type TimeWindowSelectProps } from '@/ui/TimeWindowSelect';
+// A filter's "which of these to show" checklist menu under a plugin's own button.
+export { FilterMenu, type FilterMenuItem, type FilterMenuProps } from '@/ui/FilterMenu';
 export { TIME_PRESETS, isTimeRange, timeBounds, timeRangeLabel, type TimePreset, type TimeRange, type TimeWindow } from '@/ui/timeWindow';
 export { isPanelCollapsed, revealPanel, showPanel } from '@/state/layout';
 export { openPanel } from './openPanel';

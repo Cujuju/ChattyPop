@@ -1,5 +1,5 @@
 // Discord owns one saved record per message: dueAt makes it a reminder, otherwise a bookmark.
-import { SNOWFLAKE_ID, snowflakeArg } from './discord';
+import { DM_GUILD_ID, SNOWFLAKE_ID, snowflakeArg } from './discord';
 import { MS_PER_HOUR, MS_PER_MIN } from './units';
 
 /** Native desktop bookmarks page size, verified in Discord's October 9, 2026 client. */
@@ -99,4 +99,20 @@ export function localReminderTime(value: string, now = Date.now()): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime()) || localReminderValue(date) !== value) throw new Error('That local time does not exist. Choose another time.');
   return reminderTime(date.toISOString(), now);
+}
+
+/** A place saved messages are listed from: a server, or a channel with its threads (the place rail's). */
+export interface SavedPlace { by: 'guild' | 'channel'; id: string }
+/** `v` as a place, or null (everywhere) when it is anything else. */
+export function normalizeSavedPlace(v: unknown): SavedPlace | null {
+  const { by, id } = (typeof v === 'object' && v !== null ? v : {}) as Record<string, unknown>;
+  return (by === 'guild' || by === 'channel') && typeof id === 'string' && id ? { by, id } : null;
+}
+/** The server a saved message is in; a DM's is DM_GUILD_ID, as the directory lists it. */
+export const savedGuildId = (row: Pick<SavedMessage, 'guildId'>): string => row.guildId ?? DM_GUILD_ID;
+/** Whether `row` is in `place` (null: everywhere). `threadParent`: a thread's channel, else null. */
+export function savedWithin(row: Pick<SavedMessage, 'guildId' | 'channelId'>, place: SavedPlace | null, threadParent: (channelId: string) => string | null): boolean {
+  if (!place) return true;
+  if (place.by === 'guild') return savedGuildId(row) === place.id;
+  return row.channelId === place.id || threadParent(row.channelId) === place.id;
 }

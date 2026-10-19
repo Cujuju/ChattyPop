@@ -1,9 +1,12 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { For, Show, createEffect, on, onMount } from 'solid-js';
+import { For, Show, createEffect, createMemo, on, onMount } from 'solid-js';
 import { HoldIndicator, useHoldAction } from '@cujuju/solidjs-hold-action';
-import { editReminder, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedMessages, savedTab, setSavedTab } from '@/state/savedMessages';
+import {
+  editReminder, inSavedPlace, loadMoreBookmarks, mountSavedMessages, openSavedMessage, refreshSavedMessages, removeSavedMessage, savedBusy, savedChannelsHidden,
+  savedMessages, savedPlace, savedTab, setSavedChannelsHidden, setSavedPlace, setSavedTab, threadParent,
+} from '@/state/savedMessages';
 import { postingUnlocked } from '@/state/posting';
-import { closePanelDialog } from '@/state/ui';
+import { closePanelDialog, inCompanion } from '@/state/ui';
 import { createSavedMessagePreview } from '@/state/savedMessagePreviews';
 import { now } from '@/state/clock';
 import { failureNotice } from '@/state/dialogs';
@@ -11,11 +14,12 @@ import { HeaderButton } from '@/ui/PanelHeader';
 import { Icon } from '@/ui/icons';
 import { avatarUrl } from '@shared/media';
 import { DM_GUILD_ID, snowflakeToMs } from '@shared/discord';
-import type { SavedMessage } from '@shared/savedMessages';
+import { savedGuildId, type SavedMessage } from '@shared/savedMessages';
 import { channelById, channelSigil, directory } from '@/state/directory';
 import { Markdown } from '@/ui/Markdown';
 import { GuildIcon } from '@/ui/GuildIcon';
 import { MessageRow } from '@/ui/MessageRow';
+import { PlaceRail, type PlaceCounts } from '@/ui/PlaceRail';
 import { clockTime } from '@/ui/format';
 import { look } from '@/theme/look';
 import styles from './Bookmarks.module.css';
@@ -139,8 +143,34 @@ export function BookmarksPanel() {
   let unmount: (() => void) | undefined;
   onMount(() => { unmount = mountSavedMessages(); });
   onCleanup(() => unmount?.());
-  const rows = () => savedTab() === 'bookmarks' ? savedMessages().bookmarks : savedMessages().reminders;
-  return <section class={styles.root} aria-label="Bookmarks and reminders">
+  const tabRows = () => savedTab() === 'bookmarks' ? savedMessages().bookmarks : savedMessages().reminders;
+  const rows = () => tabRows().filter(inSavedPlace);
+  /** The tab's saved messages per server and per channel or thread; `listed` adds a thread's parent, so the rail shows the thread. */
+  const tally = createMemo(() => {
+    const guilds = new Map<string, number>();
+    const channels = new Map<string, number>();
+    const listed = new Set<string>();
+    const add = (m: Map<string, number>, id: string) => m.set(id, (m.get(id) ?? 0) + 1);
+    for (const row of tabRows()) {
+      add(guilds, savedGuildId(row));
+      add(channels, row.channelId);
+      listed.add(row.channelId).add(threadParent(row.channelId) ?? row.channelId);
+    }
+    return { guilds, channels, listed };
+  });
+  const counts: PlaceCounts = {
+    guild: (id) => tally().guilds.get(id) ?? 0,
+    channel: (id) => tally().channels.get(id) ?? 0,
+    total: () => tabRows().length,
+    label: (n) => `${n} ${savedTab() === 'bookmarks' ? (n === 1 ? 'bookmark' : 'bookmarks') : (n === 1 ? 'reminder' : 'reminders')}`,
+  };
+  return <div class={styles.placed}>
+    {/* The desktop picks a place as Links and AI chat do; the phone lists everything. */}
+    <Show when={!inCompanion}>
+      <PlaceRail place={savedPlace()} onPlace={(p) => void setSavedPlace(p)} channelsHidden={savedChannelsHidden()} onChannelsHidden={(h) => void setSavedChannelsHidden(h)}
+        listsGuild={(g) => tally().guilds.has(g.id)} listsChannel={(c) => tally().listed.has(c.id)} counts={counts} allServers />
+    </Show>
+  <section class={styles.root} aria-label="Bookmarks and reminders">
     <div class={styles.toolbar}>
       <div class={styles.tabs} role="group" aria-label="Saved message type">
         <button aria-pressed={savedTab() === 'bookmarks'} onClick={() => setSavedTab('bookmarks')}>Bookmarks</button>
@@ -154,8 +184,9 @@ export function BookmarksPanel() {
     <Show when={savedMessages().indexReadFailed}><p class={styles.error} role="status">Discord could not load saved messages. Existing bookmarks and reminders may be missing. Use Refresh to try again.</p></Show>
     <Show when={savedMessages().loading}><p class={styles.empty} role="status">Loading saved messages…</p></Show>
     <Show when={!savedMessages().loading && !savedMessages().error && (savedMessages().stale || (savedTab() === 'bookmarks' && !savedMessages().bookmarksLoaded))}><p class={styles.empty}>Use Refresh to load saved messages for the current account and privacy settings.</p></Show>
-    <Show when={!savedMessages().loading && !savedMessages().error && !savedMessages().indexReadFailed && !savedMessages().stale && (savedTab() === 'reminders' || savedMessages().bookmarksLoaded) && rows().length === 0}><p class={styles.empty}>No {savedTab()} yet. Save a message from its context menu.</p></Show>
+    <Show when={!savedMessages().loading && !savedMessages().error && !savedMessages().indexReadFailed && !savedMessages().stale && (savedTab() === 'reminders' || savedMessages().bookmarksLoaded) && rows().length === 0}><p class={styles.empty}>{tabRows().length ? `No ${savedTab()} here. Pick another place, or All servers.` : `No ${savedTab()} yet. Save a message from its context menu.`}</p></Show>
     <ul class={styles.list}><For each={rows()}>{(row) => <li><SavedPost row={row} /></li>}</For></ul>
     <Show when={savedTab() === 'bookmarks' && savedMessages().hasMore}><button disabled={savedMessages().paging || savedMessages().loading || savedMessages().stale} onClick={() => void loadMoreBookmarks()}>{savedMessages().paging ? 'Loading…' : 'Load more'}</button></Show>
-  </section>;
+  </section>
+  </div>;
 }

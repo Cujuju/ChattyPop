@@ -101,7 +101,12 @@ export function toggleSavedSearch(query: string): void {
   setSavedSearches(isSavedSearch(q) ? savedSearches().filter((s) => s !== q) : [q, ...savedSearches()]);
 }
 
+/** Changes when privacy mode does: value choices read before may name hidden people or places, or miss ones now shown. */
+const [choicesRevision, setChoicesRevision] = createSignal(0);
+export { choicesRevision };
+
 // Privacy mode changed: results may be hidden or back.
 onAppEvent('privacy-changed', () => {
+  setChoicesRevision((n) => n + 1);
   if (searchText().trim()) querySearch(searchText());
 });

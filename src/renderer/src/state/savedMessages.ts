@@ -1,8 +1,11 @@
 // Host saved-message state owns RPCs. Panels and dialogs consume it; no saved content is persisted locally.
 import { createSignal } from 'solid-js';
 import { api } from '@/api';
-import { savedKey, type ReminderPreset, type SavedMessage, type SavedRemove, type SavedSource, type SavedTarget } from '@shared/savedMessages';
+import { normalizeSavedPlace, savedKey, savedWithin, type ReminderPreset, type SavedPlace, type SavedMessage, type SavedRemove, type SavedSource, type SavedTarget } from '@shared/savedMessages';
 import type { MenuItem } from '@/ui/menuTypes';
+import { createSetting } from '@plugin-sdk/renderer/settings';
+import { SETTINGS_KEYS } from '@shared/settings';
+import { channelById, isThread } from './directory';
 import { failureNotice } from './dialogs';
 import { onAppEvent } from './events';
 import { postingUnlocked, closeWhenLocked } from './posting';
@@ -22,6 +25,17 @@ export function prepareSavedMenu(): void { if (postingUnlocked() && savedMessage
 export const loadMoreBookmarks = (): Promise<void> => store.loadMore();
 export const [savedBusy, setSavedBusy] = createSignal(false);
 export const [savedTab, setSavedTab] = createSignal<'bookmarks' | 'reminders'>('bookmarks');
+
+/** Where the Bookmarks panel lists saved messages from; null: everywhere. */
+export const [savedPlace, setSavedPlace] = createSetting<SavedPlace | null>(SETTINGS_KEYS.bookmarksPlace, null, normalizeSavedPlace);
+export const [savedChannelsHidden, setSavedChannelsHidden] = createSetting<boolean>(SETTINGS_KEYS.bookmarksChannelsHidden, false, (v) => v === true);
+/** A thread's channel, else null, as the directory knows it. Reactive. */
+export const threadParent = (channelId: string): string | null => {
+  const c = channelById(channelId);
+  return c && isThread(c) ? c.parentId : null;
+};
+/** Whether `row` is in the Bookmarks panel's place. Reactive. */
+export const inSavedPlace = (row: SavedMessage): boolean => savedWithin(row, savedPlace(), threadParent);
 let mounted = 0;
 export function mountSavedMessages(): () => void { mounted++; void store.refresh(); return () => { mounted--; }; }
 

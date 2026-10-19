@@ -21,6 +21,8 @@ export interface StoredChooser {
   replies: number;
   /** The linker version it was fitted for (features change with it). */
   linkerVersion: number;
+  /** The oldest fitted reply's time: replies before it were never in the sample, so the judge calibrates on them. Absent before #314. */
+  sampleFromTs?: number;
 }
 
 export function storedChooser(db: Db, linkerVersion: number): StoredChooser | undefined {
@@ -35,6 +37,13 @@ export const chooserWeights = (db: Db, linkerVersion: number): Weights => stored
 
 /** Training examples from the newest stored replies that `include` accepts (all by default). */
 export async function replySamples(db: Db, include: (id: string) => boolean = () => true, signal?: AbortSignal): Promise<FitSample[]> {
+  return (await sampledReplies(db, include, signal)).samples;
+}
+
+/** replySamples, with the oldest reply time it read (undefined with none). */
+export async function sampledReplies(
+  db: Db, include: (id: string) => boolean = () => true, signal?: AbortSignal,
+): Promise<{ samples: FitSample[]; fromTs: number | undefined }> {
   const replies = storedReplies(db).filter((r) => include(r.id)).slice(0, FIT_SAMPLE);
   const reach = new Map<string, number>();
   const samples: FitSample[] = [];
@@ -52,7 +61,7 @@ export async function replySamples(db: Db, include: (id: string) => boolean = ()
     // A reply beyond the candidates, or one a rule decides, says nothing about how the chooser should rank them.
     if (index >= 0 && !ruleLink(m, candidates)) samples.push(fitSample(m, candidates, index));
   }
-  return samples;
+  return { samples, fromTs: replies.at(-1)?.ts };
 }
 
 /** Weights fitted to `samples`, or the defaults when there are too few. */

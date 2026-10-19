@@ -1,20 +1,33 @@
 // Asks Jev which earlier message in the channel a message continues, for the chooser's close calls.
 import { cutText } from '@shared/text';
-import { MS_PER_MIN } from '@shared/units';
-import { answerValue, type DecisionProvider } from '../ai/decisions';
+import type { Answer, DecisionProvider, Question } from '../ai/decisions';
 import type { Db } from '../db';
-import { queryMatch, queryRequest } from '../jev/queries';
+import { queryRequest, queryStrength } from '../jev/queries';
 import { plainNameSql } from '../queries/names';
 
-export const PARENT_QUERY = 'conversations.parent';
+/** Whether the message responds to anything earlier: asked about the message alone. */
+export const RESPONDS_QUERY = 'conversations.responds';
+/** How the message relates to one candidate: one Score per candidate, the candidate in its own question (TypeSafe's per-record pattern). */
+export const RELATES_QUERY = 'conversations.relates';
 /** Characters of each message Jev reads: enough for most chat lines, while twenty-one messages stay a small request. */
 export const JEV_TEXT_CHARS = 300;
-export const NO_PARENT = 'none';
 
 export interface AskedMessage { id: string; ts: number; author: string; text: string }
 
-/** Jev's pick: a candidate's id or null (none of them), its probability, and whether it meets the query's condition to link. */
-export interface JevPick { parentId: string | null; probability: number; links: boolean }
+/** Jev's answers about one candidate: the Score's position 0–1, and its probability of the top level (responds to it). */
+export interface Relation { level: number; top: number }
+
+/** Jev's answers about one message. Null where Jev gave no usable answer. */
+export interface JevView {
+  /** How strongly `message` responds to anything earlier, 0–1. */
+  responds: number | null;
+  /** Per candidate, oldest first. */
+  relates: (Relation | null)[];
+}
+
+/** A view with every question answered. */
+export type Answered = { responds: number; relates: Relation[] };
+export const isAnswered = (v: JevView | null): v is Answered => !!v && v.responds !== null && v.relates.every((r) => r !== null);
 
 /** Author names, times and text of stored messages, by id. */
 export function askedMessages(db: Db, ids: readonly string[]): Map<string, AskedMessage> {
@@ -23,26 +36,41 @@ export function askedMessages(db: Db, ids: readonly string[]): Map<string, Asked
   return new Map(rows.map((r) => [r.id, r]));
 }
 
-const line = (m: AskedMessage): string => `${m.author}: ${cutText(m.text, JEV_TEXT_CHARS)}`;
-const minutesBefore = (m: AskedMessage, c: AskedMessage): string => `${Math.round((m.ts - c.ts) / MS_PER_MIN)} min before`;
+const said = (m: AskedMessage) => ({ from: m.author, text: cutText(m.text, JEV_TEXT_CHARS) });
+const relatesId = (i: number): string => `relates_${i}`;
+
+/** The Score's position and its top level's probability; null for an answer that isn't a Score (an owner may not change the type). */
+function relation(a: Answer | undefined): Relation | null {
+  if (a?.type !== 'score') return null;
+  const level = queryStrength(RELATES_QUERY, a);
+  const top = Math.max(...Object.keys(a.probabilities).map(Number));
+  return level === null ? null : { level, top: a.probabilities[String(top)] ?? 0 };
+}
+
+export interface AskOptions {
+  /** Runs before each send. */
+  admit?: () => void;
+  signal?: AbortSignal;
+  /** A Jev release to ask instead of the pinned one: measurements only. */
+  release?: string;
+}
 
 /**
- * Asks about `message` among `candidates`: the channel's messages just before it, oldest first. Each is a numbered option
- * carrying its own text, so Jev weighs the lines themselves. Null when Jev gave no usable answer. `admit` runs before each send.
+ * Asks about `message` among `candidates`, the channel's messages just before it, oldest first, in one request. State is
+ * the message alone; each candidate rides in its own question, so no question reads the others (docs: per-question context).
  */
 export async function askParent(
-  jev: DecisionProvider, message: AskedMessage, candidates: readonly AskedMessage[], admit?: () => void, signal?: AbortSignal,
-): Promise<{ pick: JevPick | null; costUsd: number | null }> {
-  const names = candidates.map((_, i) => String(i + 1));
-  const options = candidates.map((c, i) => ({ name: names[i]!, description: `(${minutesBefore(message, c)}) ${line(c)}` }));
-  const question = queryRequest(PARENT_QUERY, { options: [...options, { name: NO_PARENT, description: '`message` clearly starts a new topic, unrelated to every earlier line' }] });
-  const state = { message: line(message), earlier: options.map((o) => `${o.name}. ${o.description}`) };
-  const r = await jev.decide({ state, questions: { parent: question }, ...(admit ? { admit } : {}), ...(signal ? { signal } : {}) });
-  const a = r.answers.parent;
-  if (!a || a.type !== 'choice') return { pick: null, costUsd: r.costUsd };
-  const index = names.indexOf(a.choice);
-  if (index < 0 && a.choice !== NO_PARENT) return { pick: null, costUsd: r.costUsd };
-  const probability = answerValue(a).value;
-  const parentId = index < 0 ? null : candidates[index]!.id;
-  return { pick: { parentId, probability, links: parentId !== null && queryMatch(PARENT_QUERY, a, names) !== null }, costUsd: r.costUsd };
+  jev: DecisionProvider, message: AskedMessage, candidates: readonly AskedMessage[], opts: AskOptions = {},
+): Promise<{ view: JevView; costUsd: number | null }> {
+  const questions: Record<string, Question> = { responds: queryRequest(RESPONDS_QUERY) };
+  candidates.forEach((c, i) => (questions[relatesId(i)] = queryRequest(RELATES_QUERY, { vars: { earlier_message: said(c) } })));
+  const r = await jev.decide({ state: { message: said(message) }, questions, ...opts });
+  const responds = r.answers['responds'];
+  return {
+    view: {
+      responds: responds ? queryStrength(RESPONDS_QUERY, responds) : null,
+      relates: candidates.map((_, i) => relation(r.answers[relatesId(i)])),
+    },
+    costUsd: r.costUsd,
+  };
 }

@@ -1,0 +1,88 @@
+/* FilterMenu's structure; its look is the vocabulary's (identityOption, identityTile, pillButton, cp-popover). */
+.root {
+  position: relative;
+}
+
+/* With cp-popover: under the button, its end edge aligned to the button's. */
+.menu {
+  position: absolute;
+  top: calc(100% + var(--cp-popover-gap));
+  right: 0;
+  z-index: var(--cp-z-popover);
+  display: flex;
+  flex-direction: column;
+  min-width: var(--cp-menu-min-w);
+  max-width: var(--cp-search-popover-max-w);
+  max-height: var(--cp-search-list-max-h);
+  overflow-y: auto;
+}
+
+/* The heading, with Show all at the far end while any item is hidden. */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cp-space-4);
+  margin-bottom: var(--cp-space-2);
+  padding: var(--cp-space-2) var(--cp-space-4) var(--cp-space-3);
+  white-space: nowrap;
+}
+
+/* An item, with Only over its aside while the row is pointed at or focused. */
+.row {
+  position: relative;
+}
+
+/* check | tile | label | aside. Tall enough for a tile with or without one, so rows line up. */
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-4);
+  min-height: calc(var(--cp-identity-tile) + 2 * var(--cp-space-2));
+  padding: var(--cp-space-2) var(--cp-space-4);
+  white-space: nowrap;
+}
+
+.tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--cp-identity-tile);
+  height: var(--cp-identity-tile);
+}
+
+/* A mark in the tile: a line icon at the icon size. */
+.tile > svg {
+  width: var(--cp-icon-md);
+  height: var(--cp-icon-md);
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aside {
+  flex: none;
+}
+
+.only {
+  position: absolute;
+  top: 50%;
+  right: var(--cp-space-4);
+  translate: 0 -50%;
+  padding: 0 var(--cp-space-3);
+  visibility: hidden;
+}
+
+.row:hover .only,
+.row:focus-within .only {
+  visibility: visible;
+}
+
+.row:hover .aside,
+.row:focus-within .aside {
+  visibility: hidden;
+}

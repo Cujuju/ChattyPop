@@ -1,5 +1,7 @@
 /* Conversation window inside the shared window surface (ui/WindowChrome.module.css).
-   Hooks: .row[data-linked='true'] (joined by replies), .row[data-anchor='true'] (the message it was opened from). */
+   Hooks: .row[data-linked='true'] (joined by replies), .row[data-anchor='true'] (the message it was opened from),
+   .row[data-member='false'] (a nearby message outside the conversation), .row[data-questionable='true'] (an unsure link not
+   yet marked), .row[data-mark='belongs'|'add'|'not'] (the owner's mark), .actions, .badge, .toolbar, .removed, .removedRow. */
 
 .list {
   display: flex;
@@ -11,11 +13,12 @@
   list-style: none;
 }
 
-/* Time | author | text, as the compact archive log. Grouped (not reply-linked) rows are quieter. */
+/* Time | author | text | marks, as the compact archive log; marks wrap below once the text would fall under its minimum.
+   Grouped (not reply-linked) rows are quieter. */
 .row {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
-  gap: var(--cp-space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cp-space-1) var(--cp-space-3);
   align-items: baseline;
   padding: var(--cp-space-2) var(--cp-space-3);
   border-left: var(--cp-section-stripe-h) solid transparent;
@@ -33,8 +36,36 @@
   background: var(--cp-surface-4);
 }
 
+/* Unsure link awaiting the owner: the theme's attention wash. */
+.row[data-questionable='true'] {
+  border-left-color: var(--cp-accent);
+  background: var(--cp-accent-wash);
+}
+
+.row[data-questionable='true'][data-anchor='true'] {
+  background: var(--cp-accent-wash-strong);
+}
+
+/* Confirmed by the owner. */
+.row[data-mark='belongs'],
+.row[data-mark='add'] {
+  border-left-color: var(--cp-success);
+}
+
+/* Nearby, outside the conversation: dashed stripe, muted text. */
+.row[data-member='false'] {
+  border-left-style: dashed;
+  border-left-color: var(--cp-border-strong);
+  color: var(--cp-text-muted);
+}
+
+.row[data-member='false'] .author {
+  color: var(--cp-text-2);
+}
+
 .time,
 .author {
+  flex: none;
   padding: 0;
   border: none;
   background: none;
@@ -60,11 +91,84 @@
 }
 
 .text {
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: min(var(--cp-conversation-text-min-w), 100%);
   overflow-wrap: anywhere;
 }
 
 .note {
   color: var(--cp-text-muted);
   font-size: var(--cp-text-xs);
+}
+
+/* Marks at the row's end; on their own line, still end-aligned, when the row is too narrow. */
+.actions {
+  display: flex;
+  flex: 0 1 auto;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--cp-space-2);
+}
+
+.actions:empty {
+  display: none;
+}
+
+.actions > button {
+  padding: 0 var(--cp-space-3);
+}
+
+.row[data-mark='belongs'] .actions > .note,
+.row[data-mark='add'] .actions > .note {
+  color: var(--cp-success);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: var(--cp-badge-line-h);
+  padding: 0 var(--cp-space-2);
+  border-radius: var(--cp-radius-pill);
+  background: var(--cp-accent-wash-strong);
+  color: var(--cp-accent);
+  font-size: var(--cp-text-2xs);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cp-space-3);
+  align-self: stretch;
+}
+
+/* Removed messages, each with Undo: a compact dashed list above the messages. */
+.removed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  align-self: stretch;
+  margin: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+  border: var(--cp-border-w) dashed var(--cp-border);
+  border-radius: var(--cp-radius-sm);
+  list-style: none;
+}
+
+.removedRow {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-3);
+}
+
+.removedRow > .note {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

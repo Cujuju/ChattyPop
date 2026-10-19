@@ -72,6 +72,6 @@ export function aiHandlers(o: {
       const db = o.db();
       return askRange(db, new MessageJudge(db), jev, ask);
     },
-    conversationJevScore: (perBand) => scoreJevOnReplies(o.db(), o.requireDecider('linkConversations', LINK_CONVERSATIONS_HINT), perBand),
+    conversationJevScore: (perBand, release) => scoreJevOnReplies(o.db(), o.requireDecider('linkConversations', LINK_CONVERSATIONS_HINT), { perBand, release }),
   };
 }

@@ -281,6 +281,7 @@ export const RENDERER_CORE_METHODS = [
   'ownAuthor',
   'ownerModerates',
   'conversation',
+  'conversationMark',
   'conversationLinkScore',
   'conversationJevScore',
   'ownEmoji',

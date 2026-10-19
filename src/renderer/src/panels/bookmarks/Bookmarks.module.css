@@ -1,6 +1,15 @@
 /* Discord-style cards with a destination header and a separate cozy chat post.
    Hooks: .tabs button[aria-pressed], .due[data-overdue], .action[data-holding]. Only .list scrolls. */
 
+/* The place rail beside the panel's column. */
+.placed {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .root {
   display: flex;
   flex: 1 1 auto;
