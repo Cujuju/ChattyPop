@@ -31,7 +31,7 @@ it('recomputes an unpublished opener when a cross-midnight continuation arrives 
   let inserted = false;
   const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
     const result = await original(...args);
-    if (!inserted && (args[1].partition as { day: string }).day === '2026-01-01') {
+    if (!inserted && (args[1].partition as { day: string } | null)?.day === '2026-01-01') {
       inserted = true;
       expect(t.db.prepare('SELECT * FROM p_spanprobe_rollup_runs_v1').all()).toEqual([]);
       t.archive.arrive([{ channelId: 'c1', ts: START + MS_PER_DAY + MS_PER_MIN, content: 'continuation' }]);

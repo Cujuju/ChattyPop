@@ -7,6 +7,11 @@ export type { RollupStatus } from '@shared/rollups';
 /** UTC partitions remain stable across viewer and operating-system time-zone changes. */
 export interface RollupPartition { channelId: string; day: string; startTs: number; endTs: number; timeZone: string }
 export type RollupRow = Record<string, string | number | null>;
+export interface RollupSpan {
+  start: string; end: string; paddingMs: number;
+  /** New split openers occur only within paddingMs of changed input days. */
+  localSplits?: boolean;
+}
 /** Query-ready indexes rebuilt off-thread after the channel's daily replacements settle. */
 export interface RollupFold {
   columns: Record<string, 'TEXT' | 'INTEGER' | 'REAL'>;
@@ -21,7 +26,7 @@ export interface RollupSpec<R extends object, D = undefined> {
   key: readonly (keyof R & string)[];
   indexes?: readonly (readonly (keyof R & string)[])[];
   /** A changed message invalidates every UTC day of an overlapping stored run, including possible split openers. */
-  span?: { start: keyof R & string; end: keyof R & string; paddingMs: number };
+  span?: RollupSpan & { start: keyof R & string; end: keyof R & string };
   /** Optional materialized fold across days, retaining channel privacy and the partition's key grain. */
   allTime?: { values: ReadFold['values']; orderBy?: keyof R & string };
   fold?: RollupFold;

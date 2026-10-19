@@ -10,6 +10,7 @@ import { visibleRollupSql } from './views';
 import { liveRollupSql } from './live';
 import { installMetadataTriggers } from './metadata';
 import { installMaterializedFold, markMaterializedFold } from './materialized';
+import { installRollupBuilds } from './build';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
 export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number; full_build: number }
@@ -49,8 +50,10 @@ export function installRollupStore(db: Db): void {
       BEGIN UPDATE rollup_visibility_state SET revision = revision + 1 WHERE singleton = 1; END;`);
   }
   if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_meta') WHERE name = 'full_build'").get()) {
-    db.exec('ALTER TABLE rollup_meta ADD COLUMN full_build INTEGER NOT NULL DEFAULT 1');
+    db.exec('ALTER TABLE rollup_meta ADD COLUMN full_build INTEGER NOT NULL DEFAULT 0');
+    db.exec('UPDATE rollup_meta SET full_build = backfill');
   }
+  installRollupBuilds(db);
 }
 
 export function rollupTable<R extends object, D>(db: Db, pluginId: string, name: string, spec: RollupSpec<R, D>): string {

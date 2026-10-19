@@ -13,9 +13,10 @@ import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 import { rollupSnapshot } from './snapshot';
 import { spanGeneration } from './spans';
-import { seedSpanInputs } from './spanInputs';
+import { expandSpanPartitions, seedSpanInputs } from './spanInputs';
 import { pendingChangesSql, seedRollupChanges } from './changes';
 import { publishMaterializedFold } from './materialized';
+import { acknowledgeBuildPart, finishRollupBuild } from './build';
 
 /** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
 const RETRY_MS = MS_PER_S;
@@ -95,6 +96,7 @@ class MaintainedRollup implements Rollup {
 
   private invalidate(): void {
     this.epoch++;
+    this.ready().prepare('DELETE FROM rollup_build_parts WHERE rollup = ?').run(this.id);
     this.ready().prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, full_build = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
   }
 
@@ -148,6 +150,7 @@ class MaintainedRollup implements Rollup {
       // Persist the request synchronously; enumeration and archive scans remain off Core's thread.
       this.ready().prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day) SELECT ?, value, '' FROM json_each(?)
         WHERE 1 ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`).run(this.id, JSON.stringify(scope.channelIds));
+      this.ready().prepare(`INSERT OR IGNORE INTO rollup_build_parts SELECT ?, value, '' FROM json_each(?)`).run(this.id, JSON.stringify(scope.channelIds));
       this.epoch++;
     }
     this.schedule();
@@ -196,8 +199,14 @@ class MaintainedRollup implements Rollup {
     if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) return;
     db.transaction(() => {
       markPartitions(db, this.id, JSON.parse(discovered!.partitions) as { channel_id: string; day: string }[]);
+      db.prepare(`INSERT OR IGNORE INTO rollup_build_parts SELECT ?, json_extract(value, '$.channel_id'), json_extract(value, '$.day')
+        FROM json_each(?) WHERE ? OR EXISTS (SELECT 1 FROM rollup_build_parts b WHERE b.rollup = ?
+          AND b.channel_id = json_extract(value, '$.channel_id') AND b.day = '')`)
+        .run(this.id, discovered!.partitions, Number(full), this.id);
       for (const scope of scopes) db.prepare("DELETE FROM rollup_dirty WHERE rollup = ? AND channel_id = ? AND day = '' AND revision = ?").run(this.id, scope.channel_id, scope.revision);
+      for (const scope of scopes) db.prepare("DELETE FROM rollup_build_parts WHERE rollup = ? AND channel_id = ? AND day = ''").run(this.id, scope.channel_id);
       if (full) db.prepare('UPDATE rollup_meta SET backfill = 0 WHERE rollup = ?').run(this.id);
+      finishRollupBuild(db, this.id);
       // Queued coverage survives partial builds; using only completed coverage would enqueue finished partitions again after restart.
       db.prepare('UPDATE rollup_meta SET queued_through_seq = MAX(queued_through_seq, ?) WHERE rollup = ?').run(discovered!.watermark, this.id);
     })();
@@ -208,24 +217,24 @@ class MaintainedRollup implements Rollup {
     this.running = true;
     try {
       const referencesPending = referenceWorkPending(this.ready()) || metadataPending(this.ready());
-      if (!await seedRollupReferences(this.ready(), this.signal) || !await seedRollupMetadata(this.ready(), this.signal)) { this.schedule(); return; }
+      await seedRollupReferences(this.ready(), this.signal);
+      await seedRollupMetadata(this.ready(), this.signal);
+      if (!rollupReferencesReady(this.ready())) { this.schedule(); return; }
       if (referencesPending) for (const service of services.get(this.ready()) ?? []) if (service !== this) service.schedule();
       const meta = this.meta()!;
       await this.discover(Boolean(meta.backfill), this.epoch);
       while (!this.signal.aborted) {
         await seedRollupChanges(this.ready(), this.signal);
         if (this.meta()?.backfill) { this.schedule(); break; }
-        if (this.spec.span && !await seedSpanInputs(this.ready(), this.id, this.table, this.spec.span, this.signal)) { this.schedule(); break; }
-        await this.expandSpans();
+        if (this.spec.span) await seedSpanInputs(this.ready(), this.id, this.table, this.spec.span, this.signal);
+        await expandSpanPartitions(this.ready(), this.id, this.signal);
         const db = this.ready();
-        const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
+        const dirty = (db.prepare(`SELECT d.channel_id, d.day, d.revision FROM rollup_build_parts b
+          JOIN rollup_dirty d USING(rollup, channel_id, day) WHERE b.rollup = ? AND b.day != '' ORDER BY b.day DESC, b.channel_id LIMIT 1`).get(this.id)
+          ?? db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id)) as Dirty | undefined;
         if (!dirty) {
           if (await this.foldChannel()) continue;
-          if (!this.meta()?.backfill && !referenceWorkPending(db) && !metadataPending(db)
-            && !db.prepare(`SELECT 1 FROM rollup_dirty WHERE rollup = ? UNION ALL SELECT 1 FROM rollup_span_dirty WHERE rollup = ?
-              UNION ALL SELECT 1 FROM rollup_fold_dirty WHERE rollup = ? LIMIT 1`).get(this.id, this.id, this.id)) {
-            db.prepare('UPDATE rollup_meta SET full_build = 0 WHERE rollup = ?').run(this.id);
-          }
+          finishRollupBuild(db, this.id);
           break;
         }
         const epoch = this.epoch;
@@ -235,8 +244,13 @@ class MaintainedRollup implements Rollup {
           fold: this.spec.allTime ? { table: this.table, keys: [...this.spec.key], ...this.spec.allTime } : undefined,
         }, this.signal);
         if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) { this.schedule(); break; }
-        if (this.spec.span && generation !== spanGeneration(db, this.id, dirty.channel_id)) continue;
-        replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold, Boolean(this.spec.fold));
+        db.transaction(() => {
+          if (!this.spec.span || generation === spanGeneration(db, this.id, dirty.channel_id)) {
+            replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold, Boolean(this.spec.fold));
+          }
+          // A superseding write remains durably dirty and is read live; it cannot extend this build.
+          acknowledgeBuildPart(db, this.id, dirty.channel_id, dirty.day);
+        })();
         this.error = null;
         this.progress();
         await new Promise<void>((resolve) => setImmediate(resolve));
@@ -267,24 +281,6 @@ class MaintainedRollup implements Rollup {
     const published = await publishMaterializedFold(db, this.id, this.table, this.spec.fold, pending.channel_id, pending.revision, computed!.rows, current);
     if (!published) this.schedule();
     return published;
-  }
-
-  private async expandSpans(): Promise<void> {
-    const db = this.ready();
-    if (!db.prepare('SELECT 1 FROM rollup_span_dirty WHERE rollup = ? LIMIT 1').get(this.id)) return;
-    const [result] = await readArchive<{ requests: string; partitions: string }>(db, `WITH RECURSIVE
-      pending AS (SELECT channel_id, first_day, last_day, revision FROM rollup_span_dirty WHERE rollup = ?),
-      days(channel_id, day, last) AS (
-        SELECT channel_id, first_day, last_day FROM pending
-        UNION ALL SELECT channel_id, date(day, '+1 day'), last FROM days WHERE day < last)
-      SELECT (SELECT json_group_array(json_object('channel', channel_id, 'first', first_day, 'last', last_day, 'revision', revision)) FROM pending) AS requests,
-        (SELECT json_group_array(json_object('channel_id', channel_id, 'day', day)) FROM (SELECT DISTINCT channel_id, day FROM days)) AS partitions`, [this.id], this.signal, 'background');
-    if (this.signal.aborted || db !== this.ready()) return;
-    db.transaction(() => {
-      markPartitions(db, this.id, JSON.parse(result!.partitions));
-      const remove = db.prepare('DELETE FROM rollup_span_dirty WHERE rollup = ? AND channel_id = ? AND first_day = ? AND last_day = ? AND revision = ?');
-      for (const r of JSON.parse(result!.requests)) remove.run(this.id, r.channel, r.first, r.last, r.revision);
-    })();
   }
 
   private progress(force = false): void {

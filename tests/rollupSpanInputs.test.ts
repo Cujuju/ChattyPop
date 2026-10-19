@@ -58,3 +58,16 @@ it('records one generation and one durable input for a thousand same-day message
   expect(db.prepare('SELECT revision FROM rollup_span_generations WHERE rollup = ?').pluck().get(ID)).toBe(1);
   expect(db.prepare('SELECT COUNT(*) FROM rollup_span_dirty').pluck().get()).toBe(1);
 });
+
+it('limits local splits to stored openers and the padded changed day', async () => {
+  const db = fixture();
+  const historyDays = 390; // A long run must not expand one edit into hundreds of empty partition jobs.
+  db.prepare(`UPDATE ${TABLE} SET last_ts = ?`).run(START + historyDays * MS_PER_DAY);
+  db.prepare('UPDATE messages SET ts = ? WHERE id = ?').run(START + historyDays * MS_PER_DAY, 'm-open');
+  expect(await seedSpanInputs(db, ID, TABLE, { ...SPAN, localSplits: true }, new AbortController().signal)).toBe(true);
+  expect(db.prepare('SELECT first_day, last_day FROM rollup_span_dirty ORDER BY first_day').all()).toEqual([
+    { first_day: '1970-01-01', last_day: '1970-01-01' },
+    { first_day: '2026-01-01', last_day: '2026-01-01' },
+    { first_day: '2027-01-26', last_day: '2027-01-26' },
+  ]);
+});

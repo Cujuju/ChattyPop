@@ -34,7 +34,7 @@ export type { SearchRanker } from '@core/searchRankers';
 export type { PluginFetch } from '@core/plugins/net';
 export type { CoreFinalize, PluginCompletions } from '@core/plugins/completions';
 export type { ArchiveRead, PluginDb, PluginStatement } from '@core/plugins/pluginDb';
-export type { PluginRollups, Rollup, RollupSpec, RollupFold, RollupRow, RollupStatus, RollupPartition } from '@core/rollups/types';
+export type { PluginRollups, Rollup, RollupSpec, RollupSpan, RollupFold, RollupRow, RollupStatus, RollupPartition } from '@core/rollups/types';
 export { ROLLUP_READ_BUDGET_MS } from '@core/rollups/types';
 export { rollupView } from '@shared/rollups';
 export { PluginInactiveError } from '@shared/pluginCall';

@@ -1,6 +1,7 @@
 import { MS_PER_S } from '@shared/units';
 import { pendingChangesSql } from './changes';
 import { pendingReferenceSql } from './privacy';
+import type { RollupSpan } from './types';
 
 /** Pending names affect only the channels or authors named by the durable delta. */
 export function metadataPartitionSql(id: string, channel: string, day?: string): string {
@@ -14,7 +15,7 @@ export function metadataPartitionSql(id: string, channel: string, day?: string):
 }
 
 /** Enumerates missing daily summaries without scanning clean messages. Empty old partitions still clear deleted results. */
-export function liveRollupSql(id: string, table: string, span?: { start: string; end: string; paddingMs: number }): string {
+export function liveRollupSql(id: string, table: string, span?: RollupSpan): string {
   return `SELECT p.channel_id, p.day FROM (
     SELECT channel_id, day FROM rollup_partitions WHERE rollup = '${id}'
     UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = '${id}' AND day != ''
@@ -31,5 +32,8 @@ export function liveRollupSql(id: string, table: string, span?: { start: string;
           WHERE i.rollup = '${id}' AND i.channel_id = p.channel_id AND r.channel_id = i.channel_id
           AND r.${span.start} < unixepoch(i.day, '+1 day') * ${MS_PER_S} + ${span.paddingMs}
           AND r.${span.end} >= unixepoch(i.day) * ${MS_PER_S} - ${span.paddingMs}
-          AND p.day BETWEEN date(r.${span.start} / ${MS_PER_S}, 'unixepoch') AND date(r.${span.end} / ${MS_PER_S}, 'unixepoch'))` : ''}`;
+          AND p.day BETWEEN date(r.${span.start} / ${MS_PER_S}, 'unixepoch') AND date(r.${span.localSplits ? span.start : span.end} / ${MS_PER_S}, 'unixepoch'))
+        ${span.localSplits ? `OR EXISTS (SELECT 1 FROM rollup_span_inputs i WHERE i.rollup = '${id}' AND i.channel_id = p.channel_id
+          AND p.day BETWEEN date((unixepoch(i.day) * ${MS_PER_S} - ${span.paddingMs}) / ${MS_PER_S}, 'unixepoch')
+          AND date((unixepoch(i.day, '+1 day') * ${MS_PER_S} + ${span.paddingMs} - 1) / ${MS_PER_S}, 'unixepoch'))` : ''}` : ''}`;
 }
