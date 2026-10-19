@@ -39,3 +39,13 @@ it('preserves both sides of moves and rolls shared marks back with writes', () =
     { channel_id: 'new', day: '2026-01-02' }, { channel_id: 'old', day: '2026-01-01' },
   ]);
 });
+
+it('coalesces marks inside outer upserts without inheriting their conflict policy', () => {
+  const db = tempDb(); onTestFinished(() => { db.close(); });
+  installRollupStore(db); installRollupTriggers(db);
+  const upsert = db.prepare(`INSERT INTO links(url, platform, first_message_id, first_channel_id, first_author_id, first_ts)
+    VALUES ('https://example.test', 'web', 'message', 'channel', 'author', ?)
+    ON CONFLICT(url) DO UPDATE SET first_ts = excluded.first_ts`);
+  db.transaction(() => { upsert.run(START + 1); upsert.run(START); })();
+  expect(db.prepare('SELECT * FROM rollup_changes').all()).toEqual([{ channel_id: 'channel', day: '2026-01-01', kind: 'links' }]);
+});
