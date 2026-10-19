@@ -1,6 +1,7 @@
 import type { ArchiveChangeSet } from '@plugin-sdk/renderer/archiveChangeSet';
 import { visibilitySignal } from '@plugin-sdk/renderer/visibilitySignal';
 import { pageShown } from '@plugin-sdk/renderer/panelShown';
+import { withCallOptions } from '@plugin-sdk/renderer/callOptions';
 import { createComputed, untrack } from 'solid-js';
 import { onCleanup, ownedOrContained, reportFailure } from '@plugin-sdk/renderer/containment';
 import { batchWrites, createStore } from '@plugin-sdk/renderer/containment';
@@ -66,6 +67,9 @@ export interface PagedList<T> {
   reset(): void;
 }
 
+/** A list reads only while shown (hiding aborts `signal`), so its core calls take the interactive lane and end with the list. */
+const shownRead = <R>(signal: AbortSignal, run: () => Promise<R>): Promise<R> => withCallOptions({ signal, priority: 'interactive' }, run);
+
 /** Loads chronological lists newest page first. Generation tokens discard superseded pages/updates after filter, channel or privacy changes. */
 export function createPagedList<T extends { id: string | number }>(
   pageSize: number,
@@ -126,7 +130,7 @@ export function createPagedList<T extends { id: string | number }>(
     showLoading();
     try {
       activeSignal.throwIfAborted();
-      const r = await fetch(activeSignal);
+      const r = await shownRead(activeSignal, () => fetch(activeSignal));
       if (mine !== generation) return false;
       activeSignal.throwIfAborted();
       setState({ items: r.items, reachedStart: r.reachedStart });
@@ -152,7 +156,7 @@ export function createPagedList<T extends { id: string | number }>(
     const activeSignal = readSignal();
     try {
       activeSignal.throwIfAborted();
-      const page = await fetchOlder(oldest, activeSignal);
+      const page = await shownRead(activeSignal, () => fetchOlder(oldest, activeSignal));
       if (mine !== generation) return 0;
       activeSignal.throwIfAborted();
       setState({ items: atStart ? [...state.items, ...page] : [...page, ...state.items], reachedStart: page.length < pageSize });
@@ -177,7 +181,7 @@ export function createPagedList<T extends { id: string | number }>(
     const activeSignal = readSignal();
     try {
       activeSignal.throwIfAborted();
-      const page = await fetchNewer(newest, activeSignal);
+      const page = await shownRead(activeSignal, () => fetchNewer(newest, activeSignal));
       if (mine !== generation) return null;
       activeSignal.throwIfAborted();
       // An in-place refresh may have added some of these meanwhile.
@@ -203,7 +207,7 @@ export function createPagedList<T extends { id: string | number }>(
     const activeSignal = readSignal();
     try {
       activeSignal.throwIfAborted();
-      const result = await fetch(activeSignal);
+      const result = await shownRead(activeSignal, () => fetch(activeSignal));
       if (mine !== generation || turn < appliedUpdate) return false;
       activeSignal.throwIfAborted();
       appliedUpdate = turn;
@@ -239,7 +243,7 @@ export function createPagedList<T extends { id: string | number }>(
       do {
         const atStart = changeOptions.newestAtStart?.() ?? false;
         const newest = atStart ? state.items[0]! : state.items.at(-1)!;
-        const page = await newer(newest, activeSignal);
+        const page = await shownRead(activeSignal, () => newer(newest, activeSignal));
         if (mine !== generation) return;
         activeSignal.throwIfAborted();
         const cursor = JSON.stringify(newest);

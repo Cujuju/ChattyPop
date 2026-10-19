@@ -1,19 +1,10 @@
 import { api } from '@/api';
 import { unwrapPluginCall } from '@shared/pluginCall';
-import type { ReadPriority } from '@shared/readPriority';
+import { currentCallOptions, type CallOptions } from './callOptions';
 
-/** Bind gate signals explicitly for calls made after an await; resources bind their own signal. */
-export interface CallOptions { signal?: AbortSignal; priority?: ReadPriority }
-let current: CallOptions | undefined;
+export { withCallOptions, type CallOptions } from './callOptions';
 
-/** Captures calls issued synchronously by an archive gate, without retaining mutable state across awaits. */
-export function withCallOptions<T>(options: CallOptions, run: () => T): T {
-  const previous = current;
-  current = options;
-  try { return run(); } finally { current = previous; }
-}
-
-export function callCore(plugin: string, member: string, args: unknown[], options: CallOptions = current ?? {}): Promise<unknown> {
+export function callCore(plugin: string, member: string, args: unknown[], options: CallOptions = currentCallOptions() ?? {}): Promise<unknown> {
   const { signal, priority = 'background' } = options;
   if (signal?.aborted) return Promise.reject(signal.reason);
   const id = crypto.randomUUID();
