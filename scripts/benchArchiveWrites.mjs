@@ -35,7 +35,7 @@ const fixture = {
       : `export { default as ${name} } from ${JSON.stringify(join(plugins, file).replaceAll('\\', '/'))};`).join('\n');
   },
 };
-const { module } = await runnerImport(join(import.meta.dirname, 'bench/archiveWrites.ts'), {
+const { module } = await runnerImport(join(import.meta.dirname, process.env.WRITE_BENCH_ENTRY ?? 'bench/archiveWrites.ts'), {
   configFile: false, logLevel: 'silent', resolve: config.resolve, define: config.define, plugins: [...config.plugins, fixture, packages],
 });
 console.log('Running write benchmark');
