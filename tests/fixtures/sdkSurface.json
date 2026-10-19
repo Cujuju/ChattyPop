@@ -1,5 +1,5 @@
 {
-  "version": "4.6.0",
+  "version": "4.7.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -962,6 +962,7 @@
       "ReadScope",
       "ReplyTarget",
       "Rollup",
+      "RollupFold",
       "RollupPartition",
       "RollupRow",
       "RollupSpec",
