@@ -21,7 +21,7 @@ function start() {
   });
   const t = testPlugin(core, { archive: { channels: [{ id: 'c1' }, { id: 'c2' }] } });
   onTestFinished(() => t.dispose());
-  const settle = () => expect.poll(() => { const s = rollup.status(); if (s.error) throw new Error(s.error); return s.building; }, { timeout: SETTLE_MS }).toBe(false);
+  const settle = () => expect.poll(() => { const s = rollup.status(); if (s.error) throw new Error(s.error); return s.maintaining; }, { timeout: SETTLE_MS }).toBe(false);
   return { t, rollup: () => rollup, settle };
 }
 

@@ -2,7 +2,7 @@
 import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
-import { computeArchive, readArchive } from '../reads/archiveReads';
+import { archiveReadFence, computeArchive, readArchive } from '../reads/archiveReads';
 import type { ReadPriority } from '@shared/readPriority';
 import { activePluginCall, checkSyncRead } from './callContext';
 import { checkReadStatement } from '../reads/protocol';
@@ -67,12 +67,16 @@ export function archiveRead(db: () => Db): ArchiveRead {
     const signal = call ? (options.signal ? AbortSignal.any([call.signal, options.signal]) : call.signal) : options.signal;
     signal?.throwIfAborted();
     checkReadStatement(source);
+    const fence = archiveReadFence(db());
     if (options.fold) {
       const [result] = await computeArchive<{ rows: R[] }>(db(), { ...options.fold, partition: null }, signal,
         options.priority ?? call?.priority ?? 'background');
+      fence();
       return result!.rows;
     }
-    return readArchive<R>(db(), source, params, signal, options.priority ?? call?.priority ?? 'background');
+    const rows = await readArchive<R>(db(), source, params, signal, options.priority ?? call?.priority ?? 'background');
+    fence();
+    return rows;
   };
 }
 

@@ -40,7 +40,7 @@ function start(version = () => 1, zone = false) {
 }
 
 async function settled(rollup: Rollup) {
-  await expect.poll(() => { const status = rollup.status(); if (status.error) throw new Error(status.error); return status.building; }, { timeout: SETTLE_TIMEOUT_MS }).toBe(false);
+  await expect.poll(() => { const status = rollup.status(); if (status.error) throw new Error(status.error); return status.maintaining; }, { timeout: SETTLE_TIMEOUT_MS }).toBe(false);
 }
 
 describe('host rollup contract', () => {
@@ -129,11 +129,32 @@ describe('host rollup contract', () => {
     const spy = vi.spyOn(readers, 'readArchive');
     try {
       t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'ordinary delta' }]);
+      expect(rollup().status()).toMatchObject({ building: false, maintaining: true });
+      expect(t.db.prepare(`SELECT day FROM ${rollup().liveView}`).pluck().all()).toEqual(['2026-01-01']);
       await settled(rollup());
       const discoveries = spy.mock.calls.filter(([, sql]) => sql.includes('AS watermark,') && sql.includes('AS partitions FROM'));
       expect(discoveries).toHaveLength(0);
       expect((await t.client('renderer').rows())[0]!.n).toBe(1);
     } finally { spy.mockRestore(); }
+  });
+
+  it('persists a full-build gate after enumeration and clears it only after publication', async () => {
+    const { t, rollup } = start();
+    t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'one' }]);
+    await settled(rollup());
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const original = readers.computeArchive;
+    const spy = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => { await gate; return original(...args) as never; });
+    try {
+      rollup().rebuild();
+      await expect.poll(() => t.db.prepare('SELECT backfill FROM rollup_meta').pluck().get(), { timeout: SETTLE_TIMEOUT_MS }).toBe(0);
+      expect(rollup().status()).toMatchObject({ building: true, maintaining: true });
+      const restarted = t.restart(); active.splice(active.indexOf(t), 1); active.push(restarted);
+      expect(rollup().status().building).toBe(true);
+      release(); await settled(rollup());
+      expect(rollup().status()).toMatchObject({ building: false, maintaining: false });
+    } finally { release(); spy.mockRestore(); }
   });
 
   it.each([[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]])('folds arrival order %j independently of sequence', async (...order) => {

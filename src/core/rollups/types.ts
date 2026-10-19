@@ -34,6 +34,8 @@ export interface RollupSpec<R extends object, D = undefined> {
 }
 export interface Rollup {
   readonly view: string;
+  /** Dirty channel-days to fold live in the same worker snapshot as the clean view. */
+  readonly liveView: string;
   readonly allTimeView: string | null;
   readonly foldView: string | null;
   /** Stable across data rebuilds; changes when cached results may violate current privacy or calendar semantics. */

@@ -23,7 +23,7 @@ it('retains indexed scopes while excluding pending and hidden partitions', () =>
   })();
   const plan = db.prepare(`EXPLAIN QUERY PLAN SELECT SUM(n) FROM ${table}_visible WHERE channel_id = ? AND day = ?`)
     .all('channel', DAYS[0]) as { detail: string }[];
-  expect(plan.some(({ detail }) => detail.includes('SEARCH r') && detail.includes('channel_id=? AND day=?'))).toBe(true);
+  expect(plan.some(({ detail }) => detail.includes('SEARCH r') && detail.includes('channel_id=?') && detail.includes('day=?'))).toBe(true);
   expect(db.prepare(`SELECT SUM(n) FROM ${table}_visible`).pluck().get()).toBe(KEYS * DAYS.length);
   db.prepare('INSERT INTO rollup_changes VALUES (?, ?, ?)').run('channel', DAYS[0], 'messages');
   expect(db.prepare(`SELECT SUM(n) FROM ${table}_visible`).pluck().get()).toBe(KEYS);

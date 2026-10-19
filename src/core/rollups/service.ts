@@ -7,10 +7,11 @@ import { computeArchive, readArchive } from '../reads/archiveReads';
 import { installRollupStore, markPartitions, PARTITIONS_SQL, partition, replacePartition, rollupTable, type Dirty, type Meta } from './store';
 import type { PluginRollups, Rollup, RollupRow, RollupSpec, RollupStatus } from './types';
 import { installRollupTriggers } from './triggers';
-import { referenceWorkPending, seedRollupReferences } from './privacy';
+import { referenceWorkPending, rollupReferencesReady, seedRollupReferences } from './privacy';
 import { metadataAffects, metadataPending, seedRollupMetadata } from './metadata';
 import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
+import { rollupSnapshot } from './snapshot';
 import { spanGeneration } from './spans';
 import { seedSpanInputs } from './spanInputs';
 import { pendingChangesSql, seedRollupChanges } from './changes';
@@ -44,6 +45,7 @@ export function pluginRollups(db: () => Db, pluginId: string, signal: AbortSigna
 
 class MaintainedRollup implements Rollup {
   readonly view: string;
+  readonly liveView: string;
   readonly allTimeView: string | null;
   readonly foldView: string | null;
   private readonly id: string;
@@ -65,8 +67,10 @@ class MaintainedRollup implements Rollup {
     this.id = `${pluginId}.${name}`;
     this.table = rollupTable(db, pluginId, name, spec);
     this.view = `${this.table}_visible`;
+    this.liveView = `${this.table}_live_visible`;
     this.allTimeView = spec.allTime ? `${this.table}_all_time_visible` : null;
     this.foldView = spec.fold ? `${this.table}_folded_visible` : null;
+    if (!spec.fold) db.prepare('DELETE FROM rollup_fold_dirty WHERE rollup = ?').run(this.id);
     this.source = spec.compute.toString().replace(/^(async\s+)?compute\s*\(/, '$1function compute(');
     db.transaction(() => {
       db.prepare('DELETE FROM rollup_kinds WHERE rollup = ?').run(this.id);
@@ -86,12 +90,12 @@ class MaintainedRollup implements Rollup {
   }
 
   private meta(): Meta | undefined {
-    return this.ready().prepare('SELECT version, zone, revision, built_through_seq, queued_through_seq, backfill FROM rollup_meta WHERE rollup = ?').get(this.id) as Meta | undefined;
+    return this.ready().prepare('SELECT version, zone, revision, built_through_seq, queued_through_seq, backfill, full_build FROM rollup_meta WHERE rollup = ?').get(this.id) as Meta | undefined;
   }
 
   private invalidate(): void {
     this.epoch++;
-    this.ready().prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
+    this.ready().prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, full_build = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
   }
 
   private checkZone(): void {
@@ -115,29 +119,16 @@ class MaintainedRollup implements Rollup {
       SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ? UNION
       SELECT c.channel_id, c.day FROM rollup_changes c JOIN rollup_kinds k ON k.kind = c.kind WHERE k.rollup = ?)`)
       .get(this.id, this.id, this.id) as { total: number };
-    return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || folds || this.running), dirty: dirty + spans + folds, total, error: this.error };
+    const building = Boolean(this.meta()?.full_build || !rollupReferencesReady(this.ready()));
+    return { building, maintaining: Boolean(building || referencesPending || dirty || spans || folds || this.running), dirty: dirty + spans + folds, total, error: this.error };
   }
 
   snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null {
     this.signal.throwIfAborted();
     this.checkZone();
-    if (metadataAffects(this.ready(), this.id)) { this.schedule(); return null; }
-    const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision, v.revision AS visibility_revision
-      FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
-        JOIN rollup_visibility_state v ON v.singleton = 1
-      WHERE m.rollup = @rollup AND m.backfill = 0 AND r.ready = 1
-        AND NOT EXISTS (SELECT 1 FROM rollup_fold_dirty f WHERE f.rollup = m.rollup
-          AND (@channels IS NULL OR f.channel_id IN (SELECT value FROM json_each(@channels))))
-        AND NOT ${pendingChangesSql('m.rollup', undefined, undefined, '@first', '@channels')}
-        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup
-          AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
-          AND (@first IS NULL OR day = '' OR day >= @first))
-        AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty WHERE rollup = m.rollup
-          AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
-          AND (@first IS NULL OR last_day >= @first))`)
-      .get({ rollup: this.id, channels: scope?.channelIds ? JSON.stringify(scope.channelIds) : null, first: scope?.firstDay ?? null }) as { version: number; zone: string; revision: number; references_revision: number; visibility_revision: number } | undefined;
-    if (!row) { this.schedule(); return null; }
-    return `${row.version}:${row.revision}:${row.references_revision}:${row.visibility_revision}:${row.zone}`;
+    const token = rollupSnapshot(this.ready(), this.id, scope);
+    if (!token) this.schedule();
+    return token;
   }
 
   visibilityToken(): string {
@@ -153,6 +144,7 @@ class MaintainedRollup implements Rollup {
     this.error = null;
     if (!scope?.channelIds) this.invalidate();
     else {
+      this.ready().prepare('UPDATE rollup_meta SET full_build = 1 WHERE rollup = ?').run(this.id);
       // Persist the request synchronously; enumeration and archive scans remain off Core's thread.
       this.ready().prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day) SELECT ?, value, '' FROM json_each(?)
         WHERE 1 ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`).run(this.id, JSON.stringify(scope.channelIds));
@@ -227,7 +219,15 @@ class MaintainedRollup implements Rollup {
         await this.expandSpans();
         const db = this.ready();
         const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
-        if (!dirty) { if (await this.foldChannel()) continue; break; }
+        if (!dirty) {
+          if (await this.foldChannel()) continue;
+          if (!this.meta()?.backfill && !referenceWorkPending(db) && !metadataPending(db)
+            && !db.prepare(`SELECT 1 FROM rollup_dirty WHERE rollup = ? UNION ALL SELECT 1 FROM rollup_span_dirty WHERE rollup = ?
+              UNION ALL SELECT 1 FROM rollup_fold_dirty WHERE rollup = ? LIMIT 1`).get(this.id, this.id, this.id)) {
+            db.prepare('UPDATE rollup_meta SET full_build = 0 WHERE rollup = ?').run(this.id);
+          }
+          break;
+        }
         const epoch = this.epoch;
         const generation = this.spec.span ? spanGeneration(db, this.id, dirty.channel_id) : 0;
         const [computed] = await computeArchive<{ rows: RollupRow[]; watermark: number; fold?: FoldResult }>(db, {

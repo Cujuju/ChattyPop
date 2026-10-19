@@ -29,7 +29,7 @@ export type ArchiveChangedEvent = { type: 'archive-changed' } & ArchiveChange;
 
 /** Pushed to the renderer; the renderer never polls. */
 export type AppEvent =
-  | { type: 'rollup-progress'; pluginId: string; name: string; building: boolean; dirty: number; total: number; error: string | null }
+  | { type: 'rollup-progress'; pluginId: string; name: string; building: boolean; maintaining?: boolean; dirty: number; total: number; error: string | null }
   | { type: 'attachment-save-progress'; requestId: string; done: number; total: number }
   | { type: 'account-link'; id: string; state: 'waiting' | 'done' | 'failed'; url: string | null; error: string | null; opened?: boolean }
   | { type: 'saved-messages-changed'; session: string | null; revision: number; pageEpoch: number; reset: boolean }

@@ -7,14 +7,17 @@ import { reconcileDefinition } from './definitions';
 import { installSpanTriggers } from './spans';
 import { installRollupChanges, pendingChangesSql } from './changes';
 import { visibleRollupSql } from './views';
+import { liveRollupSql } from './live';
+import { installMetadataTriggers } from './metadata';
 import { installMaterializedFold, markMaterializedFold } from './materialized';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
-export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number }
+export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number; full_build: number }
 const IDENTIFIER = /^[a-z][a-z0-9_]*$/i;
 
 export function installRollupStore(db: Db): void {
   installRollupChanges(db);
+  installMetadataTriggers(db);
   db.exec(`CREATE TABLE IF NOT EXISTS rollup_meta (
     rollup TEXT PRIMARY KEY, version INTEGER NOT NULL, zone TEXT NOT NULL,
     built_through_seq INTEGER NOT NULL DEFAULT 0, queued_through_seq INTEGER NOT NULL DEFAULT 0,
@@ -45,6 +48,9 @@ export function installRollupStore(db: Db): void {
     reconcileDefinition(db, `visibility/${table}/${operation}`, `CREATE TRIGGER IF NOT EXISTS rollup_visibility_${table}_${operation.toLowerCase()} AFTER ${operation} ON ${table}
       BEGIN UPDATE rollup_visibility_state SET revision = revision + 1 WHERE singleton = 1; END;`);
   }
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('rollup_meta') WHERE name = 'full_build'").get()) {
+    db.exec('ALTER TABLE rollup_meta ADD COLUMN full_build INTEGER NOT NULL DEFAULT 1');
+  }
 }
 
 export function rollupTable<R extends object, D>(db: Db, pluginId: string, name: string, spec: RollupSpec<R, D>): string {
@@ -61,12 +67,14 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
   db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (channel_id TEXT NOT NULL, day TEXT NOT NULL,
     ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
     PRIMARY KEY (channel_id, day, ${spec.key.map((key) => `"${key}"`).join(', ')}))`);
-  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS ${visibleRollupSql(id, table, Boolean(spec.span))}`);
+  db.exec(`CREATE INDEX IF NOT EXISTS "${table}_day" ON "${table}" (day, channel_id)`);
   for (const [index, keys] of (spec.indexes ?? []).entries()) {
     if (!keys.length || keys.some((key) => !Object.hasOwn(spec.columns, key))) throw new Error('Invalid rollup index');
     db.exec(`CREATE INDEX IF NOT EXISTS "${table}_read_${index}" ON "${table}" (${keys.map((key) => `"${key}"`).join(', ')})`);
   }
   if (spec.span) installSpanTriggers(db, id, table, spec.columns, spec.span);
+  reconcileDefinition(db, `${table}/live`, `CREATE VIEW "${table}_live_visible" AS ${liveRollupSql(id, table, spec.span)}`);
+  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS ${visibleRollupSql(id, table, Boolean(spec.span))}`);
   if (spec.fold) installMaterializedFold(db, id, table, spec.fold);
   if (spec.allTime) {
     if (Object.keys(spec.allTime.values).length !== columns.length - spec.key.length || columns.some(([column]) => !keys.includes(column) && !['sum', 'min', 'max', 'latest', 'earliest'].includes(spec.allTime!.values[column] ?? ''))) throw new Error('Invalid all-time fold columns');
