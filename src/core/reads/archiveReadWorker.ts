@@ -5,7 +5,9 @@ import { checkReadStatement, type ReadConnection, type ReadQuery, type ReadReply
 import { foldRollup } from './rollupFold';
 import { directory } from '../queries/directory';
 import { unjudged } from '../conversations/unjudged';
-import { messageSnapshotByIds } from '../queries/messages';
+import { messageSnapshotByIds, messagePageSnapshot, messageWindowSnapshot } from '../queries/messages';
+import { ownEmoji, ownReactions } from '../queries/ownEmoji';
+import { statusMetadata } from '../archiveStatus';
 import { archivePayloads } from '../plugins/archivePayloads';
 import { messageParts } from '../messageParts';
 import { partTexts } from '../derivedText';
@@ -38,6 +40,11 @@ parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
       switch (host.kind) {
         case 'directory': rows = directory(db, host.unseen, host.self, host.reader, host.notable); break;
         case 'unjudged': rows = unjudged(db, host.now, host.limit); break;
+        case 'ownReactions': rows = ownReactions(db, host.limit); break;
+        case 'status': rows = [statusMetadata(db)]; break;
+        case 'ownEmoji': rows = ownEmoji(db, host.authorId, host.limit); break;
+        case 'messagePage': rows = [messagePageSnapshot(db, host.query)]; break;
+        case 'messageWindow': rows = [messageWindowSnapshot(db, host.query)]; break;
         case 'messages': rows = [messageSnapshotByIds(db, host.ids)]; break;
         case 'payloads': rows = [...archivePayloads(db, host.ids)]; break;
         case 'parts': rows = [{ parts: [...messageParts(db, host.ids)], texts: partTexts(db, host.ids) }]; break;

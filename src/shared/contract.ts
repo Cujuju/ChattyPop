@@ -191,8 +191,8 @@ export interface CoreMethods {
   reconcileDeletes(channelId: string, seenIds: string[], fromId: string, throughId: string): number;
   /** The channel's newest stored message, deleted ones included; null when none is stored. */
   newestStoredId(channelId: string): string | null;
-  messagePage(q: MessagePageQuery): ArchiveMessage[];
-  messageWindow(q: MessagePageQuery): MessageWindow;
+  messagePage(q: MessagePageQuery): Promise<ArchiveMessage[]>;
+  messageWindow(q: MessagePageQuery): Promise<MessageWindow>;
   /** One archived message as the Archive shows it; null when not archived or hidden by privacy mode. */
   messageById(messageId: string): ArchiveMessage | null;
   /** Archived messages by id, as the Archive shows them, in no set order; ids not archived or hidden by privacy mode are left out. */
@@ -242,9 +242,9 @@ export interface CoreMethods {
   /** Diagnostics: Jev against the chooser on held-out replies, `perBand` per chooser-confidence band; `release` asks another Jev release (asks Jev: costs cents). */
   conversationJevScore(perBand?: number, release?: string): Promise<JevLinkScore>;
   /** The signed-in user's most-used emoji in their archived messages, most used first; empty before READY names them. */
-  ownEmoji(limit: number): UsedEmoji[];
+  ownEmoji(limit: number): UsedEmoji[] | Promise<UsedEmoji[]>;
   /** The signed-in user's most-used reactions in the archive, most used first. */
-  ownReactions(limit: number): ArchiveEmoji[];
+  ownReactions(limit: number): Promise<ArchiveEmoji[]>;
   /** The signed-in user's most-used slash commands in apps' archived replies, most used first; empty before READY names them. */
   ownCommands(limit: number): UsedCommand[];
   /** Search hits through the active plugins' rankers (ctx.search.rerank); null when none changed them, so the full-text order stands. */

@@ -9,7 +9,8 @@ import { readHost } from './reads/archiveReads';
 import { directoryMatch } from './queries/directory';
 import type { DirectoryGuild } from '@shared/contract';
 import { archivedBots } from './queries/bots';
-import { messagePage, messageWindow, messagesByIds } from './queries/messages';
+import { messagesByIds } from './queries/messages';
+import { messagePageAsync, messageWindowAsync } from './queries/hostAsync';
 import { privacyScope, visibleChannelIds } from './queries/privacy';
 import { filterSavedMessages, savedTargetVisible, savedWritableChannels } from './queries/savedMessages';
 import { lastReader, markRead, newestMessageId, unreadMark, unreadSnapshot } from './queries/readMarks';
@@ -214,8 +215,8 @@ export function archiveHandlers(o: {
       return n;
     },
     newestStoredId: (channelId) => newestMessageId(o.ready().db, channelId),
-    messagePage: (q) => messagePage(o.ready().db, q),
-    messageWindow: (q) => messageWindow(o.ready().db, q),
+    messagePage: (q) => messagePageAsync(o.ready().db, q),
+    messageWindow: (q) => messageWindowAsync(o.ready().db, q),
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
     messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {

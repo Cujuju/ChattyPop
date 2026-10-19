@@ -1,12 +1,13 @@
 import { existsSync, statSync } from 'node:fs';
 import Database from 'better-sqlite3-multiple-ciphers';
-import type { ArchiveEncryption, CoreStatus } from '@shared/contract';
+import type { ArchiveEncryption } from '@shared/contract';
 import { dropArchiveViews, installArchiveViews } from './archiveViews';
 import { MIGRATIONS, applyMigration, type Migration } from './migrations';
 import { rawJsonText } from './rawJson';
 import { configureArchiveReads } from './reads/archiveReads';
 
 export type Db = Database.Database;
+export { readStatus } from './archiveStatus';
 
 /** PRAGMA auto_vacuum value for INCREMENTAL. */
 const AUTO_VACUUM_INCREMENTAL = 2;
@@ -132,22 +133,3 @@ export function migrate(db: Db, migrations: readonly Migration[] = MIGRATIONS): 
   })();
 }
 
-/** SQLite side files in WAL mode; recent writes live in -wal until checkpointed. */
-const DB_SIDE_FILES = ['', '-wal', '-shm'];
-
-export function readStatus(db: Db, path: string, mediaBytes: number, encrypted: boolean): Omit<CoreStatus, 'textOverCapBytes'> {
-  const { v } = db.prepare('SELECT sqlite_version() AS v').get() as { v: string };
-  const fts5 = db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'fts_messages'").get() !== undefined;
-  const dbBytes = DB_SIDE_FILES.reduce((sum, suffix) => sum + (existsSync(path + suffix) ? statSync(path + suffix).size : 0), 0);
-  return {
-    sqliteVersion: v,
-    cipher: String(db.pragma('cipher', { simple: true })),
-    encrypted,
-    fts5,
-    schemaVersion: db.pragma('user_version', { simple: true }) as number,
-    dbPath: path,
-    dbBytes,
-    mediaBytes,
-    totalBytes: dbBytes + mediaBytes,
-  };
-}

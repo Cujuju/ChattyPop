@@ -110,6 +110,11 @@ export function messageSnapshotByIds(db: Db, ids: string[]): MessageSnapshot {
 
 /** Returns chronological message pages with revisions/attachments. before/after bound ids; around centers citation jumps; default selects newest messages. */
 export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
+  return decorateMessages(messagePageSnapshot(db, q));
+}
+
+/** Page selection and hydration share the helper's committed snapshot. */
+export function messagePageSnapshot(db: Db, q: MessagePageQuery): MessageSnapshot {
   const select = `${SELECT_MESSAGE} WHERE m.channel_id = ? AND ${visibleMessageSql('m')}`;
   const newestFirst = 'ORDER BY m.ts DESC, length(m.id) DESC, m.id DESC';
   const oldestFirst = 'ORDER BY m.ts ASC, length(m.id) ASC, m.id ASC';
@@ -119,7 +124,7 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
   let rows: Row[];
   if (q.around) {
     const anchor = db.prepare('SELECT ts FROM messages WHERE id = ?').get(q.around) as { ts: number } | undefined;
-    if (!anchor) return messagePage(db, { channelId: q.channelId, limit: q.limit });
+    if (!anchor) return messagePageSnapshot(db, { channelId: q.channelId, limit: q.limit });
     const half = Math.ceil(q.limit / 2);
     // The anchor and older in one half, newer in the other: the same order as before/after, so ties keep the anchor.
     const at = [anchor.ts, anchor.ts, q.around, q.around, q.around];
@@ -128,7 +133,7 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
     rows = [...older.reverse(), ...newer];
   } else if (q.before) {
     const anchor = db.prepare('SELECT ts FROM messages WHERE id = ?').get(q.before) as { ts: number } | undefined;
-    if (!anchor) return [];
+    if (!anchor) return { items: [], judgments: [] };
     rows = (
       db
         .prepare(`${select} AND ${olderThan} ${newestFirst} LIMIT ?`)
@@ -136,26 +141,27 @@ export function messagePage(db: Db, q: MessagePageQuery): ArchiveMessage[] {
     ).reverse();
   } else if (q.after) {
     const anchor = db.prepare('SELECT ts FROM messages WHERE id = ?').get(q.after) as { ts: number } | undefined;
-    if (!anchor) return [];
+    if (!anchor) return { items: [], judgments: [] };
     rows = db
       .prepare(`${select} AND ${newerThan} ${oldestFirst} LIMIT ?`)
       .all(q.channelId, anchor.ts, anchor.ts, q.after, q.after, q.after, q.limit) as Row[];
   } else {
     rows = (db.prepare(`${select} ${newestFirst} LIMIT ?`).all(q.channelId, q.limit) as Row[]).reverse();
   }
-  return hydrate(db, rows);
+  return snapshot(db, rows);
 }
 
 /** Returns a restore window and its newest boundary without a second renderer round trip. */
 export function messageWindow(db: Db, q: MessagePageQuery): MessageWindow {
-  const items = messagePage(db, q);
-  const newest = db.prepare(`SELECT m.id FROM messages m WHERE m.channel_id = ? AND ${visibleMessageSql('m')}
-    ORDER BY m.ts DESC, length(m.id) DESC, m.id DESC LIMIT 1`).get(q.channelId) as { id: string } | undefined;
-  return { items, reachesNewest: !newest || items.some((m) => m.id === newest.id) };
+  const { snapshot, reachesNewest } = messageWindowSnapshot(db, q);
+  return { items: decorateMessages(snapshot), reachesNewest };
 }
 
-function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
-  return decorateMessages(snapshot(db, rows));
+export function messageWindowSnapshot(db: Db, q: MessagePageQuery): { snapshot: MessageSnapshot; reachesNewest: boolean } {
+  const snapshot = messagePageSnapshot(db, q);
+  const newest = db.prepare(`SELECT m.id FROM messages m WHERE m.channel_id = ? AND ${visibleMessageSql('m')}
+    ORDER BY m.ts DESC, length(m.id) DESC, m.id DESC LIMIT 1`).get(q.channelId) as { id: string } | undefined;
+  return { snapshot, reachesNewest: !newest || snapshot.items.some((m) => m.id === newest.id) };
 }
 
 function snapshot(db: Db, rows: Row[]): MessageSnapshot {

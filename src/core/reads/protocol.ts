@@ -1,9 +1,15 @@
+import type { MessagePageQuery } from '@shared/contract';
+
 export interface ReadConnection { path: string; key: string | null }
 export interface ReadFold { table: string; keys: string[]; values: Record<string, 'sum' | 'max' | 'min' | 'latest' | 'earliest'>; orderBy?: string }
 export interface FoldResult { keys: Record<string, unknown>[]; rows: Record<string, unknown>[] }
 export interface ReadCompute { source: string; partition: unknown; data: unknown; fold?: ReadFold }
 export type HostRead = { kind: 'directory'; unseen: number; self: string | null; reader: string | null; notable: { sql: string; params: Record<string, unknown> } }
   | { kind: 'unjudged'; now: number; limit: number }
+  | { kind: 'ownReactions'; limit: number }
+  | { kind: 'status' }
+  | { kind: 'ownEmoji'; authorId: string; limit: number }
+  | { kind: 'messagePage' | 'messageWindow'; query: MessagePageQuery }
   | { kind: 'messages' | 'payloads' | 'parts'; ids: string[] };
 export interface ReadQuery { sql: string; params: readonly unknown[] | Record<string, unknown>; compute?: ReadCompute; host?: HostRead }
 export type ReadReply = { kind: 'started' } | { kind: 'rows'; rows: unknown[] } | { kind: 'error'; message: string; code?: string; fatal?: boolean };

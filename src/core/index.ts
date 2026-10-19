@@ -222,7 +222,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   syncSettled: () => ruleSchedule?.archiveCurrent(),
   lastSeenAt: () => previousSessionSeenAt,
   status: async () => ({
-    ...readStatus(ready().db, dbPath, await mediaSize!.get(), encrypted),
+    ...await readStatus(ready().db, dbPath, await mediaSize!.get(), encrypted),
     textOverCapBytes: retention.overCapBytes,
   }),
   getSetting: (key) => getSetting(ready().db, key),

@@ -7,7 +7,7 @@ import type { PluginHost } from './plugins/host';
 import { conversation } from './queries/conversation';
 import { scoreReplyHoldout } from './conversations/score';
 import { ownCommands } from './queries/ownCommands';
-import { ownEmoji, ownReactions } from './queries/ownEmoji';
+import { ownEmojiAsync, ownReactionsAsync } from './queries/hostAsync';
 import { mentionCandidates } from './queries/mentions';
 import { ownAuthor } from './queries/messages';
 import { ownerModerates } from './queries/moderation';
@@ -59,9 +59,9 @@ export const queryHandlers = (
   conversationLinkScore: (channelIds) => scoreReplyHoldout(db(), channelIds),
   ownEmoji: (limit) => {
     const id = selfId();
-    return id ? ownEmoji(db(), id, limit) : [];
+    return id ? ownEmojiAsync(db(), id, limit) : [];
   },
-  ownReactions: (limit) => ownReactions(db(), limit),
+  ownReactions: (limit) => ownReactionsAsync(db(), limit),
   ownCommands: (limit) => {
     const id = selfId();
     return id ? ownCommands(db(), id, limit) : [];
