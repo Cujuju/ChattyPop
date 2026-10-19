@@ -13,10 +13,12 @@ export function installMaterializedFold(db: Db, id: string, table: string, spec:
     PRIMARY KEY(rollup, channel_id));
     CREATE TABLE IF NOT EXISTS "${table}_folded" (channel_id TEXT NOT NULL,
       ${columns.map(([c, t]) => `"${c}" ${t}${spec.key.includes(c) ? ' NOT NULL' : ''}`).join(', ')},
-      PRIMARY KEY(channel_id, ${spec.key.map((c) => `"${c}"`).join(', ')}));`);
+      PRIMARY KEY(channel_id, ${spec.key.map((c) => `"${c}"`).join(', ')}));
+    CREATE INDEX IF NOT EXISTS "${table}_folded_global_key" ON "${table}_folded" (${spec.key.map((c) => `"${c}"`).join(', ')});`);
   for (const [i, keys] of (spec.indexes ?? []).entries()) {
     if (!keys.length || keys.some((k) => !Object.hasOwn(spec.columns, k))) throw new Error('Invalid materialized fold index');
     db.exec(`CREATE INDEX IF NOT EXISTS "${table}_folded_read_${i}" ON "${table}_folded" (channel_id, ${keys.map((c) => `"${c}"`).join(', ')})`);
+    db.exec(`CREATE INDEX IF NOT EXISTS "${table}_folded_global_${i}" ON "${table}_folded" (${keys.map((c) => `"${c}"`).join(', ')});`);
   }
   reconcileDefinition(db, `${table}/folded-visible`, `CREATE VIEW "${table}_folded_visible" AS
     ${visibleRollupSql(id, table, false, true).replaceAll(`${table}_all_time`, `${table}_folded`)}

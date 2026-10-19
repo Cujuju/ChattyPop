@@ -33,6 +33,8 @@ it('publishes exact materialized folds after arrivals, deletion and rebuild', as
   const visibility = rollup().visibilityToken();
   expect(rollup().snapshot()).not.toBeNull();
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 3 }]);
+  const plan = t.db.prepare("EXPLAIN QUERY PLAN SELECT n FROM p_foldprobe_rollup_counts_v1_folded WHERE key = 'n'").all() as { detail: string }[];
+  expect(plan.some((p) => p.detail.includes('folded_global_key') && p.detail.includes('key=?'))).toBe(true);
   t.db.prepare('DELETE FROM messages WHERE id = ?').run(ids[0]); await settle();
   expect(rollup().visibilityToken()).toBe(visibility);
   expect(await t.client('renderer').rows()).toEqual([{ channel_id: 'channel', key: 'n', n: 2 }]);
