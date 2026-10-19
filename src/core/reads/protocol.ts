@@ -1,5 +1,8 @@
 export interface ReadConnection { path: string; key: string | null }
-export interface ReadQuery { sql: string; params: readonly unknown[] | Record<string, unknown> }
+export interface ReadFold { table: string; keys: string[]; values: Record<string, 'sum' | 'max' | 'min' | 'latest' | 'earliest'>; orderBy?: string }
+export interface FoldResult { keys: Record<string, unknown>[]; rows: Record<string, unknown>[] }
+export interface ReadCompute { source: string; partition: unknown; data: unknown; fold?: ReadFold }
+export interface ReadQuery { sql: string; params: readonly unknown[] | Record<string, unknown>; compute?: ReadCompute }
 export type ReadReply = { kind: 'started' } | { kind: 'rows'; rows: unknown[] } | { kind: 'error'; message: string; code?: string; fatal?: boolean };
 
 /** Whitespace, SQL comments and empty statements skipped by SQLite. */

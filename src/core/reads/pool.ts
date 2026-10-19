@@ -2,7 +2,7 @@ import { fork, type ChildProcess } from 'node:child_process';
 import { serialize } from 'node:v8';
 import type { ReadPriority } from '@shared/readPriority';
 import { join } from 'node:path';
-import type { ReadConnection, ReadQuery, ReadReply } from './protocol';
+import type { ReadCompute, ReadConnection, ReadQuery, ReadReply } from './protocol';
 
 /** Two concurrent readers allow unrelated lookups without multiplying archive scans across every plugin. */
 export const ARCHIVE_READ_POOL_SIZE = 2;
@@ -38,10 +38,18 @@ export class ArchiveReadPool {
   constructor(private readonly connection: ReadConnection, private readonly entry = join(import.meta.dirname, 'archiveReadProcess.js')) {}
 
   read<R>(sql: string, params: ReadQuery['params'], signal?: AbortSignal, lane: ReadPriority = 'background'): Promise<R[]> {
+    return this.enqueue({ sql, params }, signal, lane);
+  }
+
+  compute<R>(compute: ReadCompute, signal?: AbortSignal): Promise<R[]> {
+    return this.enqueue({ sql: '', params: [], compute }, signal, 'background');
+  }
+
+  private enqueue<R>(query: ReadQuery, signal: AbortSignal | undefined, lane: ReadPriority): Promise<R[]> {
     if (signal?.aborted) return Promise.reject(signal.reason);
     if (this.closed) return Promise.reject(new Error('Archive reader is closed'));
-    const normalized = Array.isArray(params) ? params : Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b)));
-    const key = serialize([sql, normalized, lane]).toString('base64');
+    const normalized = Array.isArray(query.params) ? query.params : Object.fromEntries(Object.entries(query.params).sort(([a], [b]) => a.localeCompare(b)));
+    const key = serialize([query.sql, normalized, query.compute, lane]).toString('base64');
     let job = this.queued.get(key);
     if (!job) {
       const cap = lane === 'interactive' ? ARCHIVE_READ_INTERACTIVE_QUEUE_MAX : ARCHIVE_READ_BACKGROUND_QUEUE_MAX;
@@ -49,7 +57,7 @@ export class ArchiveReadPool {
       let resolve!: Job['resolve'];
       let reject!: Job['reject'];
       const promise = new Promise<unknown[]>((yes, no) => { resolve = yes; reject = no; });
-      job = { sql, params: structuredClone(params), key, lane, promise, resolve, reject, consumers: 0, cleanups: new Set() };
+      job = { ...structuredClone(query), key, lane, promise, resolve, reject, consumers: 0, cleanups: new Set() };
       this.queued.set(key, job);
       this.queues[lane].push(job);
     }
@@ -170,7 +178,7 @@ export class ArchiveReadPool {
       const failed = (error: Error | null): void => {
         if (error && slot!.job === job) { this.fail(job, error); slot!.job = undefined; this.stop(slot!); }
       };
-      try { slot.process.send({ sql: job.sql, params: job.params }, failed); }
+      try { slot.process.send({ sql: job.sql, params: job.params, compute: job.compute }, failed); }
       catch (error) { failed(error as Error); }
     }
   }

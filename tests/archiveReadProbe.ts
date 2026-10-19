@@ -2,8 +2,8 @@
 import { Worker } from 'node:worker_threads';
 import { join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
-import { archiveRead } from '../src/core/plugins/pluginDb';
-import { closeArchiveReads, configureArchiveReads } from '../src/core/reads/archiveReads';
+import { archiveRead, type ArchiveRead } from '../src/core/plugins/pluginDb';
+import { closeArchiveReads, computeArchive, configureArchiveReads } from '../src/core/reads/archiveReads';
 import type { ReadReply } from '../src/core/reads/protocol';
 import { ARCHIVE_READ_POOL_SIZE } from '../src/core/reads/pool';
 
@@ -31,6 +31,17 @@ process.parentPort.on('message', async ({ data }: { data: { path: string } }) =>
     });
     await worker.terminate();
     await Promise.all(Array.from({ length: ARCHIVE_READ_POOL_SIZE }, () => read('SELECT 1')));
+    const compute = async (_part: unknown, read: ArchiveRead) => {
+      if ('rollupProbeCore' in globalThis) throw new Error('Rollup compute ran on Core');
+      return read('SELECT count(*) AS count FROM archive_messages');
+    };
+    (globalThis as Record<string, unknown>).rollupProbeCore = true;
+    let rollup: { rows: unknown[]; watermark: number } | undefined;
+    try {
+      [rollup] = await computeArchive<{ rows: unknown[]; watermark: number }>(db,
+        { source: compute.toString(), partition: {}, data: undefined }, new AbortController().signal);
+    } finally { delete (globalThis as Record<string, unknown>).rollupProbeCore; }
+    if (JSON.stringify(rollup?.rows) !== JSON.stringify(direct)) throw new Error('Rollup worker returned different archive rows');
     const control = new AbortController();
     let ticks = 0;
     const timer = setInterval(() => ticks++, TIMER_INTERVAL_MS);
@@ -48,7 +59,7 @@ process.parentPort.on('message', async ({ data }: { data: { path: string } }) =>
     const closeStart = performance.now();
     await closeArchiveReads(db);
     const closeMs = performance.now() - closeStart;
-    process.parentPort.postMessage({ ok: true, direct, unrelated, replacement, ticks, abortMs, unrelatedMs, closeMs, aborted: error === control.signal.reason });
+    process.parentPort.postMessage({ ok: true, direct, rollup, unrelated, replacement, ticks, abortMs, unrelatedMs, closeMs, aborted: error === control.signal.reason });
   } catch (error) {
     process.parentPort.postMessage({ ok: false, error: String(error) });
   } finally {

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import type { Db } from '../db';
 import { ArchiveReadPool } from './pool';
 import type { ReadPriority } from '@shared/readPriority';
-import type { ReadQuery } from './protocol';
+import type { ReadCompute, ReadQuery } from './protocol';
 
 interface Readers { key: string | null; pool?: ArchiveReadPool; closed: boolean }
 const readers = new WeakMap<Db, Readers>();
@@ -38,13 +38,24 @@ export function resumeArchiveReads(db: Db): void {
 }
 
 export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'], signal?: AbortSignal, priority: ReadPriority = 'background'): Promise<R[]> {
-  if (signal?.aborted) return Promise.reject(signal.reason);
+  try { return poolOf(db, signal).read<R>(sql, params, signal, priority); }
+  catch (error) { return Promise.reject(error); }
+}
+
+/** Rollup functions and all their reads execute in the background helper's worker, within one committed snapshot. */
+export function computeArchive<R>(db: Db, compute: ReadCompute, signal: AbortSignal): Promise<R[]> {
+  try { return poolOf(db, signal).compute<R>(compute, signal); }
+  catch (error) { return Promise.reject(error); }
+}
+
+function poolOf(db: Db, signal?: AbortSignal): ArchiveReadPool {
+  signal?.throwIfAborted();
   const state = readers.get(db);
-  if (!db.open || !state || state.closed) return Promise.reject(new Error('Archive reader is closed'));
-  if (db.inTransaction) return Promise.reject(new Error('Async archive reads cannot observe an uncommitted transaction'));
+  if (!db.open || !state || state.closed) throw new Error('Archive reader is closed');
+  if (db.inTransaction) throw new Error('Async archive reads cannot observe an uncommitted transaction');
   // Vitest builds the same reader entries separately; production and development use entries adjacent to core.
   const adjacent = join(import.meta.dirname, 'archiveReadProcess.js');
   const entry = existsSync(adjacent) ? adjacent : process.env.VITEST ? join(import.meta.dirname, '../../../out/read-tests/archiveReadProcess.js') : adjacent;
   state.pool ??= new ArchiveReadPool({ path: db.name, key: state.key }, entry);
-  return state.pool.read<R>(sql, params, signal, priority);
+  return state.pool;
 }
