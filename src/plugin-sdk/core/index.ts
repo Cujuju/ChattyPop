@@ -140,3 +140,4 @@ export type { ArchiveReplyReader, ArchiveReplyExists, ArchiveReplyTargets, Reply
 export type { ArchiveChange, ArchiveChangeKind, ArchiveChangedEvent } from '@shared/contract';
 
 export { rollupRange, ROLLUP_FIRST_TS, ROLLUP_LAST_TS, ROLLUP_FIRST_DAY, ROLLUP_LAST_DAY } from './rollupRange';
+export type { ArchiveAsyncReads } from '../../core/plugins/archiveAsync';

@@ -1,12 +1,9 @@
 // Archive message pages with attachments, host judgments and plugin labels.
 import { pollFrom, pollResultFrom, type RawPoll } from '@shared/polls';
-import type { ArchiveAttachment, ArchiveEmbed, ArchiveMessage, AttachmentNote, MessageLabel, MessageWindow, MessagePageQuery } from '@shared/contract';
-import { questionLabels } from '../jev/messageQuestions';
+import type { ArchiveAttachment, ArchiveMessage, MessageWindow, MessagePageQuery } from '@shared/contract';
 import type { MessageAnnotation } from '@shared/plugins';
 import type { Db } from '../db';
-import { messageLabels } from '../messageLabels';
-import { partNotes } from '../attachmentNotes';
-import { embedPartKeys, partKey } from '../messageParts';
+import { decorateMessages, type MessageSnapshot } from './messageDecorations';
 import { rawJsonSql } from './messageContent';
 import { authorStyleSql, displayNameSql } from './names';
 import { roleColors } from './nameStyle';
@@ -103,8 +100,12 @@ export function ownAuthor(db: Db, selfId: string | null, channelId: string): Arc
 
 /** Archived messages by id, as the Archive shows them; ids not in the archive, or hidden by privacy mode, are left out. */
 export function messagesByIds(db: Db, ids: string[]): ArchiveMessage[] {
-  if (!ids.length) return [];
-  return hydrate(db, db.prepare(`${SELECT_MESSAGE} WHERE m.id IN (${ids.map(() => '?').join(',')}) AND ${visibleMessageSql('m')}`).all(...ids) as Row[]);
+  return decorateMessages(messageSnapshotByIds(db, ids));
+}
+
+/** Serializable archive data; live plugin callbacks belong to Core after the helper has replied. */
+export function messageSnapshotByIds(db: Db, ids: string[]): MessageSnapshot {
+  return snapshot(db, ids.length ? db.prepare(`${SELECT_MESSAGE} WHERE m.id IN (SELECT value FROM json_each(?)) AND ${visibleMessageSql('m')}`).all(JSON.stringify(ids)) as Row[] : []);
 }
 
 /** Returns chronological message pages with revisions/attachments. before/after bound ids; around centers citation jumps; default selects newest messages. */
@@ -153,23 +154,12 @@ export function messageWindow(db: Db, q: MessagePageQuery): MessageWindow {
   return { items, reachesNewest: !newest || items.some((m) => m.id === newest.id) };
 }
 
-/** The notes on the message's own link texts (partKey.linkText): no attachment or card draws them. */
-const linkTextNotes = (notes: Map<string, AttachmentNote[]> | undefined): AttachmentNote[] =>
-  [...(notes ?? [])].flatMap(([part, list]) => (part.startsWith(partKey.linkText('')) ? list : []));
-
-/** Each embed with the notes of its parts; a part drawn on two embeds (one file) has its notes on the first. */
-function withEmbedNotes(embeds: ArchiveEmbed[], notes: Map<string, AttachmentNote[]> | undefined): ArchiveEmbed[] {
-  if (!notes) return embeds;
-  const drawn = new Set<string>();
-  return embeds.map((e, i) => {
-    const keys = embedPartKeys(e, i).filter((k) => !drawn.has(k));
-    for (const k of keys) drawn.add(k);
-    return { ...e, notes: keys.flatMap((k) => notes.get(k) ?? []) };
-  });
+function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
+  return decorateMessages(snapshot(db, rows));
 }
 
-function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
-  if (!rows.length) return [];
+function snapshot(db: Db, rows: Row[]): MessageSnapshot {
+  if (!rows.length) return { items: [], judgments: [] };
   const ids = rows.map((r) => r.id);
   const marks = ids.map(() => '?').join(',');
   const revisions = db
@@ -183,29 +173,12 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
        FROM attachments WHERE message_id IN (${marks}) ORDER BY rowid`,
     )
     .all(...ids) as (Omit<ArchiveAttachment, 'notes' | 'removed' | 'spoiler' | 'compressed'> & { messageId: string; removed: 0 | 1; compressed: 0 | 1; flags: number | null })[];
-  const notes = partNotes(ids.map((id) => ({ id, attachmentIds: attachments.filter((a) => a.messageId === id).map((a) => a.id) })));
   const annotations = db
     .prepare(`SELECT message_id AS messageId, plugin_id AS pluginId, label, text FROM plugin_annotations WHERE message_id IN (${marks}) ORDER BY created_at`)
     .all(...ids) as (MessageAnnotation & { messageId: string })[];
-  // Chips: each stored Jev answer whose registered question gives it a label.
-  const labelFor = questionLabels();
-  const labels = new Map<string, MessageLabel[]>();
-  if (labelFor.size) {
-    const stored = db
-      .prepare(`SELECT message_id AS messageId, subject, value, label FROM jev_judgments WHERE message_id IN (${marks})`)
-      .all(...ids) as { messageId: string; subject: string; value: number; label: string | null }[];
-    for (const s of stored) {
-      const asked = labelFor.get(s.subject);
-      const text = asked?.label({ value: s.value, label: s.label });
-      if (!asked || !text) continue;
-      // A plugin's chip names its plugin, so windows hide it while that plugin is off (presentedParts).
-      const owner = asked.pluginId === null ? {} : { pluginId: asked.pluginId };
-      labels.set(s.messageId, [...(labels.get(s.messageId) ?? []), { subject: s.subject, text, title: "Jev's label for this message (a model's estimate)", ...owner }]);
-    }
-  }
-  for (const [messageId, own] of messageLabels(ids)) {
-    labels.set(messageId, [...(labels.get(messageId) ?? []), ...own]);
-  }
+  const judgments = db
+    .prepare(`SELECT message_id AS messageId, subject, value, label FROM jev_judgments WHERE message_id IN (${marks})`)
+    .all(...ids) as MessageSnapshot['judgments'];
   const replies = repliesFor(
     db,
     rows.flatMap((r) => (r.replyToId ? [{ replyToId: r.replyToId, refJson: r.refJson }] : [])),
@@ -224,7 +197,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
     names.set(channelId, map);
     for (const reply of ownReplies) reply.mentions = map;
   }
-  return rows.map((r) => {
+  const items: ArchiveMessage[] = rows.map((r) => {
     const components = componentsFrom(parseJson(r.componentsJson));
     return {
       id: r.id,
@@ -242,7 +215,7 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       mentions: names.get(r.channelId)!,
       mentionIds: mentionIdsFrom(r.mentionsJson),
       mentionsEveryone: r.mentionEveryone === 1,
-      embeds: withEmbedNotes(embedsFrom(r.embedsJson), notes.get(r.id)),
+      embeds: embedsFrom(r.embedsJson),
       stickers: stickersFrom(r.stickersJson),
       revisions: revisions.filter((v) => v.messageId === r.id).map(({ content, editedTs, seenAt }) => ({ content, editedTs, seenAt })),
       attachments: attachments
@@ -253,11 +226,11 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
           animated: isAnimatedImage({ ...a, flags }),
           removed: a.removed === 1,
           compressed: a.compressed === 1,
-          notes: notes.get(r.id)?.get(partKey.attachment(a.id)) ?? [],
+          notes: [],
         })),
-      notes: linkTextNotes(notes.get(r.id)),
+      notes: [],
       annotations: annotations.filter((a) => a.messageId === r.id).map(({ messageId: _m, ...a }) => a),
-      labels: labels.get(r.id) ?? [],
+      labels: [],
       flags: r.flags ?? 0,
       // A bot's own message (not an answer to an interaction) is sent by its app, whose id is the bot's.
       applicationId: r.applicationId ?? (components.length ? r.authorId : null),
@@ -267,4 +240,5 @@ function hydrate(db: Db, rows: Row[]): ArchiveMessage[] {
       pollResult: pollResultFrom(r.type, parseJson(r.embedsJson), r.refMessageId),
     };
   });
+  return { items, judgments };
 }

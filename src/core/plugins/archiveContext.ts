@@ -23,6 +23,9 @@ import type { ArchiveToolScope } from '../ai/archiveTools';
 import { lastReader, messageRead } from '../queries/readMarks';
 import type { HostDeps, Registrations } from './api';
 import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundled';
+import { archiveAsync, type ArchiveAsyncReads } from './archiveAsync';
+import { archiveReadDb } from './archiveReadDb';
+import { activePluginCall, pluginCalls } from './callContext';
 
 /** The archive's ingest for an importer (archive.store()); every write throws PluginInactiveError once the activation ended. */
 export interface Importer {
@@ -38,6 +41,8 @@ export interface Importer {
 
 /** Archive services scoped to one bundled plugin. */
 export interface PluginArchive {
+  /** Heavy host projections off Core, inheriting the served call's cancellation and priority. */
+  read: ArchiveAsyncReads;
   /** Matches any distinctive word across message, derived and link text, best match first. Ignores stopwords and short words; none remaining means no hits. Applies privacy and scope. */
   search(query: string, opts: ArchiveSearchOptions): ArchiveSearchHit[];
   /** Counts all search matches once, highest count first, with bounded groups. null query counts all scoped messages. */
@@ -177,19 +182,27 @@ export function pluginArchive(
   const { bundled } = deps;
   const settle = derivedTextSettler(id, bundled, plugins);
   const sources = aiSources(bundled.ready, (provider) => bundled.providers.isLocal(provider));
+  const syncDb = archiveReadDb(bundled.ready, live, id);
+  // Live decorations are Core-owned callbacks over one page, with the same indexed-lookup budgets as syncReads.
+  const enrichment = <T>(member: string, fn: () => T): T => {
+    const call = activePluginCall();
+    return call ? pluginCalls.run({ ...call, plugin: id, member, reads: false, diagnosed: false,
+      syncReads: { reason: 'Indexed live decoration of one archive page.' } }, fn) : fn();
+  };
   return {
-    search: (query, opts) => live() ? archiveSearch(bundled.ready(), query, opts, sources) : [],
-    searchCount: (query, opts, group) => live() ? archiveSearchCount(bundled.ready(), query, opts, group, sources) : [],
+    read: archiveAsync(bundled.ready, live),
+    search: (query, opts) => live() ? archiveSearch(syncDb(), query, opts, sources) : [],
+    searchCount: (query, opts, group) => live() ? archiveSearchCount(syncDb(), query, opts, group, sources) : [],
     linksSql: (scope, reader = scope?.reader) => {
       const policy = reader !== 'display' && (scope || reader) ? sources.sql('s.channel_id', reader ?? 'hosted') : '1';
       return archiveLinksSql(live() ? `${scope ? metadataScopeSql(scope) : '1'} AND ${policy}` : '0', false, true);
     },
     conversationSql: () => CONVERSATION_SQL,
-    payloads: (ids) => live() ? archivePayloads(bundled.ready(), ids) : new Map(),
-    replyExists: (...args) => live() && archiveReplyExists(deps.db, ...args),
-    messageRead: (messageId) => live() && messageRead(deps.db, messageId, plugins.self() ?? lastReader(deps.db)),
-    replyFlags: (ids) => live() ? archiveReplyFlags(deps.db, ids) : new Map(),
-    replyTargets: (ids) => live() ? archiveReplyTargets(deps.db, ids) : new Map(),
+    payloads: (ids) => live() ? archivePayloads(syncDb(), ids) : new Map(),
+    replyExists: (...args) => live() && archiveReplyExists(syncDb(), ...args),
+    messageRead: (messageId) => live() && messageRead(syncDb(), messageId, plugins.self() ?? lastReader(syncDb())),
+    replyFlags: (ids) => live() ? archiveReplyFlags(syncDb(), ids) : new Map(),
+    replyTargets: (ids) => live() ? archiveReplyTargets(syncDb(), ids) : new Map(),
     textCoverage: {
       provide: (read) => {
         if (live()) reg.disposers.push(registerTextCoverage(() => ask(read, [])));
@@ -203,22 +216,22 @@ export function pluginArchive(
     onAttachmentStored: (fn) => void reg.onAttachmentStored.push(fn),
     onChanged: (fn) => void reg.onArchiveChanged.push(fn),
     onPrivacyChanged: (fn) => void (live() && reg.onPrivacyChanged.push(fn)),
-    messages: (ids) => messagesByIds(bundled.ready(), ids),
+    messages: (ids) => live() ? messagesByIds(syncDb(), ids) : [],
     linkIndex: { onRebuilt: (fn) => void reg.onLinksRebuilt.push(fn) },
     derivedText: {
       provide: (p) => void reg.textPending.push((messageId) => p.pending(messageId)),
       settle: (messageId, t, record) => void (live() && settle(messageId, t, record)),
       pending: plugins.textPending,
       onSettled: (fn) => void reg.onTextSettled.push(fn),
-      ofParts: (ids) => (live() ? partTexts(bundled.ready(), ids) : []),
+      ofParts: (ids) => (live() ? partTexts(syncDb(), ids) : []),
       tagParts: (parts) => void (live() && tagDerivedParts(bundled.ready(), `${id}:`, parts)),
     },
     parts: {
-      of: (ids) => (live() ? messageParts(bundled.ready(), ids) : new Map()),
+      of: (ids) => (live() ? messageParts(syncDb(), ids) : new Map()),
       onShown: (fn) => void reg.onShown.push(fn),
     },
     images: {
-      of: (ids) => (live() ? messageImages(bundled.ready(), ids) : new Map()),
+      of: (ids) => (live() ? messageImages(syncDb(), ids) : new Map()),
       onShown: (fn) => void reg.onShown.push(fn),
     },
     linkImages: {
@@ -229,20 +242,20 @@ export function pluginArchive(
     },
     messageLabels: {
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerMessageLabels(id, buildIndex, (ids) => ask(() => fn(ids), new Map())));
+        if (live()) reg.disposers.push(registerMessageLabels(id, buildIndex, (ids) => enrichment('archive.messageLabels', () => ask(() => fn(ids), new Map()))));
       },
       changed: (messageIds) => send({ type: 'message-labels-changed', messageIds }),
     },
     attachmentNotes: {
       // Notes are read inside every page read: a throw is recorded on the plugin and its notes are left out, never failing the page.
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, PluginNote>())));
+        if (live()) reg.disposers.push(registerAttachmentNotes(id, buildIndex, (ids) => enrichment('archive.attachmentNotes', () => ask(() => fn(ids), new Map<string, PluginNote>()))));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },
     notes: {
       provide: (fn) => {
-        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => ask(() => fn(ids), new Map<string, Map<string, PluginNote>>())));
+        if (live()) reg.disposers.push(registerPartNotes(id, buildIndex, (ids) => enrichment('archive.notes', () => ask(() => fn(ids), new Map<string, Map<string, PluginNote>>()))));
       },
       changed: (messageIds) => send({ type: 'attachment-notes-changed', messageIds }),
     },

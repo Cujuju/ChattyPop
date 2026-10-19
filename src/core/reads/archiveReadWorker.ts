@@ -5,6 +5,10 @@ import { checkReadStatement, type ReadConnection, type ReadQuery, type ReadReply
 import { foldRollup } from './rollupFold';
 import { directory } from '../queries/directory';
 import { unjudged } from '../conversations/unjudged';
+import { messageSnapshotByIds } from '../queries/messages';
+import { archivePayloads } from '../plugins/archivePayloads';
+import { messageParts } from '../messageParts';
+import { partTexts } from '../derivedText';
 
 const { path, key } = workerData as ReadConnection;
 parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
@@ -31,7 +35,13 @@ parentPort!.on('message', async ({ sql, params, compute, host }: ReadQuery) => {
     let rows: unknown[];
     if (host) {
       db.exec('BEGIN');
-      rows = host.kind === 'directory' ? directory(db, host.unseen, host.self, host.reader, host.notable) : unjudged(db, host.now, host.limit);
+      switch (host.kind) {
+        case 'directory': rows = directory(db, host.unseen, host.self, host.reader, host.notable); break;
+        case 'unjudged': rows = unjudged(db, host.now, host.limit); break;
+        case 'messages': rows = [messageSnapshotByIds(db, host.ids)]; break;
+        case 'payloads': rows = [...archivePayloads(db, host.ids)]; break;
+        case 'parts': rows = [{ parts: [...messageParts(db, host.ids)], texts: partTexts(db, host.ids) }]; break;
+      }
       db.exec('COMMIT');
     } else if (compute) {
       db.exec('BEGIN');
