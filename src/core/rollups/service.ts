@@ -11,6 +11,7 @@ import { referenceWorkPending, seedRollupReferences } from './privacy';
 import { metadataAffects, metadataPending, seedRollupMetadata } from './metadata';
 import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
+import { spanGeneration } from './spans';
 
 /** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
 const RETRY_MS = MS_PER_S;
@@ -105,17 +106,21 @@ class MaintainedRollup implements Rollup {
     return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
   }
 
-  snapshot(): string | null {
+  snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null {
     this.signal.throwIfAborted();
     this.checkZone();
     if (metadataAffects(this.ready(), this.id)) { this.schedule(); return null; }
     const row = this.ready().prepare(`SELECT m.version, m.zone, m.revision, r.revision AS references_revision, v.revision AS visibility_revision
       FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
         JOIN rollup_visibility_state v ON v.singleton = 1
-      WHERE m.rollup = ? AND m.backfill = 0 AND r.ready = 1
-        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup)
-        AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty WHERE rollup = m.rollup)`)
-      .get(this.id) as { version: number; zone: string; revision: number; references_revision: number; visibility_revision: number } | undefined;
+      WHERE m.rollup = @rollup AND m.backfill = 0 AND r.ready = 1
+        AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup
+          AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
+          AND (@first IS NULL OR day = '' OR day >= @first))
+        AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty WHERE rollup = m.rollup
+          AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
+          AND (@first IS NULL OR last_day >= @first))`)
+      .get({ rollup: this.id, channels: scope?.channelIds ? JSON.stringify(scope.channelIds) : null, first: scope?.firstDay ?? null }) as { version: number; zone: string; revision: number; references_revision: number; visibility_revision: number } | undefined;
     if (!row) { this.schedule(); return null; }
     return `${row.version}:${row.revision}:${row.references_revision}:${row.visibility_revision}:${row.zone}`;
   }
@@ -198,11 +203,13 @@ class MaintainedRollup implements Rollup {
         const dirty = db.prepare("SELECT channel_id, day, revision FROM rollup_dirty WHERE rollup = ? AND day != '' ORDER BY day DESC, channel_id LIMIT 1").get(this.id) as Dirty | undefined;
         if (!dirty) break;
         const epoch = this.epoch;
+        const generation = this.spec.span ? spanGeneration(db, this.id, dirty.channel_id) : 0;
         const [computed] = await computeArchive<{ rows: RollupRow[]; watermark: number; fold?: FoldResult }>(db, {
           source: this.source, partition: partition(dirty.channel_id, dirty.day, this.zone), data: this.spec.data,
           fold: this.spec.allTime ? { table: this.table, keys: [...this.spec.key], ...this.spec.allTime } : undefined,
         }, this.signal);
         if (this.signal.aborted || epoch !== this.epoch || db !== this.ready()) { this.schedule(); break; }
+        if (this.spec.span && generation !== spanGeneration(db, this.id, dirty.channel_id)) continue;
         replacePartition(db, this.id, this.table, dirty, Object.keys(this.spec.columns), computed!.rows, computed!.watermark, computed!.fold);
         this.error = null;
         this.progress();

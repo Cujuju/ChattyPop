@@ -31,6 +31,9 @@ export function installRollupStore(db: Db): void {
     CREATE INDEX IF NOT EXISTS rollup_links_author ON links(first_author_id, first_channel_id, first_ts);
     CREATE TABLE IF NOT EXISTS rollup_visibility_state (singleton INTEGER PRIMARY KEY, revision INTEGER NOT NULL);
     INSERT OR IGNORE INTO rollup_visibility_state VALUES (1, 0);
+    CREATE TABLE IF NOT EXISTS rollup_span_generations (
+      rollup TEXT NOT NULL, channel_id TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (rollup, channel_id));
     CREATE TABLE IF NOT EXISTS rollup_span_dirty (
       rollup TEXT NOT NULL, channel_id TEXT NOT NULL, first_day TEXT NOT NULL, last_day TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
       PRIMARY KEY (rollup, channel_id, first_day, last_day));`);
@@ -52,13 +55,15 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
   const table = pluginTableName(pluginId, `rollup_${name}_v${spec.version}`);
   const id = `${pluginId}.${name}`;
   const ready = `(SELECT ready FROM rollup_reference_state WHERE singleton = 1) = 1
-    AND (SELECT backfill FROM rollup_meta WHERE rollup = '${id}') = 0${spec.span ? `
-    AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id)` : ''}`;
+    AND (SELECT backfill FROM rollup_meta WHERE rollup = '${id}') = 0`;
+  const spanReady = spec.span ? `
+    AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id
+      AND r.day BETWEEN sd.first_day AND sd.last_day)` : '';
   const clean = `NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = '${id}')`;
   db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (channel_id TEXT NOT NULL, day TEXT NOT NULL,
     ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
     PRIMARY KEY (channel_id, day, ${spec.key.map((key) => `"${key}"`).join(', ')}))`);
-  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS SELECT * FROM "${table}" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready} AND ${pendingReferenceSql('r.channel_id', 'r.day')}
+  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS SELECT * FROM "${table}" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready}${spanReady} AND ${pendingReferenceSql('r.channel_id', 'r.day')}
     AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id AND (d.day = r.day OR d.day = '')))`);
   for (const [index, keys] of (spec.indexes ?? []).entries()) {
     if (!keys.length || keys.some((key) => !Object.hasOwn(spec.columns, key))) throw new Error('Invalid rollup index');
@@ -74,6 +79,7 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
         PRIMARY KEY(channel_id, ${spec.key.map((key) => `"${key}"`).join(', ')}));
 `);
     reconcileDefinition(db, `${table}/all-time-visible`, `CREATE VIEW IF NOT EXISTS "${table}_all_time_visible" AS SELECT * FROM "${table}_all_time" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready} AND ${pendingReferenceSql('r.channel_id')}
+        ${spec.span ? `AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id)` : ''}
         AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id))`);
   }
   return table;

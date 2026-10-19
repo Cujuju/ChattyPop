@@ -6,6 +6,19 @@ import { installRollupTriggers } from '../src/core/rollups/triggers';
 import { installRollupReferences } from '../src/core/rollups/privacy';
 
 describe('persistent generated rollup definitions', () => {
+  it.each(['insert', 'update', 'delete'])('repairs hidden-id %s visibility triggers changed by another version', (operation) => {
+    const db = tempDb(); onTestFinished(() => { db.close(); }); installRollupStore(db);
+    const name = `rollup_visibility_hidden_ids_${operation}`;
+    db.exec(`DROP TRIGGER ${name}; CREATE TRIGGER ${name} AFTER ${operation} ON hidden_ids BEGIN SELECT 1; END;`);
+    installRollupStore(db);
+    db.exec("INSERT INTO hidden_ids(id, kind) VALUES ('first', 'channel')");
+    const before = db.prepare('SELECT revision FROM rollup_visibility_state').pluck().get() as number;
+    if (operation === 'insert') db.exec("INSERT INTO hidden_ids(id, kind) VALUES ('second', 'channel')");
+    else if (operation === 'update') db.exec("UPDATE hidden_ids SET id = 'second' WHERE id = 'first'");
+    else db.exec("DELETE FROM hidden_ids WHERE id = 'first'");
+    expect(db.prepare('SELECT revision FROM rollup_visibility_state').pluck().get()).toBe(before + 1);
+  });
+
   it('replaces old message-reference and attachment-column triggers without changing data tables', () => {
     const db = tempDb(); onTestFinished(() => { db.close(); });
     installRollupStore(db); installRollupTriggers(db);

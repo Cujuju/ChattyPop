@@ -27,8 +27,8 @@ export interface Rollup {
   readonly view: string;
   readonly allTimeView: string | null;
   status(): RollupStatus;
-  /** Opaque clean-build token; null while pending. Recheck after reads and fall back live when it changes. */
-  snapshot(): string | null;
+  /** Opaque clean-build token for the requested channels and opener days. Recheck after reads; changed tokens require a retry. */
+  snapshot(scope?: { channelIds?: readonly string[]; firstDay?: string }): string | null;
   /** Explicit dependencies outside the changed message's day, such as a conversation's opener partition. */
   markDirty(partitions: readonly { channelId: string; day: string }[]): void;
   rebuild(scope?: { channelIds?: readonly string[] }): void;
