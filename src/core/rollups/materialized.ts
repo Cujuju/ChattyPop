@@ -32,6 +32,8 @@ export function markMaterializedFold(db: Db, id: string, channel: string): void 
 }
 
 const PUBLISH_BATCH_ROWS = 256; // Bound writer turns while the dirty gate hides incomplete indexes.
+const PUBLISH_BATCH_BYTES = 1024 * 1024; // Wide dictionary packets must yield individually instead of sharing one large transaction.
+const NUMERIC_BYTES = 8; // Upper bound for SQLite INTEGER/REAL payloads; nulls use less.
 
 export async function publishMaterializedFold(db: Db, id: string, table: string, spec: RollupFold,
   channel: string, revision: number, rows: RollupRow[], current: () => boolean): Promise<boolean> {
@@ -44,14 +46,19 @@ export async function publishMaterializedFold(db: Db, id: string, table: string,
   const insert = db.prepare(`INSERT INTO "${table}_folded" (channel_id, ${columns.map((c) => `"${c}"`).join(', ')})
     VALUES (${Array(columns.length + 1).fill('?').join(', ')})`);
   const batch = db.transaction((start: number) => {
-    for (const row of rows.slice(start, start + PUBLISH_BATCH_ROWS)) {
+    let end = start, bytes = 0;
+    for (; end < rows.length && end < start + PUBLISH_BATCH_ROWS; end++) {
+      const row = rows[end]!;
       if (Object.keys(row).length !== columns.length || columns.some((c) => !Object.hasOwn(row, c))) throw new Error('Fold returned unexpected columns');
-      insert.run(channel, ...columns.map((c) => row[c]));
+      const values = columns.map((c) => row[c]), size = values.reduce<number>((n, v) => n + (typeof v === 'string' ? Buffer.byteLength(v) : NUMERIC_BYTES), 0);
+      if (end > start && bytes + size > PUBLISH_BATCH_BYTES) break;
+      insert.run(channel, ...values); bytes += size;
     }
+    return end;
   });
-  for (let start = 0; start < rows.length; start += PUBLISH_BATCH_ROWS) {
+  for (let start = 0; start < rows.length;) {
     if (!valid()) return false;
-    batch(start);
+    start = batch(start);
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
   if (!valid()) return false;
