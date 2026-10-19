@@ -1,3 +1,4 @@
+import type { ArchiveChangeSet } from '@plugin-sdk/renderer/archiveChangeSet';
 import { batchWrites, createStore } from '@plugin-sdk/renderer/containment';
 import type { Accessor, Setter } from 'solid-js';
 import { reconcile, unwrap } from 'solid-js/store';
@@ -26,8 +27,21 @@ export interface Updated<T> {
   reachedStart: boolean;
 }
 
+export interface PagedChangeOptions<T> {
+  /** True only for newest-by-date ordering at the live end of the list. */
+  chronological?: () => boolean;
+  newestAtStart?: () => boolean;
+  /** Descending Person lists page older rows from the last visual row. */
+  oldestAtEnd?: boolean;
+  atNewest?: () => boolean;
+  newer?: (newest: T) => Promise<T[]>;
+  reload?: () => Promise<unknown>;
+}
+
 export interface PagedList<T> {
   state: PagedState<T>;
+  /** Inserts read past the newest cursor; other changes reload the first page. */
+  applyChange(change: ArchiveChangeSet): Promise<void>;
   /** Replaces rows from fetch results; superseded reloads return false without changes. */
   reload(fetch: () => Promise<{ items: T[]; reachedStart: boolean }>): Promise<boolean>;
   /** Prepends the previous (older) page; resolves with how many rows were added (the view keeps its scroll anchor). */
@@ -42,6 +56,8 @@ export interface PagedList<T> {
   update<R>(fetch: () => Promise<R>, apply: (result: R, items: readonly T[]) => T[] | Updated<T>): Promise<boolean>;
   /** Replaces the rows in place, keeping row identity by id; only for rows already in hand (no read since). */
   setItems(items: T[]): void;
+  /** Clears a scope immediately and invalidates every in-flight page, including while its view is hidden. */
+  reset(): void;
 }
 
 /** Loads chronological lists newest page first. Generation tokens discard superseded pages/updates after filter, channel or privacy changes. */
@@ -49,6 +65,7 @@ export function createPagedList<T extends { id: string | number }>(
   pageSize: number,
   fetchOlder: (oldest: T) => Promise<T[]>,
   fetchNewer?: (newest: T) => Promise<T[]>,
+  changeOptions: PagedChangeOptions<T> = {},
 ): PagedList<T> {
   const [state, setState] = createStore<PagedState<T>>({ items: [], loading: false, reachedStart: false });
   let generation = 0;
@@ -62,7 +79,9 @@ export function createPagedList<T extends { id: string | number }>(
   let newerBusy = false;
   const showLoading = (): void => void setState('loading', reloading || olderBusy || newerBusy);
 
+  let lastReload: (() => Promise<Updated<T>>) | undefined;
   const reload: PagedList<T>['reload'] = async (fetch) => {
+    lastReload = fetch;
     const mine = ++generation;
     reloading = true;
     olderBusy = newerBusy = false;
@@ -81,7 +100,8 @@ export function createPagedList<T extends { id: string | number }>(
   };
 
   const loadOlder = async (): Promise<number> => {
-    const oldest = state.items[0];
+    const atStart = changeOptions.oldestAtEnd ?? false;
+    const oldest = atStart ? state.items.at(-1) : state.items[0];
     if (!oldest || reloading || olderBusy || state.reachedStart) return 0;
     const mine = generation;
     olderBusy = true;
@@ -89,7 +109,7 @@ export function createPagedList<T extends { id: string | number }>(
     try {
       const page = await fetchOlder(oldest);
       if (mine !== generation) return 0;
-      setState({ items: [...page, ...state.items], reachedStart: page.length < pageSize });
+      setState({ items: atStart ? [...state.items, ...page] : [...page, ...state.items], reachedStart: page.length < pageSize });
       return page.length;
     } finally {
       if (mine === generation) {
@@ -134,5 +154,36 @@ export function createPagedList<T extends { id: string | number }>(
     return true;
   };
 
-  return { state, reload, loadOlder, loadNewer, update, setItems };
+  const applyChange = async (change: ArchiveChangeSet): Promise<void> => {
+    const insertOnly = change.channelIds.size > 0 && [...change.channelIds].every((id) => id !== '' && change.insertOnly(id));
+    if (insertOnly && changeOptions.atNewest?.() === false) return;
+    const newer = changeOptions.newer ?? fetchNewer;
+    if (!insertOnly || changeOptions.chronological?.() === false || !newer || !state.items.length) {
+      if (changeOptions.reload) await changeOptions.reload();
+      else if (lastReload) await reload(lastReload);
+      return;
+    }
+    const mine = generation;
+    let added: number;
+    do {
+      const atStart = changeOptions.newestAtStart?.() ?? false;
+      const newest = atStart ? state.items[0]! : state.items.at(-1)!;
+      const page = await newer(newest);
+      if (mine !== generation) return;
+      const cursor = JSON.stringify(newest);
+      const incoming = new Set(page.map((row) => row.id));
+      const kept = state.items.filter((row) => !incoming.has(row.id));
+      setItems(atStart ? [...page, ...kept] : [...kept, ...page]);
+      added = page.length;
+      // A source returning an unchanged full page must not spin indefinitely.
+      if (JSON.stringify(atStart ? state.items[0] : state.items.at(-1)) === cursor) return;
+    } while (added === pageSize);
+  };
+
+  const reset = (): void => {
+    generation++;
+    reloading = olderBusy = newerBusy = false;
+    setState({ items: [], loading: false, reachedStart: false });
+  };
+  return { state, reload, loadOlder, loadNewer, update, setItems, applyChange, reset };
 }
