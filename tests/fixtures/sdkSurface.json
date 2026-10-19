@@ -1,5 +1,5 @@
 {
-  "version": "4.9.0",
+  "version": "4.10.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -965,6 +965,7 @@
       "RollupFold",
       "RollupPartition",
       "RollupRow",
+      "RollupSpan",
       "RollupSpec",
       "RollupStatus",
       "RuleEdited",
@@ -1160,6 +1161,12 @@
       "error",
       "maintaining",
       "total"
+    ],
+    "RollupSpan": [
+      "end",
+      "localSplits",
+      "paddingMs",
+      "start"
     ]
   }
 }
