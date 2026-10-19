@@ -1,5 +1,5 @@
 {
-  "version": "4.7.0",
+  "version": "4.8.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
