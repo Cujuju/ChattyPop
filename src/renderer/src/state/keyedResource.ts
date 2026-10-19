@@ -1,8 +1,9 @@
 // A resource whose value belongs to its source. Solid keeps a resource's last value while the next source loads and
 // after the source turns off, so a bare resource shows one target's answer under another.
-import { ownedOrContained } from '@plugin-sdk/renderer/containment';
+import { batchWrites, createStore, onCleanup, ownedOrContained } from '@plugin-sdk/renderer/containment';
 import { failure, settled } from '@plugin-sdk/renderer/settled';
-import { createResource } from 'solid-js';
+import { createMemo, createResource, type Setter } from 'solid-js';
+import { reconcile, unwrap } from 'solid-js/store';
 
 /** An answer with the source it answers. */
 interface Answer<S, T> {
@@ -17,23 +18,60 @@ export interface KeyedResource<T> {
   readonly loading: boolean;
   /** Why the current source's read failed; null while it didn't. Reactive. */
   readonly failure: string | null;
-  /** Reads the current source again; its answer stays shown until the new one lands. */
-  refetch(): void;
+  /** Reads again after any current read; concurrent invalidations share one pending reread. Resolves after that reread settles. */
+  refetch(): Promise<void>;
 }
 
 /** `fetch`'s answer for `source()`, compared with ===, so a source is a primitive key. Falsy sources read nothing. */
 export function keyedResource<S, T>(source: () => S | false | null | undefined, fetch: (s: S) => Promise<T>): KeyedResource<T> {
   return ownedOrContained(() => {
-    const [r, { refetch }] = createResource(source, async (s): Promise<Answer<S, T>> => ({ s, v: await fetch(s) }));
-    const value = (): T | undefined => {
+    let live = true;
+    let generation = 0;
+    onCleanup(() => { live = false; });
+    let flight: { s: S; done: Promise<Answer<S, T>> } | undefined;
+    let pending: { s: S; generation: number; done: Promise<void> } | undefined;
+    const [r, { refetch }] = createResource(source, (s) => {
+      generation++;
+      const mine = { s, done: (async (): Promise<Answer<S, T>> => ({ s, v: await fetch(s) }))() };
+      flight = mine;
+      const clear = (): void => { if (flight === mine) flight = undefined; };
+      void mine.done.then(clear, clear);
+      return mine.done;
+    }, { storage: (initial) => {
+      // Same-source snapshots reconcile nested ids; different sources replace the answer.
+      const [store, setStore] = createStore<{ answer: Answer<S, T> | undefined }>({ answer: initial });
+      const set = (next: Answer<S, T> | undefined | ((previous: Answer<S, T> | undefined) => Answer<S, T> | undefined)) => {
+        const previous = unwrap(store.answer);
+        const answer = typeof next === 'function' ? next(previous) : next;
+        batchWrites(() => {
+          if (previous?.s !== answer?.s) setStore('answer', undefined);
+          setStore('answer', reconcile(answer, { key: 'id' }));
+        });
+        return store.answer;
+      };
+      return [() => store.answer, set as Setter<Answer<S, T> | undefined>];
+    } });
+    const refresh = (): Promise<void> => {
+      const s = source();
+      if (!live || !s) return Promise.resolve();
+      if (pending?.s === s && pending.generation === generation) return pending.done;
+      if (flight?.s !== s) return Promise.resolve(refetch()).then(() => undefined, () => undefined);
+      const mine = { s, generation, done: flight.done.catch(() => undefined).then(() => {
+        if (pending === mine) pending = undefined;
+        if (live && source() === s && generation === mine.generation) return refetch();
+      }).then(() => undefined, () => undefined) };
+      pending = mine;
+      return mine.done;
+    };
+    const value = createMemo((): T | undefined => {
       const s = source();
       const a = settled(r);
       return s && a?.s === s ? a.v : undefined;
-    };
+    });
     return Object.defineProperties(value, {
       loading: { get: () => r.loading },
       failure: { get: () => (source() ? failure(r) : null) },
-      refetch: { value: (): void => void refetch() },
+      refetch: { value: refresh },
     }) as KeyedResource<T>;
   });
 }

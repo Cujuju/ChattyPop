@@ -5,13 +5,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 // Uses Solid's browser runtime so resources load as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
+vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);
 const { createRoot, createSignal } = createRequire(import.meta.url)('solid-js/dist/solid.cjs') as typeof import('solid-js');
 
 interface KeyedResource<T> {
   (): T | undefined;
   readonly loading: boolean;
   readonly failure: string | null;
-  refetch(): void;
+  refetch(): Promise<void>;
 }
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const keyedPath = '../src/renderer/src/state/keyedResource';
@@ -80,10 +81,70 @@ describe('a keyed resource', () => {
     h.setTarget('A');
     h.pending.get('A')!.answer('first');
     await settle();
-    h.r.refetch();
+    let finished = false;
+    const refreshed = h.r.refetch().then(() => { finished = true; });
     expect(h.r()).toBe('first');
-    h.pending.get('A')!.answer('second');
     await settle();
+    expect(finished).toBe(false);
+    h.pending.get('A')!.answer('second');
+    await refreshed;
+    expect(finished).toBe(true);
     expect(h.r()).toBe('second');
+  });
+
+  it('coalesces invalidations during the initial read into one awaitable reread', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const initial = h.pending.get('A')!;
+    const first = h.r.refetch();
+    const second = h.r.refetch();
+    expect(first).toBe(second);
+    expect(h.pending.get('A')).toBe(initial);
+    initial.answer('initial');
+    await settle();
+    expect(h.pending.get('A')).not.toBe(initial);
+    h.pending.get('A')!.answer('fresh');
+    await first;
+    expect(h.r()).toBe('fresh');
+  });
+
+  it('drops a queued reread after its source changes', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const queued = h.r.refetch();
+    h.setTarget('B');
+    h.pending.get('A')!.answer('old');
+    await queued;
+    h.pending.get('B')!.answer('current');
+    await settle();
+    expect(h.r()).toBe('current');
+  });
+
+  it('does not run an old queued reread after closing and reopening the same source', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const initial = h.pending.get('A')!;
+    const queued = h.r.refetch();
+    h.setTarget(null);
+    h.setTarget('A');
+    const reopened = h.pending.get('A')!;
+    initial.answer('old');
+    await queued;
+    expect(h.pending.get('A')).toBe(reopened);
+    reopened.answer('reopened');
+    await settle();
+    expect(h.r()).toBe('reopened');
+  });
+
+  it('runs its pending reread after a failed read and exposes the recovered answer', async () => {
+    const h = harness();
+    h.setTarget('A');
+    const queued = h.r.refetch();
+    h.pending.get('A')!.fail(new Error('connection lost'));
+    await settle();
+    h.pending.get('A')!.answer('recovered');
+    await queued;
+    expect(h.r()).toBe('recovered');
+    expect(h.r.failure).toBeNull();
   });
 });

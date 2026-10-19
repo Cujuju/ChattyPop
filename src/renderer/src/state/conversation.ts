@@ -3,7 +3,9 @@ import { api } from '@/api';
 import type { ConversationMark } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { createSignal } from 'solid-js';
-import { onAppEvent, onArchiveChange, onMessagePartsChanged } from './events';
+import { matchingChange, type ArchiveDeps } from '@plugin-sdk/renderer/archiveChangeSet';
+import { archiveGuild } from '@plugin-sdk/renderer/archiveScope';
+import { ARCHIVE_REFRESH_DEBOUNCE_MS, onAppEvent, onMessagePartsChanged } from './events';
 import { keyedResource } from './keyedResource';
 
 export const [conversationFor, setConversationFor] = createSignal<string | null>(null);
@@ -36,15 +38,28 @@ export const conversation = keyedResource(source, (key) => {
   return api.core.conversation(id, { nearby });
 });
 
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+/** Archive and message-part events share one debounce and the resource's pending reread. */
+const invalidate = (): void => {
+  const key = source();
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = undefined;
+    if (key === source()) void conversation.refetch();
+  }, ARCHIVE_REFRESH_DEBOUNCE_MS);
+};
+
 /** Forgets this window's marks: their snippets belong to the conversation and privacy state they were made in. */
 const resetMarks = (): void => {
+  clearTimeout(refreshTimer);
+  refreshTimer = undefined;
   context++;
   setRecent([]);
   setMarkFailure(null);
 };
 
 export const openConversation = (messageId: string): void => {
-  if (conversationFor() === messageId) return conversation.refetch();
+  if (conversationFor() === messageId) { void conversation.refetch(); return; }
   resetMarks();
   setShowNearby(false);
   setConversationFor(messageId);
@@ -83,7 +98,7 @@ onAppEvent('conversations-changed', (e) => {
   if (!shown || shown.some((m) => e.channelIds.includes(m.channelId))) conversation.refetch();
 });
 
-onArchiveChange({
+const archiveDeps: ArchiveDeps = {
   kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 'attachments', 'links', 'names', 'plugin'],
   shown: () => conversationFor() !== null,
   scope: () => {
@@ -91,10 +106,13 @@ onArchiveChange({
     // Before the first answer, any channel could belong to this conversation.
     return shown ? { channelIds: [...new Set(shown.map((m) => m.channelId))] } : 'all';
   },
-}, () => conversation.refetch());
+};
+onAppEvent('archive-changed', (event) => {
+  if (conversationFor() && Object.keys(matchingChange(event, archiveDeps, archiveGuild).changes).length) invalidate();
+});
 
 onMessagePartsChanged((ids) => {
   if (!conversationFor()) return;
   const shown = conversation()?.messages;
-  if (!ids || !shown || shown.some((m) => ids.includes(m.id))) conversation.refetch();
+  if (!ids || !shown || shown.some((m) => ids.includes(m.id))) invalidate();
 });

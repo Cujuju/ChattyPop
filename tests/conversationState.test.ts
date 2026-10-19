@@ -6,6 +6,7 @@ import { postedArchiveMessage } from '@shared/postedMessage';
 import { acceptedMessage } from './postedMessageFixture';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
+vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/dist/store.cjs') as Record<string, unknown>);
 const { createRoot, mapArray, onCleanup } = createRequire(import.meta.url)('solid-js/dist/solid.cjs') as typeof import('solid-js');
 const env = vi.hoisted(() => ({
   emit: (_event: AppEvent): void => undefined,
@@ -20,7 +21,7 @@ vi.mock('@/api', () => ({ api: {
 // Variable paths keep renderer imports out of the node type-check.
 const statePath = '../src/renderer/src/state/conversation';
 const state = await import(statePath) as {
-  conversation: { (): ConversationView | undefined; readonly loading: boolean; refetch(): void };
+  conversation: { (): ConversationView | undefined; readonly loading: boolean; refetch(): Promise<void> };
   openConversation(id: string): void;
   closeConversation(): void;
 };
@@ -128,7 +129,7 @@ describe('conversation snapshot updates', () => {
     expect(state.conversation()).toBeUndefined();
   });
 
-  it('supersedes an older read when a displayed channel changes during it', async () => {
+  it('waits for an older read before refreshing a displayed channel', async () => {
     let answer!: (value: ConversationView) => void;
     env.read.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
     state.conversation.refetch();
@@ -137,10 +138,54 @@ describe('conversation snapshot updates', () => {
     env.view!.messages[1] = { ...env.view!.messages[1]!, content: 'newer snapshot' };
     change(THREAD_CHANNEL, 'edits');
     await flush();
-    expect(shown()?.content).toBe('newer snapshot');
+    expect(env.read).toHaveBeenCalledTimes(1);
     answer(old);
     await vi.advanceTimersByTimeAsync(0);
+    expect(env.read).toHaveBeenCalledTimes(2);
     expect(shown()?.content).toBe('newer snapshot');
+  });
+
+  it.each(['archive', 'parts', 'mixed'] as const)('coalesces spaced %s events during a slow read into one rerun', async (kind) => {
+    const answers: ((value: ConversationView) => void)[] = [];
+    let active = 0;
+    let maximumActive = 0;
+    env.read.mockImplementation(() => new Promise<ConversationView>((resolve) => {
+      active++;
+      maximumActive = Math.max(maximumActive, active);
+      answers.push(resolve);
+    }).finally(() => { active--; }));
+    const events = [
+      () => change(THREAD_CHANNEL, 'reactions'),
+      () => env.emit({ type: 'message-labels-changed', messageIds: [THREAD] }),
+      () => env.emit({ type: 'attachment-notes-changed', messageIds: [THREAD] }),
+      () => env.emit({ type: 'plugins-changed' }),
+    ];
+    const EVENT_COUNT = 6;
+    for (let i = 0; i < EVENT_COUNT; i++) {
+      const event = kind === 'archive' ? events[0]! : kind === 'parts' ? events[1]! : events[i % events.length]!;
+      event();
+      await flush();
+      expect(env.read).toHaveBeenCalledTimes(1);
+      expect(active).toBe(1);
+    }
+    answers[0]!(structuredClone(env.view!));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(env.read).toHaveBeenCalledTimes(2);
+    expect(active).toBe(1);
+    answers[1]!(structuredClone(env.view!));
+    await flush();
+    expect(env.read).toHaveBeenCalledTimes(2);
+    expect(active).toBe(0);
+    expect(maximumActive).toBe(1);
+  });
+
+  it('batches archive and message-part bursts together before reading', async () => {
+    change(THREAD_CHANNEL, 'reactions');
+    env.emit({ type: 'message-labels-changed', messageIds: [THREAD] });
+    env.emit({ type: 'attachment-notes-changed', messageIds: [THREAD] });
+    expect(env.read).not.toHaveBeenCalled();
+    await flush();
+    expect(env.read).toHaveBeenCalledTimes(1);
   });
 });
 
