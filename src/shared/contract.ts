@@ -171,7 +171,7 @@ export interface CoreMethods {
   /** Transports stamp plugin-call origins; callers cannot choose them. Core enforces declared audiences. */
   cancelPluginCall(origin: Audience, pluginId: string, id: string): void;
   pluginCall(origin: Audience, pluginId: string, name: string, args: unknown[], request?: import('./readPriority').PluginCallRequest): Promise<PluginCallResult>;
-  ingestMessages(messages: RawMessage[]): IngestResult;
+  ingestMessages(messages: RawMessage[]): Promise<IngestResult>;
   /** A gateway dispatch observed by the passive tap; core keeps only what it archives. */
   applyGatewayEvent(t: ArchivedGatewayEvent, d: unknown): void;
   /** A server's whole role list, as main reads it from READY and GUILD_CREATE (too large to forward whole). */
@@ -279,7 +279,7 @@ export interface CoreMethods {
   /** `error` null = stored. */
   emojiDone(id: string, error: string | null): void;
   /** Stores a sync page and advances the channel's sync cursors atomically; null (nothing stored or moved) once sync no longer keeps the channel. */
-  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): IngestResult | null;
+  ingestSyncPage(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean): Promise<IngestResult | null>;
 }
 
 export type CoreMethod = keyof CoreMethods;

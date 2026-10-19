@@ -1,5 +1,6 @@
 import { MESSAGE_FLAG } from '@shared/components';
 import { ArchiveMessages } from './archiveMessages';
+import { ingestInTurns } from './ingestTurns';
 import type { NoteArchiveChange } from '@shared/archiveChanges';
 import type { ChannelInfo, ChannelPolicy, IngestResult, SyncState } from '@shared/contract';
 import {
@@ -217,6 +218,26 @@ export class Archive {
   }
 
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult { return this.messageWriter.ingestMessages(messages, via); }
+
+  /** Import and recheck entry point; each committed slice publishes only its own changes. */
+  ingestMessagesBatched(messages: RawMessage[], via: Arrival, current: () => boolean = () => true): Promise<IngestResult> {
+    if (this.db.inTransaction) throw new Error('Batched ingestion cannot run inside an atomic transaction');
+    return ingestInTurns(messages, (batch) => {
+      if (!current()) throw new Error('Archive changed during ingestion');
+      return this.ingestMessages(batch, via);
+    }).then((result) => result!);
+  }
+
+  /** Commit from the fetched edge inward so a restart never skips an uncommitted part of the page. */
+  ingestSyncPageBatched(channelId: string, page: RawMessage[], direction: 'newer' | 'older', reachedEnd: boolean,
+    self: () => string | null, current: () => boolean = () => true): Promise<IngestResult | null> {
+    if (this.db.inTransaction) throw new Error('Batched ingestion cannot run inside an atomic transaction');
+    if (page.some((message) => message.channel_id !== channelId)) throw new Error('Sync page contains another channel');
+    const owner = self();
+    const ordered = [...page].sort((a, b) => direction === 'newer' ? compareSnowflakes(a.id, b.id) : compareSnowflakes(b.id, a.id));
+    return ingestInTurns(ordered, (batch, last) => current() && self() === owner
+      ? this.ingestSyncPage(channelId, batch, direction, reachedEnd && last, owner) : null);
+  }
   applyUpdate(update: RawMessageUpdate): void { this.messageWriter.applyUpdate(update); }
 
   /** Poll vote events on an archived message (see pollVotes.ts); `selfId` tells the owner's own apart. */

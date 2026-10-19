@@ -26,6 +26,7 @@ import type { BundledDeps, DerivedText, HostPlugins, TextSource } from './bundle
 import { archiveAsync, type ArchiveAsyncReads } from './archiveAsync';
 import { archiveReadDb } from './archiveReadDb';
 import { decorationReads } from './decorationReads';
+import { INGEST_MAX_ROWS } from '../ingestTurns';
 
 /** The archive's ingest for an importer (archive.store()); every write throws PluginInactiveError once the activation ended. */
 export interface Importer {
@@ -35,8 +36,10 @@ export interface Importer {
   upsertChannels(guildId: string, channels: RawChannel[]): void;
   /** Archives the channel (sync keeps it current), or stops archiving it. */
   setOptIn(channelId: string, on: boolean): void;
-  /** Stores messages as a re-fetch does (changed text becomes a revision), as arrived `via`. */
+  /** Small synchronous writes only; larger imports must await ingestMessagesBatched outside atomically. */
   ingestMessages(messages: RawMessage[], via: Arrival): IngestResult;
+  /** Commits bounded slices and yields; earlier slices survive a failure and re-imports are idempotent. Call outside atomically. */
+  ingestMessagesBatched(messages: RawMessage[], via: Arrival): Promise<IngestResult>;
 }
 
 /** Archive services scoped to one bundled plugin. */
@@ -164,7 +167,14 @@ function importer(id: string, bundled: BundledDeps, live: () => boolean): Import
     upsertGuilds: (guilds) => archive().upsertGuilds(guilds),
     upsertChannels: (guildId, channels) => archive().upsertChannels(guildId, channels),
     setOptIn: (channelId, on) => archive().setOptIn(channelId, on),
-    ingestMessages: (messages, via) => archive().ingestMessages(messages, via),
+    ingestMessages: (messages, via) => {
+      if (messages.length > INGEST_MAX_ROWS) throw new Error('Large imports must await ingestMessagesBatched');
+      return archive().ingestMessages(messages, via);
+    },
+    ingestMessagesBatched: (messages, via) => {
+      const a = archive();
+      return a.ingestMessagesBatched(messages, via, () => archive() === a);
+    },
   };
 }
 

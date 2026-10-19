@@ -167,8 +167,8 @@ export function archiveHandlers(o: {
     },
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
-      const r = archive().ingestMessages(messages, ARRIVAL.sync);
-      return r;
+      const a = archive();
+      return a.ingestMessagesBatched(messages, ARRIVAL.sync, () => o.ready().archive === a);
     },
     applyGatewayEvent: (t, d) => applyGatewayEvent(archive(), t, d, gatewayDeps),
     applyDmWrite: (accountId, t, d, archiving) => {
@@ -224,8 +224,8 @@ export function archiveHandlers(o: {
     messageById: (messageId) => messagesByIds(o.ready().db, [messageId])[0] ?? null,
     messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
-      const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd, o.selfId());
-      return r;
+      const a = archive();
+      return a.ingestSyncPageBatched(channelId, page, direction, reachedEnd, o.selfId, () => o.ready().archive === a);
     },
   };
 }
