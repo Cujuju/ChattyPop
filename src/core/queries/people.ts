@@ -1,9 +1,10 @@
 // People by name, for pickers (a rule's Who, search's from:): display name, username, and server nicknames outside hidden servers.
+// Privacy mode leaves out people tied only to hidden places (visiblePersonSql).
 import type { PersonMatch } from '@shared/contract';
 import type { Db } from '../db';
 import { membersWhoSee } from './mentions';
 import { plainNameSql } from './names';
-import { visibleChannelSql } from './privacy';
+import { visibleChannelSql, visiblePersonSql } from './privacy';
 import { placeSql } from './search';
 
 const COLUMNS = `u.id, ${plainNameSql('u.id')} AS name, u.username, u.avatar`;
@@ -32,7 +33,7 @@ export function findPeople(db: Db, query: string, limit: number): PersonMatch[] 
   const q = query.trim();
   if (!q) return [];
   return db
-    .prepare(`WITH found(id) AS (${NAMED_IDS}) SELECT ${COLUMNS} FROM found JOIN users u ON u.id = found.id ORDER BY ${PREFIX_FIRST}, name COLLATE NOCASE LIMIT @limit`)
+    .prepare(`WITH found(id) AS (${NAMED_IDS}) SELECT ${COLUMNS} FROM found JOIN users u ON u.id = found.id WHERE ${visiblePersonSql('u.id')} ORDER BY ${PREFIX_FIRST}, name COLLATE NOCASE LIMIT @limit`)
     .all({ ...likeParams(q), limit }) as PersonMatch[];
 }
 
@@ -63,7 +64,8 @@ export function findSearchAuthors(db: Db, name: string, query: string, shownChan
   return db.prepare(sql).all({ ...(q ? likeParams(q) : {}), ...params }) as PersonMatch[];
 }
 
+/** The people `ids` name that may show; ids the archive doesn't know are left out. */
 export function peopleByIds(db: Db, ids: string[]): PersonMatch[] {
   if (!ids.length) return [];
-  return db.prepare(`SELECT ${COLUMNS} FROM users u WHERE u.id IN (${ids.map(() => '?').join(', ')})`).all(...ids) as PersonMatch[];
+  return db.prepare(`SELECT ${COLUMNS} FROM users u WHERE u.id IN (${ids.map(() => '?').join(', ')}) AND ${visiblePersonSql('u.id')}`).all(...ids) as PersonMatch[];
 }

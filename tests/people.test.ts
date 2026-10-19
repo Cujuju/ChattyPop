@@ -4,6 +4,8 @@ import { ARRIVAL } from '../src/core/arrival';
 import { applyAccessFacts } from '../src/core/access';
 import type { RawRole } from '@shared/discord';
 import { PERMISSIONS } from '@shared/permissions';
+import { setSetting } from '../src/core/db';
+import { SETTINGS_KEYS } from '@shared/settings';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
 describe('people by name', () => {
@@ -90,6 +92,17 @@ describe('people a search can find', () => {
     expect(ids(db, '', 'in:quiet')).toEqual(['eve', 'mo']); // archived, nothing stored yet
     expect(ids(db, '', 'server:markets')).toEqual(['bob']);
     expect(ids(db, 'e', '')).toEqual(['eve']);
+  });
+
+  it('leaves out, in privacy mode, people tied only to hidden places', () => {
+    const db = setup();
+    seedArchive(db, []).upsertMembers('g2', [{ user: { id: 'ann', username: 'ann', global_name: null }, nick: null, roles: [] }] as never);
+    db.prepare("UPDATE guilds SET hide_in_privacy = 1 WHERE id = 'g2'").run();
+    setSetting(db, SETTINGS_KEYS.privacyMode, true);
+    expect(findPeople(db, 'b', 10).map((p) => p.id)).toEqual([]); // bob posted only in g2
+    expect(peopleByIds(db, ['bob', 'ann', 'dee']).map((p) => p.id).sort()).toEqual(['ann', 'dee']); // ann also posted in g1; dee is tied to nowhere
+    setSetting(db, SETTINGS_KEYS.privacyMode, false);
+    expect(findPeople(db, 'b', 10).map((p) => p.id)).toEqual(['bob']);
   });
 
   it('follows messages as they are stored and removed', () => {

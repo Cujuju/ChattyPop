@@ -12,6 +12,22 @@ export const visibleChannelIds = (db: PluginDb, channelIds: string[]): Set<strin
 /** Uncorrelated SQL guard evaluates once per statement; hidden-id scans occur per row only when privacy scope is nonempty. */
 export const NOTHING_HIDDEN_SQL = 'NOT EXISTS (SELECT 1 FROM hidden_ids)';
 
+/** People tied to places by posting, membership or a DM's recipients, with each place's id (`place`) and server (`guild`). */
+const PERSON_TIES = `SELECT ca.author_id AS person, ca.channel_id AS place, c.guild_id AS guild FROM channel_authors ca JOIN channels c ON c.id = ca.channel_id
+  UNION ALL SELECT user_id, NULL, guild_id FROM members
+  UNION ALL SELECT peer_id, id, guild_id FROM channels WHERE peer_id IS NOT NULL
+  UNION ALL SELECT r.value, c.id, c.guild_id FROM channels c, json_each(c.recipients) r WHERE c.recipients IS NOT NULL`;
+
+/** 1 for a tie to a hidden place (a hidden channel or server), else 0; a membership has no channel. */
+const HIDDEN_TIE = `(IFNULL(place IN (SELECT id FROM hidden_channels), 0) OR IFNULL(guild IN (SELECT id FROM hidden_ids), 0))`;
+
+/**
+ * SQL true when person id `column` may show: privacy mode hides one tied only to hidden places. One with no tie at all
+ * (seen only in a reaction or a mention) is not tied to a place, so shows.
+ */
+export const visiblePersonSql = (column: string): string =>
+  `(${NOTHING_HIDDEN_SQL} OR ${column} NOT IN (SELECT person FROM (${PERSON_TIES}) GROUP BY person HAVING MIN(${HIDDEN_TIE}) = 1))`;
+
 /** SQL true when `text` holds a hidden channel or server id (no guard: callers add NOTHING_HIDDEN_SQL). */
 const hiddenRefSql = (text: string): string => `EXISTS (SELECT 1 FROM hidden_ids h WHERE instr(${text}, h.id) > 0)`;
 
