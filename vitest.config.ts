@@ -9,6 +9,8 @@ import { HOST_TESTING_FILES } from './tests/hostTesting/files';
  * runner that runs up to 7× its usual time (a 0.75 s test past 5 s), so vitest's 5 s default fails sound tests.
  */
 const TEST_TIMEOUT_MS = 30_000;
+/** Native read helpers multiply processes per test worker; shared machines can bound test concurrency explicitly. */
+const TEST_WORKERS = process.env.CHATTYPOP_TEST_WORKERS ? Number(process.env.CHATTYPOP_TEST_WORKERS) : undefined;
 
 /** The test config, its plugin registry built from `plugins`: none for the host's tests, one plugin for plugin:check. */
 export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineConfig({
@@ -28,6 +30,7 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
   define: { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) },
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).
   test: {
+    maxWorkers: TEST_WORKERS,
     include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'], setupFiles: ['tests/setupReads.ts'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
