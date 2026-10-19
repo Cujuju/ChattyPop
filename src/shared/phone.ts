@@ -98,6 +98,7 @@ export const phoneMayCallMain = (channel: string): boolean => mainCalls.has(chan
 
 /** Events the phone's stores use. Main's own work orders (plugins' posts and replies, audio fetches) never leave the PC. */
 export const PHONE_EVENT_TYPES = [
+  // Shares desktop's ArchiveChangedEvent, including kinds, insert ranges and plugin ids.
   'archive-changed',
   'sync-progress',
   'opt-in-changed',

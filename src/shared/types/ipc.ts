@@ -13,12 +13,26 @@ export const COMPOSE_INTENTS = ['reply', 'edit'] as const;
 export type ComposeIntent = (typeof COMPOSE_INTENTS)[number];
 export const isComposeIntent = (v: unknown): v is ComposeIntent => (COMPOSE_INTENTS as readonly unknown[]).includes(v);
 
+/** Data invalidated by an archive write. */
+export type ArchiveChangeKind = 'messages' | 'edits' | 'deletes' | 'reactions' | 'polls' | 'attachments' | 'links' | 'names' | 'channels' | 'disk' | 'plugin';
+
+/** Shared by windows, phones and Core plugins; an empty channel id denotes a global change. */
+export interface ArchiveChange {
+  changes: Record<string, ArchiveChangeKind[]>;
+  insertOnlyChannelIds: string[];
+  inserted?: { afterSeq: number; throughSeq: number };
+  /** Absent when names in any guild may have changed. */
+  nameGuildIds?: string[];
+  pluginIds?: string[];
+}
+export type ArchiveChangedEvent = { type: 'archive-changed' } & ArchiveChange;
+
 /** Pushed to the renderer; the renderer never polls. */
 export type AppEvent =
   | { type: 'attachment-save-progress'; requestId: string; done: number; total: number }
   | { type: 'account-link'; id: string; state: 'waiting' | 'done' | 'failed'; url: string | null; error: string | null; opened?: boolean }
   | { type: 'saved-messages-changed'; session: string | null; revision: number; pageEpoch: number; reset: boolean }
-  | { type: 'archive-changed'; channelIds: string[]; /** Channels with only new inserts in this batch; absent means refresh existing rows. */ insertOnlyChannelIds?: string[]; /** Names or their styling (members, roles) changed: views re-read the names they show. */ namesChanged?: true; /** The servers whose names changed; absent when any server's may have. */ nameGuildIds?: string[] }
+  | ({ type: 'archive-changed' } & ArchiveChange)
   | { type: 'sync-progress'; channelId: string; phase: 'catch-up' | 'backfill' | 'reverify' | 'idle' | 'paused' | 'error'; fetched: number; message?: string }
   /** `optedIn`: a channel now archived, which main syncs; main-only (sharedEvent drops it). */
   | { type: 'opt-in-changed'; optedIn?: string }

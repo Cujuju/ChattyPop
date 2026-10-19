@@ -76,8 +76,8 @@ export interface PluginArchive {
   onText(fn: (m: TextMessage, arrived: Arrived, source: TextSource) => void): void;
   /** An attachment reached the store, before the storage cap may prune it. */
   onAttachmentStored(fn: (attachmentId: string) => void): void;
-  /** Messages in these channels were stored, edited or removed (debounced; a change to no channel isn't reported). */
-  onChanged(fn: (channelIds: string[]) => void): void;
+  /** Debounced archive changes, including global changes, with kinds, insert ranges and plugin ids. */
+  onChanged(fn: (change: import('@shared/contract').ArchiveChange) => void): void;
   /** Privacy mode or the channels and servers it hides changed. */
   onPrivacyChanged(fn: () => void): void;
   /** Messages as the Archive shows them; ids not archived, or hidden by privacy mode, are left out. */
@@ -197,7 +197,7 @@ export function pluginArchive(
     },
     attachmentsDir: bundled.attachmentsDir,
     store: () => importer(id, bundled, live),
-    changed: (channelId) => void (live() && deps.changed(channelId)),
+    changed: (channelId) => void (live() && deps.changed(channelId, ['plugin'], { pluginId: id })),
     optInChanged: () => send({ type: 'opt-in-changed' }),
     onText: (fn) => void reg.onText.push(fn),
     onAttachmentStored: (fn) => void reg.onAttachmentStored.push(fn),

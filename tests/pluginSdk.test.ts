@@ -349,12 +349,12 @@ describe('context services', () => {
         ctx.ai.onSettingsChange(() => heard.push('ai'));
       }),
     );
-    host.archiveChanged(['c1']);
+    host.archiveChanged({ changes: { c1: ['messages'] }, insertOnlyChannelIds: ['c1'] });
     host.linksRebuilt();
     host.settingChanged(SETTINGS_KEYS.ai);
     host.settingChanged('other');
     await host.setEnabled('judge', false);
-    host.archiveChanged(['c2']);
-    expect(heard).toEqual([['c1'], 'rebuilt', 'ai']);
+    host.archiveChanged({ changes: { c2: ['reactions'] }, insertOnlyChannelIds: [] });
+    expect(heard).toEqual([{ changes: { c1: ['messages'] }, insertOnlyChannelIds: ['c1'] }, 'rebuilt', 'ai']);
   });
 });

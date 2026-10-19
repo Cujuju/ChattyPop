@@ -1,4 +1,4 @@
-// Temporary triggers count name-style and channel-access writes. Core emits namesChanged after requests, scoped to affected servers.
+// Temporary triggers count name-style and channel-access writes. Core emits names changes after requests, scoped to affected servers.
 import type { Db } from './db';
 
 /** Columns affecting names, access, or author count policy; every writer shares the archive refresh notification. */

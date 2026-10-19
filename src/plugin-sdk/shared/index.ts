@@ -212,3 +212,5 @@ export { ALT_TEXT_MAX, type FileOptions, type OwnerMessage } from '@shared/compo
 export type { DirectoryGuild } from '@shared/contract';
 
 export { ACCOUNT_SEPARATOR, ACCOUNT_AUTHS, accountProvider, accountKey, newAccountId, type AccountAuth, type ProviderAuth, type ProviderAccountSettings } from '@shared/providerAccounts';
+
+export type { ArchiveChange, ArchiveChangeKind, ArchiveChangedEvent } from '@shared/contract';

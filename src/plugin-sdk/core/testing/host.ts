@@ -1,3 +1,4 @@
+import { ArchiveChanges } from '@shared/archiveChanges';
 // Runs core plugins through real host adapters with scripted AI, network stand-ins and injected clocks.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -90,7 +91,19 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   registry.bindAccounts(ai, emit);
   // Jev for a switch that is on: the registry's check, with the scripted Jev in place of a keyed connection.
   const jevFor = (feature: JevFeature) => (o.ai?.jev && jevFeatureOn(ai().jev, feature) ? o.ai.jev : null);
-  const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id));
+  const archiveChanges = new ArchiveChanges();
+  let batchingArchive = false;
+  const flushArchiveChanges = (): void => {
+    const change = archiveChanges.take();
+    if (!Object.keys(change.changes).length) return;
+    emit({ type: 'archive-changed', ...change });
+    host?.archiveChanged(change);
+  };
+  const noteChanged: import('@shared/archiveChanges').NoteArchiveChange = (channelId, kinds, opts) => {
+    archiveChanges.add(channelId, kinds, opts);
+    if (!batchingArchive) flushArchiveChanges();
+  };
+  const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id), noteChanged);
   const saveSetting = (key: string, value: unknown): void => {
     setSetting(db, key, value);
     if (key === SETTINGS_KEYS.ai) void registry.accountsChanged(ai());
@@ -125,7 +138,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     send: o.network ?? (() => Promise.reject(new Error('This test gives the plugin no network.'))),
   };
   const kinds = bundled.rules;
-  host = new PluginHost(join(dir, 'plugins'), { db, emit, changed: () => undefined, ai: scopedCompletion(() => db, registry, ai), decider: () => jevFor('pluginDecide'), bundled }, cores, installed);
+  host = new PluginHost(join(dir, 'plugins'), { db, emit, changed: noteChanged, ai: scopedCompletion(() => db, registry, ai), decider: () => jevFor('pluginDecide'), bundled }, cores, installed);
   if (fresh) {
     for (const [key, value] of Object.entries(o.profile?.settings ?? {})) setSetting(db, key, value);
     for (const sql of o.profile?.sql ?? []) db.exec(sql);
@@ -145,11 +158,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
   const archiveService = archiveHandlers({
     ready: () => ({ db, archive }),
     emit,
-    noteChanged: (channelId) => {
-      if (!channelId) return;
-      emit({ type: 'archive-changed', channelIds: [channelId] });
-      host.archiveChanged([channelId]);
-    },
+    noteChanged,
     backfillFromMs: () => 0,
     selfId: () => self,
     lastSeenAt: () => lastSeen,
@@ -207,11 +216,9 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     archive: {
       arrive: (messages) => {
         const raws = messages.map((m) => rawMessage(m, now));
-        archive.ingestMessages(raws, ARRIVAL.gateway);
-        // As core's ingest handlers note the change: windows hear it, and plugins' ctx.archive.onChanged.
-        const channelIds = [...new Set(raws.map((m) => m.channel_id))];
-        emit({ type: 'archive-changed', channelIds });
-        host.archiveChanged(channelIds);
+        batchingArchive = true;
+        try { archive.ingestMessages(raws, ARRIVAL.gateway); }
+        finally { batchingArchive = false; flushArchiveChanges(); }
         return raws.map((m) => m.id);
       },
       linkConversations: () => new ConversationLinkJob(() => db).run(),

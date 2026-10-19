@@ -1,3 +1,5 @@
+import { utcDay } from '../archiveChangeSource';
+import type { ArchiveChangeKind } from '@shared/contract';
 import { snowflakeToMs } from '@shared/discord';
 import { CUSTOM_EMOJI, type CustomEmoji } from '@shared/emoji';
 import type { Db } from '../db';
@@ -44,7 +46,16 @@ const REQUEUE = "status = 'failed' AND url IS NOT excluded.url";
  * Derives attachment rows and links idempotently. Updates attachment metadata and marks removals; safe for inserts and
  * repeated MESSAGE_UPDATE events. A failed download whose signed URL Discord re-issued is queued again with fresh retries.
  */
-export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): void {
+export interface DerivedChange {
+  kinds: ArchiveChangeKind[];
+  insertOnly: boolean;
+  relatedLinks: { channelId: string; day: string }[];
+}
+
+export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): DerivedChange {
+  const kinds = new Set<ArchiveChangeKind>();
+  let insertOnly = true;
+  const relatedLinks: DerivedChange['relatedLinks'] = [];
   const addAttachment = db.prepare(
     `INSERT INTO attachments (id, message_id, channel_id, filename, content_type, size, width, height, url, description, flags, ts)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -54,14 +65,16 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
   );
   const ts = m.attachments?.length ? db.prepare('SELECT ts FROM messages WHERE id = ?').pluck().get(m.id) as number | undefined : undefined;
   for (const a of m.attachments ?? []) {
+    kinds.add('attachments');
     addAttachment.run(a.id, m.id, m.channel_id, a.filename, a.content_type ?? null, a.size ?? null, a.width ?? null, a.height ?? null, a.url, a.description ?? null, a.flags ?? null, ts ?? snowflakeToMs(m.id));
   }
   // Only a payload that lists attachments says which remain; a partial update without the field says nothing.
   if (Array.isArray(m.attachments)) {
-    db.prepare(
+    const removed = db.prepare(
       `UPDATE attachments SET removed_at = ? WHERE message_id = ? AND removed_at IS NULL
        AND id NOT IN (SELECT value FROM json_each(?))`,
     ).run(Date.now(), m.id, JSON.stringify(m.attachments.map((a) => a.id)));
+    if (removed.changes) kinds.add('attachments');
   }
 
   const addEmoji = db.prepare('INSERT OR IGNORE INTO emojis (id, name, animated) VALUES (?, ?, ?)');
@@ -84,19 +97,29 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): vo
     ${LINK_METADATA_FIELDS.map((f) => `metadata_${f} = excluded.metadata_${f}`).join(', ')}`);
   const linkIds: number[] = [];
   for (const l of extractLinks(m.content ?? '', m.embeds, m.author?.bot === true)) {
+    kinds.add('links');
+    const existed = db.prepare('SELECT id FROM links WHERE url = ?').get(l.url);
+    if (existed) insertOnly = false;
     const values = [l.title, l.description, l.thumbnailUrl, l.site];
     const { id } = upsertLink.get(l.url, l.platform, ...values, m.id, m.channel_id, authorId, snowflakeToMs(m.id)) as {
       id: number;
     };
     linkMessage.run(m.id, id, ...values);
     linkIds.push(id);
+    if (existed) {
+      const shares = db.prepare('SELECT DISTINCT m.channel_id AS channelId, m.ts FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?')
+        .all(id) as { channelId: string; ts: number }[];
+      relatedLinks.push(...shares.map((r) => ({ channelId: r.channelId, day: utcDay(r.ts) })));
+    }
   }
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
   // The link rows stay, as other messages and the link history refer to them.
   if (typeof m.content === 'string' && Array.isArray(m.embeds)) {
     const removed = db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?)) RETURNING link_id')
       .all(m.id, JSON.stringify(linkIds)) as { link_id: number }[];
+    if (removed.length) kinds.add('links');
     linkIds.push(...removed.map((r) => r.link_id));
   }
   reconcileLinkMetadata(db, linkIds);
+  return { kinds: [...kinds], insertOnly, relatedLinks };
 }

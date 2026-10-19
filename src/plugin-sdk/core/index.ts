@@ -131,3 +131,5 @@ export { actionRange } from '@core/rules/rangeActions';
 
 export type { ArchivePayload, ArchivePayloadReader } from '@core/plugins/archivePayloads';
 export type { ArchiveReplyReader, ArchiveReplyExists, ArchiveReplyTargets, ReplyTarget } from '@core/plugins/archiveReplies';
+
+export type { ArchiveChange, ArchiveChangeKind, ArchiveChangedEvent } from '@shared/contract';

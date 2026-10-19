@@ -1,4 +1,6 @@
 // Core methods over the archive itself: directory, channels, ingest and sync, message pages.
+import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { noteMessageChanges } from './archiveChangeSource';
 import type { AppEvent, CoreMethods } from '@shared/contract';
 import type { Archive } from './archive';
 import type { Db } from './db';
@@ -63,7 +65,7 @@ export function archiveHandlers(o: {
   ready: () => { db: Db; archive: Archive };
   emit: (e: AppEvent) => void;
   /** An archive write touched this channel ('' = none in particular); coalesced into one UI refresh. */
-  noteChanged: (channelId: string, insertOnly?: boolean) => void;
+  noteChanged: NoteArchiveChange;
   /** Start of the history window sync fills. */
   backfillFromMs: (channelId: string) => number;
   /** The signed-in user; null until main has said. */
@@ -75,13 +77,9 @@ export function archiveHandlers(o: {
   /** When auto-archiving DMs was turned on (ms); null while off. */
   autoArchiveSinceMs: () => number | null;
 }): Handlers {
-  const archive = (): Archive => o.ready().archive;
+  const archive = (): Archive => { const a = o.ready().archive; a.reportChangesWith(o.noteChanged); return a; };
   const gatewayDeps: GatewayDeps = {
-    changed: (channelId, insertOnly, insertedId) => {
-      // Late inserts behind the newest row need an in-place read; after-cursor catch-up cannot find them.
-      const appendOnly = insertOnly === true && newestMessageId(o.ready().db, channelId) === insertedId;
-      o.noteChanged(channelId, appendOnly);
-    },
+    changed: o.noteChanged,
     backfillFromMs: o.backfillFromMs,
     selfId: o.selfId,
     dmActivity: (channelId, lastMessageId) => {
@@ -129,20 +127,20 @@ export function archiveHandlers(o: {
       const messageId = last ?? newest;
       if (messageId) o.emit({ type: 'channel-read', channelId, messageId });
     },
-    upsertGuilds: (guilds) => archive().upsertGuilds(guilds),
-    upsertChannels: (guildId, channels) => archive().upsertChannels(guildId, channels),
+    upsertGuilds: (guilds) => { archive().upsertGuilds(guilds); },
+    upsertChannels: (guildId, channels) => { archive().upsertChannels(guildId, channels); },
     setOptIn: (channelId, on) => setArchiving(channelId, on),
     optedInChannels: () => archive().optedInChannels(o.selfId()),
     syncable: (channelId) => archive().syncable(channelId, o.selfId()),
     upsertThreads: (threads) => {
       const stale = archive().upsertThreads(threads, o.backfillFromMs);
-      if (threads.length) o.noteChanged('');
+      if (threads.length) o.noteChanged('', ['channels']);
       return stale;
     },
     channelInfo: (channelId) => archive().channelInfo(channelId),
     replacePrivateChannels: (selfId, channels, partial) => {
       archive().replacePrivateChannels(selfId, channels, partial, Date.now());
-      o.noteChanged('');
+      o.noteChanged('', ['channels']);
     },
     privateChannel: (channelId) => privateChannelFacts(o.ready().db, channelId, o.selfId()),
     dmWith: (userId) => openDmWith(o.ready().db, userId, o.selfId()),
@@ -163,7 +161,6 @@ export function archiveHandlers(o: {
     // Main sends fetched pages here (the startup re-check), never gateway events.
     ingestMessages: (messages) => {
       const r = archive().ingestMessages(messages, ARRIVAL.sync);
-      new Set(messages.map((m) => m.channel_id)).forEach((id) => o.noteChanged(id));
       return r;
     },
     applyGatewayEvent: (t, d) => applyGatewayEvent(archive(), t, d, gatewayDeps),
@@ -187,27 +184,31 @@ export function archiveHandlers(o: {
       const db = o.ready().db;
       putReadStates(db, counts, scope);
       // READY's replace every channel's: the list is read again. Others patch rows in place, never for a hidden channel.
-      if (scope !== 'merge') return o.noteChanged('');
+      if (scope !== 'merge') return o.noteChanged('', ['channels']);
       const visible = visibleChannelIds(db, counts.map((c) => c.channelId));
       const states = counts.filter((c) => visible.has(c.channelId));
       if (states.length) o.emit({ type: 'read-states-changed', states });
     },
     putGuildOrder: (guildIds) => {
-      if (putGuildOrder(o.ready().db, guildIds)) o.noteChanged('');
+      if (putGuildOrder(o.ready().db, guildIds)) o.noteChanged('', ['channels']);
     },
     applyOwnReaction: (r) => {
       const self = o.selfId();
       const event = { channel_id: r.channelId, message_id: r.messageId, emoji: r.emoji, user_id: self ?? undefined };
       // Unknown self: the gateway's copy applies it alone.
-      if (self && archive().applyReaction(r.add ? 'MESSAGE_REACTION_ADD' : 'MESSAGE_REACTION_REMOVE', event, self)) o.noteChanged(r.channelId);
+      if (self && archive().applyReaction(r.add ? 'MESSAGE_REACTION_ADD' : 'MESSAGE_REACTION_REMOVE', event, self)) noteMessageChanges(o.ready().db, o.noteChanged, r.channelId, ['reactions'], [r.messageId]);
     },
     applyOwnPollVote: (v) => {
-      if (archive().applyOwnPollVote(v)) o.noteChanged(v.channelId);
+      if (archive().applyOwnPollVote(v)) noteMessageChanges(o.ready().db, o.noteChanged, v.channelId, ['polls'], [v.messageId]);
     },
     syncState: (channelId) => archive().syncState(channelId),
     reconcileDeletes: (channelId, seenIds, fromId, throughId) => {
-      const n = archive().reconcileDeletes(channelId, seenIds, fromId, throughId, Date.now());
-      if (n) o.noteChanged(channelId);
+      const at = Date.now();
+      const n = archive().reconcileDeletes(channelId, seenIds, fromId, throughId, at);
+      if (n) {
+        const ids = o.ready().db.prepare('SELECT id FROM messages WHERE channel_id = ? AND deleted_at = ?').pluck().all(channelId, at) as string[];
+        noteMessageChanges(o.ready().db, o.noteChanged, channelId, ['deletes'], ids);
+      }
       return n;
     },
     newestStoredId: (channelId) => newestMessageId(o.ready().db, channelId),
@@ -217,7 +218,6 @@ export function archiveHandlers(o: {
     messagesByIds: (messageIds) => messagesByIds(o.ready().db, messageIds),
     ingestSyncPage: (channelId, page, direction, reachedEnd) => {
       const r = archive().ingestSyncPage(channelId, page, direction, reachedEnd, o.selfId());
-      if (r && page.length) o.noteChanged(channelId);
       return r;
     },
   };

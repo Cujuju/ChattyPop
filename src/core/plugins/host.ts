@@ -304,9 +304,9 @@ export class PluginHost {
     for (const p of this.active()) for (const fn of p.reg.onShown) this.guard(p, () => fn(messageId));
   }
 
-  /** Messages in these channels changed (debounced; real channels only). */
-  archiveChanged(channelIds: string[]): void {
-    for (const p of this.active()) for (const fn of p.reg.onArchiveChanged) this.guard(p, () => fn(channelIds));
+  /** Debounced archive changes, with the same payload windows receive. */
+  archiveChanged(change: import('@shared/contract').ArchiveChange): void {
+    for (const p of this.active()) for (const fn of p.reg.onArchiveChanged) this.guard(p, () => fn(change));
   }
 
   /** Privacy mode or its hidden scope changed. */

@@ -69,7 +69,7 @@ export function routeCoreEvents(d: CoreEventDeps): EventSinks {
   core.on('event', publish);
   core.on('event', (e) => {
     if (e.type === 'privacy-changed') notifications.privacyChanged();
-    if (e.type === 'archive-changed') d.downloader.kick();
+    if (e.type === 'archive-changed' && Object.values(e.changes).some((kinds) => kinds.includes('attachments'))) d.downloader.kick();
     for (const notice of noticesFor(e)) {
       void notifications.show(notificationRequest(notice)).catch((error: unknown) => {
         diag('notification-failed', { message: errorMessage(error) });

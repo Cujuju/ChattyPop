@@ -23,7 +23,7 @@ function storedContents(rows: readonly StoredRow[]): { sha: string; bytes: numbe
 }
 
 /** Evicts files by their newest referencing message until under cap. Retains attachment rows as evicted and returns bytes freed. */
-export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: number | null): number {
+export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: number | null, changed: (attachmentId: string) => void = () => {}): number {
   if (capGb === null) return 0;
   const cap = capGb * BYTES_PER_GB;
   const rows = db
@@ -35,13 +35,14 @@ export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: numb
   const files = storedContents(rows);
   let total = files.reduce((n, f) => n + f.bytes, 0);
   if (total <= cap) return 0;
-  const evict = db.prepare("UPDATE attachments SET status = 'evicted', error = NULL WHERE sha256 = ?");
+  const evict = db.prepare("UPDATE attachments SET status = 'evicted', error = NULL WHERE sha256 = ? RETURNING id").pluck();
   let freed = 0;
   let prunedBefore = Number(getSetting(db, PRUNED_BEFORE_KEY)) || 0;
   for (const f of files) {
     if (total <= cap) break;
-    evict.run(f.sha);
+    const affected = evict.all(f.sha) as string[];
     removeStoredFiles(attachmentsDir, f.sha);
+    affected.forEach(changed);
     total -= f.bytes;
     freed += f.bytes;
     prunedBefore = Math.max(prunedBefore, f.newest);
@@ -51,13 +52,13 @@ export function enforceAttachmentCap(db: Db, attachmentsDir: string, capGb: numb
 }
 
 /** Pending attachments on messages at or before the pruning frontier are marked evicted instead of downloaded. */
-export function skipPrunedPending(db: Db): void {
+export function skipPrunedPending(db: Db): string[] {
   const before = Number(getSetting(db, PRUNED_BEFORE_KEY)) || 0;
-  if (!before) return;
-  db.prepare(
+  if (!before) return [];
+  return db.prepare(
     `UPDATE attachments SET status = 'evicted' WHERE status = 'pending'
-       AND message_id IN (SELECT id FROM messages WHERE ts <= ?)`,
-  ).run(before);
+       AND message_id IN (SELECT id FROM messages WHERE ts <= ?) RETURNING id`,
+  ).pluck().all(before) as string[];
 }
 
 /** Where an archived attachment is stored: <shard>/<sha>.<ext> under the attachments folder. */

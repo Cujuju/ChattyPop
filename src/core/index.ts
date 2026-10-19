@@ -1,5 +1,6 @@
 // Electron utility process owning SQLite, AI and core plugins.
-import { ArchiveChanges } from '@shared/archiveChanges';
+import { ArchiveChanges, type NoteArchiveChange } from '@shared/archiveChanges';
+import { noteAttachmentChange } from './archiveChangeSource';
 import { join } from 'node:path';
 import bundledCore, { failed as failedCore } from 'virtual:bundled-plugins/core';
 import {
@@ -114,35 +115,25 @@ function emit(event: AppEvent): void {
 }
 
 const changed = new ArchiveChanges();
-let namesChanged = false;
-/** The servers whose names changed since the last event; null once any server's may have. */
-let nameGuilds: Set<string> | null = new Set();
 let changeTimer: NodeJS.Timeout | undefined;
-function noteChanged(channelId: string, insertOnly = false): void {
-  changed.add(channelId, insertOnly);
-  forgetMentionPools(channelId);
+const noteChanged: NoteArchiveChange = (channelId, kinds, opts) => {
+  if (!kinds.length) return;
+  changed.add(channelId, kinds, opts);
+  if (kinds.some((k) => ['messages', 'edits', 'deletes', 'names'].includes(k))) forgetMentionPools(channelId);
   changeTimer ??= setTimeout(() => {
     changeTimer = undefined;
-    const names = namesChanged ? { namesChanged: true as const, ...(nameGuilds ? { nameGuildIds: [...nameGuilds] } : {}) } : {};
     const changes = changed.take();
-    emit({ type: 'archive-changed', ...changes, ...names });
-    namesChanged = false;
-    nameGuilds = new Set();
-    // '' marks a change to no channel (disk use, a plugin's own refresh): plugins hear only about messages.
-    const channelIds = changes.channelIds.filter((id) => id !== '');
-    if (channelIds.length) plugins?.archiveChanged(channelIds);
+    emit({ type: 'archive-changed', ...changes });
+    plugins?.archiveChanged(changes);
   }, CHANGE_EVENT_DEBOUNCE_MS);
-}
+};
 
 /** What name data a request changed (nameWrites.ts); set once the archive is open. */
 let namesWritten: (() => NameChange | null) | undefined;
 
 /** Members, roles or access changed in `change`'s servers: the names views show, and who an @ list offers, may differ. */
 function noteNamesChanged(change: NameChange): void {
-  namesChanged = true;
-  if (!change.guildIds) nameGuilds = null;
-  else for (const g of change.guildIds) nameGuilds?.add(g);
-  noteChanged('');
+  noteChanged('', ['names'], { nameGuildIds: change.guildIds ?? undefined });
 }
 
 /** A service created at init, once the core is ready; each accessor stays a closure so it reads the current value. */
@@ -161,15 +152,15 @@ const backfillFromMs = (channelId: string): number =>
 /** Enforces Settings → Archive → attachment cap (oldest files pruned first); a no-op when the cap is off. */
 function applyAttachmentCap(): void {
   const db = ready().db;
-  if (enforceAttachmentCap(db, attachmentsDir, archiveSettings().attachmentCapGb)) noteChanged('');
+  enforceAttachmentCap(db, attachmentsDir, archiveSettings().attachmentCapGb, (id) => noteAttachmentChange(db, noteChanged, id, true));
 }
 
 /** Text retention re-runs this often so messages move to their tier as they age. */
 const TEXT_RETENTION_INTERVAL_MS = MS_PER_HOUR;
 /** Enforces Settings → Archive text tier and database cap. */
 const retention = new TextRetentionRunner(
-  () => applyTextRetention(ready().db, archiveSettings(), Date.now(), aiSettings().jev.keepImportant),
-  () => noteChanged(''),
+  () => applyTextRetention(ready().db, archiveSettings(), Date.now(), aiSettings().jev.keepImportant, noteChanged),
+  () => noteChanged('', ['disk']),
 );
 const applyTextTier = (): Promise<void> => retention.request();
 
@@ -291,8 +282,8 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
     (id) => {
       plugins?.attachmentStored(id); // before the cap may prune it
       applyAttachmentCap();
-      noteChanged(''); // disk usage changed; channel-less change refreshes status only
     },
+    noteChanged,
   ),
   ...attachmentStoreHandlers(() => ready().db, () => attachmentsDir, noteChanged),
 };
@@ -401,6 +392,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
           pluginHost.imagesShown(id);
           conversationLinks.kick(); // a stored message may have queued links
         },
+        noteChanged,
       );
       adoptBundledData(db, BUNDLED_PLUGINS); // before any plugin reads its tables or settings
       previousSessionSeenAt = startLastSeen(() => db);

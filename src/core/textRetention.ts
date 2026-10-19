@@ -1,4 +1,6 @@
 // Archive text retention with active plugin coverage.
+import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { utcDay } from './archiveChangeSource';
 import { TEXT_COVERED_SQL, loadTextCoverage } from './textCoverage';
 import type { ArchiveSettings, TextTier } from '@shared/settings';
 import { BYTES_PER_GB, MS_PER_DAY } from '@shared/units';
@@ -77,7 +79,7 @@ export class TextRetentionRunner {
 
 
 /** Compresses aged or over-cap text; eligible tiers prune only summary-covered text. Important text stays. Processes oldest first and releases freed disk pages. */
-export async function applyTextRetention(db: Db, s: ArchiveSettings, now: number, keepImportant = false): Promise<TextRetentionResult> {
+export async function applyTextRetention(db: Db, s: ArchiveSettings, now: number, keepImportant = false, changed: NoteArchiveChange = () => {}): Promise<TextRetentionResult> {
   const rules = keepImportant ? keepImportantRules() : OLDEST_FIRST;
   const result: TextRetentionResult = { compressed: 0, pruned: 0, overCapBytes: 0 };
   const tierBefore = now - s.textTierAfterDays * MS_PER_DAY;
@@ -90,10 +92,10 @@ export async function applyTextRetention(db: Db, s: ArchiveSettings, now: number
   const pruning = scope(['summary-only']);
 
   result.compressed += await compressOldest(db, tierBefore, compressing, rules, b, always);
-  result.pruned += await pruneOldest(db, tierBefore, pruning, rules, b, always);
+  result.pruned += await pruneOldest(db, tierBefore, pruning, rules, b, always, changed);
   // Over the cap: compression is lossless, so any channel; removing text only where the tier allows it.
   result.compressed += await compressOldest(db, Infinity, null, rules, b, over(b));
-  result.pruned += await pruneOldest(db, Infinity, pruning, rules, b, over(b));
+  result.pruned += await pruneOldest(db, Infinity, pruning, rules, b, over(b), changed);
   if (result.compressed || result.pruned) {
     const live = liveBytes(db);
     if (fileBytes(db) - live > fileBytes(db) * VACUUM_SLACK_FRACTION) compact(db);
@@ -128,18 +130,18 @@ async function compressOldest(db: Db, before: number, scope: Scope, rules: Rules
 }
 
 /** Removes text, payload and edit history of covered messages older than `before`, oldest first, while `more()` holds. */
-async function pruneOldest(db: Db, before: number, scope: Scope, rules: Rules, b: Budget, more: () => boolean): Promise<number> {
+async function pruneOldest(db: Db, before: number, scope: Scope, rules: Rules, b: Budget, more: () => boolean, changed: NoteArchiveChange): Promise<number> {
   const prune = db.prepare("UPDATE messages SET content = '', raw_json = NULL, pruned_at = ? WHERE id = ?");
   const history = db.prepare('DELETE FROM message_revisions WHERE message_id = ?');
   let n = 0;
   // Loaded before each pick (and first to create its temp table): coverage an owner dropped never removes text.
   loadTextCoverage(db);
   const pick = db.prepare(
-    `SELECT m.id, length(CAST(m.content AS BLOB)) + COALESCE(length(m.raw_json), 0) AS bytes FROM messages m
+    `SELECT m.id, m.channel_id AS channelId, m.ts, length(CAST(m.content AS BLOB)) + COALESCE(length(m.raw_json), 0) AS bytes FROM messages m
      WHERE m.pruned_at IS NULL AND m.ts < @before AND ${IN_SCOPE} AND ${TEXT_COVERED_SQL} AND ${rules.keep} ORDER BY ${rules.order} LIMIT @limit`,
   );
   while (more()) {
-    const rows = pick.all({ before, scope, limit: BATCH_ROWS, ...rules.params }) as { id: string; bytes: number }[];
+    const rows = pick.all({ before, scope, limit: BATCH_ROWS, ...rules.params }) as { id: string; bytes: number; channelId: string; ts: number }[];
     if (!rows.length) break;
     const at = Date.now();
     db.transaction(() =>
@@ -149,6 +151,7 @@ async function pruneOldest(db: Db, before: number, scope: Scope, rules: Rules, b
         b.live -= r.bytes;
       }),
     )();
+    rows.forEach((r) => changed(r.channelId, ['edits', 'disk'], { day: utcDay(r.ts) }));
     n += rows.length;
     await yieldToQueue();
     loadTextCoverage(db);

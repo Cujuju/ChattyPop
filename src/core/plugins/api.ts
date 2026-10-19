@@ -1,5 +1,7 @@
 // Folder-plugin API and registrations shared with the bundled plugin host.
 import { pluginSettingKey, pluginTableName } from '@shared/bundledTypes';
+import type { ArchiveChange } from '@shared/contract';
+import type { NoteArchiveChange } from '@shared/archiveChanges';
 import type { AppEvent } from '@shared/contract';
 import { PLUGIN_API_VERSION, type PluginApi, type PluginCommand, type PluginMessage, type PluginStatement } from '@shared/plugins';
 import { MS_PER_MIN } from '@shared/units';
@@ -25,7 +27,7 @@ export interface HostDeps {
   db: Db;
   emit(e: AppEvent): void;
   /** The Archive re-reads this channel (annotations changed). */
-  changed(channelId: string): void;
+  changed: NoteArchiveChange;
   /** A completion from the default provider, refused (LocalOnlyError) when it may not read `reads`; `signal` cancels it. */
   ai: ScopedCompletion;
   /** Jev for plugins (Settings → Jev), or null when off. */
@@ -52,7 +54,7 @@ export interface Registrations {
   onAttachmentStored: ((attachmentId: string) => void)[];
   onShown: ((messageId: string) => void)[];
   onSettingChanged: { key: string; fn: () => void }[];
-  onArchiveChanged: ((channelIds: string[]) => void)[];
+  onArchiveChanged: ((change: ArchiveChange) => void)[];
   onPrivacyChanged: (() => void)[];
   onLinksRebuilt: (() => void)[];
   /** Subjects of the per-message Jev questions it registered, dropped on unload. */
@@ -192,7 +194,7 @@ export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, 
            ON CONFLICT(plugin_id, message_id, label) DO UPDATE SET text = excluded.text, created_at = excluded.created_at`,
         ).run(id, messageId, label, text, Date.now());
       const row = db.prepare('SELECT channel_id AS c FROM messages WHERE id = ?').get(messageId) as { c: string } | undefined;
-      if (row) deps.changed(row.c);
+      if (row) deps.changed(row.c, ['plugin'], { pluginId: id });
     },
     log: (...args) => console.log(`[plugin ${id}]`, ...args),
     rpc: { handle: (name, fn) => void (live() && reg.calls.set(name, fn)) },

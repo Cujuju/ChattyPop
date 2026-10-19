@@ -64,6 +64,8 @@ describe('archive restore window contract', () => {
     handlers.applyGatewayEvent('MESSAGE_CREATE', late);
     handlers.applyGatewayEvent('MESSAGE_UPDATE', { id: newest.id, channel_id: CHANNEL, content: 'edited' });
     handlers.applyGatewayEvent('MESSAGE_DELETE', { id: newest.id, channel_id: CHANNEL });
-    expect(noteChanged.mock.calls).toEqual([[CHANNEL, true], [CHANNEL, false], [CHANNEL, false], [CHANNEL, false]]);
+    expect(noteChanged.mock.calls.map(([id, kinds, opts]) => [id, kinds, opts?.insertOnly === true])).toEqual([
+      [CHANNEL, ['messages'], true], [CHANNEL, ['messages'], false], [CHANNEL, ['edits'], false], [CHANNEL, ['deletes'], false],
+    ]);
   });
 });

@@ -1,4 +1,6 @@
 // Download queues for attachments and custom emoji; main's downloader drains them.
+import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { noteAttachmentChange } from './archiveChangeSource';
 import type { CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
 import { GENERIC_CONTENT_TYPE, SAFE_EXT } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
@@ -9,18 +11,20 @@ import type { Db } from './db';
 export const mediaQueueHandlers = (
   db: () => Db,
   onStored: (attachmentId: string) => void,
+  changed: NoteArchiveChange = () => {},
 ): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
   pendingAttachments: (limit) => {
-    skipPrunedPending(db());
+    skipPrunedPending(db()).forEach((id) => noteAttachmentChange(db(), changed, id, false));
     return pendingAttachments(db(), limit);
   },
   archivedVideos: () => archivedVideos(db()),
   attachmentSource: (id) => attachmentSource(db(), id),
   attachmentStored: (id, sha256, bytes, storedExt) => {
     attachmentStored(db(), id, sha256, bytes, storedExt);
+    noteAttachmentChange(db(), changed, id, true);
     onStored(id);
   },
-  attachmentFailed: (id, error, retryable) => attachmentFailed(db(), id, error, retryable),
+  attachmentFailed: (id, error, retryable) => { attachmentFailed(db(), id, error, retryable); noteAttachmentChange(db(), changed, id, false); },
   nextAttachmentRetry: () => nextAttachmentRetry(db()),
   pendingEmojis: (limit) => pendingEmojis(db(), limit),
   emojiDone: (id, error) => emojiDone(db(), id, error),
