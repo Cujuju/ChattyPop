@@ -42,6 +42,31 @@ function start() {
 }
 
 describe('served read execution', () => {
+  it('ends the call lifetime in refined contexts before detached background reads resume', async () => {
+    const descriptor = definePlugin({ manifest: { id: 'callend', name: 'Call end', version: '1', description: '' },
+      channels: defineChannels<{ core: { launch(): boolean } }>()({ core: { launch: { audiences: ['renderer'], reads: true } } }),
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let background!: Promise<unknown>;
+    const t = testPlugin(defineCorePlugin(descriptor, (ctx) => {
+      ctx.channels.serve({ launch: () => {
+        background = gate.then(async () => {
+          expect(() => ctx.channels.call()).toThrow('requires a served core call');
+          expect(ctx.storage.db.prepare('SELECT 1 AS value').get()).toEqual({ value: 1 });
+          return ctx.storage.read('SELECT 7 AS value');
+        });
+        void background.catch(() => undefined);
+        return true;
+      } });
+    }));
+    try {
+      expect(await t.client('renderer').launch()).toBe(true);
+      release();
+      await expect(background).resolves.toEqual([{ value: 7 }]);
+    } finally { release(); await t.dispose(); }
+  });
+
   it('answers messagePage and directory while a plugin aggregation is still running', async () => {
     const { t, port, calls } = start();
     const fork = vi.mocked(processes.fork).getMockImplementation()!;

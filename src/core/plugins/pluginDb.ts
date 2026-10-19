@@ -4,7 +4,7 @@ import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
 import { computeArchive, readArchive } from '../reads/archiveReads';
 import type { ReadPriority } from '@shared/readPriority';
-import { checkSyncRead, pluginCalls } from './callContext';
+import { activePluginCall, checkSyncRead } from './callContext';
 import { checkReadStatement } from '../reads/protocol';
 import { pointLookup, CORE_SYNC_READ_ROWS_MAX, CORE_SYNC_CALL_BUDGET_MS } from './syncReadBudget';
 import { performance } from 'node:perf_hooks';
@@ -63,7 +63,7 @@ export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknow
 /** `ctx.storage.read` over `db` (read at each use: the archive can move). Separate from PluginDb, which a raw connection satisfies. */
 export function archiveRead(db: () => Db): ArchiveRead {
   return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: ArchiveReadOptions = {}): Promise<R[]> => {
-    const call = pluginCalls.getStore();
+    const call = activePluginCall();
     const signal = call ? (options.signal ? AbortSignal.any([call.signal, options.signal]) : call.signal) : options.signal;
     signal?.throwIfAborted();
     checkReadStatement(source);
@@ -93,8 +93,8 @@ export function pluginDb(db: () => Db, writable: () => boolean, pluginId: string
       const stmt = db().prepare(source);
       let bounded: boolean | undefined;
       return fencedStatement(stmt, fence, (params) => {
-        const call = pluginCalls.getStore();
-        if (!call || call.completed) return;
+        const call = activePluginCall();
+        if (!call) return;
         checkSyncRead(!call.reads && !!call.syncReads && (bounded ??= pointLookup(db(), source, params)));
       }) as never;
     },
@@ -137,8 +137,8 @@ function fencedIterator<R>(it: IterableIterator<R>, check: () => void, stepped?:
 function fencedStatement(stmt: RawStatement, fence: () => void, read: (params: unknown[]) => void): PluginStatement {
   const check = (params: unknown[]) => stmt.readonly ? read(params) : fence();
   const bounded = <T>(run: () => T, size: (value: T) => number): T => {
-    const call = pluginCalls.getStore();
-    if (!stmt.readonly || !call?.syncReads || call.completed) return run();
+    const call = activePluginCall();
+    if (!stmt.readonly || !call?.syncReads) return run();
     const start = performance.now();
     const result = run();
     if (size(result) > CORE_SYNC_READ_ROWS_MAX || performance.now() - start > CORE_SYNC_CALL_BUDGET_MS) checkSyncRead(false);
@@ -167,8 +167,8 @@ function fencedStatement(stmt: RawStatement, fence: () => void, read: (params: u
       let timed = false;
       return fencedIterator(stmt.iterate(...params), () => {
         check(params);
-        const call = pluginCalls.getStore();
-        timed = !!call?.syncReads && !call.completed;
+        const call = activePluginCall();
+        timed = !!call?.syncReads;
         if (timed) stepStart = performance.now();
       }, (result) => {
         if (timed && ((!result.done && ++rows > CORE_SYNC_READ_ROWS_MAX) || performance.now() - stepStart > CORE_SYNC_CALL_BUDGET_MS)) checkSyncRead(false);
