@@ -27,6 +27,21 @@ afterEach(async () => { await pool.close(); await Promise.all(jobs.splice(0)); }
 const occupy = () => { void read('active-a'); void read('active-b'); };
 
 describe('archive read lane contracts', () => {
+  it('settles every shared consumer when one fulfillment aborts another', async () => {
+    occupy();
+    const control = new AbortController();
+    const first = read('shared-reply');
+    void first.then(() => control.abort(new Error('cancel during fulfillment')));
+    const second = read('shared-reply', 'background', control.signal);
+    const third = read('shared-reply', 'background', new AbortController().signal);
+    const child = fixture.children[0]!;
+    child.finish();
+    child.finish();
+    await expect(first).resolves.toEqual([{ done: 'shared-reply' }]);
+    await expect(second).rejects.toBe(control.signal.reason);
+    await expect(third).resolves.toEqual([{ done: 'shared-reply' }]);
+  });
+
   it('dispatches interactive work ahead of queued background work', async () => {
     occupy();
     void read('background');

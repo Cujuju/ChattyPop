@@ -84,7 +84,7 @@ export class ArchiveReadPool {
       };
       job.cleanups.add(cleanup);
       signal.addEventListener('abort', abort, { once: true });
-      job.promise.then((rows) => { cleanup(); if (!signal.aborted) resolve(rows); }, (error) => { cleanup(); reject(error); });
+      job.promise.then((rows) => { cleanup(); if (signal.aborted) reject(signal.reason); else resolve(rows); }, (error) => { cleanup(); reject(error); });
     });
   }
 
@@ -116,8 +116,7 @@ export class ArchiveReadPool {
     }
   }
 
-  private cleanup(job: Job): void { for (const cleanup of job.cleanups) cleanup(); }
-  private fail(job: Job, error: unknown): void { this.cleanup(job); job.reject(error); }
+  private fail(job: Job, error: unknown): void { job.reject(error); }
 
   private stop(slot: Slot): void {
     if (slot.stopping) return;
@@ -137,7 +136,6 @@ export class ArchiveReadPool {
       if (reply.kind === 'started' || slot.stopping || !slot.job) return;
       const job = slot.job;
       slot.job = undefined;
-      this.cleanup(job);
       if (reply.kind === 'rows') job.resolve(reply.rows);
       else {
         if (reply.fatal) this.stop(slot);
