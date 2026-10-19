@@ -18,6 +18,19 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { disposers.splice(0).forEach((off) => off()); vi.useRealTimers(); });
 
 describe('SDK archive refresh gate over a fake event source', () => {
+  it('matches a parent channel and its threads, excluding other parents', async () => {
+    const path = '../src/plugin-sdk/renderer/archiveScope';
+    const { setArchiveDirectory } = await import(path);
+    setArchiveDirectory([{ id: 'g', channels: [{ id: 'parent' }, { id: 'thread', parentId: 'parent' }, { id: 'other', parentId: 'elsewhere' }] }]);
+    const read = vi.fn();
+    disposers.push(onArchiveChange({ kinds: ['edits'], scope: () => ({ channelIds: ['parent'] }) }, read));
+    send('other', ['edits']); await flush();
+    expect(read).not.toHaveBeenCalled();
+    send('thread', ['edits']); await flush();
+    expect(read).toHaveBeenCalledOnce();
+    expect([...read.mock.calls[0]![0].channelIds]).toEqual(['thread']);
+  });
+
   it('reads nothing while hidden, then exactly once on show', async () => {
     const [shown, setShown] = createSignal(false);
     const read = vi.fn();

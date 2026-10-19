@@ -1,4 +1,8 @@
 import type { ArchiveChangeSet } from '@plugin-sdk/renderer/archiveChangeSet';
+import { visibilitySignal } from '@plugin-sdk/renderer/visibilitySignal';
+import { pageShown } from '@plugin-sdk/renderer/panelShown';
+import { createComputed, untrack } from 'solid-js';
+import { onCleanup, ownedOrContained, reportFailure } from '@plugin-sdk/renderer/containment';
 import { batchWrites, createStore } from '@plugin-sdk/renderer/containment';
 import type { Accessor, Setter } from 'solid-js';
 import { reconcile, unwrap } from 'solid-js/store';
@@ -28,6 +32,8 @@ export interface Updated<T> {
 }
 
 export interface PagedChangeOptions<T> {
+  /** Every page belongs to its actual view visibility; mounted non-panel lists default to page visibility. */
+  shown?: Accessor<boolean>;
   /** True only for newest-by-date ordering at the live end of the list. */
   chronological?: () => boolean;
   newestAtStart?: () => boolean;
@@ -80,20 +86,49 @@ export function createPagedList<T extends { id: string | number }>(
   let newerBusy = false;
   const showLoading = (): void => void setState('loading', reloading || olderBusy || newerBusy);
 
+  let stale = false;
+  const shown = changeOptions.shown ?? pageShown;
+  const visibility = visibilitySignal(shown);
+  const readSignal = (signal?: AbortSignal) => AbortSignal.any([controller.signal, visibility(), ...(signal ? [signal] : [])]);
+  ownedOrContained(() => {
+    createComputed(() => {
+      const visible = shown();
+      untrack(() => {
+        if (!visible) {
+          stale ||= reloading || olderBusy || newerBusy;
+          controller.abort();
+          generation++;
+          reloading = olderBusy = newerBusy = false;
+          showLoading();
+        } else if (controller.signal.aborted) {
+          controller = new AbortController();
+          const before = generation;
+          queueMicrotask(() => {
+            if (stale && before === generation && shown() && lastReload) void reload(lastReload).catch(reportFailure);
+          });
+        }
+      });
+    });
+    onCleanup(() => { controller.abort(); generation++; });
+  });
+
   let lastReload: ((signal?: AbortSignal) => Promise<Updated<T>>) | undefined;
   const reload: PagedList<T>['reload'] = async (fetch, signal) => {
+    lastReload = fetch;
+    if (!shown()) { stale = true; return false; }
+    stale = false;
     controller.abort();
     controller = new AbortController();
-    const readSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-    lastReload = fetch;
+    const activeSignal = readSignal(signal);
     const mine = ++generation;
     reloading = true;
     olderBusy = newerBusy = false;
     showLoading();
     try {
-      const r = await fetch(readSignal);
+      activeSignal.throwIfAborted();
+      const r = await fetch(activeSignal);
       if (mine !== generation) return false;
-      readSignal.throwIfAborted();
+      activeSignal.throwIfAborted();
       setState({ items: r.items, reachedStart: r.reachedStart });
       return true;
     } finally {
@@ -112,7 +147,8 @@ export function createPagedList<T extends { id: string | number }>(
     olderBusy = true;
     showLoading();
     try {
-      const page = await fetchOlder(oldest, controller.signal);
+      controller.signal.throwIfAborted();
+      const page = await fetchOlder(oldest, readSignal());
       if (mine !== generation) return 0;
       setState({ items: atStart ? [...state.items, ...page] : [...page, ...state.items], reachedStart: page.length < pageSize });
       return page.length;
@@ -131,7 +167,8 @@ export function createPagedList<T extends { id: string | number }>(
     newerBusy = true;
     showLoading();
     try {
-      const page = await fetchNewer(newest, controller.signal);
+      controller.signal.throwIfAborted();
+      const page = await fetchNewer(newest, readSignal());
       if (mine !== generation) return null;
       // An in-place refresh may have added some of these meanwhile.
       const have = new Set(state.items.map((i) => i.id));
@@ -150,7 +187,8 @@ export function createPagedList<T extends { id: string | number }>(
   const update: PagedList<T>['update'] = async (fetch, apply) => {
     const mine = generation;
     const turn = ++updates;
-    const result = await fetch(controller.signal);
+    controller.signal.throwIfAborted();
+    const result = await fetch(readSignal());
     if (mine !== generation || turn < appliedUpdate) return false;
     appliedUpdate = turn;
     const next = apply(result, state.items);
@@ -162,7 +200,7 @@ export function createPagedList<T extends { id: string | number }>(
   const applyChange = async (change: ArchiveChangeSet, signal?: AbortSignal): Promise<void> => {
     signal?.throwIfAborted();
     const insertOnly = change.channelIds.size > 0 && [...change.channelIds].every((id) => id !== '' && change.insertOnly(id));
-    if (insertOnly && changeOptions.atNewest?.() === false) return;
+    if (insertOnly && changeOptions.chronological?.() !== false && changeOptions.atNewest?.() === false) return;
     const newer = changeOptions.newer ?? fetchNewer;
     if (!insertOnly || changeOptions.chronological?.() === false || !newer || !state.items.length) {
       if (changeOptions.reload) await changeOptions.reload(signal);
@@ -174,10 +212,10 @@ export function createPagedList<T extends { id: string | number }>(
     do {
       const atStart = changeOptions.newestAtStart?.() ?? false;
       const newest = atStart ? state.items[0]! : state.items.at(-1)!;
-      const readSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
-      const page = await newer(newest, readSignal);
+      const activeSignal = readSignal(signal);
+      const page = await newer(newest, activeSignal);
       if (mine !== generation) return;
-      readSignal.throwIfAborted();
+      activeSignal.throwIfAborted();
       const cursor = JSON.stringify(newest);
       const incoming = new Set(page.map((row) => row.id));
       const kept = state.items.filter((row) => !incoming.has(row.id));

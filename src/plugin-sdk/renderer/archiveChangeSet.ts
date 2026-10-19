@@ -1,3 +1,4 @@
+import { archiveParent } from './archiveScope';
 import { ArchiveChanges } from '@shared/archiveChanges';
 import type { ArchiveChange, ArchiveChangeKind } from '@shared/contract';
 import type { Accessor } from 'solid-js';
@@ -22,7 +23,7 @@ export function matchingChange(change: ArchiveChange, deps: ArchiveDeps, guildOf
   const scope = deps.scope?.() ?? 'all';
   const changes: ArchiveChange['changes'] = {};
   for (const [id, kinds] of Object.entries(change.changes)) {
-    const matches = scope === 'all' || id === '' || scope.channelIds?.includes(id) || scope.guildIds?.includes(guildOf(id) ?? '');
+    const matches = scope === 'all' || id === '' || scope.channelIds?.some((channel) => channel === id || channel === archiveParent(id)) || scope.guildIds?.includes(guildOf(id) ?? '');
     if (!matches) continue;
     const selected = kinds.filter((kind) => {
       if (!deps.kinds.includes(kind)) return false;

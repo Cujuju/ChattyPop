@@ -1,5 +1,6 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
+import { pageShown } from '@plugin-sdk/renderer/panelShown';
 import { createResource } from 'solid-js';
 import { SETTINGS_KEYS, normalizeCountedBots } from '@shared/settings';
 import { createSetting } from '@plugin-sdk/renderer/settings';
@@ -15,11 +16,12 @@ export function setBotCounted(id: string, on: boolean): Promise<void> {
 
 /** Load only while Settings shows the bot list; archive and privacy changes keep that list current. */
 export function createArchivedBots() {
-  const [bots, { refetch }] = createResource(() => api.core.archivedBots());
+  const [bots, { refetch }] = createResource(pageShown, () => api.core.archivedBots());
+  const refresh = () => { if (pageShown()) return refetch(); };
   const offs = [
-    onArchiveChange({ kinds: ['messages', 'deletes', 'names'] }, () => refetch()),
-    onAppEvent('privacy-changed', () => void refetch()),
-    onAppEvent('self-changed', () => void refetch()),
+    onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'names'], shown: pageShown }, refresh),
+    onAppEvent('privacy-changed', () => void refresh()),
+    onAppEvent('self-changed', () => void refresh()),
   ];
   onCleanup(() => offs.forEach((off) => off()));
   return bots;

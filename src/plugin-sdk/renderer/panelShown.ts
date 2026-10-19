@@ -1,9 +1,10 @@
 import { createComputed, createSignal, type Accessor } from 'solid-js';
 import { onCleanup } from './containment';
 
+const pageDocument = (globalThis as { document?: { visibilityState: string; addEventListener?(name: string, fn: () => void): void } }).document;
 const [panels, setPanels] = createSignal<ReadonlyMap<string, ReadonlyMap<symbol, boolean>>>(new Map());
-const [visible, setVisible] = createSignal(typeof document === 'undefined' || document.visibilityState !== 'hidden');
-if (typeof document !== 'undefined') document.addEventListener?.('visibilitychange', () => setVisible(document.visibilityState !== 'hidden'));
+const [visible, setVisible] = createSignal(!pageDocument || pageDocument.visibilityState !== 'hidden');
+pageDocument?.addEventListener?.('visibilitychange', () => setVisible(pageDocument.visibilityState !== 'hidden'));
 
 /** Host slots and phone sections register their actual visibility; multiple placements may show the same panel. */
 export function trackPanelShown(panelId: Accessor<string>, shown: Accessor<boolean>): void {

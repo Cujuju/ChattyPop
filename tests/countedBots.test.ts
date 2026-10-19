@@ -112,7 +112,7 @@ describe('durable bot identity', () => {
     archive.upsertMembers('g1', [{ user: { ...user, bot: true } }]);
     expect(changed()).toBeNull();
   });
-  it('keeps bots excluded after compression, pruning, and partial author updates', () => {
+  it('keeps bots excluded after compression, pruning, and partial author updates', async () => {
     const a = post({ ...A, avatar: 'avatar-hash' });
     db.prepare('UPDATE messages SET raw_json = ? WHERE id = ?').run(compressRawJson(JSON.stringify(a)), a.id);
     expect(unreadMark(db, CH, 0, SELF)).toBeNull();
@@ -125,7 +125,7 @@ describe('durable bot identity', () => {
     db.prepare("UPDATE messages SET content = '', raw_json = NULL, pruned_at = 1 WHERE id = ?").run(a.id);
     expect(unreadMark(db, CH, 0, SELF)).toBeNull();
     expect(counts()).toMatchObject({ newCount: 0, notableCount: 0 });
-    expect(archivedBots(db, SELF).map((bot) => bot.id)).toEqual([A.id]);
+    expect((await archivedBots(db, SELF)).map((bot) => bot.id)).toEqual([A.id]);
     setSetting(db, SETTINGS_KEYS.countedBots, [A.id]);
     expect(counts()).toMatchObject({ newCount: 1, notableCount: 1 });
     expect(unreadMark(db, CH, 0, SELF, a.id)?.count).toBe(1);
@@ -158,7 +158,7 @@ describe('durable bot identity', () => {
 });
 
 describe('bots available in Settings', () => {
-  it('lists unique authors from kept history, respecting hidden references and the signed-in account’s DMs', () => {
+  it('lists unique authors from kept history, respecting hidden references and the signed-in account’s DMs', async () => {
     post(A);
     post(A);
     post(B, OTHER);
@@ -172,10 +172,10 @@ describe('bots available in Settings', () => {
     archive.setOptIn(CH, false);
     db.prepare('UPDATE channels SET hide_in_privacy = 1 WHERE id = ?').run(OTHER);
     setSetting(db, SETTINGS_KEYS.privacyMode, true);
-    expect(archivedBots(db, SELF)).toEqual([{ id: A.id, name: 'Alpha', username: A.username }]);
+    expect((await archivedBots(db, SELF))).toEqual([{ id: A.id, name: 'Alpha', username: A.username }]);
     setSetting(db, SETTINGS_KEYS.privacyMode, false);
-    expect(archivedBots(db, SELF).map((bot) => bot.id)).toEqual([A.id, B.id, referenced.id]);
-    expect(archivedBots(db, 'other-owner').map((bot) => bot.id)).toContain(peer.id);
+    expect((await archivedBots(db, SELF)).map((bot) => bot.id)).toEqual([A.id, B.id, referenced.id]);
+    expect((await archivedBots(db, 'other-owner')).map((bot) => bot.id)).toContain(peer.id);
   });
 });
 

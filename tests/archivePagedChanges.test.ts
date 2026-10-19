@@ -5,11 +5,57 @@ import { archiveChange } from './archiveChangeFixture';
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 const path = '../src/renderer/src/state/paged';
 const { createPagedList } = await import(path) as typeof import('../src/renderer/src/state/paged');
+const { createSignal, createRoot } = await import('solid-js');
 /** A page larger than the fixture proves catch-up stops after one short newer read. */
 const PAGE_SIZE = 10;
 const inserted = changeSet(archiveChange('c', ['messages'], true));
 
 describe('paged change application', () => {
+  it.each(['older', 'newer', 'update'] as const)('cancels a %s read on hide and discards its late result', async (mode) => {
+    const [shown, setShown] = createSignal(true);
+    let active!: AbortSignal, finish!: () => void, dispose!: () => void;
+    const fetch = (_edge: { id: string }, signal?: AbortSignal): Promise<{ id: string }[]> => new Promise((resolve) => {
+      active = signal!; finish = () => resolve([{ id: 'late' }]);
+    });
+    const list = createRoot((end) => { dispose = end; return createPagedList(PAGE_SIZE, fetch, fetch, { shown }); });
+    await list.reload(async () => ({ items: [{ id: 'kept' }], reachedStart: false }));
+    const pending = mode === 'older' ? list.loadOlder() : mode === 'newer' ? list.loadNewer() : list.update((signal) => fetch({ id: 'kept' }, signal), (rows) => rows);
+    setShown(false);
+    expect(active.aborted).toBe(true);
+    finish(); await pending;
+    expect(list.state.items.map((row) => row.id)).toEqual(['kept']);
+    dispose();
+  });
+
+  it('reloads non-chronological lists even while away from newest', async () => {
+    const fetch = vi.fn(async () => ({ items: [{ id: 'ranked' }], reachedStart: true }));
+    const list = createPagedList<{ id: string }>(PAGE_SIZE, async () => [], undefined, { chronological: () => false, atNewest: () => false });
+    await list.reload(fetch); fetch.mockClear();
+    await list.applyChange(inserted);
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('cancels an initial or manual reload on hide, defers hidden reads, and retries on show', async () => {
+    const [shown, setShown] = createSignal(true);
+    let dispose!: () => void;
+    const list = createRoot((end) => { dispose = end; return createPagedList<{ id: string }>(PAGE_SIZE, async () => [], undefined, { shown }); });
+    let signal!: AbortSignal;
+    let answer!: (value: { items: { id: string }[]; reachedStart: boolean }) => void;
+    const pending = list.reload((s) => { signal = s!; return new Promise((resolve) => { answer = resolve; }); });
+    setShown(false);
+    expect(signal.aborted).toBe(true);
+    answer({ items: [{ id: 'stale' }], reachedStart: true });
+    expect(await pending).toBe(false);
+    const read = vi.fn(async () => ({ items: [{ id: 'current' }], reachedStart: true }));
+    expect(await list.reload(read)).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    setShown(true);
+    await Promise.resolve(); await Promise.resolve();
+    expect(read).toHaveBeenCalledOnce();
+    expect(list.state.items.map((row) => row.id)).toEqual(['current']);
+    dispose();
+  });
+
   it('reads newer once for inserts, reloads for edits, and reloads for non-chronological order', async () => {
     const first = vi.fn(async () => ({ items: [{ id: 'old' }], reachedStart: true }));
     const newer = vi.fn(async () => [{ id: 'new' }]);

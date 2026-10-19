@@ -109,7 +109,7 @@ export interface CoreMethods {
   /** Opening unread count and its boundary before bot filtering, so changing the selection can recount the banner. */
   channelUnreadSnapshot(channelId: string): UnreadSnapshot;
   /** Bots seen in visible archived channels, including history kept after archiving was stopped. */
-  archivedBots(): ArchivedBot[];
+  archivedBots(): Promise<ArchivedBot[]>;
   /**
    * The Archive showed `messageId`, the newest message on screen: moves the channel's read mark up to it (never back) and,
    * when it moved, acknowledges it on Discord ('channel-read').
