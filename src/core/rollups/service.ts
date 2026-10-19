@@ -96,8 +96,11 @@ class MaintainedRollup implements Rollup {
 
   private invalidate(): void {
     this.epoch++;
-    this.ready().prepare('DELETE FROM rollup_build_parts WHERE rollup = ?').run(this.id);
-    this.ready().prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, full_build = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
+    const db = this.ready();
+    db.transaction(() => {
+      db.prepare('DELETE FROM rollup_build_parts WHERE rollup = ?').run(this.id);
+      db.prepare('UPDATE rollup_meta SET version = ?, zone = ?, backfill = 1, full_build = 1, built_through_seq = 0, revision = revision + 1 WHERE rollup = ?').run(this.spec.version, this.zone, this.id);
+    })();
   }
 
   private checkZone(): void {
@@ -146,11 +149,13 @@ class MaintainedRollup implements Rollup {
     this.error = null;
     if (!scope?.channelIds) this.invalidate();
     else {
-      this.ready().prepare('UPDATE rollup_meta SET full_build = 1 WHERE rollup = ?').run(this.id);
-      // Persist the request synchronously; enumeration and archive scans remain off Core's thread.
-      this.ready().prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day) SELECT ?, value, '' FROM json_each(?)
-        WHERE 1 ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`).run(this.id, JSON.stringify(scope.channelIds));
-      this.ready().prepare(`INSERT OR IGNORE INTO rollup_build_parts SELECT ?, value, '' FROM json_each(?)`).run(this.id, JSON.stringify(scope.channelIds));
+      this.ready().transaction(() => {
+        this.ready().prepare('UPDATE rollup_meta SET full_build = 1 WHERE rollup = ?').run(this.id);
+        // Persist the request synchronously; enumeration and archive scans remain off Core's thread.
+        this.ready().prepare(`INSERT INTO rollup_dirty(rollup, channel_id, day) SELECT ?, value, '' FROM json_each(?)
+          WHERE 1 ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1`).run(this.id, JSON.stringify(scope.channelIds));
+        this.ready().prepare(`INSERT OR IGNORE INTO rollup_build_parts SELECT ?, value, '' FROM json_each(?)`).run(this.id, JSON.stringify(scope.channelIds));
+      })();
       this.epoch++;
     }
     this.schedule();
