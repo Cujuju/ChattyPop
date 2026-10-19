@@ -1,6 +1,6 @@
-import { containedRoot, createStore } from '@plugin-sdk/renderer/containment';
+import { containedRoot, createStore, reportFailure } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createResource, createSignal } from 'solid-js';
+import { createResource, createSignal, untrack } from 'solid-js';
 import type { AppEvent, DirectoryChannel, DirectoryGuild, ReadStateCount } from '@shared/contract';
 import { DM_CHANNEL_TYPES, DM_GUILD_ID, THREAD_CHANNEL_TYPES, byDmActivity, compareSnowflakes } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE } from '@shared/permissions';
@@ -24,6 +24,10 @@ async function readDirectory(): Promise<DirectoryGuild[]> {
     const result = patches.reduce((g, patch) => patch(g), guilds);
     setArchiveDirectory(result);
     return result;
+  } catch (error) {
+    // A failed read must not throw from directory() into every view; the next invalidation reads again.
+    reportFailure(error);
+    return untrack(() => directoryResult.latest) ?? [];
   } finally {
     if (sinceRead === patches) sinceRead = null;
   }

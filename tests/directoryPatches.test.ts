@@ -12,9 +12,10 @@ vi.mock('solid-js/store', () => createRequire(import.meta.url)('solid-js/store/d
 
 const env = vi.hoisted(() => ({
   reads: [] as ((guilds: DirectoryGuild[]) => void)[],
+  failures: new Map<(guilds: DirectoryGuild[]) => void, (error: Error) => void>(),
   listeners: new Map<string, (e: unknown) => void>(),
 }));
-vi.mock('@/api', () => ({ api: { core: { directory: () => new Promise<DirectoryGuild[]>((resolve) => env.reads.push(resolve)) } } }));
+vi.mock('@/api', () => ({ api: { core: { directory: () => new Promise<DirectoryGuild[]>((resolve, reject) => { env.reads.push(resolve); env.failures.set(resolve, reject); }) } } }));
 vi.mock('../src/renderer/src/state/events', async () => { const { archiveListener } = await import('./archiveChangeFixture'); return ({
   onArchiveChange: (deps: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveDeps, fn: (c: import('../src/plugin-sdk/renderer/archiveChangeSet').ArchiveChangeSet, signal: AbortSignal) => unknown) => env.listeners.set('archive-changed', archiveListener(deps, fn) as never), onAppEvent: (type: string, fn: (e: unknown) => void) => void env.listeners.set(type, fn) }); });
 
@@ -118,4 +119,18 @@ describe("the renderer's directory", () => {
     expect(channel).toMatchObject({ name: 'Renamed', messageCount: 1 });
   });
 
+  it('keeps the last directory and reports when a read fails, instead of throwing into every view', async () => {
+    const reported = vi.fn();
+    vi.stubGlobal('reportError', reported);
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
+    env.reads.shift()!(guilds(dmRow(DM, '500000000000000007')));
+    await settle();
+    send({ type: 'archive-changed', changes: { '': ['channels'] }, insertOnlyChannelIds: [] });
+    const failed = new Error('Archive read helper exited');
+    env.failures.get(env.reads.shift()!)!(failed);
+    await settle();
+    expect(order()).toEqual([[DM, '500000000000000007']]);
+    expect(reported).toHaveBeenCalledWith(failed);
+    vi.unstubAllGlobals();
+  });
 });
