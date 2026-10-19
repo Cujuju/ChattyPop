@@ -109,7 +109,7 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
     if (existed) {
       const shares = db.prepare('SELECT DISTINCT m.channel_id AS channelId, m.ts FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?')
         .all(id) as { channelId: string; ts: number }[];
-      relatedLinks.push(...shares.map((r) => ({ channelId: r.channelId, day: utcDay(r.ts) })));
+      for (const r of shares) relatedLinks.push({ channelId: r.channelId, day: utcDay(r.ts) });
     }
   }
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).
@@ -118,7 +118,7 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
     const removed = db.prepare('DELETE FROM message_links WHERE message_id = ? AND link_id NOT IN (SELECT value FROM json_each(?)) RETURNING link_id')
       .all(m.id, JSON.stringify(linkIds)) as { link_id: number }[];
     if (removed.length) kinds.add('links');
-    linkIds.push(...removed.map((r) => r.link_id));
+    for (const r of removed) linkIds.push(r.link_id);
   }
   reconcileLinkMetadata(db, linkIds);
   return { kinds: [...kinds], insertOnly, relatedLinks };

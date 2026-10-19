@@ -125,7 +125,7 @@ export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, 
         const params: (string | number)[] = [];
         if (q.channelIds?.length) {
           where.push(`m.channel_id IN (${q.channelIds.map(() => '?').join(',')})`);
-          params.push(...q.channelIds);
+          for (const channelId of q.channelIds) params.push(channelId);
         }
         if (q.sinceTs !== undefined) {
           where.push('m.ts >= ?');
