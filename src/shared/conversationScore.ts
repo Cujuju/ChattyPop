@@ -73,6 +73,8 @@ export interface JevLinkScore {
   /** The combination fitted on every answered case: weights on the chooser's log probability, the yes/no log-odds and the pick's log probability. */
   combinedWeights: Record<string, number>;
   failed: number;
+  /** The first failed request's error: other Jev features' successes clear Settings' last error. */
+  failure: string | null;
   /** Held-out replies skipped because their target wasn't among the candidates. */
   outOfReach: number;
   costUsd: number | null;

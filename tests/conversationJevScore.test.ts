@@ -74,6 +74,7 @@ describe('conversation Jev score', () => {
     }
     expect(score.costUsd).toBeCloseTo(asked * 0.001);
     expect(score.failed).toBe(0);
+    expect(score.failure).toBeNull();
   });
 
   it('counts failed requests and keeps going', async () => {
@@ -87,6 +88,7 @@ describe('conversation Jev score', () => {
     expect(score.failed).toBe(score.bands.reduce((n, b) => n + b.asked, 0));
     expect(score.bands.reduce((n, b) => n + b.answered, 0)).toBe(0);
     expect(score.model).toBe('fake-jev');
+    expect(score.failure).toBe('Jev down');
   });
 });
 
