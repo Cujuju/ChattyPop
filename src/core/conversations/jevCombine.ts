@@ -4,24 +4,24 @@ import { fitWeights, type FitSample, type Weights } from './chooser';
 /** Keeps logs finite for a zero probability; far below any probability that decides a pick. */
 const PROBABILITY_FLOOR = 1e-6;
 /** The signals per candidate, in row order. */
-export const COMBINED_SIGNALS = ['chooser', 'continues', 'choice'] as const;
+export const COMBINED_SIGNALS = ['chooser', 'level', 'top'] as const;
 /** The prior: the chooser alone, so Jev's signals earn their weight from the data. */
 const CHOOSER_ONLY: Weights = [1, 0, 0];
 
-/** One case: per candidate (oldest first), the chooser's probability, Jev's yes/no probability and its pick probability. */
-export interface CombinedCase { chooser: ArrayLike<number>; continues: readonly number[]; choice: readonly number[]; target: number }
+/** One case: per candidate (oldest first), the chooser's probability, Jev's Score position (0–1) and its top level's probability. */
+export interface CombinedCase { chooser: ArrayLike<number>; level: readonly number[]; top: readonly number[]; target: number }
 
 const clamp = (p: number): number => Math.min(1 - PROBABILITY_FLOOR, Math.max(PROBABILITY_FLOOR, p));
 
-/** Per candidate: the chooser's log probability, the yes/no log-odds and the pick's log probability. */
+/** Per candidate: the chooser's log probability, the Score position's log-odds and the top level's log probability. */
 function rows(c: CombinedCase): Float64Array {
   const width = COMBINED_SIGNALS.length;
   const r = new Float64Array(c.chooser.length * width);
   for (let j = 0; j < c.chooser.length; j++) {
-    const yes = clamp(c.continues[j]!);
+    const level = clamp(c.level[j]!);
     r[j * width] = Math.log(clamp(c.chooser[j]!));
-    r[j * width + 1] = Math.log(yes / (1 - yes));
-    r[j * width + 2] = Math.log(clamp(c.choice[j]!));
+    r[j * width + 1] = Math.log(level / (1 - level));
+    r[j * width + 2] = Math.log(clamp(c.top[j]!));
   }
   return r;
 }

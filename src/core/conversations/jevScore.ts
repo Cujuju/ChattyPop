@@ -4,7 +4,7 @@ import { errorMessage } from '@shared/errors';
 import { sumCosts, type DecisionProvider } from '../ai/decisions';
 import { assertHostedMayRead, localOnlyChannelIds } from '../channelPolicy';
 import type { Db } from '../db';
-import { askedMessages, askParent, type JevView } from './ask';
+import { askedMessages, askParent, type JevView, type Relation } from './ask';
 import { probabilities } from './chooser';
 import { fittedWeights, replySamples } from './fit';
 import { argmax, COMBINED_SIGNALS, crossFittedPicks, fitCombined, type CombinedCase } from './jevCombine';
@@ -18,7 +18,7 @@ export const JEV_SCORE_BANDS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.7, 1] as const;
 export const JEV_SCORE_PER_BAND = 50;
 /** Held-out replies examined at most: a band rare in this archive stays short instead of the scan reading every reply. */
 export const JEV_SCORE_SCAN_MAX = 10_000;
-/** Below this a yes/no answer leans no. */
+/** At or above this a yes/no answer leans yes. */
 const EVEN_ODDS = 0.5;
 
 interface Case { channelId: string; message: string; candidates: string[]; target: number; chooser: Float64Array; band: number }
@@ -57,8 +57,8 @@ function cases(db: Db, perBand: number, weights: readonly number[]): { cases: Ca
 }
 
 /** A view with every question answered. */
-type Answered = JevView & { choice: number[]; none: number; continues: number[] };
-const isAnswered = (v: JevView | null): v is Answered => !!v && v.choice !== null && v.none !== null && v.continues.every((x) => x !== null);
+type Answered = { responds: number; relates: Relation[] };
+const isAnswered = (v: JevView | null): v is Answered => !!v && v.responds !== null && v.relates.every((x) => x !== null);
 
 export interface JevScoreOptions {
   perBand?: number;
@@ -99,12 +99,12 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
   const { cases: found, outOfReach } = cases(db, perBand, weights);
   const { views, failed, failure, costUsd } = await ask(db, jev, found, release, signal);
   const answered = found.flatMap((c, i) => { const v = views[i]!; return isAnswered(v) ? [{ c, v }] : []; });
-  const combined: CombinedCase[] = answered.map(({ c, v }) => ({ chooser: c.chooser, continues: v.continues, choice: v.choice, target: c.target }));
-  const combinedPicks = crossFittedPicks(combined);
-  const bands: JevBucketScore[] = emptyBands((from, to) => ({
-    from, to, asked: 0, answered: 0, chooserExact: 0, choiceExact: 0, choiceNone: 0, continuesExact: 0, continuesNone: 0, combinedExact: 0,
+  const combined: CombinedCase[] = answered.map(({ c, v }) => ({
+    chooser: c.chooser, level: v.relates.map((r) => r.level), top: v.relates.map((r) => r.top), target: c.target,
   }));
-  const byJevConfidence: JevConfidenceScore[] = emptyBands((from, to) => ({ from, to, choice: { asked: 0, exact: 0 }, continues: { asked: 0, exact: 0 } }));
+  const combinedPicks = crossFittedPicks(combined);
+  const bands: JevBucketScore[] = emptyBands((from, to) => ({ from, to, asked: 0, answered: 0, chooserExact: 0, relatesExact: 0, combinedExact: 0, respondsYes: 0 }));
+  const byJevConfidence: JevConfidenceScore[] = emptyBands((from, to) => ({ from, to, asked: 0, exact: 0 }));
   for (const c of found) {
     bands[c.band]!.asked++;
     if (argmax(c.chooser) === c.target) bands[c.band]!.chooserExact++;
@@ -112,21 +112,13 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
   answered.forEach(({ c, v }, k) => {
     const b = bands[c.band]!;
     b.answered++;
-    const pick = argmax(v.choice);
-    const pickedNone = v.none > v.choice[pick]!;
-    const pickRight = !pickedNone && pick === c.target;
-    if (pickedNone) b.choiceNone++;
-    if (pickRight) b.choiceExact++;
-    const likeliest = argmax(v.continues);
-    if (v.continues[likeliest]! < EVEN_ODDS) b.continuesNone++;
-    if (likeliest === c.target) b.continuesExact++;
+    const best = argmax(combined[k]!.level);
+    if (best === c.target) b.relatesExact++;
     if (combinedPicks[k] === c.target) b.combinedExact++;
-    const byChoice = byJevConfidence[bandOf(Math.max(v.none, v.choice[pick]!))]!.choice;
-    byChoice.asked++;
-    if (pickRight) byChoice.exact++;
-    const byContinues = byJevConfidence[bandOf(v.continues[likeliest]!)]!.continues;
-    byContinues.asked++;
-    if (likeliest === c.target) byContinues.exact++;
+    if (v.responds >= EVEN_ODDS) b.respondsYes++;
+    const conf = byJevConfidence[bandOf(v.relates[best]!.top)]!;
+    conf.asked++;
+    if (best === c.target) conf.exact++;
   });
   const w = fitCombined(combined);
   return {

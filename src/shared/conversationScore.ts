@@ -46,23 +46,20 @@ export interface JevBucketScore {
   /** Jev answered every question. */
   answered: number;
   chooserExact: number;
-  /** Jev's one pick among all candidates; "none" counts as wrong. */
-  choiceExact: number;
-  choiceNone: number;
-  /** The candidate Jev's yes/no answers rated likeliest, even when all were below even odds. */
-  continuesExact: number;
-  /** Every yes/no answer was below even odds. */
-  continuesNone: number;
-  /** The chooser and both Jev answers combined, weighted by a fit on the other half of the cases. */
+  /** The candidate Jev's Scores rated highest. */
+  relatesExact: number;
+  /** The chooser and Jev's Scores combined, weighted by a fit on the other half of the cases. */
   combinedExact: number;
+  /** Jev said the reply responds to something earlier (at least even odds): every case here does. */
+  respondsYes: number;
 }
 
-/** Answered cases whose Jev top probability was in [from, to), and how many of those picks were right. */
+/** Answered cases whose highest-rated candidate's top-level probability was in [from, to), and how many of those were right. */
 export interface JevConfidenceScore {
   from: number;
   to: number;
-  choice: { asked: number; exact: number };
-  continues: { asked: number; exact: number };
+  asked: number;
+  exact: number;
 }
 
 export interface JevLinkScore {
@@ -70,7 +67,7 @@ export interface JevLinkScore {
   model: string;
   bands: JevBucketScore[];
   byJevConfidence: JevConfidenceScore[];
-  /** The combination fitted on every answered case: weights on the chooser's log probability, the yes/no log-odds and the pick's log probability. */
+  /** The combination fitted on every answered case: weights on the chooser's log probability, the Score position's log-odds and the top level's log probability. */
   combinedWeights: Record<string, number>;
   failed: number;
   /** The first failed request's error: other Jev features' successes clear Settings' last error. */

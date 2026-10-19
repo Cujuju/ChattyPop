@@ -5,8 +5,6 @@ import type { JevQueryDef } from './index';
 export const MESSAGE_SEES = '`message` (author: text, then the text of any post it links to), `earlier` (the two messages before it) and `replying_to` (what it replies to, if anything).';
 /** Appended to per-message questions; shared with tools.ts (Jev check). */
 export const CONTEXT_NOTE ='Read `earlier` and `replying_to` only to understand `message`.';
-/** What the conversation queries see. */
-const CONVERSATION_SEES = '`message` and `earlier` (the channel’s messages just before it, oldest first), each with `from` and `text`; each earlier one also has `minutes_before`. Asked only when the app is unsure.';
 /** From real data (Sept 2026, 1,700 messages): every wrong class label scored below 0.9, most right ones above. */
 const CLASS_AT = 0.9;
 
@@ -87,39 +85,40 @@ export const MESSAGE_QUERIES: readonly JevQueryDef[] = [
     },
   },
   {
-    id: 'conversations.parent',
+    id: 'conversations.responds',
     group: 'Messages',
-    label: 'Which message it continues',
+    label: 'Whether it answers something earlier',
     features: ['linkConversations'],
-    sees: CONVERSATION_SEES,
-    use: 'dynamic-options',
-    optionsNote: 'The options are the `earlier` messages by position (`earlier[0]` is the oldest), plus "none", so only the question and threshold can change.',
-    condition: 'Link the messages',
+    sees: '`message` alone (`from`, `text`). Asked only when the app is unsure.',
+    use: 'rank',
+    condition: null,
     defaults: {
-      type: 'choice',
-      question: 'Which message in `earlier` does `message` reply to, answer or continue? Most messages continue one of them.',
-      options: [],
-      alertOn: [],
-      // A link joins two conversations: only when more likely right than wrong.
+      type: 'noul',
+      question: 'Does `message` respond to something said before it in the chat, rather than start a subject of its own?',
+      yes: '`message` answers, reacts to or follows up on an earlier remark; read alone, it presupposes that remark.',
+      no: '`message` opens a subject, greets, or is a standalone remark that needs no earlier message.',
+      // Unused: the app weighs the answer with the chooser (condition null).
       minProbability: 0.5,
     },
   },
   {
-    id: 'conversations.continues',
+    id: 'conversations.relates',
     group: 'Messages',
-    label: 'Whether it continues one message',
+    label: 'How it relates to one earlier message',
     features: ['linkConversations'],
-    sees: `${CONVERSATION_SEES} Asked once for each message in \`earlier\`; {i} is its position.`,
-    use: 'rank',
-    placeholders: ['{i}'],
+    sees: '`message` and `earlier_message` (each `from`, `text`): asked once for each of the channel’s messages just before it, each on its own. Asked only when the app is unsure.',
+    use: 'fixed-levels',
     condition: null,
     defaults: {
-      type: 'noul',
-      question: 'Does `message` reply to, answer or continue `earlier[{i}]`?',
-      yes: '`message` is about the same thing as that message: an answer, a reaction or the next step in its discussion.',
-      no: '`message` is about something else, or continues a different message.',
+      type: 'score',
+      question: '`earlier_message` was posted before `message` in the same channel. How does `message` relate to it?',
+      levels: [
+        '`message` is about something else.',
+        '`message` is on the same subject as `earlier_message` but does not respond to it.',
+        '`message` responds to `earlier_message` itself: it answers it, reacts to it, or follows up on what it says.',
+      ],
       // Unused: the app ranks candidates by the answer (condition null).
-      minProbability: 0.5,
+      minScore: 2,
     },
   },
 ];
