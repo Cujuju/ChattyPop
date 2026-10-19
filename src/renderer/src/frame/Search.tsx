@@ -5,7 +5,7 @@ import type { SearchHit } from '@shared/contract';
 import { searchTokens } from '@/plugins/slots';
 import { SEARCH_SORTS, parseSearchQuery, type SearchSort } from '@shared/searchQuery';
 import { openArchive } from '@/state/archive';
-import { isSavedSearch, querySearch, savedSearches, showSearch, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
+import { choicesRevision, isSavedSearch, querySearch, savedSearches, showSearch, searchFocusRequests, searchHits, searchOpen, searchSort, searchText, setSearchOpen, setSearchSort, toggleSavedSearch } from '@/state/search';
 import { inCompanion } from '@/state/ui';
 import { listen } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
@@ -23,12 +23,15 @@ const SORT_LABELS: Readonly<Record<SearchSort, string>> = { newest: 'Newest', ol
 interface OfferedChoices {
   pending: PendingFilter;
   list: readonly FilterChoice[];
+  /** choicesRevision when asked: a list from before a privacy change is never shown. */
+  revision: number;
 }
 
 /** Choices for `pending`, now when its filter has them at hand, else when they arrive (people). */
 function offeredChoices(pending: PendingFilter): OfferedChoices | Promise<OfferedChoices> {
+  const revision = choicesRevision();
   const list = pending.filter.choices(pending.partial);
-  return list instanceof Promise ? list.then((l) => ({ pending, list: l })) : { pending, list };
+  return list instanceof Promise ? list.then((l) => ({ pending, list: l, revision })) : { pending, list, revision };
 }
 
 /** The same chips, term for term: the field keeps them (and their looked-up names) while only the draft changes. */
@@ -40,12 +43,13 @@ export function Search() {
   let root!: HTMLDivElement;
   let query!: HTMLDivElement;
   const filters = createMemo(() => searchFilters(searchTokens(), namedChoiceSources));
-  const pending = createMemo(() => pendingFilter(searchText(), filters()));
+  // A privacy change asks again for the same text.
+  const pending = createMemo(() => (choicesRevision(), pendingFilter(searchText(), filters())));
   const [offered] = createResource(pending, offeredChoices);
   /** The latest choices for the filter being typed; while newer ones load, the previous list stays to avoid a flash. */
   const choices = (): readonly FilterChoice[] => {
     const o = offered.error ? undefined : offered.latest;
-    return o && o.pending.filter === pending()?.filter ? o.list : [];
+    return o && o.pending.filter === pending()?.filter && o.revision === choicesRevision() ? o.list : [];
   };
   /** Only choices for exactly what is typed now may be picked. */
   const current = (): boolean => !offered.error && offered.latest?.pending === pending();
@@ -89,6 +93,11 @@ export function Search() {
     setSearchOpen(true);
     input.focus();
   };
+  /** Runs a saved search, by Enter or a click alike: its filters finished as chips. */
+  const openSaved = (query: string): void => {
+    showSearch(query);
+    setActive(0);
+  };
   /** Closes the panel (the phone puts the field away too). */
   const close = (): void => {
     setSearchOpen(false);
@@ -109,7 +118,7 @@ export function Search() {
       if (mode() === 'results') open(searchHits()[i]);
       else if (mode() === 'value') pick(choices()[i]);
       else if (i < filters().length) edit(withFilter(searchText(), filters()[i]!.key));
-      else if (savedSearches()[i - filters().length]) edit(savedSearches()[i - filters().length]!);
+      else if (savedSearches()[i - filters().length]) openSaved(savedSearches()[i - filters().length]!);
     },
     onEscape: close,
     activeEl: () => document.getElementById(`search-row-${active()}`),
@@ -190,7 +199,7 @@ export function Search() {
                 filters={filters()}
                 saved={savedSearches()}
                 onFilter={(f) => edit(withFilter(searchText(), f.key))}
-                onSaved={(q) => (showSearch(q), setActive(0))}
+                onSaved={openSaved}
                 onRemoveSaved={toggleSavedSearch}
               />
             </Match>
