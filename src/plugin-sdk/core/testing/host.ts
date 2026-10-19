@@ -138,7 +138,7 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     send: o.network ?? (() => Promise.reject(new Error('This test gives the plugin no network.'))),
   };
   const kinds = bundled.rules;
-  host = new PluginHost(join(dir, 'plugins'), { db, emit, changed: noteChanged, ai: scopedCompletion(() => db, registry, ai), decider: () => jevFor('pluginDecide'), bundled }, cores, installed);
+  host = new PluginHost(join(dir, 'plugins'), { db, emit, strictSyncReads: true, changed: noteChanged, ai: scopedCompletion(() => db, registry, ai), decider: () => jevFor('pluginDecide'), bundled }, cores, installed);
   if (fresh) {
     for (const [key, value] of Object.entries(o.profile?.settings ?? {})) setSetting(db, key, value);
     for (const sql of o.profile?.sql ?? []) db.exec(sql);

@@ -6,7 +6,7 @@ import { compressRawJson, openDb, rekey, setSetting, type Db } from '../src/core
 import { archiveRead, pluginDb, type ArchiveRead, type PluginDb } from '../src/core/plugins/pluginDb';
 import { createArchiveRefViews } from '../src/core/plugins/archiveRefs';
 import { archiveReadPrivacyChanged, closeArchiveReads } from '../src/core/reads/archiveReads';
-import { ArchiveReadPool, ARCHIVE_READ_POOL_SIZE, ARCHIVE_READ_QUEUE_MAX } from '../src/core/reads/pool';
+import { ArchiveReadPool, ARCHIVE_READ_POOL_SIZE, ARCHIVE_READ_BACKGROUND_QUEUE_MAX } from '../src/core/reads/pool';
 import { definePlugin, pluginTable, visibleTable } from '@plugin-sdk/shared';
 import { seedArchiveViews } from './archiveViewsFixture';
 import { tempDb, tempDir } from './helpers';
@@ -107,7 +107,7 @@ describe('off-thread plugin archive reads', () => {
   it('bounds queued work and cancels queued/pre-aborted reads without running them', async () => {
     const pool = new ArchiveReadPool({ path: db.name, key: null }, ENTRY);
     const control = new AbortController();
-    const jobs = Array.from({ length: ARCHIVE_READ_POOL_SIZE + ARCHIVE_READ_QUEUE_MAX }, () => outcome(pool.read(HEAVY, [], control.signal)));
+    const jobs = Array.from({ length: ARCHIVE_READ_POOL_SIZE + ARCHIVE_READ_BACKGROUND_QUEUE_MAX }, (_, i) => outcome(pool.read(HEAVY.replace('sum(x)', 'sum(x) + ?'), [i], control.signal)));
     await expect(pool.read('SELECT 1', [])).rejects.toThrow(/queue is full/);
     control.abort(new Error('Cancelled queue'));
     expect((await Promise.all(jobs)).every((r) => r === control.signal.reason)).toBe(true);

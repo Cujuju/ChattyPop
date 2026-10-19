@@ -69,10 +69,11 @@ export const queryHandlers = (
   rankSearch: (text, hits) => rankSearch(parseSearch(text).words, hits),
 });
 
-export const pluginHandlers = (host: () => PluginHost): Pick<CoreMethods, 'plugins' | 'setPluginEnabled' | 'reloadPlugins' | 'runPluginCommand' | 'pluginCall'> => ({
+export const pluginHandlers = (host: () => PluginHost): Pick<CoreMethods, 'plugins' | 'setPluginEnabled' | 'reloadPlugins' | 'runPluginCommand' | 'pluginCall' | 'cancelPluginCall'> => ({
   plugins: () => host().list(),
   setPluginEnabled: (id, on) => host().setEnabled(id, on),
   reloadPlugins: () => host().reload(),
   runPluginCommand: (pluginId, commandId, range) => host().runCommand(pluginId, commandId, range),
-  pluginCall: (origin, pluginId, name, args) => pluginCallResult(() => host().call(origin, pluginId, name, args)),
+  pluginCall: (origin, pluginId, name, args, request) => pluginCallResult(() => host().call(origin, pluginId, name, args, request)),
+  cancelPluginCall: (origin, pluginId, id) => host().cancelCall(origin, pluginId, id),
 });

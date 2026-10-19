@@ -7,6 +7,9 @@ import { join } from 'node:path';
 import type { ChannelsOf, PluginDescriptor } from '@shared/bundledTypes';
 import { pluginTableName } from '@shared/bundledTypes';
 import type { AppEvent } from '@shared/contract';
+import { untilRevoked } from '../ai/revocable';
+import { pluginCalls, currentCall } from './callContext';
+import type { CallContext } from '@shared/readPriority';
 import { completionOf, decoderOf, membersOf, servedMember, type EventsOf, type Served } from '@shared/pluginChannels';
 import { PluginInactiveError } from '@shared/pluginCall';
 import { getSetting } from '../db';
@@ -78,6 +81,8 @@ export interface CoreContext<D extends PluginDescriptor = PluginDescriptor> {
     fetch: PluginFetch;
   };
   channels: {
+    /** Current served call, preserved across awaits; throws outside a call. */
+    call(): CallContext;
     /** Serves every core call the contract declares but its completion reports; the host checks each caller's audience. */
     serve(impl: Served<ChannelsOf<D>, 'core'>): void;
     /** An event for its declared audiences. */
@@ -185,6 +190,7 @@ export function createCoreContext<D extends PluginDescriptor>(
       fetch: lifetimeFetch(descriptorFetch(plugin, (key) => getSetting(bundled.ready(), key), bundled.send), lifetime),
     },
     channels: {
+      call: currentCall,
       serve: (impl) => {
         if (!live()) return;
         for (const name of membersOf(plugin.channels, 'core')) {
@@ -193,7 +199,11 @@ export function createCoreContext<D extends PluginDescriptor>(
           if (!fn) throw new Error(`${id} declares core call ${name} but serves none`);
           const decode = decoderOf(plugin.channels, name);
           // Its arguments are checked before the handler runs, whichever transport brought them.
-          reg.calls.set(name, decode ? (...args) => fn(...decode(args)) : fn);
+          reg.calls.set(name, (...args) => {
+            const call = pluginCalls.getStore()!;
+            const signal = AbortSignal.any([call.signal, lifetime.signal]);
+            return pluginCalls.run({ ...call, signal }, () => untilRevoked(call.reads ? signal : call.signal, () => Promise.resolve(fn(...(decode ? decode(args) : args)))));
+          });
           reg.registered.add(registration('core call', name));
         }
       },

@@ -169,7 +169,8 @@ export interface CoreMethods {
   /** Runs a plugin command; resolves with the text it returned, if any. */
   runPluginCommand(pluginId: string, commandId: string, range: PluginRange): Promise<string | null>;
   /** Transports stamp plugin-call origins; callers cannot choose them. Core enforces declared audiences. */
-  pluginCall(origin: Audience, pluginId: string, name: string, args: unknown[]): Promise<PluginCallResult>;
+  cancelPluginCall(origin: Audience, pluginId: string, id: string): void;
+  pluginCall(origin: Audience, pluginId: string, name: string, args: unknown[], request?: import('./readPriority').PluginCallRequest): Promise<PluginCallResult>;
   ingestMessages(messages: RawMessage[]): IngestResult;
   /** A gateway dispatch observed by the passive tap; core keeps only what it archives. */
   applyGatewayEvent(t: ArchivedGatewayEvent, d: unknown): void;

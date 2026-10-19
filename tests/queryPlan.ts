@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 import type { Db } from '../src/core/db';
 
 /** Runs `read`, returning the EXPLAIN QUERY PLAN details of every statement it executed. */
-export function statementPlans(db: Db, read: () => unknown): string[] {
+function capturePlans(db: Db): { details: string[]; restore(): void } {
   const prepare = db.prepare.bind(db);
   const details: string[] = [];
   const spy = vi.spyOn(db, 'prepare').mockImplementation((sql: string) => {
@@ -24,10 +24,16 @@ export function statementPlans(db: Db, read: () => unknown): string[] {
     };
     return statement;
   });
-  try {
-    read();
-  } finally {
-    spy.mockRestore();
-  }
-  return details;
+  return { details, restore: () => spy.mockRestore() };
+}
+
+export function statementPlans(db: Db, read: () => unknown): string[] {
+  const capture = capturePlans(db);
+  try { read(); return capture.details; } finally { capture.restore(); }
+}
+
+/** Retains instrumentation across awaited query chains. */
+export async function readPlans(db: Db, read: () => unknown): Promise<string[]> {
+  const capture = capturePlans(db);
+  try { await read(); return capture.details; } finally { capture.restore(); }
 }

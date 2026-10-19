@@ -3,6 +3,7 @@ import { utilityProcess, type UtilityProcess } from 'electron';
 import type {
   AppEvent,
   CoreEventMessage,
+  CoreDiagnosticMessage,
   CoreInit,
   CoreInitStep,
   CoreInitStepMessage,
@@ -39,8 +40,9 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [
     super();
     // Main's environment, INSTALLED_ENV included: core loads the installed plugins main's start accepted.
     this.proc = utilityProcess.fork(entry, [], { serviceName: 'ChattyPop Core', stdio: 'inherit', env: process.env });
-    this.proc.on('message', (msg: CoreResponse | CoreEventMessage | CoreInitStepMessage) => {
+    this.proc.on('message', (msg: CoreResponse | CoreEventMessage | CoreInitStepMessage | CoreDiagnosticMessage) => {
       if (!('kind' in msg)) this.settle(msg);
+      else if (msg.kind === 'diag') this.report(msg.event, msg.detail);
       else if (msg.kind === 'event') this.emit('event', msg.event);
       else this.emit('init-step', msg.step);
     });

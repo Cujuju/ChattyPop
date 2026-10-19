@@ -94,6 +94,8 @@ export type AppEvent =
 export const sharedEvent = (e: AppEvent): AppEvent => (e.type === 'opt-in-changed' && e.optedIn !== undefined ? { type: 'opt-in-changed' } : e);
 
 /** Core → main unsolicited message carrying an AppEvent. */
+export interface CoreDiagnosticMessage { kind: 'diag'; event: string; detail: Record<string, unknown> }
+
 export interface CoreEventMessage {
   kind: 'event';
   event: AppEvent;
@@ -264,6 +266,7 @@ export const MAIN_INVOKE = {
   /** A window's calls into plugins (RendererApi.plugins); main stamps their origin. */
   plugins: {
     callCore: 'plugins:call-core',
+    cancelCore: 'plugins:cancel-core',
     callMain: 'plugins:call-main',
   },
   rules: {

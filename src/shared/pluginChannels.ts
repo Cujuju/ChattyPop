@@ -34,6 +34,8 @@ export type Decoder<Args extends readonly unknown[] = readonly unknown[]> = (arg
 export interface CallMember<Args extends readonly unknown[] = readonly unknown[]> {
   readonly audiences: readonly Audience[];
   readonly writes?: boolean;
+  /** Read-only member; synchronous PluginDb reads are diagnosed across its async extent. */
+  readonly reads?: boolean;
   readonly decode?: Decoder<Args>;
   /** Not a completion report (CompletionMember). */
   readonly completion?: never;
@@ -134,6 +136,12 @@ export const completionOf = (c: AnyChannels | undefined, name: string): Completi
 export const decoderOf = (c: AnyChannels | undefined, name: string): Decoder | null => {
   const m = memberOf(c, 'core', name);
   return m !== undefined && 'decode' in m && m.decode ? m.decode : null;
+};
+
+/** Whether a core member declares read-only work. */
+export const readsOf = (c: AnyChannels | undefined, name: string): boolean => {
+  const m = memberOf(c, 'core', name);
+  return m !== undefined && 'reads' in m && m.reads === true;
 };
 
 /** Member names of a section. */

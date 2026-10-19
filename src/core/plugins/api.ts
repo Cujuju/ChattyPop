@@ -24,6 +24,8 @@ const MAX_QUERY_LIMIT = 10_000;
 
 /** Host services shared by folder and bundled plugins. */
 export interface HostDeps {
+  strictSyncReads?: boolean;
+  diag?(event: string, detail: Record<string, unknown>): void;
   db: Db;
   emit(e: AppEvent): void;
   /** The Archive re-reads this channel (annotations changed). */

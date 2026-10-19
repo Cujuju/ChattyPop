@@ -374,7 +374,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
       };
       plugins = new PluginHost(
         data.pluginsDir,
-        { db, emit, changed: noteChanged, ai: scopedCompletion(() => ready().db, providers, aiSettings), decider: () => deciderFor('pluginDecide'), bundled },
+        { db, emit, diag: (event, detail) => process.parentPort.postMessage({ kind: 'diag', event, detail } satisfies import('@shared/contract').CoreDiagnosticMessage), changed: noteChanged, ai: scopedCompletion(() => ready().db, providers, aiSettings), decider: () => deciderFor('pluginDecide'), bundled },
         bundledCore,
         BUNDLED_PLUGINS,
         { start: installedStart(), failed: failedCore },

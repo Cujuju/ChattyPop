@@ -1,48 +1,93 @@
 import { fork, type ChildProcess } from 'node:child_process';
+import { serialize } from 'node:v8';
+import type { ReadPriority } from '@shared/readPriority';
 import { join } from 'node:path';
 import type { ReadConnection, ReadQuery, ReadReply } from './protocol';
 
 /** Two concurrent readers allow unrelated lookups without multiplying archive scans across every plugin. */
 export const ARCHIVE_READ_POOL_SIZE = 2;
-/** Bound retained SQL/parameters; callers retry after existing work settles. */
-export const ARCHIVE_READ_QUEUE_MAX = 32;
+/** Visible resources may burst together; retain at most 32 distinct waiting interactive queries. */
+export const ARCHIVE_READ_INTERACTIVE_QUEUE_MAX = 32;
+/** Background scans retain fewer queries so hidden work cannot exhaust interactive admission. */
+export const ARCHIVE_READ_BACKGROUND_QUEUE_MAX = 16;
+/** Admit one waiting background query after eight interactive dispatches, bounding starvation without preempting native reads. */
+export const ARCHIVE_READ_INTERACTIVE_BURST = 8;
 /** Limit repeated abort/crash process churn; replacements are demand-driven after exit, and failed jobs are never retried. */
 export const ARCHIVE_READ_RESPAWN_DELAY_MS = 50;
 
 interface Job extends ReadQuery {
+  key: string;
+  lane: ReadPriority;
+  promise: Promise<unknown[]>;
+  consumers: number;
   resolve(rows: unknown[]): void;
   reject(error: unknown): void;
-  cleanup(): void;
+  cleanups: Set<() => void>;
 }
 interface Slot { process: ChildProcess; job?: Job; stopping: boolean; exited: Promise<void> }
 
 export class ArchiveReadPool {
   private readonly slots = new Set<Slot>();
-  private readonly queue: Job[] = [];
+  private readonly queues: Record<ReadPriority, Job[]> = { interactive: [], background: [] };
+  private readonly queued = new Map<string, Job>();
+  private interactiveBurst = 0;
   private closed = false;
   private respawnAt = 0;
   private respawnTimer?: NodeJS.Timeout;
 
   constructor(private readonly connection: ReadConnection, private readonly entry = join(import.meta.dirname, 'archiveReadProcess.js')) {}
 
-  read<R>(sql: string, params: ReadQuery['params'], signal?: AbortSignal): Promise<R[]> {
-    return new Promise<unknown[]>((resolve, reject) => {
-      if (signal?.aborted) return reject(signal.reason);
-      if (this.closed) return reject(new Error('Archive reader is closed'));
-      if (this.queue.length >= ARCHIVE_READ_QUEUE_MAX) return reject(new Error('Archive read queue is full'));
-      const job: Job = { sql, params, resolve, reject, cleanup: () => signal?.removeEventListener('abort', abort) };
+  read<R>(sql: string, params: ReadQuery['params'], signal?: AbortSignal, lane: ReadPriority = 'background'): Promise<R[]> {
+    if (signal?.aborted) return Promise.reject(signal.reason);
+    if (this.closed) return Promise.reject(new Error('Archive reader is closed'));
+    const normalized = Array.isArray(params) ? params : Object.fromEntries(Object.entries(params).sort(([a], [b]) => a.localeCompare(b)));
+    const key = serialize([sql, normalized, lane]).toString('base64');
+    let job = this.queued.get(key);
+    if (!job) {
+      const cap = lane === 'interactive' ? ARCHIVE_READ_INTERACTIVE_QUEUE_MAX : ARCHIVE_READ_BACKGROUND_QUEUE_MAX;
+      if (this.queues[lane].length >= cap) return Promise.reject(new Error(`Archive ${lane} read queue is full`));
+      let resolve!: Job['resolve'];
+      let reject!: Job['reject'];
+      const promise = new Promise<unknown[]>((yes, no) => { resolve = yes; reject = no; });
+      job = { sql, params: structuredClone(params), key, lane, promise, resolve, reject, consumers: 0, cleanups: new Set() };
+      this.queued.set(key, job);
+      this.queues[lane].push(job);
+    }
+    const result = this.subscribe(job, signal);
+    this.drain();
+    return result as Promise<R[]>;
+  }
+
+  private subscribe(job: Job, signal?: AbortSignal): Promise<unknown[]> {
+    job.consumers++;
+    if (!signal) return job.promise;
+    return new Promise((resolve, reject) => {
+      const cleanup = (): void => { signal.removeEventListener('abort', abort); job.cleanups.delete(cleanup); };
       const abort = (): void => {
-        const queued = this.queue.indexOf(job);
-        if (queued !== -1) this.queue.splice(queued, 1);
+        cleanup();
+        reject(signal.reason);
+        if (--job.consumers) return;
+        const queue = this.queues[job.lane];
+        const index = queue.indexOf(job);
+        if (index !== -1) { queue.splice(index, 1); this.queued.delete(job.key); }
         const slot = [...this.slots].find((s) => s.job === job);
         if (slot) { slot.job = undefined; this.stop(slot); }
-        job.cleanup();
-        reject(signal!.reason);
+        this.fail(job, signal.reason);
       };
-      signal?.addEventListener('abort', abort, { once: true });
-      this.queue.push(job);
-      this.drain();
-    }) as Promise<R[]>;
+      job.cleanups.add(cleanup);
+      signal.addEventListener('abort', abort, { once: true });
+      job.promise.then((rows) => { cleanup(); if (!signal.aborted) resolve(rows); }, (error) => { cleanup(); reject(error); });
+    });
+  }
+
+  private dequeue(): Job | undefined {
+    const { interactive, background } = this.queues;
+    const lane = background.length && (!interactive.length || this.interactiveBurst >= ARCHIVE_READ_INTERACTIVE_BURST) ? 'background' : 'interactive';
+    const job = this.queues[lane].shift();
+    if (!job) return;
+    this.queued.delete(job.key);
+    this.interactiveBurst = lane === 'background' ? 0 : Math.min(this.interactiveBurst + 1, ARCHIVE_READ_INTERACTIVE_BURST);
+    return job;
   }
 
   async close(): Promise<void> {
@@ -54,7 +99,8 @@ export class ArchiveReadPool {
   }
 
   cancel(error: Error): void {
-    for (const job of this.queue.splice(0)) this.fail(job, error);
+    for (const queue of Object.values(this.queues)) for (const job of queue.splice(0)) this.fail(job, error);
+    this.queued.clear();
     for (const slot of this.slots) {
       if (slot.job) this.fail(slot.job, error);
       slot.job = undefined;
@@ -62,7 +108,8 @@ export class ArchiveReadPool {
     }
   }
 
-  private fail(job: Job, error: unknown): void { job.cleanup(); job.reject(error); }
+  private cleanup(job: Job): void { for (const cleanup of job.cleanups) cleanup(); }
+  private fail(job: Job, error: unknown): void { this.cleanup(job); job.reject(error); }
 
   private stop(slot: Slot): void {
     if (slot.stopping) return;
@@ -82,7 +129,7 @@ export class ArchiveReadPool {
       if (reply.kind === 'started' || slot.stopping || !slot.job) return;
       const job = slot.job;
       slot.job = undefined;
-      job.cleanup();
+      this.cleanup(job);
       if (reply.kind === 'rows') job.resolve(reply.rows);
       else {
         if (reply.fatal) this.stop(slot);
@@ -106,7 +153,7 @@ export class ArchiveReadPool {
 
   private drain(): void {
     if (this.closed) return;
-    while (this.queue.length) {
+    while (this.queued.size) {
       let slot = [...this.slots].find((s) => !s.stopping && !s.job);
       if (!slot && this.slots.size < ARCHIVE_READ_POOL_SIZE) {
         const wait = this.respawnAt - performance.now();
@@ -115,10 +162,10 @@ export class ArchiveReadPool {
           return;
         }
         try { slot = this.spawn(); }
-        catch (error) { this.fail(this.queue.shift()!, error); continue; }
+        catch (error) { this.fail(this.dequeue()!, error); continue; }
       }
       if (!slot) return;
-      const job = this.queue.shift()!;
+      const job = this.dequeue()!;
       slot.job = job;
       const failed = (error: Error | null): void => {
         if (error && slot!.job === job) { this.fail(job, error); slot!.job = undefined; this.stop(slot!); }

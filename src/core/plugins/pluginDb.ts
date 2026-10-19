@@ -3,6 +3,8 @@ import type Database from 'better-sqlite3-multiple-ciphers';
 import { PluginInactiveError } from '@shared/pluginCall';
 import type { Db } from '../db';
 import { readArchive } from '../reads/archiveReads';
+import type { ReadPriority } from '@shared/readPriority';
+import { checkSyncRead, pluginCalls } from './callContext';
 import { checkReadStatement } from '../reads/protocol';
 
 type RawStatement = Database.Statement<unknown[], unknown>;
@@ -48,14 +50,16 @@ export interface PluginDb {
 }
 
 /** Off-thread read-only rows from committed archive data. Abort stops native work and rejects with the signal's reason. */
-export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<R[]>;
+export type ArchiveRead = <R = unknown>(source: string, params?: readonly unknown[] | Record<string, unknown>, options?: { signal?: AbortSignal; priority?: ReadPriority }) => Promise<R[]>;
 
 /** `ctx.storage.read` over `db` (read at each use: the archive can move). Separate from PluginDb, which a raw connection satisfies. */
 export function archiveRead(db: () => Db): ArchiveRead {
-  return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: { signal?: AbortSignal } = {}): Promise<R[]> => {
-    options.signal?.throwIfAborted();
+  return async <R,>(source: string, params: readonly unknown[] | Record<string, unknown> = [], options: { signal?: AbortSignal; priority?: ReadPriority } = {}): Promise<R[]> => {
+    const call = pluginCalls.getStore();
+    const signal = call ? (options.signal ? AbortSignal.any([call.signal, options.signal]) : call.signal) : options.signal;
+    signal?.throwIfAborted();
     checkReadStatement(source);
-    return readArchive<R>(db(), source, params, options.signal);
+    return readArchive<R>(db(), source, params, signal, options.priority ?? call?.priority ?? 'background');
   };
 }
 
@@ -110,7 +114,7 @@ function fencedIterator<R>(it: IterableIterator<R>, check: () => void): Iterable
 
 /** Fences writing statement runs. Modifiers return wrappers and retain better-sqlite3’s bare-call behavior. */
 function fencedStatement(stmt: RawStatement, fence: () => void): PluginStatement {
-  const check = stmt.readonly ? (): void => undefined : fence;
+  const check = stmt.readonly ? checkSyncRead : fence;
   const wrapper: PluginStatement = {
     source: stmt.source,
     reader: stmt.reader,
@@ -129,7 +133,7 @@ function fencedStatement(stmt: RawStatement, fence: () => void): PluginStatement
     },
     iterate: (...params) => {
       check();
-      return stmt.readonly ? stmt.iterate(...params) : fencedIterator(stmt.iterate(...params), check);
+      return fencedIterator(stmt.iterate(...params), check);
     },
     pluck: (toggleState) => {
       stmt.pluck(toggleState ?? true);

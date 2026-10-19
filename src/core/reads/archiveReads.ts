@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import type { Db } from '../db';
 import { ArchiveReadPool } from './pool';
+import type { ReadPriority } from '@shared/readPriority';
 import type { ReadQuery } from './protocol';
 
 interface Readers { key: string | null; pool?: ArchiveReadPool; closed: boolean }
@@ -36,7 +37,7 @@ export function resumeArchiveReads(db: Db): void {
   if (state) state.closed = false;
 }
 
-export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'], signal?: AbortSignal): Promise<R[]> {
+export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'], signal?: AbortSignal, priority: ReadPriority = 'background'): Promise<R[]> {
   if (signal?.aborted) return Promise.reject(signal.reason);
   const state = readers.get(db);
   if (!db.open || !state || state.closed) return Promise.reject(new Error('Archive reader is closed'));
@@ -45,5 +46,5 @@ export function readArchive<R>(db: Db, sql: string, params: ReadQuery['params'],
   const adjacent = join(import.meta.dirname, 'archiveReadProcess.js');
   const entry = existsSync(adjacent) ? adjacent : process.env.VITEST ? join(import.meta.dirname, '../../../out/read-tests/archiveReadProcess.js') : adjacent;
   state.pool ??= new ArchiveReadPool({ path: db.name, key: state.key }, entry);
-  return state.pool.read<R>(sql, params, signal);
+  return state.pool.read<R>(sql, params, signal, priority);
 }

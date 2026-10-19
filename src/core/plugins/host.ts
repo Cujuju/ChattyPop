@@ -3,6 +3,9 @@ import { createArchiveRefViews } from './archiveRefs';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { PluginCallRegistry } from './callRegistry';
+import { pluginCalls } from './callContext';
+import { checkCallRequest, type PluginCallRequest } from '@shared/readPriority';
 import { PluginInactiveError } from '@shared/pluginCall';
 import { errorMessage } from '@shared/errors';
 import { switchState, type PluginState } from '@shared/ruleAvailability';
@@ -26,7 +29,7 @@ import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting } from '../db';
 import { createPluginApi, emptyRegistrations, type HostDeps, type Registrations } from './api';
 import { unregisterMessageQuestion } from '../jev/messageQuestions';
-import { audiencesOf, completionOf, type Audience } from '@shared/pluginChannels';
+import { audiencesOf, completionOf, readsOf, type Audience } from '@shared/pluginChannels';
 import { nestedTablesError, tableNamespacesNest, type PluginDescriptor } from '@shared/bundledTypes';
 import type { HostPlugins, TextSource } from './bundled';
 import { CompletionLedger } from './completions';
@@ -106,6 +109,7 @@ function readManifest(dir: string): PluginManifest {
  * to them and isolates their failures. Both kinds share on/off (Settings → Plugins) and error reporting.
  */
 export class PluginHost {
+  private readonly calls = new PluginCallRegistry();
   private readonly plugins = new Map<string, Loaded>();
   /** Bumped on every folder pass, so the ESM loader re-reads changed entry files and an older pass stops. */
   private generation = 0;
@@ -329,7 +333,7 @@ export class PluginHost {
   }
 
   /** Dispatches transport-stamped core calls to declared bundled audiences or folder panels. Records folder errors; bundled errors remain caller-visible only. */
-  async call(origin: Audience, pluginId: string, name: string, args: unknown[]): Promise<unknown> {
+  async call(origin: Audience, pluginId: string, name: string, args: unknown[], request?: PluginCallRequest): Promise<unknown> {
     const p = this.plugins.get(pluginId);
     const reaches = p?.entry ? audiencesOf(p.entry.plugin.channels, 'core', name).includes(origin) : p?.origin === 'folder' && origin === 'renderer';
     // Main's report of work the plugin started: its latest handler takes it, on or off.
@@ -339,12 +343,20 @@ export class PluginHost {
     if (p && reaches && p.status !== 'active') throw new PluginInactiveError(pluginId);
     if (!p || !fn) throw new Error(`Plugin ${pluginId} has no function ${name} for ${origin}`);
     try {
-      return await fn(...args);
+      const call = this.calls.start(origin, pluginId, checkCallRequest(request));
+      try {
+        call.signal.throwIfAborted();
+        return await pluginCalls.run({ plugin: pluginId, member: name, reads: readsOf(p.entry?.plugin.channels, name),
+          signal: call.signal, priority: request?.priority ?? 'background', strict: this.deps.strictSyncReads ?? !!process.env.VITEST,
+          diag: this.deps.diag ?? (() => undefined) }, () => fn(...args));
+      } finally { call.end(); }
     } catch (err) {
       if (p.origin === 'folder') this.fail(p, err);
       throw err;
     }
   }
+
+  cancelCall(origin: Audience, pluginId: string, id: string): void { this.calls.cancel(origin, pluginId, id); }
 
   async runCommand(pluginId: string, commandId: string, range: PluginRange): Promise<string | null> {
     const p = this.plugins.get(pluginId);
