@@ -2,6 +2,7 @@ import { installMetadataTriggers } from './metadata';
 import { reconcileDefinition } from './definitions';
 import type { Db } from '../db';
 import { MS_PER_S } from '@shared/units';
+import { installRollupChanges } from './changes';
 
 /** Message payload changes include edits to embeds and flags; reaction/poll tables retain their own change kinds. */
 const MESSAGE_COLUMNS = ['content', 'channel_id', 'ts', 'deleted_at', 'pruned_at', 'author_id', 'edited_ts', 'raw_json'];
@@ -9,12 +10,10 @@ const MESSAGE_COLUMNS = ['content', 'channel_id', 'ts', 'deleted_at', 'pruned_at
 /** Durable invalidation includes both sides when a message, attachment or first link share moves between partitions. */
 export function installRollupTriggers(db: Db): void {
   installMetadataTriggers(db);
-  db.exec(`CREATE TABLE IF NOT EXISTS rollup_kinds (rollup TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (rollup, kind));`);
+  installRollupChanges(db);
   const mark = (alias: string, channel: string, ts: string, kinds: string[]) => `
-    INSERT INTO rollup_dirty(rollup, channel_id, day)
-      SELECT DISTINCT rollup, ${alias}.${channel}, date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch') FROM rollup_kinds
-      WHERE kind IN (${kinds.map((k) => `'${k}'`).join(', ')})
-      ON CONFLICT(rollup, channel_id, day) DO UPDATE SET revision = revision + 1;`;
+    INSERT OR IGNORE INTO rollup_changes(channel_id, day, kind) VALUES
+      ${kinds.map((kind) => `(${alias}.${channel}, date(${alias}.${ts} / ${MS_PER_S}, 'unixepoch'), '${kind}')`).join(', ')};`;
   for (const [table, channel, ts, kind] of [
     ['messages', 'channel_id', 'ts', 'messages'], ['attachments', 'channel_id', 'ts', 'attachments'],
     ['links', 'first_channel_id', 'first_ts', 'links'],

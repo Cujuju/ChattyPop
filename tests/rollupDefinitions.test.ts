@@ -4,6 +4,7 @@ import { reconcileDefinition } from '../src/core/rollups/definitions';
 import { installRollupStore, rollupTable } from '../src/core/rollups/store';
 import { installRollupTriggers } from '../src/core/rollups/triggers';
 import { installRollupReferences } from '../src/core/rollups/privacy';
+import { expandRollupChanges } from '../src/core/rollups/changes';
 
 describe('persistent generated rollup definitions', () => {
   it.each(['insert', 'update', 'delete'])('repairs hidden-id %s visibility triggers changed by another version', (operation) => {
@@ -33,6 +34,7 @@ describe('persistent generated rollup definitions', () => {
     db.exec("INSERT INTO rollup_meta(rollup, version, zone) VALUES ('probe.files', 1, 'UTC'); INSERT INTO rollup_kinds VALUES ('probe.files', 'attachments')");
     db.exec("INSERT INTO attachments(id, message_id, channel_id, filename, url, ts) VALUES ('file', 'message', 'channel', 'file', 'https://example.test', 0); DELETE FROM rollup_dirty");
     db.exec("UPDATE attachments SET fixture_revision = 1 WHERE id = 'file'");
+    while (expandRollupChanges(db)) { /* Drain the durable shared marks outside the write transaction. */ }
     expect(db.prepare('SELECT channel_id FROM rollup_dirty').pluck().all()).toEqual(['channel']);
     expect(db.prepare("SELECT fixture_revision FROM attachments WHERE id = 'file'").pluck().get()).toBe(1);
   });

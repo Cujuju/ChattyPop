@@ -1,18 +1,19 @@
 import { MS_PER_DAY, MS_PER_S } from '@shared/units';
 import { pluginTableName } from '@shared/bundledTypes';
 import type { Db } from '../db';
-import { visibleChannelSql } from '../queries/privacy';
 import type { RollupPartition, RollupRow, RollupSpec } from './types';
 import type { FoldResult } from '../reads/protocol';
 import { reconcileDefinition } from './definitions';
-import { pendingReferenceSql } from './privacy';
 import { installSpanTriggers } from './spans';
+import { installRollupChanges, pendingChangesSql } from './changes';
+import { visibleRollupSql } from './views';
 
 export interface Dirty { channel_id: string; day: string; revision: number }
 export interface Meta { version: number; zone: string; revision: number; built_through_seq: number; queued_through_seq: number; backfill: number }
 const IDENTIFIER = /^[a-z][a-z0-9_]*$/i;
 
 export function installRollupStore(db: Db): void {
+  installRollupChanges(db);
   db.exec(`CREATE TABLE IF NOT EXISTS rollup_meta (
     rollup TEXT PRIMARY KEY, version INTEGER NOT NULL, zone TEXT NOT NULL,
     built_through_seq INTEGER NOT NULL DEFAULT 0, queued_through_seq INTEGER NOT NULL DEFAULT 0,
@@ -54,17 +55,10 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
   // Versioned tables preserve old schemas; a version bump never alters a previously created table.
   const table = pluginTableName(pluginId, `rollup_${name}_v${spec.version}`);
   const id = `${pluginId}.${name}`;
-  const ready = `(SELECT ready FROM rollup_reference_state WHERE singleton = 1) = 1
-    AND (SELECT backfill FROM rollup_meta WHERE rollup = '${id}') = 0`;
-  const spanReady = spec.span ? `
-    AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id
-      AND r.day BETWEEN sd.first_day AND sd.last_day)` : '';
-  const clean = `NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = '${id}')`;
   db.exec(`CREATE TABLE IF NOT EXISTS "${table}" (channel_id TEXT NOT NULL, day TEXT NOT NULL,
     ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
     PRIMARY KEY (channel_id, day, ${spec.key.map((key) => `"${key}"`).join(', ')}))`);
-  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS SELECT * FROM "${table}" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready}${spanReady} AND ${pendingReferenceSql('r.channel_id', 'r.day')}
-    AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id AND (d.day = r.day OR d.day = '')))`);
+  reconcileDefinition(db, `${table}/visible`, `CREATE VIEW IF NOT EXISTS "${table}_visible" AS ${visibleRollupSql(id, table, Boolean(spec.span))}`);
   for (const [index, keys] of (spec.indexes ?? []).entries()) {
     if (!keys.length || keys.some((key) => !Object.hasOwn(spec.columns, key))) throw new Error('Invalid rollup index');
     db.exec(`CREATE INDEX IF NOT EXISTS "${table}_read_${index}" ON "${table}" (${keys.map((key) => `"${key}"`).join(', ')})`);
@@ -78,9 +72,7 @@ export function rollupTable<R extends object, D>(db: Db, pluginId: string, name:
         ${columns.map(([column, type]) => `"${column}" ${type}${keys.includes(column) ? ' NOT NULL' : ''}`).join(', ')},
         PRIMARY KEY(channel_id, ${spec.key.map((key) => `"${key}"`).join(', ')}));
 `);
-    reconcileDefinition(db, `${table}/all-time-visible`, `CREATE VIEW IF NOT EXISTS "${table}_all_time_visible" AS SELECT * FROM "${table}_all_time" r WHERE ${visibleChannelSql('r.channel_id')} AND ${ready} AND ${pendingReferenceSql('r.channel_id')}
-        ${spec.span ? `AND NOT EXISTS (SELECT 1 FROM rollup_span_dirty sd WHERE sd.rollup = '${id}' AND sd.channel_id = r.channel_id)` : ''}
-        AND (${clean} OR NOT EXISTS (SELECT 1 FROM rollup_dirty d WHERE d.rollup = '${id}' AND d.channel_id = r.channel_id))`);
+    reconcileDefinition(db, `${table}/all-time-visible`, `CREATE VIEW IF NOT EXISTS "${table}_all_time_visible" AS ${visibleRollupSql(id, table, Boolean(spec.span), true)}`);
   }
   return table;
 }
@@ -105,6 +97,7 @@ export const PARTITIONS_SQL = `SELECT channel_id, date(ts / ${MS_PER_S}, 'unixep
 
 export function replacePartition(db: Db, id: string, table: string, dirty: Dirty, columns: readonly string[], rows: RollupRow[], watermark: number, fold?: FoldResult): void {
   db.transaction(() => {
+    if (db.prepare(`SELECT ${pendingChangesSql('?', '?', '?')}`).pluck().get(id, dirty.channel_id, dirty.day)) return;
     const current = db.prepare('SELECT revision FROM rollup_dirty WHERE rollup = ? AND channel_id = ? AND day = ?').get(id, dirty.channel_id, dirty.day) as { revision: number } | undefined;
     if (current?.revision !== dirty.revision) return;
     db.prepare(`DELETE FROM "${table}" WHERE channel_id = ? AND day = ?`).run(dirty.channel_id, dirty.day);

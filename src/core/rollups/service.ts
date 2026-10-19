@@ -12,6 +12,7 @@ import { metadataAffects, metadataPending, seedRollupMetadata } from './metadata
 import type { FoldResult } from '../reads/protocol';
 import { ARCHIVE_REFRESH_DEBOUNCE_MS } from '@shared/archiveRefresh';
 import { spanGeneration } from './spans';
+import { pendingChangesSql, seedRollupChanges } from './changes';
 
 /** Retry cancelled reads and transient archive moves without spinning on unavailable files. */
 const RETRY_MS = MS_PER_S;
@@ -96,13 +97,17 @@ class MaintainedRollup implements Rollup {
   status(): RollupStatus {
     if (this.signal.aborted) throw new PluginInactiveError(this.pluginId);
     this.checkZone();
-    const { dirty } = this.ready().prepare('SELECT COUNT(*) AS dirty FROM rollup_dirty WHERE rollup = ?').get(this.id) as { dirty: number };
+    const { dirty } = this.ready().prepare(`SELECT COUNT(*) AS dirty FROM (
+      SELECT channel_id, day FROM rollup_dirty WHERE rollup = ? UNION
+      SELECT c.channel_id, c.day FROM rollup_changes c JOIN rollup_kinds k ON k.kind = c.kind WHERE k.rollup = ?)`)
+      .get(this.id, this.id) as { dirty: number };
     const { spans } = this.ready().prepare('SELECT COUNT(*) AS spans FROM rollup_span_dirty WHERE rollup = ?').get(this.id) as { spans: number };
     const referencesPending = referenceWorkPending(this.ready()) || metadataPending(this.ready());
     if ((dirty || spans || referencesPending) && !this.running) this.schedule();
     const { total } = this.ready().prepare(`SELECT COUNT(*) AS total FROM (
-      SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ?)`)
-      .get(this.id, this.id) as { total: number };
+      SELECT channel_id, day FROM rollup_partitions WHERE rollup = ? UNION SELECT channel_id, day FROM rollup_dirty WHERE rollup = ? UNION
+      SELECT c.channel_id, c.day FROM rollup_changes c JOIN rollup_kinds k ON k.kind = c.kind WHERE k.rollup = ?)`)
+      .get(this.id, this.id, this.id) as { total: number };
     return { building: Boolean(referencesPending || this.meta()?.backfill || dirty || spans || this.running), dirty: dirty + spans, total, error: this.error };
   }
 
@@ -114,6 +119,7 @@ class MaintainedRollup implements Rollup {
       FROM rollup_meta m JOIN rollup_reference_state r ON r.singleton = 1
         JOIN rollup_visibility_state v ON v.singleton = 1
       WHERE m.rollup = @rollup AND m.backfill = 0 AND r.ready = 1
+        AND NOT ${pendingChangesSql('m.rollup', undefined, undefined, '@first', '@channels')}
         AND NOT EXISTS (SELECT 1 FROM rollup_dirty WHERE rollup = m.rollup
           AND (@channels IS NULL OR channel_id IN (SELECT value FROM json_each(@channels)))
           AND (@first IS NULL OR day = '' OR day >= @first))
@@ -197,6 +203,7 @@ class MaintainedRollup implements Rollup {
       const meta = this.meta()!;
       await this.discover(Boolean(meta.backfill), this.epoch);
       while (!this.signal.aborted) {
+        await seedRollupChanges(this.ready(), this.signal);
         if (this.meta()?.backfill) { this.schedule(); break; }
         await this.expandSpans();
         const db = this.ready();

@@ -44,6 +44,29 @@ async function settled(rollup: Rollup) {
 }
 
 describe('host rollup contract', () => {
+  it('rejects publication when a same-partition write arrives after the helper snapshot', async () => {
+    const { t, rollup } = start();
+    await settled(rollup());
+    const original = readers.computeArchive;
+    let inserted = false;
+    const compute = vi.spyOn(readers, 'computeArchive').mockImplementation(async (...args) => {
+      const rows = await original(...args);
+      if (!inserted) {
+        inserted = true;
+        t.archive.arrive([{ channelId: CHANNEL, ts: START + 1, content: 'later' }]);
+        expect(rollup().snapshot()).toBeNull();
+      }
+      return rows as never;
+    });
+    try {
+      t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'first' }]);
+      await settled(rollup());
+    } finally { compute.mockRestore(); }
+    const incremental = await t.client('renderer').rows();
+    expect(incremental).toEqual([{ n: 2, sum: 10 }]);
+    rollup().rebuild(); await settled(rollup());
+    expect(await t.client('renderer').rows()).toEqual(incremental);
+  });
   it('keeps clean snapshots and unaffected rows serving when a thread is inserted or deleted', async () => {
     const reads = vi.spyOn(readers, 'readArchive');
     const { t, rollup } = start();
@@ -181,7 +204,7 @@ describe('host rollup contract', () => {
     state.t.archive.arrive([{ channelId: CHANNEL, ts: START, content: 'one' }]);
     await settled(state.rollup());
     state.t.db.prepare('UPDATE messages SET content = ?').run('changed');
-    expect(state.t.db.prepare('SELECT COUNT(*) FROM rollup_dirty').pluck().get()).toBeGreaterThan(0);
+    expect(state.t.db.prepare('SELECT COUNT(*) FROM rollup_changes').pluck().get()).toBeGreaterThan(0);
     const restarted = state.t.restart();
     active.splice(active.indexOf(state.t), 1);
     active.push(restarted);
