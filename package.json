@@ -51,12 +51,12 @@
     "@capacitor/push-notifications": "8.1.2",
     "@capacitor/status-bar": "8.0.3",
     "@types/node": "^24.13.6",
-    "electron": "44.4.5",
+    "electron": "44.9.3",
     "electron-builder": "26.15.3",
     "electron-vite": "5.0.0",
     "typescript": "7.0.2",
-    "vite": "7.3.6",
+    "vite": "7.3.7",
     "vite-plugin-solid": "2.11.14",
-    "vitest": "5.0.1"
+    "vitest": "5.0.5"
   }
 }
