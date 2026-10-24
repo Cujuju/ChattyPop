@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // Default categories are off so an oxlint release cannot add rules silently.
+  "categories": { "correctness": "off" },
+  "ignorePatterns": ["**/node_modules/**", "**/dist/**", "**/out/**", "**/*.d.ts", "**/.*/**"],
+  "overrides": [
+    {
+      // Solid correctness (same rule set as MoManga): eslint-plugin-solid runs inside oxlint; ESLint is only its runtime library.
+      "files": ["src/renderer/**/*.{ts,tsx}", "src/plugin-sdk/**/*.{ts,tsx}"],
+      "jsPlugins": ["eslint-plugin-solid"],
+      "rules": {
+        "solid/jsx-no-duplicate-props": "error",
+        "solid/jsx-no-undef": ["error", { "typescriptEnabled": true }],
+        "solid/jsx-uses-vars": "error",
+        "solid/no-innerhtml": "error",
+        "solid/jsx-no-script-url": "error",
+        "solid/components-return-once": "warn",
+        "solid/no-destructure": "error",
+        "solid/prefer-for": "error",
+        "solid/reactivity": "warn",
+        "solid/event-handlers": "warn",
+        "solid/imports": "warn",
+        "solid/style-prop": "warn",
+        "solid/no-react-deps": "warn",
+        "solid/no-react-specific-props": "warn",
+        "solid/self-closing-comp": "warn"
+      }
+    }
+  ]
+}
