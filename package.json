@@ -21,7 +21,7 @@
     "plugin:check": "node scripts/runTs.mjs scripts/pluginCheck.ts",
     "shell:sync": "vite build --config mobile/vite.config.ts && cap sync ios"
   },
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "pnpm@12.15.0",
   "dependencies": {
     "@cujuju/solid-reorder-list": "github:Cujuju/solid-reorder-list#v0.3.0-rc.4",
     "@cujuju/solidjs-color-picker": "0.3.0",
