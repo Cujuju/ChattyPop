@@ -1,13 +1,8 @@
 // Checks ordinary Solid imports, aliases, re-exports and module-level computations for containment.
 // Deliberate reflection through globalThis[Symbol.for('chattypop.hostModules')] or computed keys on published host-module accessors can still reach raw Solid; this static scan does not prevent it.
 import { violation, type SourceFile } from './source';
-import { parseProgram } from './syntax';
+import { isValueProperty, lineOf, parseProgram, stringLiteral, type Node as Ast } from './syntax';
 
-interface Ast {
-  type: string;
-  loc?: { start: { line: number } };
-  [key: string]: unknown;
-}
 interface Binding { source: string; name: string }
 interface Scope { parent?: Scope; bindings: Map<string, Binding | null> }
 export interface SolidSite extends Binding { line: number }
@@ -32,7 +27,8 @@ const SDK_REPLACEMENTS: Record<string, string> = {
   createStore: 'createStore',
   createMutable: 'createStore',
 };
-const FUNCTION = /^(?:FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|ObjectMethod|ClassMethod|ClassPrivateMethod)$/;
+// Methods are FunctionExpression values; a bodiless TS method's value is TSEmptyBodyFunctionExpression.
+const FUNCTION = /^(?:FunctionDeclaration|FunctionExpression|ArrowFunctionExpression|TSEmptyBodyFunctionExpression)$/;
 const node = (v: unknown): Ast | undefined => v !== null && typeof v === 'object' && typeof (v as Ast).type === 'string' ? v as Ast : undefined;
 const child = (n: Ast, key: string): Ast | undefined => node(n[key]);
 const list = (n: Ast, key: string): Ast[] => Array.isArray(n[key]) ? n[key].map(node).filter((n): n is Ast => !!n) : [];
@@ -73,7 +69,8 @@ function lookup(scope: Scope, key: string): Binding | null | undefined {
 }
 
 function unwrap(n: Ast | undefined): Ast | undefined {
-  while (n && ['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'ParenthesizedExpression'].includes(n.type)) n = child(n, 'expression');
+  // ChainExpression wraps an optional chain (`a?.b`), which has no wrapper in Babel's tree.
+  while (n && ['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'ChainExpression'].includes(n.type)) n = child(n, 'expression');
   return n;
 }
 
@@ -83,11 +80,11 @@ function resolve(n: Ast | undefined, scope: Scope): Binding | undefined {
     const binding = lookup(scope, String(n.name));
     return binding && binding.name !== '*' ? binding : undefined;
   }
-  if (n?.type === 'MemberExpression' || n?.type === 'OptionalMemberExpression' || n?.type === 'JSXMemberExpression') {
+  if (n?.type === 'MemberExpression' || n?.type === 'JSXMemberExpression') {
     const object = unwrap(child(n, 'object'));
     const binding = object && ['Identifier', 'JSXIdentifier'].includes(object.type) ? lookup(scope, String(object.name)) : undefined;
     const property = child(n, 'property');
-    const member = n.computed && property?.type !== 'StringLiteral' ? undefined : name(property);
+    const member = n.computed && stringLiteral(property) === null ? undefined : name(property);
     if (binding?.name === '*' && member) return { source: binding.source, name: member };
   }
   return undefined;
@@ -97,9 +94,10 @@ function scan(source: string, rel: string, hostFile?: string): SolidScan {
   const hostRegistry = hostFile === HOST_REGISTRY;
   const outsideRenderer = hostFile !== undefined && !/^src\/(renderer|plugin-sdk)\//.test(hostFile);
   const dynamicSources = outsideRenderer ? SOURCES : DIRECT_SOURCES;
-  const program = parseProgram(source, rel) as unknown as Ast;
+  const program = parseProgram(source, rel);
   const result: SolidScan = { imports: [], initial: [], escapes: [] };
-  const escape = (n: Ast, message: string): void => { result.escapes.push({ line: n.loc?.start.line ?? 1, message }); };
+  const line = (n: Ast): number => lineOf(source, n);
+  const escape = (n: Ast, message: string): void => { result.escapes.push({ line: line(n), message }); };
   const module: Scope = { bindings: new Map() };
   statements(list(program, 'body'), module);
   hoisted(program, module);
@@ -114,15 +112,16 @@ function scan(source: string, rel: string, hostFile?: string): SolidScan {
           const imported = name(child(specifier, 'local'));
           if (imported && specifier.exportKind !== 'type') {
             const binding = { source: exportedFrom, name: imported };
-            result.imports.push({ ...binding, line: specifier.loc?.start.line ?? 1 });
+            result.imports.push({ ...binding, line: line(specifier) });
             if (directOnly(binding)) escape(specifier, `${imported}: binding may only be used as a direct call's callee`);
           }
         }
       }
-      if (n.type === 'ExportAllDeclaration' || list(n, 'specifiers').some((s) => s.type === 'ExportNamespaceSpecifier')) {
+      // `export * as ns from` is an ExportAllDeclaration too.
+      if (n.type === 'ExportAllDeclaration') {
         if (DIRECT_SOURCES.has(exportedFrom)) escape(n, `${exportedFrom}: raw namespace re-exports are forbidden`);
         const names = exportedFrom === 'solid-js' ? GUARDED : exportedFrom === 'solid-js/store' ? STORE_GUARDED : ['render'];
-        for (const name of names) result.imports.push({ source: exportedFrom, name, line: n.loc?.start.line ?? 1 });
+        for (const name of names) result.imports.push({ source: exportedFrom, name, line: line(n) });
       }
     }
     if (n.type !== 'ImportDeclaration' || n.importKind === 'type') continue;
@@ -146,7 +145,7 @@ function scan(source: string, rel: string, hostFile?: string): SolidScan {
       const binding = imported ? { source: from, name: imported } : null;
       module.bindings.set(local, binding);
       if (imported === '*' && DIRECT_SOURCES.has(from) && !hostRegistry) escape(specifier, `${from}: namespace imports are forbidden; use named imports and SDK containment`);
-      if (binding && imported !== '*') result.imports.push({ ...binding, line: specifier.loc?.start.line ?? 1 });
+      if (binding && imported !== '*') result.imports.push({ ...binding, line: line(specifier) });
     }
   }
 
@@ -160,7 +159,7 @@ function scan(source: string, rel: string, hostFile?: string): SolidScan {
       const map = unwrap(child(entry, 'init'));
       if (map?.type !== 'ObjectExpression') continue;
       for (const property of list(map, 'properties')) {
-        if (property.type !== 'ObjectProperty') continue;
+        if (!isValueProperty(property)) continue;
         const value = unwrap(child(property, 'value'));
         const binding = value?.type === 'Identifier' ? lookup(module, String(value.name)) : undefined;
         if (binding?.name === '*' && DIRECT_SOURCES.has(binding.source) && name(child(property, 'key')) === binding.source) hostValues.add(value!);
@@ -246,18 +245,18 @@ function scan(source: string, rel: string, hostFile?: string): SolidScan {
       }
       return;
     }
-    if (n.type === 'MemberExpression' || n.type === 'OptionalMemberExpression' || n.type === 'JSXMemberExpression') {
+    if (n.type === 'MemberExpression' || n.type === 'JSXMemberExpression') {
       const binding = resolve(n, scope);
-      if (binding) result.imports.push({ ...binding, line: n.loc?.start.line ?? 1 });
+      if (binding) result.imports.push({ ...binding, line: line(n) });
     }
-    if (n.type === 'CallExpression' || n.type === 'OptionalCallExpression') {
+    if (n.type === 'CallExpression') {
       const callee = unwrap(child(n, 'callee'));
       const from = moduleName(list(n, 'arguments')[0]);
       if (from && dynamicSources.has(from) && callee?.type === 'Identifier' && callee.name === 'require') {
         escape(n, `${from}: require is forbidden; use named imports and SDK containment`);
       }
       const binding = resolve(callee, scope);
-      if (active && binding?.source === 'solid-js' && COMPUTATIONS.has(binding.name)) result.initial.push({ ...binding, line: n.loc?.start.line ?? 1 });
+      if (active && binding?.source === 'solid-js' && COMPUTATIONS.has(binding.name)) result.initial.push({ ...binding, line: line(n) });
       let immediate = callee && FUNCTION.test(callee.type) ? callee : undefined;
       if (callee?.type === 'MemberExpression' && ['call', 'apply'].includes(name(child(callee, 'property')) ?? '')) {
         const object = unwrap(child(callee, 'object'));

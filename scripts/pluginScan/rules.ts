@@ -4,7 +4,7 @@ import { posix } from 'node:path';
 import { isDiscordHost, pluginTablePrefix } from '../../src/shared/bundledTypes';
 import { HOST_MODULES } from '../../src/shared/installedPlugins';
 import { lineAt, violation, type SourceFile } from './source';
-import { lineOf, literalString, propertyName, readsVariable, syntaxOf, walk, type Node } from './syntax';
+import { lineOf, literalString, propertyName, readsVariable, stringLiteral, syntaxOf, walk, type Node } from './syntax';
 
 /** Only page files can import page code. */
 export const PAGE_DIR = 'page';
@@ -48,11 +48,11 @@ export function importsOf(file: SourceFile): Import[] {
   walk(syntaxOf(file), (node) => {
     const at = IMPORTING[node.type];
     // `export { a }` names no module.
-    if (at && node[at]) found.push({ spec: literalString(node[at]), line: lineOf(node) });
+    if (at && node[at]) found.push({ spec: literalString(node[at]), line: lineOf(file.text, node) });
     if (node.type !== 'CallExpression') return;
     const callee = node['callee'] as Node;
     if (callee.type === 'Identifier' && callee['name'] === 'require')
-      found.push({ spec: literalString((node['arguments'] as Node[])[0]), line: lineOf(node) });
+      found.push({ spec: literalString((node['arguments'] as Node[])[0]), line: lineOf(file.text, node) });
   });
   return found.sort((x, y) => x.line - y.line);
 }
@@ -102,10 +102,10 @@ export function networkWarnings(file: SourceFile): string[] {
     .filter(({ spec }) => spec !== null && NETWORK_MODULE.test(spec))
     .map(({ spec, line }) => violation(file.rel, line, `${spec}: a Node network module skips ctx.net's declared hosts; never reach Discord with it`));
   walk(syntaxOf(file), (node) => {
-    const texts =
-      node.type === 'StringLiteral' ? [node['value'] as string] : node.type === 'TemplateElement' ? [(node['value'] as { cooked: string | null }).cooked ?? ''] : [];
+    const literal = stringLiteral(node);
+    const texts = literal !== null ? [literal] : node.type === 'TemplateElement' ? [(node['value'] as { cooked: string | null }).cooked ?? ''] : [];
     for (const url of texts.flatMap((t) => t.match(URL_IN_TEXT) ?? []))
-      if (discordEndpoint(url)) found.push(violation(file.rel, lineOf(node), `${url}: Discord's API or gateway; reach Discord through ctx.discord, never a request of the plugin's own`));
+      if (discordEndpoint(url)) found.push(violation(file.rel, lineOf(file.text, node), `${url}: Discord's API or gateway; reach Discord through ctx.discord, never a request of the plugin's own`));
   });
   return [...found, ...globalNetworkWarnings(file)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
@@ -124,7 +124,7 @@ const CONNECTIONS: ReadonlySet<string> = new Set(['XMLHttpRequest', 'WebSocket',
 const GLOBAL_OBJECTS: ReadonlySet<string> = new Set(['window', 'self']);
 
 const isIdentifier = (node: Node, names: ReadonlySet<string>): boolean => node.type === 'Identifier' && names.has(node['name'] as string);
-const isMember = (node: Node): boolean => node.type === 'MemberExpression' || node.type === 'OptionalMemberExpression';
+const isMember = (node: Node): boolean => node.type === 'MemberExpression';
 
 /** The web request or connection `node` makes outside `ctx.net`, as the warning names it; null when none. */
 function reachedNetwork(node: Node, parent: Node | null, key: string | null): string | null {
@@ -152,7 +152,7 @@ export function globalNetworkWarnings(file: SourceFile): string[] {
   const found: string[] = [];
   walk(syntaxOf(file), (node, parent, key) => {
     const reached = reachedNetwork(node, parent, key);
-    if (reached) found.push(violation(file.rel, lineOf(node), `${reached}: skips ctx.net's declared hosts (the renderer's CSP refuses other origins); never reach Discord with it`));
+    if (reached) found.push(violation(file.rel, lineOf(file.text, node), `${reached}: skips ctx.net's declared hosts (the renderer's CSP refuses other origins); never reach Discord with it`));
   });
   return found;
 }
@@ -162,7 +162,7 @@ export function globalViolations(file: SourceFile): string[] {
   const found: string[] = [];
   walk(syntaxOf(file), (node, parent, key) => {
     const reached = reachedApp(node, parent, key);
-    if (reached) found.push(violation(file.rel, lineOf(node), `${reached}: reach the app through the plugin's contexts`));
+    if (reached) found.push(violation(file.rel, lineOf(file.text, node), `${reached}: reach the app through the plugin's contexts`));
   });
   return found;
 }

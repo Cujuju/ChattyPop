@@ -1,24 +1,30 @@
-// Parses each file once, distinguishing code from comments, strings, and regular expressions.
-import { parse } from '@babel/parser';
-import type { SourceFile } from './source';
+// Parses each file once with oxc-parser (oxlint's parser), distinguishing code from comments, strings, and regular expressions.
+import { parseSync, type Program } from 'oxc-parser';
+import { lineAt, type SourceFile } from './source';
 
-/** A syntax node, as far as the rules read it. */
+/** An ESTree node, as far as the rules read it. Offsets are UTF-16. */
 export interface Node {
   type: string;
-  loc?: { start: { line: number } } | null;
+  start: number;
+  end: number;
   [key: string]: unknown;
 }
 
 const isNode = (v: unknown): v is Node => typeof v === 'object' && v !== null && typeof (v as { type?: unknown }).type === 'string';
 
-/** Files whose syntax includes JSX; in the others `<T>x` is a type assertion. */
-const JSX_FILE = /\.[jt]sx$/;
 const trees = new WeakMap<SourceFile, Node>();
 
-/** `text`'s program, with JSX only when `rel` is a JSX file; throws on a syntax error, naming its line. Every scan parses here. */
-export function parseProgram(text: string, rel: string): Node {
-  return parse(text, { sourceType: 'module', plugins: JSX_FILE.test(rel) ? ['typescript', 'jsx'] : ['typescript'] }).program as unknown as Node;
+/** `text`'s typed ESTree program, parsed by `rel`'s extension (JSX only in .jsx/.tsx); throws on a syntax error, naming its line. Every scan parses here. */
+export function programOf(text: string, rel: string): Program {
+  // Parentheses are not nodes in ESTree; oxc keeps them by default.
+  const result = parseSync(rel, text, { sourceType: 'module', preserveParens: false });
+  const error = result.errors[0];
+  if (error) throw new SyntaxError(`${rel}:${lineAt(text, error.labels[0]?.start ?? 0)}: ${error.message}`);
+  return result.program;
 }
+
+/** `text`'s program as the rules read it. */
+export const parseProgram = (text: string, rel: string): Node => programOf(text, rel) as unknown as Node;
 
 /** `file`'s program, parsed once. */
 export function syntaxOf(file: SourceFile): Node {
@@ -33,20 +39,26 @@ export function syntaxOf(file: SourceFile): Node {
 export function walk(node: Node, visit: (node: Node, parent: Node | null, key: string | null) => void, parent: Node | null = null, key: string | null = null): void {
   visit(node, parent, key);
   for (const [k, v] of Object.entries(node)) {
-    if (k === 'loc' || k === 'leadingComments' || k === 'trailingComments' || k === 'innerComments') continue;
     if (Array.isArray(v)) for (const item of v) isNode(item) && walk(item, visit, node, k);
     else if (isNode(v)) walk(v, visit, node, k);
   }
 }
 
-/** `node`'s 1-based line. */
-export const lineOf = (node: Node): number => node.loc?.start.line ?? 0;
+/** `node`'s 1-based line in `text`. */
+export const lineOf = (text: string, node: Node): number => lineAt(text, node.start);
+
+/** A string literal's value; null for any other node. */
+export const stringLiteral = (node: unknown): string | null =>
+  isNode(node) && node.type === 'Literal' && typeof node['value'] === 'string' ? node['value'] : null;
+
+/** A plain `key: value` property; methods and accessors are Property nodes too in ESTree. */
+export const isValueProperty = (node: Node): boolean => node.type === 'Property' && node['kind'] === 'init' && !node['method'];
 
 /** A string literal's value, or a template literal's without substitutions; null for anything computed. */
 export function literalString(node: unknown): string | null {
   if (!isNode(node)) return null;
-  if (node.type === 'StringLiteral') return node['value'] as string;
-  if (node.type !== 'TemplateLiteral' || (node['expressions'] as unknown[]).length) return null;
+  if (node.type !== 'TemplateLiteral') return stringLiteral(node);
+  if ((node['expressions'] as unknown[]).length) return null;
   return ((node['quasis'] as { value: { cooked: string | null } }[])[0]?.value.cooked) ?? null;
 }
 
@@ -57,12 +69,13 @@ export function propertyName(member: Node): string | null {
   return literalString(property);
 }
 
+/** Keyed members, whose non-computed key is a name, not a read. */
+const KEYED = new Set(['Property', 'MethodDefinition', 'PropertyDefinition', 'AccessorProperty']);
+
 /** Identifies variable reads, excluding property names and TypeScript type nodes. */
 export function readsVariable(parent: Node | null, key: string | null): boolean {
   if (!parent) return true;
   if (parent.type.startsWith('TS')) return false;
-  const member = parent.type === 'MemberExpression' || parent.type === 'OptionalMemberExpression';
-  if (member && key === 'property' && !parent['computed']) return false;
-  const keyed = /^(?:Object(?:Property|Method)|Class(?:Property|Method|PrivateProperty|AccessorProperty))$/.test(parent.type);
-  return !(keyed && key === 'key' && !parent['computed']);
+  if (parent.type === 'MemberExpression' && key === 'property' && !parent['computed']) return false;
+  return !(KEYED.has(parent.type) && key === 'key' && !parent['computed']);
 }

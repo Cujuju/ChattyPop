@@ -1,6 +1,6 @@
 // Finds manifest ID and version literals for release stamping; unsupported shapes fail scanning.
 import type { SourceFile } from './source';
-import { syntaxOf, walk, type Node } from './syntax';
+import { isValueProperty, stringLiteral, syntaxOf, walk, type Node } from './syntax';
 
 /** Manifest ID, version, and quoted version-literal range. */
 export interface ManifestVersion {
@@ -22,7 +22,7 @@ const unwrap = (node: Node): Node => (TYPE_WRAPPERS.has(node.type) ? unwrap(node
 function keyName(prop: Node): string | null {
   if (prop['computed']) return null;
   const key = prop['key'] as Node;
-  return key.type === 'Identifier' ? (key['name'] as string) : key.type === 'StringLiteral' ? (key['value'] as string) : null;
+  return key.type === 'Identifier' ? (key['name'] as string) : stringLiteral(key);
 }
 
 /** The one property `name` of `object`; refuses spreads, which could set it unseen. */
@@ -30,7 +30,7 @@ function property(object: Node, name: string, where: string): Node {
   const props = object['properties'] as Node[];
   if (props.some((p) => p.type === 'SpreadElement')) fail(`${where} spreads another object`);
   const found = props.filter((p) => keyName(p) === name);
-  if (found.length !== 1 || found[0]!.type !== 'ObjectProperty') fail(`${where} needs exactly one \`${name}\` property`);
+  if (found.length !== 1 || !isValueProperty(found[0]!)) fail(`${where} needs exactly one \`${name}\` property`);
   return found[0]!;
 }
 
@@ -54,7 +54,7 @@ function constObject(program: Node, name: string): Node {
 /** A string property's literal node; refuses anything computed. */
 function literal(manifest: Node, name: string): Node {
   const value = unwrap(property(manifest, name, 'the manifest')['value'] as Node);
-  if (value.type !== 'StringLiteral') fail(`its \`${name}\` must be a string literal`);
+  if (stringLiteral(value) === null) fail(`its \`${name}\` must be a string literal`);
   return value;
 }
 
@@ -75,7 +75,7 @@ export function manifestVersion(file: SourceFile): ManifestVersion {
   if (manifest.type !== 'ObjectExpression') fail('its manifest must be an object literal or a const naming one');
   const id = literal(manifest, 'id');
   const version = literal(manifest, 'version');
-  return { id: id['value'] as string, version: version['value'] as string, start: version['start'] as number, end: version['end'] as number };
+  return { id: id['value'] as string, version: version['value'] as string, start: version.start, end: version.end };
 }
 
 /** Replaces only the version literal’s contents, preserving quotes and all other bytes. */

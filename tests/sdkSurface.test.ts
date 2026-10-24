@@ -1,9 +1,9 @@
 // SDK value and type exports are versioned; surface changes require the corresponding version bump.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { parse } from '@babel/parser';
 import { describe, expect, it } from 'vitest';
 import { HOST_MODULES, PLUGIN_SDK_VERSION, compareVersions } from '@shared/installedPlugins';
+import { programOf } from '../scripts/pluginScan/syntax';
 
 /** The recorded surface: the version and each SDK module's sorted export names. */
 const RECORD = join(import.meta.dirname, 'fixtures/sdkSurface.json');
@@ -31,21 +31,23 @@ const moduleFile = (base: string): string => {
 
 /** Exported names read from source; type names carry a prefix because they occupy a separate namespace. */
 function exportNames(file: string): string[] {
-  const program = parse(readFileSync(file, 'utf8'), { sourceType: 'module', plugins: file.endsWith('x') ? ['typescript', 'jsx'] : ['typescript'] }).program;
+  const program = programOf(readFileSync(file, 'utf8'), file);
   return program.body.flatMap((node): string[] => {
     if (node.type === 'ExportDefaultDeclaration') return ['default'];
     if (node.type === 'ExportAllDeclaration') {
+      const typed = (name: string): string => node.exportKind === 'type' && !name.startsWith('type ') ? `type ${name}` : name;
+      // `export * as ns from` exports one name.
+      if (node.exported) return [typed(node.exported.type === 'Identifier' ? node.exported.name : String(node.exported.value))];
       const spec = node.source.value;
       const names = spec.startsWith('.') ? exportNames(moduleFile(resolve(dirname(file), spec)))
         : spec.startsWith(SHARED_ALIAS) ? exportNames(moduleFile(join(SHARED_ROOT, spec.slice(SHARED_ALIAS.length)))) : [`* from ${spec}`];
-      return node.exportKind === 'type' ? names.map((name) => name.startsWith('type ') ? name : `type ${name}`) : names;
+      return names.map(typed);
     }
     if (node.type !== 'ExportNamedDeclaration') return [];
     const d = node.declaration;
-    // `export * as ns from` is a namespace specifier here.
     if (!d) return node.specifiers.map((sp) => {
-      const name = sp.exported.type === 'Identifier' ? sp.exported.name : sp.exported.value;
-      return node.exportKind === 'type' || (sp.type === 'ExportSpecifier' && sp.exportKind === 'type') ? `type ${name}` : name;
+      const name = sp.exported.type === 'Identifier' ? sp.exported.name : String(sp.exported.value);
+      return node.exportKind === 'type' || sp.exportKind === 'type' ? `type ${name}` : name;
     });
     if (d.type === 'TSInterfaceDeclaration' || d.type === 'TSTypeAliasDeclaration') return [`type ${d.id.name}`];
     if (d.type === 'VariableDeclaration') return d.declarations.flatMap((v) => (v.id.type === 'Identifier' ? [v.id.name] : []));
@@ -75,7 +77,7 @@ describe('the Plugin SDK surface', () => {
     const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {}, types: {}, contracts: {} };
     // Export-name checks alone miss additive fields on an existing SDK contract.
     const contractFiles = [join(SHARED_ROOT, 'rollups.ts'), join(SDK_ROOT, '../core/rollups/types.ts')];
-    for (const file of contractFiles) for (const node of parse(readFileSync(file, 'utf8'), { sourceType: 'module', plugins: ['typescript'] }).program.body) {
+    for (const file of contractFiles) for (const node of programOf(readFileSync(file, 'utf8'), file).body) {
       if (node.type !== 'ExportNamedDeclaration' || node.declaration?.type !== 'TSInterfaceDeclaration') continue;
       const declaration = node.declaration;
       if (!['RollupStatus', 'RollupSpan'].includes(declaration.id.name)) continue;
