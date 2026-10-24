@@ -1,5 +1,5 @@
 // Editable Jev questions and their answer conditions.
-import { Show, createUniqueId } from 'solid-js';
+import { Index, Show, createUniqueId } from 'solid-js';
 import type { CustomJevQuestion } from '@shared/jevQuestion';
 import { JevQuestionBuilder, specStarter, type JevKind, type Renamed } from './JevQuestionBuilder';
 import styles from './JevQuestionField.module.css';
@@ -161,9 +161,7 @@ export function JevQuestionField(props: {
                 onInput={(e) => set({ minScore: Number(e.currentTarget.value) })}
               />
               <div class={styles.scale} aria-hidden="true">
-                {s().levels.map((_, i) => (
-                  <span>{i}</span>
-                ))}
+                <Index each={s().levels}>{(_, i) => <span>{i}</span>}</Index>
               </div>
             </div>
           )}

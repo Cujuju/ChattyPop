@@ -33,6 +33,7 @@ function Fence(props: { text: string; language: string }) {
 function Math(props: { text: string; display: boolean }) {
   // The sole HTML insertion: Temml escapes its input; trust:false blocks resource-loading and HTML attribute commands.
   const mathML = () => temml.renderToString(props.text, { throwOnError: false, displayMode: props.display, trust: false, errorColor: 'var(--cp-danger)' });
+  // oxlint-disable-next-line solid/no-innerhtml
   return <span class={styles.math} data-display={props.display} innerHTML={mathML()} />;
 }
 
