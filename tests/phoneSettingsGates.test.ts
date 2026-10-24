@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from '@babel/parser';
+import { parseProgram } from '../scripts/pluginScan/syntax';
 import { describe, expect, it } from 'vitest';
 
 // The Node suite checks JSX contracts without mounting renderer modules.
@@ -38,7 +38,7 @@ function elements(file: string): Element[] {
     }
     Object.values(node).forEach((child) => walk(child, [...ancestors, node]));
   };
-  walk(parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] }), []);
+  walk(parseProgram(source, file), []);
   return result;
 }
 

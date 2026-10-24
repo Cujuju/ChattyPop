@@ -39,7 +39,7 @@ const IMPORTING: Readonly<Record<string, string>> = {
   ExportNamedDeclaration: 'source',
   ExportAllDeclaration: 'source',
   ImportExpression: 'source',
-  TSImportType: 'argument',
+  TSImportType: 'source',
 };
 
 /** Every module `file` loads: import and export statements, `import()` (a type's too) and `require()`. */
@@ -47,11 +47,11 @@ export function importsOf(file: SourceFile): Import[] {
   const found: Import[] = [];
   walk(syntaxOf(file), (node) => {
     const at = IMPORTING[node.type];
-    // `export { a }` names no module; `import()` parses as a call of `Import` too.
+    // `export { a }` names no module.
     if (at && node[at]) found.push({ spec: literalString(node[at]), line: lineOf(node) });
     if (node.type !== 'CallExpression') return;
     const callee = node['callee'] as Node;
-    if (callee.type === 'Import' || (callee.type === 'Identifier' && callee['name'] === 'require'))
+    if (callee.type === 'Identifier' && callee['name'] === 'require')
       found.push({ spec: literalString((node['arguments'] as Node[])[0]), line: lineOf(node) });
   });
   return found.sort((x, y) => x.line - y.line);

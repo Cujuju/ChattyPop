@@ -1,5 +1,5 @@
-import { parse } from '@babel/parser';
 import { violation, type SourceFile } from './source';
+import { parseProgram } from './syntax';
 
 interface Ast { type: string; start?: number; end?: number; loc?: { start: { line: number } }; [key: string]: unknown }
 const node = (v: unknown): Ast | undefined => v !== null && typeof v === 'object' && typeof (v as Ast).type === 'string' ? v as Ast : undefined;
@@ -19,7 +19,7 @@ export function servedReadViolations(files: SourceFile[]): string[] {
   const exceptions = new Set<string>();
   const statements = new Map<string, string>();
   for (const file of files.filter((f) => f.rel.startsWith('core/') || f.rel.startsWith('shared/'))) {
-    const program = parse(file.text, { sourceType: 'module', plugins: ['typescript', 'jsx'] }).program as unknown as Ast;
+    const program = parseProgram(file.text, file.rel) as unknown as Ast;
     const source = (n: Ast | undefined): string => n ? file.text.slice(n.start, n.end) : '';
     const walk = (n: Ast, parent?: Ast, current?: FunctionSite): void => {
       if (FUNCTION.test(n.type)) {

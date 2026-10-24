@@ -1,7 +1,7 @@
 // Checks ordinary Solid imports, aliases, re-exports and module-level computations for containment.
 // Deliberate reflection through globalThis[Symbol.for('chattypop.hostModules')] or computed keys on published host-module accessors can still reach raw Solid; this static scan does not prevent it.
-import { parse } from '@babel/parser';
 import { violation, type SourceFile } from './source';
+import { parseProgram } from './syntax';
 
 interface Ast {
   type: string;
@@ -93,11 +93,11 @@ function resolve(n: Ast | undefined, scope: Scope): Binding | undefined {
   return undefined;
 }
 
-function scan(source: string, hostFile?: string): SolidScan {
+function scan(source: string, rel: string, hostFile?: string): SolidScan {
   const hostRegistry = hostFile === HOST_REGISTRY;
   const outsideRenderer = hostFile !== undefined && !/^src\/(renderer|plugin-sdk)\//.test(hostFile);
   const dynamicSources = outsideRenderer ? SOURCES : DIRECT_SOURCES;
-  const program = parse(source, { sourceType: 'module', plugins: ['typescript', 'jsx'] }).program as unknown as Ast;
+  const program = parseProgram(source, rel) as unknown as Ast;
   const result: SolidScan = { imports: [], initial: [], escapes: [] };
   const escape = (n: Ast, message: string): void => { result.escapes.push({ line: n.loc?.start.line ?? 1, message }); };
   const module: Scope = { bindings: new Map() };
@@ -253,8 +253,8 @@ function scan(source: string, hostFile?: string): SolidScan {
     if (n.type === 'CallExpression' || n.type === 'OptionalCallExpression') {
       const callee = unwrap(child(n, 'callee'));
       const from = moduleName(list(n, 'arguments')[0]);
-      if (from && dynamicSources.has(from) && (callee?.type === 'Import' || callee?.type === 'Identifier' && callee.name === 'require')) {
-        escape(n, `${from}: require and dynamic import are forbidden; use named imports and SDK containment`);
+      if (from && dynamicSources.has(from) && callee?.type === 'Identifier' && callee.name === 'require') {
+        escape(n, `${from}: require is forbidden; use named imports and SDK containment`);
       }
       const binding = resolve(callee, scope);
       if (active && binding?.source === 'solid-js' && COMPUTATIONS.has(binding.name)) result.initial.push({ ...binding, line: n.loc?.start.line ?? 1 });
@@ -281,16 +281,19 @@ function scan(source: string, hostFile?: string): SolidScan {
   return result;
 }
 
+/** Inline snippets (tests) may hold JSX, so they parse as a .tsx file. */
+const SNIPPET_REL = 'snippet.tsx';
+
 /** Resolves Solid bindings and eager computations. Named factory calls require a separate audit. */
-export const scanSolid = (source: string): SolidScan => scan(source);
+export const scanSolid = (source: string, rel = SNIPPET_REL): SolidScan => scan(source, rel);
 
 /** Host scans allow namespace values only in the named host-module registry. */
-export const scanHostSolid = (file: SourceFile): SolidScan => scan(file.text, file.rel);
+export const scanHostSolid = (file: SourceFile): SolidScan => scan(file.text, file.rel, file.rel);
 
 /** Shared, renderer and page state uses the SDK's containment leaves. */
 export function containmentViolations(file: SourceFile): string[] {
   if (!/^(shared|renderer|page)\//.test(file.rel)) return [];
-  const scan = scanSolid(file.text);
+  const scan = scanSolid(file.text, file.rel);
   const raw = scan.imports.filter((site) => site.source === 'solid-js' && ['createRoot', 'batch', 'onCleanup'].includes(site.name)
     || site.source === 'solid-js/store' && STORE_GUARDED.includes(site.name));
   return [

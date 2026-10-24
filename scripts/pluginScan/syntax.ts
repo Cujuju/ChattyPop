@@ -15,11 +15,16 @@ const isNode = (v: unknown): v is Node => typeof v === 'object' && v !== null &&
 const JSX_FILE = /\.[jt]sx$/;
 const trees = new WeakMap<SourceFile, Node>();
 
-/** `file`'s program; throws on a syntax error, naming its line. */
+/** `text`'s program, with JSX only when `rel` is a JSX file; throws on a syntax error, naming its line. Every scan parses here. */
+export function parseProgram(text: string, rel: string): Node {
+  return parse(text, { sourceType: 'module', plugins: JSX_FILE.test(rel) ? ['typescript', 'jsx'] : ['typescript'] }).program as unknown as Node;
+}
+
+/** `file`'s program, parsed once. */
 export function syntaxOf(file: SourceFile): Node {
   const known = trees.get(file);
   if (known) return known;
-  const tree = parse(file.text, { sourceType: 'module', plugins: JSX_FILE.test(file.rel) ? ['typescript', 'jsx'] : ['typescript'] }).program as unknown as Node;
+  const tree = parseProgram(file.text, file.rel);
   trees.set(file, tree);
   return tree;
 }
