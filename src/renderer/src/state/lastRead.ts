@@ -1,7 +1,7 @@
 // The Archive's last-read marks: moved to the newest message the owner sees, and the "new messages since" banner.
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
-import { createEffect, createSignal, on, untrack, type Accessor } from 'solid-js';
+import { createEffect, createMemo, createSignal, on, untrack, type Accessor } from 'solid-js';
 import type { UnreadBoundary, UnreadMark } from '@shared/contract';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { compareSnowflakes } from '@shared/discord';
@@ -32,8 +32,8 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   let requests = 0;
   /** The last message marked, or being marked. */
   let marked: string | undefined;
-  /** The mark had reached the newest loaded message when the view was last put away. */
-  let caughtUp = false;
+  /** Put away caught up: marking waits until the return banner is read, so it counts what came meanwhile. */
+  const [held, setHeld] = createSignal(false);
   /** All unread messages at opening, before bot filtering; remains valid after this view marks them read. */
   let boundary: UnreadBoundary | null = null;
   let openingDismissal = dismissals;
@@ -77,7 +77,7 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
       requests++;
       boundary = null;
       marked = undefined;
-      caughtUp = false;
+      setHeld(false);
       setBanner(null);
       if (channelId) snapshot(channelId);
       else setReady(null);
@@ -85,19 +85,25 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   );
 
   // Away and back (another window, an overlay): a banner for what came meanwhile, when everything before was read.
+  // Memoized: restoring a window flips visibility and focus separately; only real edges count.
+  const looking = createMemo(lookable);
   createEffect(
-    on(lookable, (now, was) => {
+    on(looking, (now, was) => {
       const channelId = archiveChannelId();
-      if (!channelId || ready() !== channelId) return;
-      if (!now) caughtUp = marked !== undefined && marked === untrack(() => archiveState.items.at(-1)?.id);
-      else if (was === false && caughtUp && !untrack(banner)) snapshot(channelId);
+      if (!channelId) return;
+      if (!now && was) setHeld(ready() === channelId && marked !== undefined && marked === untrack(() => archiveState.items.at(-1)?.id));
+      else if (now && held()) {
+        // Taken before releasing: the snapshot holds marking (ready) until its banner is in; it supersedes one in flight.
+        if (!untrack(banner)) snapshot(channelId);
+        setHeld(false);
+      }
     }),
   );
 
   createEffect(() => {
     retries();
     const channelId = archiveChannelId();
-    const id = lookable() ? messageToMark(channelId, ready(), seen(), marked) : undefined;
+    const id = looking() && !held() ? messageToMark(channelId, ready(), seen(), marked) : undefined;
     if (!channelId || !id) return;
     marked = id;
     // Failed: the next change (or a reconnect) marks it again.

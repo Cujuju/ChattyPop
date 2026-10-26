@@ -186,3 +186,33 @@ describe('opening banner changes with bot selection', () => {
     expect(state.unreadBanner()).toBeNull();
   });
 });
+
+describe('away and back', () => {
+  // Minimizing and restoring flip page visibility and window focus in separate steps, in either order.
+  it.each([['visible first', true], ['focus first', false]])('banners what came while away, restoring %s', async (_, visibleFirst) => {
+    const [visible, setVisible] = solid.createSignal(true);
+    const [focused, setFocused] = solid.createSignal(true);
+    const [items, setItems] = solid.createSignal(env.archive.items);
+    solid.createRoot((stop) => {
+      dispose = stop;
+      state.watchArchive(() => visible() && focused(), () => items().at(-1)?.id);
+    });
+    await settle();
+    state.dismissUnreadBanner();
+    expect(env.mark).toHaveBeenLastCalledWith(CH, last);
+    setFocused(false);
+    setVisible(false);
+    const later = rawMessage(CH, Date.UTC(2026, 9, 1) + 2, 'while away');
+    seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+    env.archive.items = [...env.archive.items, later];
+    setItems(env.archive.items);
+    await settle();
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
+    if (visibleFirst) setVisible(true); else setFocused(true);
+    await settle();
+    if (visibleFirst) setFocused(true); else setVisible(true);
+    await settle();
+    expect(state.unreadBanner()).toMatchObject({ count: 1, firstId: later.id });
+    expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
+  });
+});
