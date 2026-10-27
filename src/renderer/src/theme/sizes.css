@@ -85,6 +85,8 @@
   --cp-code-tab-size: 4; /* a tab's width in spaces in shown code: editors' default, not the browser's 8 */
   --cp-attachment-preview-max-h: 240px; /* the attachment in the Modify and Delete Attachment dialogs, Discord's bound */
   --cp-alt-text-lines: 4; /* the alt text field's height in lines: room for a sentence or two before it scrolls */
+  /* That field's min-height inside its padding and border; 1lh resolves at the field. */
+  --cp-alt-text-h: calc(var(--cp-alt-text-lines) * 1lh + 2 * var(--cp-space-3) + 2 * var(--cp-border-w));
   --cp-link-title-lines: 2; /* plain title clamp when a link has no preview title */
 
   --cp-link-desc-lines: 4; /* preview description in the Links panel */

@@ -28,5 +28,5 @@
 
 /* Several lines tall, inside its padding and border; forms.css lets it resize vertically. */
 .description {
-  min-height: calc(var(--cp-alt-text-lines) * 1lh + 2 * var(--cp-space-3) + 2 * var(--cp-border-w));
+  min-height: var(--cp-alt-text-h);
 }
