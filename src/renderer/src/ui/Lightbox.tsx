@@ -44,20 +44,14 @@ export function Lightbox() {
   /** The media has drawn, or failed to, so a panel can open beside it; a file's icon draws at once. */
   const [mediaShown, setMediaShown] = createSignal(false);
   const showMedia = (): void => void setMediaShown(true);
-  /** Beside or below the media, on the side with the most room, vertically or horizontally centred on it; else the window's far corner. */
+  /** Centred across the window below the media and its caption; when it doesn't fit there, centred down the window's right edge. */
   const placePanel = (width: number, height: number): { x: number; y: number } => {
     const gap = parseFloat(getComputedStyle(dialog).getPropertyValue('--cp-lightbox-panel-gap')) || 0;
     const media = dialog.querySelector(`.${styles.image}, .${styles.video}, .${styles.fileIcon}`)?.getBoundingClientRect();
-    const corner = { x: innerWidth - width - gap, y: innerHeight - height - gap };
-    if (!media) return corner;
-    const bottom = Math.max(media.bottom, dialog.querySelector(`.${styles.caption}`)?.getBoundingClientRect().bottom ?? 0);
-    const room = { right: innerWidth - media.right - width, left: media.left - width, below: innerHeight - bottom - height };
-    const side = (Object.keys(room) as (keyof typeof room)[]).reduce((a, b) => (room[b] > room[a] ? b : a));
-    if (room[side] < 2 * gap) return corner;
-    const midY = media.top + (media.height - height) / 2;
-    if (side === 'right') return { x: media.right + gap, y: midY };
-    if (side === 'left') return { x: media.left - gap - width, y: midY };
-    return { x: media.left + (media.width - width) / 2, y: bottom + gap };
+    const caption = dialog.querySelector(`.${styles.caption}`)?.getBoundingClientRect();
+    const below = Math.max(media?.bottom ?? innerHeight, caption?.bottom ?? 0) + gap;
+    if (below + height + gap <= innerHeight) return { x: (innerWidth - width) / 2, y: below };
+    return { x: innerWidth - width - gap, y: (innerHeight - height) / 2 };
   };
   // Each image opens fitted.
   createEffect(on(() => lightbox()?.src, () => {
