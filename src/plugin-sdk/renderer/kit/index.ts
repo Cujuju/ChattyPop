@@ -13,10 +13,7 @@ export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type
 export { RollupControls } from './RollupControls';
 export { createAction } from '@/ui/action';
 // The app's own confirmation, text and notice dialogs, in place of the browser's unthemed confirm(), prompt() and alert().
-export { confirmDialog, failureNotice, noticeDialog, textDialog, type ConfirmOptions, type NoticeOptions, type TextOptions } from '@/state/dialogs';
-// The app's desktop modal for a plugin's own form; it hides the live Discord view while open.
-export { ModalDialog } from '@/ui/ModalDialog';
-// Exports: saved on the desktop, opened in the phone's browser; a PDF is one page the desktop draws.
+export { confirmDialog, failureNotice, noticeDialog, textDialog, type ConfirmOptions, type NoticeOptions, type TextOptions } from '@/state/dialogs';// Exports: saved on the desktop, opened in the phone's browser; a PDF is one page the desktop draws.
 export { exportHtmlPage, exportPdfPage, type HtmlPage, type PdfPage } from '@/ui/exportPage';
 // A view as a self-contained page drawn as the app draws it, for those exports.
 export { snapshotPage } from '@/ui/snapshot';
@@ -77,7 +74,7 @@ export { canSave as canSaveAttachment, saveAttachment as saveAttachmentFile } fr
 export { canSaveAttachmentsToFolder, saveAttachmentsToFolder, showAttachmentFolder, startFileDrag, type FolderSaveProgress, type FolderSaveResult } from '@/state/attachmentExports';
 export { compressStored, compressibleAs, canCompressHere, freeStored, type StoredAttachmentRef, type CompressOutcome, type CompressAs } from '@/state/storedAttachments';
 export { setLightbox } from '@/state/ui';
-export type { LightboxImage, LightboxGallery } from '@/state/ui';
+export type { LightboxImage, LightboxGallery, LightboxPanel } from '@/state/ui';
 export { loopWhileLooking } from '@/ui/looking';
 export { SearchSelect, type SearchOption } from '@/ui/SearchSelect';
 // A server's icon (initials when it has none), as the sidebar draws it.

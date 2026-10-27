@@ -1,14 +1,23 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { Show, createEffect, on, untrack } from 'solid-js';
-import { lightbox, setLightbox, type LightboxGallery } from '@/state/ui';
+import { Match, Show, Switch, createEffect, on, untrack } from 'solid-js';
+import { FileIcon } from '@/panels/chat/FileIcon';
+import { lightbox, setLightbox, type LightboxGallery, type LightboxImage } from '@/state/ui';
 import { stepLightbox } from '@/state/lightbox';
 import { setOverlayCover } from '@/state/windows';
 import { AnimatedImage } from './AnimatedImage';
 import { createZoom } from './createZoom';
+import { FloatingWindow, WindowHeader } from './FloatingWindow';
 import { Icon } from './icons';
+import chrome from './WindowChrome.module.css';
 import styles from './Lightbox.module.css';
 
 const LIGHTBOX_COVER = 'lightbox';
+/** The panel window's id; its moved position is remembered under it. */
+const LIGHTBOX_PANEL = 'lightbox-panel';
+/** What the viewer shows, in its labels. */
+const KIND_NAME: Readonly<Record<NonNullable<LightboxImage['kind']>, string>> = { image: 'Image', video: 'Video', file: 'File' };
+/** Text controls that keep the arrow keys. */
+const PANEL_FIELDS = 'input, textarea, select, [contenteditable]';
 /** The backdrop has faded out once the image is dragged down this share of the window's height. */
 const PULL_FADE_WINDOW_SHARE = 0.5;
 
@@ -44,11 +53,11 @@ export function Lightbox() {
     <dialog
       ref={dialog}
       class={styles.dialog}
-      aria-label={lightbox()?.kind === 'video' ? 'Video viewer' : 'Image viewer'}
+      aria-label={`${KIND_NAME[lightbox()?.kind ?? 'image']} viewer`}
       tabIndex={-1}
       onKeyDown={(e) => {
-        // A focused video's own controls seek and set volume with the arrows.
-        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.target instanceof HTMLMediaElement) return;
+        // A focused video's own controls seek and set volume with the arrows; a panel's fields move the caret.
+        if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.target instanceof HTMLMediaElement || (e.target as Element).closest(PANEL_FIELDS)) return;
         if (lightbox()?.gallery && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
           e.preventDefault();
           step(e.key === 'ArrowLeft' ? -1 : 1);
@@ -63,7 +72,7 @@ export function Lightbox() {
       <Show when={lightbox()}>
         {(img) => (
           <figure class={styles.figure} onClick={(e) => e.target === e.currentTarget && setLightbox(null)}>
-            <Show when={img().kind === 'video'} fallback={<AnimatedImage
+            <Switch fallback={<AnimatedImage
               ref={(el) => zoom.bind(el)}
               class={styles.image}
               src={img().src}
@@ -74,9 +83,14 @@ export function Lightbox() {
               data-gesturing={zoom.gesturing()}
               style={{ transform: `translate(${zoom.zoom().x}px, ${zoom.zoom().y + zoom.pull()}px) scale(${zoom.zoom().scale})` }}
             />}>
-              <Show when={img().src} keyed>{(src) => <video class={styles.video} src={src} controls autoplay playsinline aria-label={img().alt}
-                ref={(video) => onCleanup(() => { video.pause(); video.removeAttribute('src'); video.load(); })} />}</Show>
-            </Show>
+              <Match when={img().kind === 'video'}>
+                <Show when={img().src} keyed>{(src) => <video class={styles.video} src={src} controls autoplay playsinline aria-label={img().alt}
+                  ref={(video) => onCleanup(() => { video.pause(); video.removeAttribute('src'); video.load(); })} />}</Show>
+              </Match>
+              <Match when={img().kind === 'file'}>
+                <FileIcon kind={img().fileKind ?? 'unknown'} class={styles.fileIcon} />
+              </Match>
+            </Switch>
             <figcaption class={styles.caption}>
               <span class={styles.labels}>
                 <span class={styles.name}>{img().caption}</span>
@@ -97,10 +111,19 @@ export function Lightbox() {
                 <Show when={gallery().next}><button type="button" class={`${styles.round} ${styles.next}`} aria-label="Next file" onClick={() => step(1)}><Icon name="chevronRight" /></button></Show>
               </>}
             </Show>
-            <button type="button" class={`${styles.round} ${styles.close}`} aria-label={img().kind === 'video' ? 'Close video' : 'Close image'} onClick={() => setLightbox(null)}>
+            <button type="button" class={`${styles.round} ${styles.close}`} aria-label={`Close ${KIND_NAME[img().kind ?? 'image'].toLowerCase()}`} onClick={() => setLightbox(null)}>
               <Icon name="close" />
             </button>
           </figure>
+        )}
+      </Show>
+      {/* Inside the modal viewer, so it isn't inert; keyed, so each image's panel is its own. */}
+      <Show when={lightbox()?.panel} keyed>
+        {(panel) => (
+          <FloatingWindow id={LIGHTBOX_PANEL} open class={`${chrome.dialog} ${chrome.form}`} aria-label={panel.title} onClose={() => setLightbox(null)}>
+            <WindowHeader title={panel.title} classes={chrome} closeLabel="Close" onClose={() => setLightbox(null)} />
+            <div class={chrome.body}>{panel.content()}</div>
+          </FloatingWindow>
         )}
       </Show>
     </dialog>

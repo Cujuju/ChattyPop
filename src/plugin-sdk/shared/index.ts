@@ -104,6 +104,7 @@ export * from '@shared/discord';
 export * from '@shared/emoji';
 export { attachmentFileName, storedExtOf, savedFileName, embedShowsPictures, embedVideoHasSound, mediaKind } from '@shared/media';
 export type { StoredFile } from '@shared/media';
+export { fileKind, type FileKind } from '@shared/fileKinds';
 export * from '@shared/links';
 export { PROVIDER_DISPLAY_NAME_MAX, normalizeDisplayName, normalizeProviderId, type AiSettings, type ProviderId, type ProviderSettings } from '@shared/settings';
 export { andList, orList } from '@shared/lists';

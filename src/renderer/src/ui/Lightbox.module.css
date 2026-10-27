@@ -37,6 +37,12 @@
   box-shadow: var(--cp-shadow-dialog);
 }
 
+/* A file with nothing to draw: its type's icon, scaled from its own proportions. */
+.figure .fileIcon {
+  width: auto;
+  height: var(--cp-lightbox-file-icon-h);
+}
+
 .image {
   /* Image zoom uses top-left translate/scale, easing except during direct manipulation. Image captures touches for image-specific pinch zoom. */
   transform-origin: 0 0;

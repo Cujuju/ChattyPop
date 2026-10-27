@@ -67,7 +67,7 @@ export const [resizing, setResizing] = createSignal(false);
 /** Panel dragging hides native Discord to expose drop zones. */
 export const [draggedPanel, setDraggedPanel] = createSignal<LayoutPanelId | null>(null);
 
-export { lightbox, setLightbox, type LightboxImage, type LightboxGallery } from './lightbox';
+export { lightbox, setLightbox, type LightboxImage, type LightboxGallery, type LightboxPanel } from './lightbox';
 
 /** The message a Jev check is open for. */
 export const [jevCheckFor, setJevCheckFor] = createSignal<ArchiveMessage | null>(null);

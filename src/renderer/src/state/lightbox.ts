@@ -1,4 +1,11 @@
-import { createSignal } from 'solid-js';
+import { createSignal, type JSX } from 'solid-js';
+import type { FileKind } from '@shared/fileKinds';
+
+/** A movable window over the viewer with the shown file's own controls (a draft file's details). */
+export interface LightboxPanel {
+  title: string;
+  content: () => JSX.Element;
+}
 
 export interface LightboxGallery {
   /** Absent while the file's place in the whole order isn't known. */
@@ -17,8 +24,11 @@ export interface LightboxImage {
   still?: string;
   alt: string;
   caption: string;
-  kind?: 'image' | 'video';
+  /** 'file': nothing to draw, so its type's icon (`fileKind`) stands in, `src` unused. */
+  kind?: 'image' | 'video' | 'file';
+  fileKind?: FileKind;
   gallery?: LightboxGallery;
+  panel?: LightboxPanel;
   originalUrl: string | null;
 }
 export const [lightbox, setLightbox] = createSignal<LightboxImage | null>(null);
