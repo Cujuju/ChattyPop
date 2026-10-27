@@ -1,5 +1,5 @@
 {
-  "version": "4.11.0",
+  "version": "4.12.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -525,6 +525,7 @@
       "snapshotPage",
       "startFileDrag",
       "startNewRule",
+      "textDialog",
       "threadsShown",
       "thumbUrl",
       "timeBounds",
@@ -1111,6 +1112,7 @@
       "SectionDef",
       "SolidIconName",
       "StoredAttachmentRef",
+      "TextOptions",
       "TimePreset",
       "TimeRange",
       "TimeWindow",

@@ -12,8 +12,8 @@ export { Switch } from '@/ui/Switch';
 export { HeaderActions, HeaderBadge, HeaderButton, HeaderMeta, PanelHeader, type HeaderButtonVariant } from '@/ui/PanelHeader';
 export { RollupControls } from './RollupControls';
 export { createAction } from '@/ui/action';
-// The app's own confirmation and notice dialogs, in place of the browser's unthemed confirm() and alert().
-export { confirmDialog, failureNotice, noticeDialog, type ConfirmOptions, type NoticeOptions } from '@/state/dialogs';
+// The app's own confirmation, text and notice dialogs, in place of the browser's unthemed confirm(), prompt() and alert().
+export { confirmDialog, failureNotice, noticeDialog, textDialog, type ConfirmOptions, type NoticeOptions, type TextOptions } from '@/state/dialogs';
 // Exports: saved on the desktop, opened in the phone's browser; a PDF is one page the desktop draws.
 export { exportHtmlPage, exportPdfPage, type HtmlPage, type PdfPage } from '@/ui/exportPage';
 // A view as a self-contained page drawn as the app draws it, for those exports.
