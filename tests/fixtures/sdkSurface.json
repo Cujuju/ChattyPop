@@ -1,5 +1,5 @@
 {
-  "version": "4.12.0",
+  "version": "4.13.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -354,6 +354,7 @@
       "LinkButton",
       "Markdown",
       "MessageRow",
+      "ModalDialog",
       "ModelList",
       "ModelRow",
       "ModelRows",
