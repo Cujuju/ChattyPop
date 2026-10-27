@@ -64,6 +64,7 @@ export { AddPicker, ChipRow } from '@/views/settings/rules/pickers';
 export { RuleLookback } from '@/views/settings/rules/RuleLookback';
 export { JevQuestionField, conditionWording } from '@/ui/JevQuestionField';
 export { InlineMarkdown, Markdown } from '@/ui/Markdown';
+export { GfmMarkdown } from '@/ui/mdDocument';
 export { listen, onPointerDownOutside } from '@/ui/listen';
 // A phone sheet's pull down to close, as the message menu's.
 export { pullToClose } from '@/ui/pullToClose';

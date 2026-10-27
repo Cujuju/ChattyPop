@@ -1,10 +1,10 @@
 // A Markdown attachment drawn formatted: headings, lists, tables, quotes, highlighted code and math.
-import { For, Show, createResource } from 'solid-js';
+import { For, Show, createMemo, createResource } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import temml from 'temml';
 import { highlightLines } from './highlight';
 import { MarkdownLink } from './MarkdownLink';
-import type { DocumentCell, DocumentNode } from './mdDocumentParse';
+import { NO_TOKEN_LIMIT, parseDocument, type DocumentCell, type DocumentNode } from './mdDocumentParse';
 import styles from './mdDocument.module.css';
 
 /** Decode character references alone: the native parser never receives tags or arbitrary Markdown. */
@@ -78,6 +78,12 @@ function Nodes(props: { nodes: DocumentNode[]; tight?: boolean }) {
 }
 
 /** GFM token tree as Solid elements. Markdown itself is never inserted as HTML. */
-export function MarkdownDocument(props: { nodes: DocumentNode[] }) {
-  return <article class={styles.document} data-markdown-document><Nodes nodes={props.nodes} /></article>;
+export function MarkdownDocument(props: { nodes: DocumentNode[]; flush?: boolean }) {
+  return <article class={styles.document} data-markdown-document data-flush={props.flush ?? false}><Nodes nodes={props.nodes} /></article>;
+}
+
+/** GFM text (an AI answer) drawn whole, flush in its owner's box. Discord-flavoured message text uses `Markdown`. */
+export function GfmMarkdown(props: { text: string }) {
+  const nodes = createMemo(() => parseDocument(props.text, NO_TOKEN_LIMIT).nodes);
+  return <MarkdownDocument nodes={nodes()} flush />;
 }

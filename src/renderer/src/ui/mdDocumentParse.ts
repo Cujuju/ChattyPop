@@ -103,4 +103,7 @@ export function documentTokens(tokens: readonly Token[], limit = MARKDOWN_TOKEN_
   return { nodes: walk(tokens), count, cut };
 }
 
-export const parseDocument = (text: string) => documentTokens(markdown.lexer(text));
+/** No token budget: text the app shows in full, not a Discord attachment preview. */
+export const NO_TOKEN_LIMIT = Number.POSITIVE_INFINITY;
+
+export const parseDocument = (text: string, limit = MARKDOWN_TOKEN_LIMIT) => documentTokens(markdown.lexer(text), limit);

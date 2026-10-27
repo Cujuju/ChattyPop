@@ -134,7 +134,7 @@ body {
 }
 
 /* Message and input text stays selectable; chrome is not. */
-:where(p, input, textarea, [contenteditable]) {
+:where(p, input, textarea, [contenteditable], [data-markdown-document]) {
   -webkit-user-select: text;
   user-select: text;
 }

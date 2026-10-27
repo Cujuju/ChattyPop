@@ -8,6 +8,9 @@
   overflow-wrap: anywhere;
 }
 
+/* Flush: the text sits in its owner's box (an AI answer), so no inset. */
+.document[data-flush='true'] { padding: 0; }
+
 .document p,
 .document ul,
 .document ol,
