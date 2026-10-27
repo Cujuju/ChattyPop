@@ -18,6 +18,8 @@ interface Props {
   class: string | undefined;
   'aria-label'?: string;
   'aria-labelledby'?: string;
+  /** Where it opens, from its size, each time: beside what it belongs to. Its geometry then isn't remembered. */
+  place?: (width: number, height: number) => { x: number; y: number };
   children: JSX.Element;
 }
 
@@ -47,8 +49,15 @@ export function FloatingWindow(props: Props) {
     const b = el.getBoundingClientRect();
     return { x: (innerWidth - b.width) / 2, y: (innerHeight - b.height) / 2, width: b.width, height: b.height };
   };
+  const placed = (): WindowRect | undefined => {
+    if (!props.place) return undefined;
+    const b = el.getBoundingClientRect();
+    return { ...props.place(b.width, b.height), width: b.width, height: b.height };
+  };
   const geometryKey = (): string => props.geometryKey ?? props.id;
-  const remember = (): void => saveWindow(geometryKey(), rect());
+  const remember = (): void => {
+    if (!props.place) saveWindow(geometryKey(), rect());
+  };
   /** Steps down and right past open windows at the same corner, so a window opening over another of its kind leaves it showing. */
   const cascade = (r: WindowRect): WindowRect => {
     const step = parseFloat(getComputedStyle(el).getPropertyValue('--cp-window-cascade'));
@@ -61,7 +70,7 @@ export function FloatingWindow(props: Props) {
   const onNativeClose = syncDialog(() => el, () => props.open, {
     shown: () => {
       trackWindow(props.id, rect(), true);
-      apply(clampToViewport(cascade(clampToViewport(savedWindows()[geometryKey()] ?? centred()))));
+      apply(clampToViewport(cascade(clampToViewport(placed() ?? savedWindows()[geometryKey()] ?? centred()))));
     },
     hiding: remember,
     hidden: () => untrackWindow(props.id),

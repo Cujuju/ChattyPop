@@ -1,5 +1,5 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { Match, Show, Switch, createEffect, on, untrack } from 'solid-js';
+import { Match, Show, Switch, createEffect, createSignal, on, untrack } from 'solid-js';
 import { FileIcon } from '@/panels/chat/FileIcon';
 import { lightbox, setLightbox, type LightboxGallery, type LightboxImage } from '@/state/ui';
 import { stepLightbox } from '@/state/lightbox';
@@ -41,8 +41,27 @@ export function Lightbox() {
     if (!image) untrack(() => shownGallery?.closed?.());
     shownGallery = image?.gallery;
   });
+  /** The media has drawn, or failed to, so a panel can open beside it; a file's icon draws at once. */
+  const [mediaShown, setMediaShown] = createSignal(false);
+  const showMedia = (): void => void setMediaShown(true);
+  /** Beside or below the media, on the side with the most room, vertically or horizontally centred on it; else the window's far corner. */
+  const placePanel = (width: number, height: number): { x: number; y: number } => {
+    const gap = parseFloat(getComputedStyle(dialog).getPropertyValue('--cp-lightbox-panel-gap')) || 0;
+    const media = dialog.querySelector(`.${styles.image}, .${styles.video}, .${styles.fileIcon}`)?.getBoundingClientRect();
+    const corner = { x: innerWidth - width - gap, y: innerHeight - height - gap };
+    if (!media) return corner;
+    const bottom = Math.max(media.bottom, dialog.querySelector(`.${styles.caption}`)?.getBoundingClientRect().bottom ?? 0);
+    const room = { right: innerWidth - media.right - width, left: media.left - width, below: innerHeight - bottom - height };
+    const side = (Object.keys(room) as (keyof typeof room)[]).reduce((a, b) => (room[b] > room[a] ? b : a));
+    if (room[side] < 2 * gap) return corner;
+    const midY = media.top + (media.height - height) / 2;
+    if (side === 'right') return { x: media.right + gap, y: midY };
+    if (side === 'left') return { x: media.left - gap - width, y: midY };
+    return { x: media.left + (media.width - width) / 2, y: bottom + gap };
+  };
   // Each image opens fitted.
   createEffect(on(() => lightbox()?.src, () => {
+    setMediaShown(lightbox()?.kind === 'file');
     zoom.reset();
     queueMicrotask(() => { if (dialog.open && !dialog.contains(document.activeElement)) dialog.focus(); });
   }));
@@ -73,7 +92,11 @@ export function Lightbox() {
         {(img) => (
           <figure class={styles.figure} onClick={(e) => e.target === e.currentTarget && setLightbox(null)}>
             <Switch fallback={<AnimatedImage
-              ref={(el) => zoom.bind(el)}
+              ref={(el) => {
+                zoom.bind(el);
+                el.addEventListener('load', showMedia);
+                el.addEventListener('error', showMedia);
+              }}
               class={styles.image}
               src={img().src}
               still={img().still}
@@ -85,6 +108,7 @@ export function Lightbox() {
             />}>
               <Match when={img().kind === 'video'}>
                 <Show when={img().src} keyed>{(src) => <video class={styles.video} src={src} controls autoplay playsinline aria-label={img().alt}
+                  onLoadedMetadata={showMedia} onError={showMedia}
                   ref={(video) => onCleanup(() => { video.pause(); video.removeAttribute('src'); video.load(); })} />}</Show>
               </Match>
               <Match when={img().kind === 'file'}>
@@ -117,10 +141,10 @@ export function Lightbox() {
           </figure>
         )}
       </Show>
-      {/* Inside the modal viewer, so it isn't inert; keyed, so each image's panel is its own. */}
-      <Show when={lightbox()?.panel} keyed>
+      {/* Inside the modal viewer, so it isn't inert; keyed, so each image's panel is its own; once the media has drawn, to place it beside. */}
+      <Show when={mediaShown() && lightbox()?.panel} keyed>
         {(panel) => (
-          <FloatingWindow id={LIGHTBOX_PANEL} open class={`${chrome.dialog} ${chrome.form}`} aria-label={panel.title} onClose={() => setLightbox(null)}>
+          <FloatingWindow id={LIGHTBOX_PANEL} open class={`${chrome.dialog} ${chrome.form}`} aria-label={panel.title} place={placePanel} onClose={() => setLightbox(null)}>
             <WindowHeader title={panel.title} classes={chrome} closeLabel="Close" onClose={() => setLightbox(null)} />
             <div class={chrome.body}>{panel.content()}</div>
           </FloatingWindow>

@@ -83,6 +83,7 @@
   --cp-text-attachment-columns: 80; /* a text attachment card's width in code columns (unitless): the line length most source keeps to */
   --cp-text-attachment-collapsed-lines: 6; /* its collapsed height in lines, TEXT_COLLAPSED_LINES (shared/textFiles.ts): the loading block holds it */
   --cp-code-tab-size: 4; /* a tab's width in spaces in shown code: editors' default, not the browser's 8 */
+  --cp-lightbox-panel-gap: var(--cp-space-6); /* between the viewer's media and a panel opened beside it */
   --cp-lightbox-file-icon-h: 160px; /* a file with no preview in the viewer: its type icon, readable across the room */
   --cp-attachment-preview-max-h: 240px; /* the attachment in the Modify and Delete Attachment dialogs, Discord's bound */
   --cp-alt-text-lines: 4; /* the alt text field's height in lines: room for a sentence or two before it scrolls */
