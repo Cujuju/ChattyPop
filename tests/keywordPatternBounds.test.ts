@@ -1,4 +1,4 @@
-// Keyword patterns finish on any text: highlighting skips empty matches by code point, and builder wildcards can't backtrack combinatorially.
+// Keyword patterns finish on any text: highlighting skips empty matches by code point, builder wildcards can't backtrack combinatorially, and conditions run at the text start only.
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
@@ -9,6 +9,8 @@ import { EMPTY_PATTERN_SPEC, buildPattern, compileKeywordPattern, type PatternSp
 const DEADLINE_MS = 5_000;
 /** A message at Discord's ordinary length limit. */
 const MESSAGE_CHARS = 2000;
+/** A long stored text: a Nitro message (4,000) plus its embeds (Discord caps them at 6,000 in total). */
+const LONG_TEXT_CHARS = 10_000;
 const MODULE = pathToFileURL(resolve(import.meta.dirname, '../src/shared/keywordPattern.ts')).href;
 
 /** Evaluates `expr` (with the real module as `k`) in a worker, so a hang fails the test instead of freezing the runner. */
@@ -60,6 +62,13 @@ describe('builder wildcards', () => {
       expect(await builderTest({ anyOf: ['x'], allOf: [term] }, `x ${noMatch}`)).toBe(false);
       expect(await builderTest({ anyOf: ['x'], noneOf: [term], wholeWords: false }, `x ${noMatch}`)).toBe(true);
     }
+  });
+
+  it('check all-of and none-of once per candidate, not once per offset before it', async () => {
+    const words = 'a '.repeat(LONG_TEXT_CHARS / 2);
+    expect(await builderTest({ anyOf: ['a'], allOf: ['zz'] }, words)).toBe(false);
+    expect(await builderTest({ anyOf: ['a'], noneOf: ['b'] }, `${words}b`)).toBe(false);
+    expect(await builderTest({ anyOf: ['a'], allOf: ['zz'], wholeWords: false }, 'a'.repeat(LONG_TEXT_CHARS))).toBe(false);
   });
 
   it('still match what the glob describes', () => {

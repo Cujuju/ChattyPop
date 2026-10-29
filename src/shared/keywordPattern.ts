@@ -64,7 +64,8 @@ export function buildPattern(spec: PatternSpec): string {
   const src = (terms: string[]): string[] => clean(terms).map((t) => termSource(t, spec.wholeWords, () => ++groups));
   const consumed = `(?:${src(clean(spec.anyOf).length ? spec.anyOf : spec.allOf).join('|')})`;
   const conditions = [...src(spec.allOf).map((t) => `(?=[\\s\\S]*?${t})`), ...src(spec.noneOf).map((t) => `(?![\\s\\S]*?${t})`)];
-  const guard = conditions.length ? `(?<=^${conditions.join('')}[\\s\\S]*)` : '';
+  // A lookbehind runs right to left: ^ after the conditions is tested first, so they run at the start only, not at every offset.
+  const guard = conditions.length ? `(?<=${conditions.join('')}^[\\s\\S]*)` : '';
   return `/${consumed}${guard}/${spec.matchCase ? 'u' : 'iu'}`;
 }
 
