@@ -119,11 +119,13 @@ describe('the sign-in relay', () => {
     await h.relay.input({ kind: 'text', text: 'early' });
     expect(h.sendCommand).not.toHaveBeenCalled();
     await h.relay.start();
-    await h.relay.input({ kind: 'mouse', type: 'mousePressed', x: 10, y: 20, button: 'left', clickCount: 1 });
+    await h.relay.input({ kind: 'mouse', type: 'mousePressed', x: 10, y: 20, button: 'left', clickCount: 1, modifiers: RELAY_MODIFIER.shift });
+    await h.relay.input({ kind: 'wheel', x: 10, y: 20, deltaX: 0, deltaY: 1, modifiers: RELAY_MODIFIER.ctrl });
     await h.relay.input({ kind: 'key', type: 'keyDown', key: 'a', code: 'KeyA', text: 'a', keyCode: 65, modifiers: 0 });
     await h.relay.input({ kind: 'key', type: 'keyDown', key: 'a', code: 'KeyA', text: null, keyCode: 65, modifiers: RELAY_MODIFIER.ctrl });
     await h.relay.input({ kind: 'text', text: 'hunter2' });
-    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchMouseEvent', expect.objectContaining({ type: 'mousePressed', x: 10, y: 20, button: 'left', buttons: 1, clickCount: 1 }));
+    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchMouseEvent', expect.objectContaining({ type: 'mousePressed', x: 10, y: 20, button: 'left', buttons: 1, clickCount: 1, modifiers: RELAY_MODIFIER.shift }));
+    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 10, y: 20, deltaX: 0, deltaY: 1, modifiers: RELAY_MODIFIER.ctrl });
     expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 0, text: 'a' });
     expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: RELAY_MODIFIER.ctrl });
     expect(h.sendCommand).toHaveBeenCalledWith('Input.insertText', { text: 'hunter2' });
@@ -179,15 +181,20 @@ describe("the client's sign-in, as the relay follows it", () => {
 
 describe('relayed input', () => {
   it('takes only well-formed pointer, wheel, key and text events', () => {
-    expect(normalizeRelayInput({ kind: 'mouse', type: 'mousePressed', x: 1, y: 2, button: 'left', clickCount: 9 })).toEqual({ kind: 'mouse', type: 'mousePressed', x: 1, y: 2, button: 'left', clickCount: 3 });
-    expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseWheel', x: 1, y: 2 })).toBeNull();
-    expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseMoved', x: Number.NaN, y: 2 })).toBeNull();
-    expect(normalizeRelayInput({ kind: 'wheel', x: 1, y: 2, deltaX: 0, deltaY: 1e9 })).toBeNull();
-    const enter = { kind: 'key', type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', keyCode: 13 };
+    const none = { modifiers: 0 };
+    expect(normalizeRelayInput({ kind: 'mouse', type: 'mousePressed', x: 1, y: 2, button: 'left', clickCount: 9, ...none })).toEqual({ kind: 'mouse', type: 'mousePressed', x: 1, y: 2, button: 'left', clickCount: 3, ...none });
+    expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseWheel', x: 1, y: 2, ...none })).toBeNull();
+    expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseMoved', x: Number.NaN, y: 2, ...none })).toBeNull();
+    expect(normalizeRelayInput({ kind: 'wheel', x: 1, y: 2, deltaX: 0, deltaY: 1e9, ...none })).toBeNull();
     const shift = RELAY_MODIFIER.shift;
-    expect(normalizeRelayInput({ ...enter, modifiers: shift })).toEqual({ ...enter, modifiers: shift });
-    // Every key says which modifiers are held: none, or only the four known bits.
-    for (const modifiers of [undefined, -1, 0.5, 16]) expect(normalizeRelayInput({ ...enter, modifiers })).toBeNull();
+    const click = { kind: 'mouse', type: 'mousePressed', x: 1, y: 2, button: 'left', clickCount: 1 };
+    const wheel = { kind: 'wheel', x: 1, y: 2, deltaX: 0, deltaY: 1 };
+    const enter = { kind: 'key', type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', keyCode: 13 };
+    for (const event of [click, wheel, enter]) {
+      expect(normalizeRelayInput({ ...event, modifiers: shift })).toEqual({ ...event, modifiers: shift });
+      // Every key and pointer event says which modifiers are held: none, or only the four known bits.
+      for (const modifiers of [undefined, -1, 0.5, 16]) expect(normalizeRelayInput({ ...event, modifiers })).toBeNull();
+    }
     expect(normalizeRelayInput({ kind: 'text', text: '' })).toBeNull();
     expect(normalizeRelayInput({ kind: 'text', text: 'x'.repeat(5000) })).toBeNull();
     expect(normalizeRelayInput({ kind: 'eval', code: 'x' })).toBeNull();

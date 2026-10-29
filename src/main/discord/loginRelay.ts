@@ -136,9 +136,9 @@ export class LoginRelay {
   async input(e: RelayInput): Promise<void> {
     if (!this.relaying) return;
     if (e.kind === 'mouse') {
-      await this.command('Input.dispatchMouseEvent', { type: e.type, x: e.x, y: e.y, button: e.button, buttons: e.type === 'mouseReleased' ? 0 : PRESSED[e.button], clickCount: e.clickCount });
+      await this.command('Input.dispatchMouseEvent', { type: e.type, x: e.x, y: e.y, button: e.button, buttons: e.type === 'mouseReleased' ? 0 : PRESSED[e.button], clickCount: e.clickCount, modifiers: e.modifiers });
     } else if (e.kind === 'wheel') {
-      await this.command('Input.dispatchMouseEvent', { type: 'mouseWheel', x: e.x, y: e.y, deltaX: e.deltaX, deltaY: e.deltaY });
+      await this.command('Input.dispatchMouseEvent', { type: 'mouseWheel', x: e.x, y: e.y, deltaX: e.deltaX, deltaY: e.deltaY, modifiers: e.modifiers });
     } else if (e.kind === 'key') {
       await this.command('Input.dispatchKeyEvent', { type: e.type, key: e.key, code: e.code, windowsVirtualKeyCode: e.keyCode, modifiers: e.modifiers, ...(e.text ? { text: e.text } : {}) });
     } else await this.command('Input.insertText', { text: e.text });

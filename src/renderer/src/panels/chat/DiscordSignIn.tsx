@@ -1,7 +1,7 @@
 // A remote desktop's way to sign the server's Discord client in: the server's Discord page, relayed as frames, with
 // the owner's pointer and keys sent back (state/discordLogin.ts).
 import { Show } from 'solid-js';
-import type { RelayButton } from '@shared/discordLogin';
+import { relayModifiers, type RelayButton } from '@shared/discordLogin';
 import { createKeyRelay, loginFrame, relayRunning, sendRelayInput, setSignInDismissed, startRelay, stopRelay } from '@/state/discordLogin';
 
 /** DOM pointer buttons as CDP names them. */
@@ -23,7 +23,7 @@ export function DiscordSignIn() {
     // Cancelling the press also cancels the focus a click gives, so the press takes it: keys then reach the server's page.
     if (type === 'mousePressed') surface?.focus({ preventScroll: true });
     e.preventDefault();
-    sendRelayInput({ kind: 'mouse', type, ...at(e), button: type === 'mouseMoved' ? 'left' : (BUTTONS[e.button] ?? 'none'), clickCount: type === 'mouseMoved' ? 0 : Math.max(e.detail, 1) });
+    sendRelayInput({ kind: 'mouse', type, ...at(e), button: type === 'mouseMoved' ? 'left' : (BUTTONS[e.button] ?? 'none'), clickCount: type === 'mouseMoved' ? 0 : Math.max(e.detail, 1), modifiers: relayModifiers(e) });
   };
   const relayKey = createKeyRelay();
   const key = (type: 'keyDown' | 'keyUp') => (e: KeyboardEvent) => relayKey(type, e);
@@ -77,7 +77,7 @@ export function DiscordSignIn() {
                 onContextMenu={(e) => e.preventDefault()}
                 onWheel={(e) => {
                   e.preventDefault();
-                  sendRelayInput({ kind: 'wheel', ...at(e), deltaX: e.deltaX, deltaY: e.deltaY });
+                  sendRelayInput({ kind: 'wheel', ...at(e), deltaX: e.deltaX, deltaY: e.deltaY, modifiers: relayModifiers(e) });
                 }}
               />
             </div>
