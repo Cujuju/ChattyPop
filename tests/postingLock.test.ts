@@ -6,6 +6,7 @@ import { PHONE_DISCORD_METHODS } from '@shared/phone';
 import type { PluginInfo } from '@shared/plugins';
 import { POSTING_CALLS, PostingLocked, isPostingCall, isPostingLocked, keepPostingLocked } from '@shared/posting';
 import type { DiscordClient, RequestOptions } from '../src/main/discord/client';
+import { gatewayOwner } from './helpers';
 
 const env = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown, ...args: unknown[]) => Promise<unknown>>(),
@@ -64,6 +65,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
     sync: {} as never,
     owner: api,
     capture: { onInvalidated: () => () => undefined, onCaptured: () => () => undefined } as never,
+    session: gatewayOwner().owner,
     emit: () => undefined,
     discordSession: {} as never,
     discord: { tap: new EventEmitter(), webContents: { debugger: {} }, shownChannel: null } as never,
@@ -104,7 +106,7 @@ describe('the host posting calls', () => {
 
   it('read acks work while locked: they never consult the lock', async () => {
     const api = owner();
-    new ReadStates(new EventEmitter() as never, api, () => undefined, () => undefined).ack(CHANNEL, MESSAGE);
+    new ReadStates(new EventEmitter() as never, gatewayOwner().owner, api, () => undefined, () => undefined).ack(CHANNEL, MESSAGE);
     await vi.waitFor(() => expect(api.sent).toEqual([`post ${ACK}`]));
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PERMISSIONS, can, channelPermissions, type PermissionContext, type RawOverwrite } from '@shared/permissions';
-import { GatewayAccess } from '../src/main/discord/access';
+import { gatewayAccessFacts } from '../src/main/discord/access';
 import { MemberRequests } from '../src/main/discord/memberRequests';
 import { applyAccessFacts } from '../src/core/access';
 import { seedArchive, tempDb } from './helpers';
@@ -58,7 +58,7 @@ describe("Discord's channel permissions", () => {
 describe('who can see a channel, from the gateway', () => {
   it("reads READY's owners, overwrites and the owner's roles, and stores them for archived servers and channels", () => {
     const view = ow('g1', 0, 0n, VIEW_CHANNEL);
-    const access = new GatewayAccess();
+    const access = { read: (t: string, d: unknown) => gatewayAccessFacts(t, d, 'me') };
     const facts = access.read('READY', {
       user: { id: 'me' },
       guilds: [{ id: 'g1', properties: { name: 'G1', owner_id: 'boss' }, channels: [{ id: 'c1', name: 'c1', type: 0, permission_overwrites: [view] }] }],

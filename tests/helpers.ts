@@ -125,11 +125,28 @@ export function fakeDiscordSession(): { session: never; send: (headers: Record<s
   return { session: session as never, send };
 }
 
+/** A captured credential the gateway's IDENTIFY proved: OwnerSession's account is then current. */
+const PROVEN_CAPTURE = { current: {}, sessionGeneration: 1, gatewayAuthorized: true, expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true };
+/** The socket gatewayOwner's dispatches arrive on. */
+export const OWNER_SOCKET = 'owner-socket';
+
+/**
+ * A tap with the OwnerSession main builds on it before every other reader. `dispatch` sends on OWNER_SOCKET and IDENTIFYs
+ * it before each READY, as the client does, so READY names the signed-in account.
+ */
+export function gatewayOwner<E extends EventEmitter>(tap: E = new EventEmitter() as E): { tap: E; owner: OwnerSession; dispatch(t: string, d: unknown, socketId?: string): void } {
+  const owner = new OwnerSession(tap as never, PROVEN_CAPTURE as never);
+  const dispatch = (t: string, d: unknown, socketId = OWNER_SOCKET): void => {
+    if (t === 'READY' && socketId === OWNER_SOCKET) tap.emit('sent', { op: IDENTIFY_OP, d: { token: 'token' }, socketId });
+    tap.emit('dispatch', { t, d, s: null, socketId });
+  };
+  return { tap, owner, dispatch };
+}
+
 /** Runs a call as an owner action of `account` (ownerSession.ts), as main's Discord handlers run each call. */
 export function ownerAction(account: string): <T>(call: () => Promise<T>) => Promise<T> {
   const tap = new EventEmitter();
-  const capture = { current: {}, sessionGeneration: 1, gatewayAuthorized: true, expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true };
-  const session = new OwnerSession(tap as never, capture as never);
+  const session = new OwnerSession(tap as never, PROVEN_CAPTURE as never);
   tap.emit('sent', { op: IDENTIFY_OP, d: { token: account }, socketId: account });
   tap.emit('dispatch', { t: 'READY', d: { user: { id: account } }, socketId: account });
   return <T>(call: () => Promise<T>) => session.actions({ call }).call() as Promise<T>;

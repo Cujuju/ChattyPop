@@ -24,51 +24,45 @@ function addGuild(f: AccessFacts, g: GatewayGuild): void {
   addChannels(f, g.channels ?? []);
 }
 
-/** Reads access facts from dispatches; remembers the signed-in user (READY) to pick their own roles. */
-export class GatewayAccess {
-  private self: string | null = null;
-
-  /** The facts a dispatch carries; null for other events. */
-  read(t: string, d: unknown): AccessFacts | null {
-    const f: AccessFacts = { owners: [], overwrites: [], members: [] };
-    switch (t) {
-      case 'READY': {
-        const r = d as { user?: { id: string }; guilds?: GatewayGuild[]; merged_members?: MergedMember[][] };
-        this.self = r.user?.id ?? null;
-        (r.guilds ?? []).forEach((g) => addGuild(f, g));
-        this.addMerged(f, r.guilds ?? [], r.merged_members);
-        return f;
-      }
-      // Newer clients get the owner's memberships here, after READY.
-      case 'READY_SUPPLEMENTAL': {
-        const r = d as { guilds?: { id: string }[]; merged_members?: MergedMember[][] };
-        this.addMerged(f, r.guilds ?? [], r.merged_members);
-        return f;
-      }
-      case 'GUILD_CREATE': {
-        const g = d as GatewayGuild;
-        addGuild(f, g);
-        const me = g.members?.find((m) => m.user?.id === this.self);
-        if (this.self && me?.roles) f.members.push({ guildId: g.id, userId: this.self, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
-        return f;
-      }
-      case 'GUILD_UPDATE':
-        addGuild(f, d as GatewayGuild);
-        return f;
-      case 'CHANNEL_CREATE':
-      case 'CHANNEL_UPDATE':
-        addChannels(f, [d as RawChannel]);
-        return f;
-      default:
-        return null;
+/** The access facts a dispatch carries, with self's own roles (the account OwnerSession names for its socket); null for other events. */
+export function gatewayAccessFacts(t: string, d: unknown, self: string | null): AccessFacts | null {
+  const f: AccessFacts = { owners: [], overwrites: [], members: [] };
+  switch (t) {
+    case 'READY': {
+      const r = d as { guilds?: GatewayGuild[]; merged_members?: MergedMember[][] };
+      (r.guilds ?? []).forEach((g) => addGuild(f, g));
+      addMerged(f, r.guilds ?? [], r.merged_members, self);
+      return f;
     }
+    // Newer clients get the owner's memberships here, after READY.
+    case 'READY_SUPPLEMENTAL': {
+      const r = d as { guilds?: { id: string }[]; merged_members?: MergedMember[][] };
+      addMerged(f, r.guilds ?? [], r.merged_members, self);
+      return f;
+    }
+    case 'GUILD_CREATE': {
+      const g = d as GatewayGuild;
+      addGuild(f, g);
+      const me = g.members?.find((m) => m.user?.id === self);
+      if (self && me?.roles) f.members.push({ guildId: g.id, userId: self, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
+      return f;
+    }
+    case 'GUILD_UPDATE':
+      addGuild(f, d as GatewayGuild);
+      return f;
+    case 'CHANNEL_CREATE':
+    case 'CHANNEL_UPDATE':
+      addChannels(f, [d as RawChannel]);
+      return f;
+    default:
+      return null;
   }
+}
 
-  /** `merged_members` runs parallel to `guilds`: the owner's own membership in each. */
-  private addMerged(f: AccessFacts, guilds: { id: string }[], merged: MergedMember[][] | undefined): void {
-    guilds.forEach((g, i) => {
-      const me = merged?.[i]?.find((m) => m.user_id === this.self);
-      if (me?.roles) f.members.push({ guildId: g.id, userId: me.user_id, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
-    });
-  }
+/** `merged_members` runs parallel to `guilds`: the owner's own membership in each. */
+function addMerged(f: AccessFacts, guilds: { id: string }[], merged: MergedMember[][] | undefined, self: string | null): void {
+  guilds.forEach((g, i) => {
+    const me = merged?.[i]?.find((m) => m.user_id === self);
+    if (me?.roles) f.members.push({ guildId: g.id, userId: me.user_id, nick: me.nick ?? null, roles: me.roles, communicationDisabledUntil: me.communication_disabled_until });
+  });
 }

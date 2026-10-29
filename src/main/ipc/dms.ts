@@ -5,7 +5,6 @@ import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import type { DiscordClient } from '../discord/client';
 import { DmService } from '../discord/dms';
-import type { OwnerAccount } from '../discord/account';
 import type { OwnerSession } from '../discord/ownerSession';
 import type { FriendIndex } from '../discord/profiles';
 import type { ReadStates } from '../discord/readStates';
@@ -16,7 +15,7 @@ export interface DmDeps {
   /** DiscordApi.prompt through the posting lock (postingClient): the owner is waiting. */
   owner: DiscordClient;
   /** The account READY named: a write checked as one account is never sent as another. */
-  account: Pick<OwnerAccount, 'userId'>;
+  account: Pick<OwnerSession, 'userId'>;
   /** Each DM write is an owner action, bound to the session proven when it is asked. */
   session: Pick<OwnerSession, 'actions'>;
   friends: FriendIndex;

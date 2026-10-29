@@ -1,6 +1,8 @@
 // Which account the captured credential is, proven passively: the gateway socket that IDENTIFYs with that token names it in
 // READY. Each owner action is bound to the session proven when it is asked, and DiscordApi sends its writes under no other.
+// The one source of the signed-in account in main: its readers take this, never a READY of their own.
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { planPerks, type PlanPerks } from '@shared/compose';
 import { SNOWFLAKE_ID } from '@shared/discord';
 import type { HeaderCapture } from './capture';
 import type { GatewayTap } from './gatewayTap';
@@ -32,10 +34,34 @@ export const actionSession = (): SessionBinding | null | undefined => actions.ge
 
 type Calls = Record<string, (...args: never[]) => Promise<unknown>>;
 
+/** The account fields READY and USER_UPDATE carry. */
+interface RawAccount {
+  id?: unknown;
+  username?: unknown;
+  premium_type?: unknown;
+}
+
+interface AccountFacts {
+  username: string | null;
+  plan: number;
+  sessionId: string | null;
+}
+/** No plan: Discord's premium_type for none. */
+const NO_PLAN = 0;
+const NO_FACTS: AccountFacts = { username: null, plan: NO_PLAN, sessionId: null };
+
+/** `u`'s username and plan; a field it leaves out keeps `before`'s. */
+const accountFacts = (u: RawAccount, before: AccountFacts): Omit<AccountFacts, 'sessionId'> => ({
+  username: typeof u.username === 'string' ? u.username : before.username,
+  plan: Number.isInteger(u.premium_type) ? (u.premium_type as number) : before.plan,
+});
+
 export class OwnerSession {
   /** The socket that IDENTIFYed or resumed the proven session; its READY names the account. */
   private socket: string | null = null;
   private account: string | null = null;
+  /** What READY (and USER_UPDATE after it) says of `account`. */
+  private facts: AccountFacts = NO_FACTS;
   private readonly changes = new Set<() => void>();
 
   /** Subscribe before the client opens its socket, as the tap requires, or its IDENTIFY is missed. */
@@ -52,17 +78,50 @@ export class OwnerSession {
         return;
       }
       this.account = null;
+      this.facts = NO_FACTS;
       this.socket = op === IDENTIFY_OP ? socketId : null;
       capture.expectGatewayAuthorization(token);
       this.changed();
     });
     tap.on('dispatch', ({ t, d, socketId }) => {
-      if (t !== 'READY' || this.socket === null || socketId !== this.socket) return;
-      const id = (d as { user?: { id?: unknown } } | null)?.user?.id;
-      // A malformed READY proves no account.
-      this.account = typeof id === 'string' && SNOWFLAKE_ID.test(id) ? id : null;
-      this.changed();
+      if (this.socket === null || socketId !== this.socket) return;
+      if (t === 'READY') {
+        const r = d as { user?: RawAccount; session_id?: unknown } | null;
+        const id = r?.user?.id;
+        // A malformed READY proves no account.
+        this.account = typeof id === 'string' && SNOWFLAKE_ID.test(id) ? id : null;
+        this.facts = this.account === null ? NO_FACTS : { ...accountFacts(r!.user!, NO_FACTS), sessionId: typeof r!.session_id === 'string' ? r!.session_id : null };
+        this.changed();
+      } else if (t === 'USER_UPDATE' && this.account !== null && (d as RawAccount | null)?.id === this.account) {
+        // USER_UPDATE carries only the signed-in user.
+        this.facts = { ...accountFacts(d as RawAccount, this.facts), sessionId: this.facts.sessionId };
+      }
     });
+  }
+
+  /** The account READY named for the gateway session; null from a new IDENTIFY until its READY. Writes bind to current(). */
+  get userId(): string | null {
+    return this.account;
+  }
+
+  /** The account's username; null without one. */
+  get username(): string | null {
+    return this.facts.username;
+  }
+
+  /** Discord's premium_type: the plan, which sets the upload limit (uploadLimitBytes). */
+  get premiumType(): number {
+    return this.facts.plan;
+  }
+
+  get perks(): PlanPerks {
+    return planPerks(this.facts.plan);
+  }
+
+  /** The client's gateway session: interactions name it, and their results arrive on it. A resume keeps it. */
+  get sessionId(): string {
+    if (!this.facts.sessionId) throw new Error('The live Discord client has not connected yet.');
+    return this.facts.sessionId;
   }
 
   /** Calls `listener` after a gateway session starts (IDENTIFY, unproven RESUME) or READY names its account; a proven resume continues one. */

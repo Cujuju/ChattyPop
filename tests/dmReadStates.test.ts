@@ -6,7 +6,7 @@ import { MUTED_FOREVER } from '@shared/discord';
 import { putReadStates } from '../src/core/queries/readStates';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { ReadStates } from '../src/main/discord/readStates';
-import { tempDb } from './helpers';
+import { gatewayOwner, tempDb } from './helpers';
 
 const ME = '900000000000000001';
 const GUILD = '100000000000000001';
@@ -18,10 +18,10 @@ const MUTE_END = '2026-10-01T00:00:00.000Z';
 const id = (n: number): string => String(500000000000000000n + BigInt(n));
 
 function setup() {
-  const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
+  const { tap, owner, dispatch } = gatewayOwner(new EventEmitter<{ dispatch: [GatewayDispatch] }>());
   const sent: { counts: ReadStateCount[]; scope: ReadStateScope }[] = [];
-  new ReadStates(tap as unknown as GatewayTap, { post: async () => undefined } as never, (counts, scope) => void sent.push({ counts, scope }), () => undefined, () => NOW);
-  const send = (t: string, d: unknown): void => void tap.emit('dispatch', { t, s: null, d });
+  new ReadStates(tap as unknown as GatewayTap, owner, { post: async () => undefined } as never, (counts, scope) => void sent.push({ counts, scope }), () => undefined, () => NOW);
+  const send = (t: string, d: unknown): void => dispatch(t, d);
   const last = (channelId: string): ReadStateCount | undefined => sent.flatMap((s) => s.counts).findLast((c) => c.channelId === channelId);
   return { send, sent, last };
 }

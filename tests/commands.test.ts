@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { OPTION, commandEntries, type AppCommand, type CommandRun } from '@shared/commands';
 import { COMPONENT, MESSAGE_FLAG, componentsFrom, modalFieldsFrom, modalSubmission } from '@shared/components';
 import { snowflakeFromMs } from '@shared/discord';
-import { OwnerAccount } from '../src/main/discord/account';
 import type { DiscordApi } from '../src/main/discord/api';
 import { CommandIndexes } from '../src/main/discord/commandIndex';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
@@ -12,7 +11,7 @@ import { createThread, sendDirect } from '../src/main/discord/send';
 import { messagePage } from '../src/core/queries/messages';
 import { ownCommands } from '../src/core/queries/ownCommands';
 import { ARRIVAL } from '../src/core/arrival';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { gatewayOwner, rawMessage, seedArchive, tempDb } from './helpers';
 
 const CHANNEL = '200000000000000001';
 const GUILD = '100000000000000001';
@@ -25,9 +24,9 @@ const DM = '900000000000000001';
 const USER = '110000000000000001';
 
 function fakeTap() {
-  const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-  const send = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, s: null, d });
-  return { tap: tap as unknown as GatewayTap, send };
+  const { tap, owner, dispatch } = gatewayOwner(new EventEmitter<{ dispatch: [GatewayDispatch] }>());
+  const send = (t: string, d: unknown): boolean => (dispatch(t, d), true);
+  return { tap: tap as unknown as GatewayTap, owner, send };
 }
 
 /** Records DiscordApi POSTs; onInteraction supplies gateway responses for posted interactions. */
@@ -57,11 +56,10 @@ function fakeApi(onInteraction: (body: Record<string, unknown>) => void = () => 
 }
 
 function setup(onInteraction: (body: Record<string, unknown>, send: (t: string, d: unknown) => boolean) => void) {
-  const { tap, send } = fakeTap();
-  const account = new OwnerAccount(tap);
-  send('READY', { user: { id: 'me' }, session_id: 'sess-1' });
+  const { tap, owner, send } = fakeTap();
+  send('READY', { user: { id: '900000000000000001' }, session_id: 'sess-1' });
   const fake = fakeApi((b) => onInteraction(b, send));
-  return { interactions: new Interactions(tap, fake.api, account), ...fake, send };
+  return { interactions: new Interactions(tap, fake.api, owner), ...fake, send };
 }
 
 const run = (r: Partial<CommandRun> = {}): CommandRun => ({

@@ -5,7 +5,7 @@ import { phoneAppEvent } from '@shared/phone';
 import { archiveHandlers } from '../src/core/archiveHandlers';
 import { ReadStates } from '../src/main/discord/readStates';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { gatewayOwner, rawMessage, seedArchive, tempDb } from './helpers';
 
 const ME = '900000000000000001';
 const GUILD = '100000000000000001';
@@ -28,12 +28,12 @@ it('projects live arrivals and external reads of an inactive channel to desktop 
     applyTextTier: async () => {},
     autoArchiveSinceMs: () => null,
   });
-  const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-  new ReadStates(tap as unknown as GatewayTap, { post: async () => { throw new Error('No Discord writes expected'); } }, handlers.putReadStates, () => {});
+  const { tap, owner, dispatch } = gatewayOwner(new EventEmitter<{ dispatch: [GatewayDispatch] }>());
+  new ReadStates(tap as unknown as GatewayTap, owner, { post: async () => { throw new Error('No Discord writes expected'); } }, handlers.putReadStates, () => {});
   tap.on('dispatch', ({ t, d }) => {
     if (t === 'MESSAGE_CREATE') handlers.applyGatewayEvent(t, d);
   });
-  const send = (t: string, d: unknown): void => void tap.emit('dispatch', { t, d, s: null });
+  const send = (t: string, d: unknown): void => dispatch(t, d);
   const row = async (id: string) => (await handlers.directory()).flatMap((g) => g.channels).find((c) => c.id === id)!;
   const mark = rawMessage(OPEN, NOW, 'seen', { guild_id: GUILD });
   send('READY', { user: { id: ME }, read_state: { entries: [], partial: false } });

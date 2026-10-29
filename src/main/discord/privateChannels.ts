@@ -3,6 +3,7 @@
 import type { RawPrivateChannel, RawUser } from '@shared/discord';
 import type { CoreClient } from '../coreClient';
 import type { GatewayTap } from './gatewayTap';
+import type { OwnerSession } from './ownerSession';
 import { entriesOf } from './readyLists';
 
 /** A private channel as READY may send it: full `recipients`, or `recipient_ids` naming users in READY's `users`. */
@@ -63,13 +64,14 @@ export function privateChannelsShape(d: Record<string, unknown>): Record<string,
 }
 
 /** Subscribes before socket creation to capture READY. Sends account identity before DM lists, preserving ordered core deltas and queries. */
-export function watchPrivateChannels(tap: GatewayTap, core: Pick<CoreClient, 'tell'>, diag: (event: string, data: Record<string, unknown>) => void): void {
-  tap.on('dispatch', ({ t, d }) => {
+export function watchPrivateChannels(tap: GatewayTap, owner: Pick<OwnerSession, 'accountOf'>, core: Pick<CoreClient, 'tell'>, diag: (event: string, data: Record<string, unknown>) => void): void {
+  tap.on('dispatch', ({ t, d, socketId }) => {
     if (t !== 'READY') return;
     const ready = d as Record<string, unknown>;
     diag('private-channels-ready', privateChannelsShape(ready));
     const list = readyPrivateChannels(ready);
-    if (!list) return;
+    // Only the account OwnerSession names for this socket: a late READY from a closed one may be another account's.
+    if (!list || owner.accountOf(socketId) !== list.self.id) return;
     core.tell('setSelf', list.self);
     core.tell('replacePrivateChannels', list.self.id, list.channels, list.partial);
   });

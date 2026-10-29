@@ -1,7 +1,7 @@
 // Whether the account may schedule messages, read from the embedded client's gateway traffic as its own client reads it:
-// READY and STATE_UPDATE carry its experiment assignments; OwnerAccount carries the plan.
+// READY and STATE_UPDATE carry its experiment assignments; OwnerSession carries the account and its plan.
 import type { ScheduledAvailability } from '@shared/scheduledMessages';
-import type { OwnerAccount } from './account';
+import type { OwnerSession } from './ownerSession';
 import type { GatewayTap } from './gatewayTap';
 
 export interface ScheduledAccount extends ScheduledAvailability { userId: string | null }
@@ -66,12 +66,12 @@ export function assignedLimit(apex: ApexExperiments | undefined, userId: string)
 export class ScheduledGate {
   private limits = new Map<string, number>();
 
-  /** Subscribe before the client opens its socket, as OwnerAccount does, or READY is missed. */
-  constructor(tap: GatewayTap, private readonly owner: Pick<OwnerAccount, 'userId' | 'premiumType'>) {
-    tap.on('dispatch', ({ t, d }) => {
+  /** Subscribe before the client opens its socket, or READY is missed. owner, built first, has read READY by then. */
+  constructor(tap: GatewayTap, private readonly owner: Pick<OwnerSession, 'userId' | 'premiumType' | 'accountOf'>) {
+    tap.on('dispatch', ({ t, d, socketId }) => {
       if (t !== 'READY' && t !== 'STATE_UPDATE') return;
-      const r = d as { user?: { id?: string }; apex_experiments?: ApexExperiments };
-      const userId = r.user?.id ?? owner.userId;
+      const r = d as { apex_experiments?: ApexExperiments };
+      const userId = owner.accountOf(socketId);
       const limit = userId ? assignedLimit(r.apex_experiments, userId) : null;
       if (userId && limit !== null) this.limits.set(userId, limit);
     });

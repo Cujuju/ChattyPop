@@ -3,12 +3,12 @@ import { DiscordHttpError, snowflakeFromMs } from '@shared/discord';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
 import { SCHEDULE_LIMIT_CODE, SCHEDULE_UNAVAILABLE, SUPPRESS_NOTIFICATIONS, defaultScheduleTime, schedulePresets, scheduleWindowError, scheduledContent, scheduledStateLabel, type ScheduledMessage } from '@shared/scheduledMessages';
 import { ScheduledMessages, checkScheduledDraft, checkScheduledUpdate } from '../src/main/discord/scheduledMessages';
-import { EventEmitter } from 'node:events';
 import { ScheduledGate, assignedLimit, murmur3 } from '../src/main/discord/scheduledAvailability';
 import type { GatewayTap } from '../src/main/discord/gatewayTap';
 import { postingClient } from '../src/main/plugins/posting';
 import type { DiscordClient, RequestOptions, WriteOptions } from '../src/main/discord/client';
 import type { Uploads } from '../src/main/discord/uploads';
+import { gatewayOwner } from './helpers';
 
 const NOW = new Date(2026, 9, 7, 8, 55).getTime();
 const CHANNEL = '200000000000000001';
@@ -200,18 +200,16 @@ describe('scheduled-message availability from the gateway', () => {
     expect(assignedLimit(undefined, USER)).toBeNull();
   });
   it('follows READY and STATE_UPDATE for the signed-in account; Nitro gets 25', () => {
-    const tap = new EventEmitter();
-    const owner = { userId: null as string | null, premiumType: 0 };
+    const { tap, owner, dispatch } = gatewayOwner();
     const gate = new ScheduledGate(tap as unknown as GatewayTap, owner);
     expect(gate.account).toEqual({ enabled: false, limit: 0, userId: null });
-    owner.userId = USER;
-    tap.emit('dispatch', { t: 'READY', d: { user: { id: USER }, apex_experiments: apex(1, 0, '{"limit":1}') } });
+    dispatch('READY', { user: { id: USER }, apex_experiments: apex(1, 0, '{"limit":1}') });
     expect(gate.account).toEqual({ enabled: true, limit: 1, userId: USER });
-    owner.premiumType = 2;
+    dispatch('USER_UPDATE', { id: USER, premium_type: 2 });
     expect(gate.account.limit).toBe(25);
-    tap.emit('dispatch', { t: 'STATE_UPDATE', d: { apex_experiments: { assignments: {} } } });
+    dispatch('STATE_UPDATE', { apex_experiments: { assignments: {} } });
     expect(gate.account.enabled).toBe(true);
-    tap.emit('dispatch', { t: 'STATE_UPDATE', d: { apex_experiments: apex(0, 0) } });
+    dispatch('STATE_UPDATE', { apex_experiments: apex(0, 0) });
     expect(gate.account).toEqual({ enabled: false, limit: 0, userId: USER });
   });
 });

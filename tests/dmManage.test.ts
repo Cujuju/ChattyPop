@@ -7,6 +7,7 @@ import { GROUP_DM_MAX_MEMBERS, GROUP_DM_NAME_MAX, MUTE_1_HOUR_S, MUTE_UNTIL_UNMU
 import { MS_PER_S } from '@shared/units';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { BOB, CY, DI, DM, GROUP, GUILD_CHANNEL, NEW, SELF, STRANGER, dm, dmArchive, dmService, friends, group, people } from './dmFixtures';
+import { gatewayOwner } from './helpers';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
 
@@ -172,10 +173,10 @@ describe('muting', () => {
   });
 
   it("settings Discord answers with set the DM's mute, as the gateway's update would", () => {
-    const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
+    const { tap, owner, dispatch } = gatewayOwner(new EventEmitter<{ dispatch: [GatewayDispatch] }>());
     const counts: unknown[] = [];
-    const rs = new ReadStates(tap as unknown as GatewayTap, { post: async () => undefined } as never, (c) => void counts.push(...c), () => undefined);
-    tap.emit('dispatch', { t: 'READY', s: null, d: { user: { id: SELF }, private_channels: [{ id: DM }] } });
+    const rs = new ReadStates(tap as unknown as GatewayTap, owner, { post: async () => undefined } as never, (c) => void counts.push(...c), () => undefined);
+    dispatch('READY', { user: { id: SELF }, private_channels: [{ id: DM }] });
     counts.length = 0;
     rs.settingsChanged({ guild_id: null, channel_overrides: [{ channel_id: DM, muted: true, mute_config: { end_time: null } }] });
     expect(counts).toContainEqual(expect.objectContaining({ channelId: DM, muteEndsMs: MUTED_FOREVER }));

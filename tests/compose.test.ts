@@ -4,7 +4,6 @@ import unicodeEmoji from 'emojibase-data/en/compact.json';
 import { ALT_TEXT_MAX, canUseEmoji, canUseSticker, emojiToken, expandEmojiTokens, expandMentionTokens, mentionToken, pickedMentionNames, planPerks, type MentionPick, type OwnerMessage } from '@shared/compose';
 import { DISCORD_FILES_PER_MESSAGE_MAX, DISCORD_TEXT_MAX, DISCORD_UPLOAD_BYTES_MAX } from '@shared/discord';
 import type { CustomEmoji, GuildEmoji } from '@shared/emoji';
-import { OwnerAccount } from '../src/main/discord/account';
 import type { DiscordApi } from '../src/main/discord/api';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { fetchReactors } from '../src/main/discord/profiles';
@@ -12,7 +11,7 @@ import { deleteOwnerMessage, editOwnerMessage, forwardAsOwner, reactAsOwner, sen
 import { GuildStickerIndex } from '../src/main/discord/stickers';
 import { ownEmoji, ownReactions } from '../src/core/queries/ownEmoji';
 import { ARRIVAL } from '../src/core/arrival';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { gatewayOwner, rawMessage, seedArchive, tempDb } from './helpers';
 
 const CHANNEL = '200000000000000001';
 const MESSAGE = '300000000000000001';
@@ -258,14 +257,15 @@ describe('what the plan allows', () => {
   });
 
   it('reads the plan from READY and follows USER_UPDATE for the same account', () => {
-    const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-    const account = new OwnerAccount(tap as unknown as GatewayTap);
-    const send = (t: string, d: unknown): boolean => tap.emit('dispatch', { t, s: null, d });
-    send('READY', { user: { id: 'u1', premium_type: 0 } });
+    const { owner: account, dispatch: send } = gatewayOwner();
+    const [u1, u2] = ['900000000000000001', '900000000000000002'];
+    send('READY', { user: { id: u1, premium_type: 0 } });
     expect(account.perks.emojiEverywhere).toBe(false);
-    send('USER_UPDATE', { id: 'u1', premium_type: 2 });
+    send('USER_UPDATE', { id: u2, premium_type: 2 });
+    expect(account.perks.stickersEverywhere).toBe(false);
+    send('USER_UPDATE', { id: u1, premium_type: 2 });
     expect(account.perks.stickersEverywhere).toBe(true);
-    send('READY', { user: { id: 'u2' } });
+    send('READY', { user: { id: u2 } });
     expect(account.perks.emojiEverywhere).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import { DesktopUnreachableError, type PhoneCall } from '@shared/phone';
 import { PostingLocked } from '@shared/posting';
 import { SCHEDULE_UNCONFIRMED, type ScheduledMessage, type ScheduledSend } from '@shared/scheduledMessages';
 import type { DiscordClient, RequestOptions } from '../src/main/discord/client';
+import { OwnerSession } from '../src/main/discord/ownerSession';
 import { PhoneHub } from '../src/main/phone/hub';
 
 const CHANNEL = '100000000000000001';
@@ -61,10 +62,12 @@ function harness() {
   const owner = { get, postOnce, patch, delete: remove } as unknown as DiscordClient;
   const core = { on: () => undefined, call: vi.fn(async () => []) };
   const tap = new EventEmitter();
+  const capture = { onInvalidated: () => () => undefined, onCaptured: () => () => undefined, current: {}, sessionGeneration: 1, gatewayAuthorized: true,
+    expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true } as never;
   const calls = registerDiscordHandlers({
     win: {} as never, core: core as never, sync: {} as never, owner,
-    capture: { onInvalidated: () => () => undefined, onCaptured: () => () => undefined, current: {}, sessionGeneration: 1, gatewayAuthorized: true,
-      expectGatewayAuthorization: () => undefined, matchesGatewayAuthorization: () => true } as never,
+    capture,
+    session: new OwnerSession(tap as never, capture),
     emit: () => undefined, discordSession: {} as never,
     discord: { tap, webContents: { debugger: {} }, shownChannel: null } as never,
     emojiIndex: {} as never, readStates: { settingsChanged: () => undefined },

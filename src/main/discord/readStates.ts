@@ -4,6 +4,7 @@ import type { ReadStateCount, ReadStateScope } from '@shared/contract';
 import { DM_CHANNEL_TYPES, MUTED_FOREVER, compareSnowflakes } from '@shared/discord';
 import type { DiscordApi } from './api';
 import type { GatewayTap } from './gatewayTap';
+import type { OwnerSession } from './ownerSession';
 import { entriesOf } from './readyLists';
 
 /** Read state type of channel message unreads; other types (events, onboarding) aren't channels. */
@@ -75,6 +76,7 @@ interface AckQueue {
 
 /** Tracks READY mentions, unsuppressed pings and unmuted DMs; reads/owner messages reset counts. DM state includes ack/mute; server mention-on-all-messages behavior is unsupported. */
 export class ReadStates {
+  /** The account these read states are of: OwnerSession's, as of the session's READY. */
   private self: string | null = null;
   /** A MESSAGE_ACK's field names were noted this session (they are undocumented). */
   private ackSeen = false;
@@ -95,6 +97,8 @@ export class ReadStates {
   /** Subscribe before the client opens its socket (as the tap requires), or READY is missed. */
   constructor(
     tap: GatewayTap,
+    /** Names the account each gateway session's READY is for. */
+    private readonly owner: Pick<OwnerSession, 'accountOf'>,
     private readonly api: Pick<DiscordApi, 'post'>,
     /** Counts changed; `scope`: merged, or every channel's (READY), others dropping to zero ('reset': a new account's). */
     private readonly onCounts: (counts: ReadStateCount[], scope: ReadStateScope) => void,
@@ -102,7 +106,11 @@ export class ReadStates {
     private readonly diag: (event: string, data: Record<string, unknown>) => void,
     private readonly now: () => number = Date.now,
   ) {
-    tap.on('dispatch', ({ t, d }) => this.apply(t, d));
+    tap.on('dispatch', ({ t, d, socketId }) => {
+      // Only the owner session's READY: a late one from a closed socket may be another account's.
+      if (t === 'READY') this.ready(d as Record<string, unknown>, owner.accountOf(socketId));
+      else this.apply(t, d);
+    });
   }
 
   /** Optimistically acknowledges reads, preserving later pings. Serializes/coalesces channel acks; failures restore Discord state plus intervening pings. */
@@ -156,8 +164,6 @@ export class ReadStates {
 
   private apply(t: string, d: unknown): void {
     switch (t) {
-      case 'READY':
-        return this.ready(d as Record<string, unknown>);
       // Newer clients get the owner's members here, after READY.
       case 'READY_SUPPLEMENTAL':
         return this.ownRoles(d as Record<string, unknown>);
@@ -207,8 +213,8 @@ export class ReadStates {
    * A READY for another account drops everything cached for the last one. Otherwise a partial (or absent) list merges:
    * what it leaves out keeps its cached value.
    */
-  private ready(d: Record<string, unknown>): void {
-    const self = (d['user'] as { id: string } | undefined)?.id ?? null;
+  private ready(d: Record<string, unknown>, self: string | null): void {
+    if (self === null) return;
     const switched = this.self !== null && self !== this.self;
     if (self !== this.self) this.sending.clear();
     if (switched) {

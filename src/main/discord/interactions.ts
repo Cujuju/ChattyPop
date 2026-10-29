@@ -14,7 +14,7 @@ import type { OwnerFile } from '@shared/compose';
 import { modalFieldsFrom, modalSubmission } from '@shared/components';
 import { DISCORD_UPLOAD_BYTES_MAX, newNonce, snowflakeArg } from '@shared/discord';
 import { MS_PER_S } from '@shared/units';
-import type { OwnerAccount } from './account';
+import type { OwnerSession } from './ownerSession';
 import type { DiscordClient } from './client';
 import type { GatewayTap } from './gatewayTap';
 import { uploadFiles } from './send';
@@ -96,7 +96,7 @@ export class Interactions {
   constructor(
     tap: GatewayTap,
     private readonly api: DiscordClient,
-    private readonly account: OwnerAccount,
+    private readonly account: Pick<OwnerSession, 'sessionId'>,
   ) {
     tap.on('dispatch', ({ t, d }) => this.onDispatch(t, d as { nonce?: string }));
   }

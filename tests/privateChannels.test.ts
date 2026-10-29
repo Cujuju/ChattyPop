@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { privateChannelsShape, readyPrivateChannels, watchPrivateChannels } from '../src/main/discord/privateChannels';
+import { gatewayOwner } from './helpers';
 
 const ME = '900000000000000001';
 const BOB = { id: '110000000000000001', username: 'bob', global_name: 'Bob' };
@@ -12,19 +13,21 @@ const GROUP = '400000000000000002';
 
 /** A watched tap, the core calls READY makes (in order), and the shape notes. */
 function watch() {
-  const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
+  const { tap, owner, dispatch } = gatewayOwner(new EventEmitter<{ dispatch: [GatewayDispatch] }>());
   const calls: unknown[][] = [];
   const notes: Record<string, unknown>[] = [];
-  watchPrivateChannels(tap as unknown as GatewayTap, { tell: (...args: unknown[]) => void calls.push(args) } as never, (_e, data) => void notes.push(data));
-  return { tap, calls, notes };
+  watchPrivateChannels(tap as unknown as GatewayTap, owner, { tell: (...args: unknown[]) => void calls.push(args) } as never, (_e, data) => void notes.push(data));
+  return { tap, dispatch, calls, notes };
 }
 
 describe("READY's private channels", () => {
   it("each READY names core's signed-in account before its DM list, so a token switch without a 401 still moves it", () => {
-    const { tap, calls } = watch();
+    const { dispatch, calls } = watch();
     const OTHER = { id: '900000000000000002', username: 'alt' };
-    tap.emit('dispatch', { t: 'READY', s: 1, d: { user: { id: ME, username: 'me' }, private_channels: [] } });
-    tap.emit('dispatch', { t: 'READY', s: 1, d: { user: OTHER, private_channels: [] } });
+    dispatch('READY', { user: { id: ME, username: 'me' }, private_channels: [] });
+    dispatch('READY', { user: OTHER, private_channels: [] });
+    // A late READY from a closed socket names no account: OwnerSession's stands.
+    dispatch('READY', { user: { id: ME, username: 'me' }, private_channels: [] }, 'closed-socket');
     expect(calls).toEqual([
       ['setSelf', { id: ME, username: 'me' }],
       ['replacePrivateChannels', ME, [], false],
@@ -71,7 +74,7 @@ describe("READY's private channels", () => {
   });
 
   it('notes the shape once per READY (field names and counts only) and hands core the list', () => {
-    const { tap, calls, notes } = watch();
+    const { dispatch, calls, notes } = watch();
     const d = {
       user: { id: ME },
       users: [BOB],
@@ -80,8 +83,8 @@ describe("READY's private channels", () => {
         { id: GROUP, type: 3, name: 'secret plans', recipient_ids: [CY.id] },
       ],
     };
-    tap.emit('dispatch', { t: 'MESSAGE_CREATE', s: 1, d: {} });
-    tap.emit('dispatch', { t: 'READY', s: 1, d });
+    dispatch('MESSAGE_CREATE', {});
+    dispatch('READY', d);
     expect(calls.filter(([m]) => m === 'replacePrivateChannels').map(([, , channels]) => (channels as unknown[]).length)).toEqual([2]);
     expect(notes).toEqual([privateChannelsShape(d)]);
     expect(notes[0]).toMatchObject({ list: 'array', channels: 2, withRecipientIds: 2, unresolvedRecipients: 1, isMessageRequest: 1, isSpam: 1 });

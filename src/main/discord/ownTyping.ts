@@ -1,6 +1,6 @@
 // The owner's typing, shown to others as the client shows it: POST channels/{id}/typing while they type, renewed before it lapses.
 import { TYPING_TTL_MS } from '@shared/typing';
-import type { OwnerAccount } from './account';
+import type { OwnerSession } from './ownerSession';
 import type { DiscordWriter } from './client';
 import type { GatewayTap } from './gatewayTap';
 
@@ -14,7 +14,7 @@ export class OwnerTyping {
 
   constructor(
     tap: Pick<GatewayTap, 'on'>,
-    account: Pick<OwnerAccount, 'userId'>,
+    account: Pick<OwnerSession, 'userId'>,
     private readonly api: Pick<DiscordWriter, 'postOnce'>,
   ) {
     tap.on('dispatch', ({ t, d }) => {

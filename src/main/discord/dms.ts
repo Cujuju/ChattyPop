@@ -34,7 +34,7 @@ export interface DmServiceDeps {
   /** DiscordApi.prompt: the owner is waiting. */
   api: DiscordWriter;
   core: Pick<MainCore, 'call'>;
-  /** The account main's READY last named (OwnerAccount); the friend list is that account's (FriendIndex resets per READY). */
+  /** The account OwnerSession names for the gateway session; the friend list is that account's (FriendIndex resets per READY). */
   account: () => string | null;
   friends: Friends;
   /** Discord's answer to a mute: the owner's DM notification settings (ReadStates.settingsChanged). */

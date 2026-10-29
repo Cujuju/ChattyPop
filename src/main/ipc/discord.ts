@@ -11,8 +11,7 @@ import { normalizeSyncedChatChange } from '@shared/chatSettings';
 import { errorMessage } from '@shared/errors';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
-import { OwnerAccount } from '../discord/account';
-import { OwnerSession, requireWrittenAs } from '../discord/ownerSession';
+import { requireWrittenAs, type OwnerSession } from '../discord/ownerSession';
 import { OwnerTyping } from '../discord/ownTyping';
 import type { GatewayDirectory } from '../discord/directory';
 import { fetchDiscordCustomTheme } from '../discord/appearance';
@@ -58,6 +57,8 @@ export interface DiscordDeps {
   /** DiscordApi.prompt: every request here is one the owner made, so none is held back. */
   owner: DiscordClient;
   capture: HeaderCapture;
+  /** The signed-in account (ownerSession.ts), built before any other gateway reader. */
+  session: OwnerSession;
   discord: DiscordView;
   emojiIndex: GuildEmojiIndex;
   /** Discord's answer to a DM mute reaches the read states. */
@@ -94,9 +95,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   );
   // Posting calls' requests go through `poster`, which checks the lock before every attempt; reactions and reads don't.
   const poster = postingClient(d.owner, d.posting);
-  const account = new OwnerAccount(d.discord.tap);
   // Every call below is an owner action: its writes go as the account proven when it was asked, or not at all.
-  const session = new OwnerSession(d.discord.tap, d.capture);
+  const session = d.session;
   const savedAccess = new SavedAccess(d.discord.tap, session, d.directory, d.core);
   const saved = new SavedMessages({ client: poster, capture: d.capture, tap: d.discord.tap, owner: session,
     filter: (items, ids) => d.core.call('filterSavedMessages', items, ids),
@@ -112,10 +112,10 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
   const limitFor = async (channelId: string): Promise<number> => {
     const guild = (await d.core.call('directory')).find((g) => g.id !== DM_GUILD_ID && g.channels.some((c) => c.id === channelId));
-    return uploadLimitBytes(account.premiumType, guild ? tiers.tier(guild.id) : null);
+    return uploadLimitBytes(session.premiumType, guild ? tiers.tier(guild.id) : null);
   };
   const uploads = new Uploads(d.discordSession, limitFor);
-  const scheduledGate = new ScheduledGate(d.discord.tap, account);
+  const scheduledGate = new ScheduledGate(d.discord.tap, session);
   const scheduled = new ScheduledMessages(poster, () => scheduledGate.account, uploads);
   const scheduledCalls = {
     scheduledAvailability: async (channelId: unknown) => scheduled.availability(channelId),
@@ -169,7 +169,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
       diag('sticker-packs-failed', { message: errorMessage(err) });
       return [];
     }), emojiPickerData.get(guildId as string)]);
-    return { emojis: d.emojiIndex.all(), stickers: stickerIndex.all(), packs, perks: account.perks, emojiPicker };
+    return { emojis: d.emojiIndex.all(), stickers: stickerIndex.all(), packs, perks: session.perks, emojiPicker };
   };
   const setEmojiFavorite = (change: unknown): Promise<string[]> => emojiPickerData.setFavorite(favoriteChangeArg(change));
   const emojiSources = new EmojiSources(d.owner, d.emojiIndex, () => d.directory.guildList());
@@ -177,7 +177,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
 
   const commandIndexes = new CommandIndexes(d.discord.tap);
   const roleIndex = new GuildRoleIndex(d.discord.tap);
-  const interactions = new Interactions(d.discord.tap, poster, account);
+  const interactions = new Interactions(d.discord.tap, poster, session);
   const commands = (channelId: unknown, guildId: unknown): Promise<CommandIndex> =>
     commandIndexes.forChannel(d.owner, snowflakeArg(channelId, 'channel'), guildId === null ? null : snowflakeArg(guildId, 'server'));
   const roles = (guildId: unknown): Promise<GuildRole[]> => roleIndex.forGuild(d.owner, snowflakeArg(guildId, 'server'));
@@ -191,12 +191,12 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     if (typeof query !== 'string') throw new Error('Not a member search.');
     await memberRequests.request(snowflakeArg(guildId, 'server'), query);
   };
-  const ownTyping = new OwnerTyping(d.discord.tap, account, poster);
+  const ownTyping = new OwnerTyping(d.discord.tap, session, poster);
   const typing = (channelId: unknown): Promise<void> => ownTyping.typing(snowflakeArg(channelId, 'channel'));
   const startThread = (t: unknown): Promise<void> => createThread(poster, t);
   // Friends from the client's gateway: the profile's Friends Since, and who a group may hold.
   const friends = new FriendIndex(d.discord.tap);
-  const dms = registerDmHandlers({ core: d.core, owner: poster, account, session, friends, readStates: d.readStates, posting: d.posting });
+  const dms = registerDmHandlers({ core: d.core, owner: poster, account: session, session, friends, readStates: d.readStates, posting: d.posting });
   const direct = (m: unknown): Promise<void> => sendDirect(poster, (userId) => dms.dmWith(userId), m);
   // Only this server's text channels that aren't archived; samples go straight to Jev and are dropped.
   handleMain(channels.suggestChannels, async (guildId: unknown) => {
@@ -236,7 +236,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
 
   const recent = trackRecentMessageEvents(d.discord.tap);
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
-  handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
+  handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, session, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked; each is an owner action.
   const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, setEmojiFavorite, emojiSource, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, pollVoters, setChatSettings }));
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));

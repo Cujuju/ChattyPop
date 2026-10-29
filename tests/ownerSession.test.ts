@@ -3,7 +3,11 @@ import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 import { DM, SELF as A, dmArchive, friends } from './dmFixtures';
-import { discordPage, fakeDiscordSession } from './helpers';
+import { OWNER_SOCKET, discordPage, fakeDiscordSession, gatewayOwner } from './helpers';
+import { gatewayAccessFacts } from '../src/main/discord/access';
+import { watchPrivateChannels } from '../src/main/discord/privateChannels';
+import { ReadStates } from '../src/main/discord/readStates';
+import { ScheduledGate } from '../src/main/discord/scheduledAvailability';
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }));
 
@@ -83,6 +87,26 @@ describe("the signed-in account's session", () => {
     // A resume continues the proven session.
     h.tap.emit('sent', { op: RESUME_OP, d: { token: TOKEN[B] }, socketId: 'b-again' });
     expect(h.owner.current()?.account).toBe(B);
+  });
+});
+
+describe("the signed-in account's readers", () => {
+  it('all follow the owner session: a late READY from a closed socket changes none of them', () => {
+    const { tap, owner, dispatch } = gatewayOwner();
+    const scheduled = new ScheduledGate(tap as never, owner);
+    const resets: string[] = [];
+    new ReadStates(tap as never, owner, { post: async () => undefined } as never, (_counts, scope) => void (scope === 'reset' && resets.push(scope)), () => undefined);
+    const told: unknown[][] = [];
+    watchPrivateChannels(tap as never, owner, { tell: (...args: unknown[]) => void told.push(args) } as never, () => undefined);
+    dispatch('READY', { user: { id: B, username: 'b', premium_type: 2 }, session_id: 'session-b', read_state: { entries: [], partial: false } });
+    told.length = 0;
+    dispatch('READY', { user: { id: A, username: 'a', premium_type: 0 }, session_id: 'session-a', read_state: { entries: [], partial: false } }, 'closed');
+    expect([owner.userId, owner.username, owner.premiumType, owner.sessionId, scheduled.account.userId]).toEqual([B, 'b', 2, 'session-b', B]);
+    expect(resets).toEqual([]);
+    expect(told).toEqual([]);
+    const ownRoles = (socketId: string) => gatewayAccessFacts('GUILD_CREATE', { id: 'g', members: [{ user: { id: B }, roles: ['r'] }] }, owner.accountOf(socketId))?.members;
+    expect(ownRoles(OWNER_SOCKET)).toHaveLength(1);
+    expect(ownRoles('closed')).toEqual([]);
   });
 });
 

@@ -11,7 +11,7 @@ import { putReadStates } from '../src/core/queries/readStates';
 import { directory } from '../src/core/queries/directory';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
 import { ReadStates, type PingMessage } from '../src/main/discord/readStates';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { gatewayOwner, rawMessage, seedArchive, tempDb } from './helpers';
 
 const ME = '900000000000000001';
 const GUILD = '100000000000000001';
@@ -41,8 +41,10 @@ function setup() {
   const counts = new Map<string, number>();
   const projected = new Map<string, ReadStateCount>();
   const errors: string[] = [];
+  const { owner, dispatch } = gatewayOwner(tap);
   const states = new ReadStates(
     tap as unknown as GatewayTap,
+    owner,
     api as never,
     (changed: ReadStateCount[], scope: ReadStateScope) => {
       if (scope !== 'merge') counts.clear();
@@ -56,7 +58,7 @@ function setup() {
     (event, data) => void (event === 'read-state-ack-failed' && errors.push(String(data['message']))),
     () => NOW,
   );
-  const send = (t: string, d: unknown): void => void tap.emit('dispatch', { t, s: null, d });
+  const send = (t: string, d: unknown): void => dispatch(t, d);
   const ready = (o: { readState?: unknown; settings?: unknown[]; roles?: string[] } = {}): void =>
     send('READY', {
       user: { id: ME },

@@ -1,5 +1,5 @@
 import type { DiscordProbe } from '@shared/contract';
-import type { OwnerAccount } from './account';
+import type { OwnerSession } from './ownerSession';
 import type { HeaderCapture } from './capture';
 import type { GatewayDirectory } from './directory';
 import type { GatewayTap } from './gatewayTap';
@@ -22,7 +22,7 @@ export function trackRecentMessageEvents(tap: GatewayTap): RecentEvent[] {
 }
 
 /** Reports session health from what the client already sent and received: it makes no request. */
-export function probeDiscord(capture: HeaderCapture, tap: GatewayTap, recent: RecentEvent[], account: Pick<OwnerAccount, 'username'>, directory: Pick<GatewayDirectory, 'guildList'>): DiscordProbe {
+export function probeDiscord(capture: HeaderCapture, tap: GatewayTap, recent: RecentEvent[], account: Pick<OwnerSession, 'username'>, directory: Pick<GatewayDirectory, 'guildList'>): DiscordProbe {
   const base = {
     loggedIn: capture.current !== undefined,
     capturedAt: capture.current?.capturedAt ?? null,

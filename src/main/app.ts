@@ -42,7 +42,8 @@ import { LiveLabelProviders } from './discord/labelProviders';
 import { LiveLabels } from './discord/liveLabels';
 import { pageAsset } from './discord/pageAssets';
 import { discordFontUrl } from './discord/pageFonts';
-import { GatewayAccess } from './discord/access';
+import { gatewayAccessFacts } from './discord/access';
+import { OwnerSession } from './discord/ownerSession';
 import { gatewayArchivePayload } from './discord/gatewayPeople';
 import { gatewayGuildRoles } from './discord/roles';
 import { TypingEvents } from './discord/typing';
@@ -209,10 +210,13 @@ void app.whenReady().then(() => {
   });
   app.on('second-instance', () => raiseWindow(win));
   discordRef = discord;
+  // The signed-in account: built before every other gateway reader, which reads the account from it.
+  const ownerSession = new OwnerSession(discord.tap, capture);
   const emojiIndex = new GuildEmojiIndex(discord.tap);
   // Discord's unread mention counts for the sidebar; a channel read in ChattyPop is acknowledged on Discord.
   const readStates = new ReadStates(
     discord.tap,
+    ownerSession,
     discordApi,
     (counts, scope) => core.tell('putReadStates', counts, scope),
     diag,
@@ -221,7 +225,7 @@ void app.whenReady().then(() => {
     if (e.type === 'channel-read') readStates.ack(e.channelId, e.messageId);
   });
   // The signed-in account and its DM list, from READY: no request.
-  watchPrivateChannels(discord.tap, core, diag);
+  watchPrivateChannels(discord.tap, ownerSession, core, diag);
   // Servers and their channels, from READY and its updates: no request.
   const directory = new GatewayDirectory(discord.tap);
   discord.tap.on('sent', ({ op, d }) => shapes.observe(gatewayRoute(op), carried(null, JSON.stringify(d ?? null))));
@@ -323,13 +327,12 @@ void app.whenReady().then(() => {
   followSession(relay, { page: discord, capture }, () => void sync.syncAll());
   sync.onSettled = () => core.tell('syncSettled');
   followArchiveChanges(core, sync);
-  const gatewayAccess = new GatewayAccess();
-  discord.tap.on('dispatch', ({ t, d }) => {
+  discord.tap.on('dispatch', ({ t, d, socketId }) => {
     if (isArchivedGatewayEvent(t)) core.tell('applyGatewayEvent', t, gatewayArchivePayload(t, d));
     const typing = typingEvents.read(t, d);
     if (typing) toRenderer(typing);
     for (const g of gatewayGuildRoles(t, d)) core.tell('replaceGuildRoles', g.guildId, g.roles);
-    const access = gatewayAccess.read(t, d);
+    const access = gatewayAccessFacts(t, d, ownerSession.accountOf(socketId));
     if (access && (access.owners.length || access.overwrites.length || access.members.length)) core.tell('applyAccessFacts', access);
   });
 
@@ -349,7 +352,7 @@ void app.whenReady().then(() => {
   handleMain(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
-  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, discord, emojiIndex, readStates, posting, discordSession, chatSettings, directory, emit: toRenderer });
+  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, session: ownerSession, discord, emojiIndex, readStates, posting, discordSession, chatSettings, directory, emit: toRenderer });
   const pages = rendererPages(RENDERER_DIR, process.env['ELECTRON_RENDERER_URL'] ?? null, installed);
   for (const { id, error } of failedMain) diag('installed-plugin-load-failed', { pluginId: id, message: error });
   const mainPlugins = startMainPlugins(bundledMain, {
