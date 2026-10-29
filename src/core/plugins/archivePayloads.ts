@@ -1,7 +1,7 @@
 // Typed payload metadata decoded outside persistent SQL views, including compressed archive payloads.
 import { CONTENT_KINDS, type ContentKind } from '@shared/messageContent';
 import { rawJsonText, type Db } from '../db';
-import { contentColumnsSql, kindsOfRow } from '../queries/messageContent';
+import { contentColumnsSql, kindsOfRow, validJsonSql } from '../queries/messageContent';
 import { REPLY_MESSAGE_TYPE } from '../queries/messageExtras';
 
 /** Payload metadata for a selected archived message; no privacy filtering is added to the selected ids. */
@@ -27,13 +27,13 @@ export function archivePayloads(db: Db, ids: readonly string[]): Map<string, Arc
     .all(JSON.stringify(ids)) as { id: string; raw_json: string | Buffer | null }[];
   const decoded = rows.map((row) => ({ id: row.id, raw: rawJsonText(row.raw_json) }));
   const details = db.prepare(`WITH payloads AS (
-      SELECT json_extract(value, '$.id') AS id, json_extract(value, '$.raw') AS raw FROM json_each(?)
+      SELECT json_extract(value, '$.id') AS id, ${validJsonSql("json_extract(value, '$.raw')")} AS raw FROM json_each(?)
     ) SELECT m.id, json_extract(p.raw, '$.embeds') AS embedsJson,
     json_extract(p.raw, '$.mentions') AS mentionsJson, json_extract(p.raw, '$.author.bot') AS bot,
     json_extract(p.raw, '$.flags') AS flags, json_extract(p.raw, '$.type') = ${REPLY_MESSAGE_TYPE} AS isReply,
     json_extract(p.raw, '$.message_reference.message_id') AS replyToId,
     (SELECT SUM(json_extract(a.value, '$.duration_secs')) FROM json_each(p.raw, '$.attachments') a) AS audioSeconds,
-    ${contentColumnsSql(CONTENT_KINDS).replaceAll('msg_json(m.raw_json)', 'p.raw')}
+    ${contentColumnsSql(CONTENT_KINDS, 'p.raw')}
     FROM messages m JOIN payloads p ON p.id = m.id`);
   for (const result of details.all(JSON.stringify(decoded)) as (Omit<ArchivePayload, 'kinds'> & { id: string } & Record<string, unknown>)[]) {
     const { embedsJson, mentionsJson, bot, flags, isReply, replyToId, audioSeconds } = result;

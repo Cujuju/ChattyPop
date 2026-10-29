@@ -7,7 +7,7 @@ export const DERIVE_VERSION_KEY = 'archive.deriveVersion';
 /** Rows per read during re-derivation; bounds memory for large archives. */
 const REDERIVE_BATCH_ROWS = 1000;
 
-/** Re-derives stored payloads after version changes or missing derivation. Returns processed messages; rebuilt runs transactionally after links rebuild. */
+/** Re-derives stored payloads after version changes or missing derivation. Returns messages re-derived; rebuilt runs transactionally after links rebuild. */
 export function rederiveIfStale(db: Db, rebuilt: () => void): number {
   if (stampedAtLeast(db, DERIVE_VERSION_KEY, DERIVE_VERSION)) return 0;
   // Batched reads: better-sqlite3 forbids writing on a connection while an iterator is open.
@@ -25,8 +25,13 @@ export function rederiveIfStale(db: Db, rebuilt: () => void): number {
     for (let after = 0; ;) {
       const rows = batch.all(after, REDERIVE_BATCH_ROWS) as { seq: number; author_id: string; raw_json: string | Buffer }[];
       if (!rows.length) break;
-      for (const r of rows) deriveMessage(db, parseRawJson<DerivableMessage>(r.raw_json)!, r.author_id);
-      n += rows.length;
+      for (const r of rows) {
+        // A damaged payload derives nothing; its shares went with the rebuild above.
+        const m = parseRawJson<DerivableMessage>(r.raw_json);
+        if (!m) continue;
+        deriveMessage(db, m, r.author_id);
+        n++;
+      }
       after = rows.at(-1)!.seq;
     }
     rebuilt();

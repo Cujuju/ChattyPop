@@ -14,10 +14,15 @@ const AUTO_VACUUM_INCREMENTAL = 2;
 
 export { compressRawJson, rawJsonText } from './rawJson';
 
-/** A stored payload parsed; null when there is none. */
+/** A stored payload parsed; null when there is none or it is damaged. */
 export const parseRawJson = <T>(v: string | Buffer | null): T | null => {
   const text = rawJsonText(v);
-  return text ? (JSON.parse(text) as T) : null;
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
 };
 
 /** A nullable JSON column parsed; empty reads as null, and so does a value guard rejects. */
@@ -139,7 +144,7 @@ export function openDb(path: string, keys: readonly string[] = []): Db {
   }
   // The WAL file keeps its largest size until truncated (a VACUUM passes the whole database through it).
   db.pragma('wal_checkpoint(TRUNCATE)');
-  // SQL reads of the payload go through msg_json() so compressed rows read like plain ones.
+  // SQL reads of the payload go through payloadSql (messageContent.ts), whose msg_json() reads compressed rows like plain ones.
   db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
   configureArchiveReads(db, opened.key);
   return db;

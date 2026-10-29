@@ -4,6 +4,7 @@ import type { ArchiveEmoji } from '@shared/contract';
 import { CUSTOM_EMOJI } from '@shared/emoji';
 import type { UsedEmoji } from '@shared/compose';
 import type { Db } from '../db';
+import { payloadSql } from './messageContent';
 import { visibleMessageSql } from './privacy';
 
 /** Newest own messages read: recent habits, and the scan stays small however long the archive grows. */
@@ -44,7 +45,7 @@ export function ownReactions(db: Db, limit: number): ArchiveEmoji[] {
       `SELECT json_extract(r.value, '$.emoji.id') AS emojiId, json_extract(r.value, '$.emoji.name') AS emojiName,
               MAX(json_extract(r.value, '$.emoji.animated')) AS animated, COUNT(*) AS uses, MAX(m.ts) AS last
        FROM (SELECT m.ts, m.raw_json FROM messages m WHERE ${visibleMessageSql('m')} ORDER BY m.ts DESC LIMIT ?) m,
-            json_each(msg_json(m.raw_json), '$.reactions') r
+            json_each(${payloadSql('m')}, '$.reactions') r
        WHERE json_extract(r.value, '$.me') = 1 AND emojiName IS NOT NULL
        GROUP BY COALESCE(emojiId, emojiName) ORDER BY uses DESC, last DESC LIMIT ?`,
     )

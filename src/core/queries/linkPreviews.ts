@@ -2,7 +2,7 @@ import type { ArchiveEmbed } from '@shared/contract';
 import { embedsFrom } from '@shared/messageExtras';
 import type { ArchiveToolScope } from '../ai/archiveTools';
 import { toolScopeSql } from '../ai/archiveToolKit';
-import { rawJsonText, type Db } from '../db';
+import { parseRawJson, type Db } from '../db';
 import { normalizeUrl } from '../derive/links';
 
 export interface LinkPreview { embed: ArchiveEmbed; source: string }
@@ -19,8 +19,7 @@ export function linkPreviews(db: Db, ids: readonly number[], scope?: ArchiveTool
   const bots = new Set<number>();
   for (const row of rows) {
     if (bots.has(row.linkId)) continue;
-    const text = rawJsonText(row.raw);
-    const payload = text ? JSON.parse(text) as { author?: { bot?: boolean }; embeds?: unknown[] } : null;
+    const payload = parseRawJson<{ author?: { bot?: boolean }; embeds?: unknown[] }>(row.raw);
     const bot = payload?.author?.bot;
     if (out.has(row.linkId) && !bot) continue;
     const embed = embedsFrom(payload?.embeds ? JSON.stringify(payload.embeds) : null)

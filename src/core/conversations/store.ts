@@ -1,6 +1,7 @@
 // Stored conversation links, the per-channel queue of message ranges to (re)link, and the inputs the linker reads.
 import { MS_PER_MIN } from '@shared/units';
 import type { Db } from '../db';
+import { payloadSql } from '../queries/messageContent';
 import { REPLY_MESSAGE_TYPE, USER_MENTION } from '../queries/messageExtras';
 import { topicWords } from './features';
 import { LINK_KIND, type Link, type LinkInput } from './linker';
@@ -16,7 +17,7 @@ export const REACH_FALLBACK_MS = 5 * MS_PER_MIN;
 
 /** One payload decode per row: the reply target, when the message is a Discord reply. */
 const REPLY_TO = `(SELECT CASE WHEN json_extract(j, '$.type') = ${REPLY_MESSAGE_TYPE} THEN json_extract(j, '$.message_reference.message_id') END
-  FROM (SELECT msg_json(m.raw_json) AS j))`;
+  FROM (SELECT ${payloadSql('m')} AS j))`;
 /** Inputs of the messages `where` selects (in its order), with the author each reply answers. */
 const inputSql = (where: string): string => `SELECT x.*, (SELECT p.author_id FROM messages p WHERE p.id = x.replyTo) AS repliesToAuthor
   FROM (SELECT m.id, m.author_id AS authorId, m.ts, m.content, ${REPLY_TO} AS replyTo FROM messages m ${where}) x`;

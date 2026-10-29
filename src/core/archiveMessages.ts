@@ -68,7 +68,7 @@ export class ArchiveMessages {
           result.inserted++;
         } else {
           const storedJson = rawJsonText(existing.raw_json);
-          const raw = JSON.stringify(mergeFullPayload(storedJson ? (JSON.parse(storedJson) as object) : null, m));
+          const raw = JSON.stringify(mergeFullPayload(parseRawJson<object>(storedJson), m));
           payloadChanged = raw !== storedJson || editedTs !== existing.edited_ts;
           if (changed) {
             this.reviseContent(m.id, existing, m.content, editedTs, raw, now);

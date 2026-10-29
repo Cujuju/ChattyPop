@@ -22,14 +22,14 @@ export type ArchiveReplyTargets = (ids: readonly string[]) => Map<string, ReplyT
 /** Uses the channel/time index and stops on the first reply by another author. */
 export function archiveReplyExists(db: Db, channelId: string, afterTs: number, authorId: string, messageId: string): boolean {
   return Boolean(db.prepare(`SELECT 1 FROM messages WHERE channel_id = ? AND ts > ? AND author_id != ?
-    AND json_extract(msg_json(raw_json), '$.message_reference.message_id') = ? LIMIT 1`)
+    AND ${rawJsonSql('$.message_reference.message_id', '')} = ? LIMIT 1`)
     .get(channelId, afterTs, authorId, messageId));
 }
 
 /** Reads only the reply flag for selected ids, using the message primary key. */
 export function archiveReplyFlags(db: Db, ids: readonly string[]): ReturnType<ArchiveReplyReader> {
   if (!ids.length) return new Map();
-  const rows = db.prepare(`SELECT id, json_extract(msg_json(raw_json), '$.type') = ${REPLY_MESSAGE_TYPE} AS isReply
+  const rows = db.prepare(`SELECT id, ${rawJsonSql('$.type', '')} = ${REPLY_MESSAGE_TYPE} AS isReply
     FROM messages WHERE id IN (SELECT value FROM json_each(?))`).all(JSON.stringify(ids)) as { id: string; isReply: number | null }[];
   return new Map(rows.map((row) => [row.id, { isReply: row.isReply }]));
 }
