@@ -1,5 +1,5 @@
 // Every host Jev request is checked against local-AI-only when it is sent, not only when it is queued: a channel switched
-// to local AI only while its request waits for a slot is never read by Jev.
+// to local AI only while its request waits for a slot is never read by Jev, and the refusal is not a failure.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Rule } from '@shared/rules';
 import { newRuleInput } from '@shared/ruleSpec';
@@ -99,5 +99,31 @@ describe('a queued host Jev request after its channel turns local-AI-only', () =
     expect(await queued(() => new MessageJudge(db).judgeMany(jev, items()), false)).toBe(true);
     expect(await queued(() => new MessageJudge(db).judgeMany(jev, items()), true)).toBe(false);
     expect(sent.some((body) => body.includes('public'))).toBe(true);
+  });
+
+  it('is refused, not failed: text-certain answers are stored, a live judgment answers, a range ask skips it', async () => {
+    const certain = { settled: { type: 'noul', noul: 1 } } as const;
+    const judge = new MessageJudge(db);
+    let batch: Awaited<ReturnType<MessageJudge['judgeMany']>> | undefined;
+    const items = [message(OPEN, 'public'), message(PRIVATE, SECRET)].map((m) => ({ m, questions: { q: QUESTION }, certain }));
+    expect(await queued(async () => (batch = await judge.judgeMany(jev, items)), true)).toBe(false);
+    const privateId = items[1]!.m.id;
+    expect(batch!.failed.has(privateId)).toBe(false);
+    expect(batch!.answers.get(privateId)).toEqual(certain);
+    expect(db.prepare('SELECT subject FROM jev_judgments WHERE message_id = ?').pluck().all(privateId)).toEqual(['settled']);
+
+    archive.setChannelPolicy(PRIVATE, { localAiOnly: false, textTier: null });
+    let outcome = '';
+    const live = message(PRIVATE, SECRET);
+    const judged = () => new Promise<void>((done) => void judge.judge(jev, live, { q: QUESTION }, () => done(void (outcome = 'answered')), () => done(void (outcome = 'failed'))));
+    expect(await queued(judged, true)).toBe(false);
+    expect(outcome).toBe('answered');
+
+    archive.setChannelPolicy(PRIVATE, { localAiOnly: false, textTier: null });
+    message(PRIVATE, SECRET);
+    let ranked: Awaited<ReturnType<typeof askRange>> | undefined;
+    const question = { type: 'noul', question: 'Is `message` news?', yes: '', no: '' } as const;
+    expect(await queued(async () => (ranked = await askRange(db, judge, jev, { channelId: PRIVATE, question, limit: 1 })), true)).toBe(false);
+    expect(ranked).toMatchObject({ asked: 0, failed: 0 });
   });
 });

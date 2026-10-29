@@ -2,6 +2,7 @@
 import type { JevAskResult, JevRangeAsk } from '@shared/contract';
 import { validateJevSpec } from '@shared/jevQuestion';
 import { answerValue, sumCosts, type Answer, type DecisionProvider } from '../ai/decisions';
+import { LocalOnlyError } from '../ai/readScope';
 import { assertHostedMayRead, hostedMayReadSql } from '../channelPolicy';
 import type { Db } from '../db';
 import { inChannelOrChildSql } from '../queries/channelScope';
@@ -13,7 +14,7 @@ import { customQuestion } from './questions';
 /** Upper bound on messages asked about in one run: bounds cost (~$0.00002 each) and time (4 requests in flight). */
 export const ASK_RANGE_MAX = 400;
 
-/** Ranks latest channel messages, including threads, by Jev value. Refuses local-only channels, excludes local-only threads and omits failed requests. */
+/** Ranks latest channel messages, including threads, by Jev value. Refuses local-only channels, excludes local-only threads and omits failed requests and ones refused unsent. */
 export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvider, ask: JevRangeAsk): Promise<JevAskResult> {
   validateJevSpec(ask.question);
   assertHostedMayRead(db, ask.channelId);
@@ -28,6 +29,8 @@ export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvide
   const question = customQuestion(ask.question);
   const costs: number[] = [];
   let failed = 0;
+  /** Refused when sent: a thread turned local-only meanwhile. Not asked, not failed. */
+  let refused = 0;
   const hits = await Promise.all(
     messages.map(async (m) => {
       try {
@@ -35,12 +38,13 @@ export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvide
         if (r.costUsd !== null) costs.push(r.costUsd);
         const a = r.answers.ask as Answer | undefined;
         return a ? { messageId: m.id, channelId: m.channelId, ts: m.ts, content: m.content, ...answerValue(a) } : null;
-      } catch {
-        failed++;
+      } catch (err) {
+        if (err instanceof LocalOnlyError) refused++;
+        else failed++;
         return null;
       }
     }),
   );
   const results = hits.filter((h): h is NonNullable<typeof h> => h !== null).sort((a, b) => b.value - a.value || b.ts - a.ts);
-  return { kind: ask.question.type, results, asked: messages.length, failed, costUsd: sumCosts(costs) };
+  return { kind: ask.question.type, results, asked: messages.length - refused, failed, costUsd: sumCosts(costs) };
 }

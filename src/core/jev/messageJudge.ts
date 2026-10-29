@@ -2,7 +2,7 @@ import { errorMessage } from '@shared/errors';
 import { MS_PER_DAY } from '@shared/units';
 import { clipMessage } from '../ai/clip';
 import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type DecisionRequest, type DecisionResult, type Question } from '../ai/decisions';
-import { scopedDecider } from '../ai/readScope';
+import { LocalOnlyError, scopedDecider } from '../ai/readScope';
 import { isLocalOnly } from '../channelPolicy';
 import type { PluginDb } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
@@ -19,6 +19,14 @@ const CONTEXT_BEFORE = 2;
 const SETTLED_BY_TEXT = 'text';
 /** Introduces a message's linked text inside `message`, so Jev reads it as part of what the message says. */
 const LINKED_MARK = 'linked post:';
+
+/** No Jev request was sent: no questions, or the read policy refused it. */
+const UNASKED = { answers: {}, costUsd: null } as const;
+/** Maps a local-only refusal to UNASKED; any other error still fails the request. */
+const refusedAsUnasked = (err: unknown): typeof UNASKED => {
+  if (err instanceof LocalOnlyError) return UNASKED;
+  throw err;
+};
 
 /** Caps batch size at 25. October 2026 measurements matched single-message label jitter at half cost; failed batches retry individually. */
 const MESSAGES_PER_REQUEST = 25;
@@ -166,10 +174,13 @@ export class MessageJudge {
     return result;
   }
 
-  /** Asks Jev `questions` (none: no request), then stores its fresh answers and the `certain` ones. */
+  /**
+   * Asks Jev `questions` (none: no request), then stores its fresh answers and the `certain` ones. A channel turned
+   * local-only before sending refuses the request: an outcome like asking nothing, not a failure.
+   */
   private async ask(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, certain: Answers, fresh: Fresh): Promise<{ answers: Answers; costUsd: number | null }> {
-    const { answers, costUsd } = Object.keys(questions).length ? await this.decideAbout(jev, m, questions) : { answers: {}, costUsd: null };
-    return { answers: this.keep(jev, m, questions, answers as Answers, certain, fresh), costUsd };
+    const asked = Object.keys(questions).length ? await this.decideAbout(jev, m, questions).catch(refusedAsUnasked) : UNASKED;
+    return { answers: this.keep(jev, m, asked === UNASKED ? {} : questions, asked.answers as Answers, certain, fresh), costUsd: asked.costUsd };
   }
 
   /**
