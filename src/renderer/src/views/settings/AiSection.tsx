@@ -47,6 +47,7 @@ export function AiSection() {
       label: d.label,
       meta: () => providerMeta(d),
       muted: () => !providerSettingsOf(d.id).enabled,
+      aside: () => <ProviderSwitch provider={d.id} />,
       link: siteLink(d.site),
       actions: () => <RemoveProviderButton provider={d.id} />,
       body: () => <ProviderBody provider={d} />,
@@ -88,24 +89,23 @@ export function AiSection() {
   );
 }
 
-/** A provider's switch, which turns it off and keeps it listed with its sign-in, key and choices; its availability line and its plugin's note. */
-function EnabledRow(props: { provider: ProviderId }) {
+/** In the rail beside a provider: its switch, which turns it off and keeps it listed with its sign-in, key and choices. */
+function ProviderSwitch(props: { provider: ProviderId }) {
   const id = props.provider;
   const enabled = () => providerSettingsOf(id).enabled;
+  return <Switch label={`Use ${providerLabel(id)}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />;
+}
+
+/** A provider's availability line and the note its plugin adds. */
+function EnabledRow(props: { provider: ProviderId }) {
+  const id = props.provider;
   const hint = (): string => {
     const status = statusOf(id);
     if (status) return status.detail + (providerView(id)?.note?.(status) ?? '');
     const failed = providerStatusFailure();
     return failed ? `Couldn't check: ${failed}` : 'Checking…';
   };
-  return (
-    <Row
-      label={`Use ${providerLabel(id)}`}
-      for={`ai-enabled-${id}`}
-      hint={hint()}
-      control={<Switch id={`ai-enabled-${id}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />}
-    />
-  );
+  return <Row label="Status" hint={hint()} />;
 }
 
 /** The host's rows of a provider's card, in HOST_PROVIDER_ROWS order; plugins place theirs among them. */
