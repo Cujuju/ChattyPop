@@ -5,7 +5,7 @@ import { isObj } from '@shared/normalize';
 import { upgradeRuleSpec } from '@shared/ruleUpgrade';
 import type { Db } from './db';
 import { createMessagePings } from './derive/pings';
-import { rawJsonText } from './rawJson';
+import { parseRawJson, rawJsonText } from './rawJson';
 import { HIDDEN_SCOPE_RENAMES, HIDDEN_SCOPE_TABLE } from './hiddenScope';
 import { refreshLinkSearch } from './linkSearch';
 import { addLinkMetadataSources } from './derive/linkMetadata';
@@ -319,20 +319,16 @@ export function storedBotAuthors(db: Db): void {
   const known = new Set<string>();
   for (const row of rows) {
     if (known.has(row.author_id)) continue;
-    let bot = false;
-    try {
-      const payload = JSON.parse(rawJsonText(row.raw_json)!) as { author?: { bot?: boolean } } | null;
-      bot = payload?.author?.bot === true;
-    } catch {
-      // A damaged legacy payload must not prevent the archive opening; another message may identify its author.
-      continue;
-    }
-    if (!bot) continue;
+    // A damaged legacy payload reads as none; another message may identify its author.
+    if (parseRawJson<{ author?: { bot?: boolean } }>(row.raw_json)?.author?.bot !== true) continue;
     known.add(row.author_id);
   }
   // This driver forbids writes while an iterator is active; keep only the discovered ids until it finishes.
   for (const id of known) mark.run(id);
 }
+
+/** Message `m`'s payload as JSON text, NULL when none or damaged; frozen here for the seeding migrations (payloadSql may change). */
+const MIGRATION_PAYLOAD_SQL = '(SELECT CASE WHEN json_valid(j) THEN j END FROM (SELECT msg_json(m.raw_json) AS j))';
 
 /** Adds member roles, server roles and user server tags. Seeds from newest archived payloads; live events maintain them. */
 export function discordNameStyles(db: Db): void {
@@ -350,7 +346,7 @@ export function discordNameStyles(db: Db): void {
   // Latest live payload per server/author supplies roles. Temporary tables decode each payload once, avoiding repeated correlated subquery decoding.
   db.exec(`
     CREATE TEMP TABLE latest_roles AS
-      SELECT l.guild_id, l.author_id, json_extract(msg_json(m.raw_json), '$.member.roles') AS roles
+      SELECT l.guild_id, l.author_id, json_extract(${MIGRATION_PAYLOAD_SQL}, '$.member.roles') AS roles
       FROM (SELECT c.guild_id, m.author_id, MAX(m.seq) AS seq FROM messages m JOIN channels c ON c.id = m.channel_id
             WHERE m.arrived_via = 'gateway' AND c.guild_id IS NOT NULL GROUP BY c.guild_id, m.author_id) l
       JOIN messages m ON m.seq = l.seq;
@@ -359,7 +355,7 @@ export function discordNameStyles(db: Db): void {
     DROP TABLE latest_roles;
     CREATE TEMP TABLE latest_tags AS
       SELECT author_id, json_extract(g, '$.identity_guild_id') AS guild_id, json_extract(g, '$.tag') AS tag, json_extract(g, '$.badge') AS badge
-      FROM (SELECT l.author_id, json_extract(msg_json(m.raw_json), '$.author.primary_guild') AS g
+      FROM (SELECT l.author_id, json_extract(${MIGRATION_PAYLOAD_SQL}, '$.author.primary_guild') AS g
             FROM (SELECT author_id, MAX(seq) AS seq FROM messages GROUP BY author_id) l JOIN messages m ON m.seq = l.seq)
       WHERE json_extract(g, '$.identity_enabled') IS NOT 0 AND json_extract(g, '$.tag') IS NOT NULL AND json_extract(g, '$.identity_guild_id') IS NOT NULL;
     CREATE UNIQUE INDEX temp.latest_tags_key ON latest_tags (author_id);
@@ -378,12 +374,9 @@ export function ephemeralMessages(db: Db): void {
   const rows = db.prepare('SELECT seq, raw_json FROM messages WHERE raw_json IS NOT NULL').iterate() as Iterable<{ seq: number; raw_json: string | Buffer }>;
   const found: number[] = [];
   for (const row of rows) {
-    try {
-      const flags = (JSON.parse(rawJsonText(row.raw_json)!) as { flags?: unknown } | null)?.flags;
-      if (typeof flags === 'number' && (flags & EPHEMERAL_FLAG) !== 0) found.push(row.seq);
-    } catch {
-      // A damaged legacy payload must not prevent the archive opening.
-    }
+    // A damaged legacy payload reads as none.
+    const flags = parseRawJson<{ flags?: unknown }>(row.raw_json)?.flags;
+    if (typeof flags === 'number' && (flags & EPHEMERAL_FLAG) !== 0) found.push(row.seq);
   }
   // This driver forbids writes while an iterator is active.
   const mark = db.prepare('UPDATE messages SET ephemeral = 1 WHERE seq = ?');
@@ -398,8 +391,8 @@ export function discordNameEffects(db: Db): void {
     ALTER TABLE users ADD COLUMN name_style TEXT;
     ALTER TABLE users ADD COLUMN decoration TEXT;
     CREATE TEMP TABLE latest_author AS
-      SELECT l.author_id, json_extract(msg_json(m.raw_json), '$.author.display_name_styles') AS style,
-             json_extract(msg_json(m.raw_json), '$.author.avatar_decoration_data.asset') AS decoration
+      SELECT l.author_id, json_extract(${MIGRATION_PAYLOAD_SQL}, '$.author.display_name_styles') AS style,
+             json_extract(${MIGRATION_PAYLOAD_SQL}, '$.author.avatar_decoration_data.asset') AS decoration
       FROM (SELECT author_id, MAX(seq) AS seq FROM messages GROUP BY author_id) l JOIN messages m ON m.seq = l.seq;
     CREATE UNIQUE INDEX temp.latest_author_key ON latest_author (author_id);
     UPDATE users SET (name_style, decoration) = (SELECT style, decoration FROM latest_author a WHERE a.author_id = users.id)

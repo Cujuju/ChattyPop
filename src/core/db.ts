@@ -12,18 +12,7 @@ export { readStatus } from './archiveStatus';
 /** PRAGMA auto_vacuum value for INCREMENTAL. */
 const AUTO_VACUUM_INCREMENTAL = 2;
 
-export { compressRawJson, rawJsonText } from './rawJson';
-
-/** A stored payload parsed; null when there is none or it is damaged. */
-export const parseRawJson = <T>(v: string | Buffer | null): T | null => {
-  const text = rawJsonText(v);
-  if (!text) return null;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return null;
-  }
-};
+export { compressRawJson, parseRawJson, rawJsonText } from './rawJson';
 
 /** A nullable JSON column parsed; empty reads as null, and so does a value guard rejects. */
 export function fromJson<T>(json: string | null, guard?: (v: unknown) => v is T): T | null {

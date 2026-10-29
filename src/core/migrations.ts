@@ -4,7 +4,10 @@ import { LATER_MIGRATIONS, RETIRED } from './laterMigrations';
 /** One schema step: SQL, or a conversion SQL can't express. Each runs in its own transaction. */
 export type Migration = string | ((db: Db) => void);
 
-/** Migrations up to privacy mode; later ones continue in laterMigrations.ts. Never edit a shipped entry, except to retire it. */
+/**
+ * Migrations up to privacy mode; later ones continue in laterMigrations.ts. Never edit a shipped entry, except to retire
+ * it or to skip damaged rows with unchanged results on valid ones.
+ */
 const EARLY_MIGRATIONS: readonly Migration[] = [
   `
   CREATE TABLE guilds   (id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT, raw_json TEXT);
@@ -224,9 +227,9 @@ const EARLY_MIGRATIONS: readonly Migration[] = [
   CREATE TABLE members (guild_id TEXT NOT NULL, user_id TEXT NOT NULL, nick TEXT, updated_at INTEGER NOT NULL,
                         PRIMARY KEY (guild_id, user_id));
   INSERT INTO members (guild_id, user_id, nick, updated_at)
-    SELECT c.guild_id, m.author_id, json_extract(CASE WHEN typeof(m.raw_json) = 'text' THEN m.raw_json END, '$.member.nick'), MAX(m.ts)
+    SELECT c.guild_id, m.author_id, json_extract(CASE WHEN typeof(m.raw_json) = 'text' AND json_valid(m.raw_json) THEN m.raw_json END, '$.member.nick'), MAX(m.ts)
     FROM messages m JOIN channels c ON c.id = m.channel_id
-    WHERE json_extract(CASE WHEN typeof(m.raw_json) = 'text' THEN m.raw_json END, '$.member') IS NOT NULL AND c.guild_id IS NOT NULL
+    WHERE json_extract(CASE WHEN typeof(m.raw_json) = 'text' AND json_valid(m.raw_json) THEN m.raw_json END, '$.member') IS NOT NULL AND c.guild_id IS NOT NULL
     GROUP BY c.guild_id, m.author_id;
   `,
   `

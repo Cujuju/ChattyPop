@@ -13,4 +13,16 @@ export const rawJsonText = (v: string | Buffer | null): string | null => {
     return null;
   }
 };
-export const compressRawJson = (json: string): Buffer => zstdCompressSync(json);
+
+/** A stored payload parsed; null when there is none or it is damaged. */
+export const parseRawJson = <T>(v: string | Buffer | null): T | null => {
+  const text = rawJsonText(v);
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+};
+
+export const compressRawJson =(json: string): Buffer => zstdCompressSync(json);

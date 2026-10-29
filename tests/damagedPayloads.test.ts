@@ -67,9 +67,11 @@ describe('damaged stored payloads', () => {
       const path = join(dir, name);
       return statSync(path).isDirectory() ? files(path) : path.endsWith('.ts') ? [path] : [];
     });
-    // Where msg_json is registered or the wrappers live.
-    const allowed = new Set(['db.ts', 'laterMigrations.ts', join('queries', 'messageContent.ts'), join('queries', 'storedJson.ts'), join('reads', 'archiveReadWorker.ts')]);
-    const direct = /msg_json\(|JSON\.parse\(rawJsonText|json_\w+\(\s*(\w+\.)?raw_json\b/;
-    expect(files(core).map((f) => relative(core, f)).filter((f) => !allowed.has(f) && direct.test(readFileSync(join(core, f), 'utf8')))).toEqual([]);
+    // Where msg_json is registered or wrapped (laterMigrations.ts freezes its own wrapper).
+    const wrappers = new Set(['db.ts', 'laterMigrations.ts', join('queries', 'messageContent.ts'), join('reads', 'archiveReadWorker.ts')]);
+    // json_valid is the guard itself: it never throws.
+    const unguarded = /JSON\.parse\(rawJsonText|json_(?!valid)\w+\(\s*(\w+\.)?raw_json\b|json_(?!valid)\w+\(\s*msg_json\(/;
+    const sources = files(core).map((f) => ({ f: relative(core, f), text: readFileSync(f, 'utf8') }));
+    expect(sources.filter(({ f, text }) => unguarded.test(text) || (!wrappers.has(f) && text.includes('msg_json('))).map(({ f }) => f)).toEqual([]);
   });
 });
