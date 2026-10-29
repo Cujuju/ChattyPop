@@ -2,6 +2,7 @@
 import type { Db } from '../db';
 import { rawJsonSql } from '../queries/messageContent';
 import { REPLY_MESSAGE_TYPE } from '../queries/messageExtras';
+import { visibleReplySourceSql, withinSelectedScopeSql } from '../queries/privacy';
 import type { PluginDb } from './pluginDb';
 
 export type ArchiveReplyReader = (ids: readonly string[]) => Map<string, { isReply: number | null }>;
@@ -33,17 +34,23 @@ export function archiveReplyFlags(db: Db, ids: readonly string[]): ReturnType<Ar
   return new Map(rows.map((row) => [row.id, { isReply: row.isReply }]));
 }
 
-/** What selected replies answer, read from the target Discord embedded in each (compressed payloads included). */
+/**
+ * What selected replies answer, read from the target Discord embedded in each (compressed payloads included). A target's
+ * text privacy mode hides, unless it hides the reply too, is empty: every reader (plugins, Jev) gets no more than its ids' scope.
+ */
 export function archiveReplyTargets(db: PluginDb, ids: readonly string[]): Map<string, ReplyTarget> {
   if (!ids.length) return new Map();
+  const shown = withinSelectedScopeSql(visibleReplySourceSql('t.id', 't.channel', 't.content'), 't.replyId');
   const rows = db
     .prepare(
-      `SELECT m.id AS replyId, ${rawJsonSql('$.message_reference.message_id')} AS id,
-              ${rawJsonSql('$.referenced_message.author.id')} AS authorId,
-              COALESCE(${rawJsonSql('$.referenced_message.author.global_name')},
-                       ${rawJsonSql('$.referenced_message.author.username')}) AS author,
-              COALESCE(${rawJsonSql('$.referenced_message.content')}, '') AS content
-       FROM messages m WHERE m.id IN (SELECT value FROM json_each(?)) AND ${rawJsonSql('$.type')} = ${REPLY_MESSAGE_TYPE}`,
+      `SELECT t.replyId, t.id, t.authorId, t.author, CASE WHEN ${shown} THEN t.content ELSE '' END AS content FROM (
+         SELECT m.id AS replyId, ${rawJsonSql('$.message_reference.message_id')} AS id,
+                ${rawJsonSql('$.referenced_message.author.id')} AS authorId,
+                COALESCE(${rawJsonSql('$.referenced_message.author.global_name')},
+                         ${rawJsonSql('$.referenced_message.author.username')}) AS author,
+                COALESCE(${rawJsonSql('$.referenced_message.channel_id')}, m.channel_id) AS channel,
+                COALESCE(${rawJsonSql('$.referenced_message.content')}, '') AS content
+         FROM messages m WHERE m.id IN (SELECT value FROM json_each(?)) AND ${rawJsonSql('$.type')} = ${REPLY_MESSAGE_TYPE}) t`,
     )
     .all(JSON.stringify(ids)) as (ReplyTarget & { replyId: string })[];
   return new Map(rows.filter((r) => r.authorId).map(({ replyId, ...target }) => [replyId, target]));

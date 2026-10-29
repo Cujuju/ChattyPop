@@ -11,6 +11,11 @@ import { searchMessages } from '../src/core/queries/search';
 import { privacyCss } from '../src/main/discord/privacyCss';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL } from '../src/core/arrival';
+import { archiveReplyTargets } from '../src/core/plugins/archiveReplies';
+import { MessageJudge } from '../src/core/jev/messageJudge';
+import { customQuestion } from '../src/core/jev/questions';
+import { textMessage } from '../src/core/queries/messageText';
+import { FakeJev } from './fakeJev';
 
 const OPEN_GUILD = { id: '100000000000000001', name: 'Open Server' };
 const SECRET_GUILD = { id: '100000000000000002', name: 'Secret Server' };
@@ -114,6 +119,37 @@ describe('messages in privacy mode', () => {
     expect(previews()).toEqual(['plain hello', `see <#${MODS}> hello`, `ask <#${MODS}>`, 'from the hidden server']);
     setMode(true);
     expect(previews()).toEqual(['plain hello', null, null, null]);
+  });
+});
+
+describe('reply targets and Jev context in privacy mode (#252)', () => {
+  const reply = (channelId: string, n: number, target: ReturnType<typeof rawMessage>) =>
+    rawMessage(channelId, at(n), `reply ${n}`, { type: 19, message_reference: { message_id: target.id }, referenced_message: target } as never);
+  const naming = rawMessage(GENERAL, at(1), `ask in <#${MODS}>`, { author: { id: 'u2', username: 'bob' } });
+  const earlier = rawMessage(GENERAL, at(2), `see https://discord.com/channels/${SECRET_GUILD.id}/${SECRET_CHANNEL}/1`);
+  const shown = reply(GENERAL, 3, naming);
+  const inMods = rawMessage(MODS, at(4), 'mods only question');
+  const hidden = reply(MODS, 5, inMods);
+  beforeEach(() => archive.ingestMessages([naming, earlier, shown, inMods, hidden], ARRIVAL.gateway));
+
+  it("withholds a hidden target's text from a shown reply, never from a reply privacy mode hides too", () => {
+    const targets = () => Object.fromEntries(archiveReplyTargets(db, [shown.id, hidden.id]));
+    expect(targets()[shown.id]).toEqual({ id: naming.id, authorId: 'u2', author: 'bob', content: `ask in <#${MODS}>` });
+    setMode(true);
+    expect(targets()).toEqual({
+      [shown.id]: { id: naming.id, authorId: 'u2', author: 'bob', content: '' },
+      [hidden.id]: { id: inMods.id, authorId: 'u1', author: 'Alice', content: 'mods only question' },
+    });
+  });
+
+  it('a Jev request about a shown message carries no text privacy mode hides', async () => {
+    setMode(true);
+    const jev = new FakeJev();
+    const ask = (id: string) => new MessageJudge(db).decideAbout(jev, textMessage(db, id)!, { q: customQuestion({ type: 'noul', question: 'Is `message` a question?', yes: '', no: '' }) });
+    await ask(shown.id);
+    expect(JSON.stringify(jev.requests[0]!.state)).not.toMatch(new RegExp(`${MODS}|${SECRET_GUILD.id}`));
+    await ask(hidden.id);
+    expect(JSON.stringify(jev.requests[1]!.state)).toContain('mods only question');
   });
 });
 

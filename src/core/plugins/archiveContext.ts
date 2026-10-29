@@ -65,7 +65,7 @@ export interface PluginArchive {
   messageRead(messageId: string): boolean;
   /** Reply status only, for ids the caller already selected. */
   replyFlags: ArchiveReplyReader;
-  /** What selected replies answer, from the target Discord embedded in each; ids retain the caller's scope. */
+  /** What selected replies answer, from the target Discord embedded in each; ids retain the caller's scope, and a target privacy mode hides beyond its reply has empty content. */
   replyTargets: ArchiveReplyTargets;
   /** Spans the plugin covers; text retention removes only covered text. Data only: the host builds the SQL. */
   textCoverage: { provide(read: () => readonly CoverageSpan[]): void };

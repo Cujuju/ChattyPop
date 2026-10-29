@@ -8,6 +8,7 @@ import type { PluginDb } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
 import { LINKED_TEXT_SQL, MESSAGE_TEXT_SQL } from '../queries/messageText';
 import { plainNameSql } from '../queries/names';
+import { visibleMessageSql, withinSelectedScopeSql } from '../queries/privacy';
 import type { TextMessage } from '../arrival';
 import { BATCH_STATE, batchKey } from './messageBatch';
 
@@ -224,14 +225,16 @@ export class MessageJudge {
     this.db.prepare('DELETE FROM jev_judgments WHERE subject = ?').run(subject);
   }
 
+  /** Preceding messages as context; text privacy mode hides is left out unless it hides `m` too (as for reply targets). */
   private earlier(m: TextMessage): string[] {
     const rows = this.db
       .prepare(
         `SELECT ${plainNameSql('m.author_id')} AS author, ${MESSAGE_TEXT_SQL} AS content
          FROM messages m LEFT JOIN users u ON u.id = m.author_id
-         WHERE m.channel_id = ? AND m.ts < ? AND ${MESSAGE_TEXT_SQL} != '' ORDER BY m.ts DESC LIMIT ?`,
+         WHERE m.channel_id = @channel AND m.ts < @ts AND ${MESSAGE_TEXT_SQL} != ''
+           AND ${withinSelectedScopeSql(visibleMessageSql('m'), '@selected')} ORDER BY m.ts DESC LIMIT @limit`,
       )
-      .all(m.channelId, m.ts, CONTEXT_BEFORE) as { author: string; content: string }[];
+      .all({ channel: m.channelId, ts: m.ts, selected: m.id, limit: CONTEXT_BEFORE }) as { author: string; content: string }[];
     return rows.reverse().map((r) => `${r.author}: ${clipMessage(r.content)}`);
   }
 

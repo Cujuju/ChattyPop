@@ -43,11 +43,22 @@ export const visibleMessageRefSql = (channelColumn: string, idColumn: string): s
   `(${visibleChannelSql(channelColumn)} AND (${NOTHING_HIDDEN_SQL} OR NOT EXISTS (SELECT 1 FROM messages hm WHERE hm.id = ${idColumn} AND ${hiddenRefSql('hm.content')})))`;
 
 /**
- * SQL true when a reply's preview of message @id may show: its archived copy (if any) is visible, and Discord's
- * snapshot (@channel, @text) is in a visible channel and names no hidden id. A hidden archived copy never falls back to the snapshot.
+ * SQL true when a reply's copy of message `id` may show: its archived copy (if any) is visible, and Discord's
+ * snapshot (`channel`, `text`) is in a visible channel and names no hidden id. A hidden archived copy never falls back to the snapshot.
  */
-export const VISIBLE_REPLY_SOURCE_SQL = `(NOT EXISTS (SELECT 1 FROM messages rm WHERE rm.id = @id AND NOT ${visibleMessageSql('rm')})
-  AND ${visibleChannelSql('@channel')} AND ${noHiddenRefSql('@text')})`;
+export const visibleReplySourceSql = (id: string, channel: string, text: string): string =>
+  `(NOT EXISTS (SELECT 1 FROM messages rm WHERE rm.id = ${id} AND NOT ${visibleMessageSql('rm')})
+  AND ${visibleChannelSql(channel)} AND ${noHiddenRefSql(text)})`;
+
+/** visibleReplySourceSql over parameters @id, @channel and @text. */
+export const VISIBLE_REPLY_SOURCE_SQL = visibleReplySourceSql('@id', '@channel', '@text');
+
+/**
+ * SQL true when other-message text that `visible` judges may go with message `selectedId`: privacy mode shows it, or
+ * hides the selected message too. A read keeps its selected ids' scope, never returning text more hidden than they are.
+ */
+export const withinSelectedScopeSql = (visible: string, selectedId: string): string =>
+  `(${visible} OR EXISTS (SELECT 1 FROM messages sm WHERE sm.id = ${selectedId} AND NOT ${visibleMessageSql('sm')}))`;
 
 export function privacyScope(db: PluginDb): PrivacyScope {
   return {
