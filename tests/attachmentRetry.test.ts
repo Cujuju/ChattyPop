@@ -10,7 +10,9 @@ import type { DiscordApi } from '../src/main/discord/api';
 import { AttachmentDownloader } from '../src/main/media/attachmentDownloader';
 import { openDb, type Db } from '../src/core/db';
 import { deriveMessage } from '../src/core/derive/deriveMessage';
-import { DOWNLOAD_RETRIES_MAX, attachmentFailed, downloadRetryDelayMs, mediaQueueHandlers, nextAttachmentRetry, pendingAttachments } from '../src/core/mediaQueue';
+import {
+  DOWNLOAD_RETRIES_MAX, REMOVED_BEFORE_DOWNLOAD, attachmentFailed, downloadRetryDelayMs, mediaQueueHandlers, nextAttachmentRetry, pendingAttachments,
+} from '../src/core/mediaQueue';
 import { applyMigrations, migrationIndex, rawMessage, seedArchive, tempDb, tempDir } from './helpers';
 
 const TS = Date.parse('2026-01-01T00:00:00Z');
@@ -70,6 +72,16 @@ describe('attachment download retries', () => {
     refetch(URL_B);
     expect(state()).toMatchObject({ status: 'pending', attempts: 0, retryAt: null });
     expect(queued(TS)).toEqual([id]);
+  });
+
+  it('drops an attachment an edit removed before it was downloaded, waiting retry or not', () => {
+    const handlers = mediaQueueHandlers(() => db, () => undefined);
+    attachmentFailed(db, id, 'fetch failed', true, TS);
+    deriveMessage(db, { id: messageId, channel_id: 'c1', attachments: [] }, 'u1');
+    expect(handlers.pendingAttachments(1)).toEqual([]);
+    expect(pendingAttachments(db, 1, Number.MAX_SAFE_INTEGER)).toEqual([]);
+    expect(state()).toMatchObject({ status: 'failed', retryAt: null, error: REMOVED_BEFORE_DOWNLOAD });
+    expect(nextAttachmentRetry(db)).toBeNull();
   });
 
   /** The downloader over the real queue, answering CDN fetches with `respond`. */

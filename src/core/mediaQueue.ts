@@ -14,7 +14,7 @@ export const mediaQueueHandlers = (
   changed: NoteArchiveChange = () => {},
 ): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
   pendingAttachments: (limit) => {
-    skipPrunedPending(db()).forEach((id) => noteAttachmentChange(db(), changed, id, false));
+    [...skipPrunedPending(db()), ...failRemovedPending(db())].forEach((id) => noteAttachmentChange(db(), changed, id, false));
     return pendingAttachments(db(), limit);
   },
   archivedVideos: () => archivedVideos(db()),
@@ -37,19 +37,31 @@ export const DOWNLOAD_RETRIES_MAX = 11;
 /** The wait before retry `attempt` (1-based). */
 export const downloadRetryDelayMs = (attempt: number): number => DOWNLOAD_RETRY_BASE_MS * 2 ** (attempt - 1);
 
+/** Queued downloads: pending and still on their message (an edit's removal leaves Discord without the file). */
+const QUEUED_SQL = "status = 'pending' AND removed_at IS NULL";
+
+/** The error a queued download fails with once an edit removed its attachment. */
+export const REMOVED_BEFORE_DOWNLOAD = 'Removed from its message on Discord before it was downloaded.';
+
+/** Fails pending downloads whose attachment an edit removed, so none shows as downloading; returns their ids. */
+export function failRemovedPending(db: Db): string[] {
+  return db.prepare("UPDATE attachments SET status = 'failed', error = ?, retry_at = NULL WHERE status = 'pending' AND removed_at IS NOT NULL RETURNING id")
+    .pluck().all(REMOVED_BEFORE_DOWNLOAD) as string[];
+}
+
 /** Downloads due by `now`, newest message first; those waiting out a retry delay are left for later. */
 export function pendingAttachments(db: Db, limit: number, now = Date.now()): PendingAttachment[] {
   return db
     .prepare(
       `SELECT id, message_id AS messageId, channel_id AS channelId, url, filename, content_type AS contentType FROM attachments
-       WHERE status = 'pending' AND (retry_at IS NULL OR retry_at <= ?) ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
+       WHERE ${QUEUED_SQL} AND (retry_at IS NULL OR retry_at <= ?) ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
     )
     .all(now, limit) as PendingAttachment[];
 }
 
 /** When the earliest delayed retry is due; null when none waits. */
 export function nextAttachmentRetry(db: Db): number | null {
-  return db.prepare("SELECT MIN(retry_at) FROM attachments WHERE status = 'pending'").pluck().get() as number | null;
+  return db.prepare(`SELECT MIN(retry_at) FROM attachments WHERE ${QUEUED_SQL}`).pluck().get() as number | null;
 }
 
 /** Stored attachments still on Discord that may be videos: a video type, or none that says (main reads the extension). */
