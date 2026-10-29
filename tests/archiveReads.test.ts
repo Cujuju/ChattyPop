@@ -138,7 +138,7 @@ describe('off-thread plugin archive reads', () => {
 
   it('opens encrypted archives read-only and refreshes the key after rekey', async () => {
     const path = join(tempDir(), 'encrypted.db');
-    const encrypted = openDb(path, 'fixture_key');
+    const encrypted = openDb(path, ['fixture_key']);
     const read = archiveRead(() => encrypted);
     try {
       expect(await read('SELECT count(*) AS count FROM archive_messages')).toEqual([{ count: 0 }]);

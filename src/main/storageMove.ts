@@ -6,6 +6,7 @@ import type { BrowserWindow } from 'electron';
 import { ARCHIVE_DB_FILE, ARCHIVE_MEDIA_DIR, type AppEvent, type StorageInfo } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import { BYTES_PER_GB } from '@shared/units';
+import { bindArchiveCopy, releaseArchiveKeys } from './archiveKey';
 import type { CoreClient } from './coreClient';
 import { diag } from './diagnostics';
 import { pickFolder } from './dialogs';
@@ -109,6 +110,7 @@ export async function moveArchive(win: BrowserWindow, hooks: MoveHooks): Promise
     fileCount = files.length;
     let doneBytes = 0;
     let reportedAt = 0;
+    bindArchiveCopy(from, to); // before any copied byte exists: the copy needs the original's key
     for (const f of files) {
       const dest = join(to, f.rel);
       await mkdir(dirname(dest), { recursive: true });
@@ -145,7 +147,10 @@ async function keepOriginal(from: string, to: string, totalBytes: number, err: u
   const message = errorMessage(err);
   diag('storage-move-failed', { message });
   hooks.emit({ type: 'storage-move', phase: 'error', doneBytes: 0, totalBytes, message });
-  await removeArchive(to).catch((e: unknown) => diag('storage-move-cleanup-failed', { message: errorMessage(e) }));
+  // Released only once the partial copy is gone: a copy left behind keeps its key.
+  await removeArchive(to)
+    .then(() => releaseArchiveKeys(to))
+    .catch((e: unknown) => diag('storage-move-cleanup-failed', { message: errorMessage(e) }));
   try {
     saveStorageConfig({ ...storageConfig(), notice: { title: 'Moving the archive failed', message: `${message} The archive stays in ${from}.` } });
   } catch (e) {
@@ -175,11 +180,12 @@ export async function verifyMovedArchive(core: CoreClient, restart: () => void):
   restart();
 }
 
-/** Deletes the pre-move copy; the renderer has asked the owner. */
+/** Deletes the pre-move copy, then the keys only it needed; the renderer has asked the owner. Each step is safe to repeat after a crash. */
 export async function deletePreviousArchive(): Promise<void> {
   const { previousDir, ...rest } = storageConfig();
   if (!previousDir || rest.verifyOnOpen) return;
   await removeArchive(previousDir);
+  releaseArchiveKeys(previousDir);
   saveStorageConfig(rest);
 }
 

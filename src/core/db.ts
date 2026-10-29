@@ -96,14 +96,30 @@ export function encryptionOnDisk(path: string): ArchiveEncryption {
 /** Whether the file at `path` holds an encrypted database: one a keyless connection can't read. A missing or empty file holds none. */
 export const encryptedOnDisk = (path: string): boolean => encryptionOnDisk(path) === 'encrypted';
 
+/** A connection to the encrypted file at `path` with the first of `keys` it reads with; throws when none does. */
+function openEncrypted(path: string, keys: readonly string[]): { db: Db; key: string } {
+  for (const key of keys) {
+    const db = new Database(path, { fileMustExist: true });
+    try {
+      db.pragma(`key = '${keyLiteral(key)}'`);
+      db.prepare('SELECT count(*) FROM sqlite_master').get();
+      return { db, key };
+    } catch (err) {
+      db.close();
+      if ((err as { code?: string }).code !== NOT_A_DATABASE) throw err;
+    }
+  }
+  throw new Error('The archive is encrypted, and no stored archive key opens it.');
+}
+
 /**
- * Opens (creating if needed) the archive database, with its key when encrypted, and brings its schema up to date.
- * A plaintext file opens without `key`: an encryption change stopped before or undone by its rekey left the key unused.
+ * Opens (creating if needed) the archive database, and brings its schema up to date. An encrypted file opens with
+ * whichever of `keys` it was encrypted with; a plaintext or new file with none (an unused key may be one a stopped change left).
  */
-export function openDb(path: string, key: string | null = null): Db {
-  const plaintext = encryptionOnDisk(path) === 'plaintext';
-  const db = new Database(path);
-  if (key !== null && !plaintext) db.pragma(`key = '${keyLiteral(key)}'`);
+export function openDb(path: string, keys: readonly string[] = []): Db {
+  for (const key of keys) keyLiteral(key); // all of them, though a plaintext file uses none
+  const opened = encryptionOnDisk(path) === 'encrypted' ? openEncrypted(path, keys) : { db: new Database(path), key: null };
+  const { db } = opened;
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   migrate(db);
@@ -116,7 +132,7 @@ export function openDb(path: string, key: string | null = null): Db {
   db.pragma('wal_checkpoint(TRUNCATE)');
   // SQL reads of the payload go through msg_json() so compressed rows read like plain ones.
   db.function('msg_json', { deterministic: true }, (v: unknown) => rawJsonText(v as string | Buffer | null));
-  configureArchiveReads(db, plaintext ? null : key);
+  configureArchiveReads(db, opened.key);
   return db;
 }
 

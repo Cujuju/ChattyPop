@@ -15,8 +15,8 @@ describe('archive encryption', () => {
     rekey(db, KEY);
     db.close();
 
-    expect(() => openDb(path)).toThrow(/not a database/);
-    const keyed = openDb(path, KEY);
+    expect(() => openDb(path)).toThrow(/no stored archive key opens it/);
+    const keyed = openDb(path, [KEY]);
     expect(keyed.prepare("SELECT value FROM settings WHERE key = 'probe'").pluck().get()).toBe('1');
     rekey(keyed, null);
     keyed.close();
@@ -39,7 +39,7 @@ describe('archive encryption', () => {
   it('opens a plaintext file with a key whose encryption never reached it', () => {
     const path = join(tempDir(), 'archive.db');
     openDb(path).close();
-    const db = openDb(path, KEY); // main saved the key, then the app stopped before the rekey
+    const db = openDb(path, [KEY]); // main saved the key, then the app stopped before the rekey
     expect(db.prepare('SELECT count(*) FROM settings').pluck().get()).toBe(0);
     expect(encryptedOnDisk(path)).toBe(false);
     db.close();
@@ -59,12 +59,12 @@ describe('archive encryption', () => {
     expect(() => rekey(db, KEY)).toThrow(/I\/O/);
     expect(encryptedOnDisk(path)).toBe(true);
     db.close();
-    expect(() => openDb(path)).toThrow(/not a database/);
-    openDb(path, KEY).close();
+    expect(() => openDb(path)).toThrow(/no stored archive key opens it/);
+    openDb(path, [KEY]).close();
   });
 
   it('refuses a key that could break out of the PRAGMA literal', () => {
     const path = join(tempDir(), 'archive.db');
-    expect(() => openDb(path, "x'; DROP TABLE settings; --")).toThrow(/unexpected format/);
+    expect(() => openDb(path, ["x'; DROP TABLE settings; --"])).toThrow(/unexpected format/);
   });
 });

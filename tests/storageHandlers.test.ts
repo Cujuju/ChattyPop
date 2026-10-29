@@ -8,7 +8,7 @@ vi.mock('../src/main/restart', () => ({ restartApp: () => undefined }));
 vi.mock('../src/main/storageMove', () => ({ storageInfo: () => null, moveArchive: () => undefined, deletePreviousArchive: () => undefined, dismissStorageNotice: () => undefined, verifyMovedArchive: async () => undefined }));
 vi.mock('../src/main/archiveKey', () => ({
   createArchiveKey: () => (log.push('create'), 'k'),
-  deleteArchiveKey: () => void log.push('delete'),
+  releasePlaintextArchive: () => void log.push('delete'),
 }));
 
 const { registerStorageHandlers } = await import('../src/main/ipc/storage');
@@ -37,7 +37,7 @@ function setup(
       state.encrypted = key !== null;
     }),
   };
-  registerStorageHandlers({ win: {} as never, core: core as never, emit: (e) => void emitted.push(e), stopArchive: async () => undefined });
+  registerStorageHandlers({ win: {} as never, core: core as never, archiveDir: 'archive', emit: (e) => void emitted.push(e), stopArchive: async () => undefined });
   const set = (on: unknown): Promise<unknown> => callMain(MAIN_INVOKE.storage.setEncrypted, [on]);
   return { set, emitted, state };
 }

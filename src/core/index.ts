@@ -329,7 +329,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
     mediaSize = new DirSize(join(data.archiveDir, ARCHIVE_MEDIA_DIR));
     attachmentsDir = join(data.archiveDir, ARCHIVE_MEDIA_DIR, ARCHIVE_ATTACHMENTS_DIR);
     try {
-      db = openDb(dbPath, data.key);
+      db = openDb(dbPath, data.keys);
       initStep('database');
       namesWritten = watchNameWrites(db);
       encrypted = encryptedOnDisk(dbPath);

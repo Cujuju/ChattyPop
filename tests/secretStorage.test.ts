@@ -31,9 +31,10 @@ describe('secret storage refuses Linux backends that do not protect secrets', ()
     expect(requireSecretStorage).toThrow('keyring');
     expect(() => writeSecret(FILE, 'v')).toThrow('keyring');
     expect(() => SECRET_FILES.write(FILE, 'v')).toThrow('keyring');
-    expect(() => createArchiveKey()).toThrow('keyring');
+    expect(() => createArchiveKey(host.userData)).toThrow('keyring');
     expect(stored(FILE)).toBe(false);
     expect(stored('archive.key')).toBe(false);
+    expect(stored('archive-keys.json')).toBe(false);
   });
 
   it.each(['gnome_libsecret', 'kwallet', 'kwallet5', 'kwallet6'] as const)('stores with %s on Linux', (backend) => {

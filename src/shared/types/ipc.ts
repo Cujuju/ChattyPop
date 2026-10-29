@@ -137,8 +137,8 @@ export interface CoreInit {
   pluginsDir: string;
   /** Bundled plugins' data folders (app profile, not archive data). */
   pluginData: PluginDataDirs;
-  /** Database key when the archive is encrypted (Settings → Archive); null otherwise. */
-  key: string | null;
+  /** Stored archive keys, those bound to `archiveDir` first; an encrypted archive opens with the one it uses (main/archiveKey.ts). */
+  keys: string[];
   /** Host secrets supplied before plugin activation; held only in core memory. */
   openRouterKeys: OpenRouterKeyEntry[];
   typeSafeKey: string | null;

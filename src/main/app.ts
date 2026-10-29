@@ -22,7 +22,7 @@ import {
 import { errorMessage } from '@shared/errors';
 import { SETTINGS_KEYS } from '@shared/settings';
 import type { SplashPhaseId } from '@shared/splash.mjs';
-import { loadArchiveKey } from './archiveKey';
+import { startupArchiveKeys } from './archiveKey';
 import { CoreClient } from './coreClient';
 import { routeCoreEvents } from './coreEvents';
 import { registerShownChannelHandlers } from './shownChannel';
@@ -88,7 +88,7 @@ import { rendererPages } from './plugins/pages';
 import { postingGate } from './plugins/posting';
 import { PluginStates } from './plugins/states';
 import { handleInstalledScheme, handlePluginScheme } from './pluginProtocol';
-import { archiveDir, profilePath } from './storageLocation';
+import { profilePath, storageConfig } from './storageLocation';
 import { type Publication, TailnetServe, runTailscale } from './tailnet';
 import { followArchiveChanges } from './sync/depthChange';
 import { Pace } from './sync/pace';
@@ -125,19 +125,14 @@ void app.whenReady().then(() => {
   // A dev run is Electron's own bundle, so the dock shows Electron's icon unless told; a packaged app carries its own.
   if (IS_MAC && !app.isPackaged) app.dock?.setIcon(appIconPath());
   installAppMenu();
-  const dataDir = archiveDir();
+  const location = storageConfig();
+  const dataDir = location.archiveDir;
   mkdirSync(dataDir, { recursive: true });
   const pluginsDir = profilePath(PLUGINS_DIR);
   mkdirSync(pluginsDir, { recursive: true });
-  let key: string | null = null;
-  try {
-    key = loadArchiveKey();
-  } catch (err) {
-    // Another Windows account, or a damaged key file: the archive can't be opened, and core reports why.
-    diag('archive-key-unreadable', { message: errorMessage(err) });
-  }
+  const keys = startupArchiveKeys(location, (event, err) => diag(event, { message: errorMessage(err) }));
   const core = new CoreClient(join(here, 'core.js'), {
-    archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), key,
+    archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), keys,
     openRouterKeys: loadOpenRouterKeys(), typeSafeKey: loadTypeSafeKey(), providerApiKeys: loadProviderKeys(SECRET_FILES),
   }, diag);
   registerKeyHandlers(core);
@@ -341,6 +336,7 @@ void app.whenReady().then(() => {
   registerStorageHandlers({
     win,
     core,
+    archiveDir: dataDir,
     emit: toRenderer,
     stopArchive: async () => {
       archiveMoving = true;

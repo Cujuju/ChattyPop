@@ -6,7 +6,7 @@ let proc = fakeProc();
 vi.mock('electron', () => ({ utilityProcess: { fork: () => proc } }));
 const { CoreClient } = await import('../src/main/coreClient');
 
-const init = { archiveDir: 'a', pluginsDir: 'p', pluginData: { root: 'r', unmoved: {} }, key: null, openRouterKeys: [], typeSafeKey: null, providerApiKeys: { probe: 'test-key' } };
+const init = { archiveDir: 'a', pluginsDir: 'p', pluginData: { root: 'r', unmoved: {} }, keys: [], openRouterKeys: [], typeSafeKey: null, providerApiKeys: { probe: 'test-key' } };
 const EXIT_CODE = 3;
 
 /** Diagnostics events the client recorded. */
