@@ -41,8 +41,10 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   const q =(): string => normalQuery(query());
   const catalog = () => loaded(expressionCatalog);
   const data = () => catalog()?.emojiPicker;
-  const allByGuild = createMemo(() => emojisByGuild(''));
-  const byGuild = createMemo(() => emojisByGuild(q()));
+  // A favorite shows in Favorites only, not again in its server's section.
+  const favoriteIds = createMemo(() => new Set(data()?.favorites ?? []));
+  const allByGuild = createMemo(() => emojisByGuild('', favoriteIds()));
+  const byGuild = createMemo(() => emojisByGuild(q(), favoriteIds()));
   // Key sections by ids: incoming directory refreshes must retain focused emoji and their images.
   const visibleGuildIds = createMemo(() => directory().map((g) => g.id), undefined, { equals: sameIds });
   const servers = () => visibleGuildIds().filter((id) => id !== DM_GUILD_ID && allByGuild().has(id));

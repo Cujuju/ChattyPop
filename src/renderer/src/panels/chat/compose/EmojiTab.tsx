@@ -12,11 +12,11 @@ import { EmojiList } from './EmojiList';
 /** A pick: Unicode emoji text, or a custom emoji. */
 export type EmojiPick = { unicode: string } | { custom: GuildEmoji };
 
-/** Every server's custom emoji matching `q` (a normalQuery), by server. */
-export function emojisByGuild(q: string): Map<string, GuildEmoji[]> {
+/** Every server's custom emoji matching `q` (a normalQuery), by server; those in `skip` (ids) left out. */
+export function emojisByGuild(q: string, skip: ReadonlySet<string> = new Set()): Map<string, GuildEmoji[]> {
   const map = new Map<string, GuildEmoji[]>();
   for (const e of loaded(expressionCatalog)?.emojis ?? []) {
-    if (q && !e.name.toLowerCase().includes(q)) continue;
+    if (skip.has(e.id) || (q && !e.name.toLowerCase().includes(q))) continue;
     const list = map.get(e.guildId);
     if (list) list.push(e);
     else map.set(e.guildId, [e]);
