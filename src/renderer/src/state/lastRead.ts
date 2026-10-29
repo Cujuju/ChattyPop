@@ -8,7 +8,7 @@ import { compareSnowflakes } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT } from '@shared/phone';
 import { archiveChannelId, archiveState } from './archive';
 import { onAppEvent } from './events';
-import { archiveReadHeld, messageToMark } from './lastReadRules';
+import { messageToMark, nextReadHold, type ReadHoldEvent } from './lastReadRules';
 import { listen } from '@/ui/listen';
 
 const [banner, setBanner] = createSignal<UnreadMark | null>(null);
@@ -35,8 +35,18 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   let requests = 0;
   /** The last message marked, or being marked. */
   let marked: string | undefined;
-  /** Put away caught up: desktop arrivals await deliberate acknowledgement. */
+  /** Marks wait for a deliberate act (lastReadRules.nextReadHold). */
   const [held, setHeld] = createSignal(false);
+  /** Bumped by every hold event and on cleanup: only the latest storage check may release. */
+  let checks = 0;
+  const hold = (e: ReadHoldEvent): void => {
+    checks++;
+    setHeld(nextReadHold(untrack(held), e, companion));
+  };
+  // Memoized: restoring a window flips visibility and focus separately; only real edges count.
+  const looking = createMemo(lookable);
+  /** A channel was on before: later switches made while looking are deliberate; the first is a restore. */
+  let opened = false;
   /** All unread messages at opening, before bot filtering; remains valid after this view marks them read. */
   let boundary: UnreadBoundary | null = null;
   let openingDismissal = dismissals;
@@ -62,6 +72,15 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     );
   };
 
+  /** Desktop: releases the hold if nothing is unread in storage; rows load late while hidden, so loaded rows can't tell. */
+  const verify = (channelId: string): void => {
+    if (companion) return;
+    const check = ++checks;
+    void api.core.channelUnread(channelId).then((unread) => {
+      if (check === checks && archiveChannelId() === channelId) hold({ kind: 'unread', any: unread !== null, looking: untrack(looking) });
+    }, () => undefined);
+  };
+
   /** Reloads banners from opening boundaries, excluding external reads and owner messages. Pending opening snapshots are retaken after changes. */
   const reconcile = (): void => {
     const channelId = archiveChannelId();
@@ -80,37 +99,38 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
       requests++;
       boundary = null;
       marked = undefined;
-      setHeld(false);
+      hold({ kind: 'opened', deliberate: opened && untrack(looking) });
+      if (channelId) opened = true;
       setBanner(null);
-      if (channelId) snapshot(channelId);
-      else setReady(null);
+      if (!channelId) return void setReady(null);
+      snapshot(channelId);
+      if (untrack(held) && untrack(looking)) verify(channelId);
     }),
   );
 
-  // Away and back (another window, an overlay): a banner for what came meanwhile, when everything before was read.
-  // Memoized: restoring a window flips visibility and focus separately; only real edges count.
-  const looking = createMemo(lookable);
+  // Away and back (another window, an overlay): a banner for what came meanwhile; desktop holds until storage is checked.
   createEffect(
     on(looking, (now, was) => {
       const channelId = archiveChannelId();
       if (!channelId) return;
-      const newest = untrack(() => archiveState.items.at(-1)?.id);
-      if (now && !was && held() && !untrack(banner)) snapshot(channelId);
-      setHeld(archiveReadHeld({
-        held: held(), looking: now, wasLooking: Boolean(was), companion,
-        caughtUp: ready() === channelId && marked !== undefined && marked === newest,
-        arrived: newest !== marked,
-      }));
+      if (!now && was) {
+        const newest = untrack(() => archiveState.items.at(-1)?.id);
+        hold({ kind: 'away', caughtUp: untrack(ready) === channelId && marked !== undefined && marked === newest });
+      } else if (now && !was) {
+        if (untrack(held) && !untrack(banner)) snapshot(channelId);
+        hold({ kind: 'back' });
+        verify(channelId);
+      }
     }),
   );
 
-  // Desktop banners count arrivals while away, before focus returns.
+  // Desktop banners count arrivals while away, and while a hold awaits its act.
   createEffect(on(() => archiveState.items.at(-1)?.id, (newest) => {
-    if (companion || looking() || newest === marked) return;
+    if (companion || newest === marked) return;
     const channelId = archiveChannelId();
     if (!channelId) return;
-    // An acknowledgement made while away covers only what had arrived by then.
-    setHeld(archiveReadHeld({ held: held(), looking: false, wasLooking: false, caughtUp: false, arrived: true, companion, arrivedAway: true }));
+    if (!looking()) hold({ kind: 'arrived' });
+    else if (!held()) return;
     if (banner()) reconcile();
     else snapshot(channelId);
   }, { defer: true }));
@@ -145,15 +165,14 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
   ];
   onCleanup(() => {
     requests++;
+    checks++;
     window.removeEventListener(DESKTOP_CONNECTED_EVENT, retry);
     for (const off of offs) off();
     setBanner(null);
   });
   return {
     acknowledged: () => !held(),
-    acknowledge: () => setHeld(archiveReadHeld({
-      held: held(), looking: looking(), wasLooking: looking(),
-      caughtUp: false, arrived: false, companion, acted: true,
-    })),
+    // Marks only while looking; a desktop return re-holds, so an act made while away does not carry past it.
+    acknowledge: () => hold({ kind: 'act' }),
   };
 }

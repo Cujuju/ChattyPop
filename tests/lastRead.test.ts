@@ -6,7 +6,7 @@ import { lastReader, markRead, messageRead, recordReader, unreadMark } from '../
 import { putReadStates } from '../src/core/queries/readStates';
 import { directory } from '../src/core/queries/directory';
 import { ARRIVAL } from '../src/core/arrival';
-import { archiveReadHeld, firstUnreadAbove, messageToMark } from '../src/renderer/src/state/lastReadRules';
+import { firstUnreadAbove, messageToMark, nextReadHold, type ReadHoldEvent } from '../src/renderer/src/state/lastReadRules';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
 const GUILD = '100000000000000001';
@@ -208,33 +208,37 @@ describe("last read: Discord's read state and the owner's messages", () => {
   });
 });
 
-describe('archive read acknowledgement', () => {
-  const away = { held: false, looking: false, wasLooking: true, caughtUp: true, arrived: false, companion: false };
-  it('holds desktop arrivals across repeated focus returns until a deliberate act', () => {
-    const held = archiveReadHeld(away);
+describe('archive read hold', () => {
+  const hold = (events: ReadHoldEvent[], companion = false, held = false): boolean =>
+    events.reduce((h, e) => nextReadHold(h, e, companion), held);
+  it('holds a desktop return until an act, across repeated focus returns', () => {
+    const away: ReadHoldEvent = { kind: 'away', caughtUp: true };
+    const unread: ReadHoldEvent = { kind: 'unread', any: true, looking: true };
+    const held = hold([away, { kind: 'back' }, unread, away, { kind: 'back' }]);
     expect(held).toBe(true);
-    const back = { ...away, held, looking: true, wasLooking: false, arrived: true };
-    expect(archiveReadHeld(back)).toBe(true);
-    expect(archiveReadHeld({ ...back, looking: false, wasLooking: true, caughtUp: false })).toBe(true);
-    expect(archiveReadHeld({ ...back, acted: true })).toBe(false);
+    expect(nextReadHold(held, { kind: 'act' }, false)).toBe(false);
   });
-  it('releases on return when nothing arrived', () => {
-    expect(archiveReadHeld({ ...away, held: true, looking: true, wasLooking: false })).toBe(false);
+  it('releases a desktop hold only when stored unread is empty while looking', () => {
+    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'unread', any: false, looking: false }])).toBe(true);
+    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'back' }, { kind: 'unread', any: false, looking: true }])).toBe(false);
   });
-  it('releases companion arrivals on return', () => {
-    expect(archiveReadHeld({ ...away, held: true, looking: true, wasLooking: false, arrived: true, companion: true })).toBe(false);
+  it('holds a restore but not a deliberate switch', () => {
+    expect(hold([{ kind: 'opened', deliberate: false }])).toBe(true);
+    expect(hold([{ kind: 'opened', deliberate: true }], false, true)).toBe(false);
   });
-  it('allows acknowledgement while away without marking until looking', () => {
-    const held = archiveReadHeld({ ...away, held: true, acted: true });
-    expect(held).toBe(false);
+  it('re-holds an arrival after an act made while away', () => {
+    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'act' }, { kind: 'arrived' }])).toBe(true);
+  });
+  it('keeps the companion releasing on return', () => {
+    const events: ReadHoldEvent[] = [{ kind: 'opened', deliberate: false }, { kind: 'away', caughtUp: true }, { kind: 'arrived' }, { kind: 'back' }];
+    expect(hold(events, true)).toBe(false);
+    expect(hold([{ kind: 'away', caughtUp: false }], true)).toBe(false);
+    expect(hold([{ kind: 'away', caughtUp: true }], true)).toBe(true);
+  });
+  it('marks nothing while not looking, even after an act', () => {
+    const held = hold([{ kind: 'away', caughtUp: true }, { kind: 'act' }]);
     const mark = (looking: boolean) => looking && !held ? messageToMark(GENERAL, GENERAL, 'm3', 'm2') : undefined;
     expect(mark(false)).toBeUndefined();
     expect(mark(true)).toBe('m3');
-  });
-  it('re-holds a desktop arrival after an acknowledgement made while away', () => {
-    const acked = archiveReadHeld({ ...away, held: true, acted: true });
-    const arrival = { ...away, held: acked, wasLooking: false, arrived: true, arrivedAway: true };
-    expect(archiveReadHeld(arrival)).toBe(true);
-    expect(archiveReadHeld({ ...arrival, companion: true })).toBe(false);
   });
 });

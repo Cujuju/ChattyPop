@@ -52,10 +52,13 @@ const select = async (ids: string[]): Promise<void> => {
   await settle();
 };
 const watch = (seen: string | Accessor<string | undefined> = last): void => {
+  let reading!: ReturnType<typeof state.watchArchive>;
   solid.createRoot((stop) => {
     dispose = stop;
-    state.watchArchive(() => true, typeof seen === 'function' ? seen : () => seen);
+    reading = state.watchArchive(() => true, typeof seen === 'function' ? seen : () => seen);
   });
+  // After its first run: the owner acts on the restored channel (a restore holds until an act).
+  reading.acknowledge();
 };
 
 beforeEach(() => {
@@ -219,14 +222,74 @@ describe('away and back', () => {
 });
 
 describe('desktop acknowledgement', () => {
-  it('counts arrivals live while unfocused and holds marks and banner through focus and content clicks', async () => {
-    const [looking, setLooking] = solid.createSignal(true);
+  /** Mounts the desktop view and acknowledges what the restore showed, as a scroll would. */
+  const watchDesktop = async (looking: Accessor<boolean>): Promise<ReturnType<typeof state.watchArchive>> => {
     let reading!: ReturnType<typeof state.watchArchive>;
     solid.createRoot((stop) => {
       dispose = stop;
       reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
     });
+    reading.acknowledge();
     await settle();
+    return reading;
+  };
+  const store = (offset: number) => {
+    const later = rawMessage(CH, Date.UTC(2026, 9, 1) + offset, 'away');
+    seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+    return later;
+  };
+
+  it('holds a restored channel with unread until an act', async () => {
+    solid.createRoot((stop) => {
+      dispose = stop;
+      const reading = state.watchArchive(() => true, () => env.archive.items.at(-1)?.id);
+      void settle().then(() => {
+        expect(reading.acknowledged()).toBe(false);
+        expect(env.mark).not.toHaveBeenCalled();
+        reading.acknowledge();
+      });
+    });
+    await settle();
+    await settle();
+    expect(env.mark).toHaveBeenLastCalledWith(CH, last);
+  });
+
+  it('holds rows that load only after the return (hidden views defer loading)', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    const reading = await watchDesktop(looking);
+    state.dismissUnreadBanner();
+    setLooking(false);
+    const later = store(2);
+    await settle();
+    setLooking(true);
+    await settle();
+    env.archive.items = [...env.archive.items, later];
+    await settle();
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
+    expect(state.unreadBanner()).toMatchObject({ count: 1, firstId: later.id });
+  });
+
+  it('keeps counting arrivals while focused under a hold', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    await watchDesktop(looking);
+    state.dismissUnreadBanner();
+    setLooking(false);
+    const a = store(2);
+    env.archive.items = [...env.archive.items, a];
+    await settle();
+    setLooking(true);
+    await settle();
+    const b = store(3);
+    env.archive.items = [...env.archive.items, b];
+    await settle();
+    expect(state.unreadBanner()).toMatchObject({ count: 2, firstId: a.id });
+    expect(env.mark).not.toHaveBeenCalledWith(CH, b.id);
+  });
+
+  it('counts arrivals live while unfocused and holds marks and banner through focus and content clicks', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    const reading = await watchDesktop(looking);
     state.dismissUnreadBanner();
     setLooking(false);
     const arrive = async (offset: number) => {
@@ -256,12 +319,7 @@ describe('desktop acknowledgement', () => {
 
   it('releases a return without arrivals and continues live marking', async () => {
     const [looking, setLooking] = solid.createSignal(true);
-    let reading!: ReturnType<typeof state.watchArchive>;
-    solid.createRoot((stop) => {
-      dispose = stop;
-      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
-    });
-    await settle();
+    const reading = await watchDesktop(looking);
     setLooking(false);
     expect(reading.acknowledged()).toBe(false);
     setLooking(true);
@@ -273,34 +331,59 @@ describe('desktop acknowledgement', () => {
     expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
   });
 
-  it('acknowledges while away but waits for looking before marking', async () => {
+  it('an act made while away does not carry past the return', async () => {
     const [looking, setLooking] = solid.createSignal(true);
-    let reading!: ReturnType<typeof state.watchArchive>;
-    solid.createRoot((stop) => {
-      dispose = stop;
-      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
-    });
-    await settle();
+    const reading = await watchDesktop(looking);
     setLooking(false);
-    const later = rawMessage(CH, Date.UTC(2026, 9, 1) + 2, 'away');
-    seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+    const later = store(2);
     env.archive.items = [...env.archive.items, later];
     await settle();
     reading.acknowledge();
     expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
     setLooking(true);
     await settle();
-    expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
+  });
+
+  it('holds rows stored after an act while away that load only after the return', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    const reading = await watchDesktop(looking);
+    setLooking(false);
+    reading.acknowledge();
+    await settle();
+    const later = store(2);
+    setLooking(true);
+    await settle();
+    env.archive.items = [...env.archive.items, later];
+    await settle();
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
+  });
+
+  it('ignores a storage check answered after a newer away and return', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    const reading = await watchDesktop(looking);
+    state.dismissUnreadBanner();
+    let stale!: (mark: UnreadMark | null) => void;
+    env.unread.mockImplementationOnce(() => new Promise((resolve) => { stale = resolve; }));
+    setLooking(false);
+    setLooking(true);
+    setLooking(false);
+    const later = store(2);
+    setLooking(true);
+    await settle();
+    stale(null);
+    await settle();
+    env.archive.items = [...env.archive.items, later];
+    await settle();
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
   });
 
   it('holds an arrival after an acknowledgement made while away', async () => {
     const [looking, setLooking] = solid.createSignal(true);
-    let reading!: ReturnType<typeof state.watchArchive>;
-    solid.createRoot((stop) => {
-      dispose = stop;
-      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
-    });
-    await settle();
+    const reading = await watchDesktop(looking);
     setLooking(false);
     const arrive = async (offset: number) => {
       const later = rawMessage(CH, Date.UTC(2026, 9, 1) + offset, 'away');

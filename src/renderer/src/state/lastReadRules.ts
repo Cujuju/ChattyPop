@@ -19,23 +19,28 @@ export function firstUnreadAbove(
   return firstDrawn >= 0 && at < firstDrawn;
 }
 
-export interface ArchiveReadHold {
-  held: boolean;
-  looking: boolean;
-  wasLooking: boolean;
-  caughtUp: boolean;
-  arrived: boolean;
-  companion: boolean;
-  acted?: boolean;
-  /** A message arrived while not looking. */
-  arrivedAway?: boolean;
-}
+/** What can change whether the Archive's read marks wait for a deliberate act. */
+export type ReadHoldEvent =
+  /** The owner stopped looking; `caughtUp` = the newest loaded message was marked. */
+  | { kind: 'away'; caughtUp: boolean }
+  | { kind: 'back' }
+  /** A channel came on; `deliberate` = switched to while looking, not restored. */
+  | { kind: 'opened'; deliberate: boolean }
+  /** A message row loaded while the owner was not looking. */
+  | { kind: 'arrived' }
+  /** Stored unread answered; `any` = something is unread, `looking` = the owner looked when it answered. */
+  | { kind: 'unread'; any: boolean; looking: boolean }
+  /** A scroll gesture, banner dismissal, or jump. */
+  | { kind: 'act' };
 
-/** Desktop arrivals remain held across focus changes until deliberate chat input. Companion returns always release. */
-export function archiveReadHeld(state: ArchiveReadHold): boolean {
-  if (state.acted) return false;
-  if (state.arrivedAway && !state.companion) return true;
-  if (!state.looking && state.wasLooking) return state.held || state.caughtUp;
-  if (state.looking && !state.wasLooking && (state.companion || !state.arrived)) return false;
-  return state.held;
+/** Desktop: after a return, arrival or restore, marks wait for an act while storage holds unread. Rows load late while hidden. Companion releases on return. */
+export function nextReadHold(held: boolean, e: ReadHoldEvent, companion: boolean): boolean {
+  switch (e.kind) {
+    case 'act': return false;
+    case 'away': return companion ? held || e.caughtUp : true;
+    case 'back': return !companion;
+    case 'opened': return !companion && !e.deliberate;
+    case 'arrived': return companion ? held : true;
+    case 'unread': return companion ? held : held && (e.any || !e.looking);
+  }
 }

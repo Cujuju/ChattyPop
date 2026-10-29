@@ -192,6 +192,7 @@ export function ArchiveView() {
     const focused = createWindowFocused();
     // Read only while the owner can look at it: on screen, the window focused, nothing over the chat area.
     lookable = () => shown() && focused() && !overlayOpen();
+    // Not deferred: a view that starts hidden must not follow.
     createEffect(
       on(shown, (now) => {
         if (!now) return void setOffScreen(true);
@@ -201,7 +202,7 @@ export function ArchiveView() {
           log.detach();
           setOffScreen(false);
         });
-      }, { defer: true }),
+      }),
     );
     const reading = watchArchive(lookable, seenNewest, inCompanion);
     acknowledged = reading.acknowledged;
