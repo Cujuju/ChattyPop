@@ -1,7 +1,7 @@
 import { MESSAGE_FLAG } from '@shared/components';
 import { ArchiveMessages } from './archiveMessages';
 import { ingestInTurns } from './ingestTurns';
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { wholeChannel, type NoteArchiveChange } from '@shared/archiveChanges';
 import type { ChannelInfo, ChannelPolicy, IngestResult, SyncState } from '@shared/contract';
 import {
   compareSnowflakes,
@@ -94,7 +94,7 @@ export class Archive {
          OR guilds.features IS NOT COALESCE(excluded.features, guilds.features)`,
     );
     const changed = this.db.transaction(() => guilds.reduce((count, g) => count + stmt.run(g.id, g.name, g.icon ?? null, g.features ? JSON.stringify(g.features) : null).changes, 0))() > 0;
-    if (changed) this.reportChange('', ['channels', 'names']);
+    if (changed) this.reportChange(wholeChannel(''), ['channels', 'names']);
     return changed;
   }
 
@@ -109,7 +109,7 @@ export class Archive {
     );
     const changed = this.db.transaction(() => channels.reduce((count, c) => count +
       stmt.run(c.id, guildId, c.name, c.type, c.parent_id ?? null, c.position ?? null, c.permission_overwrites ? JSON.stringify(c.permission_overwrites) : null).changes, 0))() > 0;
-    if (changed) this.reportChange('', ['channels', 'names'], { nameGuildIds: [guildId] });
+    if (changed) this.reportChange(wholeChannel(''), ['channels', 'names'], { nameGuildIds: [guildId] });
     return changed;
   }
 

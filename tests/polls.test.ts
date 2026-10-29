@@ -1,6 +1,7 @@
 // Discord polls: a new poll checked as Discord would and sent in its message, the owner's vote round trip, and votes
 // arriving over the gateway kept on the stored poll.
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ChangedRows } from '@shared/archiveChanges';
 import type { OwnerMessage } from '@shared/compose';
 import {
   POLL_ANSWER_MAX,
@@ -151,7 +152,7 @@ describe('a stored poll', () => {
   let db: Db;
   let a: Archive;
   let changed: string[];
-  const deps = { changed: (id: string) => changed.push(id), backfillFromMs: () => 0, selfId: () => SELF, dmActivity: () => undefined, autoArchiveSinceMs: () => null, optedIn: () => undefined };
+  const deps = { changed: (rows: ChangedRows) => changed.push(rows.channelId), backfillFromMs: () => 0, selfId: () => SELF, dmActivity: () => undefined, autoArchiveSinceMs: () => null, optedIn: () => undefined };
   const RAW: RawPoll = {
     question: { text: 'Lunch?' },
     answers: [

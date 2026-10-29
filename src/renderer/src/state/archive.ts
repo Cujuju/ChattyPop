@@ -211,7 +211,10 @@ onArchiveChange({ kinds: ['messages', 'edits', 'deletes', 'reactions', 'polls', 
       if (!reached || !insertOnly) fresh = await refreshNewest(channelId);
     }
     if (e.kinds.has('names') || (changed && !insertOnly)) {
-      await rereadRows(channelId, (m) => (!last || !messageBefore(last, m)) && (!fresh || messageBefore(m, fresh)));
+      // A name or role change restyles any author or mention, so every row is read; else only named rows and replies quoting them.
+      const named = e.kinds.has('names') ? null : e.messagesChanged(channelId);
+      const touched = (m: ArchiveMessage): boolean => !named || named.has(m.id) || (m.replyToId !== null && named.has(m.replyToId));
+      await rereadRows(channelId, (m) => (!last || !messageBefore(last, m)) && (!fresh || messageBefore(m, fresh)) && touched(m));
     }
   });
 });

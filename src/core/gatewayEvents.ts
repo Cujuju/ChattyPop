@@ -1,5 +1,5 @@
 // Live Discord gateway events main forwards (ARCHIVED_GATEWAY_EVENTS), applied to the archive as they arrive.
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { changedMessages, wholeChannel, type NoteArchiveChange } from '@shared/archiveChanges';
 import { snowflakeToMs as messageTs } from '@shared/discord';
 import { utcDay } from './archiveChangeSource';
 import type { ArchivedGatewayEvent } from '@shared/contract';
@@ -9,7 +9,7 @@ import type { PollVoteEvent } from './pollVotes';
 import { ARRIVAL } from './arrival';
 
 export interface GatewayDeps {
-  /** A channel's archived messages changed ('' = no one channel). */
+  /** Archived rows changed: named messages of a channel, or all rows (channel '' = no one channel). */
   changed: NoteArchiveChange;
   /** Start of the history window sync fills; older threads aren't archived. */
   backfillFromMs(channelId: string): number;
@@ -63,7 +63,7 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
         const touch = a.touchChannel(m.channel_id, m.id);
         if (touch.rose) deps.dmActivity(m.channel_id, m.id);
         // A closed DM opened again: the list changed.
-        if (touch.reopened) deps.changed('', ['channels']);
+        if (touch.reopened) deps.changed(wholeChannel(''), ['channels']);
         // Auto-archive opts the DM in before ingest, so this first message is stored.
         const since = deps.autoArchiveSinceMs();
         if (since !== null && snowflakeToMs(m.id) > since && a.autoArchive(m.channel_id, deps.selfId())) deps.optedIn(m.channel_id);
@@ -82,7 +82,7 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
       const { id, channel_id } = d as { id: string; channel_id: string };
       if (a.isOptedIn(channel_id)) {
         a.markDeleted(channel_id, id, Date.now());
-        deps.changed(channel_id, ['deletes'], { day: utcDay(messageTs(id)) });
+        deps.changed(changedMessages(channel_id, [id]), ['deletes'], { day: utcDay(messageTs(id)) });
       }
       return;
     }
@@ -91,23 +91,23 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
     case 'MESSAGE_REACTION_REMOVE_ALL':
     case 'MESSAGE_REACTION_REMOVE_EMOJI': {
       const r = d as Parameters<Archive['applyReaction']>[1];
-      if (a.applyReaction(t, r, deps.selfId())) deps.changed(r.channel_id, ['reactions'], { day: utcDay(messageTs(r.message_id)) });
+      if (a.applyReaction(t, r, deps.selfId())) deps.changed(changedMessages(r.channel_id, [r.message_id]), ['reactions'], { day: utcDay(messageTs(r.message_id)) });
       return;
     }
     case 'MESSAGE_POLL_VOTE_ADD':
     case 'MESSAGE_POLL_VOTE_REMOVE': {
       const v = d as PollVoteEvent;
-      if (a.applyPollVote(t, v, deps.selfId())) deps.changed(v.channel_id, ['polls'], { day: utcDay(messageTs(v.message_id)) });
+      if (a.applyPollVote(t, v, deps.selfId())) deps.changed(changedMessages(v.channel_id, [v.message_id]), ['polls'], { day: utcDay(messageTs(v.message_id)) });
       return;
     }
     case 'THREAD_CREATE':
     case 'THREAD_UPDATE':
       a.upsertThreads([d as RawThread], deps.backfillFromMs);
-      deps.changed('', ['channels']);
+      deps.changed(wholeChannel(''), ['channels']);
       return;
     case 'THREAD_LIST_SYNC':
       a.upsertThreads((d as { threads?: RawThread[] }).threads ?? [], deps.backfillFromMs);
-      deps.changed('', ['channels']);
+      deps.changed(wholeChannel(''), ['channels']);
       return;
     // Server nicknames: the name Discord shows for a person. Chunks answer the client's requests for the authors it renders.
     // Name writes report themselves (nameWrites.ts).
@@ -150,7 +150,7 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
       if (a.isOptedIn(channel_id)) {
         const now = Date.now();
         ids.forEach((id) => a.markDeleted(channel_id, id, now));
-        ids.forEach((id) => deps.changed(channel_id, ['deletes'], { day: utcDay(messageTs(id)) }));
+        ids.forEach((id) => deps.changed(changedMessages(channel_id, [id]), ['deletes'], { day: utcDay(messageTs(id)) }));
       }
       return;
     }
@@ -162,13 +162,13 @@ export function applyGatewayEvent(a: Archive, t: ArchivedGatewayEvent, d: unknow
       if (!DM_CHANNEL_TYPES.has(c.type)) return;
       if (t !== 'CHANNEL_DELETE') a.upsertPrivateChannel(deps.selfId(), c, t === 'CHANNEL_CREATE');
       else if (!a.closePrivateChannel(c.id, Date.now())) return;
-      deps.changed('', ['channels']);
+      deps.changed(wholeChannel(''), ['channels']);
       return;
     }
     case 'CHANNEL_RECIPIENT_ADD':
     case 'CHANNEL_RECIPIENT_REMOVE': {
       const r = d as { channel_id: string; user: RawUser };
-      if (a.changeRecipient(r.channel_id, r.user, t === 'CHANNEL_RECIPIENT_ADD', deps.selfId())) deps.changed('', ['channels']);
+      if (a.changeRecipient(r.channel_id, r.user, t === 'CHANNEL_RECIPIENT_ADD', deps.selfId())) deps.changed(wholeChannel(''), ['channels']);
       return;
     }
     default:

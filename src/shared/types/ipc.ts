@@ -24,6 +24,8 @@ export interface ArchiveChange {
   /** Absent when names in any guild may have changed. */
   nameGuildIds?: string[];
   pluginIds?: string[];
+  /** Per channel, the only messages its changes touched; a channel absent here may have changed in any row. */
+  messageIds?: Record<string, string[]>;
 }
 export type ArchiveChangedEvent = { type: 'archive-changed' } & ArchiveChange;
 

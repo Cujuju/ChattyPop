@@ -7,6 +7,7 @@ import { registerMessageLabels, type MessageLabelProvider } from '../messageLabe
 import type { AppEvent, ArchiveMessage, IngestResult } from '@shared/contract';
 import type { RawChannel, RawGuild, RawMessage } from '@shared/discord';
 import { PluginInactiveError } from '@shared/pluginCall';
+import { wholeChannel } from '@shared/archiveChanges';
 import type { Archive } from '../archive';
 import type { Arrival, Arrived, TextMessage } from '../arrival';
 import { registerAttachmentNotes, registerPartNotes, type AttachmentNoteProvider, type PartNoteProvider, type PluginNote } from '../attachmentNotes';
@@ -214,7 +215,8 @@ export function pluginArchive(
     },
     attachmentsDir: bundled.attachmentsDir,
     store: () => importer(id, bundled, live),
-    changed: (channelId) => void (live() && deps.changed(channelId, ['plugin'], { pluginId: id })),
+    // The plugin names a channel, not rows: any of its rows may differ.
+    changed: (channelId) => void (live() && deps.changed(wholeChannel(channelId), ['plugin'], { pluginId: id })),
     optInChanged: () => send({ type: 'opt-in-changed' }),
     onText: (fn) => void reg.onText.push(fn),
     onAttachmentStored: (fn) => void reg.onAttachmentStored.push(fn),

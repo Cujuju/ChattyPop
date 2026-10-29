@@ -143,7 +143,7 @@ describe('owner attachment store operations', () => {
 
   it('validates desktop calls, emits each affected channel, and keeps replacement main-only', () => {
     const changed: string[] = [];
-    const handlers = attachmentStoreHandlers(() => db, () => dir, (id) => changed.push(id));
+    const handlers = attachmentStoreHandlers(() => db, () => dir, (rows) => changed.push(rows.channelId));
     expect(() => handlers.freeAttachments(['bad'])).toThrow(/attachment id/);
     expect(() => handlers.freeAttachments(Array(FREE_ATTACHMENTS_MAX + 1).fill(IDS[0]))).toThrow(/bounded/);
     expect(handlers.storedFile(IDS[0]!)).toMatchObject(file());

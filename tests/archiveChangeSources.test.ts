@@ -31,7 +31,7 @@ describe('archive mutation notifications', () => {
   it('plain text inserts emit messages only, record seq and UTC day, and duplicates emit nothing', () => {
     const message = rawMessage(CHANNEL, NOW, 'plain', { guild_id: 'g1' });
     handlers.ingestMessages([message]);
-    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['messages'] }, insertOnlyChannelIds: [CHANNEL], inserted: { afterSeq: 0, throughSeq: 1 } });
+    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['messages'] }, insertOnlyChannelIds: [CHANNEL], inserted: { afterSeq: 0, throughSeq: 1 }, messageIds: { [CHANNEL]: [message.id] } });
     expect(changes.takeTouched()).toEqual([{ channelId: CHANNEL, utcDay: '2026-10-18' }]);
     handlers.ingestMessages([message]);
     expect(changes.take().changes).toEqual({});
@@ -41,13 +41,14 @@ describe('archive mutation notifications', () => {
     const message = rawMessage(CHANNEL, NOW, 'plain', { guild_id: 'g1' });
     handlers.ingestMessages([message]); changes.take();
     handlers.applyGatewayEvent('MESSAGE_REACTION_ADD', { channel_id: CHANNEL, message_id: message.id, user_id: 'owner', emoji: { name: 'ok', id: null } });
-    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['reactions'] }, insertOnlyChannelIds: [] });
+    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['reactions'] }, insertOnlyChannelIds: [], messageIds: { [CHANNEL]: [message.id] } });
     archive.ingestMessages([{ ...message, reactions: [] }], ARRIVAL.sync);
     expect(changes.take().changes).toEqual({ [CHANNEL]: ['reactions'] });
   });
 
   it('a download emits attachments and disk, without messages or links', () => {
-    handlers.ingestMessages([rawMessage(CHANNEL, NOW, '', { guild_id: 'g1', attachments: [{ id: ATTACHMENT, filename: 'a.txt', url: 'url' }] })]);
+    const message = rawMessage(CHANNEL, NOW, '', { guild_id: 'g1', attachments: [{ id: ATTACHMENT, filename: 'a.txt', url: 'url' }] });
+    handlers.ingestMessages([message]);
     changes.take();
     const dir = tempDir();
     const stored = { sha256: 'a'.repeat(SHA256_HEX_CHARS), filename: 'a.txt', storedExt: null };
@@ -55,7 +56,7 @@ describe('archive mutation notifications', () => {
     writeFileSync(storedAttachmentPath(dir, stored), 'a');
     const queue = mediaQueueHandlers(() => db, () => dir, () => {}, changes.add.bind(changes));
     queue.attachmentStored(ATTACHMENT, stored.sha256, 1, null);
-    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['attachments', 'disk'] }, insertOnlyChannelIds: [] });
+    expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['attachments', 'disk'] }, insertOnlyChannelIds: [], messageIds: { [CHANNEL]: [message.id] } });
     queue.attachmentFailed(ATTACHMENT, 'offline', false);
     expect(changes.take().changes).toEqual({ [CHANNEL]: ['attachments'] });
   });

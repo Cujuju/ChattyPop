@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { changedMessages } from '@shared/archiveChanges';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { MS_PER_S } from '@shared/units';
 import { setSetting, type Db } from '../src/core/db';
@@ -64,8 +65,9 @@ describe('archive restore window contract', () => {
     handlers.applyGatewayEvent('MESSAGE_CREATE', late);
     handlers.applyGatewayEvent('MESSAGE_UPDATE', { id: newest.id, channel_id: CHANNEL, content: 'edited' });
     handlers.applyGatewayEvent('MESSAGE_DELETE', { id: newest.id, channel_id: CHANNEL });
-    expect(noteChanged.mock.calls.map(([id, kinds, opts]) => [id, kinds, opts?.insertOnly === true])).toEqual([
-      [CHANNEL, ['messages'], true], [CHANNEL, ['messages'], false], [CHANNEL, ['edits'], false], [CHANNEL, ['deletes'], false],
+    expect(noteChanged.mock.calls.map(([rows, kinds, opts]) => [rows, kinds, opts?.insertOnly === true])).toEqual([
+      [changedMessages(CHANNEL, [newest.id]), ['messages'], true], [changedMessages(CHANNEL, [late.id]), ['messages'], false],
+      [changedMessages(CHANNEL, [newest.id]), ['edits'], false], [changedMessages(CHANNEL, [newest.id]), ['deletes'], false],
     ]);
   });
 });

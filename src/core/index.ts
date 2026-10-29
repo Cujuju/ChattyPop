@@ -1,6 +1,6 @@
 import { measureCoreCall } from './callStalls';
 // Electron utility process owning SQLite, AI and core plugins.
-import { ArchiveChanges, type NoteArchiveChange } from '@shared/archiveChanges';
+import { ArchiveChanges, wholeChannel, type NoteArchiveChange } from '@shared/archiveChanges';
 import { noteRollupChange } from './rollups/service';
 import { noteAttachmentChange } from './archiveChangeSource';
 import { join } from 'node:path';
@@ -129,9 +129,10 @@ function emit(event: AppEvent): void {
 
 const changed = new ArchiveChanges();
 let changeTimer: NodeJS.Timeout | undefined;
-const noteChanged: NoteArchiveChange = (channelId, kinds, opts) => {
+const noteChanged: NoteArchiveChange = (rows, kinds, opts) => {
   if (!kinds.length) return;
-  changed.add(channelId, kinds, opts);
+  const { channelId } = rows;
+  changed.add(rows, kinds, opts);
   if (db) noteRollupChange(db, channelId, kinds, opts);
   if (kinds.some((k) => ['messages', 'edits', 'deletes', 'names'].includes(k))) forgetMentionPools(channelId);
   changeTimer ??= setTimeout(() => {
@@ -147,9 +148,12 @@ const noteChanged: NoteArchiveChange = (channelId, kinds, opts) => {
 /** What name data a request changed (nameWrites.ts); set once the archive is open. */
 let namesWritten: (() => NameChange | null) | undefined;
 
-/** Members, roles or access changed in `change`'s servers: the names views show, and who an @ list offers, may differ. */
+/**
+ * Members, roles or access changed in `change`'s servers: the names views show, and who an @ list offers, may differ.
+ * A role change restyles every member holding it, so no rows are named.
+ */
 function noteNamesChanged(change: NameChange): void {
-  noteChanged('', ['names'], { nameGuildIds: change.guildIds ?? undefined });
+  noteChanged(wholeChannel(''), ['names'], { nameGuildIds: change.guildIds ?? undefined });
 }
 
 /** A service created at init, once the core is ready; each accessor stays a closure so it reads the current value. */
@@ -176,7 +180,7 @@ const TEXT_RETENTION_INTERVAL_MS = MS_PER_HOUR;
 /** Enforces Settings → Archive text tier and database cap. */
 const retention = new TextRetentionRunner(
   () => applyTextRetention(ready().db, archiveSettings(), Date.now(), aiSettings().jev.keepImportant, noteChanged),
-  () => noteChanged('', ['disk']),
+  () => noteChanged(wholeChannel(''), ['disk']),
 );
 const applyTextTier = (): Promise<void> => retention.request();
 

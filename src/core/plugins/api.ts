@@ -1,7 +1,7 @@
 // Folder-plugin API and registrations shared with the bundled plugin host.
 import { pluginSettingKey, pluginTableName } from '@shared/bundledTypes';
 import type { ArchiveChange } from '@shared/contract';
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { changedMessages, type NoteArchiveChange } from '@shared/archiveChanges';
 import type { AppEvent } from '@shared/contract';
 import { PLUGIN_API_VERSION, type PluginApi, type PluginCommand, type PluginMessage, type PluginStatement } from '@shared/plugins';
 import { MS_PER_MIN } from '@shared/units';
@@ -197,7 +197,7 @@ export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, 
            ON CONFLICT(plugin_id, message_id, label) DO UPDATE SET text = excluded.text, created_at = excluded.created_at`,
         ).run(id, messageId, label, text, Date.now());
       const row = db.prepare('SELECT channel_id AS c FROM messages WHERE id = ?').get(messageId) as { c: string } | undefined;
-      if (row) deps.changed(row.c, ['plugin'], { pluginId: id });
+      if (row) deps.changed(changedMessages(row.c, [messageId]), ['plugin'], { pluginId: id });
     },
     log: (...args) => console.log(`[plugin ${id}]`, ...args),
     rpc: { handle: (name, fn) => void (live() && reg.calls.set(name, fn)) },

@@ -1,5 +1,5 @@
 // Core methods over the archive itself: directory, channels, ingest and sync, message pages.
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { wholeChannel, type NoteArchiveChange } from '@shared/archiveChanges';
 import { noteMessageChanges } from './archiveChangeSource';
 import type { AppEvent, CoreMethods } from '@shared/contract';
 import type { Archive } from './archive';
@@ -137,13 +137,13 @@ export function archiveHandlers(o: {
     syncable: (channelId) => archive().syncable(channelId, o.selfId()),
     upsertThreads: (threads) => {
       const stale = archive().upsertThreads(threads, o.backfillFromMs);
-      if (threads.length) o.noteChanged('', ['channels']);
+      if (threads.length) o.noteChanged(wholeChannel(''), ['channels']);
       return stale;
     },
     channelInfo: (channelId) => archive().channelInfo(channelId),
     replacePrivateChannels: (selfId, channels, partial) => {
       archive().replacePrivateChannels(selfId, channels, partial, Date.now());
-      o.noteChanged('', ['channels']);
+      o.noteChanged(wholeChannel(''), ['channels']);
     },
     privateChannel: (channelId) => privateChannelFacts(o.ready().db, channelId, o.selfId()),
     dmWith: (userId) => openDmWith(o.ready().db, userId, o.selfId()),
@@ -192,13 +192,13 @@ export function archiveHandlers(o: {
       const db = o.ready().db;
       putReadStates(db, counts, scope);
       // READY's replace every channel's: the list is read again. Others patch rows in place, never for a hidden channel.
-      if (scope !== 'merge') return o.noteChanged('', ['channels']);
+      if (scope !== 'merge') return o.noteChanged(wholeChannel(''), ['channels']);
       const visible = visibleChannelIds(db, counts.map((c) => c.channelId));
       const states = counts.filter((c) => visible.has(c.channelId));
       if (states.length) o.emit({ type: 'read-states-changed', states });
     },
     putGuildOrder: (guildIds) => {
-      if (putGuildOrder(o.ready().db, guildIds)) o.noteChanged('', ['channels']);
+      if (putGuildOrder(o.ready().db, guildIds)) o.noteChanged(wholeChannel(''), ['channels']);
     },
     applyOwnReaction: (r) => {
       const self = o.selfId();

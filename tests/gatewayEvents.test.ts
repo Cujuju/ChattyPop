@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { ChangedRows } from '@shared/archiveChanges';
 import { isArchivedGatewayEvent } from '@shared/types/ipc';
 import type { Archive } from '../src/core/archive';
 import type { Db } from '../src/core/db';
@@ -18,7 +19,7 @@ const SELF = '100000000000000001';
 const FRIEND = '100000000000000002';
 let activity: [string, string][];
 const deps = {
-  changed: (id: string) => changed.push(id),
+  changed: (rows: ChangedRows) => changed.push(rows.channelId),
  
   backfillFromMs: () => 0,
   selfId: () => SELF,

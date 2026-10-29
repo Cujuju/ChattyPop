@@ -50,7 +50,8 @@ const REQUEUE = "status = 'failed' AND url IS NOT excluded.url";
 export interface DerivedChange {
   kinds: ArchiveChangeKind[];
   insertOnly: boolean;
-  relatedLinks: { channelId: string; day: string }[];
+  /** The other shares of links this message shares, whose link rows the upsert touched, by channel and UTC day. */
+  relatedLinks: { channelId: string; day: string; messageIds: string[] }[];
 }
 
 export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): DerivedChange {
@@ -108,10 +109,10 @@ export function deriveMessage(db: Db, m: DerivableMessage, authorId: string): De
     linkMessage.run(m.id, id, ...values);
     linkIds.push(id);
     if (existed) {
-      const shares = writeStatement(db, `SELECT DISTINCT m.channel_id AS channelId, date(m.ts / ${MS_PER_S}, 'unixepoch') AS day
-        FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ?`)
-        .all(id) as { channelId: string; day: string }[];
-      for (const row of shares) relatedLinks.push(row);
+      const shares = writeStatement(db, `SELECT m.channel_id AS channelId, date(m.ts / ${MS_PER_S}, 'unixepoch') AS day, json_group_array(m.id) AS ids
+        FROM message_links ml JOIN messages m ON m.id = ml.message_id WHERE ml.link_id = ? GROUP BY m.channel_id, day`)
+        .all(id) as { channelId: string; day: string; ids: string }[];
+      for (const row of shares) relatedLinks.push({ channelId: row.channelId, day: row.day, messageIds: JSON.parse(row.ids) as string[] });
     }
   }
   // Text and embeds are where links come from: a payload with both says which the message still shares (an edit may drop some).

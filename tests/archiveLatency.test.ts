@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent, ArchiveMessage, MessageWindow } from '@shared/contract';
-import { ArchiveChanges } from '@shared/archiveChanges';
+import { ArchiveChanges, NAMED_ROWS_MAX, changedMessages, wholeChannel } from '@shared/archiveChanges';
 import { postedArchiveMessage } from '@shared/postedMessage';
 import { acceptedMessage } from './postedMessageFixture';
 import { sentRows } from '../src/renderer/src/state/outboxSent';
@@ -118,12 +118,26 @@ describe('archive arrival and restore latency', () => {
 describe('archive change batches', () => {
   it('marks only proved insert-only channels, regardless of write order', () => {
     const batch = new ArchiveChanges();
-    batch.add('insert', ['messages'], { insertOnly: true });
-    batch.add('edited', ['edits']);
-    batch.add('edited', ['messages'], { insertOnly: true });
-    batch.add('deleted', ['messages'], { insertOnly: true });
-    batch.add('deleted', ['deletes']);
+    batch.add(wholeChannel('insert'), ['messages'], { insertOnly: true });
+    batch.add(wholeChannel('edited'), ['edits']);
+    batch.add(wholeChannel('edited'), ['messages'], { insertOnly: true });
+    batch.add(wholeChannel('deleted'), ['messages'], { insertOnly: true });
+    batch.add(wholeChannel('deleted'), ['deletes']);
     expect(batch.take()).toEqual({ changes: { insert: ['messages'], edited: ['edits', 'messages'], deleted: ['messages', 'deletes'] }, insertOnlyChannelIds: ['insert'] });
     expect(batch.take()).toEqual({ changes: {}, insertOnlyChannelIds: [] });
+  });
+
+  it('name the rows of a channel only while every change to it names them, within the bound', () => {
+    const batch = new ArchiveChanges();
+    batch.add(changedMessages('named', ['1']), ['edits']);
+    batch.add(changedMessages('named', ['2']), ['reactions']);
+    batch.add(changedMessages('mixed', ['3']), ['edits']);
+    batch.add(wholeChannel('mixed'), ['plugin']);
+    batch.add(changedMessages('many', Array.from({ length: NAMED_ROWS_MAX + 1 }, (_, i) => String(i))), ['deletes']);
+    expect(batch.take().messageIds).toEqual({ named: ['1', '2'] });
+    const merged = new ArchiveChanges();
+    merged.merge({ changes: { named: ['edits'] }, insertOnlyChannelIds: [], messageIds: { named: ['1'] } });
+    merged.merge({ changes: { named: ['edits'], other: ['edits'] }, insertOnlyChannelIds: [], messageIds: { named: ['2'] } });
+    expect(merged.take().messageIds).toEqual({ named: ['1', '2'] });
   });
 });

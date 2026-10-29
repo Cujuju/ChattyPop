@@ -1,5 +1,5 @@
 // Archive text retention with active plugin coverage.
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { changedMessages, type NoteArchiveChange } from '@shared/archiveChanges';
 import { utcDay } from './archiveChangeSource';
 import { TEXT_COVERED_SQL, loadTextCoverage } from './textCoverage';
 import type { ArchiveSettings, TextTier } from '@shared/settings';
@@ -151,7 +151,7 @@ async function pruneOldest(db: Db, before: number, scope: Scope, rules: Rules, b
         b.live -= r.bytes;
       }),
     )();
-    rows.forEach((r) => changed(r.channelId, ['edits', 'disk'], { day: utcDay(r.ts) }));
+    rows.forEach((r) => changed(changedMessages(r.channelId, [r.id]), ['edits', 'disk'], { day: utcDay(r.ts) }));
     n += rows.length;
     await yieldToQueue();
     loadTextCoverage(db);

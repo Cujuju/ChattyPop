@@ -13,6 +13,8 @@ export interface ArchiveChangeSet {
   kinds: ReadonlySet<ArchiveChangeKind>;
   channelIds: ReadonlySet<string>;
   insertOnly(channelId: string): boolean;
+  /** The only messages of `channelId` the change touched; null when any of its rows may have changed. */
+  messagesChanged(channelId: string): ReadonlySet<string> | null;
   inserted?: ArchiveChange['inserted'];
   nameGuildIds?: ReadonlySet<string>;
   pluginIds: ReadonlySet<string>;
@@ -36,15 +38,19 @@ export function matchingChange(change: ArchiveChange, deps: ArchiveDeps, guildOf
     });
     if (selected.length) changes[id] = selected;
   }
-  return { ...change, changes };
+  const named = change.messageIds && Object.entries(change.messageIds).filter(([id]) => id in changes);
+  const { messageIds: _all, ...rest } = change;
+  return { ...rest, changes, ...(named?.length ? { messageIds: Object.fromEntries(named) } : {}) };
 }
 
 export function changeSet(change: ArchiveChange): ArchiveChangeSet {
   const inserts = new Set(change.insertOnlyChannelIds);
+  const named = new Map(Object.entries(change.messageIds ?? {}).map(([id, ids]) => [id, new Set(ids)]));
   return {
     kinds: new Set(Object.values(change.changes).flat()),
     channelIds: new Set(Object.keys(change.changes)),
     insertOnly: (channelId) => inserts.has(channelId),
+    messagesChanged: (channelId) => named.get(channelId) ?? null,
     inserted: change.inserted,
     nameGuildIds: change.nameGuildIds ? new Set(change.nameGuildIds) : undefined,
     pluginIds: new Set(change.pluginIds),

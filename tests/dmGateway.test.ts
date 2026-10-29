@@ -27,7 +27,7 @@ let a: Archive;
 let changed: string[];
 let activity: [string, string][];
 const deps: GatewayDeps = {
-  changed: (id) => void changed.push(id),
+  changed: (rows) => void changed.push(rows.channelId),
  
   backfillFromMs: () => 0,
   selfId: () => SELF,
@@ -258,7 +258,7 @@ function core() {
   const handlers = archiveHandlers({
     ready: () => ({ db, archive: a }),
     emit: (e) => void events.push(e),
-    noteChanged: (id) => void changed.push(id),
+    noteChanged: (rows) => void changed.push(rows.channelId),
     backfillFromMs: () => 0,
     selfId: () => SELF,
     lastSeenAt: () => 0,

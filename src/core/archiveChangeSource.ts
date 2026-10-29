@@ -1,4 +1,4 @@
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { changedMessages, type NoteArchiveChange } from '@shared/archiveChanges';
 import type { ArchiveChangeKind } from '@shared/contract';
 import type { Db } from './db';
 
@@ -6,18 +6,23 @@ import type { Db } from './db';
 const ISO_DAY_LENGTH = 10;
 export const utcDay = (ts: number): string => new Date(ts).toISOString().slice(0, ISO_DAY_LENGTH);
 
-/** Existing-row mutations retain their actual UTC partitions for subsequent rollup invalidation. */
+/** Existing-row mutations name their rows and retain their actual UTC partitions for subsequent rollup invalidation. */
 export function noteMessageChanges(db: Db, changed: NoteArchiveChange, channelId: string, kinds: readonly ArchiveChangeKind[], ids: readonly string[]): void {
-  const rows = db.prepare('SELECT DISTINCT ts FROM messages WHERE channel_id = ? AND id IN (SELECT value FROM json_each(?))')
-    .all(channelId, JSON.stringify(ids)) as { ts: number }[];
-  if (!rows.length) return;
-  for (const row of rows) changed(channelId, kinds, { day: utcDay(row.ts) });
+  const rows = db.prepare('SELECT id, ts FROM messages WHERE channel_id = ? AND id IN (SELECT value FROM json_each(?))')
+    .all(channelId, JSON.stringify(ids)) as { id: string; ts: number }[];
+  const byDay = new Map<string, string[]>();
+  for (const row of rows) {
+    const day = utcDay(row.ts);
+    byDay.set(day, [...(byDay.get(day) ?? []), row.id]);
+  }
+  for (const [day, dayIds] of byDay) changed(changedMessages(channelId, dayIds), kinds, { day });
 }
 
-/** Download and stored-file changes invalidate the attachment's channel and its UTC partition. */
+/** Download and stored-file changes invalidate the attachment's message and its UTC partition. */
 export function noteAttachmentChange(db: Db, changed: NoteArchiveChange, id: string, disk: boolean): void {
-  const row = db.prepare('SELECT channel_id AS channelId, ts FROM attachments WHERE id = ?').get(id) as { channelId: string; ts: number } | undefined;
-  if (row) changed(row.channelId, disk ? ['attachments', 'disk'] : ['attachments'], { day: utcDay(row.ts) });
+  const row = db.prepare('SELECT channel_id AS channelId, message_id AS messageId, ts FROM attachments WHERE id = ?').get(id) as
+    { channelId: string; messageId: string; ts: number } | undefined;
+  if (row) changed(changedMessages(row.channelId, [row.messageId]), disk ? ['attachments', 'disk'] : ['attachments'], { day: utcDay(row.ts) });
 }
 
 /** Message presentation fields whose changes invalidate stored message snapshots. */

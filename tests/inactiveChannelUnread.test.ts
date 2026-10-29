@@ -21,7 +21,7 @@ it('projects live arrivals and external reads of an inactive channel to desktop 
   const handlers = archiveHandlers({
     ready: () => ({ db, archive }),
     emit: (e) => events.push(e),
-    noteChanged: (id) => changes.push(id),
+    noteChanged: (rows) => changes.push(rows.channelId),
     backfillFromMs: () => 0,
     selfId: () => ME,
     lastSeenAt: () => NOW - 1,

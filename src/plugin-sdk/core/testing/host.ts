@@ -101,9 +101,9 @@ function start<D extends PluginDescriptor>(definition: CorePlugin<D> | D, o: Tes
     emit({ type: 'archive-changed', ...change });
     host?.archiveChanged(change);
   };
-  const noteChanged: import('@shared/archiveChanges').NoteArchiveChange = (channelId, kinds, opts) => {
-    archiveChanges.add(channelId, kinds, opts);
-    noteRollupChange(db, channelId, kinds, opts);
+  const noteChanged: import('@shared/archiveChanges').NoteArchiveChange = (rows, kinds, opts) => {
+    archiveChanges.add(rows, kinds, opts);
+    noteRollupChange(db, rows.channelId, kinds, opts);
     if (!batchingArchive) flushArchiveChanges();
   };
   const archive = new Archive(db, (m, arrived) => host.dispatchMessage(m, arrived, 'message'), undefined, (id) => host.imagesShown(id), noteChanged);

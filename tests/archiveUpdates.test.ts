@@ -7,7 +7,7 @@ import { acceptedMessage } from './postedMessageFixture';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 /** The channel's archived rows, oldest first, as core reads them. */
-const env = vi.hoisted(() => ({ rows: [] as ArchiveMessage[], listeners: new Map<string, (e: AppEvent) => Promise<void>>() }));
+const env = vi.hoisted(() => ({ rows: [] as ArchiveMessage[], listeners: new Map<string, (e: AppEvent) => Promise<void>>(), reread: [] as string[] }));
 
 function page(q: MessagePageQuery): ArchiveMessage[] {
   const rows = env.rows;
@@ -29,7 +29,7 @@ vi.mock('@/api', () => ({
         const items = page(q);
         return { items, reachesNewest: items.at(-1)?.id === env.rows.at(-1)?.id };
       },
-      messagesByIds: async (ids: string[]) => env.rows.filter((m) => ids.includes(m.id)),
+      messagesByIds: async (ids: string[]) => (env.reread.push(...ids), env.rows.filter((m) => ids.includes(m.id))),
     },
     discord: { shownChannel: async () => null },
   },
@@ -78,6 +78,7 @@ const unbroken = (): boolean => shown().every((n, i, all) => i === 0 || n === al
 
 beforeEach(() => {
   env.rows = [];
+  env.reread = [];
 });
 
 describe('loaded rows follow archive changes', () => {
@@ -108,6 +109,25 @@ describe('loaded rows follow archive changes', () => {
     await change(true);
     expect(shown().at(-1)).toBe(2 * PAGE + 1);
     expect(shownRow(PAGE + 1)?.content).toBe(`m${PAGE + 1}`);
+  });
+});
+
+describe('a change naming its rows', () => {
+  /** Pages loaded above the newest: many more rows than the change names. */
+  const LOADED_PAGES = 10;
+
+  it('re-reads only those rows and the loaded replies to them, however many rows are loaded', async () => {
+    const reply = { ...row(PAGE + 1), replyToId: '1' };
+    env.rows = [...rows(1, PAGE), reply, ...rows(PAGE + 2, LOADED_PAGES * PAGE)];
+    await archive.openArchive(CHANNEL);
+    for (let page = 1; page < LOADED_PAGES; page++) await archive.loadOlder();
+    expect(shown()).toHaveLength(LOADED_PAGES * PAGE);
+    editAndDelete(1);
+    await env.listeners.get('archive-changed')!({
+      type: 'archive-changed', changes: { [CHANNEL]: ['edits'] }, insertOnlyChannelIds: [], messageIds: { [CHANNEL]: ['1'] },
+    });
+    expect(shownRow(1)).toMatchObject({ content: 'edited on Discord', deletedAt: 42 });
+    expect(env.reread.sort()).toEqual(['1', String(PAGE + 1)]);
   });
 });
 

@@ -1,6 +1,6 @@
 import { MESSAGE_FLAG } from '@shared/components';
 import type { IngestResult } from '@shared/contract';
-import type { NoteArchiveChange } from '@shared/archiveChanges';
+import { changedMessages, type NoteArchiveChange } from '@shared/archiveChanges';
 import { compareSnowflakes, snowflakeToMs, type RawMessage, type RawMessageUpdate, type RawMember } from '@shared/discord';
 import { parseRawJson, rawJsonText, type Db } from './db';
 import { messageChangeKinds, utcDay } from './archiveChangeSource';
@@ -80,8 +80,8 @@ export class ArchiveMessages {
         const seq = !existing ? this.db.prepare('SELECT seq FROM messages WHERE id = ?').pluck().get(m.id) as number : undefined;
         if (payloadChanged) {
           const kinds = messageChangeKinds(existing ? parseRawJson<object>(existing.raw_json) : null, m, derived.kinds);
-          changes.push([m.channel_id, kinds, { insertOnly: appendOnly && derived.insertOnly, seq, day: utcDay(snowflakeToMs(m.id)) }]);
-          if (kinds.includes('links')) derived.relatedLinks.forEach(({ channelId, day }) => changes.push([channelId, ['links'], { day }]));
+          changes.push([changedMessages(m.channel_id, [m.id]), kinds, { insertOnly: appendOnly && derived.insertOnly, seq, day: utcDay(snowflakeToMs(m.id)) }]);
+          if (kinds.includes('links')) derived.relatedLinks.forEach(({ channelId, day, messageIds }) => changes.push([changedMessages(channelId, messageIds), ['links'], { day }]));
         }
         // Before matching: image text still to come is pending when rules look.
         this.onShown(m.id);
@@ -126,8 +126,8 @@ export class ArchiveMessages {
     if (kinds) {
       const before = parseRawJson<object>(row.raw_json) ?? {};
       const changed = messageChangeKinds(before, { ...before, ...u }, kinds.kinds);
-      if (changed.length) this.onChange(u.channel_id, changed, { day: utcDay(snowflakeToMs(u.id)) });
-      if (changed.includes('links')) kinds.relatedLinks.forEach(({ channelId, day }) => this.onChange(channelId, ['links'], { day }));
+      if (changed.length) this.onChange(changedMessages(u.channel_id, [u.id]), changed, { day: utcDay(snowflakeToMs(u.id)) });
+      if (changed.includes('links')) kinds.relatedLinks.forEach(({ channelId, day, messageIds }) => this.onChange(changedMessages(channelId, messageIds), ['links'], { day }));
     }
   }
 
