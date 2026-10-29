@@ -16,24 +16,30 @@ interface Hooks {
 interface DialogElement {
   readonly open: boolean;
   show(): void;
+  showModal(): void;
   close(): void;
 }
 // A renderer module: imported by path so the node type-check doesn't follow it.
 const syncPath = '../src/renderer/src/ui/dialogSync';
-const { syncDialog } = (await import(syncPath)) as { syncDialog(el: () => DialogElement, open: () => boolean, hooks: Hooks): () => void };
+const { syncDialog } = (await import(syncPath)) as { syncDialog(el: () => DialogElement, open: () => boolean, hooks: Hooks, mode?: 'modeless' | 'modal'): () => void };
 
 /** Lets queued tasks (the native close events) run. */
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r));
 
 /** A dialog that queues its close event as a task, as browsers do, owned by a state with a close request. */
-function floating() {
+function floating(mode?: 'modeless' | 'modal') {
   const [open, setOpen] = createSignal(false);
   const hooks = { shown: vi.fn(), hiding: vi.fn(), hidden: vi.fn(), request: vi.fn() };
   let onClose = (): void => undefined;
   const dialog = {
     open: false,
+    modal: false,
     show() {
       dialog.open = true;
+    },
+    showModal() {
+      dialog.open = true;
+      dialog.modal = true;
     },
     close() {
       dialog.open = false;
@@ -41,7 +47,7 @@ function floating() {
     },
   };
   createRoot(() => {
-    onClose = syncDialog(() => dialog, open, hooks);
+    onClose = syncDialog(() => dialog, open, hooks, mode);
   });
   return { dialog, hooks, setOpen };
 }
@@ -69,12 +75,40 @@ describe('a floating window dialog', () => {
     expect(w.hooks.request).not.toHaveBeenCalled();
   });
 
-  it('closed by something else (a form in it) while its state says open: asks the owner once', async () => {
+  it('closed by something else (a form in it) while its state says open: asks the owner once, and agreeing closes it once', async () => {
+    const w = floating();
+    w.hooks.request.mockImplementation(() => w.setOpen(false));
+    w.setOpen(true);
+    w.dialog.close();
+    await settle();
+    expect(w.dialog.open).toBe(false);
+    expect(w.hooks.hidden).toHaveBeenCalledOnce();
+    expect(w.hooks.request).toHaveBeenCalledOnce();
+  });
+
+  it('an owner refusing that close keeps it shown, as its state says (#268)', async () => {
     const w = floating();
     w.setOpen(true);
     w.dialog.close();
     await settle();
+    expect(w.hooks.request).toHaveBeenCalledOnce();
+    expect(w.dialog.open).toBe(true);
+    expect(w.hooks.hidden).not.toHaveBeenCalled();
+    w.setOpen(false);
+    await settle();
+    expect(w.dialog.open).toBe(false);
     expect(w.hooks.hidden).toHaveBeenCalledOnce();
+    expect(w.hooks.request).toHaveBeenCalledOnce();
+  });
+
+  it('a modal one is shown, and shown again after Escape an owner refuses, as a modal', async () => {
+    const w = floating('modal');
+    w.setOpen(true);
+    expect(w.dialog.modal).toBe(true);
+    w.dialog.modal = false;
+    w.dialog.close(); // Escape's native close
+    await settle();
+    expect([w.dialog.open, w.dialog.modal]).toEqual([true, true]);
     expect(w.hooks.request).toHaveBeenCalledOnce();
   });
 });

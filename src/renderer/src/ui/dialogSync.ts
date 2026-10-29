@@ -1,46 +1,49 @@
-// A non-modal <dialog> shown while its owner's state says open. Its native close event comes queued after every close,
-// including the ones this sync makes, so the event alone doesn't say the owner asked to close.
+// A <dialog> shown exactly while its owner's state says open. Its native close event follows every close, ours included, so
+// alone it isn't the owner's request.
 import { createEffect, on } from 'solid-js';
 
 /** The parts of a <dialog> the sync uses. */
 export interface DialogElement {
   readonly open: boolean;
   show(): void;
+  showModal(): void;
   close(): void;
 }
 
 export interface DialogSyncHooks {
   /** Just shown. */
-  shown(): void;
+  shown?(): void;
   /** About to close (its geometry is still measurable). */
-  hiding(): void;
+  hiding?(): void;
   /** Closed. */
-  hidden(): void;
-  /** Something other than `open` closed it (a form's method="dialog"): the owner's close, as a close button asks. */
+  hidden?(): void;
+  /** Something other than `open` closed it (Escape, a form's method="dialog"); shown again, the owner decides, as for a close button. */
   request(): void;
 }
 
 /**
- * Shows the dialog while `open()` and closes it when not. Returns the native close event's handler: an event queued
- * before a reopen is stale, and one from `open()` turning false is no request, so neither reaches the owner.
+ * Shows the dialog (in `mode`) exactly while `open()`. The returned close handler ignores stale events and closes
+ * made by `open()`; any other close re-shows it, then asks the owner (request).
  */
-export function syncDialog(el: () => DialogElement, open: () => boolean, hooks: DialogSyncHooks): () => void {
+export function syncDialog(el: () => DialogElement, open: () => boolean, hooks: DialogSyncHooks, mode: 'modeless' | 'modal' = 'modeless'): () => void {
+  const show = (d: DialogElement): void => (mode === 'modal' ? d.showModal() : d.show());
   createEffect(
     on(open, (want) => {
       const d = el();
       if (want && !d.open) {
-        d.show();
-        hooks.shown();
+        show(d);
+        hooks.shown?.();
       } else if (!want && d.open) {
-        hooks.hiding();
+        hooks.hiding?.();
         d.close();
-        hooks.hidden();
+        hooks.hidden?.();
       }
     }),
   );
   return () => {
-    if (el().open || !open()) return;
-    hooks.hidden();
+    const d = el();
+    if (d.open || !open()) return;
+    show(d);
     hooks.request();
   };
 }

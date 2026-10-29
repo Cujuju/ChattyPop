@@ -2,6 +2,7 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { createEffect, type JSX } from 'solid-js';
 import { setOverlayCover } from '@/state/windows';
+import { syncDialog } from './dialogSync';
 import { WindowHeader } from './FloatingWindow';
 import chrome from './WindowChrome.module.css';
 import styles from './ModalDialog.module.css';
@@ -17,11 +18,8 @@ export function ModalDialog(props: {
   children: JSX.Element;
 }) {
   let el!: HTMLDialogElement;
-  createEffect(() => {
-    if (props.open && !el.open) el.showModal();
-    else if (!props.open && el.open) el.close();
-    setOverlayCover(props.id, props.open ? 'window' : null);
-  });
+  const onNativeClose = syncDialog(() => el, () => props.open, { request: () => props.onClose() }, 'modal');
+  createEffect(() => setOverlayCover(props.id, props.open ? 'window' : null));
   onCleanup(() => setOverlayCover(props.id, null));
   return (
     <dialog
@@ -29,8 +27,7 @@ export function ModalDialog(props: {
       class={styles.dialog}
       data-size={props.size}
       aria-label={props.title}
-      // Native close events are queued. An older close must not dismiss a dialog already reopened.
-      onClose={() => { if (!el.open) props.onClose(); }}
+      onClose={onNativeClose}
       // A click on the backdrop lands on the dialog itself.
       onClick={(e) => e.target === e.currentTarget && props.onClose()}
     >
