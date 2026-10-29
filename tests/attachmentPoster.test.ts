@@ -5,7 +5,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Session } from 'electron';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { PendingAttachment } from '@shared/contract';
 import type { CoreClient } from '../src/main/coreClient';
 import type { DiscordApi } from '../src/main/discord/api';
@@ -136,10 +136,17 @@ describe('the downloader keeps a still for each video it archives', () => {
     const kept: string[] = [];
     const thumbs: string[] = [];
     let backfills = 0;
-    let drains = 0;
+    // A pass ends at its last step, the emoji prefetch: awaited, never polled against the clock.
+    let passes = 0;
+    const waiting: { pass: number; done: () => void }[] = [];
+    const passed = (pass: number): Promise<void> => new Promise((done) => (passes >= pass ? done() : void waiting.push({ pass, done })));
     const core = {
       call: async (method: string, id?: string) => {
-        if (method === 'pendingAttachments') return (drains++, queue.shift() ?? []);
+        if (method === 'pendingEmojis') {
+          passes++;
+          for (const w of waiting.splice(0)) if (w.pass <= passes) w.done(); else waiting.push(w);
+        }
+        if (method === 'pendingAttachments') return queue.shift() ?? [];
         if (method === 'archivedVideos') return (backfills++, archived);
         if (method === 'attachmentStored') stored.push(id!);
         if (method === 'nextAttachmentRetry') return null;
@@ -157,23 +164,23 @@ describe('the downloader keeps a still for each video it archives', () => {
     };
     const downloader = new AttachmentDownloader(dir(), dir(), ses, {} as DiscordApi, core, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, posters, async (name) => void thumbs.push(name));
     downloader.kick();
-    return { downloader, stored, kept, thumbs, backfills: () => backfills, drains: () => drains };
+    return { downloader, stored, kept, thumbs, backfills: () => backfills, passed };
   }
 
   it('asks for the still of a video, by content type or extension, and of nothing else; a failed one stores the file anyway', async () => {
     const r = run([pending('v1', 'clip.mov', null), pending('v2', 'clip.bin', 'video/mp4'), pending('i1', 'pic.png', 'image/png')], []);
-    await vi.waitFor(() => expect(r.stored).toEqual(['v1', 'v2', 'i1']));
+    await r.passed(1);
+    expect(r.stored).toEqual(['v1', 'v2', 'i1']);
     expect(r.kept).toEqual(['v1', 'v2']);
     expect(r.thumbs.map((name) => name.split('.')[1])).toEqual(['mov', 'bin', 'png']);
   });
 
   it('keeps the stills of videos archived before, once per run, skipping kept ones and other files', async () => {
     const r = run([], [pending('old', 'clip.mp4', 'video/mp4'), pending('done', 'clip.mp4', 'video/mp4'), pending('doc', 'notes.bin', null)], ['done']);
-    await vi.waitFor(() => expect(r.kept).toEqual(['old']));
-    const before = r.drains();
+    await r.passed(1);
+    expect(r.kept).toEqual(['old']);
     r.downloader.kick();
-    await vi.waitFor(() => expect(r.drains()).toBeGreaterThan(before));
-    await new Promise((resolve) => setTimeout(resolve));
+    await r.passed(2);
     expect(r.backfills()).toBe(1);
   });
 });
