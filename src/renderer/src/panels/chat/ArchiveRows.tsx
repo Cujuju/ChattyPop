@@ -38,7 +38,7 @@ export function createArchiveRows() {
     const channelId = archiveChannelId();
     if (channelId && atNewest()) {
       // Use the newest archived own author, falling back to the channel's stored author.
-      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id))?.author ?? ownAuthor.latest ?? null;
+      const own = [...archiveState.items].reverse().find((m) => isSelf(m.author.id))?.author ?? ownAuthor() ?? null;
       let grouped = prev !== undefined && isSelf(prev.author.id) && Date.now() - prev.ts < GROUP_GAP_MS;
       for (const o of outgoing(channelId)) {
         out.push({ kind: 'pending', key: `pending-${o.id}`, outgoing: o, own, grouped });

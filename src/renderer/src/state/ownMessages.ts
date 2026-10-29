@@ -1,12 +1,13 @@
 // The owner's own messages: editing one in place in the Archive (Discord's Edit: which message, its draft, saving it) and deleting one.
 import { api } from '@/api';
-import { createResource, createSignal, type Resource } from 'solid-js';
+import { createEffect, createSignal, on } from 'solid-js';
 import type { ArchiveMessage } from '@shared/contract';
 import { archiveChannelId, archiveState, openArchive } from './archive';
 import { chatSource } from './chat';
 import { createPushedValue, onAppEvent } from './events';
 import { closeWhenLocked, postingUnlocked } from './posting';
 import { membersVersion } from './mentions';
+import { keyedResource, type KeyedResource } from './keyedResource';
 import { inPanelWindow } from './ui';
 
 /** The signed-in Discord user's id; null until main has read it. */
@@ -37,14 +38,16 @@ export const setEditText = (text: string): void => void setDraft((d) => d && { .
 export const mentionsMe = (m: ArchiveMessage): boolean => m.mentionsEveryone || (selfId() !== null && m.mentionIds.includes(selfId()!));
 
 /** The owner as the author of their next message in `channelId` (a message on its way shows it); read again as names change. */
-export function createOwnAuthor(channelId: () => string | null): Resource<ArchiveMessage['author'] | null> {
-  const [author] = createResource(
+export function createOwnAuthor(channelId: () => string | null): KeyedResource<ArchiveMessage['author'] | null> {
+  // The target is the channel and the account; a names change rereads the same target, keeping its author shown.
+  const author = keyedResource(
     () => {
-      const id = channelId();
-      return id !== null && selfId() !== null ? { id, names: membersVersion() } : false;
+      const id = channelId(), self = selfId();
+      return id !== null && self !== null && JSON.stringify([id, self]);
     },
-    ({ id }) => api.core.ownAuthor(id),
+    (key) => api.core.ownAuthor((JSON.parse(key) as [string, string])[0]),
   );
+  createEffect(on(membersVersion, () => void author.refetch(), { defer: true }));
   return author;
 }
 

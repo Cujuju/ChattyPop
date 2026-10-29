@@ -46,7 +46,7 @@ export function Search() {
   // A privacy change asks again for the same text.
   const pending = createMemo(() => (choicesRevision(), pendingFilter(searchText(), filters())));
   const [offered] = createResource(pending, offeredChoices);
-  /** The latest choices for the filter being typed; while newer ones load, the previous list stays to avoid a flash. */
+  /** The latest choices for the filter being typed; while newer ones load, the previous list stays to avoid a flash (so not keyedResource). */
   const choices = (): readonly FilterChoice[] => {
     const o = offered.error ? undefined : offered.latest;
     return o && o.pending.filter === pending()?.filter && o.revision === choicesRevision() ? o.list : [];

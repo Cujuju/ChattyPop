@@ -11,6 +11,7 @@ import { channelById, directory } from './directory';
 import { LOCAL_COMMANDS, type LocalCommand } from './localCommands';
 import { closeWhenLocked, postingUnlocked } from './posting';
 import { composerCommands } from '@/plugins/slots';
+import { keyedResource, type KeyedResource } from './keyedResource';
 
 /** A guild id as interactions name it: null in a DM. */
 export const interactionGuild = (guildId: string): string | null => (guildId === DM_GUILD_ID || !guildId ? null : guildId);
@@ -26,11 +27,8 @@ export type MenuItem =
 
 
 const [indexKey, setIndexKey] = createSignal<{ channelId: string; guildId: string } | null>(null);
-// Tagged with its channel: while another channel's list loads, `latest` still holds the last one.
-const [commandIndex, { refetch: refetchIndex }] = containedRoot(() => createResource(indexKey, async (k) => ({
-  channelId: k.channelId,
-  ...(await api.discord.commands(k.channelId, interactionGuild(k.guildId))),
-})));
+/** The open channel's commands: none of another channel's (nor its failure) while this one's load. */
+const commandIndex = keyedResource(indexKey, (k) => api.discord.commands(k.channelId, interactionGuild(k.guildId)));
 
 /** Frequently used commands shown atop the menu, as many as Discord's own menu shows. */
 const FREQUENT_COMMANDS_MAX = 5;
@@ -40,14 +38,14 @@ const [frequent, { refetch: refetchFrequent }] = containedRoot(() => createResou
 export function openCommandMenu(channelId: string, guildId: string): void {
   void refetchFrequent();
   const k = indexKey();
-  if (k?.channelId === channelId) void refetchIndex();
+  if (k?.channelId === channelId) void commandIndex.refetch();
   else setIndexKey({ channelId, guildId });
 }
 
 /** True while the menu's commands load. */
 export const commandsLoading = (): boolean => commandIndex.loading;
 /** Why the channel's commands couldn't be listed; null when they were. */
-export const commandsError = (): string | null => (commandIndex.error ? String((commandIndex.error as Error).message ?? commandIndex.error) : null);
+export const commandsError = (): string | null => commandIndex.failure;
 
 const NAME_WORD_BREAK = /[ _-]/;
 /** A name matches when it, or one of its words, starts with what was typed, as in Discord's menu. */
@@ -75,7 +73,7 @@ export function menuSections(channelId: string, typed: string): MenuSection[] {
     .filter((c) => matches(c.prefix, q) || matches(c.name, q))
     .map((c) => ({ kind: 'own', prefix: c.prefix, description: c.description }));
   const sections: MenuSection[] = [];
-  const index = !commandIndex.error && commandIndex.latest?.channelId === channelId ? commandIndex.latest : undefined;
+  const index = indexKey()?.channelId === channelId ? commandIndex() : undefined;
   const apps = new Map((index?.apps ?? []).map((a) => [a.id, a]));
   const entries = index ? commandEntries(index.commands).filter((e) => matches(e.fullName.toLowerCase(), q)) : [];
   entries.sort((a, b) => Number(!a.fullName.startsWith(q)) - Number(!b.fullName.startsWith(q)) || a.fullName.localeCompare(b.fullName));
@@ -201,3 +199,24 @@ export async function searchEntities(kind: Exclude<SelectKind, 'string'>, guildI
   }
   return out.slice(0, PICKER_RESULTS_MAX);
 }
+
+/** One picker search: what kind, in which server, of which channel types, for what text. */
+export interface EntitySearch {
+  kind: Exclude<SelectKind, 'string'>;
+  guildId: string;
+  query: string;
+  channelTypes: number[];
+}
+
+/** searchEntities' answer for `search()`, keyed by the whole request: a change to any part searches again. None while false. */
+export const createEntitySearch = (search: () => EntitySearch | false): KeyedResource<EntityChoice[]> =>
+  keyedResource(
+    () => {
+      const s = search();
+      return s && JSON.stringify(s);
+    },
+    (key) => {
+      const s = JSON.parse(key) as EntitySearch;
+      return searchEntities(s.kind, s.guildId, s.query, s.channelTypes);
+    },
+  );
