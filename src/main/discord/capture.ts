@@ -1,4 +1,6 @@
 import type { Session } from 'electron';
+import { errorMessage } from '@shared/errors';
+import { fanOut } from '@shared/fanOut';
 import { diag, redactIds } from '../diagnostics';
 
 /** Headers the Discord web client sends that REST calls must reproduce. Held in memory only, never persisted. */
@@ -24,6 +26,9 @@ export const SESSION_HEADERS: ReadonlySet<string> = new Set([
 /** The session-wide headers among `headers`, under the names the client sent them with. */
 export const sessionHeaders = (headers: Record<string, string>): Record<string, string> =>
   Object.fromEntries(Object.entries(headers).filter(([k]) => SESSION_HEADERS.has(k.toLowerCase())));
+
+/** Records a capture or invalidation listener's throw; the others and the request it came from go on. */
+const listenerFailed = (err: unknown): void => diag('header-capture-listener-failed', { message: errorMessage(err) });
 
 /** A request's identity as webRequest reports it. */
 const requestKey = (method: string, url: string): string => `${method} ${url}`;
@@ -73,7 +78,7 @@ export class HeaderCapture {
         if (this.headers && this.headers.authorization !== authorization) this.invalidate('replaced');
         const extra = sessionHeaders(h);
         this.headers = { authorization, extra, capturedAt: Date.now() };
-        for (const listener of this.captures) listener();
+        fanOut(this.captures, [], listenerFailed);
         if (wasAbsent) {
           diag('session-captured', { customHeaders: Object.keys(extra) });
           this.onAvailable?.();
@@ -113,6 +118,6 @@ export class HeaderCapture {
     this.headers = undefined;
     if (reason === 'revoked') this.gatewayAuthorization = undefined;
     this.generation++;
-    for (const listener of this.invalidations) listener(reason);
+    fanOut(this.invalidations, [reason], listenerFailed);
   }
 }

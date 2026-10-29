@@ -38,6 +38,35 @@ describe('CoreClient routes what core posts', () => {
   });
 });
 
+describe("CoreClient's host listeners (#266)", () => {
+  it("records a listener's throw or rejection and still delivers to every later one, once listeners included", async () => {
+    const core = freshCore();
+    const heard: string[] = [];
+    core.on('event', () => {
+      throw new Error('listener failed');
+    });
+    core.on('event', () => Promise.reject(new Error('listener rejected')));
+    core.once('event', () => void heard.push('once'));
+    core.on('event', () => void heard.push('later'));
+    core.on('init-step', () => {
+      throw new Error('step listener failed');
+    });
+    core.on('init-step', () => void heard.push('step'));
+    expect(() => proc.emit('message', { kind: 'event', event: { type: 'plugins-changed' } })).not.toThrow();
+    proc.emit('message', { kind: 'event', event: { type: 'plugins-changed' } });
+    proc.emit('message', { kind: 'init-step', step: 'loaded' });
+    await flushed();
+    expect(heard).toEqual(['once', 'later', 'later', 'step']);
+    expect(reports).toEqual([
+      ['core-listener-failed', { event: 'event', message: 'listener failed' }],
+      ['core-listener-failed', { event: 'event', message: 'listener failed' }],
+      ['core-listener-failed', { event: 'init-step', message: 'step listener failed' }],
+      ['core-listener-failed', { event: 'event', message: 'listener rejected' }],
+      ['core-listener-failed', { event: 'event', message: 'listener rejected' }],
+    ]);
+  });
+});
+
 describe('CoreClient once core has ended', () => {
   it('rejects calls pending at exit and every later call with the exit, posting nothing', async () => {
     const core = freshCore();

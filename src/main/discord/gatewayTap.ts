@@ -1,7 +1,7 @@
-import { EventEmitter } from 'node:events';
 import { createInflate, createZstdDecompress, constants, type Inflate, type ZstdDecompress } from 'node:zlib';
 import type { WebContents } from 'electron';
 import { diag } from '../diagnostics';
+import { IsolatedEmitter } from '../isolatedEmitter';
 
 /** Gateway dispatch as the client received it. `t` is the event name, `d` its payload. */
 export interface GatewayDispatch {
@@ -33,8 +33,16 @@ const WS_TEXT_OPCODE = 1;
 const TAP_DIAGNOSTIC_INTERVAL_MS = 60_000;
 /** Bound repeated failure logging while retaining complete counters in snapshots. */
 const TAP_DIAGNOSTIC_FAILURES_LOGGED = 3;
+/** Stack frames a logged failure keeps: enough to place it. */
+const STACK_FRAMES_LOGGED = 3;
 
 type Decoder = { write(chunk: Buffer): Promise<string> };
+
+/** A failure as diagnostics record it: its kind and top stack frames, never its message, which may quote frame content. */
+const failureShape = (error: unknown): { errorName: string; stack: string[] | undefined } => ({
+  errorName: error instanceof Error ? error.name : typeof error,
+  stack: error instanceof Error ? error.stack?.split('\n').slice(1, STACK_FRAMES_LOGGED + 1) : undefined,
+});
 
 /** Opened: a gateway socket the tap reads, whose session starts anew. Ended: the tap reads none now (last one closed, or detached). */
 export type GatewayChange = 'opened' | 'ended';
@@ -51,7 +59,7 @@ export interface GatewaySend {
  * Network events must be on before the page opens its socket (compressed streams can't be decoded mid-stream): load the
  * client only once `ready` settles. CDP turns them on only when a page process exists, so a blank page must load first.
  */
-export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend]; gateway: [GatewayChange] }> {
+export class GatewayTap extends IsolatedEmitter<{ dispatch: [GatewayDispatch]; sent: [GatewaySend]; gateway: [GatewayChange] }> {
   readonly stats: GatewayTapStats = { url: null, compress: null, frames: 0, decodeErrors: 0, events: {} };
   /** Settles once Network events are on, or failed to turn on (diagnosed): the client may load then. */
   readonly ready: Promise<void>;
@@ -69,7 +77,10 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
   private diagnosticPayloads = 0;
 
   constructor(private readonly wc: WebContents) {
-    super();
+    let listenerFailures = 0;
+    super((event, err) => {
+      if (++listenerFailures <= TAP_DIAGNOSTIC_FAILURES_LOGGED) diag('gateway-tap-listener-failed', { event, ...failureShape(err) });
+    });
     wc.debugger.attach(CDP_PROTOCOL_VERSION);
     wc.debugger.on('message', (_e, method, params, sessionId) => {
       this.diagnosticMethods[method] = (this.diagnosticMethods[method] ?? 0) + 1;
@@ -194,8 +205,7 @@ export class GatewayTap extends EventEmitter<{ dispatch: [GatewayDispatch]; sent
         if (this.stats.decodeErrors <= TAP_DIAGNOSTIC_FAILURES_LOGGED) {
           diag('gateway-tap-payload-failed', {
             requestId: params['requestId'], opcode, bytes: chunk.length,
-            errorName: error instanceof Error ? error.name : typeof error,
-            stack: error instanceof Error ? error.stack?.split('\n').slice(1, 4) : undefined,
+            ...failureShape(error),
           });
         }
       });

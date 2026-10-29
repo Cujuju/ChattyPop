@@ -5,6 +5,7 @@ import { definePreference, finiteOr } from '@plugin-sdk/shared';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { AppEvent } from '@shared/contract';
 import { mainPreferences } from '../src/main/plugins/preferences';
+import { PluginStates } from '../src/main/plugins/states';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
 
@@ -71,5 +72,20 @@ describe("main's preference listeners", () => {
     await flush();
     expect(healthy).toEqual([event]);
     expect(failures.map((err) => (err as Error).message)).toEqual(['preference callback failed', 'preference callback rejected']);
+  });
+});
+
+describe("main's plugin-state listeners (#266)", () => {
+  it("report one listener's throw and still run the later ones", async () => {
+    const failures: unknown[] = [];
+    const states = new PluginStates(async () => [], (err) => void failures.push(err));
+    let later = 0;
+    states.onChange(() => {
+      throw new Error('state listener failed');
+    });
+    states.onChange(() => void later++);
+    await states.refresh();
+    expect(later).toBe(1);
+    expect(failures.map((err) => (err as Error).message)).toEqual(['state listener failed']);
   });
 });

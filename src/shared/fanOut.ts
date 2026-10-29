@@ -8,3 +8,8 @@ export function runIsolated(run: () => unknown, report: (err: unknown) => void):
     report(err);
   }
 }
+
+/** Calls each of `listeners` (as they are now) with `args`, each isolated (runIsolated). */
+export function fanOut<A extends unknown[]>(listeners: Iterable<(...args: A) => unknown>, args: A, report: (err: unknown) => void): void {
+  for (const fn of [...listeners]) runIsolated(() => fn(...args), report);
+}

@@ -1,9 +1,10 @@
 // Which bundled plugins are on, as main sees them: core's plugin list, re-read on each plugins-changed event.
+import { fanOut } from '@shared/fanOut';
 import { pluginOn, type PluginInfo } from '@shared/plugins';
 import { pluginLifetime, type Lifetime } from '@core/plugins/lifetime';
 import { labelRefresher } from './labelAvailability';
 
-/** Main's copy of core's on/off states; listeners run after each fresh snapshot. */
+/** Main's copy of core's on/off states; listeners run after each fresh snapshot, each isolated (a throw goes to ailed). */
 export class PluginStates {
   private on = new Set<string>();
   private readonly listeners = new Set<() => void>();
@@ -13,7 +14,7 @@ export class PluginStates {
   constructor(private readonly load: () => Promise<readonly PluginInfo[]>, failed: (error: unknown) => void) {
     this.refresh = labelRefresher(load, (list) => {
       this.on = new Set(list.filter((p) => p.bundled && p.status === 'active').map((p) => p.id));
-      for (const fn of this.listeners) fn();
+      fanOut(this.listeners, [], failed);
     }, failed);
   }
 

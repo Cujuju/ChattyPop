@@ -1,4 +1,3 @@
-import { EventEmitter } from 'node:events';
 import { utilityProcess, type UtilityProcess } from 'electron';
 import type {
   AppEvent,
@@ -14,6 +13,7 @@ import type {
   CoreResult,
 } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
+import { IsolatedEmitter } from './isolatedEmitter';
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
@@ -23,8 +23,8 @@ export interface MainCore {
   on(event: 'event', fn: (e: AppEvent) => void): unknown;
 }
 
-/** Owns the core utilityProcess: request/response calls plus the events and init milestones core pushes. */
-export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [CoreInitStep] }> {
+/** Owns the core utilityProcess: request/response calls plus the events and init milestones core pushes, each listener isolated. */
+export class CoreClient extends IsolatedEmitter<{ event: [AppEvent]; 'init-step': [CoreInitStep] }> {
   private readonly proc: UtilityProcess;
   private readonly pending = new Map<number, Pending>();
   private nextId = 1;
@@ -37,7 +37,7 @@ export class CoreClient extends EventEmitter<{ event: [AppEvent]; 'init-step': [
     init: Omit<CoreInit, 'kind'>,
     private readonly report: (event: string, detail: Record<string, unknown>) => void,
   ) {
-    super();
+    super((event, err) => report('core-listener-failed', { event, message: errorMessage(err) }));
     // Main's environment, INSTALLED_ENV included: core loads the installed plugins main's start accepted.
     this.proc = utilityProcess.fork(entry, [], { serviceName: 'ChattyPop Core', stdio: 'inherit', env: process.env });
     this.proc.on('message', (msg: CoreResponse | CoreEventMessage | CoreInitStepMessage | CoreDiagnosticMessage) => {
