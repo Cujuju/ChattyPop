@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { safeStorage } from 'electron';
 import { IS_LINUX } from './platform';
 import { profilePath } from './storageLocation';
@@ -33,11 +33,16 @@ export function readSecret(file: string): string | null {
   return existsSync(path) ? safeStorage.decryptString(readFileSync(path)) : null;
 }
 
+/** Written whole beside the secret, then renamed over it: a failed write leaves the previous value, never a torn one. */
+const PENDING_SUFFIX = '.pending';
+
 /** Stores `value` encrypted, replacing the file; throws when encryption is unavailable. */
 export function writeSecret(file: string, value: string): void {
   requireSecretStorage();
   mkdirSync(profilePath(SECRETS_DIR), { recursive: true });
-  writeFileSync(secretPath(file), safeStorage.encryptString(value));
+  const pending = secretPath(file) + PENDING_SUFFIX;
+  writeFileSync(pending, safeStorage.encryptString(value));
+  renameSync(pending, secretPath(file));
 }
 
 export function deleteSecret(file: string): void {
