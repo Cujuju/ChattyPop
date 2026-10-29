@@ -1,8 +1,7 @@
 // Boot establishes identity/profile, schemes and Chromium switches before ready. Decides installed plugins before importing the app and plugin registry.
 // A client (--connect) has its own profile and none of that: it starts the client instead.
 import { app } from 'electron';
-import { INSTALLED_ENV, INSTALLED_PLUGINS_DIR, type InstalledStart } from '@shared/installedPlugins';
-import { errorMessage } from '@shared/errors';
+import { INSTALLED_ENV, INSTALLED_PLUGINS_DIR } from '@shared/installedPlugins';
 import { BYTES_PER_MB } from '@shared/units';
 import { applyAppIdentity } from './appIdentity';
 import { applyClientProfile } from './client/profile';
@@ -31,22 +30,14 @@ else {
   registerMediaScheme(SCHEME_PRIVILEGES);
 }
 
-/** This start's installed plugins; none when deciding fails outright, so the app still starts. */
-function decideInstalled(): InstalledStart {
-  try {
-    return prepareInstalled(profilePath(INSTALLED_PLUGINS_DIR), diag);
-  } catch (err) {
-    diag('installed-plugins-failed', { message: errorMessage(err) });
-    return { accepted: [], refused: [] };
-  }
-}
 // Enforces one process per profile to protect staged installs. Secondary instances open nothing and quit; the running instance raises its window.
 if (!app.requestSingleInstanceLock()) app.quit();
 else if (client) await import('./client/clientApp');
 else {
   // After the lock: a second instance quits without asking the shell.
   applyShellPath();
-  // Core inherits it (CoreClient), so both processes load the same plugins.
-  process.env[INSTALLED_ENV] = encodeInstalledStart(profilePath(INSTALLED_PLUGINS_DIR), decideInstalled());
+  // Core inherits it (CoreClient), so both processes load the same plugins. A plugin or folder failure refuses or reports only itself.
+  const installedRoot = profilePath(INSTALLED_PLUGINS_DIR);
+  process.env[INSTALLED_ENV] = encodeInstalledStart(installedRoot, prepareInstalled(installedRoot, diag));
   await import('./app');
 }

@@ -6,7 +6,7 @@ import type { PluginDescriptor } from '@shared/bundledTypes';
 import { errorMessage } from '@shared/errors';
 import { publishHostModules } from '@shared/hostModules';
 import { acceptInstalled, descriptorOf, type InstalledFailure } from '@shared/installedCheck';
-import { INSTALLED_ENV, type HostModuleId, type InstalledPlugin, type InstalledStart, type RefusedPlugin } from '@shared/installedPlugins';
+import { INSTALLED_ENV, UNKNOWN_VERSION, type HostModuleId, type InstalledPlugin, type InstalledStart, type RefusedPlugin } from '@shared/installedPlugins';
 import { readInstalledPlugin } from './read';
 
 /** `require` of an ES module: synchronous, and sharing the module cache with `import`, so a file loads once per process. */
@@ -34,13 +34,25 @@ export const encodeInstalledStart = (root: string, start: InstalledStart): strin
 
 let decoded: { raw: string; start: InstalledStart } | null = null;
 
-/** What main's start decided (INSTALLED_ENV, which main sets before its app loads and core inherits); none when unset. */
+/**
+ * What main's start decided (INSTALLED_ENV, which main sets before its app loads and core inherits); none when unset.
+ * An accepted plugin this process can't read is refused alone, with why.
+ */
 export function installedStart(): InstalledStart {
   const raw = process.env[INSTALLED_ENV];
   if (!raw) return { accepted: [], refused: [] };
   if (decoded?.raw !== raw) {
     const wire = JSON.parse(raw) as StartWire;
-    decoded = { raw, start: { accepted: wire.accepted.map((id) => readInstalledPlugin(join(wire.root, id))), refused: wire.refused } };
+    const accepted: InstalledPlugin[] = [];
+    const unread: RefusedPlugin[] = [];
+    for (const id of wire.accepted) {
+      try {
+        accepted.push(readInstalledPlugin(join(wire.root, id)));
+      } catch (err) {
+        unread.push({ id, name: id, version: UNKNOWN_VERSION, error: errorMessage(err) });
+      }
+    }
+    decoded = { raw, start: { accepted, refused: [...wire.refused, ...unread].sort((a, b) => a.id.localeCompare(b.id)) } };
   }
   return decoded.start;
 }

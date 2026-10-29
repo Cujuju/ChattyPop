@@ -100,6 +100,9 @@ export interface RefusedPlugin {
   error: string;
 }
 
+/** A refused plugin's version when its plugin.json couldn't be read. */
+export const UNKNOWN_VERSION = '?';
+
 /** What main decided at start, handed to core (INSTALLED_ENV) and to windows. Accepted ones load in build-then-id order. */
 export interface InstalledStart {
   accepted: InstalledPlugin[];

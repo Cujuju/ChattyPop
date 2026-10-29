@@ -1,5 +1,5 @@
 // Tests crash-safe staged changes, installed-plugin acceptance, host-module publication, and boot isolation from registries.
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import * as sharedSdk from '@plugin-sdk/shared';
@@ -7,8 +7,9 @@ import build from 'virtual:bundled-plugins/shared';
 import hostExports from 'virtual:installed-plugins/host-exports';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { hostModules } from '@shared/hostModules';
-import { HELD_DIR, PLUGIN_SDK_VERSION, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
+import { HELD_DIR, INSTALLED_ENV, PLUGIN_SDK_VERSION, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
 import { prepareInstalled } from '../src/main/plugins/installed/boot';
+import { encodeInstalledStart, installedStart } from '../src/main/plugins/installed/runtime';
 import { applyStaged } from '../src/main/plugins/installed/staged';
 import { host, installedRoot, sharedModule, writePlugin } from './installedFixtures';
 import { ROOT, closure, importsOf } from './rendererGraph';
@@ -202,6 +203,33 @@ describe('accepting installed plugins', () => {
     const { accepted, refused } = start(root);
     expect(accepted).toEqual(['healthy', 'later']);
     expect(refused).toEqual({ broken: 'Two statusBar items are broken.same' });
+  });
+
+  it("an installer folder it can't list holds back staged changes alone; installed plugins still load (#253)", () => {
+    const root = installedRoot();
+    writePlugin(root, 'beta');
+    writePlugin(join(root, STAGED_DIR), 'alpha');
+    writeFileSync(join(root, REMOVED_DIR), ''); // a file where the folder belongs: listing it fails
+    const { accepted, refused, log } = start(root);
+    expect([accepted, refused]).toEqual([['beta'], {}]);
+    expect(log).toContain(`installed-plugin-staging-failed ${REMOVED_DIR}`);
+    expect(existsSync(join(root, STAGED_DIR, 'alpha'))).toBe(true);
+  });
+
+  it("refuses alone an accepted plugin a later process can't read; the rest stay accepted (#253)", () => {
+    const root = installedRoot();
+    writePlugin(root, 'good');
+    writePlugin(root, 'gone');
+    const decided = prepareInstalled(root, () => undefined);
+    rmSync(join(root, 'gone'), { recursive: true });
+    process.env[INSTALLED_ENV] = encodeInstalledStart(root, decided);
+    try {
+      const later = installedStart();
+      expect(later.accepted.map((p) => p.manifest.id)).toEqual(['good']);
+      expect(later.refused).toEqual([{ id: 'gone', name: 'gone', version: '?', error: expect.stringMatching(/ENOENT/) }]);
+    } finally {
+      delete process.env[INSTALLED_ENV];
+    }
   });
 
   it("publishes the shared SDK tier before loading plugins; checks core's and main's by their export names", async () => {

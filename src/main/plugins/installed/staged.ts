@@ -4,8 +4,16 @@ import { join } from 'node:path';
 import { HELD_DIR, REMOVED_DIR, STAGED_DIR, TRASH_DIR } from '@shared/installedPlugins';
 import { PLUGIN_ID_PATTERN } from '@shared/plugins';
 
-/** Plugin ids named by `dir`'s entries; other names (another tool's files) are left alone. */
-const idsIn = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).filter((name) => PLUGIN_ID_PATTERN.test(name)).sort() : []);
+/** Plugin ids named by `root`'s installer folder `name`; other names (another tool's files) are left alone. null: unlistable, reported. */
+function idsIn(root: string, name: string, onError: (id: string, err: unknown) => void): string[] | null {
+  const dir = join(root, name);
+  try {
+    return existsSync(dir) ? readdirSync(dir).filter((entry) => PLUGIN_ID_PATTERN.test(entry)).sort() : [];
+  } catch (err) {
+    onError(name, err);
+    return null;
+  }
+}
 
 /** A free path in `trash` for plugin `id`'s folder: a crash, or a file held open, may have left an earlier one. */
 function trashPath(trash: string, id: string): string {
@@ -24,10 +32,12 @@ function discard(root: string, id: string): void {
   renameSync(dir, trashPath(trash, id));
 }
 
-/** Settles held staged copies: discard when replacement exists, otherwise restore to staged. Returns ids still held after failures. */
-function settleHeld(root: string, onError: (id: string, err: unknown) => void): Set<string> {
+/** Settles held staged copies: discard when replacement exists, otherwise restore to staged. Returns ids still held after failures; null when unlistable. */
+function settleHeld(root: string, onError: (id: string, err: unknown) => void): Set<string> | null {
   const blocked = new Set<string>();
-  for (const id of idsIn(join(root, HELD_DIR))) {
+  const held = idsIn(root, HELD_DIR, onError);
+  if (!held) return null;
+  for (const id of held) {
     const held = join(root, HELD_DIR, id);
     try {
       if (existsSync(join(root, STAGED_DIR, id))) rmSync(held, { recursive: true, force: true });
@@ -43,26 +53,32 @@ function settleHeld(root: string, onError: (id: string, err: unknown) => void): 
   return blocked;
 }
 
-/** Settles held copies, applies removal markers then staged installs, and empties trash. Reports failures and defers that plugin’s later steps until next startup. */
+/**
+ * Settles held copies, applies removal markers then staged installs, and empties trash. Reports failures and defers that
+ * plugin’s later steps until next startup. An unlistable held or removal folder defers every staged install, since any may be blocked.
+ */
 export function applyStaged(root: string, onError: (id: string, err: unknown) => void): void {
   const blocked = settleHeld(root, onError);
-  for (const id of idsIn(join(root, REMOVED_DIR))) {
-    if (blocked.has(id)) continue;
-    try {
-      discard(root, id);
-      rmSync(join(root, REMOVED_DIR, id), { force: true });
-    } catch (err) {
-      onError(id, err);
-      blocked.add(id);
+  const removed = blocked && idsIn(root, REMOVED_DIR, onError);
+  if (blocked && removed) {
+    for (const id of removed) {
+      if (blocked.has(id)) continue;
+      try {
+        discard(root, id);
+        rmSync(join(root, REMOVED_DIR, id), { force: true });
+      } catch (err) {
+        onError(id, err);
+        blocked.add(id);
+      }
     }
-  }
-  for (const id of idsIn(join(root, STAGED_DIR))) {
-    if (blocked.has(id)) continue;
-    try {
-      discard(root, id);
-      renameSync(join(root, STAGED_DIR, id), join(root, id));
-    } catch (err) {
-      onError(id, err);
+    for (const id of idsIn(root, STAGED_DIR, onError) ?? []) {
+      if (blocked.has(id)) continue;
+      try {
+        discard(root, id);
+        renameSync(join(root, STAGED_DIR, id), join(root, id));
+      } catch (err) {
+        onError(id, err);
+      }
     }
   }
   try {
