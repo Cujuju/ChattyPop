@@ -2,7 +2,7 @@
 // that loads while a relay runs shows it, then pushed.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';
-import type { LoginFrame, LoginRelayState, RelayInput } from '@shared/discordLogin';
+import { RELAY_MODIFIER, type LoginFrame, type LoginRelayState, type RelayInput } from '@shared/discordLogin';
 
 /** The server's answer to the page's load-time read; a test may hold it back. */
 const server = { relay: Promise.resolve<LoginRelayState>({ running: false, frame: null }) };
@@ -51,7 +51,7 @@ const key = (k: string, code: string, keyCode: number, mods: Partial<Pick<Key, '
   ...mods,
 });
 /** Windows virtual-key codes the tests press. */
-const VK = { CONTROL: 17, V: 86, A: 65 };
+const VK = { CONTROL: 17, V: 86, A: 65, TAB: 9, X: 88 };
 const STATE = '../src/renderer/src/state/discordLogin.ts';
 const load = async (): Promise<RelayView> => (await import(STATE)) as RelayView;
 /** Lets the load-time read's answer land. */
@@ -127,5 +127,20 @@ describe('keys on the relayed frame', () => {
     await settled();
     expect([ctrl, selectAll, typed].every((e) => e.defaultPrevented)).toBe(true);
     expect(sent.map((e) => (e.kind === 'key' ? [e.key, e.text] : e.kind))).toEqual([['Control', null], ['a', null], ['v', 'v']]);
+  });
+
+  it('carries the held modifiers with every key, pressed and released', async () => {
+    const relay = (await load()).createKeyRelay();
+    relay('keyDown', key('a', 'KeyA', VK.A, { ctrlKey: true }));
+    relay('keyDown', key('Tab', 'Tab', VK.TAB, { shiftKey: true }));
+    relay('keyUp', key('x', 'KeyX', VK.X, { altKey: true, metaKey: true }));
+    relay('keyDown', key('v', 'KeyV', VK.V));
+    await settled();
+    expect(sent.map((e) => (e.kind === 'key' ? e.modifiers : e.kind))).toEqual([
+      RELAY_MODIFIER.ctrl,
+      RELAY_MODIFIER.shift,
+      RELAY_MODIFIER.alt | RELAY_MODIFIER.meta,
+      0,
+    ]);
   });
 });

@@ -140,7 +140,7 @@ export class LoginRelay {
     } else if (e.kind === 'wheel') {
       await this.command('Input.dispatchMouseEvent', { type: 'mouseWheel', x: e.x, y: e.y, deltaX: e.deltaX, deltaY: e.deltaY });
     } else if (e.kind === 'key') {
-      await this.command('Input.dispatchKeyEvent', { type: e.type, key: e.key, code: e.code, windowsVirtualKeyCode: e.keyCode, ...(e.text ? { text: e.text } : {}) });
+      await this.command('Input.dispatchKeyEvent', { type: e.type, key: e.key, code: e.code, windowsVirtualKeyCode: e.keyCode, modifiers: e.modifiers, ...(e.text ? { text: e.text } : {}) });
     } else await this.command('Input.insertText', { text: e.text });
   }
 

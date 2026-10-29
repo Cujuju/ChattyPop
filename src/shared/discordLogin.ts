@@ -22,11 +22,20 @@ export interface LoginRelayState {
 export const RELAY_BUTTONS = ['none', 'left', 'right', 'middle'] as const;
 export type RelayButton = (typeof RELAY_BUTTONS)[number];
 
+/** Bits of a relayed key's `modifiers`: the held Alt, Ctrl, Meta (Command) and Shift keys, as CDP Input numbers them. */
+export const RELAY_MODIFIER = { alt: 1, ctrl: 2, meta: 4, shift: 8 } as const;
+/** Every modifier bit set: the largest `modifiers` value. */
+const RELAY_MODIFIERS_ALL = Object.values(RELAY_MODIFIER).reduce((all, bit) => all | bit, 0);
+
+/** The modifiers a key event says are held, as RELAY_MODIFIER bits. */
+export const relayModifiers = (e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): number =>
+  (e.altKey ? RELAY_MODIFIER.alt : 0) | (e.ctrlKey ? RELAY_MODIFIER.ctrl : 0) | (e.metaKey ? RELAY_MODIFIER.meta : 0) | (e.shiftKey ? RELAY_MODIFIER.shift : 0);
+
 /** What the owner does on a relayed frame, in the frame's page coordinates (CSS px). */
 export type RelayInput =
   | { kind: 'mouse'; type: 'mousePressed' | 'mouseReleased' | 'mouseMoved'; x: number; y: number; button: RelayButton; clickCount: number }
   | { kind: 'wheel'; x: number; y: number; deltaX: number; deltaY: number }
-  | { kind: 'key'; type: 'keyDown' | 'keyUp'; key: string; code: string; text: string | null; keyCode: number }
+  | { kind: 'key'; type: 'keyDown' | 'keyUp'; key: string; code: string; text: string | null; keyCode: number; modifiers: number }
   | { kind: 'text'; text: string };
 
 /** Longest text one relayed key or paste may carry. */
@@ -57,8 +66,10 @@ export function normalizeRelayInput(v: unknown): RelayInput | null {
     const type = v['type'];
     const [key, code] = [text(v['key']), text(v['code'])];
     const keyCode = Number.isInteger(v['keyCode']) ? (v['keyCode'] as number) : 0;
+    const modifiers = v['modifiers'];
+    if (!Number.isInteger(modifiers) || (modifiers as number) < 0 || (modifiers as number) > RELAY_MODIFIERS_ALL) return null;
     if ((type !== 'keyDown' && type !== 'keyUp') || key === null || code === null) return null;
-    return { kind: 'key', type, key, code, text: text(v['text']), keyCode };
+    return { kind: 'key', type, key, code, text: text(v['text']), keyCode, modifiers: modifiers as number };
   }
   if (v['kind'] === 'text') {
     const t = text(v['text']);

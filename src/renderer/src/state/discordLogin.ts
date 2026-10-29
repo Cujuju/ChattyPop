@@ -3,7 +3,7 @@
 import { createSignal } from 'solid-js';
 import { api } from '@/api';
 import { createPushedValue, onAppEvent } from './events';
-import type { DiscordSessionState, LoginFrame, RelayInput } from '@shared/discordLogin';
+import { relayModifiers, type DiscordSessionState, type LoginFrame, type RelayInput } from '@shared/discordLogin';
 
 const session = createPushedValue(() => api.discord.loginState(), 'discord-session', (e) => e.state);
 /** Whether the server's Discord client is signed in; unknown while loading. */
@@ -67,6 +67,6 @@ export function createKeyRelay(): (type: 'keyDown' | 'keyUp', e: KeyboardEvent) 
     // A printable key without a shortcut modifier types its character; Enter types a return.
     const printable = e.key.length === 1 && !e.ctrlKey && !e.metaKey;
     const text = type === 'keyDown' ? (printable ? e.key : e.key === 'Enter' ? '\r' : null) : null;
-    sendRelayInput({ kind: 'key', type, key: e.key, code: e.code, text, keyCode: e.keyCode });
+    sendRelayInput({ kind: 'key', type, key: e.key, code: e.code, text, keyCode: e.keyCode, modifiers: relayModifiers(e) });
   };
 }

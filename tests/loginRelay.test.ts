@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 import type { AppEvent } from '@shared/contract';
-import { normalizeRelayInput, type DiscordSessionState } from '@shared/discordLogin';
+import { RELAY_MODIFIER, normalizeRelayInput, type DiscordSessionState } from '@shared/discordLogin';
 import { HeaderCapture } from '../src/main/discord/capture';
 import { LoginRelay, followSession } from '../src/main/discord/loginRelay';
 
@@ -120,10 +120,12 @@ describe('the sign-in relay', () => {
     expect(h.sendCommand).not.toHaveBeenCalled();
     await h.relay.start();
     await h.relay.input({ kind: 'mouse', type: 'mousePressed', x: 10, y: 20, button: 'left', clickCount: 1 });
-    await h.relay.input({ kind: 'key', type: 'keyDown', key: 'a', code: 'KeyA', text: 'a', keyCode: 65 });
+    await h.relay.input({ kind: 'key', type: 'keyDown', key: 'a', code: 'KeyA', text: 'a', keyCode: 65, modifiers: 0 });
+    await h.relay.input({ kind: 'key', type: 'keyDown', key: 'a', code: 'KeyA', text: null, keyCode: 65, modifiers: RELAY_MODIFIER.ctrl });
     await h.relay.input({ kind: 'text', text: 'hunter2' });
     expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchMouseEvent', expect.objectContaining({ type: 'mousePressed', x: 10, y: 20, button: 'left', buttons: 1, clickCount: 1 }));
-    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, text: 'a' });
+    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: 0, text: 'a' });
+    expect(h.sendCommand).toHaveBeenCalledWith('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', windowsVirtualKeyCode: 65, modifiers: RELAY_MODIFIER.ctrl });
     expect(h.sendCommand).toHaveBeenCalledWith('Input.insertText', { text: 'hunter2' });
   });
 
@@ -181,7 +183,11 @@ describe('relayed input', () => {
     expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseWheel', x: 1, y: 2 })).toBeNull();
     expect(normalizeRelayInput({ kind: 'mouse', type: 'mouseMoved', x: Number.NaN, y: 2 })).toBeNull();
     expect(normalizeRelayInput({ kind: 'wheel', x: 1, y: 2, deltaX: 0, deltaY: 1e9 })).toBeNull();
-    expect(normalizeRelayInput({ kind: 'key', type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', keyCode: 13 })).toEqual({ kind: 'key', type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', keyCode: 13 });
+    const enter = { kind: 'key', type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r', keyCode: 13 };
+    const shift = RELAY_MODIFIER.shift;
+    expect(normalizeRelayInput({ ...enter, modifiers: shift })).toEqual({ ...enter, modifiers: shift });
+    // Every key says which modifiers are held: none, or only the four known bits.
+    for (const modifiers of [undefined, -1, 0.5, 16]) expect(normalizeRelayInput({ ...enter, modifiers })).toBeNull();
     expect(normalizeRelayInput({ kind: 'text', text: '' })).toBeNull();
     expect(normalizeRelayInput({ kind: 'text', text: 'x'.repeat(5000) })).toBeNull();
     expect(normalizeRelayInput({ kind: 'eval', code: 'x' })).toBeNull();
