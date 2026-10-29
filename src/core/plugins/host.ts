@@ -1,70 +1,26 @@
-// Plugin activation, dispatch, failure reporting and disposal.
+// Plugin activation and disposal; PluginDispatch runs the active ones.
 import { createArchiveRefViews } from './archiveRefs';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join, resolve, sep } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { PluginCallRegistry } from './callRegistry';
-import { servedCall } from './callStalls';
-import { checkCallRequest, type PluginCallRequest } from '@shared/readPriority';
-import { PluginInactiveError } from '@shared/pluginCall';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { errorMessage } from '@shared/errors';
-import { switchState, type PluginState } from '@shared/ruleAvailability';
-import {
-  PLUGIN_API_MAJOR_CHANGES,
-  PLUGIN_API_VERSION,
-  PLUGIN_ID_PATTERN,
-  PLUGIN_MANIFEST_FILE,
-  PLUGIN_STOP_DEADLINE_MS,
-  type PluginApi,
-  type PluginInfo,
-  type PluginManifest,
-  type PluginMessage,
-  type PluginOrigin,
-  type PluginRange,
-  type PluginStatus,
-} from '@shared/plugins';
+import { PLUGIN_API_VERSION, PLUGIN_STOP_DEADLINE_MS } from '@shared/plugins';
 import type { InstalledFailure } from '@shared/installedCheck';
 import type { InstalledStart } from '@shared/installedPlugins';
-import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting } from '../db';
-import { createPluginApi, emptyRegistrations, type HostDeps, type Registrations } from './api';
-import { unregisterMessageQuestion } from '../jev/messageQuestions';
-import { audiencesOf, completionOf, readsOf, syncReadsOf, type Audience } from '@shared/pluginChannels';
+import { emptyRegistrations, type HostDeps } from './api';
 import { nestedTablesError, tableNamespacesNest, type PluginDescriptor } from '@shared/bundledTypes';
-import type { HostPlugins, TextSource } from './bundled';
+import type { HostPlugins } from './bundled';
 import { CompletionLedger } from './completions';
 import { createCoreContext, type CorePlugin } from './context';
+import { PluginDispatch } from './dispatch';
+import { loadFolderPlugin, type FolderHost } from './folderPlugins';
+import { unload, type BundledEntry, type Loaded } from './loaded';
 import { assertRegistered } from './registrationCheck';
 import { ActivationContinuity } from './continuity';
 import { reservePluginId } from './tableOwners';
 
 /** Ids of plugins the user turned off (Settings → Plugins). */
 export const PLUGINS_DISABLED_KEY = 'plugins.disabled';
-
-interface PluginModule {
-  activate(api: PluginApi): void | (() => void) | Promise<void | (() => void)>;
-}
-
-interface Loaded {
-  manifest: PluginManifest;
-  /** The plugin folder; '' for a bundled plugin. */
-  dir: string;
-  origin: PluginOrigin;
-  /** Set for a descriptor plugin (bundled or installed) that loaded; null for a folder plugin or a refused installed one. */
-  entry: BundledEntry | null;
-  status: PluginStatus;
-  error: string | null;
-  reg: Registrations;
-  deactivate?: () => void;
-  /** Set once unloaded: an activation still running then disposes what it returns instead of committing it. */
-  retired?: true;
-}
-
-/** Bundled descriptor and optional core side. */
-interface BundledEntry {
-  plugin: PluginDescriptor;
-  core: CorePlugin | null;
-}
 
 /** Installed plugins as this process has them (§16): main's start, and accepted ones whose node modules failed here. */
 export interface InstalledPlugins {
@@ -73,48 +29,13 @@ export interface InstalledPlugins {
 }
 const NO_INSTALLED: InstalledPlugins = { start: { accepted: [], refused: [] }, failed: [] };
 
-/** Why a folder plugin can't take an id, by where the plugin holding it comes from. */
-const TAKEN_BY: Readonly<Record<PluginOrigin, (id: string) => string>> = {
-  bundled: (id) => `ChattyPop already includes plugin ${id}`,
-  installed: (id) => `An installed plugin already provides plugin ${id}`,
-  folder: (id) => `Another folder already provides plugin ${id}`,
-};
-
-const major = (semver: string): number => Number(semver.split('.')[0]);
-const minor = (semver: string): number => Number(semver.split('.')[1] ?? 0);
-/** A manifest path must stay inside its plugin folder. */
-const insideFolder = (dir: string, rel: string): boolean => resolve(dir, rel).startsWith(resolve(dir) + sep);
-
-function readManifest(dir: string): PluginManifest {
-  const m = JSON.parse(readFileSync(join(dir, PLUGIN_MANIFEST_FILE), 'utf8')) as Partial<PluginManifest>;
-  if (typeof m.id !== 'string' || !PLUGIN_ID_PATTERN.test(m.id)) throw new Error(`plugin.json: id must match ${PLUGIN_ID_PATTERN}`);
-  if (typeof m.version !== 'string' || typeof m.apiVersion !== 'string' || typeof m.main !== 'string') {
-    throw new Error('plugin.json: version, apiVersion and main are required');
-  }
-  // Same major, and no newer minor than the host: a minor adds API the plugin may call. An older major says what changed.
-  const hostMajor = major(PLUGIN_API_VERSION);
-  if (major(m.apiVersion) < hostMajor) {
-    throw new Error(
-      `written for plugin API ${m.apiVersion}; this ChattyPop provides ${PLUGIN_API_VERSION}, where ${PLUGIN_API_MAJOR_CHANGES}. Update it for API ${hostMajor} (docs/plugins.md).`,
-    );
-  }
-  if (major(m.apiVersion) !== hostMajor || minor(m.apiVersion) > minor(PLUGIN_API_VERSION)) {
-    throw new Error(`written for plugin API ${m.apiVersion}; this ChattyPop provides ${PLUGIN_API_VERSION}`);
-  }
-  return m as PluginManifest;
-}
-
 /**
  * Loads the bundled plugins this build includes, then plugins from <plugins dir>/<folder>/plugin.json; dispatches hooks
  * to them and isolates their failures. Both kinds share on/off (Settings → Plugins) and error reporting.
  */
-export class PluginHost {
-  private readonly calls = new PluginCallRegistry();
-  private readonly plugins = new Map<string, Loaded>();
+export class PluginHost extends PluginDispatch {
   /** Bumped on every folder pass, so the ESM loader re-reads changed entry files and an older pass stops. */
   private generation = 0;
-  /** The signed-in Discord user, once main reports it; handed to bundled plugins that load later. */
-  private self: string | null = null;
   private bundledStarted = false;
   /** Set once the archive begins closing: nothing loads after. */
   private ended = false;
@@ -132,12 +53,13 @@ export class PluginHost {
 
   constructor(
     private readonly dir: string,
-    private readonly deps: HostDeps,
+    deps: HostDeps,
     core: readonly CorePlugin[] = [],
     /** This build's descriptors, then accepted installed ones (BUNDLED_PLUGINS); defaults to the core entries' own. */
     descriptors: readonly PluginDescriptor[] = core.map((c) => c.plugin),
     private readonly installed: InstalledPlugins = NO_INSTALLED,
   ) {
+    super(deps);
     this.installedDirs = new Map(installed.start.accepted.map((p) => [p.manifest.id, p.dir]));
     this.failedHere = new Map(installed.failed.map((f) => [f.id, f.error]));
     const byId = new Map(core.map((c) => [c.plugin.manifest.id, c]));
@@ -152,12 +74,6 @@ export class PluginHost {
     this.continuity = new ActivationContinuity(() => deps.db);
     deps.bundled?.providers.bindPlugins((id) => this.state(id));
     deps.bundled?.rules.bindPlugins((id) => this.state(id));
-  }
-
-  /** Plugin `id` as unavailability reasons read it; off while not loaded. */
-  state(id: string): PluginState {
-    const p = this.plugins.get(id);
-    return p?.status === 'error' ? { status: 'error', error: p.error } : switchState(p?.status === 'active');
   }
 
   /** Starts the bundled plugins that are on, synchronously: core init calls it before the Jev catch-up. Once. */
@@ -186,7 +102,7 @@ export class PluginHost {
   async reload(): Promise<void> {
     for (const [key, p] of this.plugins) {
       if (p.origin !== 'folder') continue;
-      this.unload(p);
+      unload(p);
       this.plugins.delete(key);
     }
     await this.loadFolders(this.disabled());
@@ -212,7 +128,7 @@ export class PluginHost {
       // Off before its registrations go, so what they revoke says why.
       p.status = 'disabled';
       p.error = null;
-      this.unload(p);
+      unload(p);
     }
     this.deps.bundled?.rules.changed();
     // What arrived while it was off: its questions are registered and its rules compiled again.
@@ -228,7 +144,7 @@ export class PluginHost {
   async endActivations(deadlineMs = PLUGIN_STOP_DEADLINE_MS): Promise<void> {
     this.ended = true;
     this.generation++;
-    for (const p of this.plugins.values()) if (!p.retired) this.unload(p);
+    for (const p of this.plugins.values()) if (!p.retired) unload(p);
     let timer: ReturnType<typeof setTimeout> | undefined;
     const overrun = new Promise<'overrun'>((settle) => (timer = setTimeout(() => settle('overrun'), deadlineMs)));
     const outcome = await Promise.race([Promise.allSettled([...this.loading]).then(() => 'ended' as const), overrun]);
@@ -244,129 +160,13 @@ export class PluginHost {
   private async loadFolders(disabled: Set<string>): Promise<void> {
     const generation = ++this.generation;
     if (this.ended || !existsSync(this.dir)) return;
+    const host: FolderHost = { plugins: this.plugins, deps: this.deps, guard: (p, fn) => this.guard(p, fn) };
     for (const entry of readdirSync(this.dir, { withFileTypes: true })) {
       if (generation !== this.generation) return;
       if (!entry.isDirectory()) continue;
-      const load = this.load(join(this.dir, entry.name), disabled, generation);
+      const load = loadFolderPlugin(join(this.dir, entry.name), disabled, generation, host);
       this.loading.add(load);
       await load.finally(() => this.loading.delete(load));
-    }
-  }
-
-  list(): PluginInfo[] {
-    return [...this.plugins.entries()].map(([key, p]) => ({
-      key,
-      conflict: key !== p.manifest.id,
-      id: p.manifest.id,
-      name: p.manifest.name ?? p.manifest.id,
-      version: p.manifest.version,
-      description: p.manifest.description ?? null,
-      dir: p.dir,
-      bundled: p.origin !== 'folder',
-      origin: p.origin,
-      status: p.status,
-      error: p.error,
-      commands: [...p.reg.commands.values()].map((c) => ({ id: c.id, title: c.title })),
-      renderer: p.status === 'active' && p.manifest.renderer && insideFolder(p.dir, p.manifest.renderer) ? p.manifest.renderer : null,
-    }));
-  }
-
-  /** Ingest defers onMessage handlers. Bundled onText handlers only record work synchronously; plugin errors are recorded without interrupting archiving. */
-  dispatchMessage(m: TextMessage, arrived: Arrived, source: TextSource): void {
-    const message: PluginMessage = { id: m.id, channelId: m.channelId, authorId: m.authorId, ts: m.ts, content: m.content };
-    for (const p of this.active()) {
-      // Deferred: a plugin turned off before it runs never hears the message.
-      const { reg } = p;
-      for (const handler of reg.onMessage) setImmediate(() => void (!reg.unloaded && this.guard(p, () => handler(message))));
-      for (const handler of p.reg.onText) this.guard(p, () => handler(m, arrived, source));
-    }
-  }
-
-  /** Main reported the signed-in user. */
-  setSelf(userId: string): void {
-    this.self = userId;
-    for (const p of this.active()) for (const fn of p.reg.onSelf) this.guard(p, () => fn(userId));
-  }
-
-  /** Some plugin's derived text for `messageId` settled (derivedText.settle). */
-  textSettled(messageId: string): void {
-    for (const p of this.active()) for (const fn of p.reg.onTextSettled) this.guard(p, () => fn(messageId));
-  }
-
-  /** Any active plugin's derived text for `messageId` is still coming. A throw counts as not pending. */
-  textPending(messageId: string): boolean {
-    return this.active().some((p) => p.reg.textPending.some((fn) => this.ask(p, () => fn(messageId), false)));
-  }
-
-  /** An attachment reached the store. */
-  attachmentStored(attachmentId: string): void {
-    for (const p of this.active()) for (const fn of p.reg.onAttachmentStored) this.guard(p, () => fn(attachmentId));
-  }
-
-  /** A message was stored or updated, or its links gained images: the images it shows may be new (archive.images). */
-  imagesShown(messageId: string): void {
-    for (const p of this.active()) for (const fn of p.reg.onShown) this.guard(p, () => fn(messageId));
-  }
-
-  /** Debounced archive changes, with the same payload windows receive. */
-  archiveChanged(change: import('@shared/contract').ArchiveChange): void {
-    for (const p of this.active()) for (const fn of p.reg.onArchiveChanged) this.guard(p, () => fn(change));
-  }
-
-  /** Privacy mode or its hidden scope changed. */
-  privacyChanged(): void {
-    for (const p of this.active()) for (const fn of p.reg.onPrivacyChanged) this.guard(p, fn);
-  }
-
-  /** The link index was rebuilt from stored messages; runs inside the rebuild's transaction. */
-  linksRebuilt(): void {
-    for (const p of this.active()) for (const fn of p.reg.onLinksRebuilt) this.guard(p, fn);
-  }
-
-  /** Setting `key` was saved. */
-  settingChanged(key: string): void {
-    for (const p of this.active()) for (const h of p.reg.onSettingChanged) if (h.key === key) this.guard(p, h.fn);
-  }
-
-  private active(): Loaded[] {
-    return [...this.plugins.values()].filter((p) => p.status === 'active');
-  }
-
-  /** Dispatches transport-stamped core calls to declared bundled audiences or folder panels. Records folder errors; bundled errors remain caller-visible only. */
-  async call(origin: Audience, pluginId: string, name: string, args: unknown[], request?: PluginCallRequest): Promise<unknown> {
-    const p = this.plugins.get(pluginId);
-    const reaches = p?.entry ? audiencesOf(p.entry.plugin.channels, 'core', name).includes(origin) : p?.origin === 'folder' && origin === 'renderer';
-    // Main's report of work the plugin started: its latest handler takes it, on or off.
-    const ledger = reaches && p?.entry && completionOf(p.entry.plugin.channels, name) ? this.ledger(pluginId) : null;
-    if (ledger?.handles(name)) return ledger.report(name, args);
-    const fn = reaches && p?.status === 'active' ? p.reg.calls.get(name) : undefined;
-    if (p && reaches && p.status !== 'active') throw new PluginInactiveError(pluginId);
-    if (!p || !fn) throw new Error(`Plugin ${pluginId} has no function ${name} for ${origin}`);
-    try {
-      const call = this.calls.start(origin, pluginId, checkCallRequest(request));
-      try {
-        call.signal.throwIfAborted();
-        return await servedCall({ plugin: pluginId, member: name, reads: readsOf(p.entry?.plugin.channels, name), syncReads: syncReadsOf(p.entry?.plugin.channels, name),
-          signal: call.signal, priority: request?.priority ?? 'background', strict: this.deps.strictSyncReads ?? !!process.env.VITEST,
-          diag: this.deps.diag ?? (() => undefined) }, () => fn(...args));
-      } finally { call.end(); }
-    } catch (err) {
-      if (p.origin === 'folder') this.fail(p, err);
-      throw err;
-    }
-  }
-
-  cancelCall(origin: Audience, pluginId: string, id: string): void { this.calls.cancel(origin, pluginId, id); }
-
-  async runCommand(pluginId: string, commandId: string, range: PluginRange): Promise<string | null> {
-    const p = this.plugins.get(pluginId);
-    const command = p?.status === 'active' ? p.reg.commands.get(commandId) : undefined;
-    if (!p || !command) throw new Error(`No command ${commandId} in plugin ${pluginId}`);
-    try {
-      return (await command.run(range)) ?? null;
-    } catch (err) {
-      this.fail(p, err);
-      throw err;
     }
   }
 
@@ -436,121 +236,17 @@ export class PluginHost {
     } catch (err) {
       p.status = 'error';
       p.error = errorMessage(err);
-      this.unload(p);
-    }
-  }
-
-  private async load(dir: string, disabled: Set<string>, generation: number): Promise<void> {
-    let manifest: PluginManifest;
-    try {
-      manifest = readManifest(dir);
-    } catch (err) {
-      const id = dir.split(sep).pop()!;
-      this.plugins.set(this.plugins.has(id) ? `${id}@${dir}` : id, { manifest: { id, version: '?', apiVersion: '?', main: '' }, dir, origin: 'folder', entry: null, status: 'error', error: errorMessage(err), reg: emptyRegistrations() });
-      return;
-    }
-    const p: Loaded = { manifest, dir, origin: 'folder', entry: null, status: 'disabled', error: null, reg: emptyRegistrations() };
-    const taken = this.plugins.get(manifest.id);
-    if (taken) {
-      p.status = 'error';
-      p.error = TAKEN_BY[taken.origin](manifest.id);
-      this.plugins.set(`${manifest.id}@${dir}`, p);
-      return;
-    }
-    this.plugins.set(manifest.id, p);
-    const nesting = [...this.plugins.values()].find((other) => tableNamespacesNest(manifest.id, other.manifest.id));
-    if (nesting) {
-      p.status = 'error';
-      p.error = nestedTablesError(manifest.id, nesting.manifest.id).message;
-      return;
-    }
-    if (disabled.has(manifest.id)) return;
-    const entry = resolve(dir, manifest.main);
-    if (!insideFolder(dir, manifest.main)) {
-      p.status = 'error';
-      p.error = 'main must be inside the plugin folder';
-      return;
-    }
-    try {
-      reservePluginId(this.deps.db, manifest.id);
-    } catch (err) {
-      p.status = 'error';
-      p.error = errorMessage(err);
-      return;
-    }
-    try {
-      const mod = (await import(`${pathToFileURL(entry).href}?v=${generation}`)) as PluginModule;
-      if (p.retired) return;
-      if (typeof mod.activate !== 'function') throw new Error(`${manifest.main} does not export activate(api)`);
-      const api = createPluginApi(manifest.id, this.deps, p.reg, (fn) => this.guard(p, fn));
-      const deactivate = await mod.activate(api);
-      // Unloaded while activating (switched off, reloaded, archive closing): what it returned runs now, never committed.
-      if (p.retired) return void (typeof deactivate === 'function' && this.cleanup(p, 'deactivate', deactivate));
-      if (typeof deactivate === 'function') p.deactivate = deactivate;
-      p.status = 'active';
-    } catch (err) {
-      if (p.retired) return console.error(`[plugin ${manifest.id}] activation failed after it was unloaded`, err);
-      this.unload(p);
-      p.status = 'error';
-      p.error = errorMessage(err);
-    }
-  }
-
-  /** Drops everything the activation registered; each cleanup runs on its own, so one that throws is logged and the rest still run. */
-  private unload(p: Loaded): void {
-    p.retired = true;
-    p.reg.unloaded = true;
-    p.reg.timers.forEach(clearInterval);
-    for (const dispose of p.reg.disposers) this.cleanup(p, 'cleanup', dispose);
-    p.reg.jevQuestions.forEach(unregisterMessageQuestion);
-    if (p.deactivate) this.cleanup(p, 'deactivate', p.deactivate);
-    p.reg = emptyRegistrations();
-    p.deactivate = undefined;
-  }
-
-  /** Runs one of a plugin's cleanups; a throw is logged, never passed on. */
-  private cleanup(p: Loaded, what: string, fn: () => void): void {
-    try {
-      fn();
-    } catch (err) {
-      console.error(`[plugin ${p.manifest.id}] ${what} failed`, err);
+      unload(p);
     }
   }
 
   /** Bundled plugin `id`'s completion reports. */
-  private ledger(id: string): CompletionLedger {
+  protected ledger(id: string): CompletionLedger {
     let ledger = this.ledgers.get(id);
     if (!ledger) {
       ledger = new CompletionLedger(this.bundled.find((b) => b.plugin.manifest.id === id)?.plugin.channels);
       this.ledgers.set(id, ledger);
     }
     return ledger;
-  }
-
-  /** Runs a plugin's synchronous query; a throw is recorded on the plugin and answers `fallback`. */
-  private ask<T>(p: Loaded, fn: () => T, fallback: T): T {
-    try {
-      return fn();
-    } catch (err) {
-      this.fail(p, err);
-      return fallback;
-    }
-  }
-
-  /** Runs plugin code; a throw or rejection is recorded on the plugin and shown in Settings. */
-  private guard(p: Loaded, fn: () => unknown): void {
-    try {
-      const r = fn();
-      if (r instanceof Promise) r.catch((err: unknown) => this.fail(p, err));
-    } catch (err) {
-      this.fail(p, err);
-    }
-  }
-
-  private fail(p: Loaded, err: unknown): void {
-    console.error(`[plugin ${p.manifest.id}]`, err);
-    const changed = p.error !== errorMessage(err);
-    p.error = errorMessage(err);
-    if (changed) this.deps.emit({ type: 'plugins-changed' });
   }
 }
