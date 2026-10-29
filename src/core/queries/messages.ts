@@ -3,6 +3,7 @@ import { pollFrom, pollResultFrom, type RawPoll } from '@shared/polls';
 import type { ArchiveAttachment, ArchiveMessage, MessageWindow, MessagePageQuery } from '@shared/contract';
 import type { MessageAnnotation } from '@shared/plugins';
 import type { Db } from '../db';
+import { inListSql, listParam } from './idList';
 import { decorateMessages, type MessageSnapshot } from './messageDecorations';
 import { rawJsonSql } from './messageContent';
 import { authorStyleSql, displayNameSql } from './names';
@@ -105,7 +106,7 @@ export function messagesByIds(db: Db, ids: string[]): ArchiveMessage[] {
 
 /** Serializable archive data; live plugin callbacks belong to Core after the helper has replied. */
 export function messageSnapshotByIds(db: Db, ids: string[]): MessageSnapshot {
-  return snapshot(db, ids.length ? db.prepare(`${SELECT_MESSAGE} WHERE m.id IN (SELECT value FROM json_each(?)) AND ${visibleMessageSql('m')}`).all(JSON.stringify(ids)) as Row[] : []);
+  return snapshot(db, ids.length ? db.prepare(`${SELECT_MESSAGE} WHERE ${inListSql('m.id')} AND ${visibleMessageSql('m')}`).all(listParam(ids)) as Row[] : []);
 }
 
 /** Returns chronological message pages with revisions/attachments. before/after bound ids; around centers citation jumps; default selects newest messages. */
@@ -166,25 +167,25 @@ export function messageWindowSnapshot(db: Db, q: MessagePageQuery): { snapshot: 
 
 function snapshot(db: Db, rows: Row[]): MessageSnapshot {
   if (!rows.length) return { items: [], judgments: [] };
-  const ids = rows.map((r) => r.id);
-  const marks = ids.map(() => '?').join(',');
+  const ids = listParam(rows.map((r) => r.id));
+  const ofIds = inListSql('message_id');
   const revisions = db
-    .prepare(`SELECT message_id AS messageId, content, edited_ts AS editedTs, seen_at AS seenAt FROM message_revisions WHERE message_id IN (${marks}) ORDER BY seen_at`)
-    .all(...ids) as { messageId: string; content: string; editedTs: number | null; seenAt: number }[];
+    .prepare(`SELECT message_id AS messageId, content, edited_ts AS editedTs, seen_at AS seenAt FROM message_revisions WHERE ${ofIds} ORDER BY seen_at`)
+    .all(ids) as { messageId: string; content: string; editedTs: number | null; seenAt: number }[];
   const attachments = db
     .prepare(
       `SELECT id, message_id AS messageId, filename, content_type AS contentType, size, width, height, sha256, status,
        stored_ext AS storedExt, stored_bytes AS storedBytes, compressed_at IS NOT NULL AS compressed,
        description, flags, removed_at IS NOT NULL AS removed
-       FROM attachments WHERE message_id IN (${marks}) ORDER BY rowid`,
+       FROM attachments WHERE ${ofIds} ORDER BY rowid`,
     )
-    .all(...ids) as (Omit<ArchiveAttachment, 'notes' | 'removed' | 'spoiler' | 'compressed'> & { messageId: string; removed: 0 | 1; compressed: 0 | 1; flags: number | null })[];
+    .all(ids) as (Omit<ArchiveAttachment, 'notes' | 'removed' | 'spoiler' | 'compressed'> & { messageId: string; removed: 0 | 1; compressed: 0 | 1; flags: number | null })[];
   const annotations = db
-    .prepare(`SELECT message_id AS messageId, plugin_id AS pluginId, label, text FROM plugin_annotations WHERE message_id IN (${marks}) ORDER BY created_at`)
-    .all(...ids) as (MessageAnnotation & { messageId: string })[];
+    .prepare(`SELECT message_id AS messageId, plugin_id AS pluginId, label, text FROM plugin_annotations WHERE ${ofIds} ORDER BY created_at`)
+    .all(ids) as (MessageAnnotation & { messageId: string })[];
   const judgments = db
-    .prepare(`SELECT message_id AS messageId, subject, value, label FROM jev_judgments WHERE message_id IN (${marks})`)
-    .all(...ids) as MessageSnapshot['judgments'];
+    .prepare(`SELECT message_id AS messageId, subject, value, label FROM jev_judgments WHERE ${ofIds}`)
+    .all(ids) as MessageSnapshot['judgments'];
   const replies = repliesFor(
     db,
     rows.flatMap((r) => (r.replyToId ? [{ replyToId: r.replyToId, refJson: r.refJson }] : [])),

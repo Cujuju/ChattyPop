@@ -1,16 +1,17 @@
 // Which channels a query covers: a channel includes its threads.
 import { THREAD_CHANNEL_TYPES } from '@shared/discord';
 import type { RulePlaces } from '@shared/rules';
+import { inListSql, listParam } from './idList';
 
 /** Thread channel kinds as an SQL list; the values are numeric constants. */
 export const THREAD_KINDS_SQL = [...THREAD_CHANNEL_TYPES].join(', ');
 
 /** SQL true when `column` is one of `channelIds` or a thread of one; bind `params` where the SQL goes. */
 export function inChannelsSql(column: string, channelIds: readonly string[]): { sql: string; params: string[] } {
-  const marks = channelIds.map(() => '?').join(', ');
+  const list = listParam(channelIds);
   return {
-    sql: `(${column} IN (${marks}) OR ${column} IN (SELECT id FROM channels WHERE kind IN (${THREAD_KINDS_SQL}) AND parent_id IN (${marks})))`,
-    params: [...channelIds, ...channelIds],
+    sql: `(${inListSql(column)} OR ${column} IN (SELECT id FROM channels WHERE kind IN (${THREAD_KINDS_SQL}) AND ${inListSql('parent_id')}))`,
+    params: [list, list],
   };
 }
 
@@ -22,7 +23,7 @@ export function inPlacesSql(column: string, { channelIds = [], guildIds = [] }: 
   const parts = [
     ...(channelIds.length ? [inChannelsSql(column, channelIds)] : []),
     ...(guildIds.length
-      ? [{ sql: `${column} IN (SELECT id FROM channels WHERE guild_id IN (${guildIds.map(() => '?').join(', ')}))`, params: [...guildIds] }]
+      ? [{ sql: `${column} IN (SELECT id FROM channels WHERE ${inListSql('guild_id')})`, params: [listParam(guildIds)] }]
       : []),
   ];
   return parts.length ? { sql: `(${parts.map((p) => p.sql).join(' OR ')})`, params: parts.flatMap((p) => p.params) } : null;

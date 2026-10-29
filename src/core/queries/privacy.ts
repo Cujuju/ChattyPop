@@ -2,6 +2,7 @@
 import type { PrivacyScope } from '@shared/contract';
 import type { PluginDb } from '../plugins/pluginDb';
 import type { ArchiveRead } from '../plugins/pluginDb';
+import { inListSql, listParam } from './idList';
 
 /** SQL true when channel id `column` is not hidden. */
 export const visibleChannelSql = (column: string): string => `${column} NOT IN (SELECT id FROM hidden_channels)`;
@@ -92,7 +93,7 @@ export interface Privacy {
 export function privacy(db: PluginDb): Privacy {
   const scope = privacyScope(db);
   const names = (table: 'channels' | 'guilds', ids: string[]): string[] =>
-    ids.length ? (db.prepare(`SELECT name FROM ${table} WHERE id IN (${ids.map(() => '?').join(',')})`).pluck().all(...ids) as string[]) : [];
+    ids.length ? (db.prepare(`SELECT name FROM ${table} WHERE ${inListSql('id')}`).pluck().all(listParam(ids)) as string[]) : [];
   return privacyNames(scope, names('channels', scope.channelIds), names('guilds', scope.guildIds));
 }
 

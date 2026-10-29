@@ -12,6 +12,7 @@ import { offReason } from '../ai/types';
 import { assertJevMayRead, scopedDecider, type ScopedCompletion } from '../ai/readScope';
 import type { Arrived, TextMessage } from '../arrival';
 import { getSetting, setSetting, type Db } from '../db';
+import { inListSql, listParam } from '../queries/idList';
 import type { BundledDeps, TextSource } from './bundled';
 import type { CompletionHandler } from './completions';
 import { pluginDb } from './pluginDb';
@@ -124,8 +125,8 @@ export function createPluginApi(id: string, deps: HostDeps, reg: Registrations, 
         const where: string[] = [];
         const params: (string | number)[] = [];
         if (q.channelIds?.length) {
-          where.push(`m.channel_id IN (${q.channelIds.map(() => '?').join(',')})`);
-          for (const channelId of q.channelIds) params.push(channelId);
+          where.push(inListSql('m.channel_id'));
+          params.push(listParam(q.channelIds));
         }
         if (q.sinceTs !== undefined) {
           where.push('m.ts >= ?');

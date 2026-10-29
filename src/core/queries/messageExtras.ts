@@ -1,5 +1,6 @@
 import type { ArchiveReply } from '@shared/contract';
 import type { Db } from '../db';
+import { inListSql, listParam } from './idList';
 import { displayNameSql, roleColorSql } from './names';
 import { VISIBLE_REPLY_SOURCE_SQL } from './privacy';
 export * from '@shared/messageExtras';
@@ -37,9 +38,9 @@ export function repliesFor(db: Db, refs: { replyToId: string; refJson: string | 
     .prepare(
       `SELECT m.id, m.author_id AS authorId, m.content, u.avatar, ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName,
               ${roleColorSql('m.author_id', 'm.channel_id')} AS authorColor
-       FROM messages m LEFT JOIN users u ON u.id = m.author_id WHERE m.id IN (${ids.map(() => '?').join(',')})`,
+       FROM messages m LEFT JOIN users u ON u.id = m.author_id WHERE ${inListSql('m.id')}`,
     )
-    .all(...ids) as { id: string; authorId: string; content: string; avatar: string | null; authorName: string; authorColor: number | null }[];
+    .all(listParam(ids)) as { id: string; authorId: string; content: string; avatar: string | null; authorName: string; authorColor: number | null }[];
   for (const r of rows) out.set(r.id, { messageId: r.id, authorId: r.authorId, authorName: r.authorName, authorColor: r.authorColor, avatar: r.avatar, content: r.content, mentions: {} });
   for (const id of ids) {
     const m = snapshots.get(id);
@@ -66,8 +67,8 @@ export function mentionNames(db: Db, texts: string[], known: Record<string, stri
   if (ids.length) {
     const name = channelId === null ? 'COALESCE(u.global_name, u.username)' : displayNameSql('u.id', '?');
     const rows = db
-      .prepare(`SELECT u.id, ${name} AS name FROM users u WHERE u.id IN (${ids.map(() => '?').join(',')})`)
-      .all(...(channelId === null ? [] : [channelId]), ...ids) as { id: string; name: string }[];
+      .prepare(`SELECT u.id, ${name} AS name FROM users u WHERE ${inListSql('u.id')}`)
+      .all(...(channelId === null ? [] : [channelId]), listParam(ids)) as { id: string; name: string }[];
     for (const r of rows) names[r.id] = r.name;
   }
   return names;

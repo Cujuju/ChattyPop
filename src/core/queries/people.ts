@@ -2,6 +2,7 @@
 // Privacy mode leaves out people tied only to hidden places (visiblePersonSql).
 import type { PersonMatch } from '@shared/contract';
 import type { Db } from '../db';
+import { inListSql, listParam } from './idList';
 import { membersWhoSee } from './mentions';
 import { plainNameSql } from './names';
 import { visibleChannelSql, visiblePersonSql } from './privacy';
@@ -67,5 +68,5 @@ export function findSearchAuthors(db: Db, name: string, query: string, shownChan
 /** The people `ids` name that may show; ids the archive doesn't know are left out. */
 export function peopleByIds(db: Db, ids: string[]): PersonMatch[] {
   if (!ids.length) return [];
-  return db.prepare(`SELECT ${COLUMNS} FROM users u WHERE u.id IN (${ids.map(() => '?').join(', ')}) AND ${visiblePersonSql('u.id')}`).all(...ids) as PersonMatch[];
+  return db.prepare(`SELECT ${COLUMNS} FROM users u WHERE ${inListSql('u.id')} AND ${visiblePersonSql('u.id')}`).all(listParam(ids)) as PersonMatch[];
 }
