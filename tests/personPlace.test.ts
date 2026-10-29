@@ -22,7 +22,7 @@ vi.mock('@/api', () => ({
   },
 }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: (id: string) => CHANNELS[id] }));
-vi.mock('../src/renderer/src/state/archive', () => ({ shownChannelId: () => 'archiveShown' }));
+vi.mock('../src/renderer/src/state/shownChannel', () => ({ shownChannelId: () => 'archiveShown' }));
 vi.mock('../src/renderer/src/state/events', () => ({ onAppEvent: () => undefined }));
 
 // A renderer module: imported by path so the node type-check doesn't follow it.

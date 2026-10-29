@@ -25,6 +25,8 @@ vi.mock('@/api', () => ({
 }));
 vi.mock('../src/renderer/src/state/archive', () => ({
   openArchive: async (id: string) => void env.shown.push(id),
+}));
+vi.mock('../src/renderer/src/state/shownChannel', () => ({
   openChannel: (c: { id: string }) => void env.shown.push(c.id),
   openLive: (c: { id: string }) => void env.shown.push(c.id),
 }));

@@ -1,5 +1,5 @@
 import { For, Match, Show, Switch, createSignal } from 'solid-js';
-import { openChannel, shownChannelId } from '@/state/archive';
+import { openChannel, shownChannelId } from '@/state/shownChannel';
 import { channelMenu } from '@/state/channelPolicy';
 import { syncProgress } from '@/state/directory';
 import { dismissDmFailure, dmFailure, dmMenu } from '@/state/dmActions';

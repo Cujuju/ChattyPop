@@ -41,13 +41,16 @@ const CHANNEL = '200000000000000001';
 const NEXT_CHANNEL = '200000000000000002';
 // Variable paths keep renderer modules out of the node type-check.
 const ARCHIVE = '../src/renderer/src/state/archive';
+const SHOWN = '../src/renderer/src/state/shownChannel';
 const CHAT = '../src/renderer/src/state/chat';
-interface Archive {
+interface Shown {
   shownChannelId(): string | null;
-  setArchiveChannelId(value: string | null): void;
   setLiveChannelId(value: string | null): void;
 }
-const load = async (): Promise<Archive> => await import(ARCHIVE) as Archive;
+interface Archive {
+  setArchiveChannelId(value: string | null): void;
+}
+const load = async (): Promise<Shown & Archive> => ({ ...(await import(SHOWN) as Shown), ...(await import(ARCHIVE) as Archive) });
 const settle = async (): Promise<void> => { await Promise.resolve(); await Promise.resolve(); };
 
 beforeEach(async () => {

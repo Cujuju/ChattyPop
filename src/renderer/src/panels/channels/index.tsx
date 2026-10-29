@@ -3,7 +3,7 @@ import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import type { DirectoryChannel, DirectoryGuild } from '@shared/contract';
 import { DM_GUILD_ID, TEXT_CHANNEL_TYPES } from '@shared/discord';
 import { channelSigil, directory, isPrivateThread, isThread, PRIVATE_THREAD_HINT, syncProgress, threadsOf } from '@/state/directory';
-import { openChannel, shownChannelId } from '@/state/archive';
+import { openChannel, shownChannelId } from '@/state/shownChannel';
 import { openDms, unreadDms } from '@/state/dms';
 import { browsingServers as browsing, setBrowsingServers as setBrowsing, setSidebarCollapsed, setSidebarMode, sidebarCollapsed, sidebarMode, type SidebarMode } from '@/state/layout';
 import { channelMenu } from '@/state/channelPolicy';

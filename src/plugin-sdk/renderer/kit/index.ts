@@ -96,7 +96,8 @@ export { createReorderList } from '@cujuju/solid-reorder-list';
 export { unreadCount, totalUnreadCount } from '@/state/unreadCounts';
 
 // App state and navigation.
-export { archivePlace, openArchive, openArchiveAt, shownChannelId, type ArchivePlace } from '@/state/archive';
+export { archivePlace, openArchive, openArchiveAt, type ArchivePlace } from '@/state/archive';
+export { shownChannelId } from '@/state/shownChannel';
 export { now } from '@/state/clock';
 // Which bots count as new messages (Settings → Archive → New-message counts).
 export { countedBots, countedBotsLoaded, createArchivedBots, setBotCounted } from '@/state/countedBots';

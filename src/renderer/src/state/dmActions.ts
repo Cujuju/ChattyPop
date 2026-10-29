@@ -14,7 +14,7 @@ import {
   type MuteWindow,
 } from '@shared/dms';
 import { errorText } from '@/ui/format';
-import { openLive } from './archive';
+import { openLive } from './shownChannel';
 import { channelJevItems, localAiItem } from './channelPolicy';
 import { channelById, refetchDirectory, setChannelOptIn } from './directory';
 import { dmMuted } from './dms';

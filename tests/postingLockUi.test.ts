@@ -34,9 +34,8 @@ vi.mock('../src/renderer/src/state/archive', () => ({
   archiveChannelId: () => (env.mine as ArchiveMessage | null)?.channelId ?? null,
   archiveState: { get items() { return env.mine ? [env.mine] : []; } },
   openArchive: async () => undefined,
-  openChannel: () => undefined,
-  openLive: () => undefined,
 }));
+vi.mock('../src/renderer/src/state/shownChannel', () => ({ openChannel: () => undefined, openLive: () => undefined }));
 vi.mock('../src/renderer/src/state/chat', () => ({ chatSource: () => 'archive' }));
 vi.mock('../src/renderer/src/state/composer', () => ({ focusComposer: () => undefined }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => undefined, directory: () => [], refetchDirectory: async () => undefined }));

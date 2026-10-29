@@ -1,6 +1,6 @@
 import { For, Show } from 'solid-js';
 import type { DirectoryChannel, DirectoryGuild } from '@shared/contract';
-import { openChannel, shownChannelId } from '@/state/archive';
+import { openChannel, shownChannelId } from '@/state/shownChannel';
 import { channelLabel, isPrivateThread, threadsOf } from '@/state/directory';
 import { mentionedDms, type DmChannel } from '@/state/dms';
 import { setSidebarCollapsed } from '@/state/layout';

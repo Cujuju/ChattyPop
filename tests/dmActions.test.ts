@@ -18,7 +18,7 @@ vi.mock('../src/renderer/src/state/directory', async () => {
   return { channelById: (id: string) => listed().find((c) => c.id === id), refetchDirectory: async () => undefined, setChannelOptIn: async () => undefined };
 });
 vi.mock('@/api', () => ({ api: {} }));
-vi.mock('../src/renderer/src/state/archive', () => ({ openLive: () => undefined }));
+vi.mock('../src/renderer/src/state/shownChannel', () => ({ openLive: () => undefined }));
 vi.mock('../src/renderer/src/state/channelPolicy', () => ({ channelJevItems: () => [], localAiItem: () => ({ label: 'Local AI only', run: () => undefined }) }));
 vi.mock('../src/renderer/src/state/dms', () => ({ dmMuted: () => false }));
 vi.mock('../src/renderer/src/state/newMessage', () => ({ openAddFriends: () => undefined }));

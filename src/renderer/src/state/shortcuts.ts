@@ -9,7 +9,7 @@ import { PRESETS, type PresetId } from '@/layout/presets';
 import { shortcutAction, withPluginShortcuts, type ShortcutHint } from '@/plugins/slots';
 import { isInEscapeOwner, isInOverlay, isTypingTarget, spacePresses } from '@/ui/keys';
 import { listen } from '@/ui/listen';
-import { showArchive, showLive } from './archive';
+import { showArchive, showLive } from './shownChannel';
 import { showPreviousChannel } from './channelRecents';
 import { chatSource } from './chat';
 import { setLayoutId } from './layout';

@@ -3,7 +3,7 @@ import { DM_GUILD_ID } from '@shared/discord';
 import { mentionedUserId } from '@shared/searchQuery';
 import { archivedChannels, channelSigil, directory } from '@/state/directory';
 import type { PersonMatch } from '@shared/contract';
-import { shownChannelId } from '@/state/archive';
+import { shownChannelId } from '@/state/shownChannel';
 import { SEARCH_CHOICES_MAX, choicesRevision, findSearchAuthors, findSearchPeople, searchPersonById, searchText } from '@/state/search';
 import { serverTerm, type FilterChoice, type NamedChoiceSources, type QueryChip, type SearchFilter } from './searchFilters';
 

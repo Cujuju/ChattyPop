@@ -1,6 +1,6 @@
 // Stopped DMs show read-only retained history; never-archived DMs offer archiving. Phone, requests and left groups omit archive actions.
 import { Show, createSignal } from 'solid-js';
-import { openLive } from '@/state/archive';
+import { openLive } from '@/state/shownChannel';
 import { setChannelOptIn } from '@/state/directory';
 import { isClosedGroup, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
 import { inCompanion } from '@/state/ui';

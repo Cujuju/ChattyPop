@@ -1,7 +1,8 @@
 import { Match, Show, Switch } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import { bindDiscordSlot, chatSource, discordSidebar, setDiscordSidebar, type ChatSource } from '@/state/chat';
-import { archiveChannelId, showArchive, showLive } from '@/state/archive';
+import { archiveChannelId } from '@/state/archive';
+import { showArchive, showLive } from '@/state/shownChannel';
 import { selecting, startSelecting, stopSelecting } from '@/state/messageSelection';
 import { overlayOpen } from '@/state/overlay';
 import { onServerScreen } from '@/state/ui';

@@ -4,7 +4,7 @@ import { api } from '@/api';
 import { createSignal } from 'solid-js';
 import { DM_GUILD_ID } from '@shared/discord';
 import { channelById } from './directory';
-import { shownChannelId } from './archive';
+import { shownChannelId } from './shownChannel';
 import { cachedThenLive } from './cachedLive';
 import { keyedResource } from './keyedResource';
 import { onAppEvent } from './events';

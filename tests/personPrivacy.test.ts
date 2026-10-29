@@ -15,7 +15,7 @@ vi.mock('@/api', () => ({ api: {
   onEvent: (fn: (event: AppEvent) => void) => { env.emit = fn; return () => undefined; },
 } }));
 vi.mock('../src/renderer/src/state/directory', () => ({ channelById: () => undefined }));
-vi.mock('../src/renderer/src/state/archive', () => ({ shownChannelId: () => null }));
+vi.mock('../src/renderer/src/state/shownChannel', () => ({ shownChannelId: () => null }));
 
 // Variable paths keep renderer imports out of the node type-check.
 const statePath = '../src/renderer/src/state/person';

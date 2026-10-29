@@ -5,10 +5,10 @@ import { createEffect, createSignal, type Accessor } from 'solid-js';
 import { normalizeArchivePlace, type ArchivePlace } from '@shared/archivePlace';
 import type { ArchiveMessage } from '@shared/contract';
 import { DEFAULT_ARCHIVE_DENSITY, SETTINGS_KEYS, normalizeArchiveDensity, type ArchiveDensity } from '@shared/settings';
-import { chatSource, setChatSource } from './chat';
+import { setChatSource } from './chat';
 import { inCompanion, inPanelWindow } from './ui';
 import { channelById, refetchDirectory } from './directory';
-import { createPushedValue, onArchiveChange, onAppEvent, onMessagePartsChanged } from './events';
+import { onArchiveChange, onAppEvent, onMessagePartsChanged } from './events';
 import { createPagedList } from './paged';
 import { messageBefore } from '@shared/messageOrder';
 import { textOrNull } from '@shared/normalize';
@@ -282,49 +282,8 @@ export async function refreshLoaded(ids: string[] | null): Promise<void> {
   await inTurn(channelId, () => rereadRows(channelId, (m) => !wanted || wanted.has(m.id)));
 }
 
-/** The channel the live Discord client last showed. */
-export const [liveChannelId, setLiveChannelId] = createSignal<string | null>(null);
-onAppEvent('live-channel', (e) => setLiveChannelId(e.channelId));
 // Plugins' chips or attachment notes changed (a tag, a transcript's progress): re-read those messages if shown.
 onMessagePartsChanged((ids) => void refreshLoaded(ids));
-// A window opened after the client navigated (a panel window) starts from where it is; a newer event wins.
-void api.discord.shownChannel().then((c) => {
-  if (c && liveChannelId() === null) setLiveChannelId(c.channelId);
-});
-
-const mirroredChannelId = inPanelWindow ? createPushedValue(() => api.getShownChannel(), 'shown-channel', (e) => e.channelId).value : () => null;
-
-/** The main window's shown channel in panel windows; otherwise this window's live or Archive channel. */
-export const shownChannelId = (): string | null => inPanelWindow ? mirroredChannelId() : chatSource() === 'live' ? liveChannelId() : archiveChannelId();
-
-if (!inPanelWindow && !inCompanion) containedRoot(() => createEffect(() => api.reportShownChannel(shownChannelId())));
-
-/** Sidebar picks move visible live clients; otherwise open Archive. */
-export function openChannel(c: { id: string; guildId: string }): void {
-  if (chatSource() === 'live') api.discord.openChannel(c.guildId, c.id);
-  else void openArchive(c.id);
-}
-
-/** Shows a channel in the live client, from the Archive: a DM it holds no history for is read there. */
-export function openLive(c: { id: string; guildId: string }): void {
-  api.discord.openChannel(c.guildId, c.id);
-  setChatSource('live');
-}
-
-/** Switches the Chat area to the live client, following the Archive: the live client opens the Archive's channel when it differs. */
-export function showLive(): void {
-  const c = channelById(archiveChannelId() ?? '');
-  if (c && c.id !== liveChannelId()) openLive(c);
-  else setChatSource('live');
-}
-
-/** Switches to Archive and follows a different archived live-client channel. Otherwise preserves the Archive channel. */
-export function showArchive(): void {
-  const live = liveChannelId();
-  const archived = live !== null && channelById(live)?.optedIn === true;
-  if (archived && live !== archiveChannelId()) void openArchive(live);
-  else setChatSource('archive');
-}
 
 /** A clicked notification: show that message in the Archive. */
 onAppEvent('open-message', (e) => void openArchive(e.channelId, e.messageId));
