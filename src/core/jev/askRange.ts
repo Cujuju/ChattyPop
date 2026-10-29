@@ -6,6 +6,7 @@ import { isRefused } from '../ai/readScope';
 import { assertHostedMayRead, hostedMayReadSql } from '../channelPolicy';
 import type { Db } from '../db';
 import { inChannelOrChildSql } from '../queries/channelScope';
+import { visibleMessageSql, withinChannelScopeSql } from '../queries/privacy';
 import { MESSAGE_TEXT_SQL, TEXT_MESSAGE_COLUMNS, clampCount } from '../queries/messageText';
 import type { TextMessage } from '../arrival';
 import type { MessageJudge } from './messageJudge';
@@ -14,7 +15,10 @@ import { customQuestion } from './questions';
 /** Upper bound on messages asked about in one run: bounds cost (~$0.00002 each) and time (4 requests in flight). */
 export const ASK_RANGE_MAX = 400;
 
-/** Ranks latest channel messages, including threads, by Jev value. Refuses local-only channels, excludes local-only threads and omits failed requests and ones refused unsent. */
+/**
+ * Ranks latest channel messages, including threads, by Jev value. Refuses local-only channels; excludes local-only threads and
+ * text privacy mode hides beyond the channel's own scope; omits failed requests and ones refused unsent.
+ */
 export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvider, ask: JevRangeAsk): Promise<JevAskResult> {
   validateJevSpec(ask.question);
   assertHostedMayRead(db, ask.channelId);
@@ -23,6 +27,7 @@ export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvide
     .prepare(
       `SELECT ${TEXT_MESSAGE_COLUMNS} FROM messages m
        WHERE ${MESSAGE_TEXT_SQL} != '' AND ${inChannelOrChildSql('@channel')} AND ${hostedMayReadSql('m.channel_id')}
+         AND ${withinChannelScopeSql(visibleMessageSql('m'), '@channel')}
        ORDER BY m.ts DESC LIMIT @limit`,
     )
     .all({ channel: ask.channelId, limit }) as TextMessage[];

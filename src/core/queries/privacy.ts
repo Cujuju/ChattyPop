@@ -55,11 +55,17 @@ export const visibleReplySourceSql = (id: string, channel: string, text: string)
 export const VISIBLE_REPLY_SOURCE_SQL = visibleReplySourceSql('@id', '@channel', '@text');
 
 /**
- * SQL true when other-message text that `visible` judges may go with message `selectedId`: privacy mode shows it, or
- * hides the selected message too. A read keeps its selected ids' scope, never returning text more hidden than they are.
+ * The read contract for message text: SQL true when text that `visible` judges may go with what the caller selected
+ * (`selectionHidden`): privacy mode shows it, or hides the selection too. A read never returns text more hidden than its selection.
  */
+const withinScopeSql = (visible: string, selectionHidden: string): string => `(${visible} OR ${selectionHidden})`;
+
+/** withinScopeSql for a selected message `selectedId` (one not archived counts as shown). */
 export const withinSelectedScopeSql = (visible: string, selectedId: string): string =>
-  `(${visible} OR EXISTS (SELECT 1 FROM messages sm WHERE sm.id = ${selectedId} AND NOT ${visibleMessageSql('sm')}))`;
+  withinScopeSql(visible, `EXISTS (SELECT 1 FROM messages sm WHERE sm.id = ${selectedId} AND NOT ${visibleMessageSql('sm')})`);
+
+/** withinScopeSql for a selected channel `channel` (its threads included by the caller). */
+export const withinChannelScopeSql = (visible: string, channel: string): string => withinScopeSql(visible, `NOT ${visibleChannelSql(channel)}`);
 
 export function privacyScope(db: PluginDb): PrivacyScope {
   return {

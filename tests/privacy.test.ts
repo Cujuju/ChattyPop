@@ -12,6 +12,7 @@ import { privacyCss } from '../src/main/discord/privacyCss';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL } from '../src/core/arrival';
 import { archiveReplyTargets } from '../src/core/plugins/archiveReplies';
+import { askRange } from '../src/core/jev/askRange';
 import { MessageJudge } from '../src/core/jev/messageJudge';
 import { customQuestion } from '../src/core/jev/questions';
 import { textMessage } from '../src/core/queries/messageText';
@@ -150,6 +151,19 @@ describe('reply targets and Jev context in privacy mode (#252)', () => {
     expect(JSON.stringify(jev.requests[0]!.state)).not.toMatch(new RegExp(`${MODS}|${SECRET_GUILD.id}`));
     await ask(hidden.id);
     expect(JSON.stringify(jev.requests[1]!.state)).toContain('mods only question');
+  });
+
+  it("Jev's ranking of a shown channel returns and sends no text privacy mode hides; of a hidden one, its own", async () => {
+    setMode(true);
+    const jev = new FakeJev();
+    jev.values = { ask: 0.5 };
+    const rank = (channelId: string) =>
+      askRange(db, new MessageJudge(db), jev, { channelId, question: { type: 'noul', question: 'Is `message` a question?', yes: '', no: '' }, limit: 10 });
+    const general = await rank(GENERAL);
+    expect(general.results.map((r) => r.content)).toEqual(['reply 3']);
+    expect(JSON.stringify(jev.requests.map((q) => q.state))).not.toMatch(new RegExp(`${MODS}|${SECRET_GUILD.id}`));
+    const mods = await rank(MODS);
+    expect(mods.results.map((r) => r.content).sort()).toEqual(['mods only question', 'reply 5']);
   });
 });
 
