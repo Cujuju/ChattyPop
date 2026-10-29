@@ -292,4 +292,29 @@ describe('desktop acknowledgement', () => {
     await settle();
     expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
   });
+
+  it('holds an arrival after an acknowledgement made while away', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    let reading!: ReturnType<typeof state.watchArchive>;
+    solid.createRoot((stop) => {
+      dispose = stop;
+      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
+    });
+    await settle();
+    setLooking(false);
+    const arrive = async (offset: number) => {
+      const later = rawMessage(CH, Date.UTC(2026, 9, 1) + offset, 'away');
+      seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+      env.archive.items = [...env.archive.items, later];
+      await settle();
+      return later.id;
+    };
+    await arrive(2);
+    reading.acknowledge();
+    const after = await arrive(3);
+    setLooking(true);
+    await settle();
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, after);
+  });
 });

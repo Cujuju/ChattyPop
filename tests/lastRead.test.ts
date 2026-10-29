@@ -231,4 +231,10 @@ describe('archive read acknowledgement', () => {
     expect(mark(false)).toBeUndefined();
     expect(mark(true)).toBe('m3');
   });
+  it('re-holds a desktop arrival after an acknowledgement made while away', () => {
+    const acked = archiveReadHeld({ ...away, held: true, acted: true });
+    const arrival = { ...away, held: acked, wasLooking: false, arrived: true, arrivedAway: true };
+    expect(archiveReadHeld(arrival)).toBe(true);
+    expect(archiveReadHeld({ ...arrival, companion: true })).toBe(false);
+  });
 });

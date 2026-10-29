@@ -109,6 +109,8 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     if (companion || looking() || newest === marked) return;
     const channelId = archiveChannelId();
     if (!channelId) return;
+    // An acknowledgement made while away covers only what had arrived by then.
+    setHeld(archiveReadHeld({ held: held(), looking: false, wasLooking: false, caughtUp: false, arrived: true, companion, arrivedAway: true }));
     if (banner()) reconcile();
     else snapshot(channelId);
   }, { defer: true }));
