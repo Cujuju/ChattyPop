@@ -3,6 +3,7 @@ import type { ArchiveMessage } from '@shared/contract';
 import { embedMediaReplacesLink } from '@shared/chatSettings';
 import { coverageText } from '@/plugins/presentation';
 import { discordChatSettings, spoilersShownIn } from '@/state/chatSettings';
+import { channelById } from '@/state/directory';
 import { messageLink } from '@/state/messageActions';
 import { pluginPresents } from '@/state/plugins';
 import { clockTime as time } from '@/ui/format';
@@ -15,6 +16,7 @@ import { Attachments } from './Attachments';
 import { MessageComponents } from './MessageComponents';
 import { MessageEditor } from './MessageEditor';
 import { Embeds, Reactions, Stickers, textIsEmbedLink } from './MessageExtras';
+import { EmojiChannelGuild } from './MessageEmoji';
 import { presentedParts } from './ownedParts';
 import { Poll } from './Poll';
 import { PollResult } from './PollResult';
@@ -35,6 +37,7 @@ export function MessageBody(props: { message: ArchiveMessage; editing: boolean }
   return (
     <SpoilersShown.Provider value={() => spoilersShownIn(m().channelId)}>
       <SpoilerMessage.Provider value={() => ({ id: m().id, senderLinks: senderLinks() })}>
+      <EmojiChannelGuild.Provider value={() => channelById(m().channelId)?.guildId}>
         <div class={styles.body}>
           <Show when={m().deletedAt}>{(at) => <p class={styles.deletedNote}>Deleted by author {time(at())} · original kept in archive</p>}</Show>
           <Show when={labels().length}>
@@ -98,6 +101,7 @@ export function MessageBody(props: { message: ArchiveMessage; editing: boolean }
             <Reactions message={m()} />
           </Show>
         </div>
+      </EmojiChannelGuild.Provider>
       </SpoilerMessage.Provider>
     </SpoilersShown.Provider>
   );

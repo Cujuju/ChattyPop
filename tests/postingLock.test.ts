@@ -32,8 +32,8 @@ const ref = { channelId: CHANNEL, messageId: MESSAGE };
 const REACTION = `channels/${CHANNEL}/messages/${MESSAGE}/reactions/%F0%9F%91%8D/@me`;
 const ACK = `channels/${CHANNEL}/messages/${MESSAGE}/ack`;
 /** Calls that write but are exempt from the lock (owner's choice), and reads, which aren't writes. */
-const EXEMPT = ['react', 'setChatSettings'];
-const READS = ['savedMessages', 'savedBookmarks', 'refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'pollVoters', 'uploadLimit', 'shownChannel', 'probe', 'friends', 'scheduledAvailability', 'scheduledMessages'];
+const EXEMPT = ['react', 'setChatSettings', 'setEmojiFavorite'];
+const READS = ['savedMessages', 'savedBookmarks', 'refreshDirectory', 'customTheme', 'suggestChannels', 'setOptIn', 'gifs', 'expressions', 'emojiSource', 'commands', 'roles', 'requestMembers', 'profile', 'mutualFriends', 'reactors', 'pollVoters', 'uploadLimit', 'shownChannel', 'probe', 'friends', 'scheduledAvailability', 'scheduledMessages'];
 
 const info = (id: string, status: PluginInfo['status']): PluginInfo =>
   ({ key: id, conflict: false, id, name: id, version: '1.0.0', description: null, dir: '', bundled: true, origin: 'bundled', status, error: null, commands: [], renderer: null }) as PluginInfo;

@@ -5,6 +5,7 @@ import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { For, Show, createSignal, onMount, type JSX } from 'solid-js';
 import { Portal } from 'solid-js/web';
 import type { ArchiveEmoji, PersonMatch } from '@shared/contract';
+import type { CustomEmoji } from '@shared/emoji';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { onPointerDownOutside } from '@/ui/listen';
 import { AuthorName } from './AuthorName';
@@ -12,7 +13,7 @@ import { PersonFace, drawnName } from './PersonName';
 import styles from './HoverTip.module.css';
 
 /** Pointer dwell delay before showing (and fetching) a tip. */
-const HOVER_DELAY_MS = 300;
+export const HOVER_DELAY_MS = 300;
 /** Viewport clearance for a tip that would overflow. */
 const EDGE_GAP_PX = 8;
 /** People a tip names before "N others", as Discord's reaction tooltip. */
@@ -23,6 +24,31 @@ export function tipPeople(people: PersonMatch[], count: number): { named: Person
   const named = people.slice(0, TIP_PEOPLE_SHOWN);
   const rest = count - named.length;
   return { named, others: rest > 0 ? `and ${rest} ${rest === 1 ? 'other' : 'others'}` : null };
+}
+
+/** The tip's left (its centre): over the anchor's centre, pulled inside the window. */
+const tipLeft = (tip: HTMLElement, anchor: DOMRect): number => {
+  const half = tip.offsetWidth / 2;
+  return Math.min(Math.max(anchor.left + anchor.width / 2, half + EDGE_GAP_PX), window.innerWidth - half - EDGE_GAP_PX);
+};
+
+/** A custom emoji's name tip, after Discord's: the emoji large beside its `:name:` and, under it, `hint`. */
+export function EmojiNameTip(props: { anchor: HTMLElement; emoji: CustomEmoji; hint: string }) {
+  let tip!: HTMLDivElement;
+  const [left, setLeft] = createSignal(0);
+  const rect = props.anchor.getBoundingClientRect();
+  onMount(() => setLeft(tipLeft(tip, rect)));
+  return (
+    <Portal>
+      <div ref={tip} class={styles.tip} role="tooltip" style={{ left: `${left()}px`, top: `${rect.top}px` }}>
+        <EmojiImage class={styles.emoji} emoji={props.emoji} alt="" />
+        <div class={styles.body}>
+          <p class={styles.heading}><span class={styles.label}>:{props.emoji.name}:</span></p>
+          <p class={styles.hint}>{props.hint}</p>
+        </div>
+      </div>
+    </Portal>
+  );
 }
 
 /** A person's avatar and styled name as the channel shows it (server nickname and role colour, else display name and Nitro style). */
@@ -54,10 +80,7 @@ export function PeopleTip(props: {
   let tip!: HTMLDivElement;
   const [left, setLeft] = createSignal(0);
   const rect = props.anchor.getBoundingClientRect();
-  onMount(() => {
-    const half = tip.offsetWidth / 2;
-    setLeft(Math.min(Math.max(rect.left + rect.width / 2, half + EDGE_GAP_PX), window.innerWidth - half - EDGE_GAP_PX));
-  });
+  onMount(() => setLeft(tipLeft(tip, rect)));
   const list = (): ReturnType<typeof tipPeople> | null => (props.people?.length ? tipPeople(props.people, props.count) : null);
   return (
     <Portal>

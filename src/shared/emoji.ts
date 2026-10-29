@@ -32,3 +32,47 @@ export function segmentContent(content: string): ContentSegment[] {
   if (last < content.length) out.push({ kind: 'text', text: content.slice(last) });
   return out;
 }
+
+/** An emoji as Discord's favorites list names it: a custom emoji's id, or a Unicode emoji's names (Discord's first). */
+export type FavoriteEmoji = { id: string } | { names: string[] };
+
+/** Adds (`favorite`) or removes an emoji from the owner's Discord favorites. */
+export interface EmojiFavoriteChange {
+  emoji: FavoriteEmoji;
+  favorite: boolean;
+}
+
+/** A stored key without the colons Discord may keep around a Unicode name (":fire:"). */
+const bareKey = (key: string): string => key.replace(/^:|:$/g, '');
+const keysOf = (emoji: FavoriteEmoji): string[] => ('id' in emoji ? [emoji.id] : emoji.names);
+
+export const isFavoriteEmoji = (favorites: readonly string[], emoji: FavoriteEmoji): boolean => {
+  const keys = new Set(keysOf(emoji));
+  return favorites.some((k) => keys.has(bareKey(k)));
+};
+
+/** `favorites` with `emoji` appended (as Discord adds) or every spelling of it removed; others keep their order. */
+export function withFavoriteEmoji(favorites: readonly string[], emoji: FavoriteEmoji, favorite: boolean): string[] {
+  const keys = new Set(keysOf(emoji));
+  const others = favorites.filter((k) => !keys.has(bareKey(k)));
+  if (!favorite) return others;
+  if (others.length < favorites.length) return [...favorites];
+  const key = keysOf(emoji)[0];
+  return key ? [...favorites, key] : [...favorites];
+}
+
+/** A custom emoji's server as its popout names it. */
+export interface EmojiSourceGuild {
+  id: string;
+  name: string;
+  icon: string | null;
+  /** Listed in Server Discovery (Discord's DISCOVERABLE feature); else invite-only. */
+  discoverable: boolean;
+}
+
+/** Where a custom emoji comes from. `guild` null: Discord names no server (invite-only or unavailable). */
+export interface EmojiSource {
+  guild: EmojiSourceGuild | null;
+  /** The owner is in that server. */
+  joined: boolean;
+}

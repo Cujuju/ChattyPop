@@ -1,10 +1,11 @@
 // Discord's picker data, read only through the embedded client's request session.
 import type { EmojiPickerData } from '@shared/compose';
 import { DM_GUILD_ID } from '@shared/discord';
+import { withFavoriteEmoji, type EmojiFavoriteChange } from '@shared/emoji';
 import { errorMessage } from '@shared/errors';
-import type { DiscordReader } from './client';
+import type { DiscordClient } from './client';
 import type { GatewayTap } from './gatewayTap';
-import { fields, has, message } from './settingsProto';
+import { bytesField, bytesOf, fields, has, message, withFields } from './settingsProto';
 
 // Schema: discord-userdoccers/discord-protos, FrecencyUserSettings.favorite_emojis (5) → emojis (1).
 const FAVORITES = 5;
@@ -21,6 +22,16 @@ export function emojiFavoritesFromProto(proto: Buffer): string[] | null {
   return [...new Set(message(top, FAVORITES).flatMap((f) => f.no === FAVORITE_KEY && 'bytes' in f ? [f.bytes.toString('utf8')] : []).filter(Boolean))];
 }
 
+/**
+ * The PATCH body's proto setting the favorites to `favorites` over the account's `current` settings: only favorite_emojis,
+ * whole, its other fields kept byte for byte. Discord replaces each top-level field a PATCH names, as chatSettings does.
+ */
+export function emojiFavoritesPatch(current: Buffer, favorites: readonly string[]): Buffer {
+  const sub = bytesOf(fields(current), FAVORITES) ?? Buffer.alloc(0);
+  const keys = Buffer.concat(favorites.map((k) => bytesField(FAVORITE_KEY, Buffer.from(k, 'utf8'))));
+  return bytesField(FAVORITES, withFields(sub, new Map([[FAVORITE_KEY, keys]])));
+}
+
 /** On-demand reads are cached; gateway updates keep favorites current between picker openings. */
 export class DiscordEmojiPickerData {
   private favorites: string[] = [];
@@ -28,8 +39,10 @@ export class DiscordEmojiPickerData {
   private favoriteRead: Promise<void> | undefined;
   private generation = 0;
   private readonly top = new Map<string, { until: number; read: Promise<string[]> }>();
+  /** Writes run one at a time: each rewrites the list over a fresh read, so overlapping ones would undo each other. */
+  private writes: Promise<unknown> = Promise.resolve();
 
-  constructor(tap: GatewayTap, private readonly owner: DiscordReader) {
+  constructor(tap: GatewayTap, private readonly owner: DiscordClient) {
     tap.on('dispatch', ({ t, d }) => {
       if (t === 'READY') {
         this.generation++;
@@ -69,6 +82,26 @@ export class DiscordEmojiPickerData {
       void read.finally(() => { if (this.favoriteRead === read) this.favoriteRead = undefined; }).catch(() => undefined);
     }
     await this.favoriteRead;
+  }
+
+  /** Adds or removes a favorite as the web client does (PATCH {settings: base64}); resolves with the favorites Discord holds. */
+  setFavorite(change: EmojiFavoriteChange): Promise<string[]> {
+    const run = this.writes.then(() => this.writeFavorite(change));
+    this.writes = run.catch(() => undefined);
+    return run;
+  }
+
+  private async writeFavorite({ emoji, favorite }: EmojiFavoriteChange): Promise<string[]> {
+    const { settings } = await this.owner.get<{ settings: string }>(SETTINGS_PATH);
+    const current = Buffer.from(settings, 'base64');
+    const next = withFavoriteEmoji(emojiFavoritesFromProto(current) ?? [], emoji, favorite);
+    const answer = await this.owner.patch<{ settings?: unknown } | undefined>(SETTINGS_PATH, { settings: emojiFavoritesPatch(current, next).toString('base64') });
+    // Discord answers with the settings it now holds; without them, the list just written stands until the gateway's echo.
+    const held = typeof answer?.settings === 'string' ? emojiFavoritesFromProto(Buffer.from(answer.settings, 'base64')) : null;
+    this.generation++;
+    this.favorites = held ?? next;
+    this.favoritesUntil = Date.now() + FAVORITES_TTL_MS;
+    return [...this.favorites];
   }
 
   private popular(guildId: string): Promise<string[]> {

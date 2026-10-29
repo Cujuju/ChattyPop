@@ -7,6 +7,7 @@ import { channelById } from '@/state/directory';
 import { clockTime } from './format';
 import { SenderSpoiler, SpoilersShown } from './spoilers';
 import { MarkdownLink } from './MarkdownLink';
+import { MessageEmoji } from '@/panels/chat/MessageEmoji';
 import { parseInline, parseMarkdown, type MdBlock, type MdInline } from './mdParse';
 import styles from './Markdown.module.css';
 
@@ -111,9 +112,10 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
             )}
           </Match>
           {/* data-text-emoji: text to gestures (ui/touch.ts), so a double tap on it reacts as on the words around it. */}
-          <Match when={n.k === 'emoji' && n}>
+          <Match when={n.k === 'emoji' && props.inert && n}>
             {(e) => <EmojiImage class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} emoji={e()} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
           </Match>
+          <Match when={n.k === 'emoji' && n}>{(e) => <MessageEmoji class={styles.emoji!} emoji={e()} jumbo={props.jumbo} />}</Match>
           <Match when={n.k === 'mention' && n}>
             {(m) => (
               <span class={styles.mention}>

@@ -217,6 +217,9 @@
   --cp-reaction-tip-max-w: 280px; /* the tip wraps its names past this */
   --cp-reaction-tip-gap: 8px; /* between the tip and its pill */
   --cp-emoji-pick: 28px; /* a custom emoji in a plugin's reaction picker */
+  --cp-emoji-popout-w: 300px; /* a message emoji's popout: Discord's (estimated from its popout) */
+  --cp-emoji-popout-emoji: 48px; /* the emoji in it, Discord's size */
+  --cp-emoji-popout-guild: 40px; /* its server's icon, Discord's size */
   --cp-composer-input-max-h: 240px; /* Archive composer text grows to about ten lines, then scrolls */
   --cp-thumb-btn: 38px; /* a thumb-sized control, on every surface: composer buttons, the phone's top bar */
   --cp-thumb-icon: 26px; /* the icon in one: 6px clear of the button's edge */

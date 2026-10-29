@@ -1,4 +1,5 @@
 import { For, Show, createEffect, createSignal, on, type JSX } from 'solid-js';
+import { Portal } from 'solid-js/web';
 import { contextMenu, inCompanion, setContextMenu, type ContextMenuState, type MenuGroup, type MenuItem } from '@/state/ui';
 import { Icon } from './icons';
 import { listen } from './listen';
@@ -239,16 +240,31 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
     );
   };
 
+  /** Escape closes the menu only: stopped here, it doesn't reach a popover the menu renders in (ContextMenuState.mount). */
+  const onMenuKey = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (sub()) closeSub();
+    else close();
+  };
+  /** In `m.mount` when given, through a container that takes no box there. */
+  const placed = (m: ContextMenuState, content: () => JSX.Element): JSX.Element => (
+    <Show when={m.mount} fallback={content()}>
+      {(mount) => <Portal mount={mount()} ref={(el) => (el.className = styles.layer!)}>{content()}</Portal>}
+    </Show>
+  );
+
   return (
     <Show when={contextMenu()} keyed>
-      {(m) =>
+      {(m) => placed(m, () =>
         inCompanion ? (
-          <div class={styles.backdrop}>
+          <div class={styles.backdrop} onKeyDown={onMenuKey}>
             {sheet(m)}
           </div>
         ) : (
           // Position is data (the pointer, the row), set inline; the look is in ContextMenu.module.css.
-          <>
+          <div class={styles.layer} onKeyDown={onMenuKey}>
             <div ref={(el) => (menu = el)} class={`cp-popover ${styles.menu}`} role="menu" data-marked={anyMarked(m.groups)} style={{ position: 'fixed', left: `${m.x}px`, top: `${m.y}px` }}>
               {body(m)}
             </div>
@@ -259,8 +275,8 @@ export function ContextMenu(props: { lead?: (m: ContextMenuState) => JSX.Element
                 </div>
               )}
             </Show>
-          </>
-        )
+          </div>
+        ))
       }
     </Show>
   );

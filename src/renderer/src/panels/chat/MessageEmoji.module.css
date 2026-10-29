@@ -1,0 +1,104 @@
+/* A message emoji's popout, after Discord's: the emoji large beside its name and what it means for the owner, then a
+   quieter band naming its server. Placed by MessageEmoji (fixed left/top beside the emoji). */
+.popout {
+  position: fixed;
+  z-index: var(--cp-z-popover);
+  display: flex;
+  flex-direction: column;
+  width: var(--cp-emoji-popout-w);
+  max-width: calc(100vw - 2 * var(--cp-space-4));
+  padding: 0;
+  overflow: hidden;
+  outline: none;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-6);
+  padding: var(--cp-space-7);
+}
+
+.emoji {
+  flex: none;
+  width: var(--cp-emoji-popout-emoji);
+  height: var(--cp-emoji-popout-emoji);
+  object-fit: contain;
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.name {
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blurb {
+  margin: 0;
+  color: var(--cp-text-2);
+  font-size: var(--cp-text-md);
+  line-height: var(--cp-leading-tight);
+}
+
+.blurb[data-error='true'] {
+  color: var(--cp-text-muted);
+}
+
+/* The server: a band set off from the emoji, as Discord's footer. */
+.from {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-4);
+  padding: var(--cp-space-6) var(--cp-space-7) var(--cp-space-7);
+  border-top: var(--cp-border-w) solid var(--cp-border-subtle);
+  background: var(--cp-surface-2);
+}
+
+.fromLabel {
+  margin: 0;
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+}
+
+.guild {
+  display: flex;
+  align-items: center;
+  gap: var(--cp-space-5);
+  min-width: 0;
+  --guild-icon-size: var(--cp-emoji-popout-guild);
+}
+
+.guildText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cp-space-1);
+  min-width: 0;
+}
+
+.guildName {
+  overflow: hidden;
+  color: var(--cp-text-1);
+  font-size: var(--cp-text-base);
+  font-weight: var(--cp-weight-semibold);
+  line-height: var(--cp-leading-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guildKind {
+  color: var(--cp-text-muted);
+  font-size: var(--cp-text-sm);
+  line-height: var(--cp-leading-tight);
+}

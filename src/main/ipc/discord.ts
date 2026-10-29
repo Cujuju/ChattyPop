@@ -24,6 +24,8 @@ import { searchGifs } from '../discord/gifs';
 import { fetchMutualFriends, fetchProfile, fetchReactors, FriendIndex } from '../discord/profiles';
 import type { GuildEmojiIndex } from '../discord/guildEmojis';
 import { DiscordEmojiPickerData } from '../discord/emojiPickerData';
+import { EmojiSources } from '../discord/emojiSource';
+import type { EmojiFavoriteChange, EmojiSource, FavoriteEmoji } from '@shared/emoji';
 import type { ReadStates } from '../discord/readStates';
 import { Interactions } from '../discord/interactions';
 import { probeDiscord, trackRecentMessageEvents } from '../discord/probe';
@@ -68,6 +70,20 @@ export interface DiscordDeps {
   chatSettings: Pick<AccountChatSettings, 'write'>;
   /** Servers and channels from the client's gateway. */
   directory: Pick<GatewayDirectory, 'guildList' | 'channelsOf'>;
+}
+
+/** A Unicode emoji's name as Discord's favorites store it (its shortcode, as "thumbsup" or "+1"). */
+const UNICODE_EMOJI_NAME = /^[\w+-]+$/;
+
+function favoriteChangeArg(v: unknown): EmojiFavoriteChange {
+  const c = v as { emoji?: { id?: unknown; names?: unknown }; favorite?: unknown } | null;
+  if (typeof c?.favorite !== 'boolean' || !c.emoji) throw new Error('Not a favorite change.');
+  const names = c.emoji.names;
+  const emoji: FavoriteEmoji | null = c.emoji.id !== undefined
+    ? { id: snowflakeArg(c.emoji.id, 'emoji') }
+    : Array.isArray(names) && names.length && names.every((n) => typeof n === 'string' && UNICODE_EMOJI_NAME.test(n)) ? { names: names as string[] } : null;
+  if (!emoji) throw new Error('Not a favorite emoji.');
+  return { emoji, favorite: c.favorite };
 }
 
 /** Validates renderer Discord ids and synchronously attaches gateway listeners during window creation. Returns equally gated calls for the phone. */
@@ -155,6 +171,9 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
     }), emojiPickerData.get(guildId as string)]);
     return { emojis: d.emojiIndex.all(), stickers: stickerIndex.all(), packs, perks: account.perks, emojiPicker };
   };
+  const setEmojiFavorite = (change: unknown): Promise<string[]> => emojiPickerData.setFavorite(favoriteChangeArg(change));
+  const emojiSources = new EmojiSources(d.owner, d.emojiIndex, () => d.directory.guildList());
+  const emojiSource = (emojiId: unknown): Promise<EmojiSource> => emojiSources.of(snowflakeArg(emojiId, 'emoji'));
 
   const commandIndexes = new CommandIndexes(d.discord.tap);
   const roleIndex = new GuildRoleIndex(d.discord.tap);
@@ -219,7 +238,7 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   handleMain(channels.shownChannel, () => d.discord.shownChannel ?? null);
   handleMain(channels.probe, () => probeDiscord(d.capture, d.discord.tap, recent, account, d.directory));
   // One gate for the window's and the phone's calls: posting calls refuse while posting is locked; each is an owner action.
-  const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, pollVoters, setChatSettings }));
+  const calls: DiscordCalls = session.actions(gatePosting(d.posting, { savedMessages, savedBookmarks, saveMessage, removeSavedMessage, send, ...scheduledCalls, uploadLimit, prepareUploads, uploadChunk, finishUpload, edit, deleteMessage, forward, react, gifs, expressions, setEmojiFavorite, emojiSource, commands, runCommand, autocomplete, useComponent, submitModal, roles, requestMembers, typing, createThread: startThread, votePoll, sendDirect: direct, profile, mutualFriends, reactors, pollVoters, setChatSettings }));
   for (const name of PHONE_DISCORD_METHODS) ipcMain.handle(channels[name], (_e, ...args: unknown[]) => calls[name](...args));
   return calls;
 }

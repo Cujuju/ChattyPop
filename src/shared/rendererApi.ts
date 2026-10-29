@@ -6,6 +6,7 @@ import type { FolderSaveResult } from './types/attachmentStore';
 import type { CoreMethod, CoreMethods, CoreResult } from './contract';
 import type { AutocompleteRequest, CommandChoice, CommandIndex, CommandRun, ComponentUse, DirectMessage, GuildRole, InteractionOutcome, ModalSubmit, NewThread } from './commands';
 import type { UploadFileMeta, ExpressionCatalog, Gif, OwnerEdit, OwnerForward, OwnerSend, PostedOwnerMessage, OwnerMessageRef, OwnerReaction, UploadSlot, WrittenAs } from './compose';
+import type { EmojiFavoriteChange, EmojiSource } from './emoji';
 import type { OwnerPollVote, PollVoters } from './polls';
 import type { OpenRouterKeyRouting } from './openrouter';
 import type { RuleFileFormat } from './ruleKinds/host';
@@ -102,6 +103,10 @@ export interface RendererApi {
     setChatSettings(change: Partial<SyncedChatSettings>): Promise<void>;
     /** Loads guild emoji/stickers, standard packs and plan perks; fetches guildId when absent from gateway. */
     expressions(guildId: string): Promise<ExpressionCatalog>;
+    /** Adds or removes an emoji from the owner's Discord favorites; resolves with the favorites Discord now holds. */
+    setEmojiFavorite(change: EmojiFavoriteChange): Promise<string[]>;
+    /** A custom emoji's server: the owner's own, or the one Discord names; rejects when Discord can't be reached. */
+    emojiSource(emojiId: string): Promise<EmojiSource>;
     /** The slash commands usable in a channel (guildId null for a DM). */
     commands(channelId: string, guildId: string | null): Promise<CommandIndex>;
     /** Runs a slash command; resolves once the app acknowledged it (its reply arrives as a message), or with its form. */

@@ -116,6 +116,8 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
       gifs: relay('gifs'),
       customTheme: viaMain(MAIN_INVOKE.discord.customTheme),
       expressions: relay('expressions'),
+      setEmojiFavorite: relay('setEmojiFavorite'),
+      emojiSource: relay('emojiSource'),
       commands: relay('commands'),
       runCommand: relay('runCommand'),
       autocomplete: relay('autocomplete'),

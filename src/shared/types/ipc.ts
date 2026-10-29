@@ -228,6 +228,10 @@ export const MAIN_INVOKE = {
     /** Writes Chat settings to the owner's Discord account (SyncedChatSettings). */
     setChatSettings: 'discord:set-chat-settings',
     expressions: 'discord:expressions',
+    /** Adds or removes an emoji from the owner's Discord favorites (EmojiFavoriteChange). */
+    setEmojiFavorite: 'discord:set-emoji-favorite',
+    /** A custom emoji's server (EmojiSource), for its popout. */
+    emojiSource: 'discord:emoji-source',
     commands: 'discord:commands',
     runCommand: 'discord:run-command',
     autocomplete: 'discord:autocomplete',

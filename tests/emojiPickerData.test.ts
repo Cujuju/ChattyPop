@@ -1,17 +1,18 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import { rankEmojiFavorites } from '../src/renderer/src/panels/chat/compose/emojiFavorites';
-import { DiscordEmojiPickerData, emojiFavoritesFromProto } from '../src/main/discord/emojiPickerData';
-import type { DiscordReader } from '../src/main/discord/client';
+import { DiscordEmojiPickerData, emojiFavoritesFromProto, emojiFavoritesPatch } from '../src/main/discord/emojiPickerData';
+import type { DiscordClient } from '../src/main/discord/client';
 import type { GatewayDispatch, GatewayTap } from '../src/main/discord/gatewayTap';
-import { bytesField } from '../src/main/discord/settingsProto';
+import { bytesField, fields, varintField } from '../src/main/discord/settingsProto';
 import { DM_GUILD_ID } from '@shared/discord';
+import { isFavoriteEmoji, withFavoriteEmoji } from '@shared/emoji';
 
 const favorites = (...keys: string[]): Buffer => bytesField(5, Buffer.concat(keys.map((key) => bytesField(1, Buffer.from(key)))));
 const settings = (...keys: string[]) => ({ settings: favorites(...keys).toString('base64') });
-function harness(get: ReturnType<typeof vi.fn>) {
+function harness(get: ReturnType<typeof vi.fn>, patch: ReturnType<typeof vi.fn> = vi.fn()) {
   const tap = new EventEmitter<{ dispatch: [GatewayDispatch] }>();
-  const data = new DiscordEmojiPickerData(tap as unknown as GatewayTap, { get } as unknown as DiscordReader);
+  const data = new DiscordEmojiPickerData(tap as unknown as GatewayTap, { get, patch } as unknown as DiscordClient);
   const update = (proto: Buffer, partial = true) => tap.emit('dispatch', { t: 'USER_SETTINGS_PROTO_UPDATE', s: null, d: { partial, settings: { type: 2, proto: proto.toString('base64') } } });
   return { data, update, tap };
 }
@@ -68,5 +69,62 @@ describe('favorite ordering', () => {
     const saved = ['unused-1', 'frequent', 'recent', 'unused-2'];
     expect(rankEmojiFavorites(saved, (k) => k, ['recent', 'not-favorite'], ['frequent', 'recent'])).toEqual(['recent', 'frequent', 'unused-1', 'unused-2']);
     expect(saved).toEqual(['unused-1', 'frequent', 'recent', 'unused-2']);
+  });
+});
+
+describe('favorite membership', () => {
+  it('appends a new favorite, removes every spelling of one, and keeps the rest in order', () => {
+    expect(withFavoriteEmoji(['a', 'fire'], { id: 'b' }, true)).toEqual(['a', 'fire', 'b']);
+    expect(withFavoriteEmoji(['a', 'b'], { id: 'a' }, true)).toEqual(['a', 'b']);
+    expect(withFavoriteEmoji(['a', ':fire:', 'flame', 'b'], { names: ['fire', 'flame'] }, false)).toEqual(['a', 'b']);
+    expect(withFavoriteEmoji(['a'], { names: ['thumbsup', '+1'] }, true)).toEqual(['a', 'thumbsup']);
+    expect(isFavoriteEmoji([':fire:'], { names: ['fire'] })).toBe(true);
+    expect(isFavoriteEmoji(['fire'], { id: 'fire2' })).toBe(false);
+  });
+
+  it('rewrites only favorite_emojis, keeping its other fields byte for byte', () => {
+    const unknownField = varintField(2, 1);
+    const current = Buffer.concat([bytesField(3, Buffer.from('other')), bytesField(5, Buffer.concat([bytesField(1, Buffer.from('old')), unknownField]))]);
+    const patch = emojiFavoritesPatch(current, ['x', 'fire']);
+    expect(fields(patch).map((f) => f.no)).toEqual([5]);
+    expect(emojiFavoritesFromProto(patch)).toEqual(['x', 'fire']);
+    expect(patch.includes(unknownField)).toBe(true);
+    expect(emojiFavoritesFromProto(emojiFavoritesPatch(current, []))).toEqual([]);
+  });
+});
+
+describe('writing favorites', () => {
+  const decoded = (body: { settings: string }): string[] => emojiFavoritesFromProto(Buffer.from(body.settings, 'base64')) ?? [];
+
+  it("writes over a fresh read, adopts Discord's answer, and serves it without reading again", async () => {
+    const get = vi.fn(async () => settings('a', 'fire'));
+    const patch = vi.fn(async (_path: string, body: { settings: string }) => ({ settings: favorites(...decoded(body)).toString('base64') }));
+    const { data } = harness(get, patch);
+    expect(await data.setFavorite({ emoji: { id: 'b' }, favorite: true })).toEqual(['a', 'fire', 'b']);
+    expect(patch.mock.calls[0]![0]).toBe('users/@me/settings-proto/2');
+    expect(decoded(patch.mock.calls[0]![1])).toEqual(['a', 'fire', 'b']);
+    expect((await data.get(DM_GUILD_ID)).favorites).toEqual(['a', 'fire', 'b']);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs writes one at a time, each over the result of the last', async () => {
+    let held = ['a'];
+    const get = vi.fn(async () => settings(...held));
+    const patch = vi.fn(async (_path: string, body: { settings: string }) => {
+      await new Promise((r) => setTimeout(r));
+      held = decoded(body);
+      return {};
+    });
+    const { data } = harness(get, patch);
+    await Promise.all([data.setFavorite({ emoji: { id: 'b' }, favorite: true }), data.setFavorite({ emoji: { id: 'a' }, favorite: false })]);
+    expect(held).toEqual(['b']);
+  });
+
+  it("rejects with Discord's refusal and keeps the next write going", async () => {
+    const get = vi.fn(async () => settings('a'));
+    const patch = vi.fn().mockRejectedValueOnce(new Error('refused')).mockResolvedValue({});
+    const { data } = harness(get, patch);
+    await expect(data.setFavorite({ emoji: { id: 'b' }, favorite: true })).rejects.toThrow('refused');
+    expect(await data.setFavorite({ emoji: { id: 'c' }, favorite: true })).toEqual(['a', 'c']);
   });
 });

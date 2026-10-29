@@ -1,19 +1,21 @@
 // One emoji picker shared by the composer, reactions and settings.
+import { onCleanup } from '@plugin-sdk/renderer/containment';
 import { For, Show, createMemo, createSignal, onMount } from 'solid-js';
 import type { DirectoryGuild } from '@shared/contract';
 import type { GuildEmoji } from '@shared/emoji';
 import { DM_GUILD_ID } from '@shared/discord';
 import { rankEmojiFavorites } from './emojiFavorites';
 import { directory } from '@/state/directory';
-import { inCompanion } from '@/state/ui';
-import { expressionCatalog, frequentEmoji, loadUnicodeEmojiData, loaded, recentEmoji, recordEmojiPick, unicodeEmoji } from '@/state/expressions';
+import { contextMenu, inCompanion, openContextMenu, setContextMenu } from '@/state/ui';
+import { failureNotice } from '@/state/dialogs';
+import { expressionCatalog, favoriteEmojiOf, frequentEmoji, isFavorite, loadUnicodeEmojiData, loaded, recentEmoji, recordEmojiPick, setEmojiFavorite, unicodeEmoji } from '@/state/expressions';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { errorText, tokenPx } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
 import { createSeenLoading } from '@/ui/seenLoading';
 import { Icon, type IconName } from '@/ui/icons';
 import { sameIds } from '@plugin-sdk/renderer/settings';
-import { CustomButton, UnicodeButton, emojisByGuild, frequentPicks, unicodeGroups, usableIn, type EmojiPick, type EmojiPreview, type OnPick } from './EmojiTab';
+import { CustomButton, UnicodeButton, emojisByGuild, frequentPicks, unicodeGroups, usableIn, type EmojiPick, type EmojiPreview, type OnEmojiMenu, type OnPick } from './EmojiTab';
 import { createGridStaging } from './gridStaging';
 import { PickerSearch, PickerSection, StagedGrid, normalQuery } from './PickerParts';
 import picker from './Picker.module.css';
@@ -25,6 +27,7 @@ const STANDARD = 'standard';
 
 /** Popular in the channel's server, Discord favorites, servers in sidebar order, then system emoji. */
 export function EmojiList(props: { guildId: string; onPick: OnPick }) {
+  let root!: HTMLDivElement;
   let body!: HTMLDivElement;
   let topGrid!: HTMLDivElement;
   const [query, setQuery] = createSignal('');
@@ -120,6 +123,16 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
     recordEmojiPick(pick);
     props.onPick(pick, keep);
   };
+  // Rendered inside the picker, so choosing from it leaves whichever popover holds the picker open.
+  const onMenu: OnEmojiMenu = (e, pick) => {
+    const emoji = favoriteEmojiOf(pick);
+    if (!emoji) return;
+    const favorite = isFavorite(emoji);
+    const run = (): Promise<void> => setEmojiFavorite(emoji, !favorite).catch(failureNotice("Couldn't update your Discord favorites"));
+    openContextMenu(e, [{ items: [{ label: favorite ? 'Unfavorite' : 'Favorite', icon: 'star', run }] }], { mount: root });
+    e.stopPropagation();
+  };
+  onCleanup(() => contextMenu()?.mount === root && setContextMenu(null));
 
   /** Rects account for section margins and the search field; the rail tracks the section at the scrollport's top. */
   const track = (): void => {
@@ -148,13 +161,13 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
   const PickButton = (p: { preview: EmojiPreview }) => {
     const custom = () => 'custom' in p.preview.pick ? p.preview.pick.custom : undefined;
     const unicode = () => 'unicode' in p.preview.pick ? p.preview.pick.unicode : '';
-    return <Show when={custom()} fallback={<UnicodeButton text={unicode()} title={p.preview.tag} onPick={onPick} onPreview={setHovered} />}>
-      {(e) => <CustomButton emoji={e()} usable={usableIn(e(), props.guildId)} onPick={onPick} onPreview={setHovered} whenSeen={pictures.whenSeen} />}
+    return <Show when={custom()} fallback={<UnicodeButton text={unicode()} title={p.preview.tag} onPick={onPick} onPreview={setHovered} onMenu={onMenu} />}>
+      {(e) => <CustomButton emoji={e()} usable={usableIn(e(), props.guildId)} onPick={onPick} onPreview={setHovered} onMenu={onMenu} whenSeen={pictures.whenSeen} />}
     </Show>;
   };
 
   return (
-    <div class={styles.root}>
+    <div ref={root} class={styles.root}>
       <div class={styles.main}>
         <nav class={styles.bar} aria-label="Emoji sections">
           <div class={styles.barScroll}>
@@ -179,14 +192,14 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
             <PickerSection title="Favorites" bar={FAVORITES} icon="star">
               <div class={picker.emojiGrid}><For each={favorites()}>{(p) => <PickButton preview={p} />}</For></div>
               <Show when={!favorites().length}>
-                <p class={styles.empty}>{data()?.favoritesError ? "Couldn't load Discord favorites. Reopen to retry." : expressionCatalog.loading || unicodeEmoji.loading ? 'Loading favorites…' : q() ? 'No favorites match your search.' : 'Emoji you favorite in Discord appear here.'}</p>
+                <p class={styles.empty}>{data()?.favoritesError ? "Couldn't load Discord favorites. Reopen to retry." : expressionCatalog.loading || unicodeEmoji.loading ? 'Loading favorites…' : q() ? 'No favorites match your search.' : inCompanion ? 'Press and hold an emoji to favorite it.' : 'Right-click an emoji to favorite it.'}</p>
               </Show>
             </PickerSection>
             <For each={matchingServers()}>
               {(id) => (
                 <PickerSection title={guild(id)?.name ?? 'Server'} bar={id}>
                   <StagedGrid staging={staging} items={byGuild().get(id)}>
-                    {(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} whenSeen={pictures.whenSeen} />}
+                    {(e) => <CustomButton emoji={e} usable={usableIn(e, props.guildId)} onPick={onPick} onPreview={setHovered} onMenu={onMenu} whenSeen={pictures.whenSeen} />}
                   </StagedGrid>
                 </PickerSection>
               )}
@@ -195,7 +208,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
               {(g, i) => (
                 <PickerSection title={g.name} bar={i() === 0 ? STANDARD : undefined}>
                   <StagedGrid staging={staging} items={g.emojis}>
-                    {(e) => <UnicodeButton text={e.emoji} title={e.shortcodes[0] ? `:${e.shortcodes[0]}:` : e.label} onPick={onPick} onPreview={setHovered} />}
+                    {(e) => <UnicodeButton text={e.emoji} title={e.shortcodes[0] ? `:${e.shortcodes[0]}:` : e.label} onPick={onPick} onPreview={setHovered} onMenu={onMenu} />}
                   </StagedGrid>
                 </PickerSection>
               )}

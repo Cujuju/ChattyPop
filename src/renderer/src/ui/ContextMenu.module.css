@@ -240,3 +240,8 @@
 .sheet .item + .item {
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
 }
+
+/* The menu's own container (and its portal's, inside a popover): takes no box, so it never shifts the layout it sits in. */
+.layer {
+  display: contents;
+}

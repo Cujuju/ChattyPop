@@ -80,8 +80,11 @@ export type OnPick = (pick: EmojiPick, keep: boolean) => void;
 
 export type EmojiPreview = { pick: EmojiPick; tag: string };
 
+/** A right-click (or long press) on an emoji: its menu. */
+export type OnEmojiMenu = (e: MouseEvent, pick: EmojiPick) => void;
+
 /** `whenSeen`: in a long list, the picture waits until it can be seen (SeenLoading). */
-export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void; whenSeen?: SeenLoading['whenSeen'] }) {
+export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void; onMenu?: OnEmojiMenu; whenSeen?: SeenLoading['whenSeen'] }) {
   const preview = (): void => props.onPreview?.({ pick: { custom: props.emoji }, tag: `:${props.emoji.name}:` });
   return (
     <button
@@ -92,16 +95,25 @@ export function CustomButton(props: { emoji: GuildEmoji; usable: boolean; onPick
       onPointerEnter={preview}
       onFocus={preview}
       onClick={(ev) => props.onPick({ custom: props.emoji }, ev.shiftKey)}
+      onContextMenu={(ev) => props.onMenu?.(ev, { custom: props.emoji })}
     >
       <EmojiImage class={styles.emojiImg} emoji={props.emoji} alt={`:${props.emoji.name}:`} loading={props.whenSeen ? undefined : 'lazy'} whenSeen={props.whenSeen} />
     </button>
   );
 }
 
-export function UnicodeButton(props: { text: string; title: string; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void }) {
+export function UnicodeButton(props: { text: string; title: string; onPick: OnPick; onPreview?: (preview: EmojiPreview) => void; onMenu?: OnEmojiMenu }) {
   const preview = (): void => props.onPreview?.({ pick: { unicode: props.text }, tag: props.title });
   return (
-    <button type="button" class={styles.emoji} title={props.title} onPointerEnter={preview} onFocus={preview} onClick={(ev) => props.onPick({ unicode: props.text }, ev.shiftKey)}>
+    <button
+      type="button"
+      class={styles.emoji}
+      title={props.title}
+      onPointerEnter={preview}
+      onFocus={preview}
+      onClick={(ev) => props.onPick({ unicode: props.text }, ev.shiftKey)}
+      onContextMenu={(ev) => props.onMenu?.(ev, { unicode: props.text })}
+    >
       <span class={styles.emojiChar}>{props.text}</span>
     </button>
   );

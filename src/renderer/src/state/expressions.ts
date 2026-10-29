@@ -4,7 +4,7 @@ import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { createEffect, createResource, createSignal, untrack, type ResourceFetcherInfo } from 'solid-js';
 import { canUseEmoji, type ExpressionCatalog, type Gif } from '@shared/compose';
-import type { GuildEmoji } from '@shared/emoji';
+import { isFavoriteEmoji, withFavoriteEmoji, type FavoriteEmoji, type GuildEmoji } from '@shared/emoji';
 import { onAppEvent } from './events';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 import { SETTINGS_KEYS } from '@shared/settings';
@@ -30,7 +30,7 @@ const refreshed = (prev: ExpressionCatalog | undefined, next: ExpressionCatalog)
   stickers: keepUnchanged(prev?.stickers, next.stickers),
   packs: keepUnchanged(prev?.packs, next.packs),
 });
-export const [expressionCatalog] = containedRoot(() => createResource(catalogRequest, async (r, info: ResourceFetcherInfo<ExpressionCatalog>) =>
+export const [expressionCatalog, { mutate: mutateCatalog }] = containedRoot(() => createResource(catalogRequest, async (r, info: ResourceFetcherInfo<ExpressionCatalog>) =>
   refreshed(info.value, await api.discord.expressions(r.guildId)),
 ));
 /** Emoji in the "Frequently used" row: two picker rows' worth, as Discord shows. */
@@ -43,6 +43,34 @@ export const [frequentEmoji, { refetch: refetchFrequentEmoji }] = containedRoot(
 onAppEvent('privacy-changed', () => void (untrack(catalogRequest) && refetchFrequentEmoji()));
 /** Returns undefined for failed resources to avoid Solid latest rethrowing across sibling sections. Each section displays its own error. */
 export const loaded = <T,>(r: { error: unknown; latest: T | undefined }): T | undefined => (r.error ? undefined : r.latest);
+
+/** A pick as Discord's favorites name it; null for a Unicode emoji without a shortcode, a name Discord could store. */
+export function favoriteEmojiOf(pick: { custom: GuildEmoji } | { unicode: string }): FavoriteEmoji | null {
+  if ('custom' in pick) return { id: pick.custom.id };
+  for (const g of loaded(unicodeEmoji) ?? []) {
+    const e = g.emojis.find((x) => x.emoji === pick.unicode);
+    if (e) return e.shortcodes.length ? { names: e.shortcodes } : null;
+  }
+  return null;
+}
+
+export const isFavorite = (emoji: FavoriteEmoji): boolean => isFavoriteEmoji(loaded(expressionCatalog)?.emojiPicker?.favorites ?? [], emoji);
+
+const setFavorites = (next: (favorites: string[]) => string[]): void => void mutateCatalog((c) =>
+  c?.emojiPicker ? { ...c, emojiPicker: { ...c.emojiPicker, favorites: next(c.emojiPicker.favorites) } } : c);
+
+/** Adds or removes a Discord favorite: the pickers show it at once, then hold Discord's answer; a refusal reloads them. */
+export async function setEmojiFavorite(emoji: FavoriteEmoji, favorite: boolean): Promise<void> {
+  setFavorites((list) => withFavoriteEmoji(list, emoji, favorite));
+  try {
+    const held = await api.discord.setEmojiFavorite({ emoji, favorite });
+    setFavorites(() => held);
+  } catch (err) {
+    const asked = untrack(catalogRequest);
+    if (asked) loadExpressions(asked.guildId);
+    throw err;
+  }
+}
 
 /** Loads (or refreshes) the pickers' catalog for a channel of `guildId`. */
 export const loadExpressions = (guildId: string): void => void setCatalogRequest({ guildId });

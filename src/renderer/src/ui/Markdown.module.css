@@ -140,6 +140,11 @@
   height: var(--cp-emoji-jumbo);
 }
 
+/* One that opens its popout on a click (panels/chat/MessageEmoji). */
+.emoji[data-opens] {
+  cursor: pointer;
+}
+
 /* A search match inside a result's snippet. */
 .match {
   border-radius: var(--cp-radius-xs);

@@ -85,12 +85,17 @@ export interface ContextMenuState {
   messageId?: string;
   /** A menu below its anchor: the anchor's top, which the menu ends at instead when no room is below. */
   flipY?: number;
+  /**
+   * Where it renders, for a menu opened inside a popover (a picker): presses on it are then inside that popover, which
+   * stays open. Default: the app's overlay layer.
+   */
+  mount?: HTMLElement;
 }
 /** The open right-click menu, at viewport coordinates. */
 export const [contextMenu, setContextMenu] = createSignal<ContextMenuState | null>(null);
 
 /** Opens `groups` as the right-click menu at the pointer, in place of the browser's; empty groups are dropped, and nothing opens when all are. */
-export function openContextMenu(e: MouseEvent, groups: MenuGroup[], opts: Pick<ContextMenuState, 'reactTo' | 'messageId'> = {}): void {
+export function openContextMenu(e: MouseEvent, groups: MenuGroup[], opts: Pick<ContextMenuState, 'reactTo' | 'messageId' | 'mount'> = {}): void {
   const shown = groups.filter((g) => g.items.length > 0);
   if (!shown.length) return;
   e.preventDefault();
