@@ -4,11 +4,11 @@ import { createRequire } from 'node:module';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
-const { createRoot } = await import('solid-js');
+const { createRoot, createSignal } = await import('solid-js');
 // A variable path keeps the renderer module out of the node type-check.
 const followPath = '../src/renderer/src/ui/followBottom';
 const { createFollowBottom } = (await import(followPath)) as {
-  createFollowBottom(): { ref(el: unknown): void; following(): boolean };
+  createFollowBottom(pinned?: () => boolean): { ref(el: unknown): void; following(): boolean; detach(): void };
 };
 
 /** The page: the test delivers the resizes and frames it would. */
@@ -50,17 +50,18 @@ function followedList() {
     addEventListener: (type: string, hear: () => void) => void heard.set(type, hear),
     removeEventListener: (type: string) => void heard.delete(type),
   };
-  const { log, dispose } = createRoot((dispose) => {
-    const log = createFollowBottom();
+  const { log, dispose, setHidden } = createRoot((dispose) => {
+    const [hidden, setHidden] = createSignal(false);
+    const log = createFollowBottom(hidden);
     log.ref(el);
-    return { log, dispose };
+    return { log, dispose, setHidden };
   });
   const grow = (px: number): void => {
     el.scrollHeight += px;
     page.resized();
   };
   const fromBottom = (): number => el.scrollHeight - el.clientHeight - el.scrollTop;
-  return { el, log, dispose, grow, fromBottom, click: () => heard.get('click')!() };
+  return { el, log, dispose, setHidden, grow, fromBottom, click: () => heard.get('click')!() };
 }
 
 describe('follow bottom', () => {
@@ -103,6 +104,33 @@ describe('follow bottom', () => {
     frame();
     frame();
     list.grow(UNFOLDED_PX);
+    expect(list.fromBottom()).toBe(0);
+    list.dispose();
+  });
+});
+
+describe('hidden follow bottom', () => {
+  it('stops while hidden and stays put on return beyond the near-bottom distance', () => {
+    const list = followedList();
+    list.setHidden(true);
+    const top = list.el.scrollTop;
+    list.grow(UNFOLDED_PX);
+    expect(list.el.scrollTop).toBe(top);
+    list.log.detach();
+    list.setHidden(false);
+    expect(list.log.following()).toBe(false);
+    list.grow(LINE_PX);
+    expect(list.el.scrollTop).toBe(top);
+    list.dispose();
+  });
+  it('resumes on return within the existing near-bottom distance', () => {
+    const list = followedList();
+    list.setHidden(true);
+    list.grow(LINE_PX);
+    list.log.detach();
+    list.setHidden(false);
+    expect(list.log.following()).toBe(true);
+    list.grow(LINE_PX);
     expect(list.fromBottom()).toBe(0);
     list.dispose();
   });

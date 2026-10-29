@@ -6,7 +6,7 @@ import { lastReader, markRead, messageRead, recordReader, unreadMark } from '../
 import { putReadStates } from '../src/core/queries/readStates';
 import { directory } from '../src/core/queries/directory';
 import { ARRIVAL } from '../src/core/arrival';
-import { firstUnreadAbove, messageToMark } from '../src/renderer/src/state/lastReadRules';
+import { archiveReadHeld, firstUnreadAbove, messageToMark } from '../src/renderer/src/state/lastReadRules';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 
 const GUILD = '100000000000000001';
@@ -205,5 +205,30 @@ describe("last read: Discord's read state and the owner's messages", () => {
     ack(GENERAL, b.id);
     expect(messageRead(db, b.id, SELF)).toBe(true);
     expect(messageRead(db, 'missing', SELF)).toBe(false);
+  });
+});
+
+describe('archive read acknowledgement', () => {
+  const away = { held: false, looking: false, wasLooking: true, caughtUp: true, arrived: false, companion: false };
+  it('holds desktop arrivals across repeated focus returns until a deliberate act', () => {
+    const held = archiveReadHeld(away);
+    expect(held).toBe(true);
+    const back = { ...away, held, looking: true, wasLooking: false, arrived: true };
+    expect(archiveReadHeld(back)).toBe(true);
+    expect(archiveReadHeld({ ...back, looking: false, wasLooking: true, caughtUp: false })).toBe(true);
+    expect(archiveReadHeld({ ...back, acted: true })).toBe(false);
+  });
+  it('releases on return when nothing arrived', () => {
+    expect(archiveReadHeld({ ...away, held: true, looking: true, wasLooking: false })).toBe(false);
+  });
+  it('releases companion arrivals on return', () => {
+    expect(archiveReadHeld({ ...away, held: true, looking: true, wasLooking: false, arrived: true, companion: true })).toBe(false);
+  });
+  it('allows acknowledgement while away without marking until looking', () => {
+    const held = archiveReadHeld({ ...away, held: true, acted: true });
+    expect(held).toBe(false);
+    const mark = (looking: boolean) => looking && !held ? messageToMark(GENERAL, GENERAL, 'm3', 'm2') : undefined;
+    expect(mark(false)).toBeUndefined();
+    expect(mark(true)).toBe('m3');
   });
 });

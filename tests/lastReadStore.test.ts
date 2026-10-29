@@ -32,7 +32,7 @@ vi.mock('../src/renderer/src/state/events', () => ({
 const solid = await import('solid-js');
 const statePath = '../src/renderer/src/state/lastRead';
 const state = await import(statePath) as {
-  watchArchive(lookable: Accessor<boolean>, seen: Accessor<string | undefined>): void;
+  watchArchive(lookable: Accessor<boolean>, seen: Accessor<string | undefined>, companion?: boolean): { acknowledged(): boolean; acknowledge(): void };
   unreadBanner(): UnreadMark | null;
   dismissUnreadBanner(): void;
 };
@@ -73,7 +73,8 @@ beforeEach(() => {
   archive.ingestMessages([a, b], ARRIVAL.gateway);
   first = a.id;
   last = b.id;
-  env.archive.items = [a, b];
+  const [items, setItems] = solid.createSignal<{ id: string }[]>([a, b]);
+  Object.defineProperty(env.archive, 'items', { configurable: true, get: items, set: setItems });
   env.snapshot.mockImplementation(async (id) => unreadSnapshot(db, id, 0, SELF));
   env.unread.mockImplementation(async (id, since, localReadId) => unreadMark(db, id, 0, SELF, since, localReadId));
   env.mark.mockImplementation(async (id, message) => {
@@ -195,7 +196,7 @@ describe('away and back', () => {
     const [items, setItems] = solid.createSignal(env.archive.items);
     solid.createRoot((stop) => {
       dispose = stop;
-      state.watchArchive(() => visible() && focused(), () => items().at(-1)?.id);
+      state.watchArchive(() => visible() && focused(), () => items().at(-1)?.id, true);
     });
     await settle();
     state.dismissUnreadBanner();
@@ -213,6 +214,82 @@ describe('away and back', () => {
     if (visibleFirst) setFocused(true); else setVisible(true);
     await settle();
     expect(state.unreadBanner()).toMatchObject({ count: 1, firstId: later.id });
+    expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
+  });
+});
+
+describe('desktop acknowledgement', () => {
+  it('counts arrivals live while unfocused and holds marks and banner through focus and content clicks', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    let reading!: ReturnType<typeof state.watchArchive>;
+    solid.createRoot((stop) => {
+      dispose = stop;
+      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
+    });
+    await settle();
+    state.dismissUnreadBanner();
+    setLooking(false);
+    const arrive = async (offset: number) => {
+      const later = rawMessage(CH, Date.UTC(2026, 9, 1) + offset, 'away');
+      seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+      env.archive.items = [...env.archive.items, later];
+      await settle();
+      return later.id;
+    };
+    const firstAway = await arrive(2);
+    expect(state.unreadBanner()).toMatchObject({ count: 1, firstId: firstAway });
+    const newest = await arrive(3);
+    expect(state.unreadBanner()).toMatchObject({ count: 2, firstId: firstAway });
+    setLooking(true);
+    await settle();
+    expect(reading.acknowledged()).toBe(false);
+    const target = (globalThis as unknown as { window: EventTarget }).window;
+    target.dispatchEvent(new Event('click'));
+    target.dispatchEvent(new Event('mouseover'));
+    expect(reading.acknowledged()).toBe(false);
+    expect(env.mark).not.toHaveBeenCalledWith(CH, newest);
+    reading.acknowledge();
+    await settle();
+    expect(reading.acknowledged()).toBe(true);
+    expect(env.mark).toHaveBeenLastCalledWith(CH, newest);
+  });
+
+  it('releases a return without arrivals and continues live marking', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    let reading!: ReturnType<typeof state.watchArchive>;
+    solid.createRoot((stop) => {
+      dispose = stop;
+      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
+    });
+    await settle();
+    setLooking(false);
+    expect(reading.acknowledged()).toBe(false);
+    setLooking(true);
+    await settle();
+    expect(reading.acknowledged()).toBe(true);
+    const later = rawMessage(CH, Date.UTC(2026, 9, 1) + 2, 'active');
+    env.archive.items = [...env.archive.items, later];
+    await settle();
+    expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
+  });
+
+  it('acknowledges while away but waits for looking before marking', async () => {
+    const [looking, setLooking] = solid.createSignal(true);
+    let reading!: ReturnType<typeof state.watchArchive>;
+    solid.createRoot((stop) => {
+      dispose = stop;
+      reading = state.watchArchive(looking, () => env.archive.items.at(-1)?.id);
+    });
+    await settle();
+    setLooking(false);
+    const later = rawMessage(CH, Date.UTC(2026, 9, 1) + 2, 'away');
+    seedArchive(db, []).ingestMessages([later], ARRIVAL.gateway);
+    env.archive.items = [...env.archive.items, later];
+    await settle();
+    reading.acknowledge();
+    expect(env.mark).not.toHaveBeenCalledWith(CH, later.id);
+    setLooking(true);
+    await settle();
     expect(env.mark).toHaveBeenLastCalledWith(CH, later.id);
   });
 });

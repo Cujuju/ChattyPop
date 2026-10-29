@@ -8,7 +8,7 @@ import { compareSnowflakes } from '@shared/discord';
 import { DESKTOP_CONNECTED_EVENT } from '@shared/phone';
 import { archiveChannelId, archiveState } from './archive';
 import { onAppEvent } from './events';
-import { messageToMark } from './lastReadRules';
+import { archiveReadHeld, messageToMark } from './lastReadRules';
 import { listen } from '@/ui/listen';
 
 const [banner, setBanner] = createSignal<UnreadMark | null>(null);
@@ -25,14 +25,17 @@ export const dismissUnreadBanner = (): void => {
 };
 
 /** Marks newest visible messages only when lookable and opening unread snapshot is ready. Banner preserves opening counts; owner disposal stops tracking. */
-export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string | undefined>): void {
+export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string | undefined>, companion = false): {
+  acknowledged: Accessor<boolean>;
+  acknowledge: () => void;
+} {
   /** The channel whose banner is in: marking may start. */
   const [ready, setReady] = createSignal<string | null>(null);
   /** Bumped by each banner read (snapshot or reconcile) and on cleanup: only the latest one's answer lands. */
   let requests = 0;
   /** The last message marked, or being marked. */
   let marked: string | undefined;
-  /** Put away caught up: marking waits until the return banner is read, so it counts what came meanwhile. */
+  /** Put away caught up: desktop arrivals await deliberate acknowledgement. */
   const [held, setHeld] = createSignal(false);
   /** All unread messages at opening, before bot filtering; remains valid after this view marks them read. */
   let boundary: UnreadBoundary | null = null;
@@ -91,14 +94,24 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     on(looking, (now, was) => {
       const channelId = archiveChannelId();
       if (!channelId) return;
-      if (!now && was) setHeld(ready() === channelId && marked !== undefined && marked === untrack(() => archiveState.items.at(-1)?.id));
-      else if (now && held()) {
-        // Taken before releasing: the snapshot holds marking (ready) until its banner is in; it supersedes one in flight.
-        if (!untrack(banner)) snapshot(channelId);
-        setHeld(false);
-      }
+      const newest = untrack(() => archiveState.items.at(-1)?.id);
+      if (now && !was && held() && !untrack(banner)) snapshot(channelId);
+      setHeld(archiveReadHeld({
+        held: held(), looking: now, wasLooking: Boolean(was), companion,
+        caughtUp: ready() === channelId && marked !== undefined && marked === newest,
+        arrived: newest !== marked,
+      }));
     }),
   );
+
+  // Desktop banners count arrivals while away, before focus returns.
+  createEffect(on(() => archiveState.items.at(-1)?.id, (newest) => {
+    if (companion || looking() || newest === marked) return;
+    const channelId = archiveChannelId();
+    if (!channelId) return;
+    if (banner()) reconcile();
+    else snapshot(channelId);
+  }, { defer: true }));
 
   createEffect(() => {
     retries();
@@ -134,4 +147,11 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     for (const off of offs) off();
     setBanner(null);
   });
+  return {
+    acknowledged: () => !held(),
+    acknowledge: () => setHeld(archiveReadHeld({
+      held: held(), looking: looking(), wasLooking: looking(),
+      caughtUp: false, arrived: false, companion, acted: true,
+    })),
+  };
 }

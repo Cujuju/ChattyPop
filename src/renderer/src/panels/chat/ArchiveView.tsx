@@ -19,7 +19,7 @@ import { archivedChannelById, archivedChannels, channelById } from '@/state/dire
 import { isDmChannel, isReadOnlyDm, type DmChannel } from '@/state/dmRules';
 import { JumpToNewest } from '@/ui/JumpToNewest';
 import { UnreadBanner } from '@/ui/UnreadBanner';
-import { onUserScrollNewer } from '@/ui/scrollIntent';
+import { onUserScroll, onUserScrollNewer } from '@/ui/scrollIntent';
 import { createShown, createWindowFocused } from '@/ui/seen';
 import { overlayOpen } from '@/state/overlay';
 import { typing } from '@/state/typing';
@@ -119,7 +119,7 @@ export function ArchiveView() {
   createEffect(() => openRestoredArchive(channels()));
   preloadExpressions(() => current()?.guildId);
 
-  // Follows newest messages unless scrolled away, viewing old windows or holding citation targets. Phone/background/offscreen views retain previous reading position.
+  // Hidden views retain their reading position; visible unfocused windows keep following.
   const [offScreen, setOffScreen] = createSignal(false);
   const log = createFollowBottom(() => !atNewest() || vlog.holding() || offScreen());
 
@@ -169,6 +169,7 @@ export function ArchiveView() {
   );
 
   const jumpToNewest = async (): Promise<void> => {
+    acknowledge();
     const channelId = archiveChannelId();
     // A jump far back loads only a window around its message; reload the newest page first.
     if (!atNewest() && channelId) await openArchive(channelId);
@@ -183,44 +184,47 @@ export function ArchiveView() {
   let scroller: HTMLDivElement | undefined;
   /** The owner can look at the Archive: set once the view is on the page. */
   let lookable: () => boolean = () => false;
+  let acknowledged: () => boolean = () => true;
+  let acknowledge: () => void = () => undefined;
+  const dismissBanner = (): void => { acknowledge(); dismissUnreadBanner(); };
   onMount(() => {
     const shown = createShown(root, () => CHAT_PANEL);
     const focused = createWindowFocused();
     // Read only while the owner can look at it: on screen, the window focused, nothing over the chat area.
     lookable = () => shown() && focused() && !overlayOpen();
-    if (inCompanion) {
-      createEffect(
-        on(shown, (now) => {
-          if (!now) return void setOffScreen(true);
-          if (!offScreen()) return;
-          // Back on screen: follow again only from the bottom, before following resumes and scrolls there.
-          batchWrites(() => {
-            log.detach();
-            setOffScreen(false);
-          });
-        }, { defer: true }),
-      );
-    }
-    watchArchive(lookable, seenNewest);
+    createEffect(
+      on(shown, (now) => {
+        if (!now) return void setOffScreen(true);
+        if (!offScreen()) return;
+        // Back on screen: follow again only from the bottom, before following resumes and scrolls there.
+        batchWrites(() => {
+          log.detach();
+          setOffScreen(false);
+        });
+      }, { defer: true }),
+    );
+    const reading = watchArchive(lookable, seenNewest, inCompanion);
+    acknowledged = reading.acknowledged;
+    acknowledge = reading.acknowledge;
     if (!inCompanion) keepArchivePlace(lookable);
     // After the rows are drawn, measured or moved (startOf tracks every re-layout; shift translates them): positions
     // are read from the page.
     createEffect(() => {
       const b = unreadBanner();
-      void [lookable(), settled(), archiveState.items.length, vlog.log.keys(), vlog.extent(), vlog.log.shift(), b && vlog.log.startOf(b.firstId)];
+      void [lookable(), acknowledged(), settled(), archiveState.items.length, vlog.log.keys(), vlog.extent(), vlog.log.shift(), b && vlog.log.startOf(b.firstId)];
       requestAnimationFrame(checkBanner);
     });
   });
   /** The banner points up to its first unread: once that is on screen, or below the view, it has nothing to point to. */
   const checkBanner = (): void => {
     const b = unreadBanner();
-    if (!b || !scroller?.isConnected || !lookable() || !settled()) return;
+    if (!b || !scroller?.isConnected || !lookable() || !acknowledged() || !settled()) return;
     const row = scroller.querySelector(`[data-row-key="${CSS.escape(b.firstId)}"]`);
     const rowTop = row ? row.getBoundingClientRect().top : null;
     if (!firstUnreadAbove(b, archiveState.items, vlog.log.keys(), rowTop, scroller.getBoundingClientRect().top)) dismissUnreadBanner();
   };
   const jumpToUnread = (mark: UnreadMark): void => {
-    dismissUnreadBanner();
+    dismissBanner();
     void openArchive(mark.channelId, mark.firstId);
   };
 
@@ -264,6 +268,7 @@ export function ArchiveView() {
               onCleanup(() => resized.disconnect());
               vlog.ref(el);
               log.ref(el);
+              if (!inCompanion) onUserScroll(el, () => { acknowledge(); checkBanner(); });
               onUserScrollNewer(el, dismissUnreadBanner);
               // Before any handler in a row.
               listen(el, 'click', tickRow, true);
@@ -277,7 +282,7 @@ export function ArchiveView() {
             <SelectionBar />
           </Show>
           <Show when={!selecting() && unreadBanner()}>
-            {(mark) => <UnreadBanner count={mark().count} sinceTs={mark().firstTs} onJump={() => jumpToUnread(mark())} onDismiss={dismissUnreadBanner} />}
+            {(mark) => <UnreadBanner count={mark().count} sinceTs={mark().firstTs} onJump={() => jumpToUnread(mark())} onDismiss={dismissBanner} />}
           </Show>
           <Show when={!log.following()}>
             <JumpToNewest label="Jump to newest message" onClick={() => void jumpToNewest()} />

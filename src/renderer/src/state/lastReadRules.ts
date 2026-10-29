@@ -18,3 +18,21 @@ export function firstUnreadAbove(
   const firstDrawn = loaded.findIndex((m) => drawn.includes(m.id));
   return firstDrawn >= 0 && at < firstDrawn;
 }
+
+export interface ArchiveReadHold {
+  held: boolean;
+  looking: boolean;
+  wasLooking: boolean;
+  caughtUp: boolean;
+  arrived: boolean;
+  companion: boolean;
+  acted?: boolean;
+}
+
+/** Desktop arrivals remain held across focus changes until deliberate chat input. Companion returns always release. */
+export function archiveReadHeld(state: ArchiveReadHold): boolean {
+  if (state.acted) return false;
+  if (!state.looking && state.wasLooking) return state.held || state.caughtUp;
+  if (state.looking && !state.wasLooking && (state.companion || !state.arrived)) return false;
+  return state.held;
+}
