@@ -1,4 +1,4 @@
-// Discord's REST API as the app and plugins use it, through the embedded client's session (law 4); DiscordApi implements it.
+// Discord's REST API as the app and plugins use it, through the embedded client's session (law 3); DiscordApi implements it.
 
 /** A query string's values; undefined ones are left out. */
 export type DiscordQuery = Record<string, string | number | undefined>;

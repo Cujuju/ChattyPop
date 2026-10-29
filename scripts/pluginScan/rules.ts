@@ -82,7 +82,7 @@ const DISCORD_API_PATH = /^\/api(?:\/|$)/;
 /** Discord's gateway and voice hosts. */
 const DISCORD_SOCKET_HOST = /(?:^|\.)(?:gateway[\w-]*\.discord\.gg|discord\.media)$/i;
 
-/** Whether `url` is Discord's API, gateway or voice: what only the embedded client reaches (law 4). Links and media aren't. */
+/** Whether `url` is Discord's API, gateway or voice: what only the embedded client reaches (law 3). Links and media aren't. */
 function discordEndpoint(url: string): boolean {
   let u: URL;
   try {

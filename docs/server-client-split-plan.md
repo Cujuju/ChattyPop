@@ -181,7 +181,7 @@ export const hasLiveClient: boolean;
 ```
 - `state/chat.ts`: `chatSource` is `'archive'` when `!hasLiveClient` (as for `inCompanion` today).
 - Panels read `hasLiveClient` and the new `serverOnly(feature)` store (below) to hide the live-pane switch and disable
-  refused actions with "Only on the server" (view layer only; CSS by the design agent, law 3).
+  refused actions with "Only on the server" (view layer only).
 - `onServerScreen` (= not the phone, not a remote desktop) gates what needs the server's screen: OpenRouter sign-in, the rule file picker, moving the archive. A typed path (a rule file, a local plugin) still works remotely.
 
 ### 4.3 `src/plugin-sdk/renderer/shell/remoteApi.ts` (new)
@@ -310,7 +310,7 @@ export function startClient(mode: { origin: string | null }): void;
 ```
 - `connect.html` (new host renderer page, `src/renderer/connect.html` + `src/renderer/src/connect/`): add, pick and
   remove servers. Its preload API: `window.chattypopConnect = { list(), add(origin), remove(origin), open(origin) }`.
-  Added to `HOST_PAGES` in `bundledPlugins.ts`. CSS module by the design agent (law 3).
+  Added to `HOST_PAGES` in `bundledPlugins.ts`.
 - Badge: reuse `badgeImage.ts` (Windows overlay) and `app.setBadgeCount` (macOS).
 - PDF: reuse `src/main/pdf.ts` (`htmlToPdf`) in the client.
 
@@ -350,7 +350,7 @@ export class LoginRelay {
 // MAIN_INVOKE.discord: loginRelayState, loginStart, loginStop, loginInput (handleMain; remote and local)
 ```
 View: a "Sign in to Discord on the server" panel on remote desktops while `discord-session` is `signed-out`
-(store `state/discordSession.ts`; canvas view; CSS by the design agent).
+(store `state/discordSession.ts`; canvas view).
 
 ## 9. Tests and checks
 - Host: `pnpm typecheck`, `pnpm test`, plus new tests:

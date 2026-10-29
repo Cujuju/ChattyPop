@@ -25,7 +25,7 @@ Goals:
 2. Any DM opens in the Archive view. One click archives it, and an optional rule archives DMs automatically when they get a message.
 3. Start a DM or group with friends from the app.
 4. Manage a DM in the app: mark read, mute, close, leave, rename a group, add friends. Rarer actions (remove a person, change the group icon) open the live client.
-5. The architecture laws hold. In particular, every write uses the live client's exact request shape (law 4, research §1).
+5. The architecture laws hold. In particular, every write uses the live client's exact request shape (law 3, research §1).
 
 Non-goals, each filed as an issue:
 - Accepting or ignoring message requests and spam. They're shown in a Requests fold, read-only, and never auto-archived.
@@ -194,7 +194,7 @@ The rename and leave dialogs close, their fields cleared, once their conversatio
 
 - All values come from existing tokens. New size tokens in `sizes.css`: `--cp-dm-row-h` and `--cp-avatar-stack` (a stacked member face). `--cp-avatar-md` already exists.
 - No new section colour: DMs are the `channels` section.
-- Styling lives in `panels/channels/Dms.module.css`, authored by the design agent (law 3).
+- Styling lives in `panels/channels/Dms.module.css`.
 
 ## 5. Files
 

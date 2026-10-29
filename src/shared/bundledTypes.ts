@@ -255,11 +255,11 @@ export function pluginTableName(pluginId: string, name: string): string {
   return `${pluginTablePrefix(pluginId)}${name}`;
 }
 
-/** Discord's domains: plugins never reach them (law 4: only the embedded client's session does). */
+/** Discord's domains: plugins never reach them (law 3: only the embedded client's session does). */
 const DISCORD_HOST = /(^|\.)(discord\.com|discordapp\.com|discordapp\.net|discord\.gg|discord\.media)$/i;
 /** A hostname as DNS resolves it: lowercase, without the root label's trailing dot (`discord.com.` is `discord.com`). */
 export const canonicalHost = (hostname: string): string => hostname.toLowerCase().replace(/\.+$/, '');
-/** Whether `hostname`, in any spelling, is one of Discord's, which plugins never fetch (law 4). */
+/** Whether `hostname`, in any spelling, is one of Discord's, which plugins never fetch (law 3). */
 export const isDiscordHost = (hostname: string): boolean => DISCORD_HOST.test(canonicalHost(hostname));
 /** How much of a setting the phone reads: all of it, or these fields (dot paths into it); the rest reads as unset. */
 export type PhoneSettingView = true | readonly string[];

@@ -6,9 +6,8 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 # Architecture laws
 1. **Redesign touches only the view layer.** Stores own data; panels (`src/renderer/src/panels/<id>/`) read stores only, never IPC; layout is data (`src/renderer/src/layout/`).
 2. **No style literals outside `src/renderer/src/theme/`.** Colors, sizes, fonts, radii, shadows and durations are `--cp-*` tokens. Panels use CSS Modules.
-3. **Styling ownership**: `src/renderer/src/theme/**` and `*.module.css` are authored by the design agent. Don't restyle in `.tsx`.
-4. **Discord access** goes only through the embedded client's session (`ses.fetch`, captured headers). Never Node `fetch` to discord.com.
-5. **AI providers** sit behind one `LlmProvider` interface. Claude = Agent SDK → user's Claude Code; ChatGPT = `codex app-server`; Ollama/OpenRouter = OpenAI-compatible HTTP. Never read or store Claude/ChatGPT credentials.
+3. **Discord access** goes only through the embedded client's session (`ses.fetch`, captured headers). Never Node `fetch` to discord.com.
+4. **AI providers** sit behind one `LlmProvider` interface. Claude = Agent SDK → user's Claude Code; ChatGPT = `codex app-server`; Ollama/OpenRouter = OpenAI-compatible HTTP. Never read or store Claude/ChatGPT credentials.
 
 # Commands
 - `pnpm dev`: electron-vite dev in parallel (`scripts/dev.mjs`): main builds in a worker while the renderer server pre-transforms; a splash shows from the start

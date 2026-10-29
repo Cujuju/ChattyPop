@@ -60,7 +60,7 @@ export function pluginFetch(pluginId: string, hosts: readonly string[], owner: (
   const listed = (u: URL): boolean => u.protocol === 'https:' && hostListed(hosts, u.hostname);
   const ownerSet = async (u: URL): Promise<boolean> => OWNER_URL_PROTOCOLS.has(u.protocol) && (await owner()).includes(u.origin);
   const check = async (u: URL): Promise<void> => {
-    // Reject Discord before evaluating allowlists (law 4).
+    // Reject Discord before evaluating allowlists (law 3).
     if (isDiscordHost(u.hostname) || (!listed(u) && !(await ownerSet(u))))
       throw new Error(`${pluginId} may not fetch ${u.origin}: not a declared network host or an address set for it`);
   };

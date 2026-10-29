@@ -51,7 +51,7 @@ export interface MainContext<D extends PluginDescriptor = PluginDescriptor> {
   /** Desktop and paired-phone notices; `kind` is one the descriptor declares (`notices`), stamped by the host. */
   notifications: Notifications<NoticeKinds<D>>;
   live: { labels: { provide(fn: LiveLabelProvider): void; changed(): void } };
-  /** Discord through the embedded client's session (law 4: never Node fetch); writes only with descriptor `discord.write`. */
+  /** Discord through the embedded client's session (law 3: never Node fetch); writes only with descriptor `discord.write`. */
   discord: PluginDiscord<D>;
   /** Custom emojis the gateway reported, per server. */
   emojis: GuildEmojis;

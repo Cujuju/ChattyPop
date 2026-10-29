@@ -1,5 +1,5 @@
 // Plugin SDK, main part (docs/plugin-architecture.md §4–§5): the main side's context, and Discord posting through the
-// embedded session (law 4).
+// embedded session (law 3).
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import type { MainContext, MainPlugin } from '@main/plugins/context';
 

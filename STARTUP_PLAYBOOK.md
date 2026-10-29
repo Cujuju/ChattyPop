@@ -126,7 +126,7 @@ Vite bundles them into the app; the launcher's splash imports them directly. Any
 - Main drives it with `webContents.executeJavaScript(`(${wear})(${JSON.stringify(state)})`)`. `wear` is a self-contained function serialized with `toString()`. It sets the theme properties on `<html>`, the status text and the bar's progress variable, then waits two `requestAnimationFrame`s. `executeJavaScript` is not subject to the page's CSP.
 - **Show after the first themed paint, not on `ready-to-show`.** On `did-finish-load`, run `wear`, await it, then `show()`. `ready-to-show` would show the default look first.
 - **Loops phased to the launch start.** Two splash windows show in turn (the launcher's, then the app's on top), so a loop that restarts at the handoff jumps. The first `wear` sets `--splash-clock` (minus the ms since the launch start) and `data-splash-clock` on `<html>`, once; every loop (the icon's breath, the bar's sweep) runs only under that attribute, with the clock as its `animation-delay`. Setting the delay after a loop started would shift it, hence the gate. No entrance animation: it would replay at the handoff.
-- Styles live with the theme (ChattyPop: `theme/splash.css`, written by the design agent). It must load raw from disk, so use relative `@import`s only, and only of token files that have no package imports.
+- Styles live with the theme (ChattyPop: `theme/splash.css`). It must load raw from disk, so use relative `@import`s only, and only of token files that have no package imports.
 
 ### Progress from real milestones
 A list of steps. Each completes on an event that really happens:

@@ -102,7 +102,7 @@ Topics are UI-created: name, keywords/regex, optional natural-language descripti
 | electron-builder | 26.15.3 | Personal use: unsigned NSIS/portable is fine. |
 | @anthropic-ai/claude-agent-sdk | 0.3.282 | The `claude` plugin's package (Plugins-Public), not the app's since plugins left the app. |
 | @cujuju/solidjs-* | per package | The solidjs-toolkit packages (seg-buttons, select-flyout, context-menu, accordion-dock, hooks…). Themed via CSS variables; bridged to `--cp-*` tokens. |
-| Styling | plain CSS | Tokens (`--cp-*`) + CSS Modules per panel. No Tailwind (see §10). The design agent owns `src/renderer/src/theme/**` and `*.module.css` (CLAUDE.md law 3). |
+| Styling | plain CSS | Tokens (`--cp-*`) + CSS Modules per panel. No Tailwind (see §10). |
 | @openai/codex-sdk | 0.156.1 | Optional; can speak JSON-RPC to `codex app-server` directly. |
 | @discordjs/rest | (bot-oriented) | **Not a fit for user tokens** (bot auth scheme, v10, undici). Write a small client on `ses.fetch` modeled on DCE. |
 
@@ -155,11 +155,11 @@ Survey of the remaining features (2026-09). What blocks extraction is the host's
 | 6 | core | Plugin events to the plugin's renderer and the phone (`plugin-event`) | one AppEvent type per feature |
 | 7 | core | Lifecycle: `onArchiveReady`/`onArchiveClosing`, timers that pause while the archive is closed | features catching `ready()` throws |
 | 8 | core | Settings change hooks: `host.settings.onChange(key)` (done: a plugin's own settings, and `ctx.ai.onSettingsChange`) | host reacting to an `'ai'` save for others |
-| 9 | core | AI provider registry (done): descriptor `providers`, `ctx.ai.registerProvider(id, { create, status, checkApiKey?, linkAccount?, removeAccount? })`, account-scoped providers and usage; owner API keys stay OS-encrypted in main and in core memory, entering CLIs through child environments; never sign-in credentials (law 5) | `PROVIDER_IDS` |
+| 9 | core | AI provider registry (done): descriptor `providers`, `ctx.ai.registerProvider(id, { create, status, checkApiKey?, linkAccount?, removeAccount? })`, account-scoped providers and usage; owner API keys stay OS-encrypted in main and in core memory, entering CLIs through child environments; never sign-in credentials (law 4) | `PROVIDER_IDS` |
 | 10 | shared | Search: filter-token and rerank registry shared by the core parser and the renderer | closed `NAME_KEYS`/`HAS_KINDS`/`IS_KINDS`; `searchRerank` |
 | 11 | main | Desktop notifications and tray badge (`host.notify`) | `main/alertNotifier.ts` wired in `coreEvents` |
 | 12 | main | Live Discord view decoration (CSS and DOM injection) | `LiveTags`, beside privacy CSS |
-| 13 | main | Per-plugin data folder, downloads, DPAPI secrets, outbound-network policy; Discord only through `DiscordApi` (law 4) (done: data folder; network policy as core `ctx.net.fetch`, declared hosts) | toolchain downloads, OpenRouter key files, `xPosts` fetch |
+| 13 | main | Per-plugin data folder, downloads, DPAPI secrets, outbound-network policy; Discord only through `DiscordApi` (law 3) (done: data folder; network policy as core `ctx.net.fetch`, declared hosts) | toolchain downloads, OpenRouter key files, `xPosts` fetch |
 | 14 | main | Phone: route registration, event stream, push | `CompanionServer` built-ins |
 | 15 | renderer | Settings pages and sections on every page; message-row decorations, message menu items, hover actions | `SettingsDialog` `TABS`, `SettingsPageId` = ai/archive, `state/messageActions.ts` |
 | 16 | renderer | Top-bar buttons, status-bar items, keyboard shortcuts (done: single-key shortcuts with their hints) | `TopBar`, status bar items, `state/shortcuts.ts` |
@@ -179,11 +179,11 @@ Survey of the remaining features (2026-09). What blocks extraction is the host's
 - Attachment notes: a core plugin annotates attachments (`host.archive.attachmentNotes`); the host draws each note under its attachment and emits `attachment-notes-changed`, so the Archive and the phone re-read those rows.
 - Plugin events: `host.events.emit(name, payload)` → `plugin-event`; the renderer subscribes with `onPluginEvent`.
 - Phone: a plugin's shared entry lists the core calls and events the phone may use (`phone.calls`, `phone.events`); the phone transport enforces the list.
-- `host.settings.onChange(key)`, `host.onAttachmentStored`, `host.dataDir` (`<profile>/plugin-data/<id>`; main moves the old `<profile>/transcription` once), main's `host.attachments.fetchTo` (audio through the Discord session, law 4).
+- `host.settings.onChange(key)`, `host.onAttachmentStored`, `host.dataDir` (`<profile>/plugin-data/<id>`; main moves the old `<profile>/transcription` once), main's `host.attachments.fetchTo` (audio through the Discord session, law 3).
 - Renderer: plugin Settings tabs (`after` anchors order), message menu groups (after Copy).
 - `transcripts` becomes the plugin's `p_transcription_jobs` (queue and results); done texts are copied into `derived_texts` keeping their order.
 
-Risks: every conversion needs a parity audit (the first four had 9 real differences); CSS Modules inside plugin folders need a ruling on design-agent ownership (law 3); more plugin combinations to build and test; Summaries and the phone cost most for least payoff, since nearly every build keeps them.
+Risks: every conversion needs a parity audit (the first four had 9 real differences); more plugin combinations to build and test; Summaries and the phone cost most for least payoff, since nearly every build keeps them.
 
 ## 8. Open questions
 Resolved: edits and deletes are kept (revisions + soft delete), and the **original is shown next to the edit or delete**. An offline **Archive view** (ChattyPop's own message renderer) sits beside the live client via a Live | Archive switch.
