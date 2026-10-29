@@ -303,6 +303,7 @@ const handlers: { [M in keyof CoreMethods]: (...p: Parameters<CoreMethods[M]>) =
   ),
   ...mediaQueueHandlers(
     () => ready().db,
+    () => attachmentsDir,
     (id) => {
       plugins?.attachmentStored(id); // before the cap may prune it
       applyAttachmentCap();

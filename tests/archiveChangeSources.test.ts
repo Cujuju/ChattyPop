@@ -1,12 +1,17 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { phoneAppEvent } from '@shared/phone';
 import { encodeWire, decodeWire } from '@shared/wire';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ArchiveChanges } from '@shared/archiveChanges';
 import { ARRIVAL } from '../src/core/arrival';
 import { archiveHandlers } from '../src/core/archiveHandlers';
+import { storedAttachmentPath } from '../src/core/attachmentRetention';
 import { mediaQueueHandlers } from '../src/core/mediaQueue';
-import { rawMessage, seedArchive, tempDb } from './helpers';
+import { rawMessage, seedArchive, tempDb, tempDir } from './helpers';
 
+/** Hex digits in a SHA-256 content hash. */
+const SHA256_HEX_CHARS = 64;
 const CHANNEL = '200000000000000001';
 const ATTACHMENT = '300000000000000001';
 const NOW = Date.UTC(2026, 9, 18);
@@ -44,8 +49,12 @@ describe('archive mutation notifications', () => {
   it('a download emits attachments and disk, without messages or links', () => {
     handlers.ingestMessages([rawMessage(CHANNEL, NOW, '', { guild_id: 'g1', attachments: [{ id: ATTACHMENT, filename: 'a.txt', url: 'url' }] })]);
     changes.take();
-    const queue = mediaQueueHandlers(() => db, () => {}, changes.add.bind(changes));
-    queue.attachmentStored(ATTACHMENT, 'hash', 1, null);
+    const dir = tempDir();
+    const stored = { sha256: 'a'.repeat(SHA256_HEX_CHARS), filename: 'a.txt', storedExt: null };
+    mkdirSync(dirname(storedAttachmentPath(dir, stored)), { recursive: true });
+    writeFileSync(storedAttachmentPath(dir, stored), 'a');
+    const queue = mediaQueueHandlers(() => db, () => dir, () => {}, changes.add.bind(changes));
+    queue.attachmentStored(ATTACHMENT, stored.sha256, 1, null);
     expect(changes.take()).toEqual({ changes: { [CHANNEL]: ['attachments', 'disk'] }, insertOnlyChannelIds: [] });
     queue.attachmentFailed(ATTACHMENT, 'offline', false);
     expect(changes.take().changes).toEqual({ [CHANNEL]: ['attachments'] });

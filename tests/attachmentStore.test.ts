@@ -41,13 +41,13 @@ beforeEach(() => {
   db = tempDb();
   dir = tempDir();
   const archive = seedArchive(db, [{ id: 'c1' }, { id: 'c2' }]);
+  put(OLD_SHA, OLD_BYTES);
   messageIds = IDS.map((id, i) => {
     const m = rawMessage(`c${i + 1}`, TS + i, '', { attachments: [{ id, filename: 'picture.png', content_type: 'image/png', url: 'https://cdn.example/picture.png' }] });
     archive.ingestMessages([m], 'gateway');
-    attachmentStored(db, id, OLD_SHA, OLD_BYTES);
+    attachmentStored(db, dir, id, OLD_SHA, OLD_BYTES);
     return m.id;
   });
-  put(OLD_SHA, OLD_BYTES);
 });
 afterEach(() => db.close());
 
@@ -106,9 +106,17 @@ describe('owner attachment store operations', () => {
   });
 
   it('records the stored file a download shares under another extension', () => {
-    attachmentStored(db, IDS[1]!, OLD_SHA, OLD_BYTES, 'png');
+    attachmentStored(db, dir, IDS[1]!, OLD_SHA, OLD_BYTES, 'png');
     expect(storedFileOf(db, IDS[1]!)).toMatchObject({ sha256: OLD_SHA, storedExt: 'png' });
-    expect(() => attachmentStored(db, IDS[1]!, OLD_SHA, OLD_BYTES, '../png')).toThrow(/extension/);
+    expect(() => attachmentStored(db, dir, IDS[1]!, OLD_SHA, OLD_BYTES, '../png')).toThrow(/extension/);
+    expect(() => attachmentStored(db, dir, IDS[1]!, '../a', OLD_BYTES)).toThrow(/hash/);
+  });
+
+  it('refuses to record a download whose shared stored file was removed after the download found it', () => {
+    db.prepare("UPDATE attachments SET status = 'pending', sha256 = NULL WHERE id = ?").run(IDS[1]);
+    expect(freeAttachments(db, dir, [IDS[0]!])).toMatchObject({ bytes: OLD_BYTES });
+    expect(() => attachmentStored(db, dir, IDS[1]!, OLD_SHA, OLD_BYTES)).toThrow(/gone/);
+    expect(db.prepare('SELECT status FROM attachments WHERE id = ?').pluck().get(IDS[1])).toBe('pending');
   });
 
   it('refuses a missing, equal-sized, larger, or unknown-size re-encode without changing rows or files', () => {

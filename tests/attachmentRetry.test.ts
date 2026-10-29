@@ -1,6 +1,8 @@
 // A failed attachment download: a transient failure is retried on a bounded backoff (also across restarts, since the
 // schedule is stored), a final answer fails at once, and a refetch carrying a new signed URL queues a failed one again.
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { Session } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,10 +10,13 @@ import { DiscordHttpError } from '@shared/discord';
 import type { CoreClient } from '../src/main/coreClient';
 import type { DiscordApi } from '../src/main/discord/api';
 import { AttachmentDownloader } from '../src/main/media/attachmentDownloader';
+import { storedAttachmentPath } from '../src/core/attachmentRetention';
+import { freeAttachments } from '../src/core/attachmentStore';
 import { openDb, type Db } from '../src/core/db';
 import { deriveMessage } from '../src/core/derive/deriveMessage';
 import {
-  DOWNLOAD_RETRIES_MAX, REMOVED_BEFORE_DOWNLOAD, attachmentFailed, downloadRetryDelayMs, mediaQueueHandlers, nextAttachmentRetry, pendingAttachments,
+  DOWNLOAD_RETRIES_MAX, REMOVED_BEFORE_DOWNLOAD, attachmentFailed, attachmentStored, downloadRetryDelayMs, mediaQueueHandlers, nextAttachmentRetry,
+  pendingAttachments,
 } from '../src/core/mediaQueue';
 import { applyMigrations, migrationIndex, rawMessage, seedArchive, tempDb, tempDir } from './helpers';
 
@@ -21,6 +26,7 @@ const URL_B = 'https://cdn.example/a.png?hm=2';
 const HTTP_NOT_FOUND = 404;
 let db: Db;
 const id = '300000000000000001';
+const OTHER_ID = '300000000000000002';
 let messageId: string;
 
 const state = () => db.prepare('SELECT status, attempts, retry_at AS retryAt, error FROM attachments WHERE id = ?').get(id) as
@@ -75,7 +81,7 @@ describe('attachment download retries', () => {
   });
 
   it('drops an attachment an edit removed before it was downloaded, waiting retry or not', () => {
-    const handlers = mediaQueueHandlers(() => db, () => undefined);
+    const handlers = mediaQueueHandlers(() => db, () => tempDir(), () => undefined);
     attachmentFailed(db, id, 'fetch failed', true, TS);
     deriveMessage(db, { id: messageId, channel_id: 'c1', attachments: [] }, 'u1');
     expect(handlers.pendingAttachments(1)).toEqual([]);
@@ -84,14 +90,39 @@ describe('attachment download retries', () => {
     expect(nextAttachmentRetry(db)).toBeNull();
   });
 
-  /** The downloader over the real queue, answering CDN fetches with `respond`. */
-  function downloader(respond: () => Promise<Response>, api: Partial<DiscordApi> = {}) {
-    const handlers = mediaQueueHandlers(() => db, () => undefined);
-    const core = { call: async (method: keyof typeof handlers, ...args: unknown[]) => (handlers[method] as (...a: unknown[]) => unknown)(...args) } as unknown as CoreClient;
+  /** The downloader over the real queue and store `dir`, answering CDN fetches with `respond`; `before` sees each core call first. */
+  function downloader(respond: () => Promise<Response>, api: Partial<DiscordApi> = {}, dir = tempDir(), before: (method: string) => void = () => undefined) {
+    const handlers = mediaQueueHandlers(() => db, () => dir, () => undefined);
+    const core = { call: async (method: keyof typeof handlers, ...args: unknown[]) => {
+      before(method);
+      return (handlers[method] as (...a: unknown[]) => unknown)(...args);
+    } } as unknown as CoreClient;
     const ses = { fetch: respond } as unknown as Session;
     const posters = { kept: () => true, keep: async () => undefined };
-    return new AttachmentDownloader(tempDir(), tempDir(), ses, api as DiscordApi, core, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, posters, async () => undefined);
+    return new AttachmentDownloader(dir, tempDir(), ses, api as DiscordApi, core, async () => ({ mediaMs: 0, jitter: 0 }) as never, async () => true, posters, async () => undefined);
   }
+
+  it('downloads again when the stored file it found is freed before core records it', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'], now: TS });
+    const dir = tempDir();
+    const bytes = 'shared bytes';
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    const shared = { sha256: sha, filename: 'a.png', storedExt: null };
+    const other = rawMessage('c1', TS + 1, '', { attachments: [{ id: OTHER_ID, filename: 'a.png', content_type: 'image/png', url: URL_B }] });
+    seedArchive(db, [{ id: 'c1' }]).ingestMessages([other], 'gateway');
+    mkdirSync(dirname(storedAttachmentPath(dir, shared)), { recursive: true });
+    writeFileSync(storedAttachmentPath(dir, shared), bytes);
+    attachmentStored(db, dir, OTHER_ID, sha, bytes.length);
+    let freed = false;
+    downloader(async () => new Response(bytes), {}, dir, (method) => {
+      if (method === 'attachmentStored' && !freed) freed = Boolean(freeAttachments(db, dir, [OTHER_ID]).freed);
+    }).kick();
+    await vi.waitFor(() => expect(state()).toMatchObject({ status: 'pending', attempts: 1 }));
+    expect(existsSync(storedAttachmentPath(dir, shared))).toBe(false);
+    await vi.advanceTimersByTimeAsync(downloadRetryDelayMs(1));
+    await vi.waitFor(() => expect(state().status).toBe('stored'));
+    expect(existsSync(storedAttachmentPath(dir, shared))).toBe(true);
+  });
 
   it('stores a file whose first download dropped, on the retry it schedules', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'], now: TS });

@@ -2,14 +2,16 @@
 import type { NoteArchiveChange } from '@shared/archiveChanges';
 import { noteAttachmentChange } from './archiveChangeSource';
 import type { CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
-import { GENERIC_CONTENT_TYPE, SAFE_EXT } from '@shared/media';
+import { statSync } from 'node:fs';
+import { GENERIC_CONTENT_TYPE, SAFE_EXT, SHA256_HEX } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
-import { skipPrunedPending } from './attachmentRetention';
+import { skipPrunedPending, storedAttachmentPath } from './attachmentRetention';
 import type { Db } from './db';
 
-/** The queues as core methods; `onStored` runs after an attachment reaches the store. */
+/** The queues as core methods; `onStored` runs after an attachment reaches the store (`attachmentsDir`). */
 export const mediaQueueHandlers = (
   db: () => Db,
+  attachmentsDir: () => string,
   onStored: (attachmentId: string) => void,
   changed: NoteArchiveChange = () => {},
 ): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
@@ -20,7 +22,7 @@ export const mediaQueueHandlers = (
   archivedVideos: () => archivedVideos(db()),
   attachmentSource: (id) => attachmentSource(db(), id),
   attachmentStored: (id, sha256, bytes, storedExt) => {
-    attachmentStored(db(), id, sha256, bytes, storedExt);
+    attachmentStored(db(), attachmentsDir(), id, sha256, bytes, storedExt);
     noteAttachmentChange(db(), changed, id, true);
     onStored(id);
   },
@@ -87,8 +89,17 @@ export function attachmentSource(db: Db, id: string): PendingAttachment | null {
   return row ?? null;
 }
 
-export function attachmentStored(db: Db, id: string, sha256: string, bytes: number, storedExt: string | null = null): void {
+/**
+ * Records a download main stored. Core removes stored files only after their rows leave 'stored', so a file checked here
+ * stays while its row is stored. A file removed since main found it throws; main retries the download.
+ */
+export function attachmentStored(db: Db, attachmentsDir: string, id: string, sha256: string, bytes: number, storedExt: string | null = null): void {
   if (storedExt !== null && (typeof storedExt !== 'string' || !SAFE_EXT.test(storedExt))) throw new Error('Not a stored file extension.');
+  if (typeof sha256 !== 'string' || !SHA256_HEX.test(sha256)) throw new Error('Not a stored file hash.');
+  const filename = db.prepare('SELECT filename FROM attachments WHERE id = ?').pluck().get(id) as string | undefined;
+  if (filename === undefined) return;
+  if (!statSync(storedAttachmentPath(attachmentsDir, { sha256, filename, storedExt }), { throwIfNoEntry: false })?.isFile())
+    throw new Error('The stored file is gone; the download will run again.');
   db.prepare("UPDATE attachments SET status = 'stored', sha256 = ?, stored_ext = ?, compressed_at = NULL, stored_bytes = ?, error = NULL WHERE id = ?")
     .run(sha256, storedExt, bytes, id);
 }
