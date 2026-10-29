@@ -6,6 +6,7 @@ import { can, permissionBits, PERMISSIONS, type MemberFacts, type PermissionCont
 import type { Db } from '../db';
 import { nameWriteCount } from '../nameWrites';
 import { rawJsonSql } from './messageContent';
+import { storedJsonSql } from './storedJson';
 
 interface Person {
   id: string;
@@ -111,7 +112,7 @@ type ServerAccess = Pick<PermissionContext, 'guildId' | 'ownerId' | 'rolePermiss
 
 function serverAccess(db: Db, guildId: string): ServerAccess {
   const owner = db.prepare('SELECT owner_id AS ownerId FROM guilds WHERE id = ?').get(guildId) as { ownerId: string | null } | undefined;
-  const roles = db.prepare("SELECT id, json_extract(raw_json, '$.permissions') AS permissions FROM roles WHERE guild_id = ?").all(guildId) as { id: string; permissions: unknown }[];
+  const roles = db.prepare(`SELECT id, ${storedJsonSql('raw_json', '$.permissions')} AS permissions FROM roles WHERE guild_id = ?`).all(guildId) as { id: string; permissions: unknown }[];
   return { guildId, ownerId: owner?.ownerId ?? null, rolePermissions: new Map(roles.map((r) => [r.id, permissionBits(r.permissions)])) };
 }
 
@@ -231,7 +232,7 @@ export function mentionCandidates(db: Db, selfId: string | null, channelId: stri
   // Mentioning everyone takes that right, the right to send here and no timeout (shared/permissions.ts).
   const everyone = selfId !== null && can(access, selfId, memberFacts(db, ch.guildId, selfId), PERMISSIONS.MENTION_EVERYONE);
   const roleRows = db
-    .prepare("SELECT id, name, NULLIF(color, 0) AS color, json_extract(raw_json, '$.mentionable') AS mentionable FROM roles WHERE guild_id = ? AND id != ? ORDER BY position DESC")
+    .prepare(`SELECT id, name, NULLIF(color, 0) AS color, ${storedJsonSql('raw_json', '$.mentionable')} AS mentionable FROM roles WHERE guild_id = ? AND id != ? ORDER BY position DESC`)
     .all(ch.guildId, ch.guildId) as { id: string; name: string; color: number | null; mentionable: number | null }[];
   const roles = roleRows
     .filter((r) => r.mentionable === 1 || everyone)

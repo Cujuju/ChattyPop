@@ -4,15 +4,16 @@ import { DM_GUILD_ID, VOICE_MESSAGE_FLAG } from '@shared/discord';
 import { CONTENT_KINDS, type ContentKind, type MessageValues } from '@shared/messageContent';
 import type { Db } from '../db';
 import { displayNameSql } from './names';
+import { validJsonSql } from './storedJson';
+
+export { validJsonSql } from './storedJson';
 
 const attachment = (typeLike: string | null): string =>
   `EXISTS (SELECT 1 FROM attachments a WHERE a.message_id = m.id${typeLike ? ` AND a.content_type LIKE '${typeLike}'` : ''})`;
-/** SQL `json` when it is well-formed JSON text, else NULL: SQLite's JSON functions throw on malformed input. */
-export const validJsonSql = (json: string): string => `(SELECT CASE WHEN json_valid(j) THEN j END FROM (SELECT ${json} AS j))`;
 
 /**
  * SQL for a message's payload as JSON text (decompressed by msg_json); NULL when it has none or it is damaged. Every SQL
- * read of raw_json goes through it. `alias` '' for an unaliased table.
+ * read of messages.raw_json goes through it (other tables' through storedJsonSql). `alias` '' for an unaliased table.
  */
 export const payloadSql = (alias = 'm'): string => validJsonSql(`msg_json(${alias ? `${alias}.` : ''}raw_json)`);
 

@@ -1,3 +1,5 @@
+import { storedJsonSql } from './storedJson';
+
 /** SQL name fallback: server nickname, display name, username, id. Caller joins users u for userId; channelId supplies server context. */
 export const displayNameSql = (userId: string, channelId: string): string =>
   `COALESCE((SELECT mem.nick FROM members mem JOIN channels mc ON mc.guild_id = mem.guild_id WHERE mc.id = ${channelId} AND mem.user_id = ${userId}), u.global_name, u.username, ${userId})`;
@@ -15,7 +17,7 @@ export const roleColorSql = (userId: string, channelId: string): string => topRo
 
 /** Selects highest colored role’s primary/secondary/tertiary colors and server gradient eligibility. nameStyle.ts decodes them. */
 export const roleStyleSql = (userId: string, channelId: string): string =>
-  `${topRoleSql(userId, channelId, "json_array(r.color, json_extract(r.raw_json, '$.colors.secondary_color'), json_extract(r.raw_json, '$.colors.tertiary_color'))", 'r.color != 0')} AS roleColorsJson,
+  `${topRoleSql(userId, channelId, `json_array(r.color, ${storedJsonSql('r.raw_json', '$.colors.secondary_color')}, ${storedJsonSql('r.raw_json', '$.colors.tertiary_color')})`, 'r.color != 0')} AS roleColorsJson,
    EXISTS (SELECT 1 FROM channels gc JOIN guilds g ON g.id = gc.guild_id JOIN json_each(g.features) f
            WHERE gc.id = ${channelId} AND f.value = '${ENHANCED_ROLE_COLORS}') AS enhancedRoles`;
 

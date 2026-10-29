@@ -3,6 +3,7 @@ import { DM_CHANNEL_TYPES, THREAD_CHANNEL_TYPES } from '@shared/discord';
 import { PRIVATE_THREAD_TYPE, PERMISSIONS, can, permissionBits, type PermissionContext, type MemberFacts, type RawOverwrite } from '@shared/permissions';
 import type { Db } from '../db';
 import { visibleChannelSql } from './privacy';
+import { storedJsonSql } from './storedJson';
 
 interface Channel {
   id: string; guildId: string; parentId: string | null; kind: number;
@@ -18,7 +19,7 @@ export function savedWritableChannels(db: Db, accountId: string): SavedChannelAc
   const owners = new Map((db.prepare('SELECT id, owner_id AS ownerId FROM guilds WHERE id IN (SELECT value FROM json_each(?))')
     .all(guildIds) as { id: string; ownerId: string | null }[]).map((g) => [g.id, g.ownerId]));
   const roles = new Map<string, Map<string, bigint>>();
-  for (const r of db.prepare(`SELECT id, guild_id AS guildId, json_extract(raw_json, '$.permissions') AS permissions
+  for (const r of db.prepare(`SELECT id, guild_id AS guildId, ${storedJsonSql('raw_json', '$.permissions')} AS permissions
     FROM roles WHERE guild_id IN (SELECT value FROM json_each(?))`).all(guildIds) as { id: string; guildId: string; permissions: unknown }[]) {
     let guild = roles.get(r.guildId);
     if (!guild) roles.set(r.guildId, guild = new Map());
