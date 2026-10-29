@@ -1,6 +1,7 @@
 // Asks Jev which earlier message in the channel a message continues, for the chooser's close calls.
 import { cutText } from '@shared/text';
 import type { Answer, DecisionProvider, Question } from '../ai/decisions';
+import { isRefused, refusable, type Refused } from '../ai/readScope';
 import type { Db } from '../db';
 import { queryRequest, queryStrength } from '../jev/queries';
 import { plainNameSql } from '../queries/names';
@@ -58,13 +59,15 @@ export interface AskOptions {
 /**
  * Asks about `message` among `candidates`, the channel's messages just before it, oldest first, in one request. State is
  * the message alone; each candidate rides in its own question, so no question reads the others (docs: per-question context).
+ * Refused when `opts.admit` finds its channel local-only at send time.
  */
 export async function askParent(
   jev: DecisionProvider, message: AskedMessage, candidates: readonly AskedMessage[], opts: AskOptions = {},
-): Promise<{ view: JevView; costUsd: number | null }> {
+): Promise<{ view: JevView; costUsd: number | null } | Refused> {
   const questions: Record<string, Question> = { responds: queryRequest(RESPONDS_QUERY) };
   candidates.forEach((c, i) => (questions[relatesId(i)] = queryRequest(RELATES_QUERY, { vars: { earlier_message: said(c) } })));
-  const r = await jev.decide({ state: { message: said(message) }, questions, ...opts });
+  const r = await refusable(jev.decide({ state: { message: said(message) }, questions, ...opts }));
+  if (isRefused(r)) return r;
   const responds = r.answers['responds'];
   return {
     view: {

@@ -4,7 +4,8 @@ import { ruleSubject } from '@shared/rules';
 import { validateJevSpec, type JevQuestionSpec } from '@shared/jevQuestion';
 import { JEV_QUERIES } from '@shared/jevQueries';
 import { answerValue, type Answer, type DecisionProvider, type Question } from '../ai/decisions';
-import { assertHostedMayRead } from '../channelPolicy';
+import { isRefused } from '../ai/readScope';
+import { assertHostedMayRead, LocalOnlyError } from '../channelPolicy';
 import type { Db } from '../db';
 import { textMessage } from '../queries/messageText';
 import { loadRule, ruleRows } from '../rules/ruleStore';
@@ -66,6 +67,8 @@ export async function checkMessage(
   }
   if (ask) add(ASK_ID, ask.question.trim(), customQuestion(ask));
   const decided = await judge.decideAbout(jev, m, questions);
+  // Turned local-only while queued: the owner sees the same refusal as when asking a local-only channel.
+  if (isRefused(decided)) throw new LocalOnlyError(decided.refused);
   const answers: Record<string, unknown> = { ...decided.answers, ...certain };
   const checks = [...labels].flatMap(([id, label]) =>
     answers[id] ? [toResult(id, label, answers[id] as Answer)] : [],

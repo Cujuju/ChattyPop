@@ -26,9 +26,14 @@ export function isLocalOnly(db: PluginDb, channelId: string): boolean {
   return db.prepare(`SELECT 1 FROM (${EFFECTIVE}) WHERE id = ? AND localOnly = 1`).get(channelId) !== undefined;
 }
 
-/** Throws when the channel is local-AI-only, so Jev (hosted) may not read its messages. */
+/** A hosted provider or Jev was asked to read a channel set to local AI only (or a thread under one). */
+export class LocalOnlyError extends Error {
+  override readonly name = 'LocalOnlyError';
+}
+
+/** Throws LocalOnlyError when the channel is local-AI-only, so Jev (hosted) may not read its messages. */
 export function assertHostedMayRead(db: PluginDb, channelId: string): void {
-  if (isLocalOnly(db, channelId)) throw new Error('This channel is set to local AI only, so Jev (hosted) may not read it.');
+  if (isLocalOnly(db, channelId)) throw new LocalOnlyError('This channel is set to local AI only, so Jev (hosted) may not read it.');
 }
 
 /** Channels whose text tier differs from the global one, with the tier they use. */

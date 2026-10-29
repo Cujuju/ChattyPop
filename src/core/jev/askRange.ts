@@ -2,7 +2,7 @@
 import type { JevAskResult, JevRangeAsk } from '@shared/contract';
 import { validateJevSpec } from '@shared/jevQuestion';
 import { answerValue, sumCosts, type Answer, type DecisionProvider } from '../ai/decisions';
-import { LocalOnlyError } from '../ai/readScope';
+import { isRefused } from '../ai/readScope';
 import { assertHostedMayRead, hostedMayReadSql } from '../channelPolicy';
 import type { Db } from '../db';
 import { inChannelOrChildSql } from '../queries/channelScope';
@@ -35,12 +35,15 @@ export async function askRange(db: Db, judge: MessageJudge, jev: DecisionProvide
     messages.map(async (m) => {
       try {
         const r = await judge.decideAbout(jev, m, { ask: question });
+        if (isRefused(r)) {
+          refused++;
+          return null;
+        }
         if (r.costUsd !== null) costs.push(r.costUsd);
         const a = r.answers.ask as Answer | undefined;
         return a ? { messageId: m.id, channelId: m.channelId, ts: m.ts, content: m.content, ...answerValue(a) } : null;
-      } catch (err) {
-        if (err instanceof LocalOnlyError) refused++;
-        else failed++;
+      } catch {
+        failed++;
         return null;
       }
     }),

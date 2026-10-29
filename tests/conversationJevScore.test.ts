@@ -98,6 +98,28 @@ describe('conversation Jev score', () => {
     expect(score.model).toBe('fake-jev');
     expect(score.failure).toBe('Jev down');
   });
+
+  it('leaves out replies whose channel turned local-AI-only before their request was sent: not asked, not failed', async () => {
+    const db = tempDb();
+    const archive = seedArchive(db, [{ id: 'open' }]);
+    archive.ingestMessages(exchange('open', 'open'), ARRIVAL.sync);
+    await new ConversationLinkJob(() => db).run();
+    const jev = new FakeJev();
+    const decide = jev.decide.bind(jev);
+    let sending = 0;
+    // Turned local-only while the requests waited; the send-time check (admit) refuses them.
+    jev.decide = async (req) => {
+      sending++;
+      archive.setChannelPolicy('open', { localAiOnly: true, textTier: null });
+      req.admit?.();
+      return decide(req);
+    };
+    const score = await scoreJevOnReplies(db, jev);
+    expect(sending).toBeGreaterThan(0);
+    expect(score.bands.reduce((n, b) => n + b.asked, 0)).toBe(0); // refused: not asked
+    expect(score.failed).toBe(0);
+    expect(score.failure).toBeNull();
+  });
 });
 
 describe('chooser and Jev combined', () => {

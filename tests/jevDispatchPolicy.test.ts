@@ -12,6 +12,9 @@ import { suggestChannels } from '../src/core/channelSuggestions';
 import type { Db } from '../src/core/db';
 import { askRange } from '../src/core/jev/askRange';
 import { checkMessage } from '../src/core/jev/messageCheck';
+import { judgeMessage } from '../src/core/conversations/judge';
+import { CANDIDATE_MAX } from '../src/core/conversations/linker';
+import { channelReach, contextInputs, messageInput } from '../src/core/conversations/store';
 import { MessageJudge } from '../src/core/jev/messageJudge';
 import { textMessage } from '../src/core/queries/messageText';
 import { rawMessage, seedArchive, settleAsync, tempDb } from './helpers';
@@ -101,7 +104,7 @@ describe('a queued host Jev request after its channel turns local-AI-only', () =
     expect(sent.some((body) => body.includes('public'))).toBe(true);
   });
 
-  it('is refused, not failed: text-certain answers are stored, a live judgment answers, a range ask skips it', async () => {
+  it('is refused, not failed: certain answers stored, live judgment answers, range ask and reply judging skip it', async () => {
     const certain = { settled: { type: 'noul', noul: 1 } } as const;
     const judge = new MessageJudge(db);
     let batch: Awaited<ReturnType<MessageJudge['judgeMany']>> | undefined;
@@ -125,5 +128,15 @@ describe('a queued host Jev request after its channel turns local-AI-only', () =
     const question = { type: 'noul', question: 'Is `message` news?', yes: '', no: '' } as const;
     expect(await queued(async () => (ranked = await askRange(db, judge, jev, { channelId: PRIVATE, question, limit: 1 })), true)).toBe(false);
     expect(ranked).toMatchObject({ asked: 0, failed: 0 });
+
+    archive.setChannelPolicy(PRIVATE, { localAiOnly: false, textTier: null });
+    message(PRIVATE, 'who has one?');
+    const reply = messageInput(db, message(PRIVATE, SECRET).id)!;
+    const candidates = contextInputs(db, PRIVATE, reply, channelReach(db, PRIVATE), CANDIDATE_MAX);
+    expect(candidates.length).toBeGreaterThan(0);
+    let linked: Awaited<ReturnType<typeof judgeMessage>> | undefined;
+    expect(await queued(async () => (linked = await judgeMessage(db, jev, reply, PRIVATE, candidates)), true)).toBe(false);
+    expect(linked).toBeNull();
+    expect(db.prepare('SELECT COUNT(*) FROM conversation_judgments WHERE message_id = ?').pluck().get(reply.id)).toBe(0);
   });
 });

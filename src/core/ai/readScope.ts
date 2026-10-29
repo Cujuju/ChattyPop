@@ -3,7 +3,7 @@ import type { ReadScope } from '@shared/plugins';
 import type { AiSettings, ProviderId } from '@shared/settings';
 import type { Db } from '../db';
 import type { PluginDb } from '../plugins/pluginDb';
-import { hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
+import { LocalOnlyError, hostedMayReadSql, localOnlyChannelIds } from '../channelPolicy';
 import type { DecisionProvider, DecisionRequest, DecisionResult, Question } from './decisions';
 import type { ProviderRegistry } from './registry';
 import { joined, untilRevoked } from './revocable';
@@ -17,10 +17,24 @@ export interface Reads {
 /** Who a selection of sources is for: any hosted model (Jev included), or provider `provider`. */
 export type AiReader = 'hosted' | { provider: ProviderId };
 
-/** A hosted provider or Jev was asked to read a channel set to local AI only (or a thread under one). */
-export class LocalOnlyError extends Error {
-  override readonly name = 'LocalOnlyError';
+export { LocalOnlyError };
+
+/** A request the local-AI-only policy refused unsent: an outcome its caller handles, never a failure. */
+export interface Refused {
+  readonly refused: string;
 }
+
+/** `request`'s result, or Refused when the policy refused it; other errors still reject. */
+export async function refusable<T extends object>(request: Promise<T>): Promise<T | Refused> {
+  try {
+    return await request;
+  } catch (err) {
+    if (err instanceof LocalOnlyError) return { refused: err.message };
+    throw err;
+  }
+}
+
+export const isRefused = (r: object): r is Refused => 'refused' in r;
 
 /** Who a request goes to: whether it runs on this PC, and its name in a refusal. */
 interface Recipient {

@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { cutText } from '@shared/text';
 import type { DecisionProvider } from '../ai/decisions';
+import { isRefused } from '../ai/readScope';
 import { assertHostedMayRead, localOnlyChannelIds } from '../channelPolicy';
 import { getSetting, setSetting, type Db } from '../db';
 import { queryFingerprint } from '../jev/queries';
@@ -80,7 +81,7 @@ function cachedJudgment(db: Db, id: string, key: string): Answered | null {
   return { responds: row.responds, relates: (JSON.parse(row.relates) as [number, number][]).map(([level, top]) => ({ level, top })) };
 }
 
-/** Asks Jev about `m` among `candidates` (or reuses a current judgment) and stores the answer. Null when it failed. */
+/** Asks Jev about `m` among `candidates` (or reuses a current judgment) and stores the answer. Null when it failed or was refused (nothing stored). */
 export async function judgeMessage(
   db: Db, jev: DecisionProvider, m: LinkInput, channelId: string, candidates: readonly LinkInput[], signal?: AbortSignal,
 ): Promise<Answered | null> {
@@ -91,9 +92,9 @@ export async function judgeMessage(
   const asked = texts.get(m.id);
   if (!asked || candidates.some((c) => !texts.has(c.id))) return null;
   const admit = () => assertHostedMayRead(db, channelId);
-  let view: JevView;
+  let reply: Awaited<ReturnType<typeof askParent>>;
   try {
-    ({ view } = await askParent(jev, asked, candidates.map((c) => texts.get(c.id)!), { admit, ...(signal ? { signal } : {}) }));
+    reply = await askParent(jev, asked, candidates.map((c) => texts.get(c.id)!), { admit, ...(signal ? { signal } : {}) });
   } catch (err) {
     // A failure waits JUDGE_RETRY_MS before the judge job asks again; a cancel isn't a failure.
     if (!signal?.aborted) storeJudgment(db, { id: m.id, ts: m.ts, channelId }, key, jev.model, null);
@@ -101,6 +102,9 @@ export async function judgeMessage(
   }
   // Cancelled while the answer was read: not a failure to store.
   signal?.throwIfAborted();
+  // Turned local-only while queued: not judged and not a failure; the judge job skips local-only channels.
+  if (isRefused(reply)) return null;
+  const { view } = reply;
   // Edited while asked: the answer is for texts that are gone.
   const now = messageInput(db, m.id);
   const fresh = now && inputKey(jev.model, now, contextInputs(db, channelId, now, channelReach(db, channelId), CANDIDATE_MAX)) === key;

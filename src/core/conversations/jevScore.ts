@@ -2,6 +2,7 @@
 import type { JevBucketScore, JevConfidenceScore, JevLinkScore } from '@shared/conversationScore';
 import { errorMessage } from '@shared/errors';
 import { sumCosts, type DecisionProvider } from '../ai/decisions';
+import { isRefused } from '../ai/readScope';
 import { assertHostedMayRead, localOnlyChannelIds } from '../channelPolicy';
 import type { Db } from '../db';
 import { askedMessages, askParent, isAnswered, type JevView } from './ask';
@@ -64,18 +65,24 @@ export interface JevScoreOptions {
   signal?: AbortSignal;
 }
 
-/** Jev's views, one per case (null when the request failed), failures with the first one's error, and the request costs. */
+/** Jev's views, one per case (null when the request failed or was refused), the refused cases, failures with the first one's error, and the request costs. */
 async function ask(db: Db, jev: DecisionProvider, found: readonly Case[], release?: string, signal?: AbortSignal) {
   const texts = askedMessages(db, found.flatMap((c) => [c.message, ...c.candidates]));
   const costs: number[] = [];
   let failed = 0;
   let failure: string | null = null;
+  const refused = new Set<Case>();
   const views = await Promise.all(found.map(async (c): Promise<JevView | null> => {
     try {
       const admit = () => assertHostedMayRead(db, c.channelId);
-      const { view, costUsd } = await askParent(jev, texts.get(c.message)!, c.candidates.map((id) => texts.get(id)!), { admit, signal, release });
-      if (costUsd !== null) costs.push(costUsd);
-      return view;
+      const r = await askParent(jev, texts.get(c.message)!, c.candidates.map((id) => texts.get(id)!), { admit, signal, release });
+      // Turned local-only while queued: left out, not a failure.
+      if (isRefused(r)) {
+        refused.add(c);
+        return null;
+      }
+      if (r.costUsd !== null) costs.push(r.costUsd);
+      return r.view;
     } catch (err) {
       signal?.throwIfAborted();
       failed++;
@@ -84,7 +91,7 @@ async function ask(db: Db, jev: DecisionProvider, found: readonly Case[], releas
       return null;
     }
   }));
-  return { views, failed, failure, costUsd: sumCosts(costs) };
+  return { views, refused, failed, failure, costUsd: sumCosts(costs) };
 }
 
 const emptyBands = <T>(row: (from: number, to: number) => T): T[] => JEV_SCORE_BANDS.slice(0, -1).map((from, i) => row(from, JEV_SCORE_BANDS[i + 1]!));
@@ -94,7 +101,7 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
   const { perBand = JEV_SCORE_PER_BAND, release, signal } = opts;
   const weights = fittedWeights(await replySamples(db, (id) => !isHeldOut(id), signal));
   const { cases: found, outOfReach } = cases(db, perBand, weights);
-  const { views, failed, failure, costUsd } = await ask(db, jev, found, release, signal);
+  const { views, refused, failed, failure, costUsd } = await ask(db, jev, found, release, signal);
   const answered = found.flatMap((c, i) => { const v = views[i]!; return isAnswered(v) ? [{ c, v }] : []; });
   const combined: CombinedCase[] = answered.map(({ c, v }) => ({
     chooser: c.chooser, level: v.relates.map((r) => r.level), top: v.relates.map((r) => r.top), target: c.target,
@@ -104,6 +111,7 @@ export async function scoreJevOnReplies(db: Db, jev: DecisionProvider, opts: Jev
   const byJevConfidence: JevConfidenceScore[] = emptyBands((from, to) => ({ from, to, asked: 0, exact: 0 }));
   const discordant = { chooserOnly: 0, combinedOnly: 0 };
   for (const c of found) {
+    if (refused.has(c)) continue;
     bands[c.band]!.asked++;
     if (argmax(c.chooser) === c.target) bands[c.band]!.chooserExact++;
   }

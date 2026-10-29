@@ -3,7 +3,7 @@ import type { ChannelSample, ChannelSuggestion } from '@shared/contract';
 import { errorMessage } from '@shared/errors';
 import type { Rule } from '@shared/rules';
 import { clipMessage } from './ai/clip';
-import { LocalOnlyError, type PluginDecider } from './ai/readScope';
+import { isRefused, refusable, type PluginDecider } from './ai/readScope';
 import { queryMatch, queryRequest } from './jev/queries';
 
 /** Settings → Jev → Queries id; its condition decides when a channel fits what a rule watches for. */
@@ -27,7 +27,10 @@ export async function suggestChannels(jev: PluginDecider, rules: Rule[], samples
     const questions = Object.fromEntries(mine.map((t) => [`t${t.id}`, question(ruleText(t))]));
     const state = { channel: s.channelName, recent: s.messages.map((m) => `${m.author}: ${clipMessage(m.content)}`) };
     try {
-      const { answers } = await jev.decide({ state, questions, reads: [s.channelId] });
+      const r = await refusable(jev.decide({ state, questions, reads: [s.channelId] }));
+      // A local-only channel is left out, not a failure.
+      if (isRefused(r)) continue;
+      const { answers } = r;
       const hits = mine.flatMap((t) => {
         const a = answers[`t${t.id}`];
         const p = a ? queryMatch(SUGGEST_QUERY, a) : null;
@@ -36,7 +39,7 @@ export async function suggestChannels(jev: PluginDecider, rules: Rule[], samples
       if (hits.length)
         out.push({ channelId: s.channelId, score: Math.max(...hits.map((h) => h.p)), rules: hits.map((h) => h.name) });
     } catch (err) {
-      if (!(err instanceof LocalOnlyError)) console.warn('[suggest] Jev failed for a channel:', errorMessage(err));
+      console.warn('[suggest] Jev failed for a channel:', errorMessage(err));
     }
   }
   return out.sort((a, b) => b.score - a.score);

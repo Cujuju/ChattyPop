@@ -2,7 +2,7 @@ import { errorMessage } from '@shared/errors';
 import { MS_PER_DAY } from '@shared/units';
 import { clipMessage } from '../ai/clip';
 import { answerValue, carriedQuestion, type Answer, type DecisionProvider, type DecisionRequest, type DecisionResult, type Question } from '../ai/decisions';
-import { LocalOnlyError, scopedDecider } from '../ai/readScope';
+import { isRefused, refusable, scopedDecider, type Refused } from '../ai/readScope';
 import { isLocalOnly } from '../channelPolicy';
 import type { PluginDb } from '../plugins/pluginDb';
 import { archiveReplyTargets, type ReplyTarget } from '../plugins/archiveReplies';
@@ -23,11 +23,6 @@ const LINKED_MARK = 'linked post:';
 
 /** No Jev request was sent: no questions, or the read policy refused it. */
 const UNASKED = { answers: {}, costUsd: null } as const;
-/** Maps a local-only refusal to UNASKED; any other error still fails the request. */
-const refusedAsUnasked = (err: unknown): typeof UNASKED => {
-  if (err instanceof LocalOnlyError) return UNASKED;
-  throw err;
-};
 
 /** Caps batch size at 25. October 2026 measurements matched single-message label jitter at half cost; failed batches retry individually. */
 const MESSAGES_PER_REQUEST = 25;
@@ -77,16 +72,16 @@ export class MessageJudge {
   }
 
   /** Asks Jev `questions` about `m` alone, with its context; no answer is stored. Refused unsent if its channel turns local-only. */
-  decideAbout<Q extends Record<string, Question>>(jev: DecisionProvider, m: TextMessage, questions: Q): Promise<DecisionResult<Q>> {
+  decideAbout<Q extends Record<string, Question>>(jev: DecisionProvider, m: TextMessage, questions: Q): Promise<DecisionResult<Q> | Refused> {
     return this.decide(jev, [m.channelId], { state: this.stateFor(m), questions });
   }
 
   /**
    * Every request carrying message text goes through here: it declares the channels it reads, checked against local-AI-only
-   * when queued and again when sent (scopedDecider), so a policy changed while it waited for a slot holds.
+   * when queued and again when sent (scopedDecider), so a policy changed while it waited for a slot holds: Refused.
    */
-  private decide<Q extends Record<string, Question>>(jev: DecisionProvider, reads: string[], req: DecisionRequest<Q>): Promise<DecisionResult<Q>> {
-    return scopedDecider(jev, () => this.db).decide({ ...req, reads: [...new Set(reads)] });
+  private decide<Q extends Record<string, Question>>(jev: DecisionProvider, reads: string[], req: DecisionRequest<Q>): Promise<DecisionResult<Q> | Refused> {
+    return refusable(scopedDecider(jev, () => this.db).decide({ ...req, reads: [...new Set(reads)] }));
   }
 
   /**
@@ -160,13 +155,15 @@ export class MessageJudge {
         if (b.members.length === 1) return one(b.members[0]!.item);
         try {
           const r = await this.decide(jev, b.members.map(({ item }) => item.m.channelId), { state: BATCH_STATE, questions: b.questions });
+          // A member's channel turned local-only: each is asked alone, where only that one is refused.
+          if (isRefused(r)) return void (await Promise.all(b.members.map(({ item }) => one(item))));
           result.costs.push(r.costUsd);
           for (const { item, keys } of b.members) {
             const answers = Object.fromEntries(Object.entries(keys).flatMap(([k, s]) => (r.answers[k] ? [[s, r.answers[k] as Answer]] : [])));
             result.answers.set(item.m.id, this.keep(jev, item.m, item.questions, answers, item.certain, item.fresh ?? ALWAYS_FRESH));
           }
         } catch (err: unknown) {
-          // One message can sink a batch (Jev refuses the whole request, or its channel turned local-only), so each is asked again on its own.
+          // One message can sink a batch (Jev refuses the whole request), so each is asked again on its own.
           console.warn('[jev] batched judgment failed, asking each message alone:', errorMessage(err));
           await Promise.all(b.members.map(({ item }) => one(item)));
         }
@@ -180,7 +177,8 @@ export class MessageJudge {
    * local-only before sending refuses the request: an outcome like asking nothing, not a failure.
    */
   private async ask(jev: DecisionProvider, m: TextMessage, questions: Record<string, Question>, certain: Answers, fresh: Fresh): Promise<{ answers: Answers; costUsd: number | null }> {
-    const asked = Object.keys(questions).length ? await this.decideAbout(jev, m, questions).catch(refusedAsUnasked) : UNASKED;
+    const decided = Object.keys(questions).length ? await this.decideAbout(jev, m, questions) : UNASKED;
+    const asked = isRefused(decided) ? UNASKED : decided;
     return { answers: this.keep(jev, m, asked === UNASKED ? {} : questions, asked.answers as Answers, certain, fresh), costUsd: asked.costUsd };
   }
 
