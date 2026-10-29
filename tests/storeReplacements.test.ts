@@ -105,12 +105,12 @@ describe('stored attachment replacements', () => {
     await f.begin(OTHER_ID, 'mp4');
   });
 
-  it('deletes a newly written destination when core refuses', async () => {
+  it('leaves a refused destination to core, which alone knows whether a download now names it', async () => {
     const f = fixture(true);
     const token = await f.begin();
     await f.store.chunk(token, 0, BODY);
     await expect(f.store.finish(token)).rejects.toThrow('Core refused');
-    expect(existsSync(f.dest)).toBe(false);
+    expect(existsSync(f.dest)).toBe(true); // core's refusal removes it unless named (attachmentStore.test.ts)
     expect(readdirSync(f.dir).some((name) => name.startsWith(PARTIAL_DOWNLOAD_PREFIX))).toBe(false);
     await f.begin();
   });

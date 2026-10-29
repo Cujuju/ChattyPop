@@ -3,7 +3,8 @@ import { noteAttachmentChange } from './archiveChangeSource';
 import type { CoreMethods } from '@shared/contract';
 import { snowflakeArg } from '@shared/discord';
 import { FREE_ATTACHMENTS_MAX } from '@shared/types/attachmentStore';
-import { freeAttachments, replaceStoredFile, storedFileOf } from './attachmentStore';
+import { SHA256_HEX } from '@shared/media';
+import { freeAttachments, removeUnnamedFiles, replaceStoredFile, storedFileOf } from './attachmentStore';
 import type { Db } from './db';
 
 /** Owner file operations notify the same channel changes as archive writes. */
@@ -25,7 +26,15 @@ export const attachmentStoreHandlers = (
   },
   attachmentRecompressed: (r) => {
     const ids = db().prepare('SELECT id FROM attachments WHERE sha256 = ?').pluck().all(r.sha256) as string[];
-    const { channelIds, ...result } = replaceStoredFile(db(), attachmentsDir(), r, Date.now());
+    let replaced: ReturnType<typeof replaceStoredFile>;
+    try {
+      replaced = replaceStoredFile(db(), attachmentsDir(), r, Date.now());
+    } catch (err) {
+      // The re-encode main published is unused: removed unless a download recorded the same content meanwhile.
+      if (typeof r?.newSha256 === 'string' && SHA256_HEX.test(r.newSha256)) removeUnnamedFiles(db(), attachmentsDir(), r.newSha256);
+      throw err;
+    }
+    const { channelIds, ...result } = replaced;
     const affected = new Set(channelIds);
     for (const id of ids) {
       const channelId = db().prepare('SELECT channel_id FROM attachments WHERE id = ?').pluck().get(id) as string | undefined;

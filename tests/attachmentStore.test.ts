@@ -132,6 +132,20 @@ describe('owner attachment store operations', () => {
     expect(existsSync(storedAttachmentPath(dir, file()))).toBe(true);
   });
 
+  it('on a refused re-encode, removes its file only while no stored row names that content', () => {
+    const { attachmentRecompressed } = attachmentStoreHandlers(() => db, () => dir, () => undefined);
+    const newFile = storedAttachmentPath(dir, file(NEW_SHA, 'webp'));
+    db.prepare('UPDATE attachments SET stored_bytes = NULL WHERE id = ?').run(IDS[0]); // unknown size: refused
+    put(NEW_SHA, NEW_BYTES, 'webp');
+    db.prepare("UPDATE attachments SET sha256 = ?, stored_ext = 'webp', stored_bytes = ? WHERE id = ?").run(NEW_SHA, NEW_BYTES, IDS[1]); // a download reused it
+    expect(() => attachmentRecompressed(REPLACEMENT)).toThrow(/smaller/);
+    expect(existsSync(newFile)).toBe(true);
+    db.prepare("UPDATE attachments SET status = 'evicted' WHERE id = ?").run(IDS[1]);
+    expect(() => attachmentRecompressed(REPLACEMENT)).toThrow(/smaller/);
+    expect(existsSync(newFile)).toBe(false);
+    expect(existsSync(storedAttachmentPath(dir, file()))).toBe(true);
+  });
+
   it('updates rows before disk removal, so a failed DB update keeps every file', () => {
     put(NEW_SHA, NEW_BYTES, 'webp');
     db.exec(`CREATE TRIGGER reject_attachment BEFORE UPDATE ON attachments BEGIN SELECT RAISE(ABORT, 'blocked'); END`);

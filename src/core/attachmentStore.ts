@@ -16,13 +16,18 @@ export function freeAttachments(db: Db, attachmentsDir: string, ids: readonly st
     for (const row of stored) evict.run(row.id);
     return stored;
   })();
-  const stillStored = db.prepare("SELECT sha256, filename, stored_ext AS storedExt FROM attachments WHERE sha256 = ? AND status = 'stored'");
   let bytes = 0;
-  for (const sha of new Set(rows.map((row) => row.sha256))) {
-    const named = new Set((stillStored.all(sha) as StoredFile[]).map(attachmentFileName));
-    bytes += removeStoredFiles(attachmentsDir, sha, named);
-  }
+  for (const sha of new Set(rows.map((row) => row.sha256))) bytes += removeUnnamedFiles(db, attachmentsDir, sha);
   return { freed: rows.length, bytes, channelIds: [...new Set(rows.map((row) => row.channelId))] };
+}
+
+/**
+ * Removes the stored copies of `sha` no stored row names; returns bytes removed. Core alone deletes stored files, so a
+ * download recording the same content either names its file first or finds it gone (attachmentStored) and retries.
+ */
+export function removeUnnamedFiles(db: Db, attachmentsDir: string, sha: string): number {
+  const named = db.prepare("SELECT sha256, filename, stored_ext AS storedExt FROM attachments WHERE sha256 = ? AND status = 'stored'").all(sha) as StoredFile[];
+  return removeStoredFiles(attachmentsDir, sha, new Set(named.map(attachmentFileName)));
 }
 
 /** Repoints all stored references to a smaller existing re-encode before removing the old content's files. */

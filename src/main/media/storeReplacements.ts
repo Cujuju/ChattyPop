@@ -110,13 +110,9 @@ export class StoreReplacements {
   private async publish(r: Replacement): Promise<{ savedBytes: number }> {
     await r.file.close();
     const newSha256 = r.hash.digest('hex');
-    const { ext, path, existed } = await publishStored(this.dir, r.partial, newSha256, r.ext);
-    try {
-      return await this.core.call('attachmentRecompressed', { sha256: r.sha256, newSha256, storedExt: ext, bytes: r.bytes });
-    } catch (err) {
-      if (!existed) await rm(path, { force: true });
-      throw err;
-    }
+    const { ext } = await publishStored(this.dir, r.partial, newSha256, r.ext);
+    // A refusal's cleanup is core's (removeUnnamedFiles): only core knows whether a download now names this content.
+    return await this.core.call('attachmentRecompressed', { sha256: r.sha256, newSha256, storedExt: ext, bytes: r.bytes });
   }
 
   private get(tokenArg: unknown): [string, Replacement] {
