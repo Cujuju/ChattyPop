@@ -35,6 +35,13 @@ export const percentText = (fraction: number): string => `${Math.round(fraction 
 
 /** A plan window's use, "42%"; "?" when the provider reports none. */
 export const planPercentText = (w: PlanUsageWindow): string => (w.usedPercent === null ? '?' : `${Math.round(w.usedPercent)}%`);
+/** A plan window's share left, 0..100, past-limit use reading 0; null when the provider reports no use. */
+export const planRemainingPercent = (w: PlanUsageWindow): number | null => (w.usedPercent === null ? null : Math.max(0, PERCENT - w.usedPercent));
+/** A plan window's share left, "58% left"; "?" when the provider reports no use. */
+export const planRemainingText = (w: PlanUsageWindow): string => {
+  const left = planRemainingPercent(w);
+  return left === null ? '?' : `${Math.round(left)}% left`;
+};
 
 const SCORE_DIGITS = 1;
 

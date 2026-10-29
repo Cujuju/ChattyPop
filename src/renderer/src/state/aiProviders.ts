@@ -15,11 +15,11 @@ export const providerRuns = (id: ProviderId): boolean => {
 /** Whether provider `id` reports plan limits (an API-key account has none). Reactive. */
 export const providerReportsPlanUsage = (id: ProviderId): boolean => reportsPlanUsage(id, aiSettings());
 
-/** Whether the owner added provider `id`: a declared provider while it is on, an account while it is stored. Reactive. */
+/** Whether the owner added provider `id`, on or off: a declared provider while listed, an account while it is stored. Reactive. */
 export const providerAdded = (id: ProviderId): boolean =>
-  accountKey(id) ? aiSettings().accounts.some((a) => a.id === id) : providerSettingsOf(id).enabled;
+  accountKey(id) ? aiSettings().accounts.some((a) => a.id === id) : (providerSettingsOf(id).added ?? false);
 
-/** Providers the owner added that can take requests, in Settings → AI order. Reactive. */
+/** Providers the owner added whose plugin runs, on or off, in Settings → AI order. Reactive. */
 export const availableProviders = (): DeclaredProvider[] => providersOf(aiSettings()).filter((d) => providerRuns(d.id) && providerAdded(d.id));
 
 /** Declared providers whose plugin is on, added or not: what Add account offers. Reactive. */

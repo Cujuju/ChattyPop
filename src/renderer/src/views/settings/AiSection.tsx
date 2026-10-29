@@ -1,18 +1,14 @@
 // Settings → AI: a section per running provider (docs/plugin-architecture.md §3, AI providers), then plugins' sections.
-import { api } from '@/api';
 import { aiText } from '@/plugins/presentation';
-import { For, Show, createSignal } from 'solid-js';
+import { For, Show } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { HostProviderRowId } from '@shared/anchors';
 import type { DeclaredProvider } from '@shared/aiProviders';
-import type { PlanUsageWindow } from '@shared/contract';
 import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders, providerReportsPlanUsage } from '@/state/aiProviders';
-import { accountKey } from '@shared/providerAccounts';
 import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, updateProvider } from '@/state/preferences';
-import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
@@ -20,7 +16,8 @@ import { EffortRow, modelOption, statusOf } from './ModelRows';
 import { OpenRouterKeys } from './OpenRouterKeys';
 import { AccountRow, EarlierKeyRow, RemoveProviderButton } from './AccountRows';
 import { AddAccountDialog, canAddAccount, openAddAccount } from './AddAccount';
-import { Card, ErrorNote, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
+import { Card, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
+import { PlanUsage } from './PlanUsage';
 import styles from './Settings.module.css';
 
 /** A provider's state in a few words: on or off, the model it uses and its effort. */
@@ -91,7 +88,7 @@ export function AiSection() {
   );
 }
 
-/** A provider's availability line and the note its plugin adds; an account's switch too, which pauses it and keeps its sign-in or key. */
+/** A provider's switch, which turns it off and keeps it listed with its sign-in, key and choices; its availability line and its plugin's note. */
 function EnabledRow(props: { provider: ProviderId }) {
   const id = props.provider;
   const enabled = () => providerSettingsOf(id).enabled;
@@ -102,15 +99,12 @@ function EnabledRow(props: { provider: ProviderId }) {
     return failed ? `Couldn't check: ${failed}` : 'Checking…';
   };
   return (
-    // A declared provider is listed only while on, so removing it is its switch.
-    <Show when={accountKey(id)} fallback={<Row label="Status" hint={hint()} />}>
-      <Row
-        label={`Use ${providerLabel(id)}`}
-        for={`ai-enabled-${id}`}
-        hint={hint()}
-        control={<Switch id={`ai-enabled-${id}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />}
-      />
-    </Show>
+    <Row
+      label={`Use ${providerLabel(id)}`}
+      for={`ai-enabled-${id}`}
+      hint={hint()}
+      control={<Switch id={`ai-enabled-${id}`} checked={enabled()} disabled={!statusOf(id)?.available && !enabled()} onChange={(on) => updateProvider(id, { enabled: on })} />}
+    />
   );
 }
 
@@ -156,40 +150,5 @@ function ProviderBody(props: { provider: DeclaredProvider }) {
         <OpenRouterKeys models={statusOf(d().id)?.models ?? null} />
       </Show>
     </>
-  );
-}
-
-function PlanUsage(props: { id: ProviderId }) {
-  const [windows, setWindows] = createSignal<PlanUsageWindow[] | null | undefined>(undefined);
-  const action = createAction();
-  const check = async (): Promise<void> => {
-    const w = await action.run(() => api.core.aiPlanUsage(props.id));
-    if (w !== undefined) setWindows(w);
-  };
-  return (
-    <Row
-      label="Plan usage"
-      control={
-        <button type="button" class={`cp-button ${styles.button}`} onClick={() => void check()}>
-          Check plan usage
-        </button>
-      }
-    >
-      <ErrorNote error={action.error()} />
-      <Show when={windows() === null}>
-        <Note>No plan limits reported.</Note>
-      </Show>
-      <Show when={windows()?.length}>
-        <div class={c.buttons}>
-          <For each={windows() ?? []}>
-            {(w) => (
-              <span class={styles.usageWindow}>
-                {w.label}: {w.usedPercent === null ? '?' : Math.round(w.usedPercent)}%{w.note ? ` (${w.note})` : ''}
-              </span>
-            )}
-          </For>
-        </div>
-      </Show>
-    </Row>
   );
 }

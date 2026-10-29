@@ -127,13 +127,16 @@ export interface ProviderImpl {
   dispose?(): void;
 }
 
-/** An account whose plugin runs but whose Use switch in Settings → AI is off. */
+/** A provider whose plugin runs, listed in Settings → AI, whose Use switch there is off. */
 export const TURNED_OFF = 'Turned off in Settings → AI providers.';
 /** A declared provider whose plugin runs but which the owner has not added, or removed. */
 export const NOT_ADDED = 'Not added in Settings → AI providers.';
 /** Why a provider that can run takes no requests; null while it is on. */
-export const offReason = (id: ProviderId, settings: AiSettings): string | null =>
-  settings.providers[id]?.enabled ? null : accountKey(id) ? TURNED_OFF : NOT_ADDED;
+export function offReason(id: ProviderId, settings: AiSettings): string | null {
+  const p = settings.providers[id];
+  if (p?.enabled) return null;
+  return accountKey(id) || p?.added ? TURNED_OFF : NOT_ADDED;
+}
 
 /** A declared provider and why it can't run now (its plugin is off or absent); null while it can. */
 export interface ProviderInfo extends ProviderDecl {

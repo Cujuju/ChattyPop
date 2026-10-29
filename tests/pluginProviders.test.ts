@@ -128,6 +128,10 @@ describe('a provider the owner has not added in Settings → AI', () => {
     expect(ai!.unavailable('probe')).toBe(NOT_ADDED);
     setSetting(db, 'ai', { accounts: [{ id: 'probe@work', auth: 'apiKey' }], providers: { 'probe@work': { enabled: false } } });
     expect(offReason('probe@work', normalizeAiSettings(getSetting(db, 'ai'), DECLARED))).toBe(TURNED_OFF);
+    // A declared provider switched off stays added, and says it is off rather than not added.
+    setSetting(db, 'ai', { providers: { 'probe.local': { enabled: false, added: true } } });
+    expect(ai!.unavailable('probe.local')).toBe(TURNED_OFF);
+    expect(normalizeAiSettings(getSetting(db, 'ai'), DECLARED).providers['probe.local']).toMatchObject({ enabled: false, added: true });
   });
 });
 
@@ -243,12 +247,13 @@ describe('stored AI settings (adoption with values intact)', () => {
   it('keep every provider entry under the same ids; the old default is left to the features that adopt it', () => {
     const ai = normalizeAiSettings(PRE_EXTRACTION, DECLARED);
     expect(ai).not.toHaveProperty('defaultProvider');
-    for (const [id, entry] of Object.entries(PRE_EXTRACTION.providers)) expect(ai.providers[id]).toEqual(entry);
+    // Stored before the switch kept a provider listed: one on is listed, one off was removed.
+    for (const [id, entry] of Object.entries(PRE_EXTRACTION.providers)) expect(ai.providers[id]).toEqual({ ...entry, added: entry.enabled });
   });
 
   it('fill declared providers a profile never set, off until the owner adds them', () => {
     const fresh = normalizeAiSettings({}, providerDeclarations([probe]));
-    expect(fresh.providers['probe']).toEqual({ enabled: false, model: null, effort: null, displayName: null });
+    expect(fresh.providers['probe']).toEqual({ enabled: false, added: false, model: null, effort: null, displayName: null });
     expect(fresh.providers['probe.local']?.enabled).toBe(false);
   });
 });

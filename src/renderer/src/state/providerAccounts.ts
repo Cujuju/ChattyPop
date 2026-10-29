@@ -23,13 +23,13 @@ onAppEvent('account-link', (event) => {
   if (event.state === 'done') void refetchProviderStatus();
 });
 
-/** A declared provider's stored choices with its switch set. */
-const switched = (id: ProviderId, enabled: boolean) => ({ providers: { ...aiSettings().providers, [id]: { ...providerSettingsOf(id), enabled } } });
+/** A declared provider's stored choices, listed and on, or unlisted and off. */
+const listed = (id: ProviderId, added: boolean) => ({ providers: { ...aiSettings().providers, [id]: { ...providerSettingsOf(id), added, enabled: added } } });
 
 /** Adds a declared provider itself (its own sign-in or server), with the choices it last had. */
 export async function addProvider(id: ProviderId): Promise<void> {
   if (accountKey(id) || !declaredProvider(id)) throw new Error('This provider cannot be added here.');
-  await patchAiSettings(switched(id, true));
+  await patchAiSettings(listed(id, true));
   await setSettingsSections({ ...settingsSections(), ai: id });
   await refetchProviderStatus();
 }
@@ -37,7 +37,7 @@ export async function addProvider(id: ProviderId): Promise<void> {
 /** Removes what the owner added: an account with its sign-in or key, or a declared provider, whose choices are kept. */
 export async function removeProvider(id: ProviderId): Promise<void> {
   if (accountKey(id)) return removeProviderAccount(id);
-  await patchAiSettings(switched(id, false));
+  await patchAiSettings(listed(id, false));
   await refetchProviderStatus();
 }
 

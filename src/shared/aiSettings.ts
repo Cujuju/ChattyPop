@@ -32,7 +32,10 @@ export const EFFORT_LABELS: Record<string, string> = {
 export const PROVIDER_DISPLAY_NAME_MAX = 20;
 
 export interface ProviderSettings {
+  /** Takes requests. Off keeps the provider listed in Settings → AI with its choices. */
   enabled: boolean;
+  /** A declared provider is listed in Settings → AI (an account is listed while stored). Absent before the owner could switch one off: it follows `enabled`. */
+  added?: boolean;
   /** Model id; null = the provider's own default. */
   model: string | null;
   /** Thinking/effort level, one of the model's ModelOption.efforts; null = the provider's own default. */
@@ -118,6 +121,7 @@ function providerSettings(v: unknown, unsetEnabled: boolean): ProviderSettings {
   const p = isObj(v) ? v : {};
   return {
     enabled: bool(p['enabled'], unsetEnabled),
+    added: bool(p['added'], bool(p['enabled'], unsetEnabled)),
     model: textOrNull(p['model'], false),
     effort: textOrNull(p['effort']),
     // 'shortName': this field's first stored key.
@@ -125,7 +129,7 @@ function providerSettings(v: unknown, unsetEnabled: boolean): ProviderSettings {
   };
 }
 
-/** Preserves stored providers/switches across absent-plugin builds. A declared provider is off until the owner adds it; an account is on unless paused. */
+/** Preserves stored providers/switches across absent-plugin builds. A declared provider is unlisted and off until the owner adds it; an account is on unless paused. */
 export function normalizeAiSettings(v: unknown, declared: readonly ProviderDefaults[] = [], features: readonly JevFeatureDefaults[] = []): AiSettings {
   const src = isObj(v) ? v : {};
   const stored = isObj(src['providers']) ? src['providers'] : {};

@@ -39,7 +39,7 @@ export const providerLabel = (id: ProviderId): string => fullProviderLabel(id, s
 export const providerName = (id: ProviderId): string => providerDisplayName(storedAi(), id);
 /** Provider `id`'s stored settings, else a profile's that never set them. Reactive. */
 export const providerSettingsOf = (id: ProviderId): ProviderSettings =>
-  storedAi().providers[id] ?? { enabled: false, model: null, effort: null, displayName: null };
+  storedAi().providers[id] ?? { enabled: false, added: false, model: null, effort: null, displayName: null };
 /** Changes provider `id`'s stored settings, keeping the rest. */
 export const updateProvider = (id: ProviderId, patch: Partial<ProviderSettings>): void =>
   void patchAiSettings({ providers: { ...storedAi().providers, [id]: { ...providerSettingsOf(id), ...patch } } });

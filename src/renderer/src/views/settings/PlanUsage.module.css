@@ -1,0 +1,48 @@
+/* Settings → AI plan meters: one grid shared by every window, so labels, bars, shares and resets line up, as in the Plan usage panel. */
+
+.windows {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--cp-space-6);
+  row-gap: var(--cp-space-5);
+  padding: var(--cp-space-6) var(--cp-space-7);
+  border: var(--cp-border-w) solid var(--cp-border-subtle);
+  border-radius: var(--cp-radius-md);
+  background: var(--cp-surface-1);
+}
+
+.window {
+  display: contents;
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  height: var(--cp-meter-h);
+}
+
+.bar::-webkit-meter-bar {
+  height: var(--cp-meter-h);
+}
+
+.value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.reset {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* A reading without a reset time (credits left): under its bar. */
+.note {
+  grid-column: 2 / -1;
+  min-width: 0;
+  margin-top: calc(-1 * var(--cp-space-3));
+}
