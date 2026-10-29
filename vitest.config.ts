@@ -3,12 +3,8 @@ import { configDefaults, defineConfig } from 'vitest/config';
 import { appVersion } from './appVersion';
 import { NO_PLUGIN_SOURCE, bundledPlugins, type PluginSource } from './bundledPlugins';
 import { HOST_TESTING_FILES } from './tests/hostTesting/files';
+import { TEST_TIMEOUT_MS, WAIT_TIMEOUT_MS } from './tests/timeouts';
 
-/**
- * A test's (and its hooks') own time before it fails as stuck. Tests open real SQLite files through every migration; on a busy hosted
- * runner that runs up to 7× its usual time (a 0.75 s test past 5 s), so vitest's 5 s default fails sound tests.
- */
-const TEST_TIMEOUT_MS = 30_000;
 /** Native read helpers multiply processes per test worker; shared machines can bound test concurrency explicitly. */
 const TEST_WORKERS = process.env.CHATTYPOP_TEST_WORKERS ? Number(process.env.CHATTYPOP_TEST_WORKERS) : undefined;
 
@@ -31,8 +27,9 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).
   test: {
     maxWorkers: TEST_WORKERS,
-    include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'], setupFiles: ['tests/setupReads.ts'],
+    include: ['tests/**/*.test.ts'], exclude: [...configDefaults.exclude, 'tests/fixtures/**'], environment: 'node', globalSetup: ['tests/globalSetup.ts'], setupFiles: ['tests/setupReads.ts', 'tests/setupWaits.ts'],
     testTimeout: TEST_TIMEOUT_MS,
+    expect: { poll: { timeout: WAIT_TIMEOUT_MS } },
     hookTimeout: TEST_TIMEOUT_MS,
     // The git tests run in throwaway repos: the owner's own git config (hooks, signing) mustn't reach them.
     // '/dev/null' is what git reads as no file on every platform; Node's devNull is not.
