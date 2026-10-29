@@ -1,6 +1,6 @@
 // Links queued message ranges in the background, a batch per step, yielding to other core work between batches.
-import { getSetting, setSetting, type Db } from '../db';
-import { chooserWeights, FIT_MIN_REPLIES, fittedWeights, REFIT_GROWTH, sampledReplies, saveChooser, storedChooser } from './fit';
+import { setSetting, stampedAtLeast, type Db } from '../db';
+import { chooserFromNewerBuild, chooserWeights, FIT_MIN_REPLIES, fittedWeights, REFIT_GROWTH, sampledReplies, saveChooser, storedChooser } from './fit';
 import { currentJudge, judgeFor } from './judge';
 import { CANDIDATE_MAX, linkMessages } from './linker';
 import { markedLinks } from './marks';
@@ -34,7 +34,7 @@ export class ConversationLinkJob {
   start(): void {
     const db = this.db();
     if (!db) return;
-    if (getSetting(db, LINKER_VERSION_KEY) !== LINKER_VERSION) {
+    if (!stampedAtLeast(db, LINKER_VERSION_KEY, LINKER_VERSION)) {
       db.transaction(() => {
         queueAllConversationLinks(db);
         setSetting(db, LINKER_VERSION_KEY, LINKER_VERSION);
@@ -87,6 +87,8 @@ export class ConversationLinkJob {
    * judge's calibration needs it); a new fit relinks everything.
    */
   private async refitIfDue(db: Db): Promise<void> {
+    // A newer build's fit has features this build lacks; refitting would make that build refit again.
+    if (chooserFromNewerBuild(db, LINKER_VERSION)) return;
     const stored = storedChooser(db, LINKER_VERSION);
     const replies = storedReplyCount(db);
     if (replies < FIT_MIN_REPLIES || (stored?.sampleFromTs !== undefined && replies < stored.replies * REFIT_GROWTH)) return;

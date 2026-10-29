@@ -42,6 +42,15 @@ export function getSetting(db: Db, key: string): unknown {
   return row === undefined ? undefined : JSON.parse(row.value);
 }
 
+/**
+ * Whether the work version stamped at `key` is at least `version`. Builds share a profile, so a newer build's higher stamp
+ * means the work is done; an older build must neither redo it nor lower the stamp.
+ */
+export function stampedAtLeast(db: Db, key: string, version: number): boolean {
+  const stored = getSetting(db, key);
+  return typeof stored === 'number' && stored >= version;
+}
+
 export function setSetting(db: Db, key: string, value: unknown): void {
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(
     key,

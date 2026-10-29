@@ -30,7 +30,13 @@ export function storedChooser(db: Db, linkerVersion: number): StoredChooser | un
   return value?.linkerVersion === linkerVersion && value.weights.length === FEATURE_COUNT ? value : undefined;
 }
 
-export const saveChooser = (db: Db, chooser: StoredChooser): void => setSetting(db, CHOOSER_KEY, chooser);
+/** Whether the stored fit came from a newer build sharing the profile: this build links with the defaults and leaves it. */
+export function chooserFromNewerBuild(db: Db, linkerVersion: number): boolean {
+  const value = getSetting(db, CHOOSER_KEY) as StoredChooser | undefined;
+  return typeof value?.linkerVersion === 'number' && value.linkerVersion > linkerVersion;
+}
+
+export const saveChooser =(db: Db, chooser: StoredChooser): void => setSetting(db, CHOOSER_KEY, chooser);
 
 /** The weights linking uses now: the archive's fit, else the defaults. */
 export const chooserWeights = (db: Db, linkerVersion: number): Weights => storedChooser(db, linkerVersion)?.weights ?? DEFAULT_WEIGHTS;

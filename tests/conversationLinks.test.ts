@@ -2,10 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_HOUR, MS_PER_MIN } from '@shared/units';
 import { ARRIVAL } from '@core/arrival';
-import { getSetting, type Db } from '@core/db';
+import { getSetting, setSetting, type Db } from '@core/db';
 import { choose, DEFAULT_WEIGHTS, fitSample, fitWeights } from '@core/conversations/chooser';
 import { FEATURE_COUNT, FEATURES, topicWords } from '@core/conversations/features';
-import { FIT_MIN_REPLIES, storedChooser } from '@core/conversations/fit';
+import { FIT_MIN_REPLIES, saveChooser, storedChooser, type StoredChooser } from '@core/conversations/fit';
 import { LINK_KIND, LINK_MIN_CONFIDENCE, linkMessages, type LinkInput } from '@core/conversations/linker';
 import { ConversationLinkJob, LINKER_VERSION, LINKER_VERSION_KEY } from '@core/conversations/job';
 import { channelReach, REACH_FALLBACK_MS, REACH_MIN_REPLIES } from '@core/conversations/store';
@@ -169,6 +169,23 @@ describe('conversation link job', () => {
     job.start();
     expect(getSetting(db, LINKER_VERSION_KEY)).toBe(LINKER_VERSION);
     expect(db.prepare('SELECT channel_id FROM conversation_link_queue').pluck().all()).toEqual(['c']);
+  });
+
+  it("leaves a newer build's linker stamp and chooser alone on a shared profile", async () => {
+    const db = tempDb();
+    const archive = seedArchive(db, [{ id: 'c' }]);
+    archive.ingestMessages(pairs(FIT_MIN_REPLIES), ARRIVAL.sync);
+    await new ConversationLinkJob(() => db).run();
+    const newer = LINKER_VERSION + 1;
+    setSetting(db, LINKER_VERSION_KEY, newer);
+    const newerChooser: StoredChooser = { weights: [...DEFAULT_WEIGHTS], replies: FIT_MIN_REPLIES, linkerVersion: newer, sampleFromTs: T0 };
+    saveChooser(db, newerChooser);
+    const job = new ConversationLinkJob(() => db);
+    job.start();
+    expect(queued(db)).toBe(0);
+    await job.run();
+    expect(getSetting(db, LINKER_VERSION_KEY)).toBe(newer);
+    expect(storedChooser(db, newer)).toEqual(newerChooser);
   });
 
   it('fits the chooser at the next start once enough replies are stored, then only when they double', async () => {

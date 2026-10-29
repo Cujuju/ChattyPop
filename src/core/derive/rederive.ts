@@ -1,4 +1,4 @@
-import { getSetting, parseRawJson, setSetting, type Db } from '../db';
+import { parseRawJson, setSetting, stampedAtLeast, type Db } from '../db';
 import { deriveMessage, type DerivableMessage } from './deriveMessage';
 
 /** Bump when attachment/link derivation rules change; stored messages are re-derived on startup. */
@@ -9,8 +9,7 @@ const REDERIVE_BATCH_ROWS = 1000;
 
 /** Re-derives stored payloads after version changes or missing derivation. Returns processed messages; rebuilt runs transactionally after links rebuild. */
 export function rederiveIfStale(db: Db, rebuilt: () => void): number {
-  const stored = getSetting(db, DERIVE_VERSION_KEY);
-  if (stored === DERIVE_VERSION) return 0;
+  if (stampedAtLeast(db, DERIVE_VERSION_KEY, DERIVE_VERSION)) return 0;
   // Batched reads: better-sqlite3 forbids writing on a connection while an iterator is open.
   const batch = db.prepare('SELECT seq, author_id, raw_json FROM messages WHERE raw_json IS NOT NULL AND seq > ? ORDER BY seq LIMIT ?');
   let n = 0;

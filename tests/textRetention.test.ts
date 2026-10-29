@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_ARCHIVE_SETTINGS, type ArchiveSettings } from '@shared/settings';
 import { MESSAGE_FLAG } from '@shared/components';
 import { MS_PER_DAY } from '@shared/units';
-import { compressRawJson, setSetting, type Db } from '../src/core/db';
+import { compressRawJson, getSetting, setSetting, type Db } from '../src/core/db';
 import { ephemeralMessages } from '../src/core/laterMigrations';
 import { DERIVE_VERSION_KEY, rederiveIfStale } from '../src/core/derive/rederive';
 import { messagePage } from '../src/core/queries/messages';
@@ -108,6 +108,13 @@ describe('summary-only messages after retention', () => {
     setSetting(db, DERIVE_VERSION_KEY, 0);
     expect(rederiveIfStale(db, () => undefined)).toBe(3); // the messages with payloads
     expect(shares()).toEqual(before);
+  });
+
+  it('are not re-derived by an older build after a newer one stamped the profile', () => {
+    const newerBuild = Number.MAX_SAFE_INTEGER;
+    setSetting(db, DERIVE_VERSION_KEY, newerBuild);
+    expect(rederiveIfStale(db, () => undefined)).toBe(0);
+    expect(getSetting(db, DERIVE_VERSION_KEY)).toBe(newerBuild);
   });
 
   it('stay out of deletion checks when ephemeral: history never lists them', async () => {
