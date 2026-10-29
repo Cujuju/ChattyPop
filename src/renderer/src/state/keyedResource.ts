@@ -25,7 +25,7 @@ export interface KeyedResource<T> {
   invalidate(): Promise<void>;
 }
 
-/** `fetch`'s answer for `source()`, compared with ===, so a source is a primitive key. Falsy sources read nothing. */
+/** `fetch`'s answer for `source()`, compared with ===: a primitive key, or an object by identity. Falsy sources read nothing. */
 export function keyedResource<S, T>(source: () => S | false | null | undefined, fetch: (s: S) => Promise<T>): KeyedResource<T> {
   return ownedOrContained(() => {
     let live = true;
@@ -80,7 +80,8 @@ export function keyedResource<S, T>(source: () => S | false | null | undefined, 
     const value = createMemo((): T | undefined => {
       const s = source();
       const a = settled(r);
-      return s && a?.s === s && a.epoch === epoch() ? a.v : undefined;
+      // The raw source: the store wraps an object one, which would never equal the source it answers.
+      return s && a && unwrap(a).s === s && a.epoch === epoch() ? a.v : undefined;
     });
     return Object.defineProperties(value, {
       loading: { get: () => r.loading },

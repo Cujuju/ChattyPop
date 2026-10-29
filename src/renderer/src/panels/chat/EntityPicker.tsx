@@ -1,6 +1,7 @@
-import { For, Show, createEffect, createResource, createSignal, createUniqueId } from 'solid-js';
+import { For, Show, createEffect, createSignal, createUniqueId } from 'solid-js';
 import type { SelectKind } from '@shared/components';
 import { searchEntities, type EntityChoice } from '@/state/commands';
+import { keyedResource } from '@/state/keyedResource';
 import { onPointerDownOutside } from '@/ui/listen';
 import { createListNav } from '@/ui/listNav';
 import { clipBounds } from '@/ui/scrollEdges';
@@ -30,12 +31,13 @@ export function EntityPicker(props: {
   const [query, setQuery] = createSignal('');
   const [open, setOpen] = createSignal(false);
   const [below, setBelow] = createSignal(false);
-  const [found] = createResource(
-    () => (open() ? { q: query() } : null),
-    async ({ q }) => ({ q, list: await searchEntities(props.kind, props.guildId, q, props.channelTypes) }),
+  // Only results for what is typed now: an earlier query's must not be pickable while the new one loads. Encoded, so an
+  // empty query is a source too.
+  const found = keyedResource(
+    () => open() && JSON.stringify(query()),
+    (q) => searchEntities(props.kind, props.guildId, JSON.parse(q) as string, props.channelTypes),
   );
-  // Only results for what is typed now: an earlier query's must not be pickable while the new one loads.
-  const current = (): EntityChoice[] => (!found.error && found.latest?.q === query() ? found.latest.list : []);
+  const current = (): EntityChoice[] => found() ?? [];
   const matches = (): EntityChoice[] => current().filter((c) => !props.chosen.some((x) => x.id === c.id));
   // Open on the side with more room inside the clipping log, so the list is never cut off.
   createEffect(() => {
@@ -101,7 +103,7 @@ export function EntityPicker(props: {
       </div>
       <Show when={open() && (matches().length || query())}>
         <ul id={listId} class={`cp-popover ${styles.list}`} role="listbox" data-below={below()}>
-          <Show when={matches().length} fallback={<li class={styles.empty}>{!found.error && (found.loading || found.latest?.q !== query()) ? 'Searching…' : 'No matches'}</li>}>
+          <Show when={matches().length} fallback={<li class={styles.empty}>{!found.failure && (found.loading || found() === undefined) ? 'Searching…' : 'No matches'}</li>}>
             <For each={matches()}>
               {(c, i) => (
                 <li

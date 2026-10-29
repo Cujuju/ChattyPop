@@ -59,6 +59,19 @@ describe('a keyed resource', () => {
     expect(h.r()).toBeUndefined();
   });
 
+  it('keys an object target by identity: its answer shows, an equal new object reads again', async () => {
+    const [target, setTarget] = createSignal<{ id: string } | null>(null);
+    let reads = 0;
+    const r = createRoot(() => keyedResource(target, async (t) => `${t.id} #${++reads}`));
+    setTarget({ id: 'A' });
+    await settle();
+    expect(r()).toBe('A #1');
+    setTarget({ id: 'A' });
+    expect(r()).toBeUndefined();
+    await settle();
+    expect(r()).toBe('A #2');
+  });
+
   it("an older target's late answer never shows for the current one", async () => {
     const h = harness();
     h.setTarget('A');
