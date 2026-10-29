@@ -1,5 +1,5 @@
 /* F2 app status bar. Ground and the divider above come from the layout slot.
-   Hooks: .item[data-state='on'|'off'|'unknown'] on the capture item. */
+   Hooks: .item[data-state='on'|'syncing'|'error'|'off'|'unknown'] on the capture item. */
 .root {
   display: flex;
   align-items: center;
@@ -33,7 +33,7 @@
   color: var(--cp-text-2);
 }
 
-/* Capture state dot: success when live, danger when signed out, muted until known. */
+/* Capture and sync dot: success when live and up to date, warning while channels sync, danger when signed out or a channel failed, muted until known. */
 .dot {
   flex: 0 0 auto;
   width: var(--cp-dot);
@@ -47,7 +47,12 @@
   background: var(--cp-success);
 }
 
-.item[data-state='off'] .dot {
+.item[data-state='syncing'] .dot {
+  background: var(--cp-warning);
+}
+
+.item[data-state='off'] .dot,
+.item[data-state='error'] .dot {
   background: var(--cp-danger);
 }
 

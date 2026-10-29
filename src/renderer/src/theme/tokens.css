@@ -84,6 +84,9 @@
   --cp-success-bg: #173a2a;
   --cp-success-bg-hover: color-mix(in srgb, var(--cp-success) 30%, transparent);
 
+  /* Warning: work in progress the owner may wait on (the status bar's dot while channels sync) */
+  --cp-warning: #f59e4b;
+
   /* Code colours (Shiki's css-variables theme, ui/highlight.ts): the theme's own text and section hues, so each theme
      and custom theme colours code; the theme contrast test holds every one readable on the code ground. */
   --cp-code-background: var(--cp-surface-0); /* the message code block's ground (Markdown.module.css) */
@@ -135,7 +138,6 @@
   /* Section identity: each panel's icon, header wash and stripe. identity.css resolves --cp-section from [data-section]
      (panel ids); modules read only --cp-section. Hues are spaced round the wheel at similar lightness. */
   --cp-section-channels: var(--cp-accent);
-  --cp-section-sync-status: var(--cp-success);
   --cp-section-summary: #b79cff; /* violet: AI output */
   --cp-section-provider: #4fd6c0; /* teal: plan meters */
   --cp-section-alerts: #ff8a9a; /* rose */

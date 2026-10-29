@@ -1,5 +1,5 @@
 // Host panel identity and metadata, extended by bundled descriptors.
-import type { HostPanelId } from '@shared/anchors';
+import type { BuiltInPanelId } from '@shared/anchors';
 import { bundledPanel } from '@shared/bundledPlugins';
 import type { PanelImportance } from '@shared/bundledTypes';
 import { isPluginPanelId } from '@shared/plugins';
@@ -7,11 +7,10 @@ import { isPluginPanelId } from '@shared/plugins';
 /** Component-free built-in section title registry avoids import cycles. Bundled panel titles come from shared declarations. */
 export const PANEL_TITLES = {
   channels: 'Channels',
-  'sync-status': 'Sync',
   chat: 'Chat',
   bookmarks: 'Bookmarks',
   'status-bar': 'Status',
-} as const satisfies Record<HostPanelId, string>;
+} as const satisfies Record<BuiltInPanelId, string>;
 
 export type PanelId = keyof typeof PANEL_TITLES;
 

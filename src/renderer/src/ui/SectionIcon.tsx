@@ -18,14 +18,6 @@ export const SECTION_ICON_PATHS: Record<PanelId | 'plugin' | 'settings', () => J
     </>
   ),
   channels: ICON_SHAPES.archive,
-  'sync-status': () => (
-    <>
-      <path d="M20 11a8 8 0 0 0-14.3-4.3L4 8.5" />
-      <path d="M4 4v4.5h4.5" />
-      <path d="M4 13a8 8 0 0 0 14.3 4.3l1.7-1.8" />
-      <path d="M20 20v-4.5h-4.5" />
-    </>
-  ),
   chat: ICON_SHAPES.conversation,
   bookmarks: ICON_SHAPES.archive,
   'status-bar': () => <path d="M4 12h16" />,

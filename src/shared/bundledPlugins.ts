@@ -6,7 +6,7 @@ import installed from 'virtual:installed-plugins/shared';
 import { pluginJevFeature, pluginSettingKey, stampedName, type PanelDecl, type PluginDescriptor, type RuleActionType, type SettingsDecl, type ShortcutDecl } from './bundledTypes';
 import { adoptedPhoneSections, catalogJevQueryAnchor, catalogNoticeAnchor, catalogSlotAnchor, checkBundled } from './bundledCheck';
 import { mergedCatalog } from './installedCheck';
-import { placementAnchor, type PlacementAnchor } from './anchors';
+import { livePanelAnchor, livePanelPlacement, placementAnchor, type PlacementAnchor } from './anchors';
 import type { SlotKind } from './slots';
 import type { JevQueryDef } from './jevQueries';
 import { adoptNoticeKinds, privacyScopedIn } from './notices';
@@ -18,7 +18,7 @@ const bundled: readonly PluginDescriptor[] = [...build, ...installed];
 const ANCHORS = mergedCatalog(build, catalog, installed);
 // Installed plugins come apart: an unstamped anchor on one not installed is no typo (UnknownAnchors).
 checkBundled(bundled, ANCHORS, installed.length ? 'absent' : 'typo');
-const PANEL_ANCHORS = new Map(Object.entries(ANCHORS.panels));
+const PANEL_ANCHORS = new Map(Object.entries(ANCHORS.panels).map(([id, a]) => [id, livePanelAnchor(a)] as const));
 const TAB_ANCHORS = new Map(Object.entries(ANCHORS.tabs));
 const SHORTCUT_ANCHORS = new Map(Object.entries(ANCHORS.shortcuts));
 
@@ -29,7 +29,10 @@ const BY_ID = new Map(bundled.map((p) => [p.manifest.id, p]));
 export const bundledPlugin = (id: string): PluginDescriptor | null => BUNDLED_PLUGINS.find((p) => p.manifest.id === id) ?? null;
 
 const ACTION_TYPES = new Map(bundled.flatMap((p) => p.rules?.actions ?? []).map((t) => [t.type, t]));
-const PANELS = new Map(bundled.flatMap((p) => (p.panels ?? []).map((panel) => [panel.id, { ...panel, pluginId: p.manifest.id }] as const)));
+const PANELS = new Map(bundled.flatMap((p) => (p.panels ?? []).map((panel) => {
+  const presets = panel.presets?.map(livePanelPlacement);
+  return [panel.id, { ...livePanelPlacement(panel), ...(presets && { presets }), pluginId: p.manifest.id }] as const;
+})));
 const SETTINGS = new Map(bundled.flatMap((p) => (p.settings ?? []).map((s) => [s.id, { ...s, pluginId: p.manifest.id }] as const)));
 const SHORTCUTS = new Map(bundled.flatMap((p) => (p.shortcuts ?? []).map((s) => [s.key, { ...s, pluginId: p.manifest.id }] as const)));
 

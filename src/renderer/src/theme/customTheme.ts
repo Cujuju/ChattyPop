@@ -32,6 +32,7 @@ export const INHERITED_FOREGROUNDS = [
   '--cp-link-hover',
   '--cp-accent-2',
   '--cp-success',
+  '--cp-warning',
   '--cp-danger',
 ];
 

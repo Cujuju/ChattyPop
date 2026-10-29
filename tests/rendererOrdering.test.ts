@@ -1,7 +1,7 @@
 // Renderer ordering contracts: live-label snapshots, template and panel-menu order, preset splits (fixture plugins).
 import { expect, it, vi } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
-import { placeByAnchor } from '@shared/anchors';
+import { livePanelAnchor, placeByAnchor } from '@shared/anchors';
 import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { labelRefresher } from '../src/main/plugins/labelAvailability';
 import { declaredItems, placeSlot } from '../src/renderer/src/plugins/slotItems';
@@ -56,10 +56,11 @@ it("places templates by their anchors with every plugin on, and resolves a left-
 
 it('orders the top bar and Add-below menu by panel anchors and collapses splits a left-out panel leaves', () => {
   const catalog = anchorCatalog(FIXTURE_PLUGINS);
-  const panelAnchor = (id: string) => catalog.panels[id] ?? undefined;
+  // Fixture panels still anchor after the retired Sync panel, which places as Channels.
+  const panelAnchor = (id: string) => livePanelAnchor(catalog.panels[id] ?? null) ?? undefined;
   const fixtureIds = panelsOf(FIXTURE_PLUGINS).map((p) => p.id);
   const order = placeByAnchor<string>(Object.keys(PANEL_TITLES), fixtureIds, (id) => id, panelAnchor);
-  expect(order).toEqual(['channels', 'sync-status', DIGEST_PANEL, USAGE_PANEL, 'chat', NOTES_PANEL, EXTRA_PANEL, 'bookmarks', 'status-bar']);
+  expect(order).toEqual(['channels', DIGEST_PANEL, USAGE_PANEL, 'chat', NOTES_PANEL, EXTRA_PANEL, 'bookmarks', 'status-bar']);
   // The usage panel's anchor is Digest's panel: left out, the usage panel takes Digest's own anchor.
   const withoutDigest = placeByAnchor<string>(Object.keys(PANEL_TITLES), fixtureIds.filter((id) => id !== DIGEST_PANEL), (id) => id, panelAnchor);
   expect(withoutDigest).toEqual(order.filter((id) => id !== DIGEST_PANEL));

@@ -19,6 +19,12 @@ describe('layout tree edits', () => {
     expect(retirePanel(root, 'topics', null)).toBe(root);
   });
 
+  it('drops the retired Sync panel from a saved sidebar, leaving Channels in its place', () => {
+    const sidebar: LayoutNode = { kind: 'split', dir: 'column', sizes: [1, 'auto'], children: [panel('channels'), panel('sync-status')] };
+    const saved: LayoutNode = { kind: 'split', dir: 'row', sizes: [1, 5], children: [sidebar, panel('chat')] };
+    expect(retirePanel(saved, 'sync-status', null)).toEqual({ ...saved, children: [panel('channels'), panel('chat')] });
+  });
+
   it('swaps two panels and keeps the structure', () => {
     const r = swapPanels(root, 'summary', 'chat');
     expect(panelIds(r)).toEqual(['chat', 'links', 'summary']);
@@ -108,11 +114,11 @@ describe('docking a panel beside another', () => {
     expect(r).toEqual({ kind: 'split', dir: 'column', sizes: [1, 1], children: [{ ...tabs, children: [panel('summary'), panel('chat')] }, panel('links')] });
   });
 
-  it('splits the sidebar column below Channels, above the pinned sync status', () => {
-    const sidebar: LayoutNode = { kind: 'split', dir: 'column', sizes: [1, 'auto'], children: [panel('channels'), panel('sync-status')] };
+  it('splits a column below Channels, above a pinned panel', () => {
+    const sidebar: LayoutNode = { kind: 'split', dir: 'column', sizes: [1, 'auto'], children: [panel('channels'), panel('status-bar')] };
     const layout: LayoutNode = { kind: 'split', dir: 'row', sizes: [1, 5], children: [sidebar, panel('links')] };
     const r = movePanel(layout, 'links', 'channels', 'bottom');
-    expect(r).toEqual({ kind: 'split', dir: 'column', sizes: [0.5, 0.5, 'auto'], children: [panel('channels'), panel('links'), panel('sync-status')] });
+    expect(r).toEqual({ kind: 'split', dir: 'column', sizes: [0.5, 0.5, 'auto'], children: [panel('channels'), panel('links'), panel('status-bar')] });
   });
 });
 

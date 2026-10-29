@@ -7,7 +7,7 @@ import { DECLARED_PROVIDER_ID } from './providerAccounts';
 import { HOST_NOTICE_KINDS } from './notices';
 import { JEV_QUERY_GROUPS } from './jevQueries/groups';
 import { HOST_JEV_QUERIES } from './jevQueries/host';
-import { HOST_PANELS, HOST_SETTINGS_PAGES, HOST_SETTINGS_TABS, HOST_SHORTCUTS, checkAnchors, placementAnchor, type PlacementAnchor } from './anchors';
+import { HOST_PANELS, RETIRED_HOST_PANELS, HOST_SETTINGS_PAGES, HOST_SETTINGS_TABS, HOST_SHORTCUTS, checkAnchors, placementAnchor, type PlacementAnchor } from './anchors';
 import { PLUGIN_ID_PATTERN } from './plugins';
 import { isObj } from './normalize';
 import { SECTION_AUDIENCES, type AnyChannels, type CallMember, type CompletionMember } from './pluginChannels';
@@ -356,7 +356,7 @@ export function checkBundled(list: readonly PluginDescriptor[], catalog: AnchorC
   const own = anchorCatalog(list);
   const withOwn = <T>(section: (c: AnchorCatalog) => Record<string, T>): Record<string, T> => Object.assign(dict(), section(catalog), section(own));
   const unstampedAbsent = (): boolean => unknown === 'absent';
-  checkAnchors(targets(withOwn((c) => c.panels)), new Set(HOST_PANELS), 'Panel', unstampedAbsent, keys(own.panels));
+  checkAnchors(targets(withOwn((c) => c.panels)), new Set([...HOST_PANELS, ...Object.keys(RETIRED_HOST_PANELS)]), 'Panel', unstampedAbsent, keys(own.panels));
   checkAnchors(targets(withOwn((c) => c.tabs)), new Set(HOST_SETTINGS_TABS), 'Settings tab', unstampedAbsent, keys(own.tabs));
   checkAnchors(targets(withOwn((c) => c.shortcuts)), new Set(Object.keys(HOST_SHORTCUTS)), 'Shortcut', unstampedAbsent, keys(own.shortcuts));
   // Stamped names: plugins here (listed, or in the catalog) and the host's own namespaces can't be absent.

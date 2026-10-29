@@ -12,8 +12,8 @@ const panel = (id: LayoutPanelId): PanelRef => ({ kind: 'panel', id });
 const row = (sizes: SplitSize[], ...children: LayoutNode[]): LayoutNode => ({ kind: 'split', dir: 'row', sizes, children });
 const col = (sizes: SplitSize[], ...children: LayoutNode[]): LayoutNode => ({ kind: 'split', dir: 'column', sizes, children });
 
-/** Sidebar column shared by every preset: channels fill, sync status pinned at the bottom (F2). */
-const sidebar = col([1, 'auto'], panel('channels'), panel('sync-status'));
+/** Sidebar column shared by every preset: channels, with any plugin panel placed beside it; a lone child collapses out. */
+const sidebar = col([1], panel('channels'));
 // Split fractions below reproduce F2's proportions (sidebar ≈ 1/6, insight ≈ 2/5 of height).
 const SIDEBAR_SHARE = 1;
 const WORKSPACE_SHARE = 5;

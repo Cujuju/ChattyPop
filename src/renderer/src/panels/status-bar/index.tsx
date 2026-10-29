@@ -14,6 +14,7 @@ import { formatBytes, formatTokens, usdText } from '@/ui/format';
 import styles from './StatusBar.module.css';
 import { api } from '@/api';
 import { StatusBarItem } from './StatusBarItem';
+import { captureDot, captureTitle } from './syncState';
 import type { StatusBarContribution } from '@/plugins/frameSlots';
 
 /** "$0.0006 · 12.3k tok": cost, then input plus output tokens. */
@@ -33,7 +34,7 @@ ${s.unpricedRequests} requests came back without a price and aren't counted` : '
   return `Jev all time ${usdText(s.totalUsd)} over ${s.requests} requests${tokens}${tokenless}${rate}${unpriced}`;
 };
 
-/** F2 status bar: capture state, backfill, disk, contributed usage, Jev spend, shortcut hints, app version; details on hover. */
+/** F2 status bar: capture and sync state, backfill, disk, contributed usage, Jev spend, shortcut hints, app version; details on hover. */
 export function StatusBarPanel() {
   const archived = () => archivedChannels();
   const backfilling = () => archived().filter((c) => syncProgress[c.id]?.phase === 'backfill');
@@ -42,7 +43,7 @@ export function StatusBarPanel() {
     {
       id: 'capture',
       Component: () => (
-        <span class={styles.item} data-state={captureOn() === null ? 'unknown' : captureOn() ? 'on' : 'off'}>
+        <span class={styles.item} data-state={captureDot()} title={captureTitle()}>
           <span class={styles.dot} aria-hidden="true" />
           {captureOn() === false ? 'capture off (sign in to Discord)' : 'capture on'} · {archived().length} ch
           <Show when={latestMessageTs()}>{(ts) => ` · last msg ${ageLabel(now() - ts())}`}</Show>

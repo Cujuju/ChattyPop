@@ -40,10 +40,6 @@
   --cp-section: var(--cp-section-channels);
 }
 
-[data-section='sync-status'] {
-  --cp-section: var(--cp-section-sync-status);
-}
-
 [data-section='summary'] {
   --cp-section: var(--cp-section-summary);
 }

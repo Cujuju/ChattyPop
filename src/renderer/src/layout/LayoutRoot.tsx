@@ -54,7 +54,7 @@ const SIDEBAR_PANELS = new Set(['channels']);
 const holdsSidebar = (n: LayoutNode): boolean =>
   n.kind === 'panel' ? SIDEBAR_PANELS.has(n.id) : n.kind === 'split' ? n.children.some(holdsSidebar) : false;
 /** Panels drawn in the collapsed rail; any other panel docked into the sidebar column hides until it expands. */
-const RAIL_PANELS = new Set(['channels', 'sync-status']);
+const RAIL_PANELS = new Set(['channels']);
 
 function Split(props: {
   dir: 'row' | 'column';

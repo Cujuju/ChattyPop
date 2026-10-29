@@ -1,8 +1,22 @@
 // Shared placement ordering and host slot anchors.
 
 /** Built-in panels, in the top bar's order (renderer panels/titles.ts PANEL_TITLES). */
-export const HOST_PANELS = ['channels', 'sync-status', 'chat', 'bookmarks', 'status-bar'] as const;
-export type HostPanelId = (typeof HOST_PANELS)[number];
+export const HOST_PANELS = ['channels', 'chat', 'bookmarks', 'status-bar'] as const;
+export type BuiltInPanelId = (typeof HOST_PANELS)[number];
+/** Deprecated (removed at SDK 5): retired panels a plugin may still place beside; each places as the panel it maps to. Sync moved to the status bar. */
+export const RETIRED_HOST_PANELS: Readonly<Record<string, BuiltInPanelId>> = { 'sync-status': 'channels' };
+/** A panel anchor a plugin may name: a built-in panel, or a retired one until SDK 5. */
+export type HostPanelId = BuiltInPanelId | 'sync-status';
+/** Panel id `id`, or the panel a retired one maps to. */
+export const livePanelId = (id: string): string => RETIRED_HOST_PANELS[id] ?? id;
+/** A panel anchor as the catalog holds it, a retired panel named as the one it maps to. */
+export const livePanelAnchor = (a: PlacementAnchor | null): PlacementAnchor | null =>
+  a === null ? null : typeof a === 'string' ? livePanelId(a) : { before: livePanelId(a.before) };
+/** A panel placement with a retired anchor named as the panel it maps to. */
+export function livePanelPlacement<T extends { after?: string; before?: string }>(p: T): T {
+  if (p.before !== undefined) return { ...p, before: livePanelId(p.before) };
+  return p.after === undefined ? p : { ...p, after: livePanelId(p.after) };
+}
 
 /** Settings tabs (renderer SettingsDialog). */
 export const HOST_SETTINGS_TABS = ['rules', 'plugins', 'ai', 'jev', 'archive', 'chat', 'notifications', 'desktop', 'appearance'] as const;

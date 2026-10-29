@@ -8,7 +8,6 @@ import { findPluginPanel } from '@/state/pluginPanels';
 import { PANEL_TITLES, type PanelId } from './titles';
 import { PluginPanelSlot } from './plugin/PluginPanelSlot';
 import { ChannelsPanel } from './channels';
-import { SyncStatusPanel } from './sync-status';
 import { ChatPanel } from './chat';
 import { BookmarksPanel } from './bookmarks';
 import { StatusBarPanel } from './status-bar';
@@ -21,7 +20,6 @@ export interface PanelDef {
 
 const COMPONENTS: Record<PanelId, Component> = {
   channels: ChannelsPanel,
-  'sync-status': SyncStatusPanel,
   chat: ChatPanel,
   bookmarks: BookmarksPanel,
   'status-bar': StatusBarPanel,

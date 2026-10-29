@@ -87,7 +87,6 @@
 }
 
 .slot[data-panel='channels'],
-.slot[data-panel='sync-status'],
 .slot[data-panel='status-bar'] {
   background: var(--cp-chrome-paint, var(--cp-surface-0));
 }

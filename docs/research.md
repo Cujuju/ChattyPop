@@ -201,7 +201,7 @@ Principle: a redesign (layout, look, or both) should touch only the view layer: 
 | **Theme** (`src/theme/`) | Design tokens as CSS custom properties: color, type scale, spacing, radius, elevation, motion. One file per theme (F2 dark first). | Yes, for a visual redesign |
 | **Primitives** (`src/ui/`) | Button, Chip, Meter, Tabs, List row, Icon. Styled only from tokens. | Rarely |
 
-- **Panel registry**: `id → { title, icon, component, minSize }`. Panel IDs from F2: `channels`, `sync-status`, `summary`, `provider`, `alerts`, `links`, `chat`, `status-bar`. Retired: `topics` and `rules` (now Settings → Rules); saved layouts drop them. The top bar is the app frame, not a panel. Plugins register panels through the same registry.
+- **Panel registry**: `id → { title, icon, component, minSize }`. Panel IDs from F2: `channels`, `sync-status`, `summary`, `provider`, `alerts`, `links`, `chat`, `status-bar`. Retired: `topics` and `rules` (now Settings → Rules) and `sync-status` (now the status bar's capture dot and its tooltip); saved layouts drop them. The top bar is the app frame, not a panel. Plugins register panels through the same registry.
 - **Layout persistence**: the layout tree is JSON in settings, versioned. Unknown panel IDs (a removed plugin) render a "missing panel" placeholder instead of breaking the layout.
 - **Rules that keep redesigns cheap**:
   - No color, size or font literal outside `src/theme/`; lint for hex/px in components.

@@ -22,10 +22,11 @@ const CUSTOM_PREFIX = 'custom-';
 /** The chosen layout. Any id is kept: custom layouts load separately, and an unknown id falls back in currentLayout(). */
 export const [layoutId, setLayoutId] = createSetting<LayoutId>(SETTINGS_KEYS.layoutPreset, DEFAULT_LAYOUT, (v) => (typeof v === 'string' && v ? v : DEFAULT_LAYOUT));
 
-/** Retired panels: a saved layout shows the one each became, or drops it (null). Topics merged into Rules, then Rules moved into Settings. */
+/** Retired panels: a saved layout shows the one each became, or drops it (null). Topics merged into Rules, then Rules moved into Settings; Sync moved to the status bar. */
 const RETIRED_PANELS: readonly (readonly [string, LayoutPanelId | null])[] = [
   ['topics', null],
   ['rules', null],
+  ['sync-status', null],
 ];
 const readLayouts = recordOf(isLayoutDoc, (id) => id.startsWith(CUSTOM_PREFIX));
 
