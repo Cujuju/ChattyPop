@@ -1,5 +1,6 @@
 // Which channels a query covers: a channel includes its threads.
 import { THREAD_CHANNEL_TYPES } from '@shared/discord';
+import type { RulePlaces } from '@shared/rules';
 
 /** Thread channel kinds as an SQL list; the values are numeric constants. */
 export const THREAD_KINDS_SQL = [...THREAD_CHANNEL_TYPES].join(', ');
@@ -14,10 +15,10 @@ export function inChannelsSql(column: string, channelIds: readonly string[]): { 
 }
 
 /**
- * SQL true when `column` is one of `channelIds` (or a thread of one) or a channel of one of `guildIds`: a union, as a
- * rule's Where picks places. null when both are empty (anywhere). Bind `params` where the SQL goes.
+ * SQL true when `column` is in a rule's Where: one of its channels (or a thread of one) or a channel of one of its servers.
+ * null when both are empty (anywhere). Bind `params` where the SQL goes.
  */
-export function inPlacesSql(column: string, channelIds: readonly string[], guildIds: readonly string[]): { sql: string; params: string[] } | null {
+export function inPlacesSql(column: string, { channelIds = [], guildIds = [] }: RulePlaces): { sql: string; params: string[] } | null {
   const parts = [
     ...(channelIds.length ? [inChannelsSql(column, channelIds)] : []),
     ...(guildIds.length

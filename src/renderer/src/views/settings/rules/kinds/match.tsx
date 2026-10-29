@@ -35,7 +35,7 @@ function TextEditor(props: KindProps<TextConfig | undefined>) {
           <PatternBuilder
             value={text()}
             onChange={props.onChange}
-            channelIds={props.spec?.gates.channelIds ?? null}
+            where={props.spec?.gates ?? {}}
             contains={
               (props.spec?.narrow.find((p) => p.type === 'contains')?.config as ContentKind[] | undefined) ?? null
             }

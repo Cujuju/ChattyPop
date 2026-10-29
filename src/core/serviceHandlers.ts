@@ -30,7 +30,7 @@ export const ruleHandlers = (
   deleteRule: (id) => rules().remove(id),
   setRuleGroup: (ids, group) => rules().setGroup(ids, group),
   ruleRuns: (ruleId, limit) => rules().runs(ruleId, limit),
-  patternPreview: (pattern, channelIds, contains) => previewPattern(db(), pattern, channelIds, contains),
+  patternPreview: (pattern, where, contains) => previewPattern(db(), pattern, where, contains),
 });
 
 /** Search (reordered by plugins' search rankers), people (with Discord's cached profiles) and conversations, and the owner's emoji and commands. */

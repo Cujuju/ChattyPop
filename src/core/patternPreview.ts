@@ -1,8 +1,9 @@
 import type { ContentKind } from '@shared/messageContent';
 import { keywordRegex, type PatternPreview } from '@shared/keywordPattern';
+import type { RulePlaces } from '@shared/rules';
 import { MS_PER_DAY } from '@shared/units';
 import type { Db } from './db';
-import { inChannelsSql } from './queries/channelScope';
+import { inPlacesSql } from './queries/channelScope';
 import { containsAnySql } from './queries/messageContent';
 import { MESSAGE_TEXT_SQL } from './queries/messageText';
 import { displayNameSql } from './queries/names';
@@ -16,12 +17,12 @@ const PREVIEW_SCAN_MAX = 20_000;
 /** Matches listed; the count covers all of them. */
 const PREVIEW_HITS = 25;
 
-/** Previews recent archived pattern matches within topic scope, including channel threads. Null scope/contains means unrestricted; invalid regex throws as on save. */
-export function previewPattern(db: Db, pattern: string, channelIds: string[] | null, contains: ContentKind[] | null, now = Date.now()): PatternPreview {
+/** Previews recent archived pattern matches in a rule's Where, as the rule scopes it. Null contains means unrestricted; invalid regex throws as on save. */
+export function previewPattern(db: Db, pattern: string, where: RulePlaces, contains: ContentKind[] | null, now = Date.now()): PatternPreview {
   const sinceTs = now - PREVIEW_DAYS * MS_PER_DAY;
   const re = keywordRegex(pattern);
   if (!re) return { hits: [], matched: 0, scanned: 0, sinceTs };
-  const scope = channelIds ? inChannelsSql('m.channel_id', channelIds) : null;
+  const scope = inPlacesSql('m.channel_id', where);
   const rows = db
     .prepare(
       `SELECT m.id, m.channel_id AS channelId, c.name AS channelName, ${displayNameSql('m.author_id', 'm.channel_id')} AS authorName, m.ts, ${MESSAGE_TEXT_SQL} AS content

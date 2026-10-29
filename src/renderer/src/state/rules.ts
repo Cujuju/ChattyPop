@@ -6,7 +6,7 @@ import type { PatternPreview } from '@shared/keywordPattern';
 import { createResource, createSignal } from 'solid-js';
 import { unwrap } from 'solid-js/store';
 import type { PersonMatch } from '@shared/contract';
-import { type Rule, type RuleInput, type RuleRun } from '@shared/rules';
+import { type Rule, type RuleInput, type RulePlaces, type RuleRun } from '@shared/rules';
 import type { RuleFileFormat } from '@shared/ruleKinds/host';
 import { newRuleInput } from '@shared/ruleSpec';
 import { confirmDialog } from './dialogs';
@@ -190,6 +190,6 @@ export function editNewRule(draft: RuleInput = newRuleInput()): void {
   void setOpenRuleId('draft');
 }
 
-/** Previews recent keyword matches in selected channels; null means all. */
-export const patternPreview = (pattern: string, channelIds: string[] | null, contains: ContentKind[] | null): Promise<PatternPreview> =>
-  core.patternPreview(pattern, channelIds, contains);
+/** Previews recent keyword matches in a rule's Where. */
+export const patternPreview = (pattern: string, where: RulePlaces, contains: ContentKind[] | null): Promise<PatternPreview> =>
+  core.patternPreview(pattern, where, contains);

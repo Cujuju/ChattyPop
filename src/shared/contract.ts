@@ -17,7 +17,7 @@ import type { SearchSort } from './searchQuery';
 import type { AbsentPlugin } from './pluginRestore';
 import type { JevQueryOverrides, JevRerunRequest, JevRerunResult } from './jevQueries';
 import type { ProviderId } from './settings';
-import type { Rule, RuleInput, RuleRun } from './rules';
+import type { Rule, RuleInput, RulePlaces, RuleRun } from './rules';
 import type { CustomJevQuestion, JevQuestionSpec } from './jevQuestion';
 import type { PatternPreview } from './keywordPattern';
 import type { JevSpend } from './jevSpend';
@@ -259,8 +259,8 @@ export interface CoreMethods {
   setRuleGroup(ids: number[], group: string | null): void;
   /** A rule's latest runs, newest first. */
   ruleRuns(ruleId: number, limit: number): RuleRun[];
-  /** Previews keyword matches among scoped recent archived messages. */
-  patternPreview(pattern: string, channelIds: string[] | null, contains: ContentKind[] | null): PatternPreview;
+  /** Previews keyword matches among recent archived messages in a rule's Where. */
+  patternPreview(pattern: string, where: RulePlaces, contains: ContentKind[] | null): PatternPreview;
   pendingAttachments(limit: number): PendingAttachment[];
   /** Stored attachments still on Discord that may be videos, for keeping their stills. */
   archivedVideos(): PendingAttachment[];

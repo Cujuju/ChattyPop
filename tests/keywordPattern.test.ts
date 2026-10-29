@@ -64,10 +64,10 @@ describe('rules store the builder rule and the pattern built from it', () => {
       .spec.match.find((p) => p.type === 'text')!.config as import('@shared/ruleKinds/host').TextConfig;
     expect(text.spec).toEqual(built);
 
-    const all = previewPattern(h.db, text.pattern, null, null, now);
+    const all = previewPattern(h.db, text.pattern, {}, null, now);
     expect(all.matched).toBe(2);
     expect(all.hits.map((x) => x.channelName)).toEqual(['chat', 'deals']); // newest first
-    const inDeals = previewPattern(h.db, text.pattern, [deals], null, now);
+    const inDeals = previewPattern(h.db, text.pattern, { channelIds: [deals] }, null, now);
     expect(inDeals.hits.map((x) => x.text)).toEqual(['keyboard gb live now']);
   });
 });

@@ -104,8 +104,8 @@ describe('a rule by what messages contain', () => {
   it("the editor's check applies Contains too", () => {
     const both = image('a cat');
     say('a cat, no picture');
-    expect(previewPattern(db, 'cat', null, ['image']).hits.map((h) => h.messageId)).toEqual([both.id]);
-    expect(previewPattern(db, 'cat', null, null).matched).toBe(2);
+    expect(previewPattern(db, 'cat', {}, ['image']).hits.map((h) => h.messageId)).toEqual([both.id]);
+    expect(previewPattern(db, 'cat', {}, null).matched).toBe(2);
   });
 
   it('a regex never matches a message with no text', () => {

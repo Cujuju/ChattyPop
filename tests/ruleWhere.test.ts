@@ -1,14 +1,15 @@
 // A rule's Where is a union of places: every channel of a picked server plus each picked channel, alike for message
-// gates, direct history and timed windows.
+// gates, direct history, timed windows and the keyword editor's archive check.
 import { describe, expect, it } from 'vitest';
 import { GUILD_TEXT_CHANNEL_TYPE } from '@shared/discord';
+import { previewPattern } from '../src/core/patternPreview';
 import { readHistory } from '../src/core/rules/history';
 import { scopeChannels } from '../src/core/rules/schedule';
 import { settleAsync } from './helpers';
 import { probeAction, ruleHarness, ruleInput, runsOf } from './ruleHarness';
 
 describe('a Where with servers and channels', () => {
-  it('covers the servers’ channels and the channels, in messages, history and timed windows', async () => {
+  it('covers the servers’ channels and the channels, in messages, history, timed windows and the archive check', async () => {
     const h = ruleHarness(); // c1 in server g1, c2 in g2
     h.archive.upsertChannels('g1', [{ id: 'c3', name: 'c3', type: GUILD_TEXT_CHANNEL_TYPE }]);
     h.archive.setOptIn('c3', true);
@@ -30,6 +31,10 @@ describe('a Where with servers and channels', () => {
     const history = (id: number) => readHistory(h.db, compiled(id), h.engine.facts, probeAction().type).matches().map((x) => x.m.id).sort();
     expect(history(otherServersChannel)).toEqual(ids(['c1', 'c2', 'c3']));
     expect(history(ownChannel)).toEqual(ids(['c1', 'c3']));
+
+    const preview = (id: number) => previewPattern(h.db, 'news', compiled(id).spec.gates, null).hits.map((x) => x.messageId).sort();
+    expect(preview(otherServersChannel)).toEqual(ids(['c1', 'c2', 'c3']));
+    expect(preview(ownChannel)).toEqual(ids(['c1', 'c3']));
   });
 
   it('still narrows to the picked places alone', async () => {

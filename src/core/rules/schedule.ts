@@ -28,8 +28,8 @@ const phaseOrder = (actions: ScheduledAction[]): ScheduledAction[] => ['match', 
 );
 
 /** Archived channels in a rule's Where: a channel covers its threads, a server its channels. null = every one. */
-export function scopeChannels(db: Db, r: Pick<CompiledRule, 'channels' | 'guilds'>): string[] | null {
-  const places = inPlacesSql('id', [...(r.channels ?? [])], [...(r.guilds ?? [])]);
+export function scopeChannels(db: Db, r: Pick<CompiledRule, 'spec'>): string[] | null {
+  const places = inPlacesSql('id', r.spec.gates);
   if (!places) return null;
   return db.prepare(`SELECT id FROM channels WHERE opted_in = 1 AND ${places.sql}`).pluck().all(...places.params) as string[];
 }

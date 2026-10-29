@@ -1,6 +1,7 @@
 import { For, Match, Show, Switch, createMemo, createSignal, type JSX } from 'solid-js';
 import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
 import type { ContentKind } from '@shared/messageContent';
+import type { RulePlaces } from '@shared/rules';
 import { EMPTY_PATTERN_SPEC, buildPattern, specProblem, textPatternOrEmpty, type PatternSpec, type TextMatch } from '@shared/keywordPattern';
 import { keywordRegex } from '@shared/keywordPattern';
 import { errorText } from '@/ui/format';
@@ -28,7 +29,7 @@ const DEFAULT_FLAGS = 'iu';
 const splitKeywords = (text: string): string[] => text.split(',').map((t) => t.trim()).filter(Boolean);
 
 /** Builds plain, word-list or raw-regex matchers with flags. Shows compiled regex/errors and sample/archive testers. */
-export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchValue) => void; channelIds: string[] | null; contains: ContentKind[] | null }) {
+export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchValue) => void; where: RulePlaces; contains: ContentKind[] | null }) {
   const initial = (): Mode => (props.value.spec ? 'builder' : REGEX_PATTERN.test(props.value.pattern.trim()) ? 'regex' : 'keywords');
   const [mode, setMode] = createSignal<Mode>(initial());
   const spec = (): PatternSpec => props.value.spec ?? EMPTY_PATTERN_SPEC;
@@ -145,7 +146,7 @@ export function PatternBuilder(props: { value: MatchValue; onChange: (v: MatchVa
           </p>
         )}
       </Show>
-      <PatternTester re={compiled().re} pattern={pattern()} channelIds={props.channelIds} contains={props.contains} />
+      <PatternTester re={compiled().re} pattern={pattern()} where={props.where} contains={props.contains} />
     </div>
   );
 }

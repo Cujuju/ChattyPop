@@ -41,7 +41,7 @@ export function readHistory(db: Db, r: CompiledRule, facts: (m: TextMessage) => 
   const syncDirect = keepsHistory(r, actionType) || (!r.matches.some((p) => !!p.direct) && !r.byNarrow && !r.builtin);
   const contentKinds = r.spec.narrow.find((p) => p.type === 'contains')?.config as ContentKind[] | undefined;
   const contains = contentKinds?.length ? contentKinds : null;
-  const scope = inPlacesSql('m.channel_id', [...(r.channels ?? [])], [...(r.guilds ?? [])]);
+  const scope = inPlacesSql('m.channel_id', r.spec.gates);
   type Row = TextMessage & Record<string, unknown>;
   const matches = (): RuleHistoryMatch[] => {
     if (!keepsHistory(r, actionType)) return [];

@@ -1,5 +1,6 @@
 import { For, Show, createSignal, type JSX } from 'solid-js';
 import type { ContentKind } from '@shared/messageContent';
+import type { RulePlaces } from '@shared/rules';
 import { matchRanges } from '@shared/keywordPattern';
 import type { PatternPreview } from '@shared/keywordPattern';
 import { MS_PER_DAY } from '@shared/units';
@@ -29,8 +30,8 @@ function Highlighted(props: { re: RegExp | null; text: string }): JSX.Element {
   return <For each={parts()}>{(p) => (p.hit ? <mark class={styles.hit}>{p.text}</mark> : p.text)}</For>;
 }
 
-/** Tries a pattern: live on sample text, and on demand against recent archived messages in the rule's channels. */
-export function PatternTester(props: { re: RegExp | null; pattern: string; channelIds: string[] | null; contains: ContentKind[] | null }) {
+/** Tries a pattern: live on sample text, and on demand against recent archived messages in the rule's Where. */
+export function PatternTester(props: { re: RegExp | null; pattern: string; where: RulePlaces; contains: ContentKind[] | null }) {
   const [open, setOpen] = createSignal(false);
   const [sample, setSample] = createSignal('');
   const [preview, setPreview] = createSignal<PatternPreview | null>(null);
@@ -41,7 +42,7 @@ export function PatternTester(props: { re: RegExp | null; pattern: string; chann
 
   const check = async (): Promise<void> => {
     const pattern = props.pattern;
-    const p = await action.run(() => patternPreview(pattern, props.channelIds, props.contains));
+    const p = await action.run(() => patternPreview(pattern, props.where, props.contains));
     if (!p) return;
     setPreview(p);
     setChecked(pattern);

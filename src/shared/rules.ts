@@ -15,11 +15,15 @@ export interface RulePart<C = unknown> {
 /** What starts a rule: a message, a newly applied tag, or a timed window. Tags applied by rules never start rules. */
 export type RuleTrigger = RulePart;
 
-/** Which messages a rule may act on at all. Unset lists don't narrow. */
-export interface RuleGates {
+/** A rule's Where: every channel of a picked server plus each picked channel. Both unset or empty means everywhere. */
+export interface RulePlaces {
   guildIds?: string[];
   /** A channel covers its threads. */
   channelIds?: string[];
+}
+
+/** Which messages a rule may act on at all. Unset lists don't narrow. */
+export interface RuleGates extends RulePlaces {
   authorIds?: string[];
   /** true: authorIds are excluded instead. */
   authorsNot?: boolean;
