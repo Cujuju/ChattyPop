@@ -6,6 +6,7 @@ import { SAVED_BOOKMARK_PAGE_SIZE, SAVED_LIMIT_CODE, SAVED_REFRESH_INTERVAL_MS, 
 import type { DiscordClient } from './client';
 import type { HeaderCapture } from './capture';
 import type { GatewayTap } from './gatewayTap';
+import type { OwnerSession, SessionBinding } from './ownerSession';
 
 const PATH = 'users/@me/saved-messages';
 /** Native index failure clears its local list. Limit that behavior to this observed Discord error. */
@@ -64,8 +65,10 @@ export function decodeSavedPage(value: unknown, before?: string): Omit<SavedBook
 
 export interface SavedMessagesDeps {
   client: DiscordClient;
-  capture: Pick<HeaderCapture, 'current' | 'sessionGeneration' | 'onInvalidated' | 'onCaptured' | 'gatewayAuthorized' | 'expectGatewayAuthorization' | 'matchesGatewayAuthorization'>;
+  capture: Pick<HeaderCapture, 'current' | 'sessionGeneration' | 'onInvalidated' | 'onCaptured' | 'gatewayAuthorized'>;
   tap: Pick<GatewayTap, 'on'>;
+  /** The one source of the signed-in account: saved messages bind to the session it proves. */
+  owner: Pick<OwnerSession, 'current' | 'onChanged' | 'accountOf'>;
   filter(items: SavedMessage[], bookmarkIds: string[]): Promise<SavedVisible>;
   visible(target: { channelId: string; messageId: string }): Promise<boolean>;
   writable(accountId: string): Promise<string[]>;
@@ -75,16 +78,13 @@ type IndexData = Omit<SavedIndex, 'session' | 'revision' | 'writableChannelIds' 
 type PageData = Omit<SavedBookmarkPage, 'session' | 'revision' | 'pageEpoch'>;
 class SavedConflict extends Error {}
 type CacheChange = { kind: 'save'; row: SavedMessage } | { kind: 'remove'; id: string } | { kind: 'deleted'; ids: string[] };
-/** Passive IDENTIFY/READY and matching REST capture bind identity. The main-owned cache is shared by all views. */
+/** Binds to the account OwnerSession proves for the captured credential. The main-owned cache is shared by all views. */
 export class SavedMessages {
   private session: string | null = null;
-  private generation = -1;
+  /** The owner session `session` was bound under; null while unbound. */
+  private bound: SessionBinding | null = null;
   private revision = 0;
   private privacyRevision = 0;
-  private socket: string | null = null;
-  private ready = false;
-  private identifying = false;
-  private accountId: string | null = null;
   private cachedIndex: (IndexData & { bookmarksComplete?: true }) | null = null;
   private readonly pages = new Map<string, PageData>();
   private readonly known = new Map<string, SavedMessage>();
@@ -100,31 +100,14 @@ export class SavedMessages {
   private accessPending = false;
   private accessDirty = false;
   constructor(private readonly d: SavedMessagesDeps) {
-    d.capture.onInvalidated((reason) => {
-      if (reason !== 'replaced') { this.ready = false; this.identifying = false; this.socket = null; this.accountId = null; }
-      this.reset();
-    });
+    d.capture.onInvalidated(() => this.reset());
     d.capture.onCaptured(() => this.bind());
-    d.tap.on('sent', ({ op, d: payload, socketId }) => {
-      if ((op !== 2 && op !== 6) || !socketId || !payload || typeof payload !== 'object') return;
-      const token = (payload as ObjectValue).token;
-      if (op === 6 && this.ready && d.capture.matchesGatewayAuthorization(token)) { this.socket = socketId; this.identifying = false; return; }
-      this.ready = false;
-      this.identifying = op === 2;
-      this.accountId = null;
-      this.socket = socketId;
-      d.capture.expectGatewayAuthorization(token);
-      this.reset();
-    });
+    // Each gateway session (a new IDENTIFY, or READY) starts an empty cache; a proven resume keeps it.
+    d.owner.onChanged(() => { this.reset(); this.bind(); });
     d.tap.on('dispatch', ({ t, d: payload, socketId }) => {
-      if (!this.socket || socketId !== this.socket) return;
-      if (t === 'READY') {
-        this.ready = false;
-        this.reset();
-        if (!this.identifying) return;
-        try { this.accountId = snowflakeArg(object(object(payload).user).id, 'owner'); this.ready = true; this.bind(); } catch { /* Malformed READY authorizes nothing. */ }
-      } else if (!this.session || !d.capture.gatewayAuthorized) return;
-      else if (t === 'SAVED_MESSAGE_CREATE') {
+      const account = this.bound?.account;
+      if (!account || d.owner.accountOf(socketId) !== account || !d.capture.gatewayAuthorized) return;
+      if (t === 'SAVED_MESSAGE_CREATE') {
         try { this.upsert(decodeSavedMessage(payload)); } catch { this.malformedEvent(); }
       } else if (t === 'SAVED_MESSAGE_DELETE') {
         try { const row = object(payload); this.removeCached(snowflakeArg(row.message_id, 'saved message')); } catch { this.malformedEvent(); }
@@ -135,14 +118,14 @@ export class SavedMessages {
       else if (t === 'MESSAGE_DELETE_BULK' && Array.isArray(object(payload).ids)) this.deleted((object(payload).ids as unknown[]).map(text));
       else if (ACCESS_EVENTS.has(t)) {
         const data = object(payload);
-        if (t === 'GUILD_MEMBER_UPDATE' && (data.user as ObjectValue | undefined)?.id !== this.accountId) return;
-        if (t === 'THREAD_MEMBER_UPDATE' && data.user_id !== this.accountId) return;
-        if (t === 'THREAD_MEMBERS_UPDATE' && !(Array.isArray(data.removed_member_ids) && data.removed_member_ids.includes(this.accountId)) && !(Array.isArray(data.added_members) && data.added_members.some((m) => m?.user_id === this.accountId || m?.member?.user?.id === this.accountId))) return;
+        if (t === 'GUILD_MEMBER_UPDATE' && (data.user as ObjectValue | undefined)?.id !== account) return;
+        if (t === 'THREAD_MEMBER_UPDATE' && data.user_id !== account) return;
+        if (t === 'THREAD_MEMBERS_UPDATE' && !(Array.isArray(data.removed_member_ids) && data.removed_member_ids.includes(account)) && !(Array.isArray(data.added_members) && data.added_members.some((m) => m?.user_id === account || m?.member?.user?.id === account))) return;
         this.accessChanged();
       }
     });
   }
-  private reset(): void { this.session = null; this.cachedIndex = null; this.cacheGeneration++; this.pages.clear(); this.pageGeneration++; this.known.clear(); this.readChanges.clear(); this.pending.clear(); this.failures.clear(); this.writableIds = null; this.accessDirty = false; this.changed(true); }
+  private reset(): void { this.session = null; this.bound = null; this.cachedIndex = null; this.cacheGeneration++; this.pages.clear(); this.pageGeneration++; this.known.clear(); this.readChanges.clear(); this.pending.clear(); this.failures.clear(); this.writableIds = null; this.accessDirty = false; this.changed(true); }
   private malformedEvent(): void {
     this.cachedIndex = null; this.cacheGeneration++; this.pending.delete('index'); this.clearPages(); this.known.clear(); this.ownerFailure = new Error('Discord sent an unreadable saved-message update. Use Refresh to retry, at most once per minute.'); this.failures.set('index', this.ownerFailure); this.changed(true);
   }
@@ -153,10 +136,11 @@ export class SavedMessages {
     if (notify) this.notify(false);
   }
   private bind(): void {
-    if (!this.ready || !this.d.capture.gatewayAuthorized || this.session) return;
-    if (this.failureOwner !== this.accountId) { this.failureOwner = this.accountId; this.ownerFailure = null; this.refreshAt.clear(); }
+    const owner = this.d.owner.current();
+    if (!owner || this.session) return;
+    if (this.failureOwner !== owner.account) { this.failureOwner = owner.account; this.ownerFailure = null; this.refreshAt.clear(); }
     if (this.ownerFailure) this.failures.set('index', this.ownerFailure);
-    this.session = randomUUID(); this.generation = this.d.capture.sessionGeneration; this.changed(true);
+    this.session = randomUUID(); this.bound = owner; this.changed(true);
   }
   privacyChanged(): void { this.privacyRevision++; this.changed(true); }
   private notify(reset: boolean): void { this.d.emit({ type: 'saved-messages-changed', session: this.session, revision: this.revision, pageEpoch: this.pageGeneration, reset }); }
@@ -166,7 +150,7 @@ export class SavedMessages {
     if (this.writableIds === null) return; // Recheck after the first access read settles.
     if (this.accessPending) return;
     this.accessPending = true;
-    const session = this.session, account = this.accountId;
+    const session = this.session, account = this.bound?.account ?? null;
     void Promise.resolve().then(async () => {
       while (this.accessDirty && this.session === session && account !== null) {
         this.accessDirty = false;
@@ -185,8 +169,13 @@ export class SavedMessages {
   }
   private stamp(expected?: unknown): { session: string; revision: number } {
     if (expected !== undefined && expected !== this.session) throw new SavedConflict('The Discord account changed. Refresh saved messages.');
-    if (!this.session || !this.d.capture.gatewayAuthorized || !this.d.capture.current || this.generation !== this.d.capture.sessionGeneration) throw new Error('Open the live Discord client and sign in before using saved messages.');
+    if (!this.session || !this.bound || !this.d.capture.gatewayAuthorized || !this.d.capture.current || this.bound.generation !== this.d.capture.sessionGeneration) throw new Error('Open the live Discord client and sign in before using saved messages.');
     return { session: this.session, revision: this.revision };
+  }
+  /** The bound session's account; callers have stamped it. */
+  private account(): string {
+    if (!this.bound) throw new Error('Open the live Discord client and sign in before using saved messages.');
+    return this.bound.account;
   }
   private sameRevision(revision: number): void { if (revision !== this.revision) throw new SavedConflict('Saved messages changed. Refresh to try again.'); }
   private record(change: CacheChange): void { for (const changes of this.readChanges) changes.push(change); }
@@ -273,7 +262,7 @@ export class SavedMessages {
     const revision = this.revision, cacheGeneration = this.cacheGeneration;
     const cachedBookmarks = decoded.legacyBookmarks ?? [...this.known.values()].filter((m) => !m.dueAt && decoded.bookmarkIds.includes(m.messageId));
     const visible = await this.d.filter([...decoded.reminders, ...cachedBookmarks], decoded.bookmarkIds);
-    const writableChannelIds = (await this.d.writable(this.accountId!)).sort();
+    const writableChannelIds = (await this.d.writable(this.account())).sort();
     this.stamp(stamp.session); this.sameRevision(revision);
     if (cacheGeneration !== this.cacheGeneration) throw new SavedConflict('Saved-message cache was refreshed. Try again.');
     this.writableIds = writableChannelIds;
@@ -345,7 +334,7 @@ export class SavedMessages {
     if (!this.cachedIndex) throw new Error('Refresh saved messages before changing them.');
     if (!(await this.hasSaved(target))) {
       if (existingRequired) throw new Error('This message is no longer saved. Refresh the list.');
-      if (!(await this.d.writable(this.accountId!)).includes(target.channelId)) throw new Error('Discord no longer grants read-history access to this channel.');
+      if (!(await this.d.writable(this.account())).includes(target.channelId)) throw new Error('Discord no longer grants read-history access to this channel.');
     }
     this.stamp(target.session);
     this.sameRevision(target.revision);

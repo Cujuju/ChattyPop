@@ -1,6 +1,7 @@
 // Which account the captured credential is, proven passively: the gateway socket that IDENTIFYs with that token names it in
 // READY. Each owner action is bound to the session proven when it is asked, and DiscordApi sends its writes under no other.
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { SNOWFLAKE_ID } from '@shared/discord';
 import type { HeaderCapture } from './capture';
 import type { GatewayTap } from './gatewayTap';
 
@@ -35,6 +36,7 @@ export class OwnerSession {
   /** The socket that IDENTIFYed or resumed the proven session; its READY names the account. */
   private socket: string | null = null;
   private account: string | null = null;
+  private readonly changes = new Set<() => void>();
 
   /** Subscribe before the client opens its socket, as the tap requires, or its IDENTIFY is missed. */
   constructor(
@@ -52,12 +54,30 @@ export class OwnerSession {
       this.account = null;
       this.socket = op === IDENTIFY_OP ? socketId : null;
       capture.expectGatewayAuthorization(token);
+      this.changed();
     });
     tap.on('dispatch', ({ t, d, socketId }) => {
       if (t !== 'READY' || this.socket === null || socketId !== this.socket) return;
       const id = (d as { user?: { id?: unknown } } | null)?.user?.id;
-      this.account = typeof id === 'string' ? id : null;
+      // A malformed READY proves no account.
+      this.account = typeof id === 'string' && SNOWFLAKE_ID.test(id) ? id : null;
+      this.changed();
     });
+  }
+
+  /** Calls `listener` after a gateway session starts (IDENTIFY, unproven RESUME) or READY names its account; a proven resume continues one. */
+  onChanged(listener: () => void): () => void {
+    this.changes.add(listener);
+    return () => this.changes.delete(listener);
+  }
+
+  /** The account READY named for the session `socketId` carries; null for any other socket. Holds while the credential is replaced. */
+  accountOf(socketId: unknown): string | null {
+    return socketId === this.socket ? this.account : null;
+  }
+
+  private changed(): void {
+    for (const listener of this.changes) listener();
   }
 
   /** The account READY named for the credential captured now, which REST requests carry; null while unproven. */

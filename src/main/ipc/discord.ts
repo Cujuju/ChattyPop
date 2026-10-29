@@ -97,8 +97,8 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   const account = new OwnerAccount(d.discord.tap);
   // Every call below is an owner action: its writes go as the account proven when it was asked, or not at all.
   const session = new OwnerSession(d.discord.tap, d.capture);
-  const savedAccess = new SavedAccess(d.discord.tap, d.directory, d.core);
-  const saved = new SavedMessages({ client: poster, capture: d.capture, tap: d.discord.tap,
+  const savedAccess = new SavedAccess(d.discord.tap, session, d.directory, d.core);
+  const saved = new SavedMessages({ client: poster, capture: d.capture, tap: d.discord.tap, owner: session,
     filter: (items, ids) => d.core.call('filterSavedMessages', items, ids),
     visible: (target) => d.core.call('savedTargetVisible', target), writable: (accountId) => savedAccess.channels(accountId), emit: d.emit });
   d.core.on('event', (e) => { if (e.type === 'privacy-changed') saved.privacyChanged(); });

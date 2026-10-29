@@ -5,6 +5,7 @@ import { SAVED_BOOKMARK_PAGE_SIZE, SAVED_LIMIT_CODE, SAVED_REFRESH_INTERVAL_MS, 
 import { decodeSavedIndex, decodeSavedMessage, decodeSavedPage, SavedMessages } from '../src/main/discord/savedMessages';
 import type { DiscordClient, RequestOptions, WriteOptions } from '../src/main/discord/client';
 import { HeaderCapture } from '../src/main/discord/capture';
+import { OwnerSession } from '../src/main/discord/ownerSession';
 
 vi.mock('electron', () => ({ app: { getPath: () => '' } }));
 vi.mock('../src/main/diagnostics', () => ({ diag: () => undefined, redactIds: (s: string) => s }));
@@ -39,10 +40,11 @@ function setup(clientOverride?: DiscordClient | ((capture: HeaderCapture) => Dis
   const visible = vi.fn(async () => true), filter = vi.fn(async (items: SavedMessage[], bookmarkIds: string[]) => ({ items, bookmarkIds }));
   const emit = vi.fn();
   const writable = vi.fn(async () => [CHANNEL]);
-  const service = new SavedMessages({ client: typeof clientOverride === 'function' ? clientOverride(capture) : clientOverride ?? client, capture, tap: tap as never, visible, filter, writable, emit });
-  const ready = (owner = OWNER) => { const token = owner === OWNER ? 'token' : 'other-token'; identify(token); recapture(token); dispatchReady(owner); };
+  const owner = new OwnerSession(tap as never, capture);
+  const service = new SavedMessages({ client: typeof clientOverride === 'function' ? clientOverride(capture) : clientOverride ?? client, capture, tap: tap as never, owner, visible, filter, writable, emit });
+  const ready = (account = OWNER) => { const token = account === OWNER ? 'token' : 'other-token'; identify(token); recapture(token); dispatchReady(account); };
   ready();
-  return { service, sent, capture, tap, ready, identify, dispatchReady, recapture, available, visible, filter, writable, emit,
+  return { service, owner, sent, capture, tap, ready, identify, dispatchReady, recapture, available, visible, filter, writable, emit,
     set before(fn: () => void) { before = fn; }, set answer(value: unknown) { answer = value; },
     reauthenticate: recapture };
 }
@@ -313,6 +315,22 @@ describe('native saved-message contract', () => {
       ['DELETE', `users/@me/saved-messages/${CHANNEL}/${MESSAGE}`, undefined, true],
     ]);
     expect(JSON.stringify(f.sent[2]!.body)).toBe(`{"due_at":"${FUTURE}","source":"for_later_list"}`);
+  });
+  it('is available exactly while the owner session proves an account, and reads access as that account', async () => {
+    const f = setup(), OTHER = '300000000000000002';
+    const agrees = async (): Promise<void> => {
+      const available = await f.service.index().then(() => true, () => false);
+      expect(available).toBe(f.owner.current() !== null);
+      if (available) expect(f.writable).toHaveBeenLastCalledWith(f.owner.current()!.account);
+    };
+    await agrees();
+    // READY on a socket resumed with the proven token names the account again.
+    f.tap.emit('sent', { socketId: 'resumed', op: 6, d: { token: 'token' } }); f.dispatchReady(OWNER, 'resumed'); await agrees();
+    f.identify('other-token', 'b'); await agrees();
+    f.recapture('other-token'); f.dispatchReady(OTHER, 'b'); await agrees();
+    f.capture.invalidate(); await agrees();
+    f.recapture('other-token'); await agrees();
+    f.ready(); await agrees();
   });
   it('binds READY only to its observed IDENTIFY and matching REST capture, in either capture order', async () => {
     const f = setup(), initial = await f.service.index();
