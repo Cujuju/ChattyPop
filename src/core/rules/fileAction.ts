@@ -1,6 +1,6 @@
 // Appends Markdown or JSON Lines to owner-selected files. Run claims prevent duplicates; crashes after claiming can skip writes.
 import { appendFile } from 'node:fs/promises';
-import { isAbsolute } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { hasRuleFileExtension } from '@shared/ruleKinds/host';
 import type { FileConfig } from '@shared/ruleKinds/host';
 import type { Db } from '../db';
@@ -62,6 +62,21 @@ export async function fileAction(
     text: m.content,
     jump: values.jump,
   };
-  await appendFile(path, formatEntry(entry, a.format), 'utf8'); // creates the file, not its folder; a throw is recorded as failed
+  await appendInOrder(path, formatEntry(entry, a.format)); // creates the file, not its folder; a throw is recorded as failed
   return { outcome: 'done', detail: null };
+}
+
+/** The last queued append per file. Concurrent appends complete in OS order, so each waits for the one before it. */
+const appendTails = new Map<string, Promise<void>>();
+
+/** Appends after every earlier append to the same file, in call order. Keys fold case: over-serializing is harmless. */
+function appendInOrder(path: string, text: string): Promise<void> {
+  const key = resolve(path).toLowerCase();
+  const append = (appendTails.get(key) ?? Promise.resolve()).then(() => appendFile(path, text, 'utf8'));
+  const tail = append.catch(() => undefined);
+  appendTails.set(key, tail);
+  void tail.then(() => {
+    if (appendTails.get(key) === tail) appendTails.delete(key);
+  });
+  return append;
 }
