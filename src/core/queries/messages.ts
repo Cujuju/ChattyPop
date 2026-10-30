@@ -190,20 +190,20 @@ function snapshot(db: Db, rows: Row[]): MessageSnapshot {
     db,
     rows.flatMap((r) => (r.replyToId ? [{ replyToId: r.replyToId, refJson: r.refJson }] : [])),
   );
-  // One name map per channel (its server's nicknames) covers every message and reply preview from it.
+  // One name lookup per channel (its server's nicknames) covers every message and reply preview from it.
   const names = new Map<string, Record<string, string>>();
   for (const channelId of new Set(rows.map((r) => r.channelId))) {
     const own = rows.filter((r) => r.channelId === channelId);
     const ownReplies = own.flatMap((r) => (r.replyToId && replies.has(r.replyToId) ? [replies.get(r.replyToId)!] : []));
-    const map = mentionNames(
+    names.set(channelId, mentionNames(
       db,
       [...own.map((r) => r.content), ...ownReplies.map((r) => r.content)],
       Object.assign({}, ...own.map((r) => mentionsFrom(r.mentionsJson))) as Record<string, string>,
       channelId,
-    );
-    names.set(channelId, map);
-    for (const reply of ownReplies) reply.mentions = map;
+    ));
   }
+  // Each message and reply gets its own copy: the renderer's keyed reconcile edits nested objects in place, so a shared one is rewritten for every row holding it.
+  const ownNames = (channelId: string): Record<string, string> => ({ ...names.get(channelId)! });
   const items: ArchiveMessage[] = rows.map((r) => {
     const components = componentsFrom(parseJson(r.componentsJson));
     return {
@@ -217,9 +217,9 @@ function snapshot(db: Db, rows: Row[]): MessageSnapshot {
       content: r.content,
       author: authorFrom(r),
       replyToId: r.replyToId,
-      reply: r.replyToId ? (replies.get(r.replyToId) ?? null) : null,
+      reply: r.replyToId && replies.has(r.replyToId) ? { ...replies.get(r.replyToId)!, mentions: ownNames(r.channelId) } : null,
       reactions: reactionsFrom(r.reactionsJson),
-      mentions: names.get(r.channelId)!,
+      mentions: ownNames(r.channelId),
       mentionIds: mentionIdsFrom(r.mentionsJson),
       mentionsEveryone: r.mentionEveryone === 1,
       embeds: embedsFrom(r.embedsJson),

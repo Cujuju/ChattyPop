@@ -6,6 +6,7 @@ import { applyGatewayEvent } from '../src/core/gatewayEvents';
 import { messagePage, ownAuthor } from '../src/core/queries/messages';
 import { rawMessage, seedArchive, tempDb } from './helpers';
 import { ARRIVAL } from '../src/core/arrival';
+import { REPLY_MESSAGE_TYPE } from '@shared/messageExtras';
 
 const GUILD = '100000000000000001';
 const OTHER_GUILD = '100000000000000002';
@@ -54,6 +55,18 @@ describe('names as Discord shows them', () => {
     archive.upsertMembers(GUILD, [{ user: alice, nick: 'Al [mod]' }]);
     archive.ingestMessages([rawMessage(GENERAL, T0, 'ping <@300000000000000001>', { author: { id: '300000000000000002', username: 'bob' } })], ARRIVAL.gateway);
     expect(messagePage(db, { channelId: GENERAL, limit: 10 })[0]!.mentions['300000000000000001']).toBe('Al [mod]');
+  });
+
+  it('gives each message and reply preview its own name map, so editing one row’s names leaves the others’', () => {
+    const bob = { id: '300000000000000002', username: 'bob' };
+    const first = rawMessage(GENERAL, T0, 'ping <@300000000000000001>', { author: bob, mentions: [alice] });
+    const reply = rawMessage(GENERAL, T0 + MS_PER_MIN, 'again <@300000000000000001>', { author: bob, mentions: [alice], type: REPLY_MESSAGE_TYPE, message_reference: { message_id: first.id } });
+    archive.ingestMessages([first, reply], ARRIVAL.gateway);
+    const [a, b] = messagePage(db, { channelId: GENERAL, limit: 10 });
+    expect(b!.reply).not.toBeNull();
+    const maps = [a!.mentions, b!.mentions, b!.reply!.mentions];
+    expect(new Set(maps).size).toBe(maps.length);
+    expect(maps.map((m) => m['300000000000000001'])).toEqual(['Alice', 'Alice', 'Alice']);
   });
 });
 
