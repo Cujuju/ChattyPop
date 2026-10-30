@@ -13,6 +13,8 @@ import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draf
 import { MS_PER_S } from '@shared/units';
 import { SEND_BASE_TIMEOUT_MS, createOutbox, type OutboxRecord } from './outboxQueue';
 import { postingUnlocked } from './posting';
+import { configureDraftUploads } from './draftUploads';
+import { selfId } from './ownMessages';
 import { prepareFiles } from './uploadPrep';
 import { sentRows } from './outboxSent';
 import { markSend, markSendPaint } from './outboxTiming';
@@ -94,6 +96,11 @@ export async function uploadFiles(channelId: string, accountId: string | null, f
   return slots.map((s) => s.token);
 }
 
+const prepare = async (channelId: string, files: File[], progress: (p: number) => void): Promise<File[]> =>
+  prepareFiles(files, await unstalled(api.discord.uploadLimit(channelId), SEND_BASE_TIMEOUT_MS), progress);
+
+configureDraftUploads({ unlocked: postingUnlocked, accountId: () => selfId(), prepare, upload: uploadFiles });
+
 const box = createOutbox<SavedDraft>({
   send: (m) => api.discord.send(m),
   accept: sentRows.accept,
@@ -105,7 +112,7 @@ const box = createOutbox<SavedDraft>({
     markSend(phase, nonce);
     if (phase === 'enqueue') markSendPaint('pending-painted', nonce, `pending-${id}`);
   },
-  prepare: async (channelId, files, progress) => prepareFiles(files, await unstalled(api.discord.uploadLimit(channelId), SEND_BASE_TIMEOUT_MS), progress),
+  prepare,
   upload: uploadFiles,
   uploadGone: (err) => err instanceof Error && err.message.includes(UPLOAD_GONE),
   windowPassed: (err) => err instanceof Error && err.message.includes(POST_WINDOW_PASSED),

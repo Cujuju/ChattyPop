@@ -31,6 +31,7 @@ vi.mock('../src/renderer/src/state/plugins', async () => {
   };
 });
 vi.mock('@/api', () => ({ api: { discord: { send: async (m: Parameters<typeof acceptedMessage>[0]) => acceptedMessage(m) } } }));
+vi.mock('../src/renderer/src/state/ownMessages', () => ({ selfId: () => null }));
 vi.mock('@/ui/format', () => ({ errorText: String }));
 vi.mock('@/ui/idbStore', () => ({
   idbEntries: async (prefix: string) => {

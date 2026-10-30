@@ -9,6 +9,7 @@ import { BYTES_PER_MB } from '@shared/units';
 import { api } from '@/api';
 import { idbEntries, idbSet } from '@/ui/idbStore';
 import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
+import { abandonDraftUpload, copyDraftUpload, startDraftUpload } from './draftUploads';
 import { restoreReply } from './reply';
 export type { DraftFileInput, SavedDraftFile } from './draftFiles';
 
@@ -61,7 +62,9 @@ const ensure = (channelId: string): void => {
 const previewable = (f: File): boolean => f.type.startsWith('image/') || f.type.startsWith('video/');
 const toDraftFile = (input: DraftFileInput): DraftFile => {
   const entry = savedDraftFile(input);
-  return { ...entry, id: nextFileId++, previewUrl: previewable(entry.file) ? URL.createObjectURL(entry.file) : null };
+  const draft = { ...entry, id: nextFileId++, previewUrl: previewable(entry.file) ? URL.createObjectURL(entry.file) : null };
+  copyDraftUpload(entry, draft);
+  return draft;
 };
 const revoke = (f: DraftFile): void => {
   if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
@@ -134,6 +137,7 @@ export function attachFiles(channelId: string, files: DraftFileInput[]): void {
   const room = DISCORD_FILES_PER_MESSAGE_MAX - draftFiles(channelId).length;
   const fitting = files.map(savedDraftFile).filter((f) => uploadable(f.file, limit));
   const added = fitting.slice(0, Math.max(0, room)).map(toDraftFile);
+  added.forEach((file) => startDraftUpload(channelId, file));
   setDrafts(channelId, 'files', (fs) => [...fs, ...added]);
   setDrafts(
     channelId,
@@ -169,23 +173,31 @@ export function attachLongPaste(channelId: string, e: ClipboardEvent, field: Pic
 
 /** Keeps the file's options with its bytes in IndexedDB. */
 export function setFileOptions(channelId: string, id: number, options: FileOptions): void {
-  if (!draftFiles(channelId).some((f) => f.id === id)) return;
+  const file = draftFiles(channelId).find((f) => f.id === id);
+  if (!file) return;
+  if (file.description !== options.description || file.spoiler !== options.spoiler) abandonDraftUpload(file);
   setDrafts(channelId, 'files', (f) => f.id === id, { description: options.description, spoiler: options.spoiler });
   saveFiles(channelId);
 }
 
 export function removeFile(channelId: string, id: number): void {
   const f = draftFiles(channelId).find((x) => x.id === id);
-  if (f) revoke(f);
+  if (f) {
+    abandonDraftUpload(f);
+    revoke(f);
+  }
   setDrafts(channelId, 'files', (fs) => fs.filter((x) => x.id !== id));
   saveFiles(channelId);
 }
 
-/** Empties the channel's draft (to send it) and returns it; `reply` is the message it answers. */
-export function takeDraft(channelId: string, reply: ArchiveMessage | null): SavedDraft {
+/** Empties and returns the draft; sending transfers its uploads, while other clears abandon them. */
+export function takeDraft(channelId: string, reply: ArchiveMessage | null, sending = false): SavedDraft {
   ensure(channelId);
   const taken = snapshotDraft(channelId, reply);
-  draftFiles(channelId).forEach(revoke);
+  draftFiles(channelId).forEach((file) => {
+    if (!sending) abandonDraftUpload(file);
+    revoke(file);
+  });
   setDrafts(channelId, { text: '', files: [], error: null });
   picked.delete(channelId);
   mentioned.delete(channelId);

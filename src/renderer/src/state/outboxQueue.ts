@@ -7,6 +7,7 @@ import { createSignal } from 'solid-js';
 import { produce } from 'solid-js/store';
 import type { OwnerSend, PostedOwnerMessage } from '@shared/compose';
 import { MS_PER_MIN, MS_PER_S } from '@shared/units';
+import { takeDraftUpload } from './draftUploads';
 import { savedDraftFile, type DraftFileInput, type SavedDraftFile } from './draftFiles';
 
 export type OutgoingStatus = 'queued' | 'sending' | 'failed';
@@ -223,16 +224,28 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
   }
 
   /** Uploads the message's files once (prepared first); a later attempt reuses them while the desktop holds them. */
-  async function uploadFiles(channelId: string, id: number, e: Entry<D>): Promise<void> {
-    if (!e.job.files.length || e.uploads) return;
-    update(channelId, id, { phase: 'preparing', progress: 0 });
+  async function uploadFiles(channelId: string, id: number, e: Entry<D>): Promise<boolean> {
+    if (!e.job.files.length || e.uploads) return false;
     const original = e.job.files.map(savedDraftFile);
-    const prepared = e.prepared ?? (await deps.prepare(channelId, original.map((f) => f.file), (p) => update(channelId, id, { progress: p })))
-      .map((file, i) => ({ ...original[i]!, file }));
+    const early = await Promise.all(original.map((file) => takeDraftUpload(channelId, e.job.message.accountId, file,
+      (phase, progress) => update(channelId, id, { phase, progress }))));
+    const missing = original.map((file, i) => ({ file, i })).filter(({ i }) => !early[i]);
+    update(channelId, id, { phase: 'preparing', progress: 0 });
+    const prepared = e.prepared ?? [...original];
+    if (!e.prepared && missing.length) {
+      const files = await deps.prepare(channelId, missing.map(({ file }) => file.file), (p) => update(channelId, id, { progress: p }));
+      missing.forEach(({ file, i }, n) => { prepared[i] = { ...file, file: files[n]! }; });
+    }
+    early.forEach((result, i) => { if (result) prepared[i] = result.file; });
     e.prepared = prepared;
     update(channelId, id, { phase: 'uploading', progress: 0 });
-    e.uploads = await deps.upload(channelId, e.job.message.accountId, prepared, (p) => update(channelId, id, { progress: p }));
+    const tokens = missing.length
+      ? await deps.upload(channelId, e.job.message.accountId, missing.map(({ i }) => prepared[i]!), (p) => update(channelId, id, { progress: p }))
+      : [];
+    let next = 0;
+    e.uploads = original.map((_, i) => early[i]?.token ?? tokens[next++]!);
     save();
+    return early.some(Boolean);
   }
 
   /** Sends the channel's queue head first; stops at a failure so nothing overtakes it. */
@@ -245,11 +258,11 @@ export function createOutbox<D>(deps: OutboxDeps<D>) {
         const e = entries.get(id)!;
         const firstSentBefore = e.firstSentAt;
         /** Uploads from an earlier attempt: if the desktop let them go, this attempt uploads again. */
-        const reused = e.uploads !== null;
+        let reused = e.uploads !== null;
         patch(channelId, id, { status: 'sending', error: null });
         let failure: string | null = null;
         try {
-          await uploadFiles(channelId, id, e);
+          reused = (await uploadFiles(channelId, id, e)) || reused;
           // Saved before the post goes: after a reload, firstSentAt says it may have posted.
           e.firstSentAt ??= deps.now();
           // Unconfirmed, it posts only inside the nonce window (main enforces it after any queue wait): else it could post twice.

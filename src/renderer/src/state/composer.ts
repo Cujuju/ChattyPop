@@ -36,7 +36,7 @@ export function sendDraft(channelId: string, stickerId: string | null = null): v
   const replyTo = replyIn(channelId);
   // Unwrapped: the saved draft is kept in IndexedDB, which can't clone a store proxy.
   const target = replyTo ? unwrap(replyTarget()) : null;
-  const draft = takeDraft(channelId, target);
+  const draft = takeDraft(channelId, target, true);
   if (target) cancelReply();
   const { files } = draft;
   enqueue({
