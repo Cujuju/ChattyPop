@@ -1,5 +1,6 @@
 // Host saved-message state owns RPCs. Panels and dialogs consume it; no saved content is persisted locally.
-import { createSignal } from 'solid-js';
+import { createEffect, createSignal, on } from 'solid-js';
+import { containedRoot } from '@plugin-sdk/renderer/containment';
 import { api } from '@/api';
 import { normalizeSavedPlace, savedKey, savedWithin, type ReminderPreset, type SavedPlace, type SavedMessage, type SavedRemove, type SavedSource, type SavedTarget } from '@shared/savedMessages';
 import type { MenuItem } from '@/ui/menuTypes';
@@ -20,8 +21,6 @@ const [snapshot, setSnapshot] = createSignal<SavedState>();
 const store = new SavedMessageStore(api.discord, (s) => setSnapshot(s));
 export const savedMessages = (): SavedState => snapshot() ?? store.state;
 export const refreshSavedMessages = (): Promise<void> => store.refresh(true);
-/** Menu initialization reads only the index and never changes an already-open menu. */
-export function prepareSavedMenu(): void { if (postingUnlocked() && savedMessages().stale && !savedMessages().error) void store.refresh(false, false); }
 export const loadMoreBookmarks = (): Promise<void> => store.loadMore();
 export const [savedBusy, setSavedBusy] = createSignal(false);
 export const [savedTab, setSavedTab] = createSignal<'bookmarks' | 'reminders'>('bookmarks');
@@ -38,16 +37,18 @@ export const threadParent = (channelId: string): string | null => {
 export const inSavedPlace = (row: SavedMessage): boolean => savedWithin(row, savedPlace(), threadParent);
 let mounted = 0;
 export function mountSavedMessages(): () => void { mounted++; void store.refresh(); return () => { mounted--; }; }
+/** Message menus offer Bookmark and Remind only from a read index, so it is read whenever posting is on, not only while the panel shows. */
+const readIndex = (): void => { if (postingUnlocked()) void store.refresh(false, mounted > 0); };
+containedRoot(() => createEffect(on(postingUnlocked, (unlocked) => { if (unlocked) readIndex(); })));
 
 interface ReminderDraft extends SavedRemove { source: SavedSource; summary: string; dueAt: string | null }
 export const [reminderDraft, setReminderDraft] = createSignal<ReminderDraft | null>(null);
 export const closeReminder = (): void => void setReminderDraft(null);
 closeWhenLocked(() => reminderDraft() !== null, closeReminder);
 function clear(): void { store.clear(); closeReminder(); setContextMenu(null); }
-onAppEvent('privacy-changed', clear);
+onAppEvent('privacy-changed', () => { clear(); readIndex(); });
 onAppEvent('discord-session', (e) => { if (e.state === 'signed-out') clear(); });
 onAppEvent('saved-messages-changed', (e) => {
-  const loaded = store.hasReadSinceReset;
   const reset = e.reset || e.session !== savedMessages().session;
   const contentChanged = reset || e.revision !== savedMessages().revision;
   store.invalidate(e.session, e.revision, reset, e.pageEpoch);
@@ -56,7 +57,7 @@ onAppEvent('saved-messages-changed', (e) => {
     closeReminder();
     if (contextMenu()?.messageId) setContextMenu(null);
   }
-  if (loaded && !reset && e.session !== null) void store.refresh(false, mounted > 0);
+  if (e.session !== null) readIndex();
 });
 unreadCounts.host('bookmarks', { count: () => savedMessages().reminders.filter((m) => m.dueAt !== null && Date.parse(m.dueAt) <= now()).length });
 

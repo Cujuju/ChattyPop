@@ -1,7 +1,7 @@
 // A message's right-click menu: what was pressed (an attachment's Download), copies, views, Jev and plugin groups; posting
 // items come from a posting plugin.
 import { api } from '@/api';
-import { savedMenuItems, prepareSavedMenu } from './savedMessages';
+import { savedMenuItems } from './savedMessages';
 import { HOST_ATTACHMENT_MENU_ITEMS } from '@shared/anchors';
 import type { ArchiveAttachment, ArchiveMessage, AttachmentNote } from '@shared/contract';
 import { DM_GUILD_ID } from '@shared/discord';
@@ -146,7 +146,6 @@ export function openMessageMenu(e: MouseEvent, m: ArchiveMessage, scope: Message
     { id: 'jev', items: jev.length ? [{ label: 'Jev', icon: 'jev', submenu: [{ items: jev }] }] : [] },
     { id: 'delete', items: [] },
   ]), { reactTo: canReact(m) ? m : undefined, messageId: m.id });
-  prepareSavedMenu();
 }
 
 /** The message menu for a row that holds only the message's id (an alert). Fetched on open, so tag items are current. */

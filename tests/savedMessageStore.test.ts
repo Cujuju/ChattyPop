@@ -35,17 +35,6 @@ describe('saved-message renderer fencing', () => {
     pages.mockResolvedValueOnce({ ...page('a', 2), bookmarks: [], hasMore: false }); await store.loadMore();
     expect(pages).toHaveBeenLastCalledWith({ session: 'a', pageEpoch: 0, before: cursor }); expect(store.state.stale).toBe(false);
   });
-  it('requires a read since the last reset even when an old read failed or is still pending', async () => {
-    const pending = deferred<SavedIndex>(), load = vi.fn(async () => pending.promise), store = new SavedMessageStore({ savedMessages: load, savedBookmarks: async () => page() }, () => undefined);
-    store.invalidate('a', 1, true); expect(store.hasReadSinceReset).toBe(false);
-    const read = store.refresh(false, false); expect(store.hasReadSinceReset).toBe(true);
-    store.invalidate('b', 2, true); expect(store.hasReadSinceReset).toBe(false);
-    store.invalidate('b', 3, false); expect(store.hasReadSinceReset).toBe(false);
-    pending.resolve(index()); await read; expect(store.hasReadSinceReset).toBe(false);
-    load.mockRejectedValueOnce(new Error('Conflict')); await store.refresh(); expect(store.hasReadSinceReset).toBe(true);
-    store.invalidate('b', 4, false); expect(store.hasReadSinceReset).toBe(true);
-    store.clear(); expect(store.hasReadSinceReset).toBe(false);
-  });
   it('does not resurrect removed bookmarks during an index-only event refresh', async () => {
     const load = vi.fn(async () => index()), store = new SavedMessageStore({ savedMessages: load, savedBookmarks: async () => page() }, () => undefined);
     await store.refresh(); store.invalidate('a', 2, false);

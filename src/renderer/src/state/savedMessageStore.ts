@@ -30,22 +30,19 @@ export class SavedMessageStore {
   private rerun: { force: boolean; includeBookmarks: boolean } | null = null;
   private pendingGeneration = 0;
   private pendingOptions = { force: false, includeBookmarks: true };
-  private readStarted = false;
-  get hasReadSinceReset(): boolean { return this.readStarted; }
   constructor(private readonly api: SavedApi, private readonly changed: (state: SavedState) => void) {}
   private set(patch: Partial<SavedState>): void { this.state = { ...this.state, ...patch }; this.changed(this.state); }
   invalidate(session: string | null, revision: number, reset: boolean, pageEpoch = this.state.pageEpoch): void {
     if (session === this.state.session && revision < this.state.revision) return;
     this.generation++;
     const clear = reset || session !== this.state.session;
-    if (clear) { this.rerun = null; this.readStarted = false; }
+    if (clear) this.rerun = null;
     // Keep the old epoch until a matching index/page is adopted, so refresh discards deeper pages.
     this.set({ ...(clear ? empty() : {}), session, revision, stale: true, loading: this.pending !== null, paging: false,
       ...(pageEpoch !== this.state.pageEpoch ? { hasMore: false, nextBefore: null } : {}) });
   }
-  clear(): void { this.generation++; this.rerun = null; this.readStarted = false; this.set({ ...empty(), loading: this.pending !== null }); }
+  clear(): void { this.generation++; this.rerun = null; this.set({ ...empty(), loading: this.pending !== null }); }
   refresh(force = false, includeBookmarks = true): Promise<void> {
-    this.readStarted = true;
     if (this.pending) {
       if (this.pendingGeneration !== this.generation || (force && !this.pendingOptions.force) || (includeBookmarks && !this.pendingOptions.includeBookmarks))
         this.rerun = { force: (force && !this.pendingOptions.force) || (this.rerun?.force ?? false), includeBookmarks: includeBookmarks || this.pendingOptions.includeBookmarks || (this.rerun?.includeBookmarks ?? false) };
