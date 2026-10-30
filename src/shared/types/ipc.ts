@@ -145,6 +145,7 @@ export interface CoreInit {
   openRouterKeys: OpenRouterKeyEntry[];
   typeSafeKey: string | null;
   providerApiKeys: Record<string, string>;
+  proxyKey: string | null;
 }
 
 /** Where the renderer wants the live Discord view drawn, in window CSS pixels. */
@@ -188,7 +189,12 @@ export const MAIN_INVOKE = {
     updateKey: 'openrouter:update-key',
     removeKey: 'openrouter:remove-key',
   },
-  providerKeys: { setKey: 'provider-keys:set-key', removeKey: 'provider-keys:remove-key' },
+  providerKeys: {
+    setKey: 'provider-keys:set-key',
+    removeKey: 'provider-keys:remove-key',
+    setProxyKey: 'provider-keys:set-proxy-key',
+    removeProxyKey: 'provider-keys:remove-proxy-key',
+  },
   typeSafe: {
     setKey: 'typesafe:set-key',
     removeKey: 'typesafe:remove-key',

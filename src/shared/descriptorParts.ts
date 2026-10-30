@@ -39,6 +39,8 @@ export interface ProviderDecl {
   tools?: boolean;
   /** Its own web page (an https URL): Settings → AI links it beside the section's title. */
   site?: string;
+  /** Can send its requests through the owner's proxy (Settings → AI → Proxy); ProviderAccount.proxy says when. */
+  proxy?: boolean;
 }
 
 /** An address the owner sets: field `field` of the plugin's object preference `setting`, else `fallback`. */

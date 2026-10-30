@@ -1,5 +1,5 @@
 {
-  "version": "4.14.0",
+  "version": "4.15.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -964,6 +964,7 @@
       "ProviderChoice",
       "ProviderImpl",
       "ProviderInfo",
+      "ProviderProxy",
       "ProviderReport",
       "Question",
       "QuestionContext",

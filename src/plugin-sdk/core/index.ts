@@ -90,6 +90,7 @@ export {
   type ProviderChoice,
   type ProviderImpl,
   type ProviderAccount,
+  type ProviderProxy,
   type AccountLinkIo,
   type ProviderInfo,
   type ProviderReport,

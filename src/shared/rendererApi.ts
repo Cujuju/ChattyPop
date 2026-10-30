@@ -50,6 +50,9 @@ export interface RendererApi {
     /** Checks a pasted key with its vendor, then stores it encrypted, replacing any earlier one. */
     setKey(id: ProviderId, key: string): Promise<void>;
     removeKey(id: ProviderId): Promise<void>;
+    /** Stores the proxy's client key encrypted, replacing any earlier one (Settings → AI → Proxy). */
+    setProxyKey(key: string): Promise<void>;
+    removeProxyKey(): Promise<void>;
   };
   discord: {
     savedMessages(refresh?: boolean): Promise<SavedIndex>;
@@ -255,6 +258,7 @@ export const RENDERER_CORE_METHODS = [
   'syncState',
   'aiStatus',
   'aiPlanUsage',
+  'aiProxyKeyHint',
   'linkProviderAccount',
   'submitAccountLinkCode',
   'cancelAccountLink',

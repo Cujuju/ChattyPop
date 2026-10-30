@@ -42,6 +42,28 @@ export interface ProviderSettings {
   effort: string | null;
   /** The owner's display name for the provider; null = its declared display name. */
   displayName: string | null;
+  /** Sends its requests through the owner's proxy (AiSettings.proxy) when its provider declares `proxy`. */
+  proxy: boolean;
+}
+
+/** A provider's settings in a profile that never set them: not added, off, every choice the provider's default. */
+export const UNSET_PROVIDER_SETTINGS: Readonly<ProviderSettings> = { enabled: false, added: false, model: null, effort: null, displayName: null, proxy: false };
+
+/** The owner's proxy for providers switched to it; its client key is a host secret, never stored here. */
+export interface AiProxySettings {
+  /** http(s) base address without a trailing slash; null = none set. */
+  url: string | null;
+}
+
+/** Schemes a proxy address may use: one on this PC or the LAN rarely has a certificate. */
+const PROXY_PROTOCOLS: ReadonlySet<string> = new Set(['http:', 'https:']);
+
+/** A stored or typed proxy address: an http(s) URL without its trailing slash, else null. */
+export function normalizeProxyUrl(v: unknown): string | null {
+  const text = textOrNull(v);
+  if (!text || !URL.canParse(text)) return null;
+  const url = new URL(text);
+  return PROXY_PROTOCOLS.has(url.protocol) ? url.href.replace(/\/+$/, '') : null;
 }
 
 
@@ -99,6 +121,7 @@ export interface AiSettings {
   /** Commands the owner types in Discord, answered there. */
   jev: JevSettings;
   jevConnection: JevConnection;
+  proxy: AiProxySettings;
 }
 
 
@@ -111,6 +134,7 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
   jevConnection: 'openrouter',
   // Host switches all off (opt-in); plugin switches take their declared defaults (normalizeAiSettings).
   jev: Object.fromEntries(HOST_JEV_FEATURES.map((f) => [f, false] as const)) as JevSettings,
+  proxy: { url: null },
 };
 
 /** Trimmed and capped at PROVIDER_DISPLAY_NAME_MAX; blank = null (use the default). */
@@ -126,6 +150,7 @@ function providerSettings(v: unknown, unsetEnabled: boolean): ProviderSettings {
     effort: textOrNull(p['effort']),
     // 'shortName': this field's first stored key.
     displayName: normalizeDisplayName(p['displayName'] ?? p['shortName']),
+    proxy: bool(p['proxy'], false),
   };
 }
 
@@ -150,6 +175,7 @@ export function normalizeAiSettings(v: unknown, declared: readonly ProviderDefau
     providers,
     jevConnection: oneOf(JEV_CONNECTIONS, src['jevConnection'], DEFAULT_AI_SETTINGS.jevConnection),
     jev: { ...DEFAULT_AI_SETTINGS.jev },
+    proxy: { url: normalizeProxyUrl(isObj(src['proxy']) ? src['proxy']['url'] : null) },
   };
   const jev = isObj(src['jev']) ? src['jev'] : {};
   const kept = out.jev as Record<string, boolean>;

@@ -36,6 +36,6 @@ describe('Ollama address on upgrade', () => {
     adoptBundledData(db, [ollama]);
     adoptBundledData(db, [ollama]);
     expect(getSetting(db, 'plugin.ollama.settings')).toEqual({ ollamaUrl: LAN_ADDRESS });
-    expect(normalizeAiSettings(getSetting(db, 'ai')).providers['ollama']).toEqual({ ...PRE_EXTRACTION.providers.ollama, added: true });
+    expect(normalizeAiSettings(getSetting(db, 'ai')).providers['ollama']).toEqual({ ...PRE_EXTRACTION.providers.ollama, added: true, proxy: false });
   });
 });

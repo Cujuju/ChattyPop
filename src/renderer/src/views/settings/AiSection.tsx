@@ -8,7 +8,7 @@ import type { ProviderId } from '@shared/settings';
 import { providerRows, providerView, settingsSections } from '@/plugins/slots';
 import type { ProviderRow } from '@/plugins/frameSlots';
 import { availableProviders, providerReportsPlanUsage } from '@/state/aiProviders';
-import { providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, updateProvider } from '@/state/preferences';
+import { aiSettings, providerLabel, providerSettingsOf, providerStatusFailure, providerStatusLoading, refreshProviderStatus, updateProvider } from '@/state/preferences';
 import { Switch } from '@/ui/Switch';
 import { effortLabel, keptEffort } from './EffortSelect';
 import { ModelList } from './ModelList';
@@ -18,6 +18,7 @@ import { AccountRow, EarlierKeyRow, RemoveProviderButton } from './AccountRows';
 import { AddAccountDialog, canAddAccount, openAddAccount } from './AddAccount';
 import { Card, Note, Page, Row, SectionsPage, settingsControl as c } from './SettingsLayout';
 import { PlanUsage } from './PlanUsage';
+import { ProxyRow, ProxySettings, proxyDeclared } from './ProxySettings';
 import styles from './Settings.module.css';
 
 /** A provider's state in a few words: on or off, the model it uses and its effort. */
@@ -52,6 +53,9 @@ export function AiSection() {
       actions: () => <RemoveProviderButton provider={d.id} />,
       body: () => <ProviderBody provider={d} />,
     })),
+    ...(proxyDeclared(availableProviders())
+      ? [{ id: 'proxy', label: 'Proxy', divider: true as const, meta: () => aiSettings().proxy.url ?? 'Not set', body: () => <Card><ProxySettings /></Card> }]
+      : []),
     ...settingsSections('ai'),
   ];
   /** Nothing is listed: the owner adds each provider, or no provider plugin is on to add from. */
@@ -113,6 +117,7 @@ const HOST_ROWS: readonly (ProviderRow & { id: HostProviderRowId })[] = [
   { id: 'enabled', Component: EnabledRow },
   { id: 'account', Component: AccountRow },
   { id: 'api-key', Component: EarlierKeyRow },
+  { id: 'proxy', Component: ProxyRow },
   { id: 'model', Component: (p) => <ProviderModels provider={p.provider} /> },
   { id: 'effort', Component: (p) => <EffortRow fieldId={`ai-effort-${p.provider}`} provider={p.provider} value={providerSettingsOf(p.provider)} onChange={(v) => updateProvider(p.provider, v)} /> },
   { id: 'plan-usage', Component: (p) => <Show when={providerReportsPlanUsage(p.provider) && statusOf(p.provider)?.available}><PlanUsage id={p.provider} /></Show> },

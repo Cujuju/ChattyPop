@@ -24,6 +24,8 @@ type Handlers = Pick<
   | 'setOpenRouterKeys'
   | 'setTypeSafeKey'
   | 'setProviderApiKeys'
+  | 'setProxyKey'
+  | 'aiProxyKeyHint'
   | 'checkProviderApiKey'
   | 'openRouterKeys'
   | 'openRouterBalances'
@@ -60,6 +62,8 @@ export function aiHandlers(o: {
     openRouterBalances: () => providers.keyBalances(),
     setTypeSafeKey: (key) => providers.setTypeSafeKey(key),
     setProviderApiKeys: (keys) => providers.setProviderApiKeys(keys),
+    setProxyKey: (key) => providers.setProxyKey(key),
+    aiProxyKeyHint: () => providers.proxyKeyHint(),
     checkProviderApiKey: (id, key) => providers.checkApiKey(id, key),
     jevStatus: () => providers.jevStatus(o.aiSettings()),
     jevCheckMessage: (messageId, ask) => {

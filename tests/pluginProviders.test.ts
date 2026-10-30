@@ -7,7 +7,7 @@ import { providerDeclarations } from '@shared/aiProviders';
 import { type PluginDescriptor } from '@shared/bundledTypes';
 import { BUNDLED_PLUGINS } from '@shared/bundledPlugins';
 import { checkBundled } from '@shared/bundledCheck';
-import { normalizeAiSettings } from '@shared/settings';
+import { UNSET_PROVIDER_SETTINGS, normalizeAiSettings } from '@shared/settings';
 import { ProviderRegistry } from '../src/core/ai/registry';
 import type { CoreContext, CorePlugin } from '../src/core/plugins/context';
 import { NOT_ADDED, TURNED_OFF, offReason } from '../src/core/ai/types';
@@ -248,12 +248,12 @@ describe('stored AI settings (adoption with values intact)', () => {
     const ai = normalizeAiSettings(PRE_EXTRACTION, DECLARED);
     expect(ai).not.toHaveProperty('defaultProvider');
     // Stored before the switch kept a provider listed: one on is listed, one off was removed.
-    for (const [id, entry] of Object.entries(PRE_EXTRACTION.providers)) expect(ai.providers[id]).toEqual({ ...entry, added: entry.enabled });
+    for (const [id, entry] of Object.entries(PRE_EXTRACTION.providers)) expect(ai.providers[id]).toEqual({ ...entry, added: entry.enabled, proxy: false });
   });
 
   it('fill declared providers a profile never set, off until the owner adds them', () => {
     const fresh = normalizeAiSettings({}, providerDeclarations([probe]));
-    expect(fresh.providers['probe']).toEqual({ enabled: false, added: false, model: null, effort: null, displayName: null });
+    expect(fresh.providers['probe']).toEqual(UNSET_PROVIDER_SETTINGS);
     expect(fresh.providers['probe.local']?.enabled).toBe(false);
   });
 });

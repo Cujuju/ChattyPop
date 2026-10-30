@@ -3,7 +3,7 @@ import { DEFAULT_AI_SETTINGS, type AiSettings } from '@shared/aiSettings';
 import { accountKey, accountProvider, REMOVED_ACCOUNT } from '@shared/providerAccounts';
 import { accountDir, orphanAccountIds, prepareAccountRemoval, removeAccountDir } from './accountFolders';
 import { AccountLinks } from './accountLinks';
-import { ProviderUnavailableError, type ProviderAccount, type ProviderImpl } from './types';
+import { ProviderUnavailableError, type ProviderAccount, type ProviderImpl, type ProviderProxy } from './types';
 
 interface Owner { impl: ProviderImpl; dataDir: string; }
 interface Held { account: ProviderAccount; revoked: AbortController; }
@@ -19,7 +19,10 @@ export class ProviderAccounts {
   private pending: Promise<void> = Promise.resolve();
   readonly links = new AccountLinks((event) => this.emit(event));
 
-  constructor(private readonly readKey: (id: string) => string | null) {}
+  constructor(
+    private readonly readKey: (id: string) => string | null,
+    private readonly readProxy: (id: string) => ProviderProxy | null = () => null,
+  ) {}
   bind(settings: () => AiSettings, emit: (event: AppEvent) => void): void { this.readSettings = settings; this.emit = emit; }
   current(): AiSettings { if (this.readSettings) this.apply(this.readSettings()); return this.settings; }
 
@@ -79,6 +82,7 @@ export class ProviderAccounts {
     const account: ProviderAccount = {
       id, auth: stored?.auth ?? 'cli', apiKey: () => this.readKey(id),
       dir: stored?.auth === 'signIn' && owner ? accountDir(owner.dataDir, id) : null,
+      proxy: () => this.readProxy(id),
     };
     const held = { account, revoked: new AbortController() };
     this.held.set(id, held);

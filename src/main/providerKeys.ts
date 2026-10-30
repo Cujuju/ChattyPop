@@ -26,6 +26,29 @@ export function saveProviderKey(secrets: SecretFiles, id: string, key: string): 
   return keys;
 }
 
+/** The proxy's client key (Settings → AI → Proxy), encrypted like the provider keys. */
+export const PROXY_KEY_FILE = 'proxy.key';
+
+/** The stored proxy client key; null when none or unreadable. */
+export function loadProxyKey(secrets: SecretFiles): string | null {
+  try {
+    return secrets.read(PROXY_KEY_FILE)?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveProxyKey(secrets: SecretFiles, raw: string): string {
+  const key = raw.trim();
+  if (!key) throw new Error('Paste the proxy client key.');
+  secrets.write(PROXY_KEY_FILE, key);
+  return key;
+}
+
+export function forgetProxyKey(secrets: SecretFiles): void {
+  secrets.delete(PROXY_KEY_FILE);
+}
+
 export function forgetProviderKey(secrets: SecretFiles, id: string): Record<string, string> {
   if (!normalizeProviderId(id)) throw new TypeError('Invalid AI provider id.');
   const keys = loadProviderKeys(secrets);

@@ -19,7 +19,7 @@ describe('provider key transport boundary', () => {
       { group: 'main', method: MAIN_INVOKE.providerKeys.removeKey, params: ['probe@api'] },
     ]);
   });
-  it.each(['setProviderApiKeys', 'checkProviderApiKey', 'setTypeSafeKey'])('%s stays main-only', (method) => {
+  it.each(['setProviderApiKeys', 'checkProviderApiKey', 'setTypeSafeKey', 'setProxyKey'])('%s stays main-only', (method) => {
     expect(RENDERER_CORE_METHODS as readonly string[]).not.toContain(method);
     expect(remoteMayCallCore(method)).toBe(false);
     expect(phoneMayCallCore(method)).toBe(false);

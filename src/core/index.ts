@@ -329,6 +329,7 @@ process.parentPort.on('message', async ({ data }: { data: CoreInit | CoreRequest
     providers.setOpenRouterKeys(data.openRouterKeys);
     providers.setTypeSafeKey(data.typeSafeKey);
     providers.setProviderApiKeys(data.providerApiKeys);
+    providers.setProxyKey(data.proxyKey);
     initStep('loaded');
     dbPath = join(data.archiveDir, ARCHIVE_DB_FILE);
     mediaSize = new DirSize(join(data.archiveDir, ARCHIVE_MEDIA_DIR));

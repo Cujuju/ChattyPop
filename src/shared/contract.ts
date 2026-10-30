@@ -69,6 +69,10 @@ export interface CoreMethods {
   setTypeSafeKey(key: string | null): void;
   /** Main hands core stored provider API keys at startup and after changes. Never exposed to the renderer. */
   setProviderApiKeys(keys: Record<ProviderId, string>): void;
+  /** Main hands core the proxy's client key at startup and after each change; null = none. Never exposed to the renderer. */
+  setProxyKey(key: string | null): void;
+  /** Last characters of the stored proxy client key; null when none is stored. */
+  aiProxyKeyHint(): string | null;
   /** Main asks the provider to check a pasted key before storage. Never exposed to the renderer. */
   checkProviderApiKey(id: ProviderId, key: string): Promise<void>;
   jevStatus(): JevStatus;

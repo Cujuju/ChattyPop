@@ -86,7 +86,7 @@ describe('frame probe plugins', () => {
     const enabled = new Set(['usage']);
     const entries = [entry('usage', { providerRows: [{ id: 'display-name', after: 'enabled' }] }, { providerRows: { 'display-name': { Component: () => null } } })];
     const slots = slotsOf(() => entries, entries, (id) => enabled.has(id));
-    expect(ids(slots.providerRows(hostRows))).toEqual(['enabled', 'usage.display-name', 'account', 'api-key', 'model', 'effort', 'plan-usage', 'rows']);
+    expect(ids(slots.providerRows(hostRows))).toEqual(['enabled', 'usage.display-name', 'account', 'api-key', 'proxy', 'model', 'effort', 'plan-usage', 'rows']);
     enabled.clear();
     expect(slots.providerRows(hostRows)).toEqual(hostRows);
   });

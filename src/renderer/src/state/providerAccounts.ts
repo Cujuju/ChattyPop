@@ -3,7 +3,7 @@ import { api } from '@/api';
 import type { AppEvent } from '@shared/contract';
 import { accountKey, newAccountId, type AccountAuth } from '@shared/providerAccounts';
 import { declaredProvider } from '@shared/aiProviders';
-import { normalizeDisplayName, type ProviderId } from '@shared/settings';
+import { UNSET_PROVIDER_SETTINGS, normalizeDisplayName, type ProviderId } from '@shared/settings';
 import { onAppEvent } from './events';
 import { aiSettings, patchAiSettings, providerSettingsOf, refetchProviderStatus } from './preferences';
 import { onServerScreen, setSettingsSections, settingsSections } from './ui';
@@ -49,7 +49,7 @@ export async function addProviderAccount(provider: ProviderId, auth: AccountAuth
   if (!displayName) throw new Error('Name this account.');
   const ai = aiSettings();
   const id = newAccountId(provider, Object.keys(ai.providers));
-  await patchAiSettings({ accounts: [...ai.accounts, { id, auth }], providers: { ...ai.providers, [id]: { enabled: true, displayName, model: null, effort: null } } });
+  await patchAiSettings({ accounts: [...ai.accounts, { id, auth }], providers: { ...ai.providers, [id]: { ...UNSET_PROVIDER_SETTINGS, enabled: true, added: true, displayName } } });
   await setSettingsSections({ ...settingsSections(), ai: id });
   await refetchProviderStatus();
 }

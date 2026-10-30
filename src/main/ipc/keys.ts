@@ -4,7 +4,7 @@ import type { CoreClient } from '../coreClient';
 import { checkOpenRouterKey, signInToOpenRouter } from '../openrouterAuth';
 import { addOpenRouterKey, removeOpenRouterKey, updateOpenRouterKey } from '../openrouterKeys';
 import { forgetTypeSafeKey, saveTypeSafeKey } from '../typesafeKey';
-import { forgetProviderKey, saveProviderKey } from '../providerKeys';
+import { forgetProviderKey, forgetProxyKey, saveProviderKey, saveProxyKey } from '../providerKeys';
 import { requireSecretStorage, SECRET_FILES } from '../secretFile';
 import { handleMain } from './mainCalls';
 
@@ -39,4 +39,12 @@ export function registerKeyHandlers(core: CoreClient): void {
     return core.call('setProviderApiKeys', saveProviderKey(SECRET_FILES, providerId, key));
   });
   handleMain(providerKeys.removeKey, (id) => core.call('setProviderApiKeys', forgetProviderKey(SECRET_FILES, text(id, 'provider id'))));
+  handleMain(providerKeys.setProxyKey, (raw) => {
+    requireSecretStorage();
+    return core.call('setProxyKey', saveProxyKey(SECRET_FILES, text(raw, 'key')));
+  });
+  handleMain(providerKeys.removeProxyKey, () => {
+    forgetProxyKey(SECRET_FILES);
+    return core.call('setProxyKey', null);
+  });
 }

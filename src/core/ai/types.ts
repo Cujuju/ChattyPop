@@ -97,12 +97,22 @@ export type ProviderChoice = Pick<ProviderSettings, 'model' | 'effort'>;
 /** A provider's Settings → AI state: whether it can run, why in one line, and its models (null: not listed). */
 export type ProviderReport = Omit<ProviderStatus, 'id' | 'apiKeyHint' | 'auth'>;
 
+/** Where a provider sends its requests instead of its vendor: the owner's proxy (Settings → AI → Proxy). */
+export interface ProviderProxy {
+  /** http(s) base address without a trailing slash. */
+  url: string;
+  /** The proxy's client key; null when the owner stored none. A secret: never in a command line or a window. */
+  key: string | null;
+}
+
 /** The account a provider runs under; secrets are read per request. */
 export interface ProviderAccount {
   id: ProviderId;
   auth: ProviderAuth;
   apiKey(): string | null;
   dir: string | null;
+  /** The proxy its requests go through now; null: straight to its vendor. Absent on hosts without proxies. */
+  proxy?(): ProviderProxy | null;
 }
 
 /** A provider-driven sign-in, cancelled by its owner or plugin lifetime. */

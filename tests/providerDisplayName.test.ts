@@ -30,7 +30,7 @@ describe('provider display names', () => {
 describe('provider display names without the provider', () => {
   it("keep a provider's stored settings and name its id when this build doesn't declare it", () => {
     const ai = normalizeAiSettings({ providers: { gone: { enabled: true, displayName: 'Old' } } });
-    expect(ai.providers['gone']).toEqual({ enabled: true, added: true, model: null, effort: null, displayName: 'Old' });
+    expect(ai.providers['gone']).toEqual({ enabled: true, added: true, model: null, effort: null, displayName: 'Old', proxy: false });
     expect(providerDisplayName(normalizeAiSettings({ providers: { gone: { enabled: true } } }), 'gone')).toBe('gone');
   });
 });

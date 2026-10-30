@@ -55,7 +55,7 @@ import { registerDiscordHandlers } from './ipc/discord';
 import { registerKeyHandlers } from './ipc/keys';
 import { loadOpenRouterKeys } from './openrouterKeys';
 import { loadTypeSafeKey } from './typesafeKey';
-import { loadProviderKeys } from './providerKeys';
+import { loadProviderKeys, loadProxyKey } from './providerKeys';
 import { registerRuleHandlers } from './ipc/rules';
 import { registerMediaHandlers } from './ipc/media';
 import { registerAttachmentStoreHandlers } from './ipc/attachmentStore';
@@ -134,7 +134,7 @@ void app.whenReady().then(() => {
   const keys = startupArchiveKeys(location, (event, err) => diag(event, { message: errorMessage(err) }));
   const core = new CoreClient(join(here, 'core.js'), {
     archiveDir: dataDir, pluginsDir, pluginData: pluginDataDirs(), keys,
-    openRouterKeys: loadOpenRouterKeys(), typeSafeKey: loadTypeSafeKey(), providerApiKeys: loadProviderKeys(SECRET_FILES),
+    openRouterKeys: loadOpenRouterKeys(), typeSafeKey: loadTypeSafeKey(), providerApiKeys: loadProviderKeys(SECRET_FILES), proxyKey: loadProxyKey(SECRET_FILES),
   }, diag);
   registerKeyHandlers(core);
 

@@ -1,6 +1,6 @@
 // Registers plugin AI providers by declared id; host Jev uses its OpenRouter or TypeSafe keys.
 import type { AppEvent, JevStatus, ProviderStatus } from '@shared/contract';
-import { accountUnavailable, declaredProvider, declaredProviders, providersOf, providerUnavailable, type DeclaredProvider } from '@shared/aiProviders';
+import { accountUnavailable, declaredProvider, declaredProviders, providersOf, providerUnavailable, proxyUnavailable, proxyUrl, type DeclaredProvider } from '@shared/aiProviders';
 import { errorMessage } from '@shared/errors';
 import { NONE_STARTED, type PluginStates } from '@shared/ruleAvailability';
 import { JEV_OPENROUTER_MODEL, keyForModel, keyHint, type OpenRouterKeyBalance, type OpenRouterKeyEntry, type OpenRouterKeyInfo } from '@shared/openrouter';
@@ -23,6 +23,7 @@ import {
   type ProviderChoice,
   type ProviderImpl,
   type ProviderInfo,
+  type ProviderProxy,
 } from './types';
 
 /** A provider not declared to read images refuses a request carrying some, rather than answering without them. */
@@ -65,7 +66,7 @@ interface Registration {
 }
 
 export class ProviderRegistry {
-  private readonly accounts = new ProviderAccounts((id) => this.apiKey(id));
+  private readonly accounts = new ProviderAccounts((id) => this.apiKey(id), (id) => this.proxy(id));
   private readonly registered = new Map<ProviderId, Registration>();
   private pluginStates: PluginStates = NONE_STARTED;
   /** Held in memory only; main owns the encrypted copy on disk. */
@@ -73,6 +74,8 @@ export class ProviderRegistry {
   /** For connecting to Jev directly; held in memory only, like the OpenRouter keys. */
   private typeSafeKey: string | null = null;
   private providerApiKeys: Readonly<Record<ProviderId, string>> = {};
+  /** The proxy's client key; held in memory only, like the provider keys. */
+  private proxyKey: string | null = null;
   /** One instance: its in-flight cap covers every Jev caller, and every request it answers reaches `jevSpent`. Jev bills to the key that lists it. */
   private readonly jev: JevProvider;
 
@@ -108,7 +111,8 @@ export class ProviderRegistry {
 
   /** Whether provider `id` can take requests now. */
   runs(id: ProviderId): boolean {
-    return !accountUnavailable(id, this.accounts.current(), this.declared) && this.registered.has(accountProvider(id));
+    const ai = this.accounts.current();
+    return !accountUnavailable(id, ai, this.declared) && !proxyUnavailable(id, ai, this.declared) && this.registered.has(accountProvider(id));
   }
 
   /** Settings → Plugins' states, so a reason tells an off plugin from one that failed to start. The plugin host binds it. */
@@ -118,7 +122,7 @@ export class ProviderRegistry {
 
   /** Why provider `id` can't take requests now; null while it can. */
   unavailable(id: ProviderId): string | null {
-    const accountReason = accountUnavailable(id, this.accounts.current(), this.declared);
+    const accountReason = accountUnavailable(id, this.accounts.current(), this.declared) ?? proxyUnavailable(id, this.accounts.current(), this.declared);
     if (accountReason) return accountReason;
     if (this.runs(id)) return null;
     const declared = declaredProvider(id, this.declared);
@@ -147,7 +151,8 @@ export class ProviderRegistry {
     const held = this.accounts.get(id);
     const raw = registration.impl.create(settings.providers[id] ?? NO_CHOICE, held.account);
     const named: LlmProvider = { id, maxInputChars: raw.maxInputChars, complete: (req) => raw.complete(req), listModels: () => raw.listModels(), ...(raw.planUsage ? { planUsage: () => raw.planUsage!() } : {}) };
-    const provider = keyedProvider(revocable(revocable(completionContract(named), held.revoked.signal), registration.revoked.signal), () => this.apiKey(id));
+    const revoking = revocable(revocable(completionContract(named), held.revoked.signal), registration.revoked.signal);
+    const provider = keyedProvider(keyedProvider(revoking, () => this.apiKey(id)), () => this.proxyKey);
     const d = declaredProvider(id, this.declared)!;
     const images = d.images ? provider : withoutImages(provider, d.label);
     const tools = d.tools ? images : withoutTools(images, d.label);
@@ -164,17 +169,17 @@ export class ProviderRegistry {
       const account = this.accounts.get(id).account;
       const storedKey = declaredProvider(id, this.declared)?.apiKey ? Object.hasOwn(this.providerApiKeys, id) ? this.providerApiKeys[id]! : null : null;
       const apiKeyHint = storedKey ? keyHint(storedKey) : null;
-      const accountReason = accountUnavailable(id, stored, this.declared);
+      const accountReason = accountUnavailable(id, stored, this.declared) ?? proxyUnavailable(id, stored, this.declared);
       if (accountReason) return { id, auth: account.auth, apiKeyHint, available: false, detail: accountReason, models: null };
       try {
         const report = await impl.status(settings.providers[id] ?? NO_CHOICE, refresh, account);
         return {
           id, auth: account.auth, apiKeyHint, available: report.available,
-          detail: redactKey(report.detail, storedKey), models: report.models,
+          detail: redactKey(redactKey(report.detail, storedKey), this.proxyKey), models: report.models,
           ...(account.auth === 'signIn' && report.signedIn !== undefined ? { signedIn: report.signedIn } : {}),
         };
       } catch (err) {
-        return { id, auth: account.auth, apiKeyHint, available: false, detail: keyError(err, storedKey).message, models: null };
+        return { id, auth: account.auth, apiKeyHint, available: false, detail: keyError(keyError(err, storedKey), this.proxyKey).message, models: null };
       }
     }));
   }
@@ -197,6 +202,22 @@ export class ProviderRegistry {
   /** Held in memory only; main owns the encrypted copy on disk. Keyed by provider id. */
   setProviderApiKeys(keys: Readonly<Record<ProviderId, string>>): void {
     this.providerApiKeys = { ...keys };
+  }
+
+  /** Held in memory only; main owns the encrypted copy on disk. Null: none stored. */
+  setProxyKey(key: string | null): void {
+    this.proxyKey = key;
+  }
+
+  /** Last characters of the stored proxy client key; null when none is stored. */
+  proxyKeyHint(): string | null {
+    return this.proxyKey ? keyHint(this.proxyKey) : null;
+  }
+
+  /** The proxy provider `id` sends through now; null: straight to its vendor. */
+  proxy(id: ProviderId): ProviderProxy | null {
+    const url = proxyUrl(id, this.accounts.current(), this.declared);
+    return url ? { url, key: this.proxyKey } : null;
   }
 
   /** An existing API-key account's current key; declarations and orphan keys are unused. */

@@ -93,7 +93,7 @@ export const HOST_PHONE_DRAWER_ITEMS = ['channels'] as const;
 export type HostPhoneDrawerItemId = (typeof HOST_PHONE_DRAWER_ITEMS)[number];
 
 /** Rows of a provider's card in Settings → AI, in order; `rows` are the provider plugin's own (an address). */
-export const HOST_PROVIDER_ROWS = ['enabled', 'account', 'api-key', 'model', 'effort', 'plan-usage', 'rows'] as const;
+export const HOST_PROVIDER_ROWS = ['enabled', 'account', 'api-key', 'proxy', 'model', 'effort', 'plan-usage', 'rows'] as const;
 export type HostProviderRowId = (typeof HOST_PROVIDER_ROWS)[number];
 
 /** Placement relative to another item; a string means after. */

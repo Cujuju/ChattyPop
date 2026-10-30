@@ -84,7 +84,12 @@ export function createPhoneRendererApi(transport: PhoneTransport): PhoneRenderer
     // Sign-in opens the PC's browser; keys typed here travel to the desktop, which encrypts and keeps them.
     openRouter: { signIn: unavailable('OpenRouter sign-in'), addKey: viaMain(openRouter.addKey), updateKey: viaMain(openRouter.updateKey), removeKey: viaMain(openRouter.removeKey) },
     typeSafe: { setKey: viaMain(typeSafe.setKey), removeKey: viaMain(typeSafe.removeKey) },
-    providerKeys: { setKey: viaMain(providerKeys.setKey), removeKey: viaMain(providerKeys.removeKey) },
+    providerKeys: {
+      setKey: viaMain(providerKeys.setKey),
+      removeKey: viaMain(providerKeys.removeKey),
+      setProxyKey: viaMain(providerKeys.setProxyKey),
+      removeProxyKey: viaMain(providerKeys.removeProxyKey),
+    },
     discord: {
       setSlot: ignored,
       setSidebar: ignored,

@@ -54,6 +54,27 @@ export function accountUnavailable(id: ProviderId, ai: AiSettings, declared: rea
   return null;
 }
 
+/** Why an API-key account never uses the proxy: the proxy would pay with its own credential. */
+export const PROXY_NOT_FOR_API_KEYS = 'API-key accounts connect directly: through the proxy, its own credential would pay instead of this key.';
+/** Why a provider switched to the proxy can't run: no address is set. It never falls back to a direct connection. */
+export const PROXY_UNSET = 'Sends through the proxy, but no proxy address is set (Settings → AI → Proxy).';
+
+/** Whether provider `id` may be switched to the proxy: declared able, and not an account paid by an API key. */
+export const proxyApplies = (id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[] = DECLARED): boolean =>
+  (declaredProvider(id, declared)?.proxy ?? false) && ai.accounts.find((a) => a.id === id)?.auth !== 'apiKey';
+
+/** Whether provider `id`'s requests go through the proxy: it applies and the owner switched it on. */
+const proxySwitchedOn = (id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[]): boolean =>
+  proxyApplies(id, ai, declared) && (ai.providers[id]?.proxy ?? false);
+
+/** The proxy address provider `id` sends through; null: straight to its vendor. */
+export const proxyUrl = (id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[] = DECLARED): string | null =>
+  proxySwitchedOn(id, ai, declared) ? ai.proxy.url : null;
+
+/** Why provider `id` can't run for its proxy switch; null while it can. */
+export const proxyUnavailable = (id: ProviderId, ai: AiSettings, declared: readonly DeclaredProvider[] = DECLARED): string | null =>
+  proxySwitchedOn(id, ai, declared) && !ai.proxy.url ? PROXY_UNSET : null;
+
 /** Why a provider can't run: its plugin is absent, off or failed to start; null while it can. */
 export function providerUnavailable(id: ProviderId, states: PluginStates, declared: readonly DeclaredProvider[] = DECLARED, ai?: AiSettings): string | null {
   const accountReason = accountUnavailable(id, ai ?? normalizeAiSettings(undefined), declared);
