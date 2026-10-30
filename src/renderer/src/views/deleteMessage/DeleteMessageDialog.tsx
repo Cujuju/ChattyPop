@@ -8,7 +8,7 @@ import { today } from '@/state/clock';
 import { look } from '@/theme/look';
 import { createAction } from '@/ui/action';
 import { messageTime } from '@/ui/format';
-import { Markdown } from '@/ui/Markdown';
+import { Markdown, MentionPlace } from '@/ui/Markdown';
 import { ModalDialog } from '@/ui/ModalDialog';
 import styles from './DeleteMessageDialog.module.css';
 
@@ -38,7 +38,9 @@ export function DeleteMessageDialog() {
             </div>
             <div class={`${styles.text} ${look.text}`} data-size="base" data-line="relaxed" data-tone="primary">
               <Show when={m().content}>
-                <Markdown text={m().content} mentions={m().mentions} />
+                <MentionPlace.Provider value={() => ({ channelId: m().channelId, profiles: false })}>
+                  <Markdown text={m().content} mentions={m().mentions} />
+                </MentionPlace.Provider>
               </Show>
               <Show when={m().attachments.length || m().stickers.length}>
                 <ul class={styles.files}>

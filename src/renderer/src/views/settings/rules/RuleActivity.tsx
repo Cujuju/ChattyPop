@@ -5,7 +5,7 @@ import { openArchive } from '@/state/archive';
 import { channelById, channelSigil } from '@/state/directory';
 import { ruleRuns } from '@/state/rules';
 import { countText, shortDateTime } from '@/ui/format';
-import { InlineMarkdown } from '@/ui/Markdown';
+import { InlineMarkdown, MentionPlace } from '@/ui/Markdown';
 import { Step } from './fields';
 import styles from './Rules.module.css';
 
@@ -34,7 +34,9 @@ function RunWhat(props: { run: RuleRun }) {
         fallback={r().messageId ? `${runChannel(r()) ? ' · ' : ''}Message no longer archived` : 'On schedule'}
       >
         {runChannel(r()) ? ' · ' : ''}
-        {r().authorName}: “<InlineMarkdown text={r().snippet!} mentions={r().mentions} inert />”
+        {r().authorName}: “<MentionPlace.Provider value={() => ({ channelId: r().channelId, profiles: false })}>
+          <InlineMarkdown text={r().snippet!} mentions={r().mentions} inert />
+        </MentionPlace.Provider>”
       </Show>
     </>
   );

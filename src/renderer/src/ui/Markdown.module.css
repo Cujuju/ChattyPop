@@ -100,7 +100,12 @@
   font-weight: var(--cp-weight-medium);
 }
 
-/* A user mention that opens their profile: Discord fills it on hover. */
+/* A user mention (AuthorName): a name with no colour of its own keeps the accent. data-role-color outranks AuthorName's default. */
+.mention[data-role-color='false'] {
+  color: var(--cp-accent);
+}
+
+/* One that opens their profile: Discord fills it on hover. */
 button.mention {
   border: 0;
   font: inherit;
@@ -108,7 +113,7 @@ button.mention {
   cursor: pointer;
 }
 
-button.mention:hover {
+button.mention[data-role-color='false']:hover {
   background: var(--cp-accent);
   color: var(--cp-text-on-accent);
 }

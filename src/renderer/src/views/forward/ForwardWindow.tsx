@@ -9,7 +9,7 @@ import { createAction } from '@/ui/action';
 import { FloatingWindow, WindowHeader } from '@/ui/FloatingWindow';
 import { messageTime } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
-import { Markdown } from '@/ui/Markdown';
+import { Markdown, MentionPlace } from '@/ui/Markdown';
 import { Icon } from '@/ui/icons';
 import { createListNav } from '@/ui/listNav';
 import chrome from '@/ui/WindowChrome.module.css';
@@ -190,7 +190,9 @@ function Preview(props: { message: ArchiveMessage }) {
       </figcaption>
       <Show when={m().content}>
         <p class={styles.previewText}>
-          <Markdown text={m().content} mentions={m().mentions} />
+          <MentionPlace.Provider value={() => ({ channelId: m().channelId, profiles: false })}>
+            <Markdown text={m().content} mentions={m().mentions} />
+          </MentionPlace.Provider>
         </p>
       </Show>
       <Show when={extras().length}>

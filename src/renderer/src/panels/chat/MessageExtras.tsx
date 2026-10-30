@@ -9,7 +9,7 @@ import { animatedMediaUrl, avatarUrl, proxiedUrl, thumbUrl } from '@shared/media
 import { openArchive } from '@/state/archive';
 import { canReact, openReactionPicker, react } from '@/state/reactions';
 import { setLightbox } from '@/state/ui';
-import { InlineMarkdown, Markdown } from '@/ui/Markdown';
+import { InlineMarkdown, Markdown, MentionPlace } from '@/ui/Markdown';
 import { SolidIcon } from '@/ui/solidIcons';
 import { StickerArt } from '@/ui/StickerArt';
 import { HoverTipAnchor } from './HoverTip';
@@ -46,7 +46,9 @@ export function ReplyLine(props: { reply: ArchiveReply; channelId: string; pinge
       </span>
       <span class={styles.replyText}>
         {/* Inside the jump button: links stay text and spoilers stay shut, so a tap only jumps. */}
-        <InlineMarkdown text={preview()} mentions={props.reply.mentions} inert />
+        <MentionPlace.Provider value={() => ({ channelId: props.channelId, profiles: false })}>
+          <InlineMarkdown text={preview()} mentions={props.reply.mentions} inert />
+        </MentionPlace.Provider>
       </span>
     </button>
   );

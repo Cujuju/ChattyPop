@@ -7,7 +7,7 @@ import { channelById, channelSigil, directory } from '@/state/directory';
 import { look } from '@/theme/look';
 import { GuildIcon } from '@/ui/GuildIcon';
 import { shortDateTime } from '@/ui/format';
-import { Markdown } from '@/ui/Markdown';
+import { Markdown, MentionPlace } from '@/ui/Markdown';
 import styles from './Search.module.css';
 
 /** Consecutive hits in one channel, and the index of its first in the whole list. */
@@ -80,7 +80,9 @@ export function SearchHits(props: { hits: readonly SearchHit[]; active: () => nu
                     </time>
                   </span>
                   <span class={styles.snippet}>
-                    <Markdown text={hit.snippet} mentions={hit.mentions} inert marks />
+                    <MentionPlace.Provider value={() => ({ channelId: hit.channelId, profiles: false })}>
+                      <Markdown text={hit.snippet} mentions={hit.mentions} inert marks />
+                    </MentionPlace.Provider>
                   </span>
                 </li>
               );

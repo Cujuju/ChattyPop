@@ -7,7 +7,7 @@ import { mediaKind } from '@shared/media';
 import { BYTES_PER_KB } from '@shared/units';
 import { discardSend, editSend, retrySend, type Outgoing } from '@/state/outbox';
 import { draftFiles, draftText } from '@/state/composer';
-import { Markdown } from '@/ui/Markdown';
+import { Markdown, MentionPlace } from '@/ui/Markdown';
 import { AuthorName } from './AuthorName';
 import { Avatar } from './MessageRow';
 import cozy from './Cozy.module.css';
@@ -45,7 +45,9 @@ export function PendingRow(props: PendingRowProps) {
         </Show>
         <Show when={o().text}>
           <div class={styles.text}>
-            <Markdown text={o().text} mentions={o().mentions} />
+            <MentionPlace.Provider value={() => ({ channelId: props.channelId, profiles: true })}>
+              <Markdown text={o().text} mentions={o().mentions} />
+            </MentionPlace.Provider>
           </div>
         </Show>
         <Show when={o().files.length}>

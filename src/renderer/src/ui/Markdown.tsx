@@ -5,6 +5,9 @@ import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
 import { openPerson } from '@/state/person';
+import { personName } from '@/state/personNames';
+import { AuthorName } from '@/panels/chat/AuthorName';
+import { drawnName } from '@/panels/chat/PersonName';
 import { clockTime } from './format';
 import { SenderSpoiler, SpoilersShown } from './spoilers';
 import { MarkdownLink } from './MarkdownLink';
@@ -78,13 +81,33 @@ function Text(props: { text: string }) {
   return <For each={matchParts(props.text)}>{(p) => (p.hit ? <mark class={styles.match}>{p.text}</mark> : p.text)}</For>;
 }
 
-/** The channel of the message drawn inside: its user mentions open the person's profile in that server. Unset, they stay text. */
-export const MentionProfiles = createContext<Accessor<string> | null>(null);
+/** Where the text is drawn: `channelId` names user mentions as that server shows them; `profiles` lets a click open their profile there. */
+export interface MentionPlace {
+  channelId: string | null;
+  profiles: boolean;
+}
+/** Unset (a plugin's view, a bio): user mentions show the names the text carries, unstyled. */
+export const MentionPlace = createContext<Accessor<MentionPlace> | null>(null);
+
+/** Discord's text for a mention of someone it can't name. */
+const UNKNOWN_MENTION = 'unknown-user';
+
+/** A user mention drawn as their name shows in the place: nickname, role colour, Nitro font; the text's own name until core answers. */
+function UserMention(props: { id: string; fallback: string | undefined; place: Accessor<MentionPlace>; inert?: boolean }) {
+  const channelId = () => props.place().channelId;
+  const drawn = () => {
+    const d = drawnName(props.id, channelId(), props.fallback ?? UNKNOWN_MENTION);
+    return { ...d, name: `@${d.name}` };
+  };
+  // The place core read the name for: privacy mode may have withheld the one asked for.
+  const open = () => openPerson(props.id, personName(props.id, channelId())?.channelId ?? null);
+  return <AuthorName author={drawn()} class={styles.mention} onClick={!props.inert && props.place().profiles ? open : undefined} />;
+}
 
 /** `inert`: drawn inside a clickable row, so links are text and spoilers don't open. */
 function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; jumbo: boolean; inert?: boolean }) {
   const channelName = (id: string): string => channelById(id)?.name ?? 'unknown-channel';
-  const profilesIn = useContext(MentionProfiles);
+  const place = useContext(MentionPlace);
   return (
     <For each={props.nodes}>
       {(n) => (
@@ -121,17 +144,13 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
             {(e) => <EmojiImage class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} emoji={e()} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
           </Match>
           <Match when={n.k === 'emoji' && n}>{(e) => <MessageEmoji class={styles.emoji!} emoji={e()} jumbo={props.jumbo} />}</Match>
-          <Match when={n.k === 'mention' && n.kind === 'user' && !props.inert && profilesIn && n}>
-            {(m) => (
-              <button type="button" class={styles.mention} onClick={() => openPerson(m().id, profilesIn!())}>
-                @{props.mentions[m().id] ?? 'unknown-user'}
-              </button>
-            )}
+          <Match when={n.k === 'mention' && n.kind === 'user' && place && n}>
+            {(m) => <UserMention id={m().id} fallback={props.mentions[m().id]} place={place!} inert={props.inert} />}
           </Match>
           <Match when={n.k === 'mention' && n}>
             {(m) => (
               <span class={styles.mention}>
-                {m().kind === 'user' ? `@${props.mentions[m().id] ?? 'unknown-user'}` : m().kind === 'channel' ? `#${channelName(m().id)}` : m().kind === 'role' ? '@role' : `@${m().id}`}
+                {m().kind === 'user' ? `@${props.mentions[m().id] ?? UNKNOWN_MENTION}` : m().kind === 'channel' ? `#${channelName(m().id)}` : m().kind === 'role' ? '@role' : `@${m().id}`}
               </span>
             )}
           </Match>
