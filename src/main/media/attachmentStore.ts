@@ -8,7 +8,6 @@ import { SAFE_EXT, attachmentFileName, attachmentShard, fileExt } from '@shared/
 
 /** In-flight files are excluded from archive moves and removed after an interrupted run. */
 export const PARTIAL_DOWNLOAD_PREFIX = '.part-';
-export interface UploadCopy { filename: string; copy: PartialAttachment | null }
 
 /** A bounded upload tee; local disk failures leave Discord's upload unaffected. */
 export class PartialAttachment {

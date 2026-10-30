@@ -77,7 +77,7 @@ export function watchArchive(lookable: Accessor<boolean>, seen: Accessor<string 
     if (companion) return;
     const check = ++checks;
     void api.core.channelUnread(channelId).then((unread) => {
-      if (check === checks && archiveChannelId() === channelId) hold({ kind: 'unread', any: unread !== null, looking: untrack(looking) });
+      if (check === checks && archiveChannelId() === channelId) hold({ kind: 'unread', any: unread !== null });
     }, () => undefined);
   };
 

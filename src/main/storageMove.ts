@@ -10,7 +10,7 @@ import { bindArchiveCopy, releaseArchiveKeys } from './archiveKey';
 import type { CoreClient } from './coreClient';
 import { diag } from './diagnostics';
 import { pickFolder } from './dialogs';
-import { PARTIAL_DOWNLOAD_PREFIX } from './media/attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX } from './media/attachmentStore';
 import { saveStorageConfig, storageConfig } from './storageLocation';
 
 /** The target drive must have the archive's size plus this share of it free, so it isn't left full. */

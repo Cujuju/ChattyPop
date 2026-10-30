@@ -401,13 +401,17 @@ export interface PendingEmoji {
 
 export interface PendingAttachment {
   arrivedVia?: 'gateway' | 'sync' | 'import';
-  status?: string;
   id: string;
   messageId: string;
   channelId: string;
   url: string;
   filename: string;
   contentType: string | null;
+}
+
+/** One attachment with its download status, for the downloader's filing checks. */
+export interface AttachmentSource extends PendingAttachment {
+  status: ArchiveAttachment['status'];
 }
 
 /** The owner's mark on a message in the Conversation view: it belongs, it doesn't (it starts its own), or it was added. */

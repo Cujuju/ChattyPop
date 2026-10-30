@@ -9,7 +9,8 @@ import type { PendingAttachment } from '@shared/contract';
 import { attachmentShard } from '@shared/media';
 import type { CoreClient } from '../src/main/coreClient';
 import type { DiscordApi } from '../src/main/discord/api';
-import { AttachmentDownloader, PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentDownloader';
+import { AttachmentDownloader } from '../src/main/media/attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentStore';
 import { mediaDirs, removeAbandonedPartials } from '../src/main/media/mediaDirs';
 import { tempDir } from './helpers';
 

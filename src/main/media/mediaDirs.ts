@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { ARCHIVE_ATTACHMENTS_DIR, ARCHIVE_MEDIA_DIR } from '@shared/types/storage';
-import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentStore';
 import { EMOJI_SIZE_PX } from './cdnCache';
 
 /** Named by fetch size so a size change starts a fresh cache instead of serving old low-res files. */

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UPLOAD_CHUNK_BYTES } from '@shared/compose';
 import { attachmentShard } from '@shared/media';
 import type { MainCore } from '../src/main/coreClient';
-import { PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentStore';
 import { REPLACEMENT_IDLE_MS, StoreReplacements } from '../src/main/media/storeReplacements';
 
 const ID = '300000000000000001';

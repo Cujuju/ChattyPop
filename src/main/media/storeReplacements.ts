@@ -7,7 +7,7 @@ import { isReplacementExt, type ReplacementExt } from '@shared/attachmentReplace
 import { SHA256_HEX } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
 import type { MainCore } from '../coreClient';
-import { PARTIAL_DOWNLOAD_PREFIX, publishStored } from './attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX, publishStored } from './attachmentStore';
 
 /** Inactive senders release their partial file and hash reservation after ten minutes. */
 export const REPLACEMENT_IDLE_MS = 10 * MS_PER_MIN;

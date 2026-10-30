@@ -26,10 +26,10 @@ export type ReadHoldEvent =
   | { kind: 'back' }
   /** A channel came on; `deliberate` = switched to while looking, not restored. */
   | { kind: 'opened'; deliberate: boolean }
-  /** A message row loaded while the owner was not looking. */
+  /** Desktop: a message row loaded while the owner was not looking. */
   | { kind: 'arrived' }
-  /** Stored unread answered; `any` = something is unread, `looking` = the owner looked when it answered. */
-  | { kind: 'unread'; any: boolean; looking: boolean }
+  /** Desktop: the return's storage check answered; `any` = something is unread. */
+  | { kind: 'unread'; any: boolean }
   /** A scroll gesture, banner dismissal, or jump. */
   | { kind: 'act' };
 
@@ -40,7 +40,7 @@ export function nextReadHold(held: boolean, e: ReadHoldEvent, companion: boolean
     case 'away': return companion ? held || e.caughtUp : true;
     case 'back': return !companion;
     case 'opened': return !companion && !e.deliberate;
-    case 'arrived': return companion ? held : true;
-    case 'unread': return companion ? held : held && (e.any || !e.looking);
+    case 'arrived': return true;
+    case 'unread': return held && e.any;
   }
 }

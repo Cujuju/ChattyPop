@@ -30,7 +30,7 @@ import type {
   PlanUsageWindow,
   ProviderStatus,
 } from './types/ai';
-import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationMark, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, MessageWindow, PendingAttachment, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
+import type { ArchivedBot, ArchiveEmoji, ArchiveMessage, ChannelInfo, ConversationMark, ConversationView, ChannelPolicy, CoreStatus, DirectoryGuild, IngestResult, MessagePageQuery, MessageWindow, PendingAttachment, AttachmentSource, PendingEmoji, PrivacyScope, ReadStateCount, ReadStateScope, SearchHit, SyncState, UnreadBoundary, UnreadMark, UnreadSnapshot } from './types/archive';
 import type { MentionCandidate, PersonMatch, PersonName, PersonProfile } from './types/people';
 import type { DiscordProfile, FetchedProfile, MutualFriends, ReactionUsers } from './types/discordProfile';
 import type { ArchivedGatewayEvent } from './types/ipc';
@@ -265,7 +265,7 @@ export interface CoreMethods {
   /** Stored attachments still on Discord that may be videos, for keeping their stills. */
   archivedVideos(): PendingAttachment[];
   /** Where an attachment is fetched from (a video's poster); null once it or its message left Discord. */
-  attachmentSource(id: string): PendingAttachment | null;
+  attachmentSource(id: string): AttachmentSource | null;
   /** Whether a message is stored, including messages hidden by privacy mode. */
   messageExists(messageId: string): boolean;
   /** `storedExt`: the extension of the store's one file for this content when it differs from the filename's, else null. */

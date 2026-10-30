@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/p
 import { join } from 'node:path';
 import { nativeImage } from 'electron';
 import { STORED_MEDIA_MIME, attachmentShard, mediaKind } from '@shared/media';
-import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentDownloader';
+import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentStore';
 import type { Media } from './thumbStore';
 
 /** Attachment tiles at up to 128 CSS pixels on a 2x display. */

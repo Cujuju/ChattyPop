@@ -15,11 +15,8 @@ import type { CoreClient } from '../coreClient';
 import type { DiscordApi } from '../discord/api';
 import { jittered } from '../sync/pace';
 import type { RawMessage } from '@shared/discord';
-import { PartialAttachment, filePartial, storeBody, type UploadCopy } from './attachmentStore';
-import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentStore';
+import { PARTIAL_DOWNLOAD_PREFIX, PartialAttachment, filePartial, storeBody } from './attachmentStore';
 import { EXPIRED_STATUSES, ensureEmoji } from './cdnCache';
-
-export { PARTIAL_DOWNLOAD_PREFIX, publishStored } from './attachmentStore';
 
 /** Rows claimed per pass; downloads run one at a time. */
 const BATCH_SIZE = 20;
@@ -63,29 +60,26 @@ export class AttachmentDownloader {
     return copy;
   }
 
-  async acceptUploads(message: RawMessage, copies: UploadCopy[]): Promise<void> {
+  async acceptUploads(message: RawMessage, copies: (PartialAttachment | null)[]): Promise<void> {
     const epoch = this.copyEpoch;
     const attachments = message.attachments as { id: string; size: number }[] | undefined;
     const transferred = new Set<PartialAttachment>();
     try {
       if (this.disposed || !(await this.enabled()) || !(await this.core.call('syncable', message.channel_id))) return;
-      for (const [i, item] of copies.entries()) {
+      for (const [i, copy] of copies.entries()) {
         const a = attachments?.[i];
-        if (!item.copy || !a || a.size !== item.copy.bytes) continue;
+        if (!copy || !a || a.size !== copy.bytes) continue;
         const source = await this.core.call('attachmentSource', a.id);
         if (epoch !== this.copyEpoch || this.disposed || this.inFlight === a.id || (source && source.status !== 'pending')) continue;
         const previous = this.copies.get(a.id);
         if (previous) void previous.copy.discard().catch(() => undefined);
-        this.copies.set(a.id, { copy: item.copy, messageId: message.id, channelId: message.channel_id });
-        transferred.add(item.copy);
+        this.copies.set(a.id, { copy, messageId: message.id, channelId: message.channel_id });
+        transferred.add(copy);
       }
       this.kick();
     } finally {
-      for (const item of copies) {
-        if (item.copy && !transferred.has(item.copy)) {
-          this.heldCopies.delete(item.copy);
-          await item.copy.discard().catch(() => undefined);
-        }
+      for (const copy of copies) {
+        if (copy && !transferred.has(copy)) await copy.discard().catch(() => undefined);
       }
     }
   }
@@ -224,10 +218,7 @@ export class AttachmentDownloader {
       return;
     } finally {
       this.inFlight = null;
-      if (copy) {
-        this.heldCopies.delete(copy);
-        await copy.discard().catch(() => undefined);
-      }
+      if (copy) await copy.discard().catch(() => undefined);
     }
     await this.keepPoster(a);
   }

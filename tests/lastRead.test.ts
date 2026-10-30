@@ -213,14 +213,14 @@ describe('archive read hold', () => {
     events.reduce((h, e) => nextReadHold(h, e, companion), held);
   it('holds a desktop return until an act, across repeated focus returns', () => {
     const away: ReadHoldEvent = { kind: 'away', caughtUp: true };
-    const unread: ReadHoldEvent = { kind: 'unread', any: true, looking: true };
+    const unread: ReadHoldEvent = { kind: 'unread', any: true };
     const held = hold([away, { kind: 'back' }, unread, away, { kind: 'back' }]);
     expect(held).toBe(true);
     expect(nextReadHold(held, { kind: 'act' }, false)).toBe(false);
   });
-  it('releases a desktop hold only when stored unread is empty while looking', () => {
-    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'unread', any: false, looking: false }])).toBe(true);
-    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'back' }, { kind: 'unread', any: false, looking: true }])).toBe(false);
+  it('releases a desktop hold only when stored unread is empty', () => {
+    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'back' }, { kind: 'unread', any: true }])).toBe(true);
+    expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'back' }, { kind: 'unread', any: false }])).toBe(false);
   });
   it('holds a restore but not a deliberate switch', () => {
     expect(hold([{ kind: 'opened', deliberate: false }])).toBe(true);
@@ -230,15 +230,9 @@ describe('archive read hold', () => {
     expect(hold([{ kind: 'away', caughtUp: true }, { kind: 'act' }, { kind: 'arrived' }])).toBe(true);
   });
   it('keeps the companion releasing on return', () => {
-    const events: ReadHoldEvent[] = [{ kind: 'opened', deliberate: false }, { kind: 'away', caughtUp: true }, { kind: 'arrived' }, { kind: 'back' }];
+    const events: ReadHoldEvent[] = [{ kind: 'opened', deliberate: false }, { kind: 'away', caughtUp: true }, { kind: 'back' }];
     expect(hold(events, true)).toBe(false);
     expect(hold([{ kind: 'away', caughtUp: false }], true)).toBe(false);
     expect(hold([{ kind: 'away', caughtUp: true }], true)).toBe(true);
-  });
-  it('marks nothing while not looking, even after an act', () => {
-    const held = hold([{ kind: 'away', caughtUp: true }, { kind: 'act' }]);
-    const mark = (looking: boolean) => looking && !held ? messageToMark(GENERAL, GENERAL, 'm3', 'm2') : undefined;
-    expect(mark(false)).toBeUndefined();
-    expect(mark(true)).toBe('m3');
   });
 });

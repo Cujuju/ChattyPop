@@ -216,8 +216,8 @@ describe('upload local copy lifecycle', () => {
     const filing = new Promise<void>((resolve) => { finishFiling = resolve; });
     const acceptUploads = vi.fn<NonNullable<ConstructorParameters<typeof Uploads>[2]>['acceptUploads']>(async (_message, copies) => {
       await filing;
-      expect(copies[0]!.copy!.bytes).toBe(2);
-      const stored = await copies[0]!.copy!.publish(copies[0]!.filename);
+      expect(copies[0]!.bytes).toBe(2);
+      const stored = await copies[0]!.publish('a.png');
       expect(stored.bytes).toBe(2);
     });
     const { uploads, api } = setup(100, { uploadCopy: async () => new PartialAttachment(dir), acceptUploads, discardCopies: vi.fn(async () => {}) });

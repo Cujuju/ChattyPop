@@ -15,7 +15,7 @@ const sha = createHash('sha256').update(BYTES).digest('hex');
 const databases: ReturnType<typeof tempDb>[] = [];
 afterEach(() => { vi.useRealTimers(); databases.splice(0).forEach((db) => db.close()); });
 
-function setup(via: 'gateway' | 'sync' | 'import' = 'gateway', size = BYTES.length) {
+function setup(size = BYTES.length) {
   const db = tempDb();
   databases.push(db);
   const archive = seedArchive(db, [{ id: 'c1' }]);
@@ -44,11 +44,11 @@ async function drain(d: ReturnType<typeof setup>) {
 }
 
 describe('own upload archive', () => {
-  it('files a provided copy by position without CDN or history gap, including a renamed file', async () => {
-    const d = setup('sync');
+  it('files a provided copy by position without CDN or history gap', async () => {
+    const d = setup();
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'original.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     expect(d.call.mock.calls.some(([m]) => m === 'applyGatewayEvent')).toBe(false);
     expect(d.rows()).toBeUndefined();
     d.archive.ingestMessages([d.message], 'sync');
@@ -62,10 +62,10 @@ describe('own upload archive', () => {
   });
 
   it('discards mismatched sizes and downloads normally', async () => {
-    const d = setup('gateway', BYTES.length + 1);
+    const d = setup(BYTES.length + 1);
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     expect(d.partials()).toEqual([]);
     d.archive.ingestMessages([d.message], 'gateway');
     await drain(d);
@@ -77,7 +77,7 @@ describe('own upload archive', () => {
     const d = setup();
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     await drain(d);
     expect(d.partials()).toHaveLength(1);
 
@@ -98,7 +98,7 @@ describe('own upload archive', () => {
     const d = setup();
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     await drain(d);
     await drain(d);
     expect(d.rows()).toBeUndefined();
@@ -116,7 +116,7 @@ describe('own upload archive', () => {
     const d = setup();
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     const answer = d.call.getMockImplementation()!;
     let ingested = false;
     d.call.mockImplementation(async (method, ...args) => {
@@ -142,7 +142,7 @@ describe('own upload archive', () => {
     await copy.write(BYTES);
     if (reason === 'unarchived') d.archive.setOptIn('c1', false);
     if (reason === 'disabled') d.state.enabled = false;
-    await d.downloader.acceptUploads(reason === 'missing' ? { ...d.message, attachments: [] } : d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(reason === 'missing' ? { ...d.message, attachments: [] } : d.message, [copy]);
     if (reason === 'account') d.downloader.discardCopies();
     if (reason === 'dispose') d.downloader.dispose();
     await vi.waitFor(() => expect(d.partials()).toEqual([]));
@@ -154,7 +154,7 @@ describe('own upload archive', () => {
     await storeBody(d.dir, new Response(BYTES).body!, 'other.jpg');
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     d.archive.ingestMessages([d.message], 'gateway');
     await drain(d);
     expect(d.rows()).toMatchObject({ status: 'stored', ext: 'jpg' });
@@ -171,7 +171,7 @@ describe('own upload archive', () => {
     d.fetch.mockImplementation(async () => new Response(body));
     d.downloader.kick();
     await vi.waitFor(() => expect(d.fetch).toHaveBeenCalledTimes(1));
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     expect(d.rows()).toMatchObject({ status: 'pending' });
     if (failure) controller.error(new Error('connection reset'));
     else { controller.enqueue(BYTES); controller.close(); }
@@ -187,7 +187,7 @@ describe('own upload archive', () => {
     await drain(d);
     const copy = (await d.downloader.uploadCopy())!;
     await copy.write(BYTES);
-    await d.downloader.acceptUploads(d.message, [{ filename: 'a.png', copy }]);
+    await d.downloader.acceptUploads(d.message, [copy]);
     expect(d.call.mock.calls.filter(([m]) => m === 'attachmentStored')).toHaveLength(1);
     expect(d.partials()).toEqual([]);
   });
@@ -197,7 +197,7 @@ describe('own upload archive', () => {
 describe('attachment arrival pacing', () => {
   it.each(['gateway', 'sync', 'import'] as const)('%s arrival carries its pacing fact in the queue', async (via) => {
     vi.useFakeTimers();
-    const d = setup(via);
+    const d = setup();
     d.archive.ingestMessages([d.message], via);
     expect(pendingAttachments(d.db, 20)[0]?.arrivedVia).toBe(via);
     d.downloader.kick();

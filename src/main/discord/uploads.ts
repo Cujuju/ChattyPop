@@ -145,8 +145,8 @@ export class Uploads {
   }
 
   /**
-   * The finished uploads a message to `channelId` references, in order; they are released. Throws UPLOAD_GONE for one not
-   * held, AccountChangedError for one another account's session would post.
+   * Describes the finished uploads a message to `channelId` references, in order; they stay held until `accepted`. Throws
+   * UPLOAD_GONE for one not held, AccountChangedError for one another account's session would post.
    */
   take(channelId: string, tokens: unknown): UploadedFile[] {
     if (!Array.isArray(tokens) || tokens.length > DISCORD_FILES_PER_MESSAGE_MAX) throw new Error('Not the uploads of a message.');
@@ -165,11 +165,11 @@ export class Uploads {
       const u = this.held.get(t);
       const copy = u?.copy ?? null;
       if (u) u.copy = null;
-      return { filename: u?.name ?? '', copy };
+      return copy;
     });
     this.release(tokens);
     // Ownership transfers to the downloader; sending does not wait for filing.
-    if (copies.some((c) => c.copy)) void this.archive?.acceptUploads(message, copies).catch(() => undefined);
+    if (copies.some(Boolean)) void this.archive?.acceptUploads(message, copies).catch(() => undefined);
   }
 
   discardCopies(): void {

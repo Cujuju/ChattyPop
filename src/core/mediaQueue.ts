@@ -1,7 +1,7 @@
 // Download queues for attachments and custom emoji; main's downloader drains them.
 import type { NoteArchiveChange } from '@shared/archiveChanges';
 import { noteAttachmentChange } from './archiveChangeSource';
-import type { CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
+import type { AttachmentSource, CoreMethods, PendingAttachment, PendingEmoji } from '@shared/contract';
 import { statSync } from 'node:fs';
 import { GENERIC_CONTENT_TYPE, SAFE_EXT, SHA256_HEX } from '@shared/media';
 import { MS_PER_MIN } from '@shared/units';
@@ -81,13 +81,13 @@ export function archivedVideos(db: Db): PendingAttachment[] {
 }
 
 /** Where an attachment is fetched from; null once it or its message left Discord. */
-export function attachmentSource(db: Db, id: string): PendingAttachment | null {
+export function attachmentSource(db: Db, id: string): AttachmentSource | null {
   const row = db
     .prepare(
       `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename, a.content_type AS contentType, a.status FROM attachments a
        JOIN messages m ON m.id = a.message_id WHERE a.id = ? AND a.removed_at IS NULL AND m.deleted_at IS NULL`,
     )
-    .get(id) as PendingAttachment | undefined;
+    .get(id) as AttachmentSource | undefined;
   return row ?? null;
 }
 
