@@ -7,7 +7,7 @@ import { channelById } from '@/state/directory';
 import { messageLink } from '@/state/messageActions';
 import { pluginPresents } from '@/state/plugins';
 import { clockTime as time } from '@/ui/format';
-import { Markdown } from '@/ui/Markdown';
+import { Markdown, MentionProfiles } from '@/ui/Markdown';
 import { isEmojiOnly, senderSpoilerLinks } from '@/ui/mdParse';
 import { SpoilerMessage, SpoilersShown } from '@/ui/spoilers';
 import { look } from '@/theme/look';
@@ -38,6 +38,7 @@ export function MessageBody(props: { message: ArchiveMessage; editing: boolean }
     <SpoilersShown.Provider value={() => spoilersShownIn(m().channelId)}>
       <SpoilerMessage.Provider value={() => ({ id: m().id, senderLinks: senderLinks() })}>
       <EmojiChannelGuild.Provider value={() => channelById(m().channelId)?.guildId}>
+      <MentionProfiles.Provider value={() => m().channelId}>
         <div class={styles.body}>
           <Show when={m().deletedAt}>{(at) => <p class={styles.deletedNote}>Deleted by author {time(at())} · original kept in archive</p>}</Show>
           <Show when={labels().length}>
@@ -101,6 +102,7 @@ export function MessageBody(props: { message: ArchiveMessage; editing: boolean }
             <Reactions message={m()} />
           </Show>
         </div>
+      </MentionProfiles.Provider>
       </EmojiChannelGuild.Provider>
       </SpoilerMessage.Provider>
     </SpoilersShown.Provider>

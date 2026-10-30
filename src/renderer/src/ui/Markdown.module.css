@@ -100,6 +100,19 @@
   font-weight: var(--cp-weight-medium);
 }
 
+/* A user mention that opens their profile: Discord fills it on hover. */
+button.mention {
+  border: 0;
+  font: inherit;
+  font-weight: var(--cp-weight-medium);
+  cursor: pointer;
+}
+
+button.mention:hover {
+  background: var(--cp-accent);
+  color: var(--cp-text-on-accent);
+}
+
 .timestamp {
   padding: 0 var(--cp-space-1);
   border-radius: var(--cp-radius-xs);

@@ -1,9 +1,10 @@
-import { For, Match, Switch, createContext, createSignal, useContext, type JSX } from 'solid-js';
+import { For, Match, Switch, createContext, createSignal, useContext, type Accessor, type JSX } from 'solid-js';
 import { SEARCH_MATCH_END, SEARCH_MATCH_START } from '@shared/contract';
 import { EmojiImage } from '@/ui/AnimatedImage';
 import { timeFormat } from '@shared/hourCycle';
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MIN, MS_PER_S } from '@shared/units';
 import { channelById } from '@/state/directory';
+import { openPerson } from '@/state/person';
 import { clockTime } from './format';
 import { SenderSpoiler, SpoilersShown } from './spoilers';
 import { MarkdownLink } from './MarkdownLink';
@@ -77,9 +78,13 @@ function Text(props: { text: string }) {
   return <For each={matchParts(props.text)}>{(p) => (p.hit ? <mark class={styles.match}>{p.text}</mark> : p.text)}</For>;
 }
 
+/** The channel of the message drawn inside: its user mentions open the person's profile in that server. Unset, they stay text. */
+export const MentionProfiles = createContext<Accessor<string> | null>(null);
+
 /** `inert`: drawn inside a clickable row, so links are text and spoilers don't open. */
 function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; jumbo: boolean; inert?: boolean }) {
   const channelName = (id: string): string => channelById(id)?.name ?? 'unknown-channel';
+  const profilesIn = useContext(MentionProfiles);
   return (
     <For each={props.nodes}>
       {(n) => (
@@ -116,6 +121,13 @@ function Inline(props: { nodes: MdInline[]; mentions: Record<string, string>; ju
             {(e) => <EmojiImage class={styles.emoji} data-text-emoji data-jumbo={props.jumbo} emoji={e()} alt={`:${e().name}:`} title={`:${e().name}:`} loading="lazy" />}
           </Match>
           <Match when={n.k === 'emoji' && n}>{(e) => <MessageEmoji class={styles.emoji!} emoji={e()} jumbo={props.jumbo} />}</Match>
+          <Match when={n.k === 'mention' && n.kind === 'user' && !props.inert && profilesIn && n}>
+            {(m) => (
+              <button type="button" class={styles.mention} onClick={() => openPerson(m().id, profilesIn!())}>
+                @{props.mentions[m().id] ?? 'unknown-user'}
+              </button>
+            )}
+          </Match>
           <Match when={n.k === 'mention' && n}>
             {(m) => (
               <span class={styles.mention}>
