@@ -110,7 +110,7 @@ describe('attachmentSource', () => {
   it('names an archived attachment’s message, channel and URL; none once it or its message left Discord', () => {
     const m = { ...rawMessage(GENERAL, T0, 'clips'), attachments: [file('a1'), file('a2')] };
     archive.ingestMessages([m], ARRIVAL.gateway);
-    expect(attachmentSource(db, 'a1')).toEqual({ id: 'a1', messageId: m.id, channelId: GENERAL, url: signed('a1'), filename: 'a1.mov', contentType: null });
+    expect(attachmentSource(db, 'a1')).toEqual({ status: 'pending', id: 'a1', messageId: m.id, channelId: GENERAL, url: signed('a1'), filename: 'a1.mov', contentType: null });
     archive.applyUpdate({ id: m.id, channel_id: GENERAL, attachments: [file('a2')] });
     expect(attachmentSource(db, 'a1')).toBeNull();
     archive.markDeleted(GENERAL, m.id, T0 + 1);

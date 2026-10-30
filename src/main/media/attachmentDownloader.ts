@@ -1,6 +1,6 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir, readdir, rename, rm } from 'node:fs/promises';
+import { rename, rm } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -10,11 +10,16 @@ import type { PendingAttachment } from '@shared/contract';
 import { DiscordHttpError } from '@shared/discord';
 import { errorMessage } from '@shared/errors';
 import type { PaceTiming } from '@shared/settings';
-import { SAFE_EXT, attachmentFileName, attachmentShard, downloadHttpFailure, fileExt, finalDownloadStatus, mediaKind } from '@shared/media';
+import { downloadHttpFailure, finalDownloadStatus, mediaKind } from '@shared/media';
 import type { CoreClient } from '../coreClient';
 import type { DiscordApi } from '../discord/api';
 import { jittered } from '../sync/pace';
+import type { RawMessage } from '@shared/discord';
+import { PartialAttachment, filePartial, storeBody, type UploadCopy } from './attachmentStore';
+import { PARTIAL_DOWNLOAD_PREFIX } from './attachmentStore';
 import { EXPIRED_STATUSES, ensureEmoji } from './cdnCache';
+
+export { PARTIAL_DOWNLOAD_PREFIX, publishStored } from './attachmentStore';
 
 /** Rows claimed per pass; downloads run one at a time. */
 const BATCH_SIZE = 20;
@@ -23,9 +28,6 @@ const TIMER_MAX_MS = 2 ** 31 - 1;
 
 /** Discord or its CDN refused or no longer has the file (finalDownloadStatus); any other failure may pass. */
 const isFinalFailure = (err: unknown): boolean => err instanceof DiscordHttpError && finalDownloadStatus(err.status);
-
-/** Downloads in flight are written under this prefix and renamed into place; never part of the archive (an archive move skips them). */
-export const PARTIAL_DOWNLOAD_PREFIX = '.part-';
 
 /** Video stills kept beside the store (thumbStore attachmentPoster), fetched while the attachment is on Discord so they outlive it. */
 export interface PosterKeeper {
@@ -47,6 +49,66 @@ export interface AttachmentFetch {
 }
 
 export class AttachmentDownloader {
+  /** Copies whose messages never arrive remain until account change or quit; startup cleanup removes leftover .part- files. */
+  private readonly copies = new Map<string, { copy: PartialAttachment; messageId: string; channelId: string }>();
+  private readonly heldCopies = new Set<PartialAttachment>();
+  private inFlight: string | null = null;
+  private copyEpoch = 0;
+  private disposed = false;
+
+  async uploadCopy(): Promise<PartialAttachment | null> {
+    if (!(await this.enabled()) || this.disposed) return null;
+    const copy = new PartialAttachment(this.dir, (copy) => this.heldCopies.delete(copy));
+    this.heldCopies.add(copy);
+    return copy;
+  }
+
+  async acceptUploads(message: RawMessage, copies: UploadCopy[]): Promise<void> {
+    const epoch = this.copyEpoch;
+    const attachments = message.attachments as { id: string; size: number }[] | undefined;
+    const transferred = new Set<PartialAttachment>();
+    try {
+      if (this.disposed || !(await this.enabled()) || !(await this.core.call('syncable', message.channel_id))) return;
+      for (const [i, item] of copies.entries()) {
+        const a = attachments?.[i];
+        if (!item.copy || !a || a.size !== item.copy.bytes) continue;
+        const source = await this.core.call('attachmentSource', a.id);
+        if (epoch !== this.copyEpoch || this.disposed || this.inFlight === a.id || (source && source.status !== 'pending')) continue;
+        const previous = this.copies.get(a.id);
+        if (previous) void previous.copy.discard().catch(() => undefined);
+        this.copies.set(a.id, { copy: item.copy, messageId: message.id, channelId: message.channel_id });
+        transferred.add(item.copy);
+      }
+      this.kick();
+    } finally {
+      for (const item of copies) {
+        if (item.copy && !transferred.has(item.copy)) {
+          this.heldCopies.delete(item.copy);
+          await item.copy.discard().catch(() => undefined);
+        }
+      }
+    }
+  }
+
+  async discardCopies(): Promise<void> {
+    this.copyEpoch++;
+    this.copies.clear();
+    const copies = [...this.heldCopies];
+    this.heldCopies.clear();
+    await Promise.all(copies.map((copy) => copy.discard().catch(() => undefined)));
+  }
+
+  async dispose(): Promise<void> {
+    this.disposed = true;
+    clearTimeout(this.retryTimer);
+    await this.discardCopies();
+  }
+
+  private async record(id: string, stored: Awaited<ReturnType<typeof filePartial>>): Promise<void> {
+    await this.core.call('attachmentStored', id, stored.sha, stored.bytes, stored.storedExt);
+    await this.keepThumb(stored.name);
+  }
+
   private running = false;
   private again = false;
   /** Stills of videos archived before posters were kept are fetched once per run. */
@@ -68,6 +130,7 @@ export class AttachmentDownloader {
 
   /** Safe to call often (every archive change); coalesces into one drain loop. */
   kick(): void {
+    if (this.disposed) return;
     if (this.running) {
       this.again = true;
       return;
@@ -80,22 +143,22 @@ export class AttachmentDownloader {
     try {
       do {
         this.again = false;
-        if (!(await this.enabled())) return;
+        if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
         // Attachments first, newest first (each batch re-reads the queue, so new messages jump ahead):
         // nothing else fetches them, so the Archive shows "downloading" until they arrive.
         for (let batch = await this.core.call('pendingAttachments', BATCH_SIZE); batch.length; batch = await this.core.call('pendingAttachments', BATCH_SIZE)) {
           for (const a of batch) {
-            if (!(await this.enabled())) return;
-            await this.gap();
+            if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
             await this.downloadOne(a);
           }
         }
+        await this.reconcileCopies();
         this.wakeForRetry(await this.core.call('nextAttachmentRetry'));
         // Then stills of videos archived before they were kept, while those are still on Discord.
         if (!this.postersBackfilled) {
           for (const a of await this.core.call('archivedVideos')) {
             if (this.again) break;
-            if (!(await this.enabled())) return;
+            if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
             await this.keepPoster(a);
           }
           this.postersBackfilled = !this.again;
@@ -104,7 +167,7 @@ export class AttachmentDownloader {
         for (let batch = await this.core.call('pendingEmojis', BATCH_SIZE); batch.length && !this.again; batch = await this.core.call('pendingEmojis', BATCH_SIZE)) {
           // New archive activity (this.again) restarts the loop so fresh attachments go ahead of the prefetch.
           for (const e of batch) {
-            if (!(await this.enabled())) return;
+            if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
             await this.gap();
             const error = await ensureEmoji(this.ses, this.emojiDir, e.id, e.animated).then(
               () => null,
@@ -119,6 +182,18 @@ export class AttachmentDownloader {
     }
   }
 
+  private async reconcileCopies(): Promise<void> {
+    for (const [id, entry] of this.copies) {
+      // Message first: ingest writes a message and its attachments in one transaction, so a stored message with no row means none comes.
+      const ingested = await this.core.call('messageExists', entry.messageId);
+      const source = ingested ? await this.core.call('attachmentSource', id) : null;
+      if ((ingested && (!source || source.status !== 'pending')) || !(await this.core.call('syncable', entry.channelId))) {
+        this.copies.delete(id);
+        await entry.copy.discard().catch(() => undefined);
+      }
+    }
+  }
+
   /** Drains again when the earliest delayed retry is due, which no archive change may prompt. */
   private wakeForRetry(at: number | null): void {
     clearTimeout(this.retryTimer);
@@ -127,21 +202,32 @@ export class AttachmentDownloader {
     this.retryTimer.unref();
   }
 
-  /** Paced gap before each CDN request (see Settings → Download pace). */
+  /** Paced gap for history downloads and emoji prefetch (see Settings → Download pace). */
   private async gap(): Promise<void> {
     const { mediaMs, jitter } = await this.pace();
     await sleep(jittered(mediaMs, jitter));
   }
 
   private async downloadOne(a: PendingAttachment): Promise<void> {
+    let copy = this.copies.get(a.id)?.copy;
     try {
-      const body = await this.fetchBody(a);
-      const { sha, bytes, storedExt, name } = await this.store(body, a.filename);
-      await this.core.call('attachmentStored', a.id, sha, bytes, storedExt);
-      await this.keepThumb(name);
+      if (!copy && a.arrivedVia !== 'gateway') await this.gap();
+      copy = this.copies.get(a.id)?.copy;
+      this.copies.delete(a.id);
+      this.inFlight = a.id;
+      const stored = copy
+        ? await copy.publish(a.filename)
+        : await storeBody(this.dir, await this.fetchBody(a), a.filename);
+      await this.record(a.id, stored);
     } catch (err) {
       await this.core.call('attachmentFailed', a.id, errorMessage(err), !isFinalFailure(err));
       return;
+    } finally {
+      this.inFlight = null;
+      if (copy) {
+        this.heldCopies.delete(copy);
+        await copy.discard().catch(() => undefined);
+      }
     }
     await this.keepPoster(a);
   }
@@ -149,7 +235,7 @@ export class AttachmentDownloader {
   /** A video's still, unless kept already; a missing one is fetched again on first view. */
   private async keepPoster(a: PendingAttachment): Promise<void> {
     if (mediaKind(a) !== 'video' || this.posters.kept(a.id)) return;
-    await this.gap();
+    if (a.arrivedVia !== 'gateway') await this.gap();
     await this.posters.keep(a).catch(() => undefined);
   }
 
@@ -177,46 +263,6 @@ export class AttachmentDownloader {
     if (!res.ok || !res.body) throw new DiscordHttpError(downloadHttpFailure(res.status), res.status);
     return res.body;
   }
-
-  /** Streams to a temp file while hashing, then moves it to its content address (dedupes identical files). The temp file never outlives the call. */
-  private async store(body: ReadableStream<Uint8Array>, filename: string): Promise<{ sha: string; bytes: number; storedExt: string | null; name: string }> {
-    await mkdir(this.dir, { recursive: true });
-    const tmp = join(this.dir, `${PARTIAL_DOWNLOAD_PREFIX}${randomUUID()}`);
-    try {
-      const hash = createHash('sha256');
-      const source = Readable.fromWeb(body as import('node:stream/web').ReadableStream<Uint8Array>);
-      let bytes = 0;
-      source.on('data', (chunk: Buffer) => {
-        hash.update(chunk);
-        bytes += chunk.length;
-      });
-      await pipeline(source, createWriteStream(tmp));
-      const sha = hash.digest('hex');
-      const { ext } = await publishStored(this.dir, tmp, sha, fileExt(filename));
-      const storedExt = ext === fileExt(filename) ? null : ext;
-      return { sha, bytes, storedExt, name: attachmentFileName({ sha256: sha, filename, storedExt }) };
-    } finally {
-      await rm(tmp, { force: true });
-    }
-  }
-}
-
-/**
- * Moves a hashed partial into the store, which keeps one file per content hash: content already stored under any
- * extension is kept and the partial dropped. Returns the stored file's extension and path, and whether it existed.
- */
-export async function publishStored(dir: string, partial: string, sha256: string, ext: string): Promise<{ ext: string; path: string; existed: boolean }> {
-  const shard = join(dir, attachmentShard(sha256));
-  await mkdir(shard, { recursive: true });
-  const prefix = `${sha256}.`;
-  const held = (await readdir(shard)).find((name) => name.startsWith(prefix) && SAFE_EXT.test(name.slice(prefix.length)));
-  if (held) {
-    await rm(partial, { force: true });
-    return { ext: held.slice(prefix.length), path: join(shard, held), existed: true };
-  }
-  const path = join(shard, attachmentFileName({ sha256, filename: '', storedExt: ext }));
-  await rename(partial, path);
-  return { ext, path, existed: false };
 }
 
 /** A fresh signed CDN URL for an attachment whose stored one expired, read from its message; undefined once it's gone. */

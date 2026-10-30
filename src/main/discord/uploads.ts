@@ -1,5 +1,8 @@
 // The owner's uploads to Discord's attachment store, sent on in pieces as the sender reads them, so memory stays bounded
 // at any file size. The PUT goes through the embedded client's session without its cookies; slots are Discord's own.
+import type { RawMessage } from '@shared/discord';
+import type { AttachmentDownloader } from '../media/attachmentDownloader';
+import type { PartialAttachment } from '../media/attachmentStore';
 import { randomUUID } from 'node:crypto';
 import { net, type ClientRequest, type Session } from 'electron';
 import { DISCORD_FILES_PER_MESSAGE_MAX, snowflakeArg } from '@shared/discord';
@@ -23,6 +26,7 @@ interface DiscordSlot {
 }
 
 interface Upload {
+  copy: PartialAttachment | null;
   /** The account the message was written as: its slot is that account's, so only that account's session sends to it or posts it. */
   account: string;
   channelId: string;
@@ -49,12 +53,14 @@ const isFileMeta = (f: unknown): f is UploadFileMeta => {
 };
 
 export class Uploads {
+  private copyEpoch = 0;
   private readonly held = new Map<string, Upload>();
 
   /** `limit`: the largest file the owner may upload to a channel (uploadLimitBytes). */
   constructor(
     private readonly session: Session,
     private readonly limit: (channelId: string) => Promise<number>,
+    private readonly archive?: Pick<AttachmentDownloader, 'uploadCopy' | 'acceptUploads' | 'discardCopies'>,
   ) {}
 
   /**
@@ -64,6 +70,7 @@ export class Uploads {
   async prepare(api: DiscordWriter, channelIdArg: unknown, filesArg: unknown, accountArg: unknown): Promise<UploadSlot[]> {
     requireWrittenAs(accountArg);
     const account = accountArg as string;
+    const copyEpoch = this.copyEpoch;
     const channelId = snowflakeArg(channelIdArg, 'channel');
     if (!Array.isArray(filesArg) || !filesArg.length || filesArg.length > DISCORD_FILES_PER_MESSAGE_MAX || !filesArg.every(isFileMeta))
       throw new Error(`Attach 1 to ${DISCORD_FILES_PER_MESSAGE_MAX} files.`);
@@ -85,7 +92,9 @@ export class Uploads {
     });
     for (const { f, slot, token } of refs) {
       batch.add(token);
-      this.held.set(token, { account, channelId, name: f.name, size: f.size, description: f.description, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
+      const copy = await this.archive?.uploadCopy().catch(() => null) ?? null;
+      if (copyEpoch !== this.copyEpoch) void copy?.discard().catch(() => undefined);
+      this.held.set(token, { copy: copyEpoch === this.copyEpoch ? copy : null, account, channelId, name: f.name, size: f.size, description: f.description, url: slot.upload_url, uploadFilename: slot.upload_filename, sent: 0, request: null, answered: null, finished: false, writing: false, batch, idle: undefined });
     }
     this.touch(batch);
     return refs.map(({ f, token }) => ({ token, name: f.name, size: f.size }));
@@ -105,7 +114,12 @@ export class Uploads {
         void u.answered!.then(() => reject(new Error('Discord stopped the upload.')), reject);
         request.write(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength), undefined, () => resolve());
       });
+      await u.copy?.write(bytes).catch(() => undefined);
       u.sent += bytes.length;
+    } catch (err) {
+      void u.copy?.discard().catch(() => undefined);
+      u.copy = null;
+      throw err;
     } finally {
       u.writing = false;
     }
@@ -144,6 +158,27 @@ export class Uploads {
       return u;
     });
     return uploads.map((u, i) => ({ id: String(i), filename: u.name, uploaded_filename: u.uploadFilename, ...(u.description ? { description: u.description } : {}) }));
+  }
+
+  accepted(tokens: readonly string[], message: RawMessage): void {
+    const copies = tokens.map((t) => {
+      const u = this.held.get(t);
+      const copy = u?.copy ?? null;
+      if (u) u.copy = null;
+      return { filename: u?.name ?? '', copy };
+    });
+    this.release(tokens);
+    // Ownership transfers to the downloader; sending does not wait for filing.
+    if (copies.some((c) => c.copy)) void this.archive?.acceptUploads(message, copies).catch(() => undefined);
+  }
+
+  discardCopies(): void {
+    this.copyEpoch++;
+    void this.archive?.discardCopies();
+    for (const u of this.held.values()) {
+      void u.copy?.discard().catch(() => undefined);
+      u.copy = null;
+    }
   }
 
   /** Releases uploads a message used (after Discord accepted it). */
@@ -195,6 +230,7 @@ export class Uploads {
     const u = this.held.get(token);
     if (!u) return;
     clearTimeout(u.idle);
+    void u.copy?.discard().catch(() => undefined);
     if (!u.finished) u.request?.abort();
     this.held.delete(token);
   }

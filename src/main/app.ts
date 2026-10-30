@@ -352,7 +352,7 @@ void app.whenReady().then(() => {
   handleMain(APP_RESTART_CHANNEL, () => restartApp(win));
   // Posting calls ask core's plugin list each time: a plugin declaring unlocks.posting must be on.
   const posting = postingGate(() => core.call('plugins'));
-  discordCalls = registerDiscordHandlers({ win, core, sync, owner: discordApi.prompt, capture, session: ownerSession, discord, emojiIndex, readStates, posting, discordSession, chatSettings, directory, emit: toRenderer });
+  discordCalls = registerDiscordHandlers({ attachments: downloader, win, core, sync, owner: discordApi.prompt, capture, session: ownerSession, discord, emojiIndex, readStates, posting, discordSession, chatSettings, directory, emit: toRenderer });
   const pages = rendererPages(RENDERER_DIR, process.env['ELECTRON_RENDERER_URL'] ?? null, installed);
   for (const { id, error } of failedMain) diag('installed-plugin-load-failed', { pluginId: id, message: error });
   const mainPlugins = startMainPlugins(bundledMain, {
@@ -385,7 +385,7 @@ void app.whenReady().then(() => {
       shapes.flush();
     },
     // Main sides' switch-governed resources (a phone transport's server) stop; external config they made stays.
-    stopPlugins: () => mainPlugins.stop(),
+    stopPlugins: async () => { await downloader.dispose(); await mainPlugins.stop(); },
     disposeCore: () => core.dispose(),
     quit: () => app.quit(),
     diag,

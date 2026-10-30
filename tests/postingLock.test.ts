@@ -59,6 +59,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
   const state = { list: LOCKED };
   const api = owner(() => queued?.(state));
   const core = { on: () => undefined, call: vi.fn(async (_method: string, ...args: unknown[]) => args[0]) };
+  const tap = new EventEmitter();
   const calls = registerDiscordHandlers({
     win: {} as never,
     core: core as never,
@@ -68,7 +69,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
     session: gatewayOwner().owner,
     emit: () => undefined,
     discordSession: {} as never,
-    discord: { tap: new EventEmitter(), webContents: { debugger: {} }, shownChannel: null } as never,
+    discord: { tap, webContents: { debugger: {} }, shownChannel: null } as never,
     emojiIndex: {} as never,
     readStates: { settingsChanged: () => undefined },
     posting: postingGate(async () => state.list),
@@ -77,7 +78,7 @@ function setup(queued?: (state: { list: PluginInfo[] }) => void) {
   });
   const hub = new PhoneHub({ core: core as never, discord: () => calls, main: async () => undefined, media: async () => new Response(), active: () => true });
   const invoke = (name: keyof typeof MAIN_INVOKE.discord, ...args: unknown[]) => env.handlers.get(MAIN_INVOKE.discord[name])!({}, ...args);
-  return { state, api, core, invoke, phone: hub.gateway };
+  return { state, api, core, invoke, tap, phone: hub.gateway };
 }
 
 describe('the host posting calls', () => {
@@ -183,4 +184,17 @@ describe('PostingLocked over transports', () => {
     const other = new Error('Discord 403');
     await expect(keepPostingLocked(Promise.reject(other))).rejects.toBe(other);
   });
+});
+
+
+it('looks up upload limits through channelInfo, with plan limits for DMs and unknown channels', async () => {
+  const { invoke, core, tap } = setup();
+  tap.emit('dispatch', { t: 'GUILD_CREATE', d: { id: 'guild', premium_tier: 3 } });
+  core.call.mockResolvedValueOnce({ guildId: 'guild' } as never);
+  expect(await invoke('uploadLimit', CHANNEL)).toBe(100 * 1024 * 1024);
+  core.call.mockResolvedValueOnce({ guildId: '@me' } as never);
+  expect(await invoke('uploadLimit', CHANNEL)).toBe(10 * 1024 * 1024);
+  core.call.mockResolvedValueOnce(null as never);
+  expect(await invoke('uploadLimit', CHANNEL)).toBe(10 * 1024 * 1024);
+  expect(core.call.mock.calls).toEqual(Array.from({ length: 3 }, () => ['channelInfo', CHANNEL]));
 });

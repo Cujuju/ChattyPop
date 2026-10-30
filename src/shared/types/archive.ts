@@ -400,6 +400,8 @@ export interface PendingEmoji {
 }
 
 export interface PendingAttachment {
+  arrivedVia?: 'gateway' | 'sync' | 'import';
+  status?: string;
   id: string;
   messageId: string;
   channelId: string;

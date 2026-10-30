@@ -1,12 +1,14 @@
 // Main's uploads (discord/uploads.ts): a slot per file within the channel's limit; pieces in order, streamed on;
 // a message names only finished uploads in its channel, and they are released once Discord accepts it.
+import { readdirSync } from 'node:fs';
+import { PartialAttachment, PARTIAL_DOWNLOAD_PREFIX } from '../src/main/media/attachmentStore';
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ALT_TEXT_MAX, POST_WINDOW_PASSED, UPLOAD_GONE, uploadLimitBytes } from '@shared/compose';
 import { BYTES_PER_GB, BYTES_PER_MB } from '@shared/units';
 import { sendOwnerMessage } from '../src/main/discord/send';
 import { UPLOAD_IDLE_MS, Uploads } from '../src/main/discord/uploads';
-import { ownerAction } from './helpers';
+import { ownerAction, tempDir } from './helpers';
 
 const CHANNEL = '100000000000000001';
 const OTHER = '100000000000000002';
@@ -52,7 +54,7 @@ const requests: FakeRequest[] = [];
 let storeStatus = HTTP_OK;
 vi.mock('electron', () => ({ net: { request: () => (requests.push(new FakeRequest(storeStatus)), requests.at(-1)) } }));
 
-function setup(limit = 100) {
+function setup(limit = 100, archive?: ConstructorParameters<typeof Uploads>[2]) {
   const posts: { path: string; json: Record<string, unknown> }[] = [];
   const api = {
     post: async (path: string, json: Record<string, unknown>) => {
@@ -61,7 +63,7 @@ function setup(limit = 100) {
       return { id: '1' };
     },
   } as never;
-  const uploads = new Uploads({} as never, async () => limit);
+  const uploads = new Uploads({} as never, async () => limit, archive);
   return { api, uploads, posts };
 }
 
@@ -203,4 +205,52 @@ describe('uploadLimitBytes', () => {
     expect(uploadLimitBytes(0, 3)).toBe(100 * BYTES_PER_MB);
     expect(uploadLimitBytes(0, 1)).toBe(10 * BYTES_PER_MB);
   });
+});
+
+
+describe('upload local copy lifecycle', () => {
+  it('returns from sending before the archive finishes filing', () => asOwner(async () => {
+    storeStatus = HTTP_OK;
+    const dir = tempDir();
+    let finishFiling!: () => void;
+    const filing = new Promise<void>((resolve) => { finishFiling = resolve; });
+    const acceptUploads = vi.fn<NonNullable<ConstructorParameters<typeof Uploads>[2]>['acceptUploads']>(async (_message, copies) => {
+      await filing;
+      expect(copies[0]!.copy!.bytes).toBe(2);
+      const stored = await copies[0]!.copy!.publish(copies[0]!.filename);
+      expect(stored.bytes).toBe(2);
+    });
+    const { uploads, api } = setup(100, { uploadCopy: async () => new PartialAttachment(dir), acceptUploads, discardCopies: vi.fn(async () => {}) });
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 2 }], ACCOUNT);
+    await uploads.chunk(slot!.token, 0, new Uint8Array([1, 2]));
+    await uploads.finish(slot!.token);
+    await sendOwnerMessage(api, message([slot!.token]), uploads);
+    expect(acceptUploads).toHaveBeenCalledTimes(1);
+    finishFiling();
+    await vi.waitFor(() => expect(readdirSync(dir).filter((n) => n.startsWith(PARTIAL_DOWNLOAD_PREFIX))).toEqual([]));
+    expect(() => uploads.take(CHANNEL, [slot!.token])).toThrow(UPLOAD_GONE);
+  }));
+
+  it.each(['release', 'account', 'refusal', 'idle'] as const)('discards a partial on %s', (reason) => asOwner(async () => {
+    storeStatus = HTTP_OK;
+    const dir = tempDir();
+    const acceptUploads = vi.fn(async () => {});
+    const { uploads, api } = setup(100, { uploadCopy: async () => new PartialAttachment(dir), acceptUploads, discardCopies: vi.fn(async () => {}) });
+    const [slot] = await uploads.prepare(api, CHANNEL, [{ name: 'a.png', size: 1 }], ACCOUNT);
+    if (reason === 'refusal') storeStatus = HTTP_FORBIDDEN;
+    await uploads.chunk(slot!.token, 0, new Uint8Array([1]));
+    expect(readdirSync(dir).filter((n) => n.startsWith(PARTIAL_DOWNLOAD_PREFIX))).toHaveLength(1);
+    if (reason === 'release') uploads.release([slot!.token]);
+    if (reason === 'account') uploads.discardCopies();
+    if (reason === 'refusal') await expect(uploads.finish(slot!.token)).rejects.toThrow(/refused/);
+    if (reason === 'idle') {
+      vi.useFakeTimers();
+      await uploads.finish(slot!.token);
+      await vi.advanceTimersByTimeAsync(UPLOAD_IDLE_MS);
+      vi.useRealTimers();
+    }
+    await vi.waitFor(() => expect(readdirSync(dir)).toEqual([]));
+    expect(acceptUploads).not.toHaveBeenCalled();
+    uploads.release([slot!.token]);
+  }));
 });

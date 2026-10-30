@@ -14,13 +14,14 @@ export const mediaQueueHandlers = (
   attachmentsDir: () => string,
   onStored: (attachmentId: string) => void,
   changed: NoteArchiveChange = () => {},
-): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
+): Pick<CoreMethods, 'pendingAttachments' | 'archivedVideos' | 'attachmentSource' | 'messageExists' | 'attachmentStored' | 'attachmentFailed' | 'nextAttachmentRetry' | 'pendingEmojis' | 'emojiDone'> => ({
   pendingAttachments: (limit) => {
     [...skipPrunedPending(db()), ...failRemovedPending(db())].forEach((id) => noteAttachmentChange(db(), changed, id, false));
     return pendingAttachments(db(), limit);
   },
   archivedVideos: () => archivedVideos(db()),
   attachmentSource: (id) => attachmentSource(db(), id),
+  messageExists: (id) => db().prepare('SELECT 1 FROM messages WHERE id = ?').get(id) !== undefined,
   attachmentStored: (id, sha256, bytes, storedExt) => {
     attachmentStored(db(), attachmentsDir(), id, sha256, bytes, storedExt);
     noteAttachmentChange(db(), changed, id, true);
@@ -55,7 +56,8 @@ export function failRemovedPending(db: Db): string[] {
 export function pendingAttachments(db: Db, limit: number, now = Date.now()): PendingAttachment[] {
   return db
     .prepare(
-      `SELECT id, message_id AS messageId, channel_id AS channelId, url, filename, content_type AS contentType FROM attachments
+      `SELECT id, message_id AS messageId, channel_id AS channelId, url, filename, content_type AS contentType,
+         (SELECT arrived_via FROM messages WHERE messages.id = attachments.message_id) AS arrivedVia FROM attachments
        WHERE ${QUEUED_SQL} AND (retry_at IS NULL OR retry_at <= ?) ORDER BY length(message_id) DESC, message_id DESC LIMIT ?`,
     )
     .all(now, limit) as PendingAttachment[];
@@ -70,7 +72,7 @@ export function nextAttachmentRetry(db: Db): number | null {
 export function archivedVideos(db: Db): PendingAttachment[] {
   return db
     .prepare(
-      `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename, a.content_type AS contentType FROM attachments a
+      `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename, a.content_type AS contentType, m.arrived_via AS arrivedVia FROM attachments a
        JOIN messages m ON m.id = a.message_id
        WHERE a.status = 'stored' AND a.removed_at IS NULL AND m.deleted_at IS NULL
          AND (a.content_type LIKE 'video/%' OR a.content_type IS NULL OR a.content_type = ?)`,
@@ -82,7 +84,7 @@ export function archivedVideos(db: Db): PendingAttachment[] {
 export function attachmentSource(db: Db, id: string): PendingAttachment | null {
   const row = db
     .prepare(
-      `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename, a.content_type AS contentType FROM attachments a
+      `SELECT a.id, a.message_id AS messageId, a.channel_id AS channelId, a.url, a.filename, a.content_type AS contentType, a.status FROM attachments a
        JOIN messages m ON m.id = a.message_id WHERE a.id = ? AND a.removed_at IS NULL AND m.deleted_at IS NULL`,
     )
     .get(id) as PendingAttachment | undefined;

@@ -179,7 +179,7 @@ export async function sendOwnerMessage(api: DiscordWriter, v: unknown, held?: Up
     guard,
   });
   // Kept until Discord accepts the message: a retry (same nonce) reuses them.
-  held?.release(tokens);
+  held?.accepted(tokens, sent.message);
   return { nonce: m.nonce, message: sent.message };
 }
 

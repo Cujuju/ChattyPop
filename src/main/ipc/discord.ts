@@ -9,6 +9,7 @@ import type { DiscordProfile, MutualFriends, ReactionUsers } from '@shared/types
 import { DM_GUILD_ID, isReactionEmoji, snowflakeArg } from '@shared/discord';
 import { normalizeSyncedChatChange } from '@shared/chatSettings';
 import { errorMessage } from '@shared/errors';
+import type { AttachmentDownloader } from '../media/attachmentDownloader';
 import type { CoreClient } from '../coreClient';
 import { diag } from '../diagnostics';
 import { requireWrittenAs, type OwnerSession } from '../discord/ownerSession';
@@ -50,6 +51,7 @@ import type { AppEvent } from '@shared/contract';
 const SUGGESTABLE_KINDS = new Set([0, 5]);
 
 export interface DiscordDeps {
+  attachments?: Pick<AttachmentDownloader, 'uploadCopy' | 'acceptUploads' | 'discardCopies'>;
   emit(event: AppEvent): void;
   win: BrowserWindow;
   core: CoreClient;
@@ -109,12 +111,13 @@ export function registerDiscordHandlers(d: DiscordDeps): DiscordCalls {
   /** A write the sender kept across calls goes only as the account it names (requireWrittenAs): every step of its job is checked. */
   const writtenAs = (v: unknown): void => requireWrittenAs((v as { accountId?: unknown } | null)?.accountId);
   const tiers = new GuildTiers(d.discord.tap);
-  /** The plan's limit, or the channel's server's Boost limit when larger; a channel not in the directory (a DM) gets the plan's. */
+  /** The larger of the plan and server Boost limits; DMs and unknown channels use the plan limit. */
   const limitFor = async (channelId: string): Promise<number> => {
-    const guild = (await d.core.call('directory')).find((g) => g.id !== DM_GUILD_ID && g.channels.some((c) => c.id === channelId));
-    return uploadLimitBytes(session.premiumType, guild ? tiers.tier(guild.id) : null);
+    const guildId = (await d.core.call('channelInfo', channelId))?.guildId;
+    return uploadLimitBytes(session.premiumType, guildId && guildId !== DM_GUILD_ID ? tiers.tier(guildId) : null);
   };
-  const uploads = new Uploads(d.discordSession, limitFor);
+  const uploads = new Uploads(d.discordSession, limitFor, d.attachments);
+  session.onChanged(() => uploads.discardCopies());
   const scheduledGate = new ScheduledGate(d.discord.tap, session);
   const scheduled = new ScheduledMessages(poster, () => scheduledGate.account, uploads);
   const scheduledCalls = {
