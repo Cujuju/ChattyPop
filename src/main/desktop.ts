@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { app, globalShortcut, ipcMain, type BrowserWindow } from 'electron';
 import { handleMain } from './ipc/mainCalls';
 import { MAIN_INVOKE, type AppEvent } from '@shared/contract';
-import { DEFAULT_DESKTOP_SETTINGS, desktopPlatform, indicatedUnread, normalizeDesktopSettings, type DesktopSettings, type DesktopState } from '@shared/desktop';
+import { DEFAULT_DESKTOP_SETTINGS, desktopPlatform, indicatedUnread, normalizeDesktopSettings, NO_UPDATER, type DesktopSettings, type DesktopState } from '@shared/desktop';
 import { NO_UNREAD, normalizeUnreadTotals, type UnreadTotals } from '@shared/unread';
 import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
@@ -79,8 +79,8 @@ export class Desktop {
       quit: () => closeFromCode(win),
       ...(pair ? { pair } : {}),
     });
-    this.updates = new Updates((status) => {
-      this.tray?.setUpdate(status.phase === 'ready' ? status.version : null);
+    this.updates = new Updates(() => this.settings.updateChannel, (status) => {
+      this.tray?.setUpdate(status.state === 'ready' ? status.version : null);
       this.changed();
     });
     this.bindHotkey();
@@ -94,7 +94,7 @@ export class Desktop {
       settings: this.settings,
       openAtLogin: openAtLogin(),
       hotkeyTaken: this.hotkeyTaken,
-      update: this.updates?.current() ?? { phase: 'unsupported' },
+      update: this.updates?.current() ?? NO_UPDATER,
       version: __APP_VERSION__,
     };
   }
@@ -104,7 +104,9 @@ export class Desktop {
   }
 
   private set(patch: Partial<DesktopSettings>): void {
+    const channel = this.settings.updateChannel;
     this.settings = normalizeDesktopSettings({ ...this.settings, ...patch });
+    if (this.settings.updateChannel !== channel) void this.updates?.check();
     try {
       writeFileSync(profilePath(SETTINGS_FILE), JSON.stringify(this.settings));
     } catch (err) {

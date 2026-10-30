@@ -70,6 +70,12 @@ describe('desktop settings', () => {
     expect(normalizeDesktopSettings({ indicateChat: false, indicateAlerts: true })).toMatchObject({ indicateChat: false, indicateAlerts: true });
   });
 
+  it('updates from stable by default and keeps a known channel', () => {
+    expect(DEFAULT_DESKTOP_SETTINGS.updateChannel).toBe('stable');
+    expect(normalizeDesktopSettings({ updateChannel: 'nightly' }).updateChannel).toBe('nightly');
+    expect(normalizeDesktopSettings({ updateChannel: 'beta' }).updateChannel).toBe('stable');
+  });
+
   it('zeroes the unread kinds turned off', () => {
     const unread = { chat: 3, alerts: 2 };
     expect(indicatedUnread(unread, DEFAULT_DESKTOP_SETTINGS)).toEqual({ chat: 3, alerts: 0 });

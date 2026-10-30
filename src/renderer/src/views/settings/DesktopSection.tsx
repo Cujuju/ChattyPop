@@ -1,35 +1,46 @@
 // Settings → Desktop: starting at sign-in, the tray, the show/hide shortcut, the leader key and updates.
 import { Show } from 'solid-js';
 import { api } from '@/api';
-import { desktopWords, type DesktopSettings, type DesktopWords, type UpdateStatus } from '@shared/desktop';
+import { desktopWords, NO_UPDATER, type DesktopSettings, type DesktopWords, type UpdateStatus } from '@shared/desktop';
+import type { UpdateChannel } from '@shared/updateFeed';
 import { desktopState, patchDesktopSettings } from '@/state/desktop';
 import { createAction } from '@/ui/action';
 import { Switch } from '@/ui/Switch';
-import { Card, ErrorNote, Page, Row, SettingsButton } from './SettingsLayout';
+import { Select, type SelectOption } from '@/ui/Select';
+import { Card, ErrorNote, Page, Row, SettingsButton, settingsControl } from './SettingsLayout';
 import { HotkeyRow, LeaderKeyRow, ShortcutKeyList } from './ShortcutKeys';
 
-/** What the Updates row says for each phase. */
+/** "0.41.3 (nightly)" for a prerelease. */
+const named = (u: { version: string; nightly: boolean }): string => `${u.version}${u.nightly ? ' (nightly)' : ''}`;
+
+/** What the Updates row says for each state. */
 function updateText(u: UpdateStatus): string | null {
-  switch (u.phase) {
-    case 'unsupported':
-      return 'Installed builds only.';
+  switch (u.state) {
+    case 'unavailable':
+      return u.reason;
     case 'idle':
       return null;
     case 'checking':
       return 'Checking…';
-    case 'current':
+    case 'up-to-date':
       return 'Up to date.';
+    case 'available':
+      return `Found ${named(u)}.`;
     case 'downloading':
-      return `Downloading ${u.version}: ${u.percent}%`;
+      return `Downloading ${named(u)}: ${u.percent}%`;
     case 'ready':
-      return `${u.version} is ready. Restarting keeps your Discord sign-in.`;
-    case 'failed':
+      return `${named(u)} is ready. Restarting keeps your Discord sign-in.`;
+    case 'error':
       return `Couldn’t update: ${u.message}`;
   }
 }
 
+const CHANNELS: SelectOption[] = [
+  { value: 'stable', label: 'Stable' },
+  { value: 'nightly', label: 'Nightly' },
+];
 /** A switch row for one desktop setting. */
-function SettingSwitch(props: { id: string; setting: keyof Omit<DesktopSettings, 'hotkey'>; label: string; hint?: string }) {
+function SettingSwitch(props: { id: string; setting: keyof Omit<DesktopSettings, 'hotkey' | 'updateChannel'>; label: string; hint?: string }) {
   return (
     <Row
       label={props.label}
@@ -50,7 +61,7 @@ function SettingSwitch(props: { id: string; setting: keyof Omit<DesktopSettings,
 export function DesktopSection() {
   const login = createAction();
   const update = createAction();
-  const status = (): UpdateStatus => desktopState()?.update ?? { phase: 'unsupported' };
+  const status = (): UpdateStatus => desktopState()?.update ?? NO_UPDATER;
   const openAtLogin = (): boolean | null | undefined => desktopState()?.openAtLogin;
   const words = (): DesktopWords => desktopWords(desktopState()?.platform);
   return (
@@ -106,14 +117,28 @@ export function DesktopSection() {
       </Card>
       <Card title="Updates">
         <Row
+          label="Channel"
+          for="desktop-update-channel"
+          hint="Nightly gets a build of every pushed change; stable gets the ones promoted after testing. Switching to stable never downgrades."
+          control={
+            <Select
+              id="desktop-update-channel"
+              class={settingsControl.select}
+              value={desktopState()?.settings.updateChannel ?? 'stable'}
+              options={CHANNELS}
+              onChange={(v) => void patchDesktopSettings({ updateChannel: v as UpdateChannel })}
+            />
+          }
+        />
+        <Row
           label={`Version ${desktopState()?.version ?? ''}`}
           hint={updateText(status()) ?? undefined}
           control={
             <Show
-              when={status().phase === 'ready'}
+              when={status().state === 'ready'}
               fallback={
                 <SettingsButton
-                  disabled={['unsupported', 'checking', 'downloading'].includes(status().phase) || update.busy()}
+                  disabled={['unavailable', 'checking', 'downloading'].includes(status().state) || update.busy()}
                   onClick={() => void update.run(() => api.desktop.checkForUpdate())}
                 >
                   Check for updates

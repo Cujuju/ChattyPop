@@ -174,6 +174,9 @@ importers:
 
   .:
     dependencies:
+      '@cujuju/electron-updates':
+        specifier: link:../solidjs-toolkit/packages/electron-updates
+        version: link:../solidjs-toolkit/packages/electron-updates
       '@cujuju/solid-reorder-list':
         specifier: github:Cujuju/solid-reorder-list#v0.3.0-rc.4
         version: https://codeload.github.com/Cujuju/solid-reorder-list/tar.gz/d7b9502b6b79df8f045446836c761b9f53274919(solid-js@1.9.17)
@@ -195,9 +198,6 @@ importers:
       better-sqlite3-multiple-ciphers:
         specifier: 13.0.3
         version: 13.0.3
-      electron-updater:
-        specifier: 6.8.11
-        version: 6.8.11(supports-color@7.2.0)
       emojibase-data:
         specifier: 17.0.0
         version: 17.0.0(emojibase@17.0.0)
@@ -1964,9 +1964,6 @@ packages:
   electron-to-chromium@1.5.438:
     resolution: {integrity: sha512-AN9xMU1hJiT65LkCUPL1DZm5TCbOPb2Qsm5pYwFLEXp6/qj9SdT4yMiqs7Qqstwvkn1zF7l36SRGt+s6XcJ0FA==}
 
-  electron-updater@6.8.11:
-    resolution: {integrity: sha512-12U/mbzaIKQS3Q543aQ7DjyAZMXeVJy1Wpu0qdq5ne4RXpIQDpWYm25zRjgXngAoo6swMrm4C4owGyiIipelsg==}
-
   electron-vite@5.0.0:
     resolution: {integrity: sha512-OHp/vjdlubNlhNkPkL/+3JD34ii5ov7M0GpuXEVdQeqdQ3ulvVR7Dg/rNBLfS5XPIFwgoBLDf9sjjrL+CuDyRQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2467,13 +2464,6 @@ packages:
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
-
-  lodash.escaperegexp@4.1.2:
-    resolution: {integrity: sha512-TM9YBvyC84ZxE3rgfefxUWiQKLilstD6k7PTGt6wfbtXF8ixIJLOL3VYyV/z+ZiPLsVxAsKAFVwWlWeb2Y8Yyw==}
-
-  lodash.isequal@4.5.0:
-    resolution: {integrity: sha512-pDo3lu8Jhfjqls6GkMgpahsF9kCyayhgykjyLMNFTKWrpVdAQtYyB4muAMWozBB4ig/dtWAmsMxLEI8wuz+DYQ==}
-    deprecated: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
 
   lodash@4.18.1:
     resolution: {integrity: sha512-dMInicTPVE8d1e5otfwmmjlxkZoUpiVLwyeTdUsi/Caj/gfzzblBcCE5sRHV/AsjuCmxWrte2TNGSYuCeCq+0Q==}
@@ -3023,9 +3013,6 @@ packages:
 
   tiny-async-pool@1.3.0:
     resolution: {integrity: sha512-01EAw5EDrcVrdgyCLgoSPvqznC0sVxDSVeiOz09FUpjh71G79VCqneOr+xvt7T1r76CF6ZZfPjHorN2+d+3mqA==}
-
-  tiny-typed-emitter@2.1.0:
-    resolution: {integrity: sha512-qVtvMxeXbVej0cQWKqVSSAHmKZEHAvxdF8HEUBFWts8h+xEo5m/lEiPakuyZ3BnCBjOD8i24kzNOiOLLgsSxhA==}
 
   tinybench@6.2.2:
     resolution: {integrity: sha512-nIZ2N2dFpjBsg2hgitKu7mA+FvsIJuGJOwysRngmVRRmWgR/UyPjwJj8c/fT/dhm8EkHnF5EOogRf+0Z2qrimA==}
@@ -4831,19 +4818,6 @@ snapshots:
 
   electron-to-chromium@1.5.438: {}
 
-  electron-updater@6.8.11(supports-color@7.2.0):
-    dependencies:
-      builder-util-runtime: 9.7.0(supports-color@7.2.0)
-      fs-extra: 10.1.0
-      js-yaml: 4.3.2
-      lazy-val: 1.0.5
-      lodash.escaperegexp: 4.1.2
-      lodash.isequal: 4.5.0
-      semver: 7.7.4
-      tiny-typed-emitter: 2.1.0
-    transitivePeerDependencies:
-      - supports-color
-
   electron-vite@5.0.0(supports-color@7.2.0)(vite@7.3.7(@types/node@24.13.6)(jiti@2.7.0)):
     dependencies:
       '@babel/core': 7.29.7(supports-color@7.2.0)
@@ -5425,10 +5399,6 @@ snapshots:
   locate-path@6.0.0:
     dependencies:
       p-locate: 5.0.0
-
-  lodash.escaperegexp@4.1.2: {}
-
-  lodash.isequal@4.5.0: {}
 
   lodash@4.18.1: {}
 
@@ -6047,8 +6017,6 @@ snapshots:
   tiny-async-pool@1.3.0:
     dependencies:
       semver: 5.7.2
-
-  tiny-typed-emitter@2.1.0: {}
 
   tinybench@6.2.2: {}
 

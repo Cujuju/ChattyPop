@@ -19,10 +19,12 @@
     "dist:mac": "electron-vite build && electron-builder --mac --publish never",
     "plugin:release-changed": "node scripts/runTs.mjs scripts/pluginReleaseChanged.ts",
     "plugin:check": "node scripts/runTs.mjs scripts/pluginCheck.ts",
+    "release": "node scripts/runTs.mjs scripts/release.ts",
     "shell:sync": "vite build --config mobile/vite.config.ts && cap sync ios"
   },
   "packageManager": "pnpm@12.15.0",
   "dependencies": {
+    "@cujuju/electron-updates": "link:../solidjs-toolkit/packages/electron-updates",
     "@cujuju/solid-reorder-list": "github:Cujuju/solid-reorder-list#v0.3.0-rc.4",
     "@cujuju/solidjs-color-picker": "0.3.0",
     "@cujuju/solidjs-hold-action": "0.1.0",
@@ -30,7 +32,6 @@
     "@cujuju/solidjs-seg-buttons": "0.3.0",
     "@cujuju/solidjs-virtual-log": "0.2.0",
     "better-sqlite3-multiple-ciphers": "13.0.3",
-    "electron-updater": "6.8.11",
     "emojibase-data": "17.0.0",
     "linkifyjs": "4.4.0",
     "lottie-web": "5.13.0",

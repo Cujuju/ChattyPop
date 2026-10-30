@@ -1,6 +1,8 @@
 // Desktop settings cover tray, sign-in startup, shortcuts and updates. Main stores them in profile files before archive startup.
+import type { UpdateStatus } from '@cujuju/electron-updates';
 import { bool, isObj } from './normalize';
 import type { UnreadTotals } from './unread';
+import { UPDATE_CHANNELS, type UpdateChannel } from './updateFeed';
 
 export interface DesktopSettings {
   /** Minimizing the main window hides it to the tray. */
@@ -15,6 +17,8 @@ export interface DesktopSettings {
   indicateChat: boolean;
   /** The taskbar and tray show a dot while alerts are unread; off by default, since the bell already shows them. */
   indicateAlerts: boolean;
+  /** Nightly also takes prereleases, published on each push; stable takes promoted ones only. */
+  updateChannel: UpdateChannel;
 }
 
 export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
@@ -24,6 +28,7 @@ export const DEFAULT_DESKTOP_SETTINGS: DesktopSettings = {
   hotkey: null,
   indicateChat: true,
   indicateAlerts: false,
+  updateChannel: 'stable',
 };
 
 /** Allowed accelerator modifiers in order. Excludes Shift-only shortcuts that intercept typed characters globally. */
@@ -53,6 +58,7 @@ export const normalizeDesktopSettings = (v: unknown): DesktopSettings => {
     hotkey: isHotkey(o['hotkey']) ? o['hotkey'] : DEFAULT_DESKTOP_SETTINGS.hotkey,
     indicateChat: bool(o['indicateChat'], DEFAULT_DESKTOP_SETTINGS.indicateChat),
     indicateAlerts: bool(o['indicateAlerts'], DEFAULT_DESKTOP_SETTINGS.indicateAlerts),
+    updateChannel: (UPDATE_CHANNELS as readonly unknown[]).includes(o['updateChannel']) ? (o['updateChannel'] as UpdateChannel) : DEFAULT_DESKTOP_SETTINGS.updateChannel,
   };
 };
 
@@ -148,14 +154,10 @@ const DESKTOP_WORDS: Record<DesktopPlatform, DesktopWords> = {
 export const desktopWords = (platform: DesktopPlatform = 'windows'): DesktopWords => DESKTOP_WORDS[platform];
 
 /** Where updating stands. Builds not installed from a release (dev runs) can't update. */
-export type UpdateStatus =
-  | { phase: 'unsupported' }
-  | { phase: 'idle' }
-  | { phase: 'checking' }
-  | { phase: 'current' }
-  | { phase: 'downloading'; version: string; percent: number }
-  | { phase: 'ready'; version: string }
-  | { phase: 'failed'; message: string };
+export type { UpdateStatus };
+
+/** The status before main's updater exists. */
+export const NO_UPDATER: UpdateStatus = { state: 'unavailable', reason: 'Installed builds only.' };
 
 export interface DesktopState {
   /** The system main runs on. */

@@ -19,7 +19,7 @@ const config: Configuration = {
   npmRebuild: false,
   // Native SQLite prebuilds cannot load from inside an asar archive.
   asarUnpack: ['node_modules/better-sqlite3-multiple-ciphers/prebuilds/**'],
-  // Publishes installers and latest.yml to public releases for token-free updates.
+  // Only for latest*.yml, which installs from before @cujuju/electron-updates read; scripts/release.ts uploads them.
   publish: { provider: 'github', owner: 'Cujuju', repo: 'ChattyPop', releaseType: 'release' },
   win: {
     target: 'nsis',
@@ -28,7 +28,7 @@ const config: Configuration = {
     extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
   },
   mac: {
-    // The disk image is the first install; the zip is what the app's own updater downloads (main/macUpdate.ts).
+    // The disk image is the first install; the zip is what the updater downloads (main/updates.ts).
     target: [
       { target: 'dmg', arch: ['arm64', 'x64'] },
       { target: 'zip', arch: ['arm64', 'x64'] },

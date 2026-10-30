@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
 import solid from 'vite-plugin-solid';
@@ -9,8 +10,13 @@ const shared = resolve(import.meta.dirname, 'src/shared');
 /** Plugins import only the Plugin SDK (docs/plugin-architecture.md). */
 const pluginSdk = resolve(import.meta.dirname, 'src/plugin-sdk');
 const hostAliases = { '@shared': shared, '@core': resolve(import.meta.dirname, 'src/core'), '@main': resolve(import.meta.dirname, 'src/main'), '@plugin-sdk': pluginSdk };
+/** Created by `pnpm release keygen`; without it the build cannot verify updates, so it never updates. */
+const UPDATE_PUBLIC_KEY_FILE = resolve(import.meta.dirname, 'build/update-public-key.pem');
 /** Reads once at startup; main, core, and renderer share the value. */
-const versionDefine = { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) };
+const versionDefine = {
+  __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)),
+  __UPDATE_PUBLIC_KEY__: JSON.stringify(existsSync(UPDATE_PUBLIC_KEY_FILE) ? readFileSync(UPDATE_PUBLIC_KEY_FILE, 'utf8').trim() : ''),
+};
 /** A module's own folder is out/main only in an entry chunk; shared chunks land in out/main/chunks. */
 const ENTRY_RELATIVE_PATH = /import\.meta\.(?:dirname|filename)/;
 const entryPathsInEntries: Plugin = {
@@ -35,7 +41,8 @@ export default defineConfig(({ command }) => {
       define: versionDefine,
       build: {
         // Source installs load plugin-build tools on demand as external packages.
-        externalizeDeps: { include: ['vite', 'vite-plugin-solid'] },
+        // The updater is bundled: a linked package isn't in the packaged app's node_modules.
+        externalizeDeps: { include: ['vite', 'vite-plugin-solid'], exclude: ['@cujuju/electron-updates'] },
         rollupOptions: {
           // core runs in utilityProcess. index selects installed plugins before loading app; adjacent app and core entries preserve relative paths.
           input: {
