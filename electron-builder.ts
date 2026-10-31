@@ -28,7 +28,7 @@ const config: Configuration = {
     extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
   },
   mac: {
-    // The disk image is the first install; the zip is what the updater downloads (main/updates.ts).
+    // Disk images serve first installs; zips support installs predating the partial updater.
     target: [
       { target: 'dmg', arch: ['arm64', 'x64'] },
       { target: 'zip', arch: ['arm64', 'x64'] },
