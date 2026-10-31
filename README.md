@@ -21,7 +21,7 @@ A Windows and macOS desktop app beside the Discord web client. It archives the c
 ## Install
 Download `ChattyPop-Setup-<version>.exe` from [Releases](https://github.com/Cujuju/ChattyPop/releases/latest) and run it. The installer is unsigned, so Windows SmartScreen may warn on first run: **More info → Run anyway**. Installed copies update themselves from new releases (Settings → Desktop), stable or nightly.
 
-**macOS:** download `ChattyPop-<version>-arm64.dmg` (Apple silicon) or `ChattyPop-<version>-x64.dmg` (Intel) and drag ChattyPop to Applications. The build carries no Apple developer signature, so macOS refuses the first open: allow it under **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/ChattyPop.app`. It updates itself the same way as on Windows: it downloads the release's signed zip and swaps the app on the next quit or restart. After an update macOS may ask once more for the keychain item that guards the archive key.
+**macOS:** download `ChattyPop-<version>-arm64.dmg` (Apple silicon) or `ChattyPop-<version>-x64.dmg` (Intel) and drag ChattyPop to Applications. The build carries no Apple developer signature, so macOS refuses the first open: allow it under **System Settings → Privacy & Security → Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/ChattyPop.app`. It updates itself the same way as on Windows: it fetches missing chunks, rebuilds the signed release bundle and swaps the app on the next quit or restart. After an update macOS may ask once more for the keychain item that guards the archive key.
 
 ## Requirements (to build)
 - Windows 10 or 11, or macOS; Node.js 24, pnpm.
@@ -48,7 +48,7 @@ The workflow refuses a version that is already released, and a tag that isn't it
 
 ### Signed releases (local)
 
-Updates run on [`@cujuju/electron-updates`](https://github.com/Cujuju/solidjs-toolkit/tree/main/packages/electron-updates), the same path on Windows and macOS. An installed copy only takes a release whose `update-<platform>.json` is signed with the key built into it (`build/update-public-key.pem`). The Release app workflow doesn't sign yet, so its releases reach only copies installed before this updater.
+Updates run on [`@cujuju/electron-updates`](https://github.com/Cujuju/solidjs-toolkit/tree/main/packages/electron-updates), the same path on Windows and macOS, downloading only missing chunks. Windows retains an installer-sized `update-seed.bin`; macOS reuses the running bundle. An installed copy only takes a release whose `update-<platform>.json` is signed with the key built into it (`build/update-public-key.pem`). The Release app workflow doesn't sign yet, so its releases reach only copies installed before this updater.
 
 1. Once: `pnpm release keygen` writes the private key to `~/.config/chattypop/update_key` (or `$CHATTYPOP_UPDATE_KEY`) and the public key to `build/update-public-key.pem`; commit the public key, and copy the private key to each machine that publishes.
 2. Commit and push, then on Windows `pnpm dist && pnpm release nightly`, and on the Mac `pnpm dist:mac && pnpm release nightly`. Each adds its platform's signed files to the prerelease `v<version>`, which Settings → Desktop → Channel: Nightly installs. `--dry-run` shows the `gh` commands.

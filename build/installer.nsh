@@ -5,3 +5,7 @@
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run" "ChattyPop"
   ${endIf}
 !macroend
+; Keep the installed version as the seed for partial updates.
+!macro customInstall
+  CopyFiles /SILENT "$EXEPATH" "$INSTDIR\update-seed.bin"
+!macroend

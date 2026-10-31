@@ -24,10 +24,10 @@ export async function main(args: string[]): Promise<number> {
       version: () => appVersion(root),
       archs: { win32: ['x64'], darwin: MAC_ARCHS },
       // electron-builder.ts artifact names.
-      updateFile: (platform, arch, v) => (platform === 'win32' ? `${APP_NAME}-Setup-${v}.exe` : `${APP_NAME}-${v}-${arch}-mac.zip`),
+      updateSource: (platform, arch, v) => (platform === 'win32' ? `${APP_NAME}-Setup-${v}.exe` : `${arch === 'arm64' ? 'mac-arm64' : 'mac'}/${APP_NAME}.app`),
       // Disk images (first installs), and the electron-builder feeds that installs from before this updater read.
       extraFiles: (platform, v) =>
-        platform === 'win32' ? ['latest.yml', `${APP_NAME}-Setup-${v}.exe.blockmap`] : [...MAC_ARCHS.map((arch) => `${APP_NAME}-${v}-${arch}.dmg`), 'latest-mac.yml'],
+        platform === 'win32' ? ['latest.yml', `${APP_NAME}-Setup-${v}.exe.blockmap`] : [...MAC_ARCHS.flatMap((arch) => [`${APP_NAME}-${v}-${arch}.dmg`, `${APP_NAME}-${v}-${arch}-mac.zip`]), 'latest-mac.yml'],
       tagSourceCommit: true,
     },
     args,
