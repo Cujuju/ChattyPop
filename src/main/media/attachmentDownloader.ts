@@ -52,6 +52,7 @@ export class AttachmentDownloader {
   private inFlight: string | null = null;
   private copyEpoch = 0;
   private disposed = false;
+  private readonly abort = new AbortController();
 
   async uploadCopy(): Promise<PartialAttachment | null> {
     if (!(await this.enabled()) || this.disposed) return null;
@@ -95,6 +96,8 @@ export class AttachmentDownloader {
   async dispose(): Promise<void> {
     this.disposed = true;
     clearTimeout(this.retryTimer);
+    this.abort.abort();
+    await this.draining;
     await this.discardCopies();
   }
 
@@ -103,7 +106,7 @@ export class AttachmentDownloader {
     await this.keepThumb(stored.name);
   }
 
-  private running = false;
+  private draining: Promise<void> | null = null;
   private again = false;
   /** Stills of videos archived before posters were kept are fetched once per run. */
   private postersBackfilled = false;
@@ -125,15 +128,14 @@ export class AttachmentDownloader {
   /** Safe to call often (every archive change); coalesces into one drain loop. */
   kick(): void {
     if (this.disposed) return;
-    if (this.running) {
+    if (this.draining) {
       this.again = true;
       return;
     }
-    void this.drain();
+    this.draining = this.drain();
   }
 
   private async drain(): Promise<void> {
-    this.running = true;
     try {
       do {
         this.again = false;
@@ -144,6 +146,7 @@ export class AttachmentDownloader {
           for (const a of batch) {
             if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
             await this.downloadOne(a);
+            if (this.disposed) return;
           }
         }
         await this.reconcileCopies();
@@ -154,6 +157,7 @@ export class AttachmentDownloader {
             if (this.again) break;
             if (this.disposed || !(await this.enabled())) { await this.discardCopies(); return; }
             await this.keepPoster(a);
+            if (this.disposed) return;
           }
           this.postersBackfilled = !this.again;
         }
@@ -167,12 +171,15 @@ export class AttachmentDownloader {
               () => null,
               errorMessage,
             );
+            if (this.disposed) return;
             await this.core.call('emojiDone', e.id, error);
           }
         }
       } while (this.again);
+    } catch (err) {
+      if (!this.disposed) throw err;
     } finally {
-      this.running = false;
+      this.draining = null;
     }
   }
 
@@ -191,7 +198,7 @@ export class AttachmentDownloader {
   /** Drains again when the earliest delayed retry is due, which no archive change may prompt. */
   private wakeForRetry(at: number | null): void {
     clearTimeout(this.retryTimer);
-    if (at === null) return;
+    if (this.disposed || at === null) return;
     this.retryTimer = setTimeout(() => this.kick(), Math.min(Math.max(0, at - Date.now()), TIMER_MAX_MS));
     this.retryTimer.unref();
   }
@@ -199,7 +206,7 @@ export class AttachmentDownloader {
   /** Paced gap for history downloads and emoji prefetch (see Settings → Download pace). */
   private async gap(): Promise<void> {
     const { mediaMs, jitter } = await this.pace();
-    await sleep(jittered(mediaMs, jitter));
+    await sleep(jittered(mediaMs, jitter), this.abort.signal);
   }
 
   private async downloadOne(a: PendingAttachment): Promise<void> {
@@ -211,9 +218,10 @@ export class AttachmentDownloader {
       this.inFlight = a.id;
       const stored = copy
         ? await copy.publish(a.filename)
-        : await storeBody(this.dir, await this.fetchBody(a), a.filename);
+        : await storeBody(this.dir, await this.fetchBody(a, this.abort.signal), a.filename);
       await this.record(a.id, stored);
     } catch (err) {
+      if (this.disposed) return;
       await this.core.call('attachmentFailed', a.id, errorMessage(err), !isFinalFailure(err));
       return;
     } finally {
@@ -225,7 +233,7 @@ export class AttachmentDownloader {
 
   /** A video's still, unless kept already; a missing one is fetched again on first view. */
   private async keepPoster(a: PendingAttachment): Promise<void> {
-    if (mediaKind(a) !== 'video' || this.posters.kept(a.id)) return;
+    if (this.disposed || mediaKind(a) !== 'video' || this.posters.kept(a.id)) return;
     if (a.arrivedVia !== 'gateway') await this.gap();
     await this.posters.keep(a).catch(() => undefined);
   }
@@ -245,11 +253,11 @@ export class AttachmentDownloader {
   }
 
   /** The file's body, re-reading the message once for a fresh signed URL when the stored one expired. */
-  private async fetchBody(a: AttachmentRef): Promise<ReadableStream<Uint8Array>> {
-    let res = await this.ses.fetch(a.url);
+  private async fetchBody(a: AttachmentRef, signal?: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    let res = await this.ses.fetch(a.url, signal ? { signal } : undefined);
     if (EXPIRED_STATUSES.has(res.status)) {
-      const fresh = await freshAttachmentUrl(this.api, a);
-      if (fresh) res = await this.ses.fetch(fresh);
+      const fresh = await freshAttachmentUrl(this.api, a, signal);
+      if (fresh) res = await this.ses.fetch(fresh, signal ? { signal } : undefined);
     }
     if (!res.ok || !res.body) throw new DiscordHttpError(downloadHttpFailure(res.status), res.status);
     return res.body;
@@ -257,10 +265,21 @@ export class AttachmentDownloader {
 }
 
 /** A fresh signed CDN URL for an attachment whose stored one expired, read from its message; undefined once it's gone. */
-export async function freshAttachmentUrl(api: Pick<DiscordApi, 'get'>, a: AttachmentRef): Promise<string | undefined> {
-  const page = await api.get<{ id: string; attachments?: { id: string; url: string }[] }[]>(`channels/${a.channelId}/messages`, {
+export async function freshAttachmentUrl(api: Pick<DiscordApi, 'get'>, a: AttachmentRef, signal?: AbortSignal): Promise<string | undefined> {
+  signal?.throwIfAborted();
+  const request = api.get<{ id: string; attachments?: { id: string; url: string }[] }[]>(`channels/${a.channelId}/messages`, {
     around: a.messageId,
     limit: 1,
-  });
-  return page.find((m) => m.id === a.messageId)?.attachments?.find((x) => x.id === a.id)?.url;
+  }, signal ? { guard: () => signal.throwIfAborted() } : undefined);
+  let abort: (() => void) | undefined;
+  try {
+    const page = await (signal ? Promise.race([request, new Promise<never>((_resolve, reject) => {
+      abort = () => reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      if (signal.aborted) abort();
+    })]) : request);
+    return page.find((m) => m.id === a.messageId)?.attachments?.find((x) => x.id === a.id)?.url;
+  } finally {
+    if (abort) signal!.removeEventListener('abort', abort);
+  }
 }

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { attachmentShard } from '@shared/media';
 import type { CoreClient } from '../src/main/coreClient';
+import type { RequestOptions } from '../src/main/discord/client';
 import { AttachmentDownloader } from '../src/main/media/attachmentDownloader';
 import { PARTIAL_DOWNLOAD_PREFIX, storeBody } from '../src/main/media/attachmentStore';
 import { mediaQueueHandlers, pendingAttachments } from '../src/core/mediaQueue';
@@ -23,24 +24,25 @@ function setup(size = BYTES.length) {
   const dir = tempDir();
   const handlers = mediaQueueHandlers(() => db, () => dir, () => {});
   const state = { enabled: true };
-  const fetch = vi.fn(async () => new Response(BYTES));
+  const fetch = vi.fn(async (_url: string, _options?: RequestInit) => new Response(BYTES));
+  const get = vi.fn(async (_path: string, _query?: unknown, _opts?: RequestOptions) => []);
   const thumb = vi.fn(async () => {});
   const pace = vi.fn(async () => ({ mediaMs: 1000, jitter: 0 }));
   const call = vi.fn(async (method: string, ...args: unknown[]) => {
     if (method === 'syncable') return archive.isOptedIn(message.channel_id);
     return (handlers as unknown as Record<string, (...a: unknown[]) => unknown>)[method]!(...args);
   });
-  const downloader = new AttachmentDownloader(dir, tempDir(), { fetch } as never, {} as never,
+  const downloader = new AttachmentDownloader(dir, tempDir(), { fetch } as never, { get } as never,
     { call } as unknown as CoreClient, pace as never, async () => state.enabled,
     { kept: () => true, keep: async () => {} }, thumb);
   const rows = () => db.prepare('SELECT status, sha256, stored_bytes AS bytes, stored_ext AS ext FROM attachments WHERE id = ?').get(ID);
   const partials = () => readdirSync(dir).filter((name) => name.startsWith(PARTIAL_DOWNLOAD_PREFIX));
-  return { db, archive, message, dir, state, fetch, thumb, pace, call, downloader, rows, partials };
+  return { db, archive, message, dir, state, fetch, get, thumb, pace, call, downloader, rows, partials };
 }
 
 async function drain(d: ReturnType<typeof setup>) {
   d.downloader.kick();
-  await vi.waitFor(() => expect(d.downloader['running']).toBe(false));
+  await vi.waitFor(() => expect(d.downloader['draining']).toBeNull());
 }
 
 describe('own upload archive', () => {
@@ -192,6 +194,77 @@ describe('own upload archive', () => {
     expect(d.partials()).toEqual([]);
   });
 
+});
+
+describe('attachment downloader shutdown', () => {
+  const MEDIA_GAP_MS = 60_000;
+  const HTTP_FORBIDDEN = 403;
+
+  it('stops waiting for a queued URL refresh and leaves the attachment pending', async () => {
+    const d = setup();
+    d.fetch.mockResolvedValue(new Response(null, { status: HTTP_FORBIDDEN }));
+    d.get.mockImplementation(() => new Promise(() => {}));
+    d.archive.ingestMessages([d.message], 'gateway');
+    d.downloader.kick();
+    await vi.waitFor(() => expect(d.get).toHaveBeenCalledTimes(1));
+    const guard = d.get.mock.calls[0]![2]!.guard!;
+    expect(() => guard()).not.toThrow();
+
+    await d.downloader.dispose();
+    expect(() => guard()).toThrow();
+    const calls = d.call.mock.calls.length;
+    d.downloader.kick();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(d.call).toHaveBeenCalledTimes(calls);
+    expect(d.fetch).toHaveBeenCalledTimes(1);
+    expect(d.call.mock.calls.filter(([m]) => m === 'attachmentFailed' || m === 'attachmentStored')).toEqual([]);
+    expect(d.rows()).toMatchObject({ status: 'pending' });
+  });
+
+  it('interrupts a paced gap and leaves the attachment pending', async () => {
+    const d = setup();
+    d.pace.mockResolvedValue({ mediaMs: MEDIA_GAP_MS, jitter: 0 });
+    d.archive.ingestMessages([d.message], 'sync');
+    d.downloader.kick();
+    await vi.waitFor(() => expect(d.pace).toHaveBeenCalledTimes(1));
+
+    await d.downloader.dispose();
+    const calls = d.call.mock.calls.length;
+    d.downloader.kick();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(d.call).toHaveBeenCalledTimes(calls);
+    expect(d.fetch).not.toHaveBeenCalled();
+    expect(d.call.mock.calls.filter(([m]) => m === 'attachmentFailed' || m === 'attachmentStored')).toEqual([]);
+    expect(d.rows()).toMatchObject({ status: 'pending' });
+  });
+
+  it('aborts an unfinished response and removes its partial file without recording a result', async () => {
+    const d = setup();
+    let signal!: AbortSignal;
+    d.fetch.mockImplementation(async (_url, options) => {
+      signal = options!.signal!;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(BYTES);
+          signal.addEventListener('abort', () => controller.error(signal.reason), { once: true });
+        },
+      });
+      return new Response(body);
+    });
+    d.archive.ingestMessages([d.message], 'gateway');
+    d.downloader.kick();
+    await vi.waitFor(() => expect(d.partials()).toHaveLength(1));
+
+    await d.downloader.dispose();
+    expect(signal.aborted).toBe(true);
+    const calls = d.call.mock.calls.length;
+    d.downloader.kick();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(d.call).toHaveBeenCalledTimes(calls);
+    expect(d.call.mock.calls.filter(([m]) => m === 'attachmentFailed' || m === 'attachmentStored')).toEqual([]);
+    expect(d.rows()).toMatchObject({ status: 'pending' });
+    expect(d.partials()).toEqual([]);
+  });
 });
 
 describe('attachment arrival pacing', () => {
