@@ -24,6 +24,8 @@ import styles from './EmojiList.module.css';
 const POPULAR = 'popular';
 const FAVORITES = 'favorites';
 const STANDARD = 'standard';
+/** A server's top emoji listed, best first: the owner's choice. */
+const TOP_EMOJI_SHOWN = 10;
 
 /** Popular in the channel's server, Discord favorites, servers in sidebar order, then system emoji. */
 export function EmojiList(props: { guildId: string; onPick: OnPick }) {
@@ -87,7 +89,7 @@ export function EmojiList(props: { guildId: string; onPick: OnPick }) {
     : (data()?.popular ?? []).flatMap((id) => {
       const e = customById().get(id);
       return e ? [asPreview({ custom: e })] : [];
-    }).filter(matches));
+    }).slice(0, TOP_EMOJI_SHOWN).filter(matches));
   const favorites = createMemo(() => {
     const keyOf = (p: EmojiPreview): string => 'custom' in p.pick ? p.pick.custom.id : p.pick.unicode;
     const recent = recentEmoji();
