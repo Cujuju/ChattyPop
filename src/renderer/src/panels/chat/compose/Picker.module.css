@@ -70,6 +70,15 @@
   grid-template-columns: repeat(auto-fill, var(--cp-picker-emoji));
 }
 
+/* Phone: the columns share the sheet's width, as the iOS emoji keyboard's do; each stays at least a tap target wide. */
+:global(html[data-surface='companion']) .emojiGrid {
+  grid-template-columns: repeat(auto-fill, minmax(var(--cp-picker-emoji), 1fr));
+}
+
+:global(html[data-surface='companion']) .emoji {
+  width: auto;
+}
+
 /* A grid not yet built (StagedGrid) holds the height its rows will take. */
 .emojiGrid[data-held='true'] {
   min-height: calc(var(--held-rows) * var(--cp-picker-emoji));

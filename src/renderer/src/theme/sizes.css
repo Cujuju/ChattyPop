@@ -255,8 +255,13 @@
   --cp-stash-sheet-w: 40ch; /* the front sheet: a draft's first words, short of the box's middle on a desktop */
   --cp-stash-sheet-step: var(--cp-space-4); /* each sheet further back is narrower by this on each side, so the stack reads as a pile */
   --cp-frost-reach: 0px; /* how far the composer's glass reaches above its box: none until the typing line shows */
-  --cp-picker-w: 424px; /* GIF / sticker / emoji picker: nine emoji or four stickers a row */
-  --cp-picker-h: 440px;
+  --cp-picker-emoji-cols: 12; /* emoji a row in the desktop picker (unitless): the owner asked to see more at once */
+  --cp-scrollbar-w: 10px; /* Chromium's thin scrollbar (base.css), measured on Windows */
+  /* GIF / sticker / emoji picker: its edges, the section rail, the emoji columns, the list's side padding and scrollbar. */
+  --cp-picker-w: calc(
+    2 * var(--cp-border-w) + var(--cp-emoji-rail-w) + var(--cp-picker-emoji-cols) * var(--cp-picker-emoji) + 2 * var(--cp-space-4) + var(--cp-scrollbar-w)
+  );
+  --cp-picker-h: 560px; /* about eleven emoji rows under the tabs, search and preview */
   --cp-picker-emoji: 36px; /* emoji cell in the picker */
   --cp-picker-emoji-glyph: 26px; /* the emoji inside it */
   --cp-picker-sticker: 88px; /* sticker cell in the picker */
