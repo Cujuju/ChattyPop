@@ -2,10 +2,11 @@
 .bar {
   position: absolute;
   bottom: calc(100% - var(--row-pad-top) + var(--cp-action-bar-clearance));
-  right: var(--cp-panel-pad-x);
+  /* Rows end before the scrollbar; the composer spans the whole panel. Share its safe-area-aware insets. */
+  right: calc(var(--cp-composer-inset-right, var(--cp-panel-pad-x)) - var(--cp-log-scrollbar-w, 0px));
   z-index: var(--cp-z-sticky);
   display: flex;
-  max-width: calc(100% - 2 * var(--cp-panel-pad-x));
+  max-width: calc(100% - var(--cp-composer-inset-left, var(--cp-panel-pad-x)) - var(--cp-composer-inset-right, var(--cp-panel-pad-x)) + var(--cp-log-scrollbar-w, 0px));
   align-items: center;
   gap: var(--cp-space-1);
   padding: var(--cp-space-1);

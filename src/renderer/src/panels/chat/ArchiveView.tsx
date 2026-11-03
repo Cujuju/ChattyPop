@@ -264,7 +264,11 @@ export function ArchiveView() {
               scroller = el;
               // Scrolling, and the view resizing, move the banner's first unread against it.
               listen(el, 'scroll', checkBanner, { passive: true });
-              const resized = new ResizeObserver(() => checkBanner());
+              const resized = new ResizeObserver(() => {
+                // Message actions share the composer's right edge, beyond the rows' scrollbar inset.
+                el.style.setProperty('--cp-log-scrollbar-w', `${el.offsetWidth - el.clientWidth}px`);
+                checkBanner();
+              });
               resized.observe(el);
               onCleanup(() => resized.disconnect());
               vlog.ref(el);
