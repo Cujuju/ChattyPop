@@ -8,6 +8,7 @@ import { diag } from './diagnostics';
 import { DISCORD_PARTITION, DiscordView } from './discordView';
 import { guardNavigation } from './externalLinks';
 import { IS_WINDOWS } from './platform';
+import { forwardSpellingSuggestions } from './spellingSuggestions';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from './unsavedChanges';
 import { closeFromCode, takeCodeClose } from './windowClose';
 import { raiseWindow, WindowStateFile } from './windowState';
@@ -31,6 +32,7 @@ function guardRenderer(win: BrowserWindow): void {
 export function loadRenderer(win: BrowserWindow, panel?: string): void {
   guardRenderer(win);
   guardUnsavedChanges(win);
+  forwardSpellingSuggestions(win.webContents);
   const devUrl = process.env['ELECTRON_RENDERER_URL'];
   const query = panel ? { panel } : undefined;
   if (devUrl) void win.loadURL(query ? `${devUrl}?${new URLSearchParams(query)}` : devUrl);

@@ -69,6 +69,8 @@ export type AppEvent =
   | { type: 'open-message'; channelId: string; messageId?: string; compose?: ComposeIntent }
   /** Main holds this window's close or reload for its unsaved edits: the window asks the owner (state/unsavedChanges). Sent to that window only. */
   | { type: 'unsaved-changes' }
+  /** Chromium's spelling suggestions for the right-clicked word; sent only to that window. */
+  | { type: 'spelling-suggestions'; word: string; suggestions: string[] }
   /** Moving the archive to another folder (Settings → Archive); the app restarts when it's done. */
   | { type: 'storage-move'; phase: StorageMovePhase; doneBytes: number; totalBytes: number; message?: string }
   | { type: 'plugins-changed' }

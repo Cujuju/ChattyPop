@@ -7,6 +7,7 @@ import { APP_EVENT_CHANNEL, type AppEvent } from '@shared/contract';
 import { SHELL_ORIGIN_ARG } from '@shared/desktopShell';
 import { hourCycleArgs } from '@shared/hourCycle';
 import { guardNavigation } from '../externalLinks';
+import { forwardSpellingSuggestions } from '../spellingSuggestions';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from '../unsavedChanges';
 import { WindowStateFile, raiseWindow } from '../windowState';
 
@@ -111,6 +112,7 @@ export class ServerWindows {
     // The server's pages only (its pairing page and its desktop); links elsewhere open in the system browser.
     guardNavigation(win.webContents, (url) => new URL(url).origin === origin);
     guardUnsavedChanges(win);
+    forwardSpellingSuggestions(win.webContents);
     win.on('close', (e) => void holdCloseIfUnsaved(win, e));
     // The page names itself ChattyPop; the title says which server.
     win.on('page-title-updated', (e, title) => {

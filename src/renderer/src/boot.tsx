@@ -12,6 +12,7 @@ import { PANEL_WINDOW_ID, openSettingsAt } from './state/ui';
 import { promptRestoreAtStart } from './state/pluginRestore';
 import { holdImeKeys } from './ui/keys';
 import { trackPopoverCovers } from './ui/popoverCover';
+import { offerSpellingSuggestions } from './ui/spellingMenu';
 import { Contained } from './ui/contained';
 
 function Root() {
@@ -26,6 +27,7 @@ export function startApp(): void {
   onAppEvent('open-settings', (e) => openSettingsAt(e.section));
   // Popovers clear the native Discord view where they overlap it.
   trackPopoverCovers();
+  offerSpellingSuggestions();
   // Once per plugin: Settings → Plugins offers plugins whose data remains but that aren't installed.
   if (!PANEL_WINDOW_ID) void promptRestoreAtStart().catch((err: unknown) => console.error('[plugin restore]', err));
 
