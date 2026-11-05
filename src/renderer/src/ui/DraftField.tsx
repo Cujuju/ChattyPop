@@ -105,8 +105,13 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     try { props.onInput?.(); } catch (error) { reportError(error); }
   });
   const show = (text: string, selection: FieldSelection): void => {
-    field.replaceChildren(...fragment(text).childNodes);
-    select(Math.min(selection.start, text.length), Math.min(selection.end, text.length));
+    const next = fragment(text);
+    const start = Math.min(selection.start, text.length);
+    const end = Math.min(selection.end, text.length);
+    // Chromium spellchecks only words the browser itself edited: rebuilding the nodes or re-setting the selection after typing skips them.
+    const rebuild = next.innerHTML !== field.innerHTML;
+    if (rebuild) field.replaceChildren(...next.childNodes);
+    if (rebuild || start !== caret.start || end !== caret.end) select(start, end);
     commit(text);
   };
   /** Every edit reaches the draft. `composing`: the input method owns the DOM, so only the text is copied; the composition's end rewrites the field. */
@@ -178,7 +183,11 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     role="textbox" aria-label={props.label} aria-multiline="true" aria-disabled={props.disabled || undefined}
     contentEditable={!props.disabled} tabIndex={props.disabled ? -1 : 0} enterkeyhint={props.enterkeyhint}
     data-placeholder={props.placeholder} data-empty={!props.text()} spellcheck="true"
-    onInput={(event) => publish(event.inputType === 'insertText', event.isComposing)}
+    onInput={(event) => {
+      // `caret` still holds the replaced selection (selectionchange comes later): covers edits without beforeinput (execCommand, some autocorrect).
+      if (!event.isComposing) beforeEdit = { ...caret };
+      publish(event.inputType === 'insertText', event.isComposing);
+    }}
     onCompositionStart={() => { remember(); beforeEdit = { ...caret }; }}
     onCompositionEnd={() => publish()}
     onBeforeInput={(event) => {
