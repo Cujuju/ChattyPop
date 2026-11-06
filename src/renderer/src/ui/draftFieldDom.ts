@@ -54,12 +54,18 @@ function pointAt(root: HTMLElement, offset: number, forward: boolean): Point {
   return { node: root, offset: root.childNodes.length };
 }
 
-export function selectDraftField(root: HTMLElement, from: number, to = from): void {
+/** The DOM range over draft offsets `from`..`to`. */
+export function draftFieldRange(root: HTMLElement, from: number, to = from): Range {
   const start = pointAt(root, from, false);
   const end = pointAt(root, to, from !== to);
   const range = document.createRange();
   range.setStart(start.node, start.offset);
   range.setEnd(end.node, end.offset);
+  return range;
+}
+
+export function selectDraftField(root: HTMLElement, from: number, to = from): void {
+  const range = draftFieldRange(root, from, to);
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);

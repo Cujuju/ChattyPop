@@ -27,3 +27,6 @@ export function draftFieldBoundary(parts: readonly DraftFieldPart[], offset: num
   }
   return Math.max(0, Math.min(offset, start));
 }
+
+/** Typing or deleting inside a word: spelling leaves that word unmarked until the caret leaves it. */
+export const editsWord = (inputType: string): boolean => inputType === 'insertText' || inputType.startsWith('delete');

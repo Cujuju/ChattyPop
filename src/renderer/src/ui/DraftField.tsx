@@ -5,9 +5,10 @@ import { DISCORD_TEXT_MAX } from '@shared/discord';
 import { expandEmojiTokens } from '@shared/compose';
 import { emojiUrl, type CustomEmoji } from '@shared/emoji';
 import { customEmojiEntries, draftText, setDraftText } from '@/state/drafts';
-import { draftFieldBoundary, draftFieldParts } from './draftFieldText';
+import { draftFieldBoundary, draftFieldParts, editsWord } from './draftFieldText';
 import { draftFieldOffset, readDraftField, selectDraftField } from './draftFieldDom';
 import { DraftFieldHistory, type FieldSelection } from './draftFieldHistory';
+import { draftFieldSpelling } from './draftFieldSpelling';
 import styles from './DraftField.module.css';
 
 /** The canonical draft's caret offsets, alongside the DOM field for sizing/focus. */
@@ -75,6 +76,7 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     caret = { start, end };
     selectDraftField(field, start, end);
   };
+  const spelling = draftFieldSpelling(() => field, () => (document.activeElement === field ? caret : null), (text, start, end) => handle.replaceText(text, start, end));
   /** Creates every node/attribute ourselves; pasted HTML is never inserted. */
   const fragment = (text: string): HTMLDivElement => {
     const container = document.createElement('div');
@@ -108,19 +110,21 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     const next = fragment(text);
     const start = Math.min(selection.start, text.length);
     const end = Math.min(selection.end, text.length);
-    // Chromium spellchecks only words the browser itself edited: rebuilding the nodes or re-setting the selection after typing skips them.
+    // Rebuilding the nodes or re-setting the selection after typing drops the browser's marks on the edited word: only on a change.
     const rebuild = next.innerHTML !== field.innerHTML;
     if (rebuild) field.replaceChildren(...next.childNodes);
     if (rebuild || start !== caret.start || end !== caret.end) select(start, end);
     commit(text);
+    spelling.update();
   };
   /** Every edit reaches the draft. `composing`: the input method owns the DOM, so only the text is copied; the composition's end rewrites the field. */
-  const publish = (typing = false, composing = false): void => {
+  const publish = (typing = false, composing = false, inWord = false): void => {
     remember();
     const text = readDraftField(field);
     // Composition/autocorrect can edit without a cancellable beforeinput. Keep the textarea's original limit.
     if (text.length > DISCORD_TEXT_MAX) { if (!composing) show(props.text(), beforeEdit); return; }
-    if (composing) return commit(text);
+    if (inWord || composing) spelling.typed(caret.start);
+    if (composing) { commit(text); spelling.update(); return; }
     history.record(text, beforeEdit, caret, typing);
     show(text, caret);
   };
@@ -167,6 +171,7 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     if (!changedKey) remember();
     field.replaceChildren(...fragment(text).childNodes);
     if (document.activeElement === field) select(Math.min(caret.start, text.length), Math.min(caret.end, text.length));
+    spelling.update();
   });
   const clipboard = (event: ClipboardEvent, cut: boolean): void => {
     remember();
@@ -175,18 +180,21 @@ export function EmojiTextField(props: FieldProps & TextSource) {
     event.clipboardData?.setData('text/plain', expandEmojiTokens(handle.value.slice(caret.start, caret.end), props.picked()));
     if (cut) handle.replaceText('');
   };
-  const selectionChanged = (): void => remember();
+  const selectionChanged = (): void => {
+    remember();
+    if (document.activeElement === field) spelling.update();
+  };
   document.addEventListener('selectionchange', selectionChanged);
   onCleanup(() => document.removeEventListener('selectionchange', selectionChanged));
   // Filled at creation, so an owner's onMount can already place the caret in the text.
   return <div ref={(element) => { field = element; field.replaceChildren(...fragment(props.text()).childNodes); props.ref(handle); }} class={`${styles.field} ${props.class ?? ''}`}
     role="textbox" aria-label={props.label} aria-multiline="true" aria-disabled={props.disabled || undefined}
     contentEditable={!props.disabled} tabIndex={props.disabled ? -1 : 0} enterkeyhint={props.enterkeyhint}
-    data-placeholder={props.placeholder} data-empty={!props.text()} spellcheck="true"
+    data-placeholder={props.placeholder} data-empty={!props.text()} spellcheck="false"
     onInput={(event) => {
       // `caret` still holds the replaced selection (selectionchange comes later): covers edits without beforeinput (execCommand, some autocorrect).
       if (!event.isComposing) beforeEdit = { ...caret };
-      publish(event.inputType === 'insertText', event.isComposing);
+      publish(event.inputType === 'insertText', event.isComposing, editsWord(event.inputType));
     }}
     onCompositionStart={() => { remember(); beforeEdit = { ...caret }; }}
     onCompositionEnd={() => publish()}
@@ -205,8 +213,8 @@ export function EmojiTextField(props: FieldProps & TextSource) {
         event.preventDefault(); travel(event.key.toLowerCase() === 'y' || event.shiftKey); return;
       }
       props.onKeyDown?.(event);
-    }} onKeyUp={props.onKeyUp} onClick={props.onClick}
-    onFocus={() => { if (!replacing) props.onFocus?.(); }} onBlur={() => { remember(); if (!replacing) props.onBlur?.(); }}
+    }} onKeyUp={props.onKeyUp} onClick={(event) => { props.onClick?.(); spelling.onClick(event); }} onContextMenu={spelling.onContextMenu}
+    onFocus={() => { if (!replacing) props.onFocus?.(); }} onBlur={() => { remember(); spelling.update(); if (!replacing) props.onBlur?.(); }}
     onCopy={(event) => clipboard(event, false)} onCut={(event) => clipboard(event, true)}
     onPaste={(event) => {
       props.onPaste?.(event);

@@ -198,6 +198,9 @@ importers:
       better-sqlite3-multiple-ciphers:
         specifier: 13.0.3
         version: 13.0.3
+      dictionary-en:
+        specifier: ^4.0.0
+        version: 4.0.0
       emojibase-data:
         specifier: 17.0.0
         version: 17.0.0(emojibase@17.0.0)
@@ -213,6 +216,9 @@ importers:
       mediabunny:
         specifier: 1.62.1
         version: 1.62.1
+      nspell:
+        specifier: ^2.1.5
+        version: 2.1.5
       shiki:
         specifier: 3.23.0
         version: 3.23.0
@@ -253,6 +259,9 @@ importers:
       '@types/node':
         specifier: ^24.13.6
         version: 24.13.6
+      '@types/nspell':
+        specifier: ^2.1.6
+        version: 2.1.6
       electron:
         specifier: 44.9.3
         version: 44.9.3(supports-color@7.2.0)
@@ -1422,6 +1431,9 @@ packages:
   '@types/node@24.13.6':
     resolution: {integrity: sha512-SGrw/h3KPFshy3OE6ZL53LMBG5vGQQ8/gIpiqz/kRZhPJ7HgwCEs8LBuNtWLa8dvGZVpSF7+Bf+c11HUrCb/yg==}
 
+  '@types/nspell@2.1.6':
+    resolution: {integrity: sha512-PnWYqrBZhkKAreX2kIZDJcBeigZJzXC8VmSuNiXeILUNreczBZHLxGEv/pRT+zL8rsXLxT5bRbiIF9wuh6cGgg==}
+
   '@types/responselike@1.0.3':
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
 
@@ -1924,6 +1936,9 @@ packages:
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
 
+  dictionary-en@4.0.0:
+    resolution: {integrity: sha512-3NHnE1uq33ZE/CIwaZ6gqxa4BnglHnxeAcTM0GJ7cmtRGcvX9InMK/IqLtYcUMFCUpUNgybH+DzkqdgAo3F1zg==}
+
   dir-compare@4.2.0:
     resolution: {integrity: sha512-2xMCmOoMrdQIPHdsTawECdNPwlVFB9zGcz3kuhmBO6U3oU+UQjsue0i8ayLKpgBcm+hcXPMVSGUN9d+pvJ6+VQ==}
 
@@ -2333,6 +2348,10 @@ packages:
   inline-style-parser@0.2.7:
     resolution: {integrity: sha512-Nb2ctOyNR8DqQoR0OwRG95uNWIC0C1lCgf5Naz5H6Ji72KZ8OcFZLz2P5sNgwlyoJ8Yif11oMuYs5pBQa86csA==}
 
+  is-buffer@2.0.5:
+    resolution: {integrity: sha512-i2R6zNFDwgEHJyQUtJEk0XFi1i0dPFn/oqjK3/vPCcDeJvW5NQ83V8QbicfF1SupOaB0h8ntgBC2YiE7dfyctQ==}
+    engines: {node: '>=4'}
+
   is-docker@2.2.1:
     resolution: {integrity: sha512-F+i2BKsFrH66iaUFc0woD8sLy8getkwTwtOBjvs56Cx4CgJDeKQeqfz8wAYiSb8JOprWhHH5p77PbmYCvvUuXQ==}
     engines: {node: '>=8'}
@@ -2628,6 +2647,9 @@ packages:
   normalize-url@6.1.0:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
+
+  nspell@2.1.5:
+    resolution: {integrity: sha512-PSStyugKMiD9mHmqI/CR5xXrSIGejUXPlo88FBRq5Og1kO5QwQ5Ilu8D8O5I/SHpoS+mibpw6uKA8rd3vXd2Sg==}
 
   object-keys@1.1.1:
     resolution: {integrity: sha512-NuAESUOUMrlIXOfHKzD6bpPu3tYt3xvjNdRIQ+FeT0lNb4K8WR70CaDxhuNguS2XG+GjkyMwOzsN5ZktImfhLA==}
@@ -4269,6 +4291,10 @@ snapshots:
     dependencies:
       undici-types: 7.18.2
 
+  '@types/nspell@2.1.6':
+    dependencies:
+      '@types/node': 24.13.6
+
   '@types/responselike@1.0.3':
     dependencies:
       '@types/node': 24.13.6
@@ -4741,6 +4767,8 @@ snapshots:
   devlop@1.1.0:
     dependencies:
       dequal: 2.0.3
+
+  dictionary-en@4.0.0: {}
 
   dir-compare@4.2.0:
     dependencies:
@@ -5300,6 +5328,8 @@ snapshots:
 
   inline-style-parser@0.2.7: {}
 
+  is-buffer@2.0.5: {}
+
   is-docker@2.2.1: {}
 
   is-extglob@2.1.1: {}
@@ -5565,6 +5595,10 @@ snapshots:
       abbrev: 4.0.0
 
   normalize-url@6.1.0: {}
+
+  nspell@2.1.5:
+    dependencies:
+      is-buffer: 2.0.5
 
   object-keys@1.1.1:
     optional: true

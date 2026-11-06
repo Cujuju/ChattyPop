@@ -76,7 +76,13 @@ export default defineConfig(({ command }) => {
         warmup: { clientFiles: ['./src/main.tsx'] },
       },
       resolve: {
-        alias: { '@shared': shared, '@': resolve(import.meta.dirname, 'src/renderer/src'), '@plugin-sdk': pluginSdk },
+        alias: {
+          '@shared': shared,
+          '@': resolve(import.meta.dirname, 'src/renderer/src'),
+          '@plugin-sdk': pluginSdk,
+          // dictionary-en exports only its Node loader; workers bundle its dictionary files directly.
+          '@spelling-dictionary': resolve(import.meta.dirname, 'node_modules/dictionary-en'),
+        },
         // Linked @cujuju packages carry their own solid-js; a second runtime can't track this app's signals.
         dedupe: ['solid-js'],
       },

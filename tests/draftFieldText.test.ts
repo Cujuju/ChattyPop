@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { expandEmojiTokens } from '@shared/compose';
 import type { CustomEmoji } from '@shared/emoji';
-import { draftFieldBoundary, draftFieldParts } from '../src/renderer/src/ui/draftFieldText';
+import { draftFieldBoundary, draftFieldParts, editsWord } from '../src/renderer/src/ui/draftFieldText';
 import { DraftFieldHistory } from '../src/renderer/src/ui/draftFieldHistory';
 
 const pog: CustomEmoji = { id: '100000000000000001', name: 'pog', animated: false };
@@ -60,5 +60,12 @@ describe('draft editor undo', () => {
     expect(h.undo()?.text).toBe('abcd');
     h.record('abcde', { start: 4, end: 4 }, { start: 5, end: 5 }, true, 3);
     expect(h.redo()).toBeNull();
+  });
+});
+
+describe('spelling while editing a word', () => {
+  it('treats typing and deleting as editing the word, not pasting or line breaks', () => {
+    expect(['insertText', 'deleteContentBackward', 'deleteContentForward', 'deleteWordBackward'].map(editsWord)).toEqual([true, true, true, true]);
+    expect(['insertFromPaste', 'insertParagraph', 'historyUndo'].map(editsWord)).toEqual([false, false, false]);
   });
 });

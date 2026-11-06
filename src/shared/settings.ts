@@ -21,6 +21,8 @@ export const SETTINGS_KEYS = {
   savedSearches: 'savedSearches',
   /** Recent emoji picks, newest first; orders the mirrored Discord favorites (state/expressions.ts). */
   recentEmoji: 'emoji.recent',
+  /** The owner's added spelling words, shared by desktop and phone (state/spelling.ts). */
+  spellingWords: 'spelling.words',
   /** Archive search results' order (normalizeSearchSort). */
   searchSort: 'search.sort',
   /** The Archive's row density (state/archive.ts). */

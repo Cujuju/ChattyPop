@@ -66,6 +66,12 @@
   }
 }
 
+/* Misspelled words in message fields (ui/draftFieldSpelling.ts): the browser's own spelling mark, in the theme's danger colour. */
+::highlight(cp-misspelled) {
+  text-decoration: underline wavy var(--cp-danger);
+  text-decoration-skip-ink: none;
+}
+
 /* Desktop app sizing: the page never scrolls; panels own their scroll regions. */
 html,
 body,
