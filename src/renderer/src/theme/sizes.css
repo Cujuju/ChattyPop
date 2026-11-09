@@ -17,6 +17,12 @@
 :root {
   /* Layout: app frame */
   --cp-topbar-h: 48px;
+  --cp-topbar-logo: var(--cp-btn-h); /* the app icon at the top bar's left: as tall as the bar's buttons */
+  --cp-window-bar-h: 32px; /* a panel or connect window's own title bar: Windows' caption height */
+  --cp-window-bar-logo: 16px; /* the app icon in that bar: Windows' caption icon size */
+  --cp-window-control-w: 46px; /* minimize, maximize and close: Windows' caption button width */
+  --cp-window-glyph: 10px; /* their glyphs: Windows' caption glyph size */
+  --cp-traffic-lights-w: 76px; /* macOS' window buttons: MAC_TRAFFIC_LIGHTS_POSITION.x (12px), their 52px span, then that inset again */
   --cp-statusbar-h: 28px;
   --cp-sidebar-w: 232px;
   --cp-search-w: 420px;

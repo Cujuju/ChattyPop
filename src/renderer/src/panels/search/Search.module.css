@@ -1,0 +1,18 @@
+/* Search panel: header (ui/PanelHeader) holding the search field, then the list (frame/Search.module.css .list) filling the rest. */
+
+.root {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* The field takes the header's run after the title, down to the draft's minimum width. */
+.field {
+  flex: 1 1 var(--cp-search-w);
+  min-width: 0;
+}
+
+.body {
+  min-height: 0;
+  padding: var(--cp-space-2) var(--cp-space-3);
+}

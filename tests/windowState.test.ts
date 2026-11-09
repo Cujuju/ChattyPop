@@ -1,7 +1,9 @@
 import { EventEmitter } from 'node:events';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { screen } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readScreenRect } from '../src/main/nativeWindowAddon';
 import { tempDir } from './helpers';
 
 /** One connected display; bounds anywhere else are off screen. */
@@ -9,10 +11,12 @@ const DISPLAY = { x: 0, y: 0, width: 1920, height: 1080 };
 const env = vi.hoisted(() => ({ userData: '' }));
 vi.mock('electron', () => ({
   app: { getPath: () => env.userData },
-  screen: { getDisplayMatching: () => ({ workArea: DISPLAY }) },
+  screen: { getDisplayMatching: vi.fn(() => ({ id: 1, scaleFactor: 1, bounds: DISPLAY, workArea: DISPLAY })) },
 }));
 
-const { WindowStateFile, raiseWindow } = await import('../src/main/windowState');
+vi.mock('../src/main/nativeWindowAddon', () => ({ readScreenRect: vi.fn(() => null), applyScreenRect: () => false }));
+
+const { WindowStateFile, raiseWindow, parseScreenPlacement, placementStillValid } = await import('../src/main/windowState');
 
 const FILE = 'windows.json';
 const BOUNDS = { x: 100, y: 50, width: 800, height: 600 };
@@ -22,6 +26,9 @@ function fakeWindow(bounds = BOUNDS) {
   const calls: string[] = [];
   const win = Object.assign(new EventEmitter(), {
     getNormalBounds: () => bounds,
+    getBounds: () => bounds,
+    isMaximized: () => false,
+    isFullScreen: () => false,
     isDestroyed: () => false,
     isMinimized: () => false,
     maximize: () => void calls.push('maximize'),
@@ -36,6 +43,10 @@ const writeRaw = (v: unknown): void => writeFileSync(join(env.userData, FILE), J
 
 beforeEach(() => {
   env.userData = tempDir();
+  vi.mocked(readScreenRect).mockReset().mockReturnValue(null);
+  vi.mocked(screen.getDisplayMatching).mockReset().mockReturnValue({
+    id: 1, scaleFactor: 1, bounds: DISPLAY, workArea: DISPLAY,
+  } as Electron.Display);
 });
 
 describe('WindowStateFile', () => {
@@ -60,6 +71,36 @@ describe('WindowStateFile', () => {
     new WindowStateFile(FILE).manage(w.win, 'main', { bounds: BOUNDS, maximized: true, fullScreen: true });
     w.emit('ready-to-show');
     expect(w.calls).toEqual(['fullScreen:true', 'show']);
+  });
+
+  it('drops physical placement after a maximized window moves to another display', () => {
+    const displayA = { id: 1, scaleFactor: 1, bounds: DISPLAY, workArea: DISPLAY };
+    const secondBounds = { ...DISPLAY, x: DISPLAY.width };
+    const displayB = { ...displayA, id: 2, bounds: secondBounds, workArea: secondBounds };
+    vi.mocked(screen.getDisplayMatching).mockImplementation((bounds) => (
+      bounds.x >= secondBounds.x ? displayB : displayA
+    ) as Electron.Display);
+    vi.mocked(readScreenRect).mockReturnValue(BOUNDS);
+    let bounds = BOUNDS;
+    let currentBounds = BOUNDS;
+    let maximized = false;
+    const w = fakeWindow();
+    w.win.getBounds = () => currentBounds;
+    w.win.getNormalBounds = () => bounds;
+    w.win.isMaximized = () => maximized;
+    new WindowStateFile(FILE).manage(w.win, 'main', undefined);
+    w.emit('ready-to-show');
+    expect(readScreenRect).toHaveBeenCalledOnce();
+    maximized = true;
+    currentBounds = DISPLAY;
+    w.emit('maximize');
+    bounds = { ...BOUNDS, x: secondBounds.x + BOUNDS.x };
+    currentBounds = secondBounds;
+    w.emit('move');
+    w.emit('close');
+
+    expect(placementStillValid({ rect: BOUNDS, display: displayA }, [displayA, displayB])).toBe(true);
+    expect(new WindowStateFile(FILE).get('main')).toEqual({ bounds, maximized: true, fullScreen: false });
   });
 
   it('keeps other windows when one saves', () => {
@@ -121,5 +162,25 @@ describe('WindowStateFile', () => {
     expect(new WindowStateFile(FILE).get('main')).toBeUndefined();
     writeFileSync(join(env.userData, FILE), '{not json');
     expect(new WindowStateFile(FILE).get('main')).toBeUndefined();
+  });
+});
+
+describe('physical placement contract', () => {
+  const display = { id: 1, scaleFactor: 1.5, bounds: DISPLAY, workArea: DISPLAY };
+  const placement = { rect: BOUNDS, display };
+  it('requires finite positive placement dimensions and scale', () => {
+    expect(parseScreenPlacement(placement)).toEqual(placement);
+    for (const bad of [null, {}, { ...placement, rect: { ...BOUNDS, width: 0 } },
+      { ...placement, rect: { ...BOUNDS, x: Infinity } }, { ...placement, display: { ...display, scaleFactor: 0 } }]) {
+      expect(parseScreenPlacement(bad)).toBeUndefined();
+    }
+  });
+  it('requires the same id, scale, bounds and work area', () => {
+    expect(placementStillValid(placement, [{ ...display }])).toBe(true);
+    for (const changed of [{ ...display, id: 2 }, { ...display, scaleFactor: 1 },
+      { ...display, bounds: { ...DISPLAY, x: 1 } }, { ...display, workArea: { ...DISPLAY, height: 1000 } }]) {
+      expect(placementStillValid(placement, [changed])).toBe(false);
+    }
+    expect(placementStillValid(placement, [])).toBe(false);
   });
 });

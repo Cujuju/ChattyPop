@@ -9,7 +9,6 @@ import { openContextMenu, setSettingsOpen } from '@/state/ui';
 import { EyeIcon } from '@/ui/EyeIcon';
 import { TopBarButton } from './TopBarButton';
 import { SectionIcon } from '@/ui/SectionIcon';
-import { Search } from './Search';
 import { Icon } from '@/ui/icons';
 import { HeaderButton } from '@/ui/PanelHeader';
 import { look } from '@/theme/look';
@@ -17,6 +16,10 @@ import styles from './TopBar.module.css';
 import { topBarItems } from '@/plugins/slots';
 import type { TopBarItem } from '@/plugins/frameSlots';
 import type { HostTopBarItemId } from '@shared/anchors';
+import { windowControls } from '@/api';
+import { AppLogo } from './AppLogo';
+import { WindowControls } from './WindowControls';
+import { createWindowFrameState } from './windowFrame';
 
 /**
  * One button per panel: click opens it (in its own window, or shows it where the layout has it); right-click places it in
@@ -123,17 +126,21 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   },
 ];
 
-/** Fixed app frame contains search, panel toolbar, a live-updates warning, the layout menu, privacy, settings and plugin items. Window title names app; status bar shows version. */
+/** Fixed app frame contains the panel toolbar (Search among its panels), a live-updates warning, the layout menu, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
+  // In a frameless window the bar is the title bar too: it moves the window and holds the window buttons.
+  const controls = windowControls();
+  const frame = controls && createWindowFrameState(controls);
   return (
-    <header class={styles.root}>
+    <header class={styles.root} data-window-drag={controls ? true : undefined} data-chrome={controls?.chrome} data-full-screen={frame?.().fullScreen || undefined}>
       <div class={styles.start}>
-        <Search />
+        <Show when={controls}><AppLogo class={styles.logo} /></Show>
       </div>
       <PanelToolbar />
       <div class={styles.end}>
         <LiveUpdatesWarning />
         <For each={topBarItems(HOST_ITEMS)}>{(item) => <item.Component />}</For>
+        <Show when={controls?.chrome === 'controls' && controls}>{(c) => <WindowControls controls={c()} />}</Show>
       </div>
     </header>
   );

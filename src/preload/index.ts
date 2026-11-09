@@ -22,6 +22,7 @@ import {
   type RendererApi,
 } from '@shared/contract';
 import { HOUR_CYCLE_GLOBAL, hourCycleFromArgs } from '@shared/hourCycle';
+import { windowControls } from './windowControls';
 import { exposeShell, shellServer } from './client';
 import { exposeConnect, isConnectPage } from './connect';
 
@@ -40,6 +41,7 @@ function invokers<G extends MainInvokeGroup>(group: G): Pick<RendererApi[G], Ext
 }
 
 const api: RendererApi = {
+  window: windowControls(),
   reportPageError: (report) => ipcRenderer.send(PAGE_ERROR_CHANNEL, report),
   core,
   openRouter: invokers('openRouter'),

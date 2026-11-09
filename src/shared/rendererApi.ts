@@ -1,3 +1,4 @@
+import type { WindowControls } from './windowControls';
 // The renderer's API (`window.chattypop`) and the core methods it may call; re-exported by './contract'.
 import type { PluginCallResult } from './pluginCall';
 import type { PageError } from './pageErrors';
@@ -28,6 +29,7 @@ import type { SavedBookmarkPage, SavedIndex, SavedPageRequest, SavedRemove, Save
 
 /** Surface exposed to the renderer as `window.chattypop`. */
 export interface RendererApi {
+  window?: WindowControls;
   /** Reports a bounded page error to diagnostics. */
   reportPageError(report: PageError): void;
   core: { [M in RendererCoreMethod]: (...params: Parameters<CoreMethods[M]>) => Promise<CoreResult<M>> };

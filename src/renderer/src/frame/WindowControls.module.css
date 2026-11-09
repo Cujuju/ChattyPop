@@ -1,0 +1,48 @@
+/* Window buttons: full bar height, flush with the window's top-right corner, as Windows draws its own. */
+.controls {
+  display: flex;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+
+.button {
+  display: inline-grid;
+  place-content: center;
+  width: var(--cp-window-control-w);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cp-text-muted);
+  transition:
+    background-color var(--cp-duration-fast) var(--cp-ease),
+    color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.button:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.button:active {
+  background: var(--cp-surface-active);
+}
+
+.button[data-close]:hover,
+.button[data-close]:active {
+  background: var(--cp-window-close-hover);
+  color: var(--cp-window-close-hover-text);
+}
+
+.button:focus-visible {
+  outline-offset: var(--cp-focus-ring-offset-inset);
+}
+
+.glyph {
+  width: var(--cp-window-glyph);
+  height: var(--cp-window-glyph);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--cp-border-w);
+  shape-rendering: crispEdges;
+}

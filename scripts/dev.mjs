@@ -1,7 +1,7 @@
 // pnpm dev: electron-vite's dev flow, in parallel. A worker thread builds main and preload while this thread serves the
 // renderer and pre-transforms it (server.warmup); `electron-vite dev` runs them one after the other on one thread.
 // A splash shows from the start until the app shows its own (src/main/splash.ts). The app's restart rebuilds and reruns it here.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { Worker, isMainThread, parentPort } from 'node:worker_threads';
@@ -62,6 +62,7 @@ if (isMainThread) {
     } catch (err) {
       fail(err);
     }
+    spawnSync(process.execPath, [join(import.meta.dirname, 'ensure-window-border-native.mjs')], { stdio: 'inherit' });
     const app = spawn(electron, ['.', ...args], {
       stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
       env: { ...env, ELECTRON_RENDERER_URL: rendererUrl, [DEV_LAUNCH_ENV]: JSON.stringify(launch) },

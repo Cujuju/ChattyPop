@@ -9,6 +9,7 @@ export const PANEL_TITLES = {
   channels: 'Channels',
   chat: 'Chat',
   bookmarks: 'Bookmarks',
+  search: 'Search',
   'status-bar': 'Status',
 } as const satisfies Record<BuiltInPanelId, string>;
 
@@ -33,7 +34,7 @@ export const PANEL_IMPORTANCE: Partial<Record<PanelId, PanelImportance>> = {
 export const panelImportance = (id: string): PanelImportance | undefined => (PANEL_IMPORTANCE as Record<string, PanelImportance>)[id] ?? bundledPanel(id)?.importance;
 
 /** Frame panels (sidebar and status bar) stay put; the rest can swap places in a layout. */
-export const MOVABLE_PANELS: ReadonlySet<PanelId> = new Set(['chat', 'bookmarks']);
+export const MOVABLE_PANELS: ReadonlySet<PanelId> = new Set(['chat', 'bookmarks', 'search']);
 
 /** Built-in panels no preset shows; added from a panel header's menu (Add … below). */
-export const OPTIONAL_PANELS: readonly PanelId[] = ['bookmarks'];
+export const OPTIONAL_PANELS: readonly PanelId[] = ['bookmarks', 'search'];

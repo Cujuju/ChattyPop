@@ -10,7 +10,8 @@ import { guardNavigation } from './externalLinks';
 import { IS_WINDOWS } from './platform';
 import { forwardSpellingSuggestions } from './spellingSuggestions';
 import { guardUnsavedChanges, holdCloseIfUnsaved } from './unsavedChanges';
-import { closeFromCode, takeCodeClose } from './windowClose';
+import { closeFromCode, takeCodeClose, takeOwnerClose } from './windowClose';
+import { attachWindowChrome, windowChromeArgs, windowChromeOptions } from './windowChrome';
 import { raiseWindow, WindowStateFile } from './windowState';
 
 /** out/main: only index.ts imports this module, so it is bundled into out/main/index.js. */
@@ -51,10 +52,11 @@ export function rendererWindowOptions(): BrowserWindowConstructorOptions {
   const devIcon = appIconPath();
   return {
     ...(!app.isPackaged && existsSync(devIcon) ? { icon: devIcon } : {}),
+    ...windowChromeOptions(),
     autoHideMenuBar: true,
     webPreferences: {
       preload: PRELOAD,
-      additionalArguments: hourCycleArgs(),
+      additionalArguments: [...hourCycleArgs(), ...windowChromeArgs()],
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -85,6 +87,7 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
     ...(saved?.bounds ?? MAIN_WINDOW_DEFAULT_SIZE),
     show: false,
   });
+  attachWindowChrome(win);
   // Registered before the graceful-close handler below, so its save runs first on each close event.
   mainWindowState.manage(win, MAIN_WINDOW_KEY, saved, { startHidden: tray.startHidden });
   loadRenderer(win);
@@ -154,7 +157,8 @@ export function createMainWindow(tray: TrayChoices): { win: BrowserWindow; disco
   win.on('close', (e) => {
     const byCode = takeCodeClose(win);
     // Elsewhere every close not made in code or by a quit is the window's own command (the close button, the Close shortcut).
-    const ownerClose = IS_WINDOWS ? closeCommand : !byCode && !appQuitting && !closing && !discordClosed;
+    const byOwner = takeOwnerClose(win);
+    const ownerClose = !byCode && (byOwner || (IS_WINDOWS ? closeCommand : !appQuitting && !closing && !discordClosed));
     const toTray = ownerClose && tray.closeToTray();
     closeCommand = false;
     appQuitting = false;

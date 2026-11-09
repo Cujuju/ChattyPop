@@ -1,4 +1,4 @@
-/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only search and layout track outlined. */
+/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only the layout track outlined. .start stays empty to keep the toolbar centred. */
 .root {
   position: relative;
   display: grid;
@@ -12,7 +12,7 @@
   background: var(--cp-chrome-paint, var(--cp-surface-0));
 }
 
-/* Only the bar’s ground fade is raised; search results retain their popover stacking level. */
+/* Only the bar’s ground fade is raised; popovers keep their own stacking level. */
 .root::after {
   content: '';
   position: absolute;
@@ -34,6 +34,35 @@
 
 .end {
   justify-content: flex-end;
+}
+
+/* Title bar (frameless window): the bar's gaps move the window; its groups take their own clicks (base.css). */
+.root[data-window-drag] > .toolbar,
+.root[data-window-drag] > .end > * {
+  -webkit-app-region: no-drag;
+}
+
+/* Window buttons sit flush with the window's top-right corner at full bar height. */
+.root[data-chrome='controls'] {
+  padding-right: 0;
+  /* The app icon's left inset matches its margin above and below. */
+  padding-left: calc((var(--cp-topbar-h) - var(--cp-topbar-logo)) / 2);
+}
+
+.logo {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--cp-topbar-logo);
+  height: var(--cp-topbar-logo);
+}
+
+.root[data-chrome='controls'] > .end {
+  align-self: stretch;
+}
+
+/* macOS' traffic lights sit inset at the bar's left; full screen hides them. */
+.root[data-chrome='traffic-lights']:not([data-full-screen]) {
+  padding-left: var(--cp-traffic-lights-w);
 }
 
 /* Panel toolbar: one ghost button per panel, showing its section tile. */

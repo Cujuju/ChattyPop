@@ -1,0 +1,40 @@
+/* Hooks: .bar[data-chrome='controls'|'traffic-lights'][data-full-screen]. */
+.bar {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--cp-space-4);
+  height: var(--cp-window-bar-h);
+  /* The app icon's left inset matches its margin above and below. */
+  padding-left: calc((var(--cp-window-bar-h) - var(--cp-window-bar-logo)) / 2);
+  background: var(--cp-chrome-paint, var(--cp-surface-0));
+}
+
+.logo {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--cp-window-bar-logo);
+  height: var(--cp-window-bar-logo);
+}
+
+/* macOS places its traffic lights for the main top bar's height: this bar takes that height and leaves them room. */
+.bar[data-chrome='traffic-lights'] {
+  height: var(--cp-topbar-h);
+  padding-left: var(--cp-traffic-lights-w);
+}
+
+.bar[data-chrome='traffic-lights'][data-full-screen] {
+  height: var(--cp-window-bar-h);
+  padding-left: var(--cp-space-6);
+}
+
+.title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cp-text-muted);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
