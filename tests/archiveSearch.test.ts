@@ -95,6 +95,18 @@ describe('plugin archive search', () => {
   it.each([0, -1, ARCHIVE_SEARCH_MAX + 1, 1.5, NaN, Infinity])('rejects invalid limit %s', (limit) => {
     expect(() => start().search('quartz', { limit })).toThrow(RangeError);
   });
+
+  it('pages through every hit in ranked order without overlap', () => {
+    const h = start();
+    const all = h.search().map((r) => r.messageId);
+    const paged = [0, 1, 2, 3].flatMap((offset) => h.search('quartz', { limit: 1, offset }).map((r) => r.messageId));
+    expect(paged).toEqual(all);
+    expect(h.search('quartz', { offset: all.length })).toEqual([]);
+  });
+
+  it.each([-1, 1.5, NaN, Infinity])('rejects invalid offset %s', (offset) => {
+    expect(() => start().search('quartz', { offset })).toThrow(RangeError);
+  });
 });
 
 describe('plugin archive grouped counts', () => {

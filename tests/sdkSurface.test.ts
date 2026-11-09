@@ -76,11 +76,11 @@ describe('the Plugin SDK surface', () => {
   it('is recorded at the current PLUGIN_SDK_VERSION; a change raises it (minor: additions, major: removals)', () => {
     const now: Surface = { version: PLUGIN_SDK_VERSION, modules: {}, types: {}, contracts: {} };
     // Export-name checks alone miss additive fields on an existing SDK contract.
-    const contractFiles = [join(SHARED_ROOT, 'rollups.ts'), join(SDK_ROOT, '../core/rollups/types.ts')];
+    const contractFiles = [join(SHARED_ROOT, 'rollups.ts'), join(SDK_ROOT, '../core/rollups/types.ts'), join(SDK_ROOT, '../core/queries/archiveSearch.ts')];
     for (const file of contractFiles) for (const node of programOf(readFileSync(file, 'utf8'), file).body) {
       if (node.type !== 'ExportNamedDeclaration' || node.declaration?.type !== 'TSInterfaceDeclaration') continue;
       const declaration = node.declaration;
-      if (!['RollupStatus', 'RollupSpan'].includes(declaration.id.name)) continue;
+      if (!['RollupStatus', 'RollupSpan', 'ArchiveSearchOptions'].includes(declaration.id.name)) continue;
       now.contracts![declaration.id.name] = declaration.body.body.flatMap((member) =>
         member.type === 'TSPropertySignature' && member.key.type === 'Identifier' ? [member.key.name] : []).sort();
     }

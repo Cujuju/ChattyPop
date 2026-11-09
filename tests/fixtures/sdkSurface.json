@@ -1,5 +1,5 @@
 {
-  "version": "4.15.0",
+  "version": "4.16.0",
   "modules": {
     "@plugin-sdk/shared": [
       "ACCOUNT_AUTHS",
@@ -1180,6 +1180,16 @@
       "localSplits",
       "paddingMs",
       "start"
+    ],
+    "ArchiveSearchOptions": [
+      "authorIds",
+      "channelIds",
+      "excludeRemoved",
+      "limit",
+      "offset",
+      "reader",
+      "since",
+      "until"
     ]
   }
 }

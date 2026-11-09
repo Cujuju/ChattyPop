@@ -20,6 +20,8 @@ export interface ArchiveSearchOptions {
   excludeRemoved?: boolean;
   /** 1..ARCHIVE_SEARCH_MAX. */
   limit: number;
+  /** Ranked hits to skip, for paging; a non-negative integer. Defaults to 0. */
+  offset?: number;
   /** Omitted means hosted. Source channels must also satisfy channel and time scope. */
   reader?: AiReader;
 }
@@ -46,16 +48,21 @@ export function metadataSearchScope(scope: { sql: string; params: (string | numb
   return { sql: `EXISTS (SELECT 1 FROM messages m WHERE m.id = s.id AND ${scope.sql})`, params: scope.params };
 }
 
-/** Matches any distinctive word, best match first, deduplicated across indexes. Ignores stopwords and short words; no distinctive words means no hits. Filter tokens remain literal text. */
+/**
+ * Matches any distinctive word, best match first (ties by id, so pages never overlap), deduplicated across indexes.
+ * Ignores stopwords and short words; no distinctive words means no hits. Filter tokens remain literal text.
+ */
 export function archiveSearch(db: Db, query: string, opts: ArchiveSearchOptions, sources?: AiSources): ArchiveSearchHit[] {
   if (!Number.isInteger(opts.limit) || opts.limit < 1 || opts.limit > ARCHIVE_SEARCH_MAX) {
     throw new RangeError(`Archive search limit must be between 1 and ${ARCHIVE_SEARCH_MAX}.`);
   }
+  const offset = opts.offset ?? 0;
+  if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Archive search offset must be a non-negative integer.');
   const q = ftsQuery(query);
   if (!q || !opts.channelIds.length) return [];
   const scope = archiveSearchScope(opts, sources);
   const union = searchIndexUnion(q, (fts) => `SELECT m.id AS messageId, m.channel_id AS channelId, m.ts, bm25(${fts}) AS score`, '', ` AND ${scope.sql}`, scope.params,
     metadataSearchScope(scope));
-  return db.prepare(`SELECT messageId, channelId, ts FROM (${union.sql}) GROUP BY messageId ORDER BY MIN(score) LIMIT ?`)
-    .all(...union.params, opts.limit) as ArchiveSearchHit[];
+  return db.prepare(`SELECT messageId, channelId, ts FROM (${union.sql}) GROUP BY messageId ORDER BY MIN(score), messageId LIMIT ? OFFSET ?`)
+    .all(...union.params, opts.limit, offset) as ArchiveSearchHit[];
 }
