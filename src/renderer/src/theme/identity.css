@@ -81,6 +81,11 @@
   --cp-section: var(--cp-section-plans);
 }
 
+/* Search takes Chat's hue: its results open in the chat. */
+[data-section='search'] {
+  --cp-section: var(--cp-section-chat);
+}
+
 /* Plugin panels share one neutral identity: the plugin, not the host, decides what they are. */
 [data-section='plugin'] {
   --cp-section: var(--cp-text-2);

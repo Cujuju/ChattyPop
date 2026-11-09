@@ -12,7 +12,7 @@ import type { PersonTabView } from '@/plugins/readSlots';
 import { openArchive } from '@/state/archive';
 import { now, today } from '@/state/clock';
 import { discordProfile, mutualFriends, openPerson, showMutualFriends } from '@/state/person';
-import { showSearch } from '@/state/search';
+import { showSearch } from '@/state/searchPanel';
 import { listAge } from '@/ui/dates';
 import { shortDate, yearDate } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';

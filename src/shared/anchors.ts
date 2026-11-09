@@ -1,7 +1,7 @@
 // Shared placement ordering and host slot anchors.
 
 /** Built-in panels, in the top bar's order (renderer panels/titles.ts PANEL_TITLES). */
-export const HOST_PANELS = ['channels', 'chat', 'bookmarks', 'status-bar'] as const;
+export const HOST_PANELS = ['channels', 'chat', 'bookmarks', 'search', 'status-bar'] as const;
 export type BuiltInPanelId = (typeof HOST_PANELS)[number];
 /** Deprecated (removed at SDK 5): retired panels a plugin may still place beside; each places as the panel it maps to. Sync moved to the status bar. */
 export const RETIRED_HOST_PANELS: Readonly<Record<string, BuiltInPanelId>> = { 'sync-status': 'channels' };

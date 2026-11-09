@@ -1,4 +1,4 @@
-/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only search and layout track outlined. */
+/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only the layout track outlined. .start stays empty to keep the toolbar centred. */
 .root {
   position: relative;
   display: grid;
@@ -12,7 +12,7 @@
   background: var(--cp-chrome-paint, var(--cp-surface-0));
 }
 
-/* Only the bar’s ground fade is raised; search results retain their popover stacking level. */
+/* Only the bar’s ground fade is raised; popovers keep their own stacking level. */
 .root::after {
   content: '';
   position: absolute;

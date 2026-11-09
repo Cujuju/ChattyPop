@@ -20,6 +20,7 @@ export const SECTION_ICON_PATHS: Record<PanelId | 'plugin' | 'settings', () => J
   channels: ICON_SHAPES.archive,
   chat: ICON_SHAPES.conversation,
   bookmarks: ICON_SHAPES.archive,
+  search: ICON_SHAPES.search,
   'status-bar': () => <path d="M4 12h16" />,
 };
 

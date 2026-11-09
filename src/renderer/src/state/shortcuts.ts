@@ -27,7 +27,7 @@ import {
   type RebindableHostId,
 } from './shortcutBindings';
 import { reactionPicker } from './reactions';
-import { focusSearch } from './search';
+import { focusSearch } from './searchPanel';
 import { contextMenu, lightbox, setSwitcherOpen, settingsOpen } from './ui';
 
 /** The key pressed before every shortcut (Settings → Desktop). */

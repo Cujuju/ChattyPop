@@ -13,7 +13,7 @@ const HARNESS = join(import.meta.dirname, 'sectionSplitHarness.ts').replaceAll('
 const STATE = 'test:person-tabs-state';
 const ADAPTER = 'test:person-tabs-adapter';
 const MOCKED = [
-  '@/plugins/slots', '@/state/person', '@/state/clock', '@/state/archive', '@/state/search',
+  '@/plugins/slots', '@/state/person', '@/state/clock', '@/state/archive', '@/state/searchPanel',
   '@/panels/chat/PersonName', '@/ui/GuildIcon', '@/ui/icons', '@/ui/scrollEdges', '@/theme/look',
 ];
 const STATE_SOURCE = `

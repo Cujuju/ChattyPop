@@ -6,7 +6,7 @@ import { SETTINGS_KEYS } from '@shared/settings';
 import { onAppEvent } from './events';
 import { createSetting } from '@plugin-sdk/renderer/settings';
 
-/** Results shown in the top-bar dropdown. */
+/** Results shown in the Search panel (the phone's dropdown). */
 const RESULT_LIMIT = 30;
 /** Wait for a pause in typing before querying. */
 const QUERY_DEBOUNCE_MS = 150;
@@ -35,13 +35,18 @@ export const [searchHits, setSearchHits] = createSignal<SearchHit[]>([]);
 export const [searchOpen, setSearchOpen] = createSignal(false);
 /** The results' order; Relevance alone lets plugins' search rankers reorder them. */
 export const [searchSort, storeSearchSort] = createSetting<SearchSort>(SETTINGS_KEYS.searchSort, DEFAULT_SEARCH_SORT, normalizeSearchSort);
-/** Bumped to move focus into the search field (frame/Search follows it). */
-export const [searchFocusRequests, setSearchFocusRequests] = createSignal(0);
+/** A focus request no search field has taken yet. */
+const [searchFocusPending, setSearchFocusPending] = createSignal(false);
+export { searchFocusPending };
 
-/** The search shortcut: opens the panel first, so a shell that puts the field away until then (the phone) shows it, then focuses it. */
-export function focusSearch(): void {
-  setSearchOpen(true);
-  setSearchFocusRequests((n) => n + 1);
+/** The field that took focus clears the request. */
+export function searchFocusTaken(): void {
+  setSearchFocusPending(false);
+}
+
+/** Requests focus when a search field is available. */
+export function requestSearchFocus(): void {
+  setSearchFocusPending(true);
 }
 
 /** This window's searches: each new one cancels the one before it in core, so typing never queues stale scans. */
@@ -76,12 +81,6 @@ export function querySearch(text: string): void {
       }, RANK_PAUSE_MS);
     }, () => undefined); // cancelled by a newer search, or by a privacy change, which searches again
   }, QUERY_DEBOUNCE_MS);
-}
-
-/** Shows a whole query from outside the field (a saved search, a person's messages): its terms finished, as chips. */
-export function showSearch(query: string): void {
-  querySearch(query.trim() ? `${query.trim()} ` : '');
-  focusSearch();
 }
 
 /** Changes the results' order and searches again in it. */

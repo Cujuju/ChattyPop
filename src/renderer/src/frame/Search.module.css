@@ -1,4 +1,4 @@
-/* Top-bar search field/popover styles. Selected options use aria-selected; Discord hides while the panel is open. */
+/* Search field and list styles, for the phone's dropdown and the Search panel. Selected options use aria-selected; Discord hides while the dropdown is open. */
 
 .root {
   position: relative;
@@ -66,24 +66,28 @@
   outline: none;
 }
 
-/* With cp-popover. A two-column grid: filter rows are subgrids, so every description lines up after the widest token. */
+/* The list, in a dropdown or a panel body. A two-column grid: filter rows are subgrids, so every description lines up after the widest token. */
+.list {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  margin: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.list > li {
+  grid-column: 1 / -1;
+}
+
+/* With cp-popover: the list as a dropdown under the field. */
 .results {
   position: absolute;
   top: calc(100% + var(--cp-space-2));
   left: 0;
   right: 0;
   z-index: var(--cp-z-popover);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-content: start;
   max-height: calc(100vh - var(--cp-topbar-h) * 2);
-  margin: 0;
-  overflow-y: auto;
-  list-style: none;
-}
-
-.results > li {
-  grid-column: 1 / -1;
 }
 
 /* A channel's run of results: its server's icon, its sigil and name, then its server, ruled off from the run above. */

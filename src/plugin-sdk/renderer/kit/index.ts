@@ -148,7 +148,8 @@ export {
 /** Opens Settings where the owner left it. */
 export const openSettings = (): void => void setSettingsOpen(true);
 export { usdPerQuestion, projectedJevUsd } from '@/state/jevSpend';
-export { querySearch, setSearchOpen, showSearch } from '@/state/search';
+export { querySearch } from '@/state/search';
+export { setSearchShown as setSearchOpen, showSearch } from '@/state/searchPanel';
 export { openMessageMenuById } from '@/state/messageActions';
 export { showJevQuery } from '@/state/jevNavigation';
 export { jevSwitch, type JevSwitch } from './jevSwitch';

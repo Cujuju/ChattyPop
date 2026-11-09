@@ -10,6 +10,7 @@ import { PluginPanelSlot } from './plugin/PluginPanelSlot';
 import { ChannelsPanel } from './channels';
 import { ChatPanel } from './chat';
 import { BookmarksPanel } from './bookmarks';
+import { SearchPanel } from './search';
 import { StatusBarPanel } from './status-bar';
 import { Contained, contained } from '@/ui/contained';
 
@@ -22,6 +23,7 @@ const COMPONENTS: Record<PanelId, Component> = {
   channels: ChannelsPanel,
   chat: ChatPanel,
   bookmarks: BookmarksPanel,
+  search: SearchPanel,
   'status-bar': StatusBarPanel,
 };
 

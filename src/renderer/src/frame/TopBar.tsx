@@ -24,7 +24,6 @@ import { openContextMenu, setSettingsOpen } from '@/state/ui';
 import { EyeIcon } from '@/ui/EyeIcon';
 import { TopBarButton } from './TopBarButton';
 import { SectionIcon } from '@/ui/SectionIcon';
-import { Search } from './Search';
 import { Icon } from '@/ui/icons';
 import { HeaderButton } from '@/ui/PanelHeader';
 import { look } from '@/theme/look';
@@ -179,13 +178,11 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   },
 ];
 
-/** Fixed app frame contains search, panel toolbar, a live-updates warning, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
+/** Fixed app frame contains the panel toolbar (Search among its panels), a live-updates warning, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
   return (
     <header class={styles.root}>
-      <div class={styles.start}>
-        <Search />
-      </div>
+      <div class={styles.start} />
       <PanelToolbar />
       <div class={styles.end}>
         <LiveUpdatesWarning />
