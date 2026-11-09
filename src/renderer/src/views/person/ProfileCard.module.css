@@ -98,6 +98,24 @@
   height: var(--cp-profile-badge);
 }
 
+/* Badge-sized, so it sits in the row without growing it. */
+.copyId {
+  display: inline-grid;
+  place-content: center;
+  padding: var(--cp-space-1);
+  cursor: pointer;
+}
+
+.copyId:hover {
+  background: var(--cp-surface-hover);
+  color: var(--cp-text-1);
+}
+
+.copyIdIcon {
+  width: var(--cp-profile-badge);
+  height: var(--cp-profile-badge);
+}
+
 .actions {
   display: flex;
   gap: var(--cp-space-4);

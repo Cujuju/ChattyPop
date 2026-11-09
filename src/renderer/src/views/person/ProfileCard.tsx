@@ -13,6 +13,7 @@ import { ServerTag } from '@/panels/chat/AuthorName';
 import { hexColor } from '@/panels/chat/MessageExtras';
 import { shortDateTime, yearDate } from '@/ui/format';
 import { GuildIcon } from '@/ui/GuildIcon';
+import { Icon } from '@/ui/icons';
 import { Markdown } from '@/ui/Markdown';
 import { SolidIcon } from '@/ui/solidIcons';
 import { ensureNameFont } from '@/ui/nameFonts';
@@ -25,6 +26,10 @@ function message(userId: string): void {
     .then(closePerson)
     .catch(failureNotice("Couldn't open the DM"));
 }
+
+const copyId = (userId: string): void => {
+  navigator.clipboard.writeText(userId).catch(failureNotice("Couldn't copy the user ID"));
+};
 
 export function ProfileCard(props: { p: PersonProfile }) {
   const d = (): DiscordProfile | null => discordProfile.value();
@@ -58,6 +63,9 @@ export function ProfileCard(props: { p: PersonProfile }) {
             <For each={d()?.badges ?? []}>
               {(b) => <img class={styles.badge} src={badgeUrl(b.icon)} alt={b.description} title={b.description} />}
             </For>
+            <button type="button" class={`${styles.copyId} ${look.iconButton}`} aria-label="Copy user ID" title="Copy user ID" onClick={() => copyId(props.p.id)}>
+              <Icon name="id" class={styles.copyIdIcon} />
+            </button>
           </div>
         </div>
       </div>
