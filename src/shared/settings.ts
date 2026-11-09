@@ -29,12 +29,7 @@ export const SETTINGS_KEYS = {
   archiveDensity: 'archive.density',
   /** The chosen panel layout, the owner's own layouts, folded panels and the folded sidebar (state/layout.ts). */
   layoutTiles: 'layout.tiles',
-  layoutPreset: 'layout.preset',
-  layoutCustom: 'layout.custom',
-  layoutCollapsedPanels: 'layout.collapsedPanels',
-  layoutSidebarCollapsed: 'layout.sidebarCollapsed',
   /** Panels picked in tab groups, most recent first (state/layout.ts). */
-  layoutTabPicks: 'layout.tabPicks',
   /** Channels whose threads show under them in channel lists; the rest are folded (renderer state/threadFolds.ts). */
   threadsOpen: 'channels.threadsOpen',
   /** Servers mode lists every server to choose channels (state/layout.ts). */

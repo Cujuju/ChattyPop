@@ -75,10 +75,7 @@ describe('phone settings', () => {
     'archive.density': 'compact',
     archive: { backfillHistory: { unit: 'days', amount: 7 }, reverifyChannelIds: ['c1'], attachmentCapGb: 5 },
     ai: { defaultProvider: 'claude', providers: { claude: { enabled: true } }, jev: { catchUpBadges: true }, ollamaUrl: 'http://pc:11434', jevConnection: 'typesafe' },
-    'layout.preset': 'reading',
-    'layout.custom': { mine: { name: 'Mine' } },
-    'layout.collapsedPanels': ['stats'],
-    'layout.sidebarCollapsed': true,
+    'layout.tiles': { kind: 'tile', id: 'chat' },
     'layout.sizes': { a: 1 },
     'layout.windows': { a: { x: 1 } },
     notifications: { desktop: false },
@@ -118,7 +115,7 @@ describe('phone settings', () => {
       await gateway.call('core', 'setSetting', [key, value]);
       expect(core.call, key).toHaveBeenLastCalledWith('setSetting', key, value);
     }
-    for (const key of [SETTINGS_KEYS.privacyMode, SETTINGS_KEYS.archiveDensity, SETTINGS_KEYS.layoutPreset, SETTINGS_KEYS.settingsTab, 'plugin.gone.settings', 'layout.sizes']) {
+    for (const key of [SETTINGS_KEYS.privacyMode, SETTINGS_KEYS.archiveDensity, SETTINGS_KEYS.layoutTiles, SETTINGS_KEYS.settingsTab, 'plugin.gone.settings', 'layout.sizes']) {
       await expect(gateway.call('core', 'setSetting', [key, true]), key).rejects.toBeInstanceOf(PhoneCallRefused);
     }
     expect(core.call).toHaveBeenCalledTimes(3);

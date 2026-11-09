@@ -32,9 +32,8 @@ interface LayoutState {
 const state = async (): Promise<LayoutState> => import(statePath);
 beforeEach(() => { vi.resetModules(); host.settings.clear(); host.writes = []; });
 
-it('resets a migrated custom layout to the persisted default tree', async () => {
-  host.settings.set('layout.preset', 'custom-1');
-  host.settings.set('layout.custom', { 'custom-1': { version: 1, name: 'Saved', root: { kind: 'panel', id: 'chat' } } });
+it('resets a saved layout to the persisted default tree', async () => {
+  host.settings.set('layout.tiles', { kind: 'tile', id: 'chat' });
   const layout = await state();
   const { DEFAULT_TILES } = await import('../src/renderer/src/layout/presets');
   expect(layout.shownTiles()).toEqual({ kind: 'tile', id: 'chat' });
@@ -62,12 +61,11 @@ it('separates the channels rail from folds and only writes the additive tile set
   expect(layout.sidebarCollapsed()).toBe(false);
 });
 
-it('ignores garbage saved tiles and custom layouts without writing legacy settings', async () => {
+it('shows the default for garbage saved tiles, without writing', async () => {
   host.settings.set('layout.tiles', { garbage: true });
-  host.settings.set('layout.custom', { 'custom-1': 'garbage' });
-  host.settings.set('layout.preset', 'custom-1');
   const layout = await state();
-  expect(layout.shownTiles()).toBeDefined();
+  const { DEFAULT_TILES } = await import('../src/renderer/src/layout/presets');
+  expect(layout.shownTiles()).toEqual(DEFAULT_TILES);
   expect(host.writes).toEqual([]);
 });
 

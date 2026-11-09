@@ -1,35 +1,12 @@
 vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 import { expect, it, vi } from 'vitest';
 import { findSlot, normalize, resizeSplit, setActiveTab, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
-import { convertLegacyNode, foldPanel, migrateLegacy } from '../src/renderer/src/layout/legacy';
 import { DEFAULT_TILES, buildDefaultTiles } from '../src/renderer/src/layout/presets';
-import { restoreHidden, shownTree } from '../src/renderer/src/layout/tiles';
+import { foldPanel, restoreHidden, shownTree } from '../src/renderer/src/layout/tiles';
 import type { LayoutNode } from '../src/renderer/src/layout/types';
 
 const tile = (id: string): TileNode => ({ kind: 'tile', id });
 const panel = (id: string): LayoutNode => ({ kind: 'panel', id });
-
-it('converts custom v1 tabs, auto shares and overrides, dropping retired and frame panels', () => {
-  const root: LayoutNode = { kind: 'split', dir: 'column', sizes: [2, 'auto', 4], children: [
-    { kind: 'tabs', active: 1, children: [{ kind: 'panel', id: 'unknown' }, { kind: 'panel', id: 'chat' }] },
-    panel('channels'),
-    { kind: 'split', dir: 'row', sizes: [1, 1, 1, 1], children: ['status-bar', 'topics', 'rules', 'sync-status'].map(panel) },
-  ] };
-  const migrated = migrateLegacy('custom-1', { 'custom-1': { version: 1, name: 'Saved', root } },
-    { 'custom-1': { '': [6, 2] } }, false, [], DEFAULT_TILES);
-  expect(migrated).toEqual({ kind: 'split', dir: 'column', sizes: [1, 4 / 6], children: [
-    { kind: 'tabs', active: 1, children: [tile('unknown'), tile('chat')] }, tile('channels'),
-  ] });
-  expect(normalize(convertLegacyNode(panel('unknown')))).toEqual(tile('unknown'));
-});
-
-it('falls back for garbage settings and former built-in preset selections', () => {
-  for (const garbage of [null, false, [], 'invalid', { 'custom-1': { version: 1, root: null } }]) {
-    expect(() => normalize(garbage)).not.toThrow();
-    expect(migrateLegacy('custom-1', garbage, garbage, false, [], DEFAULT_TILES)).toBe(DEFAULT_TILES);
-  }
-  expect(migrateLegacy('tabbed', {}, {}, false, [], DEFAULT_TILES)).toBe(DEFAULT_TILES);
-});
 
 it('places declarations anchored to the status bar before removing the fixed frame slot', () => {
   const root = buildDefaultTiles([{ id: 'probe', title: 'Probe', importance: 'primary', dialog: false,

@@ -1,5 +1,5 @@
 import {
-  appendTile, findSlot, insertTile, moveTab, removeTile, setActiveTab, setSlotCollapsed, tileIds,
+  appendTile, canCollapse, findSlot, insertTile, moveTab, removeTile, setActiveTab, setSlotCollapsed, tileIds,
   type TileNode, type TileSlot, type TileSplit,
 } from '@cujuju/solidjs-tiling-window-manager';
 
@@ -102,4 +102,10 @@ export function restoreHidden(stored: TileNode, next: TileNode | undefined, hidd
   };
   visit(stored, []);
   return result;
+}
+
+/** Folds a panel's slot to its header: toward the top, else the bottom, where the toolkit allows; else unchanged. */
+export function foldPanel(root: TileNode, id: string): TileNode {
+  const edge = (['top', 'bottom'] as const).find((side) => canCollapse(root, id, side).allowed);
+  return edge ? setSlotCollapsed(root, id, edge) : root;
 }

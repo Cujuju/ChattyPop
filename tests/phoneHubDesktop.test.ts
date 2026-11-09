@@ -71,7 +71,7 @@ describe('remote desktop events and pairing', () => {
     expect(to.broadcastDesktop.mock.calls.map(([e]) => (e as { name: string }).name)).toEqual(['desk']);
     expect(to.broadcast.mock.calls.map(([e]) => (e as { name: string }).name)).toEqual(['pocket']);
     // A desktop keeps its layout for itself: the server's change isn't its.
-    hub.broadcast({ type: 'setting-changed', key: SETTINGS_KEYS.layoutPreset, value: 'reading' });
+    hub.broadcast({ type: 'setting-changed', key: SETTINGS_KEYS.layoutTiles, value: { kind: 'tile', id: 'chat' } });
     expect(to.broadcastDesktop).toHaveBeenCalledTimes(1);
   });
 

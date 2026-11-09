@@ -16,10 +16,3 @@ export interface PanelRef {
   kind: 'panel';
   id: LayoutPanelId;
 }
-
-/** Persisted layout document. Bump `version` when the node shape changes. */
-export interface LayoutDoc {
-  version: 1;
-  name: string;
-  root: LayoutNode;
-}

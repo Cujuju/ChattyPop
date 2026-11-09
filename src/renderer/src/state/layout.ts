@@ -7,28 +7,20 @@ import {
 import { bundledPanel } from '@shared/bundledPlugins';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { DEFAULT_TILES } from '@/layout/presets';
-import { foldPanel, migrateLegacy } from '@/layout/legacy';
-import { restoreHidden, shownTree } from '@/layout/tiles';
+import { foldPanel, restoreHidden, shownTree } from '@/layout/tiles';
 import type { LayoutPanelId } from '@/layout/types';
 import { panelOwnerOff } from '@/layout/visibility';
 import { createSetting, sameIds } from '@plugin-sdk/renderer/settings';
 import { pluginActive, plugins } from './plugins';
 import { isDialogPanel, openPanelDialog, openPanelWindow, outsideLayout, setPlacingPanel } from './ui';
 
-// Legacy settings are read only: other worktrees still use their original format.
-const [legacyPreset] = createSetting<unknown>(SETTINGS_KEYS.layoutPreset, null, (v) => v);
-const [legacyCustom] = createSetting<unknown>(SETTINGS_KEYS.layoutCustom, null, (v) => v);
-const [legacySizes] = createSetting<unknown>('layout.sizes', null, (v) => v);
-const [legacySidebar] = createSetting<unknown>(SETTINGS_KEYS.layoutSidebarCollapsed, false, (v) => v);
-const [legacyCollapsed] = createSetting<unknown>(SETTINGS_KEYS.layoutCollapsedPanels, null, (v) => v);
 const [savedTiles, saveTiles] = createSetting<TileNode | null>(SETTINGS_KEYS.layoutTiles, null, (v) => normalizeTiles(v));
 
 function normalizeTiles(v: unknown): TileNode | null {
   const root = normalize(v);
   return (root && removeTile(root, 'status-bar')) ?? null;
 }
-const base = containedRoot(() => createMemo(() => migrateLegacy(legacyPreset(), legacyCustom(), legacySizes(), legacySidebar(), legacyCollapsed(), DEFAULT_TILES)));
-const storedTiles = (): TileNode => savedTiles() ?? base();
+const storedTiles = (): TileNode => savedTiles() ?? DEFAULT_TILES;
 const hiddenIds = containedRoot(() => createMemo(() => tileIds(storedTiles()).filter((id) =>
   panelOwnerOff(id, (panel) => bundledPanel(panel)?.pluginId, pluginActive, plugins())), [], { equals: sameIds }));
 /** The stored tile tree with inactive plugin panels hidden. */

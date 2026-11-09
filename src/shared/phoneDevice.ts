@@ -15,7 +15,6 @@ export const isPhoneDeviceSetting = (key: string): boolean => Object.hasOwn(PHON
 
 /** Host settings that are one window's own place (open tabs, filters, recent channels): the phone neither reads nor writes the PC's. */
 export const PHONE_UNSHARED_SETTINGS: readonly string[] = [
-  SETTINGS_KEYS.layoutTabPicks,
   SETTINGS_KEYS.channelsBrowsing,
   SETTINGS_KEYS.dmFilter,
   SETTINGS_KEYS.settingsTab,

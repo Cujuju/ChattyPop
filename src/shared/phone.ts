@@ -163,10 +163,6 @@ export const PHONE_HOST_SETTINGS: Readonly<Record<string, PhoneSettingShare>> = 
   [SETTINGS_KEYS.archiveDensity]: 'view',
   // Which panels are placed and folded decides whether a panel shows its body, on the phone as on the desktop.
   [SETTINGS_KEYS.layoutTiles]: 'view',
-  [SETTINGS_KEYS.layoutPreset]: 'view',
-  [SETTINGS_KEYS.layoutCustom]: 'view',
-  [SETTINGS_KEYS.layoutCollapsedPanels]: 'view',
-  [SETTINGS_KEYS.layoutSidebarCollapsed]: 'view',
   [SETTINGS_KEYS.threadsOpen]: 'view',
   // The account's chat settings as Discord holds them: written only from Discord, so a phone's change goes there (setChatSettings).
   [SETTINGS_KEYS.discordChat]: 'view',

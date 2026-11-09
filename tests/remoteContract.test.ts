@@ -78,7 +78,7 @@ describe('remote desktop events', () => {
   it("gets the server's setting changes except those it keeps for itself", () => {
     const shared = { type: 'setting-changed', key: SETTINGS_KEYS.appearance, value: {} } as const;
     expect(remote.remoteAppEvent(shared)).toEqual(shared);
-    expect(remote.remoteAppEvent({ type: 'setting-changed', key: SETTINGS_KEYS.layoutPreset, value: 'reading' })).toBeNull();
+    expect(remote.remoteAppEvent({ type: 'setting-changed', key: SETTINGS_KEYS.layoutTiles, value: { kind: 'tile', id: 'chat' } })).toBeNull();
     expect(remote.remoteAppEvent({ type: 'status-changed' })).toEqual({ type: 'status-changed' });
   });
 });

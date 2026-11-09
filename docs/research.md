@@ -209,7 +209,7 @@ Principle: a redesign (layout, look, or both) should touch only the view layer: 
   - Panels talk to each other only through stores or app commands (e.g. `openCitation(messageId)`), never by importing one another.
   - Icons go through one `Icon` component, so the icon set can be swapped.
 - **Live Discord pane**: the `chat` panel reports its slot bounds (ResizeObserver → IPC → `WebContentsView.setBounds`) and visibility, so it follows any layout.
-- **Docking**: drag a header onto a tile's edge to dock, its middle to swap or tab, another header to tab; drag it out of the window to open it in its own window. The status bar is the app frame below the tiles, never a tile. Older saved layouts (`layout.custom`, read only) convert on first load; a built-in preset choice becomes the default.
+- **Docking**: drag a header onto a tile's edge to dock, its middle to swap or tab, another header to tab; drag it out of the window to open it in its own window. The status bar is the app frame below the tiles, never a tile.
 
 ## 11. Spikes (before building)
 1. `better-sqlite3-multiple-ciphers` + FTS5 loads in an Electron 44 utilityProcess (and packaged, `asarUnpack`).

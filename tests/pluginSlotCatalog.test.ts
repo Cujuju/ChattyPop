@@ -1,13 +1,13 @@
 // Slot items: host-stamped ids, one catalog over every plugin folder, and ids a phone or a layout stored before stamping.
+vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 import { describe, expect, it, vi } from 'vitest';
 import { definePlugin, type Adoption, type SlotDecls } from '@plugin-sdk/shared';
 import { HOST_PANELS } from '@shared/anchors';
 import { anchorCatalog, catalogSlotAnchor, checkBundled } from '@shared/bundledCheck';
 import { adoptedPhoneSection, bundledPanel, slotAnchor } from '@shared/bundledPlugins';
 import { frameSlots, phoneSectionOf, type FrameSlotEntry, type PhoneSection } from '../src/renderer/src/plugins/frameSlots';
-import { isLayoutDoc, panelIds } from '../src/renderer/src/layout/tree';
+import { normalize, tileIds } from '@cujuju/solidjs-tiling-window-manager';
 import { panelOwnerOff } from '../src/renderer/src/layout/visibility';
-import type { LayoutDoc } from '../src/renderer/src/layout/types';
 import { P1_PLUGINS, digest, inbox, labels } from './p1Plugins';
 
 // This build: the fixture plugins.
@@ -110,25 +110,20 @@ describe('phone sections a phone stored before ids were stamped', () => {
 });
 
 it('a saved desktop layout keeps its panels', () => {
-  // Shaped like a profile's `layout.custom` entry: panel ids, which slot ids never replace.
+  // Shaped like a profile's `layout.tiles`: panel ids, which slot ids never replace.
   const saved: unknown = {
-    version: 1,
-    name: 'Custom 1',
-    root: {
-      kind: 'split',
-      dir: 'row',
-      sizes: [1, 3, 1],
-      children: [
-        { kind: 'panel', id: 'channels' },
-        { kind: 'split', dir: 'column', sizes: [2, 1], children: [{ kind: 'panel', id: 'chat' }, { kind: 'tabs', active: 1, children: [{ kind: 'panel', id: 'inbox' }, { kind: 'panel', id: 'summary' }] }] },
-        { kind: 'split', dir: 'column', sizes: [1, 1, 'auto'], children: [{ kind: 'panel', id: 'meter' }, { kind: 'panel', id: 'labels' }, { kind: 'panel', id: 'status-bar' }] },
-      ],
-    },
+    kind: 'split',
+    dir: 'row',
+    sizes: [1, 3, 1],
+    children: [
+      { kind: 'tile', id: 'channels' },
+      { kind: 'split', dir: 'column', sizes: [2, 1], children: [{ kind: 'tile', id: 'chat' }, { kind: 'tabs', active: 1, children: [{ kind: 'tile', id: 'inbox' }, { kind: 'tile', id: 'summary' }] }] },
+      { kind: 'split', dir: 'column', sizes: [1, 1], children: [{ kind: 'tile', id: 'meter' }, { kind: 'tile', id: 'labels' }] },
+    ],
   };
-  expect(isLayoutDoc(saved)).toBe(true);
-  const root = (saved as LayoutDoc).root;
-  const owned = panelIds(root).filter((id) => !(HOST_PANELS as readonly string[]).includes(id));
+  const ids = tileIds(normalize(saved));
+  const owned = ids.filter((id) => !(HOST_PANELS as readonly string[]).includes(id));
   expect(owned.map((id) => bundledPanel(id)?.pluginId)).toEqual(['inbox', 'digest', 'meter', 'labels']);
   const hidden = (id: string) => panelOwnerOff(id, (panel) => bundledPanel(panel)?.pluginId, () => true, []);
-  expect(panelIds(root).filter(hidden)).toEqual([]);
+  expect(ids.filter(hidden)).toEqual([]);
 });
