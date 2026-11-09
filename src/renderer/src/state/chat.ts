@@ -37,14 +37,19 @@ export function bindDiscordSlot(el: HTMLElement, visible: Accessor<boolean>): vo
     const r = el.getBoundingClientRect();
     api.discord.setSlot({ visible: visible() && el.isConnected && !windowsCover(r), x: r.left, y: r.top, width: r.width, height: r.height });
   };
-  // The slot moves when any ancestor resizes (splits, tab switches, window), so observe the whole chain.
+  // Ancestor resizing and inline positioning both move the slot, so observe geometry and style changes along the whole chain.
   const observer = new ResizeObserver(report);
-  for (let n: HTMLElement | null = el; n; n = n.parentElement) observer.observe(n);
+  const mutations = new MutationObserver(report);
+  for (let n: HTMLElement | null = el; n; n = n.parentElement) {
+    observer.observe(n);
+    mutations.observe(n, { attributes: true, attributeFilter: ['style'] });
+  }
   listen(window, 'resize', report);
   createEffect(report);
   createEffect(() => api.discord.setSidebar(discordSidebar()));
   onCleanup(() => {
     observer.disconnect();
+    mutations.disconnect();
     api.discord.setSlot({ visible: false, x: 0, y: 0, width: 0, height: 0 });
   });
 }
