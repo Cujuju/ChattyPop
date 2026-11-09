@@ -98,8 +98,7 @@ describe('conflict refusal', () => {
     expect(rebindRefusal('switcher', SPACE, current({ switcher: 'p' }), SPACE)).toBeNull();
   });
 
-  it('refuses the layout digits, lone modifiers and Escape', () => {
-    expect(rebindRefusal('live', '3', current(), SPACE)).not.toBeNull();
+  it('refuses lone modifiers and Escape', () => {
     for (const key of ['Shift', 'Control', 'Alt', 'Meta', 'Escape']) expect(rebindRefusal('live', key, current(), SPACE)).not.toBeNull();
   });
 
@@ -132,11 +131,5 @@ describe('dispatcher lookup', () => {
     expect(shortcutTarget('j', bound)).toBeNull();
     expect(shortcutTarget(SPACE, bound)).toEqual({ kind: 'host', id: 'switcher' });
     expect(shortcutTarget('Tab', bound)).toEqual({ kind: 'host', id: 'back' });
-  });
-
-  it('keeps the layout digits as a fixed group', () => {
-    const bound = effectiveBindings(DEFS, {}, SPACE);
-    expect(shortcutTarget('1', bound)).toEqual({ kind: 'layout', index: 0 });
-    expect(shortcutTarget('9', bound)).toEqual({ kind: 'layout', index: 8 });
   });
 });

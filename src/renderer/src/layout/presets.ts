@@ -3,9 +3,11 @@ import { bundledPanels } from '@shared/bundledPlugins';
 import type { PanelDecl } from '@shared/bundledTypes';
 import { placePresetPanels } from './presetPanels';
 import { collapseSingles } from './tree';
-import { projectLayout } from './visibility';
+import { normalize, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { convertLegacyNode } from './legacy';
+import { removePanel, panelIds } from './tree';
 import { PANEL_TITLES } from '../panels/titles';
-import type { LayoutDoc, LayoutNode, LayoutPanelId, PanelRef, SplitSize } from './types';
+import type { LayoutNode, LayoutPanelId, PanelRef, SplitSize } from './types';
 
 /** Presets include built-in and bundled panels. Unavailable plugin panels collapse out; tests validate ids against possible build panels. */
 const panel = (id: LayoutPanelId): PanelRef => ({ kind: 'panel', id });
@@ -20,51 +22,15 @@ const WORKSPACE_SHARE = 5;
 
 const insightRow = row([3, 2, 2], col(['auto'], panel('provider')), panel('alerts'), panel('links'));
 
-const HOST_PRESETS: Record<'stacked' | 'side-by-side' | 'tabbed', LayoutDoc> = {
-  stacked: {
-    version: 1,
-    name: 'Stack',
-    root: col([1, 'auto'], row([SIDEBAR_SHARE, WORKSPACE_SHARE], sidebar, col([2, 3], insightRow, panel('chat'))), panel('status-bar')),
-  },
-  'side-by-side': {
-    version: 1,
-    name: 'Side',
-    root: col(
-      [1, 'auto'],
-      row(
-        [SIDEBAR_SHARE, 2, 3],
-        sidebar,
-        col(['auto', 2, 2], panel('provider'), panel('alerts'), panel('links')),
-        panel('chat'),
-      ),
-      panel('status-bar'),
-    ),
-  },
-  tabbed: {
-    version: 1,
-    name: 'Tabs',
-    root: col(
-      [1, 'auto'],
-      row([SIDEBAR_SHARE, WORKSPACE_SHARE], sidebar, {
-        kind: 'tabs',
-        active: 0,
-        children: [panel('chat'), panel('links'), panel('alerts'), panel('provider')],
-      }),
-      panel('status-bar'),
-    ),
-  },
-};
+const STACKED = col([1, 'auto'], row([SIDEBAR_SHARE, WORKSPACE_SHARE], sidebar, col([2, 3], insightRow, panel('chat'))), panel('status-bar'));
 
-export type PresetId = keyof typeof HOST_PRESETS;
-
-/** Presets keep declared plugin positions; build-excluded anchors disappear after placement. Runtime visibility never changes these trees. */
-export function buildPresets(panels: readonly PanelDecl[]): Record<PresetId, LayoutDoc> {
+/** Plugin declarations are placed before unavailable anchors and the fixed status bar disappear. */
+export function buildDefaultTiles(panels: readonly PanelDecl[]): TileNode {
   const available = new Set([...Object.keys(PANEL_TITLES), ...panels.map((p) => p.id)]);
-  return Object.fromEntries(Object.entries(HOST_PRESETS).map(([id, doc]) => [id, {
-    ...doc,
-    root: projectLayout(collapseSingles(placePresetPanels(doc.root, id, panels)), (panel) => !available.has(panel)).root!,
-  }])) as Record<PresetId, LayoutDoc>;
+  let root: LayoutNode | null = collapseSingles(placePresetPanels(STACKED, 'stacked', panels));
+  for (const id of panelIds(root)) if (!available.has(id)) root = root && removePanel(root, id);
+  return normalize(root && convertLegacyNode(root))!;
 }
 
-/** Layouts for the panels included in this build. */
-export const PRESETS = buildPresets(bundledPanels());
+export const DEFAULT_TILES = buildDefaultTiles(bundledPanels());
+export const DEFAULT_PANEL_IDS: ReadonlySet<string> = new Set(tileIds(DEFAULT_TILES));

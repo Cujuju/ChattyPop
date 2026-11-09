@@ -30,9 +30,9 @@ export type HostPersonTabId = (typeof HOST_PERSON_TABS)[number];
 export const HOST_SETTINGS_PAGES = ['ai', 'archive'] as const satisfies readonly HostSettingsTabId[];
 export type SettingsPageId = (typeof HOST_SETTINGS_PAGES)[number];
 
-/** Shortcuts follow status-hint order. Owner rebinds keys except fixed layout digits; double leader opens switcher. Plugin shortcuts use other lowercase letters. */
+/** Shortcuts follow status-hint order. Layout remains an anchor without keys; double leader opens switcher. Owner rebinds host and plugin keys. */
 export const HOST_SHORTCUTS = {
-  layout: ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
+  layout: [],
   live: ['a'],
   search: ['/'],
   switcher: [],

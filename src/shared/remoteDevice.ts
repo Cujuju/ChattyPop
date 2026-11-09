@@ -8,6 +8,7 @@ import { SETTINGS_KEYS } from './settings';
  */
 export const REMOTE_DEVICE_SETTINGS: readonly string[] = [
   ...PHONE_UNSHARED_SETTINGS,
+  SETTINGS_KEYS.layoutTiles,
   SETTINGS_KEYS.layoutPreset,
   SETTINGS_KEYS.layoutCustom,
   SETTINGS_KEYS.layoutCollapsedPanels,

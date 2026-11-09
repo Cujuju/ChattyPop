@@ -1,3 +1,4 @@
+vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Renderer ordering contracts: live-label snapshots, template and panel-menu order, preset splits (fixture plugins).
 import { expect, it, vi } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
@@ -6,8 +7,9 @@ import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { labelRefresher } from '../src/main/plugins/labelAvailability';
 import { declaredItems, placeSlot } from '../src/renderer/src/plugins/slotItems';
 import { optionalPanelsFirst } from '../src/renderer/src/layout/menuOrder';
-import { buildPresets } from '../src/renderer/src/layout/presets';
-import { collapseSingles, panelIds, removePanel } from '../src/renderer/src/layout/tree';
+import { tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { buildDefaultTiles } from '../src/renderer/src/layout/presets';
+import { collapseSingles, removePanel } from '../src/renderer/src/layout/tree';
 import { PANEL_TITLES } from '../src/renderer/src/panels/titles';
 import type { LayoutNode } from '../src/renderer/src/layout/types';
 import { DIGEST_PANEL, EXTRA_PANEL, FIXTURE_PLUGINS, NOTES_PANEL, USAGE_PANEL, panelsOf } from './p2Fixtures';
@@ -65,7 +67,7 @@ it('orders the top bar and Add-below menu by panel anchors and collapses splits 
   const withoutDigest = placeByAnchor<string>(Object.keys(PANEL_TITLES), fixtureIds.filter((id) => id !== DIGEST_PANEL), (id) => id, panelAnchor);
   expect(withoutDigest).toEqual(order.filter((id) => id !== DIGEST_PANEL));
   const detachable = order.filter((id) => !(id in PANEL_TITLES));
-  const presetIds = new Set(Object.values(buildPresets(panelsOf(FIXTURE_PLUGINS))).flatMap((preset) => panelIds(preset.root)));
+  const presetIds = new Set(tileIds(buildDefaultTiles(panelsOf(FIXTURE_PLUGINS))));
   expect(optionalPanelsFirst(detachable, presetIds)).toEqual([NOTES_PANEL, EXTRA_PANEL, DIGEST_PANEL, USAGE_PANEL]);
   const missing: LayoutNode = { kind: 'split', dir: 'row', sizes: [3, 2], children: [
     { kind: 'split', dir: 'column', sizes: ['auto'], children: [{ kind: 'panel', id: USAGE_PANEL }] },
@@ -76,10 +78,10 @@ it('orders the top bar and Add-below menu by panel anchors and collapses splits 
     { kind: 'panel', id: 'chat' },
   ] };
   expect(collapseSingles(missing)).toEqual(removePanel(enabled, DIGEST_PANEL));
-  const normalized = (node: LayoutNode): void => {
-    if (node.kind === 'panel') return;
+  const normalized = (node: TileNode): void => {
+    if (node.kind === 'tile') return;
     if (node.kind === 'split') expect(node.children.length).not.toBe(1);
     node.children.forEach(normalized);
   };
-  for (const preset of Object.values(buildPresets([]))) normalized(preset.root);
+  normalized(buildDefaultTiles([]));
 });

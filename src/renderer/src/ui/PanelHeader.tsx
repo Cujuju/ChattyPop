@@ -1,10 +1,12 @@
 import { Show, createContext, splitProps, useContext, type JSX } from 'solid-js';
-import { movable, panelDragProps, panelMenu } from '@/layout/panelMenu';
-import { isPanelCollapsed, isPlaced, setPanelCollapsed } from '@/state/layout';
-import { openContextMenu, outsideLayout } from '@/state/ui';
+import { TabStrip } from '@cujuju/solidjs-tiling-window-manager';
+import { panelMenu, titleOf } from '@/layout/panelMenu';
+import { useTile } from '@/layout/tileContext';
+import { canFoldPanel, isPanelCollapsed, isPlaced, setPanelCollapsed } from '@/state/layout';
+import { openContextMenu } from '@/state/ui';
 import type { LayoutPanelId } from '@/layout/types';
-import type { SectionId } from '@/panels/titles';
-import { SectionIcon } from './SectionIcon';
+import { sectionOf, type SectionId } from '@/panels/titles';
+import { SectionGlyph, SectionIcon } from './SectionIcon';
 import { look } from '@/theme/look';
 import styles from './PanelHeader.module.css';
 
@@ -29,43 +31,62 @@ export function PanelHeader(props: {
   children?: JSX.Element;
 }) {
   const titledByWindow = useContext(TitledByWindow);
+  /** The layout tile showing this panel: the header is its grip and tab target, and shows its tab group. Null outside the layout. */
+  const tile = useTile();
   const id = (): LayoutPanelId | 'plugin' => props.panelId ?? props.section;
-  // Outside the layout the header doesn't fold or open the layout menu; in the main window's in-app windows it still drags into the layout.
-  const collapsible = (): boolean => Boolean(props.collapsible) && isPlaced(id());
+  // Outside the layout the header doesn't fold or open the layout menu.
+  const collapsible = (): boolean => Boolean(props.collapsible) && isPlaced(id()) && canFoldPanel(id());
   const collapsed = (): boolean => collapsible() && isPanelCollapsed(id());
-  /** Right-click: move this panel within the layout (see panelMenu). */
+  /** Right-click: the panel's layout menu (see panelMenu). */
   const openMenu = (e: MouseEvent): void => {
     const target = id();
     openContextMenu(e, target === 'plugin' || !isPlaced(target) ? [] : panelMenu(target));
   };
-  /** Drag: drop on another panel's edge to place it there, or its middle to swap (see LayoutRoot DropZones). */
-  const dragId = (): LayoutPanelId | null => {
-    const target = id();
-    return target !== 'plugin' && !outsideLayout && movable(target) ? target : null;
-  };
+  const tabs = () => (tile?.tabs() ? tile : null);
   return (
     <div class={styles.frame}>
-      <header class={styles.header} data-section={props.section} data-panel-color={props.panelId ?? props.section} data-collapsed={collapsed()} {...panelDragProps(dragId)} onContextMenu={openMenu}>
-        <Show when={!titledByWindow}>
-          <SectionIcon section={props.section} />
-        </Show>
-        {props.lead}
-        <Show when={!titledByWindow || props.meta}>
-          <div class={styles.titleGroup} data-meta-wraps={Boolean(props.metaWraps)}>
-            <Show when={!titledByWindow}>
-              <h2 class={styles.title}>
-                <Show when={collapsible()} fallback={props.title}>
-                  <button type="button" class={styles.toggle} aria-expanded={!collapsed()} onClick={() => setPanelCollapsed(id(), !collapsed())}>
-                    {props.title}
-                    <span class={`cp-chevron ${styles.chevron}`} aria-hidden="true" />
-                  </button>
-                </Show>
-              </h2>
-            </Show>
-            <Show when={props.meta}>
-              <span class={styles.meta}>{props.meta}</span>
-            </Show>
-          </div>
+      <header
+        class={styles.header}
+        data-section={props.section}
+        data-panel-color={props.panelId ?? props.section}
+        data-collapsed={collapsed()}
+        data-grip={tile ? '' : undefined}
+        data-twm-tab-target={tile ? '' : undefined}
+        onPointerDown={(e) => tile?.startMove(e)}
+        onContextMenu={openMenu}
+      >
+        <Show
+          when={tabs()}
+          fallback={
+            <>
+              <Show when={!titledByWindow}>
+                <SectionIcon section={props.section} />
+              </Show>
+              {props.lead}
+              <Show when={!titledByWindow || props.meta}>
+                <div class={styles.titleGroup} data-meta-wraps={Boolean(props.metaWraps)}>
+                  <Show when={!titledByWindow}>
+                    <h2 class={styles.title}>
+                      <Show when={collapsible()} fallback={props.title}>
+                        <button type="button" class={styles.toggle} aria-expanded={!collapsed()} onClick={() => setPanelCollapsed(id(), !collapsed())}>
+                          {props.title}
+                          <span class={`cp-chevron ${styles.chevron}`} aria-hidden="true" />
+                        </button>
+                      </Show>
+                    </h2>
+                  </Show>
+                  <Show when={props.meta}>
+                    <span class={styles.meta}>{props.meta}</span>
+                  </Show>
+                </div>
+              </Show>
+            </>
+          }
+        >
+          {(group) => (
+            // In a tab group the strip names every tab; dragging a tab off it docks that panel elsewhere.
+            <TabStrip class={styles.tabStrip} tile={group()} label={titleOf} icon={(tab) => <SectionGlyph section={sectionOf(tab)} class={styles.tabIcon} />} />
+          )}
         </Show>
         {props.children}
       </header>

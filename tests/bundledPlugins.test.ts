@@ -1,3 +1,4 @@
+vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Tests bundled-plugin selection, import isolation, routing, and adoption of retained host data.
 import { ProviderRegistry } from '../src/core/ai/registry';
 import { RuleKinds } from '../src/core/rules/kinds';
@@ -20,8 +21,8 @@ import { validateRuleInput } from '@shared/ruleSpec';
 import { JEV_QUERIES, JEV_QUERY_GROUPS } from '@shared/jevQueries';
 import type { Plugin } from 'vite';
 import { bundledPlugins, pluginDirs, pluginFolders, selectedPlugins } from '../bundledPlugins';
-import { PRESETS } from '../src/renderer/src/layout/presets';
-import { panelIds } from '../src/renderer/src/layout/tree';
+import { DEFAULT_TILES } from '../src/renderer/src/layout/presets';
+import { tileIds } from '@cujuju/solidjs-tiling-window-manager';
 import { ARRIVAL, type TextMessage } from '../src/core/arrival';
 import { getSetting, setSetting, type Db } from '../src/core/db';
 import type { DerivedText, TextSource } from '../src/core/plugins/bundled';
@@ -228,7 +229,7 @@ describe('host boundary', () => {
 
   it("presets name only panels a build can provide: the host's or a plugin's", () => {
     const known = new Set<string>([...HOST_PANELS, ...bundledPanels().map((p) => p.id)]);
-    const named = Object.values(PRESETS).flatMap((doc) => panelIds(doc.root));
+    const named = tileIds(DEFAULT_TILES);
     expect(named.filter((id) => !known.has(id))).toEqual([]);
   });
 });

@@ -1,22 +1,7 @@
 import { For, Show, createSignal } from 'solid-js';
-import { SegButton, SegGroup } from '@cujuju/solidjs-seg-buttons';
-import { layoutMenu, panelDragProps, titleOf, toolbarPanels } from '@/layout/panelMenu';
-import { PRESETS, type PresetId } from '@/layout/presets';
-import { panelIds } from '@/layout/tree';
-import type { LayoutPanelId } from '@/layout/types';
+import { layoutMenu, titleOf, toolbarMenu, toolbarPanels } from '@/layout/panelMenu';
 import { panelIdentity, sectionOf } from '@/panels/titles';
-import {
-  currentLayout,
-  customLayouts,
-  LAYOUT_NAME_MAX,
-  layoutId,
-  openPanel,
-  renameCustomLayout,
-  renamingLayout,
-  setLayoutId,
-  setRenamingLayout,
-  type LayoutId,
-} from '@/state/layout';
+import { layoutPanelIds, openPanel } from '@/state/layout';
 import { liveUpdates, reconnectDiscord } from '@/state/liveUpdates';
 import { privacyMode, togglePrivacyMode } from '@/state/privacy';
 import { unreadCount } from '@/state/unread';
@@ -33,14 +18,11 @@ import { topBarItems } from '@/plugins/slots';
 import type { TopBarItem } from '@/plugins/frameSlots';
 import type { HostTopBarItemId } from '@shared/anchors';
 
-const PRESET_IDS = Object.keys(PRESETS) as PresetId[];
-
 /**
- * One button per panel: click opens it in its own window; drag onto a panel's edge or middle places it in the layout.
- * A dot marks unseen items (see state/unread).
+ * One button per panel: click opens it (in its own window, or shows it where the layout has it); right-click places it in
+ * the layout. A dot marks unseen items (see state/unread).
  */
 function PanelToolbar() {
-  const placed = (): LayoutPanelId[] => panelIds(currentLayout().root);
   return (
     <nav class={styles.toolbar} aria-label="Panels">
       <For each={toolbarPanels()}>
@@ -52,11 +34,11 @@ function PanelToolbar() {
               type="button"
               class={styles.panelButton}
               {...panelIdentity(id)}
-              data-placed={placed().includes(id)}
-              aria-label={`${titleOf(id)}${unread()}: open in a window`}
-              title={`${titleOf(id)}${unread()}: click to open in a window, drag onto a panel to place it`}
-              {...panelDragProps(() => id)}
+              data-placed={layoutPanelIds().includes(id)}
+              aria-label={`${titleOf(id)}${unread()}: open`}
+              title={`${titleOf(id)}${unread()}: click to open, right-click to place it in the layout`}
               onClick={() => openPanel(id)}
+              onContextMenu={(e) => openContextMenu(e, toolbarMenu(id))}
             >
               <SectionIcon section={section} />
               <Show when={unreadCount(id) > 0}>
@@ -70,51 +52,13 @@ function PanelToolbar() {
   );
 }
 
-/** Edits a custom layout's name in place of the switcher: Enter or leaving the field saves, Esc cancels. */
-function LayoutNameInput(props: { id: LayoutId }) {
-  let done = false;
-  const finish = (name: string | null): void => {
-    if (done) return;
-    done = true;
-    if (name !== null) renameCustomLayout(props.id, name);
-    setRenamingLayout(null);
-  };
+/** The layout's menu: add a panel that isn't shown (then point at its spot), or reset to the default layout. */
+function LayoutButton() {
   return (
-    <input
-      ref={(el) => queueMicrotask(() => (el.focus(), el.select()))}
-      type="text"
-      aria-label="Layout name"
-      maxLength={LAYOUT_NAME_MAX}
-      value={customLayouts()[props.id]?.name ?? ''}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') finish(e.currentTarget.value);
-        else if (e.key === 'Escape') {
-          e.preventDefault();
-          finish(null);
-        }
-      }}
-      onBlur={(e) => finish(e.currentTarget.value)}
-    />
-  );
-}
-
-/** Presets, then custom layouts. Right-click renames or deletes the current custom layout. */
-function LayoutSwitcher() {
-  const openMenu = (e: MouseEvent): void => openContextMenu(e, layoutMenu());
-  return (
-    <Show
-      when={renamingLayout()}
-      fallback={
-        <div onContextMenu={openMenu}>
-          <SegGroup class="cp-stroke" role="radiogroup" ariaLabel="Panel layout" value={layoutId()} onChange={(v: string) => setLayoutId(v)}>
-            <For each={PRESET_IDS}>{(id) => <SegButton value={id} label={PRESETS[id].name} size="sm" />}</For>
-            <For each={Object.entries(customLayouts())}>{([id, doc]) => <SegButton value={id} label={doc.name} size="sm" />}</For>
-          </SegGroup>
-        </div>
-      }
-    >
-      {(id) => <LayoutNameInput id={id()} />}
-    </Show>
+    <button type="button" class={styles.iconButton} aria-label="Layout" aria-haspopup="menu" title="Layout: add a panel or reset the layout"
+      onClick={(e) => openContextMenu(e, layoutMenu())}>
+      <Icon name="apps" class={styles.icon} />
+    </button>
   );
 }
 
@@ -167,7 +111,7 @@ function SettingsButton() {
 const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   {
     id: 'layout',
-    Component: LayoutSwitcher,
+    Component: LayoutButton,
   },
   {
     id: 'privacy',
@@ -179,7 +123,7 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
   },
 ];
 
-/** Fixed app frame contains search, panel toolbar, a live-updates warning, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
+/** Fixed app frame contains search, panel toolbar, a live-updates warning, the layout menu, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
   return (
     <header class={styles.root}>

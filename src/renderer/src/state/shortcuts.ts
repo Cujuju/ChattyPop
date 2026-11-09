@@ -5,18 +5,14 @@ import { createSignal } from 'solid-js';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { bundledShortcuts } from '@shared/bundledPlugins';
 import { createSetting } from '@plugin-sdk/renderer/settings';
-import { PRESETS, type PresetId } from '@/layout/presets';
 import { shortcutAction, withPluginShortcuts, type ShortcutHint } from '@/plugins/slots';
 import { isInEscapeOwner, isInOverlay, isTypingTarget, spacePresses } from '@/ui/keys';
 import { listen } from '@/ui/listen';
 import { showArchive, showLive } from './shownChannel';
 import { showPreviousChannel } from './channelRecents';
 import { chatSource } from './chat';
-import { setLayoutId } from './layout';
 import { DEFAULT_LEADER_KEY, LEADER_TIMEOUT_MS, escapeBlursField, keyLabel, leaderStep, normalizeLeaderKey } from './leaderRules';
 import {
-  LAYOUT_HINT,
-  LAYOUT_KEYS,
   effectiveBindings,
   normalizeBindingOverrides,
   pluginShortcutId,
@@ -43,9 +39,6 @@ export const bindings = (): Binding[] => effectiveBindings(SHORTCUT_DEFS, bindin
 const [leaderArmed, setLeaderArmed] = createSignal(false);
 /** The leader was pressed and waits for a shortcut's key (the status bar marks it). */
 export { leaderArmed };
-
-/** Layout digits pick presets in the top bar's order. */
-const PRESET_IDS = Object.keys(PRESETS) as PresetId[];
 
 /** What each single-key host shortcut does. */
 const HOST_ACTIONS: Readonly<Record<RebindableHostId, () => void>> = {
@@ -80,10 +73,7 @@ export function listenForShortcuts(): void {
 /** Runs the shortcut `key` is bound to; a plugin's only while it is on. */
 function runShortcut(key: string): void {
   const target = shortcutTarget(key, bindings());
-  if (target?.kind === 'layout') {
-    const id = PRESET_IDS[target.index];
-    if (id) setLayoutId(id);
-  } else if (target?.kind === 'host') HOST_ACTIONS[target.id]();
+  if (target?.kind === 'host') HOST_ACTIONS[target.id]();
   else if (target?.kind === 'plugin') shortcutAction(target.pluginId, target.key)?.();
 }
 
@@ -117,7 +107,6 @@ export function shortcutHints(): ShortcutHint[] {
   const current = bindings();
   const labelOf = (id: string): string => keyLabel(current.find((b) => b.id === id)?.key ?? '');
   const host: ShortcutHint[] = [
-    { id: 'layout', keys: `${LAYOUT_KEYS[0]}-${PRESET_IDS.length}`, hint: LAYOUT_HINT },
     ...current.filter((b) => !b.plugin).map((b) => ({ id: b.id, keys: keyLabel(b.key), hint: b.hint })),
   ];
   return withPluginShortcuts(host, (pluginId, key) => labelOf(pluginShortcutId(pluginId, key)));

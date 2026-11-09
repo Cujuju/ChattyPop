@@ -6,7 +6,7 @@ import { desktopState, patchDesktopSettings } from '@/state/desktop';
 import { inCompanion } from '@/state/ui';
 import { DEFAULT_LEADER_KEY, MODIFIER_KEYS, keyLabel } from '@/state/leaderRules';
 import { pluginActive } from '@/state/plugins';
-import { LAYOUT_KEYS, LAYOUT_NAME, leaderRefusal, rebindRefusal, shadowedBindings, withBinding, type ShortcutDef } from '@/state/shortcutBindings';
+import { leaderRefusal, rebindRefusal, shadowedBindings, withBinding, type ShortcutDef } from '@/state/shortcutBindings';
 import { SHORTCUT_DEFS, bindingOverrides, bindings, leaderKey, setBindingOverrides, setLeaderKey } from '@/state/shortcuts';
 import { Icon } from '@/ui/icons';
 import { Note, Row, SettingsButton } from './SettingsLayout';
@@ -169,13 +169,6 @@ export function ShortcutKeyList() {
         <p class={styles.keysHint}>Click a key to change it.</p>
       </Show>
       <ul class={styles.keyList}>
-        <li class={styles.key}>
-          <span class={styles.keyName}>
-            {LAYOUT_NAME}
-            <span class={styles.keyOrigin}>top bar order</span>
-          </span>
-          <kbd class={styles.keyFixed}>{`${LAYOUT_KEYS[0]}–${LAYOUT_KEYS.at(-1)}`}</kbd>
-        </li>
         <For each={SHORTCUT_DEFS}>{(def) => <BindingKey def={def} />}</For>
       </ul>
     </div>

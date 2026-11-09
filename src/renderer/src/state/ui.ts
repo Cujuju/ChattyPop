@@ -109,3 +109,6 @@ export function openMenuAt(anchor: Element, groups: MenuGroup[], side: 'below' |
   const r = anchor.getBoundingClientRect();
   setContextMenu(side === 'below' ? { x: r.left, y: r.bottom, flipY: r.top, groups: shown } : { x: r.right, y: r.top, groups: shown });
 }
+
+export const [placingPanel, setPlacingPanel] = createSignal<LayoutPanelId | null>(null);
+export const [dockMenuOpen, setDockMenuOpen] = createSignal(false);

@@ -5,17 +5,11 @@ import { modifierList } from '@shared/desktop';
 import { recordOf } from '@shared/normalize';
 import { MODIFIER_KEYS, isLeaderKey, keyLabel } from './leaderRules';
 
-/** Host shortcuts bound to one key each. Layout is a digit group, fixed: its digits pick presets by position. */
+/** Host shortcuts bound to one key each. Layout is only an ordering anchor. */
 export type RebindableHostId = Exclude<HostShortcutId, 'layout'>;
-/** Keys the layout group takes; no other shortcut may use them. */
-export const LAYOUT_KEYS: readonly string[] = HOST_SHORTCUTS.layout;
-/** The layout group's status-bar hint. */
-export const LAYOUT_HINT = 'layout';
 
 /** A status-bar hint as a Settings name: its first letter raised. */
 const sentenceCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
-/** The layout group's name in Settings. */
-export const LAYOUT_NAME = sentenceCase(LAYOUT_HINT);
 
 const HOST_HINTS: Readonly<Record<RebindableHostId, string>> = {
   live: 'live/archive',
@@ -86,16 +80,14 @@ export function effectiveBindings(defs: readonly ShortcutDef[], overrides: Bindi
   });
 }
 
-/** What `key` runs after the leader: a layout by position, a host shortcut, a plugin's (by its declared key), or nothing. */
+/** What `key` runs after the leader: a host shortcut, a plugin's (by its declared key), or nothing. */
 export type ShortcutTarget =
-  | { kind: 'layout'; index: number }
   | { kind: 'host'; id: RebindableHostId }
   | { kind: 'plugin'; pluginId: string; key: string }
   | null;
 
-/** The dispatcher's lookup: layout digits, else the first binding with `key` (host before plugins). */
+/** The dispatcher's lookup: the first binding with `key` (host before plugins). */
 export function shortcutTarget(key: string, bindings: readonly Binding[]): ShortcutTarget {
-  if (LAYOUT_KEYS.includes(key)) return { kind: 'layout', index: LAYOUT_KEYS.indexOf(key) };
   const b = bindings.find((o) => o.key === key);
   if (!b) return null;
   return b.plugin ? { kind: 'plugin', pluginId: b.plugin.id, key: b.plugin.key } : { kind: 'host', id: b.id as RebindableHostId };
@@ -108,7 +100,6 @@ export function rebindRefusal(id: string, key: string, bindings: readonly Bindin
   const own = bindings.find((b) => b.id === id);
   if (!own) return 'That shortcut isn’t loaded.';
   if (!isBindableKey(key)) return `Press a key other than Escape, Shift, ${modifiers}.`;
-  if (LAYOUT_KEYS.includes(key)) return `${LAYOUT_KEYS[0]}–${LAYOUT_KEYS.at(-1)} pick layouts.`;
   if (key === leader && own.defaultKey !== null) return `${keyLabel(key)} is the leader key.`;
   const other = bindings.find((b) => b.id !== id && b.key === key);
   return other ? `${taken(other)}.` : null;

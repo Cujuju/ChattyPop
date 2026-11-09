@@ -6,7 +6,7 @@ import { anchorCatalog, catalogSlotAnchor, checkBundled } from '@shared/bundledC
 import { adoptedPhoneSection, bundledPanel, slotAnchor } from '@shared/bundledPlugins';
 import { frameSlots, phoneSectionOf, type FrameSlotEntry, type PhoneSection } from '../src/renderer/src/plugins/frameSlots';
 import { isLayoutDoc, panelIds } from '../src/renderer/src/layout/tree';
-import { panelOwnerOff, projectLayout } from '../src/renderer/src/layout/visibility';
+import { panelOwnerOff } from '../src/renderer/src/layout/visibility';
 import type { LayoutDoc } from '../src/renderer/src/layout/types';
 import { P1_PLUGINS, digest, inbox, labels } from './p1Plugins';
 
@@ -130,5 +130,5 @@ it('a saved desktop layout keeps its panels', () => {
   const owned = panelIds(root).filter((id) => !(HOST_PANELS as readonly string[]).includes(id));
   expect(owned.map((id) => bundledPanel(id)?.pluginId)).toEqual(['inbox', 'digest', 'meter', 'labels']);
   const hidden = (id: string) => panelOwnerOff(id, (panel) => bundledPanel(panel)?.pluginId, () => true, []);
-  expect(projectLayout(root, hidden).root).toBe(root);
+  expect(panelIds(root).filter(hidden)).toEqual([]);
 });

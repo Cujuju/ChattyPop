@@ -1,9 +1,10 @@
+vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Subset-build fixtures validate providers and layouts; usage and Digest panels appear only for included plugins.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { providerDeclarations } from '@shared/aiProviders';
 import { anchorCatalog, checkBundled } from '@shared/bundledCheck';
-import { buildPresets } from '../src/renderer/src/layout/presets';
-import { panelIds } from '../src/renderer/src/layout/tree';
+import { buildDefaultTiles } from '../src/renderer/src/layout/presets';
+import { tileIds } from '@cujuju/solidjs-tiling-window-manager';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { DIGEST_PANEL, FIXTURE_PLUGINS, USAGE_PANEL, alpha, beta, digest, panelsOf, usage } from './p2Fixtures';
 
@@ -23,11 +24,11 @@ describe.each(Object.entries(BUILDS))('the %s build', (_name, { plugins, provide
     expect(() => checkBundled(plugins, anchorCatalog(FIXTURE_PLUGINS))).not.toThrow();
     const ids = plugins.map((p) => p.manifest.id);
     expect(providerDeclarations(plugins).map((d) => d.id)).toEqual(providers);
-    const presets = buildPresets(panelsOf(plugins));
-    for (const preset of Object.values(presets)) {
-      expect(panelIds(preset.root).includes(USAGE_PANEL)).toBe(ids.includes(usage.manifest.id));
+    const presets = buildDefaultTiles(panelsOf(plugins));
+    for (const preset of [presets]) {
+      expect(tileIds(preset).includes(USAGE_PANEL)).toBe(ids.includes(usage.manifest.id));
       // Digest's preset places follow the usage panel's slot, which the host layouts keep whether or not it is built.
-      expect(panelIds(preset.root).includes(DIGEST_PANEL)).toBe(ids.includes(digest.manifest.id));
+      expect(tileIds(preset).includes(DIGEST_PANEL)).toBe(ids.includes(digest.manifest.id));
     }
   });
 });

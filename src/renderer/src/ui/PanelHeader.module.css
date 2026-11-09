@@ -273,3 +273,44 @@ button.badge {
   background: var(--cp-accent-hover);
   color: var(--cp-text-on-accent);
 }
+
+/* In the layout the header is its tile's grip: drag it to dock the panel elsewhere, drop another on it to tab them. */
+.header[data-grip] {
+  cursor: grab;
+}
+
+/* A tab group's strip takes the title's place and fills the band; the selected tab underlines in its section colour. */
+.tabStrip {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+}
+
+/* Every tab stays readable: a crowded header wraps its actions below rather than squeezing the strip away. */
+.tabStrip :global(.twm-tab-list) {
+  min-width: min-content;
+}
+
+.tabStrip :global(.twm-tab) {
+  gap: var(--cp-space-3);
+  padding: 0 var(--cp-space-4);
+  color: var(--cp-text-muted);
+  font-size: var(--cp-header-title-size);
+  font-weight: var(--cp-weight-semibold);
+  transition: color var(--cp-duration-fast) var(--cp-ease);
+}
+
+.tabStrip :global(.twm-tab:hover),
+.tabStrip :global(.twm-tab[aria-selected='true']) {
+  color: var(--cp-header-title-color);
+}
+
+.tabStrip :global(.twm-tab[aria-selected='true']) {
+  border-bottom-color: var(--cp-section);
+}
+
+.tabIcon {
+  flex: 0 0 auto;
+  width: var(--cp-header-icon);
+  height: var(--cp-header-icon);
+}

@@ -28,6 +28,7 @@ export const SETTINGS_KEYS = {
   /** The Archive's row density (state/archive.ts). */
   archiveDensity: 'archive.density',
   /** The chosen panel layout, the owner's own layouts, folded panels and the folded sidebar (state/layout.ts). */
+  layoutTiles: 'layout.tiles',
   layoutPreset: 'layout.preset',
   layoutCustom: 'layout.custom',
   layoutCollapsedPanels: 'layout.collapsedPanels',
