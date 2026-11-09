@@ -5,8 +5,16 @@
   flex: 0 0 auto;
   gap: var(--cp-space-4);
   height: var(--cp-window-bar-h);
-  padding-left: var(--cp-space-6);
+  /* The app icon's left inset matches its margin above and below. */
+  padding-left: calc((var(--cp-window-bar-h) - var(--cp-window-bar-logo)) / 2);
   background: var(--cp-chrome-paint, var(--cp-surface-0));
+}
+
+.logo {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--cp-window-bar-logo);
+  height: var(--cp-window-bar-logo);
 }
 
 /* macOS places its traffic lights for the main top bar's height: this bar takes that height and leaves them room. */

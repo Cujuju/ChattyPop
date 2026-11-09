@@ -45,6 +45,15 @@
 /* Window buttons sit flush with the window's top-right corner at full bar height. */
 .root[data-chrome='controls'] {
   padding-right: 0;
+  /* The app icon's left inset matches its margin above and below. */
+  padding-left: calc((var(--cp-topbar-h) - var(--cp-topbar-logo)) / 2);
+}
+
+.logo {
+  display: block;
+  flex: 0 0 auto;
+  width: var(--cp-topbar-logo);
+  height: var(--cp-topbar-logo);
 }
 
 .root[data-chrome='controls'] > .end {
