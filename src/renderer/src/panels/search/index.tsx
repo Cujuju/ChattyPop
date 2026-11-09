@@ -10,8 +10,8 @@ export function SearchPanel() {
   return (
     <section class={`cp-panel ${styles.root}`} aria-label="Search">
       <PanelHeader section="search" title="Search">
-        {/* Not a drag handle: presses here select text in the field. */}
-        <div class={styles.field} draggable={false} onDragStart={(e) => e.preventDefault()}>
+        {/* Not the tile's grip: presses here select text in the field. */}
+        <div class={styles.field} data-twm-no-drag>
           <SearchField search={search} />
         </div>
       </PanelHeader>
