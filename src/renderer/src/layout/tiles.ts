@@ -25,7 +25,10 @@ function restoreInPlace(stored: TileNode, next: TileNode | undefined, hidden: Re
     if (next.kind === 'split') return undefined;
     const shownActive = next.kind === 'tabs' ? next.children[next.active]!.id : next.id;
     const storedActive = stored.children[stored.active]!.id;
-    const activeId = hidden.has(storedActive) ? storedActive : shownActive;
+    const projected = shownTree(stored, hidden);
+    const projectedActive = projected?.kind === 'tabs' ? projected.children[projected.active]!.id
+      : projected?.kind === 'tile' ? projected.id : undefined;
+    const activeId = hidden.has(storedActive) && shownActive === projectedActive ? storedActive : shownActive;
     return { ...stored, ...('collapsed' in next ? { collapsed: next.collapsed } : { collapsed: undefined }),
       active: stored.children.findIndex((child) => child.id === activeId) };
   }

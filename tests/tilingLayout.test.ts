@@ -1,6 +1,6 @@
 vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 import { expect, it, vi } from 'vitest';
-import { findSlot, normalize, resizeSplit, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { findSlot, normalize, resizeSplit, setActiveTab, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
 import { convertLegacyNode, foldPanel, migrateLegacy } from '../src/renderer/src/layout/legacy';
 import { DEFAULT_TILES, buildDefaultTiles } from '../src/renderer/src/layout/presets';
 import { restoreHidden, shownTree } from '../src/renderer/src/layout/tiles';
@@ -60,6 +60,18 @@ it('restores hidden tabs in order with the stored active tab', () => {
   ] };
   const hidden = new Set(['hidden']);
   expect(restoreHidden(stored, shownTree(stored, hidden), hidden)).toEqual(stored);
+});
+
+it('keeps a changed visible selection when the stored active tab is hidden', () => {
+  const stored: TileNode = { kind: 'tabs', active: 1, children: [
+    { kind: 'tile', id: 'a' }, { kind: 'tile', id: 'hidden' }, { kind: 'tile', id: 'b' },
+  ] };
+  const hidden = new Set(['hidden']);
+  const edited = setActiveTab(shownTree(stored, hidden)!, 'a', 0);
+  const restored = restoreHidden(stored, edited, hidden)!;
+  expect(restored.kind === 'tabs' && restored.children[restored.active]!.id).toBe('a');
+  const shown = shownTree(restored, hidden)!;
+  expect(shown.kind === 'tabs' && shown.children[shown.active]!.id).toBe('a');
 });
 
 it('folds toward top first and bottom when there is no later neighbour', () => {
