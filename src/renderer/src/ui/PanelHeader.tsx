@@ -85,7 +85,15 @@ export function PanelHeader(props: {
         >
           {(group) => (
             // In a tab group the strip names every tab; dragging a tab off it docks that panel elsewhere.
-            <TabStrip class={styles.tabStrip} tile={group()} label={titleOf} icon={(tab) => <SectionGlyph section={sectionOf(tab)} class={styles.tabIcon} />} />
+            <>
+              <TabStrip class={styles.tabStrip} tile={group()} label={titleOf} icon={(tab) => <SectionGlyph section={sectionOf(tab)} class={styles.tabIcon} />} />
+              <Show when={collapsible()}>
+                <button type="button" class={styles.toggle} aria-expanded={!collapsed()} aria-label={collapsed() ? 'Unfold the tabs' : 'Fold the tabs'}
+                  onClick={() => setPanelCollapsed(id(), !collapsed())}>
+                  <span class={`cp-chevron ${styles.chevron}`} aria-hidden="true" />
+                </button>
+              </Show>
+            </>
           )}
         </Show>
         {props.children}

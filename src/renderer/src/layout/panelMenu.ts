@@ -5,7 +5,7 @@ import { bundledPanel, panelAnchor } from '@shared/bundledPlugins';
 import { isPluginPanelId } from '@shared/plugins';
 import { activeBundledPanels } from '@/plugins/slots';
 import { PANEL_TITLES } from '@/panels/titles';
-import { layoutPanelIds, openPanel, removeLayoutPanel, resetLayout, startPlacing } from '@/state/layout';
+import { layoutPanelIds, openPanel, removeLayoutPanel, resetLayout, revealPanel, startPlacing } from '@/state/layout';
 import { findPluginPanel, pluginPanels } from '@/state/pluginPanels';
 import { openPanelWindow, type MenuGroup } from '@/state/ui';
 import type { LayoutPanelId } from './types';
@@ -63,7 +63,9 @@ export function toolbarMenu(id: LayoutPanelId): MenuGroup[] {
     {
       heading: titleOf(id),
       items: [
-        { label: placed ? 'Show in the layout' : 'Open', icon: 'window', run: () => openPanel(id) },
+        placed
+          ? { label: 'Show in the layout', icon: 'eye' as const, run: () => revealPanel(id) }
+          : { label: 'Open', icon: 'window' as const, run: () => openPanel(id) },
         ...(placed ? [] : [{ label: 'Place in the layout…', icon: 'plus' as const, run: () => startPlacing(id) }]),
       ],
     },
