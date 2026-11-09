@@ -13,8 +13,8 @@ export const WINDOW_CONTROL_CHANNELS = {
   minimize: 'window:minimize', toggleMaximize: 'window:toggle-maximize',
   close: 'window:close', state: 'window:state', changed: 'window:state-changed',
 } as const;
-/** Matches --cp-topbar-h; native lights are approximately 12 logical pixels tall. */
-const TOP_BAR_HEIGHT = 48;
+/** --cp-topbar-h in px (theme/sizes.css; tests/topBarHeight.test.ts keeps them equal); native lights are approximately 12 logical pixels tall. */
+export const TOP_BAR_HEIGHT = 32;
 const TRAFFIC_LIGHT_HEIGHT = 12;
 /** One light diameter of space precedes the native controls. */
 const TRAFFIC_LIGHT_LEFT_INSET = TRAFFIC_LIGHT_HEIGHT;
