@@ -61,11 +61,8 @@ export function openSettingsAt(section: string): void {
 /** Whether the channel switcher (views/switcher) is open. */
 export const [switcherOpen, setSwitcherOpen] = createSignal(false);
 
-/** Split dragging hides native Discord to preserve pointer access. */
-export const [resizing, setResizing] = createSignal(false);
-
-/** Panel dragging hides native Discord to expose drop zones. */
-export const [draggedPanel, setDraggedPanel] = createSignal<LayoutPanelId | null>(null);
+/** The layout draws over its panels (a drag, placing a panel, its menus): native Discord hides so the pointer reaches it. */
+export const [layoutOverlay, setLayoutOverlay] = createSignal(false);
 
 export { lightbox, setLightbox, type LightboxImage, type LightboxGallery, type LightboxPanel } from './lightbox';
 
@@ -111,4 +108,3 @@ export function openMenuAt(anchor: Element, groups: MenuGroup[], side: 'below' |
 }
 
 export const [placingPanel, setPlacingPanel] = createSignal<LayoutPanelId | null>(null);
-export const [dockMenuOpen, setDockMenuOpen] = createSignal(false);

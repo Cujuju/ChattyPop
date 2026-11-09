@@ -1,12 +1,11 @@
 import { onCleanup } from '@plugin-sdk/renderer/containment';
-import { createEffect, createSignal, onMount } from 'solid-js';
-import { TilingWorkspace, type TileContext } from '@cujuju/solidjs-tiling-window-manager';
+import { createSignal, onMount } from 'solid-js';
+import { TilingWorkspace } from '@cujuju/solidjs-tiling-window-manager';
 import { cancelPlacing, placePanel, popOutPanel, setShownTiles, shownTiles } from '@/state/layout';
-import { draggedPanel, placingPanel, setDraggedPanel } from '@/state/ui';
+import { placingPanel, setLayoutOverlay } from '@/state/ui';
 import { detachable, titleOf } from './panelMenu';
 import { PanelSlot } from './PanelSlot';
 import { TileScope } from './tileContext';
-import { watchWorkspaceActivity } from './workspaceActivity';
 import styles from './Layout.module.css';
 
 /** Narrowest and shortest a panel may be dragged: room for its header and a line of content. */
@@ -44,23 +43,9 @@ function createThemeLengths() {
   return { gap, bar, strip, probes };
 }
 
-/** Dock drags hide the native Discord view (state/overlay): mirrors tile `tile`'s drag into draggedPanel. */
-function reportDrag(tile: TileContext): void {
-  createEffect(() => {
-    if (tile.dragging()) setDraggedPanel(tile.id);
-    else if (draggedPanel() === tile.id) setDraggedPanel(null);
-  });
-  onCleanup(() => draggedPanel() === tile.id && setDraggedPanel(null));
-}
-
 /** The main window's tiling workspace over the layout store, with the status bar as a fixed frame below it. */
 export function LayoutRoot() {
   const lengths = createThemeLengths();
-  let host!: HTMLDivElement;
-  onMount(() => {
-    const workspace = host.querySelector<HTMLElement>(':scope > .twm');
-    if (workspace) watchWorkspaceActivity(workspace);
-  });
   const placing = () => {
     const id = placingPanel();
     return id ? { id, label: titleOf(id) } : null;
@@ -68,7 +53,7 @@ export function LayoutRoot() {
   return (
     <div class={styles.root}>
       {lengths.probes}
-      <div ref={host} class={styles.host}>
+      <div class={styles.host}>
         <TilingWorkspace
           class={styles.workspace}
           layout={shownTiles()}
@@ -84,17 +69,15 @@ export function LayoutRoot() {
           onPlace={(id, next) => placePanel(id, next)}
           onPlacingCancel={cancelPlacing}
           onDropOutside={(id) => detachable(id) && popOutPanel(id)}
+          onOverlayChange={setLayoutOverlay}
           empty={<p class={styles.empty}>No panels in the layout. Add one from the Layout button in the top bar.</p>}
         >
-          {(tile) => {
-            reportDrag(tile);
+          {(tile) => (
             // The tile in scope makes the panel's header its grip, tab strip and tab target.
-            return (
-              <TileScope.Provider value={tile}>
-                <PanelSlot id={tile.id} hidden={!tile.visible()} />
-              </TileScope.Provider>
-            );
-          }}
+            <TileScope.Provider value={tile}>
+              <PanelSlot id={tile.id} hidden={!tile.visible()} />
+            </TileScope.Provider>
+          )}
         </TilingWorkspace>
       </div>
       <div class={styles.frameBar}>
