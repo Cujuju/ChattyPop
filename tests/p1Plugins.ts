@@ -12,7 +12,7 @@ const adoptedAsIs = (...keys: string[]): Record<string, string> => Object.fromEn
 export const digest: PluginDescriptor = {
   manifest: manifest('digest'),
   panels: [{ id: 'summary', title: 'Summary', importance: 'primary', dialog: false, iconPath: '', before: 'chat' }],
-  shortcuts: [{ key: 'j', hint: 'Older', after: 'layout' }, { key: 'k', hint: 'Newer', after: 'j' }],
+  shortcuts: [{ key: 'j', hint: 'Older', after: 'back' }, { key: 'k', hint: 'Newer', after: 'j' }],
   rules: { actions: [{ ...kind('digest.summarize'), ...AFTER_MESSAGE, before: 'file' }] },
   jev: { features: [{ key: 'keyThemes', default: false }] },
   notices: [{ kind: 'summary', privacyScoped: true, after: 'plugin' }],

@@ -94,7 +94,7 @@ export const plugin = definePlugin({
     key: 'j',
     hint: 'citations',
     hintGroup: 'citations',
-    after: 'layout',
+    after: 'back',
   }, {
     key: 'k',
     hint: 'citations',

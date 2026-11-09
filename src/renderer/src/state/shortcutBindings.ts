@@ -6,7 +6,8 @@ import { recordOf } from '@shared/normalize';
 import { MODIFIER_KEYS, isLeaderKey, keyLabel } from './leaderRules';
 
 /** Host shortcuts bound to one key each. Layout is only an ordering anchor. */
-export type RebindableHostId = Exclude<HostShortcutId, 'layout'>;
+/** Every host shortcut takes a key the owner may change. */
+export type RebindableHostId = HostShortcutId;
 
 /** A status-bar hint as a Settings name: its first letter raised. */
 const sentenceCase = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
@@ -42,7 +43,7 @@ export interface Binding extends ShortcutDef {
 /** A plugin shortcut's id: stable across plugin reloads, whatever key it is bound to. */
 export const pluginShortcutId = (pluginId: string, key: string): string => stampedName(pluginId, key);
 
-/** Host shortcuts in the status bar's order, after the layout group. HOST_SHORTCUTS.switcher is empty: it follows the leader. */
+/** Host shortcuts in the status bar's order. HOST_SHORTCUTS.switcher is empty: it follows the leader. */
 export const HOST_SHORTCUT_DEFS: readonly ShortcutDef[] = (Object.keys(HOST_HINTS) as RebindableHostId[]).map((id) => ({
   id,
   hint: HOST_HINTS[id],
