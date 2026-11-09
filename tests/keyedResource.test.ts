@@ -1,7 +1,9 @@
 // A resource keyed by its target (the Person and Conversation windows, the rule Who picker's search) shows only the
 // current target's answer: never the previous target's while the next loads, nor any after the target clears.
 import { createRequire } from 'node:module';
-import { describe, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { buildContainment } from './containmentBuild';
 
 // Uses Solid's browser runtime so resources load as in a window.
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs') as Record<string, unknown>);
@@ -247,5 +249,30 @@ describe('a keyed resource', () => {
     await queued;
     expect(h.r()).toBe('recovered');
     expect(h.r.failure).toBeNull();
+  });
+});
+
+// The mocks above give Solid's store its own (server) core, so store reads never track; this build shares one core.
+describe('a keyed resource on one Solid runtime, as in a window', () => {
+  const store = join(import.meta.dirname, '../node_modules/solid-js/store/dist/store.js').replaceAll('\\', '/');
+  type Client = typeof import('solid-js') & { keyedResource: typeof keyedResource; writes: { n: number } };
+  let c: Client;
+  beforeAll(async () => {
+    c = await buildContainment<Client>(
+      `export * from 'solid-js'; export { keyedResource } from '@/state/keyedResource'; export { writes } from 'solid-js/store';`,
+      { 'solid-js/store': `import { reconcile as solidReconcile } from '${store}'; export * from '${store}'; export const writes = { n: 0 }; export const reconcile = (...a) => { writes.n++; return solidReconcile(...a); };` },
+    );
+  });
+
+  it('clears an object-keyed answer without writing it back (the Person window froze on close)', async () => {
+    const [target, setTarget] = c.createSignal<{ id: string } | null>(null);
+    const r = c.createRoot(() => c.keyedResource(target, async (t) => ({ id: t.id, roles: [{ id: 'role' }] })));
+    setTarget({ id: 'A' });
+    await settle();
+    expect(r()?.id).toBe('A');
+    c.writes.n = 0;
+    setTarget(null);
+    expect(r()).toBeUndefined();
+    expect(c.writes.n).toBe(0);
   });
 });

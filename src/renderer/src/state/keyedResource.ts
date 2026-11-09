@@ -2,7 +2,7 @@
 // after the source turns off, so a bare resource shows one target's answer under another.
 import { batchWrites, createStore, onCleanup, ownedOrContained } from '@plugin-sdk/renderer/containment';
 import { failure, settled } from '@plugin-sdk/renderer/settled';
-import { createMemo, createResource, createSignal, type Setter } from 'solid-js';
+import { createMemo, createResource, createSignal, untrack, type Setter } from 'solid-js';
 import { reconcile, unwrap } from 'solid-js/store';
 
 /** An answer with the source it answers. */
@@ -45,15 +45,20 @@ export function keyedResource<S, T>(source: () => S | false | null | undefined, 
     }, { storage: (initial) => {
       // Same-source snapshots reconcile nested ids; different sources replace the answer.
       const [store, setStore] = createStore<{ answer: Answer<S, T> | undefined }>({ answer: initial });
-      const set = (next: Answer<S, T> | undefined | ((previous: Answer<S, T> | undefined) => Answer<S, T> | undefined)) => {
-        const previous = unwrap(store.answer);
+      // Untracked: Solid calls it inside the resource's loader, which would otherwise rerun on its own write.
+      const set = (next: Answer<S, T> | undefined | ((previous: Answer<S, T> | undefined) => Answer<S, T> | undefined)) => untrack(() => {
+        const current = store.answer;
+        const previous = unwrap(current);
         const answer = typeof next === 'function' ? next(previous) : next;
+        // A source turning off writes the current answer back.
+        if (answer === current || answer === previous) return current;
         batchWrites(() => {
-          if (previous?.s !== answer?.s || previous?.epoch !== answer?.epoch) setStore('answer', undefined);
+          // Raw to raw: the store wraps an object source.
+          if (previous?.s !== unwrap(answer?.s) || previous?.epoch !== answer?.epoch) setStore('answer', undefined);
           setStore('answer', reconcile(answer, { key: 'id' }));
         });
         return store.answer;
-      };
+      });
       return [() => store.answer, set as Setter<Answer<S, T> | undefined>];
     } });
     const refresh = (): Promise<void> => {

@@ -11,11 +11,12 @@ import { reconcile, unwrap } from 'solid-js/store';
 /** Matches refetched list items by id to retain objects and For rows, preserving focus/scroll position. */
 export function keyedById<T extends { id: string | number }>(init: T[] | undefined): [Accessor<T[]>, Setter<T[] | undefined>] {
   const [store, setStore] = createStore<{ items: T[] }>({ items: init ?? [] });
-  const set = (v?: T[] | ((prev: T[]) => T[] | undefined)): T[] => {
+  // Untracked: Solid calls it inside the resource's loader, which would otherwise rerun on its own write.
+  const set = (v?: T[] | ((prev: T[]) => T[] | undefined)): T[] => untrack(() => {
     const next = typeof v === 'function' ? v(unwrap(store.items)) : v;
     setStore('items', reconcile(next ?? [], { key: 'id' }));
     return store.items;
-  };
+  });
   return [() => store.items, set as Setter<T[] | undefined>];
 }
 
