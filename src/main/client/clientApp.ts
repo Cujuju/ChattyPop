@@ -7,6 +7,7 @@ import { guardNavigation } from '../externalLinks';
 import { launchMode } from '../launchMode';
 import { IS_MAC } from '../platform';
 import { profilePath } from '../storageLocation';
+import { attachWindowChrome, windowChromeArgs, windowChromeOptions } from '../windowChrome';
 import { raiseWindow } from '../windowState';
 import { ServerList, fileStore } from './servers';
 import { ServerWindows, type ServerWindow } from './serverWindows';
@@ -20,14 +21,15 @@ const SERVERS_FILE = 'servers.json';
 const CONNECT_SIZE = { width: 640, height: 640 } as const;
 
 const servers = new ServerList(fileStore(profilePath(SERVERS_FILE)));
-const windows = new ServerWindows(unreachable);
+const windows = new ServerWindows(unreachable, servers);
 let connectWin: BrowserWindow | null = null;
 
 /** The page that adds and picks servers; `unreachable` says which server didn't load, and why. */
 function openConnect(unreachable?: { origin: string; reason: string }): void {
   if (!unreachable && connectWin && !connectWin.isDestroyed() && raiseWindow(connectWin)) return;
   connectWin?.close();
-  const win = new BrowserWindow({ ...CONNECT_SIZE, show: false, autoHideMenuBar: true, title: 'Connect to a ChattyPop server', webPreferences: { preload: PRELOAD, additionalArguments: [CONNECT_PAGE_ARG], contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  const win = new BrowserWindow({ ...windowChromeOptions(), ...CONNECT_SIZE, show: false, autoHideMenuBar: true, title: 'Connect to a ChattyPop server', webPreferences: { preload: PRELOAD, additionalArguments: [CONNECT_PAGE_ARG, ...windowChromeArgs()], contextIsolation: true, sandbox: true, nodeIntegration: false } });
+  attachWindowChrome(win);
   connectWin = win;
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => {

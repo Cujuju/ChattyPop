@@ -36,6 +36,26 @@
   justify-content: flex-end;
 }
 
+/* Title bar (frameless window): the bar's gaps move the window; its groups take their own clicks (base.css). */
+.root[data-window-drag] > .toolbar,
+.root[data-window-drag] > .end > * {
+  -webkit-app-region: no-drag;
+}
+
+/* Window buttons sit flush with the window's top-right corner at full bar height. */
+.root[data-chrome='controls'] {
+  padding-right: 0;
+}
+
+.root[data-chrome='controls'] > .end {
+  align-self: stretch;
+}
+
+/* macOS' traffic lights sit inset at the bar's left; full screen hides them. */
+.root[data-chrome='traffic-lights']:not([data-full-screen]) {
+  padding-left: var(--cp-traffic-lights-w);
+}
+
 /* Panel toolbar: one ghost button per panel, showing its section tile. */
 .toolbar {
   display: flex;

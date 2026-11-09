@@ -25,7 +25,7 @@ const config: Configuration = {
     target: 'nsis',
     icon: 'build/icon.ico',
     // Tray icons load from disk; Windows .ico loading requires an unpacked file.
-    extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }],
+    extraResources: [{ from: 'build/icon.ico', to: 'icon.ico' }, { from: 'native/window-border/build/Release/window_border.node', to: 'native/window_border.node' }],
   },
   mac: {
     // Disk images serve first installs; zips support installs predating the partial updater.

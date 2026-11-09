@@ -1,5 +1,7 @@
 // A server's windows in the client: its desktop page (or one panel of it), in a session of the server's own that keeps
 // its pairing cookie. The page comes from the server, so it always matches the server's version.
+import { attachWindowChrome, windowChromeArgs, windowChromeOptions } from '../windowChrome';
+import type { ServerList } from './servers';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { BrowserWindow, session, type Session, type WebContents } from 'electron';
@@ -76,7 +78,7 @@ export class ServerWindows {
   private readonly commands = new WeakMap<BrowserWindow, PageCommands>();
 
   /** `unreachable`: a window's page didn't load (the server is off, or this computer isn't on its network). */
-  constructor(private readonly unreachable: (w: ServerWindow, reason: string) => void) {}
+  constructor(private readonly unreachable: (w: ServerWindow, reason: string) => void, private readonly servers: ServerList) {}
 
   /** Opens (or raises) `origin`'s main window, or its window for `panel`. */
   open(origin: string, panel: string | null = null): BrowserWindow {
@@ -86,7 +88,9 @@ export class ServerWindows {
     this.guard(ses, origin);
     const key = `${origin}#${panel ?? 'main'}`;
     const saved = windowState.get(key);
+    const customChrome = this.servers.drawsWindowChrome(origin);
     const win = new BrowserWindow({
+      ...(customChrome ? windowChromeOptions() : {}),
       ...(saved?.bounds ?? (panel ? PANEL_SIZE : MAIN_SIZE)),
       show: false,
       autoHideMenuBar: true,
@@ -94,12 +98,13 @@ export class ServerWindows {
         session: ses,
         preload: PRELOAD,
         // The only origin its preload gives the shell to.
-        additionalArguments: [`${SHELL_ORIGIN_ARG}${origin}`, ...hourCycleArgs()],
+        additionalArguments: [`${SHELL_ORIGIN_ARG}${origin}`, ...hourCycleArgs(), ...(customChrome ? windowChromeArgs() : [])],
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
       },
     });
+    if (customChrome) attachWindowChrome(win);
     windowState.manage(win, key, saved);
     const entry: ServerWindow = { win, origin, panel };
     this.windows.add(entry);
@@ -108,7 +113,14 @@ export class ServerWindows {
       if (!win.isDestroyed()) win.webContents.send(APP_EVENT_CHANNEL, e);
     });
     this.commands.set(win, commands);
-    win.webContents.on('did-navigate', () => commands.reset());
+    win.webContents.on('did-start-navigation', (_e, _url, inPlace, mainFrame) => {
+      if (mainFrame && !inPlace) {
+        commands.reset();
+        // Frameless windows cannot regain system frames; nonreporting pages (older servers or pairing) lack title bars until reopening.
+        // Clearing capability makes the next window framed.
+        this.servers.setWindowChrome(origin, false);
+      }
+    });
     // The server's pages only (its pairing page and its desktop); links elsewhere open in the system browser.
     guardNavigation(win.webContents, (url) => new URL(url).origin === origin);
     guardUnsavedChanges(win);
@@ -125,6 +137,11 @@ export class ServerWindows {
     });
     void win.loadURL(serverPageUrl(origin, panel));
     return win;
+  }
+
+  reportWindowChrome(wc: WebContents): void {
+    const entry = this.of(wc);
+    if (entry && new URL(wc.getURL()).origin === entry.origin) this.servers.setWindowChrome(entry.origin, true);
   }
 
   /** Sends a command to a server window's page, once that page listens for them. */

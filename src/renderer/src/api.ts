@@ -1,10 +1,11 @@
 // Leaf renderer API uses Electron preload or installed page transport. Host modules may call it before transport installation.
 import { unwrap } from 'solid-js/store';
+import type { WindowControls } from '@shared/windowControls';
 import type { RendererApi } from '@shared/contract';
 import { isPostingCall, keepPostingLocked } from '@shared/posting';
 
 /** Groups of methods; every other member of RendererApi is a method itself. */
-type Group = { [K in keyof RendererApi]: RendererApi[K] extends (...args: never[]) => unknown ? never : K }[keyof RendererApi];
+type Group = Exclude<{ [K in keyof RendererApi]-?: RendererApi[K] extends (...args: never[]) => unknown ? never : K }[keyof RendererApi], 'window'>;
 type Method = (...args: unknown[]) => unknown;
 
 /** A transport's API (a page served outside the app), once installed. */
@@ -16,6 +17,9 @@ let draining = false;
 
 /** The API, if one is there yet and nothing waits: a transport's, else the preload's (present before any script in the app's windows). */
 const live = (): RendererApi | undefined => (draining ? undefined : (installed ?? window.chattypop));
+
+/** Read after first paint, once any remote transport is installed. */
+export const windowControls = (): WindowControls | undefined => live()?.window;
 
 /** Where this window runs: the app's own (its preload), a remote desktop a ChattyPop server serves, or the phone. */
 export type WindowSurface = 'desktop' | 'remote' | 'phone';

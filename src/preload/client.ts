@@ -2,13 +2,16 @@
 // this window opened and to no other page it may reach.
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { APP_EVENT_CHANNEL, DISCARD_UNSAVED_CHANNEL, UNSAVED_CHANNEL, type AppEvent } from '@shared/contract';
+import { windowControls } from './windowControls';
 import { DESKTOP_SHELL_API_VERSION, DESKTOP_SHELL_GLOBAL, SHELL_CHANNELS, SHELL_ORIGIN_ARG, type DesktopShell } from '@shared/desktopShell';
 
 /** The server main opened this window on (its additionalArguments); undefined in any other window. */
 export const shellServer = (argv: readonly string[]): string | undefined => argv.find((a) => a.startsWith(SHELL_ORIGIN_ARG))?.slice(SHELL_ORIGIN_ARG.length);
 
 const shell: DesktopShell = {
+  windowControls: windowControls(),
   apiVersion: DESKTOP_SHELL_API_VERSION,
+  reportWindowChrome: () => ipcRenderer.send(SHELL_CHANNELS.reportWindowChrome),
   notify: (n) => ipcRenderer.send(SHELL_CHANNELS.notify, n),
   setBadge: (unread) => ipcRenderer.send(SHELL_CHANNELS.setBadge, unread),
   saveMedia: (path, fileName) => ipcRenderer.invoke(SHELL_CHANNELS.saveMedia, path, fileName),

@@ -1,4 +1,6 @@
-import { onMount } from 'solid-js';
+import { Show, onMount } from 'solid-js';
+import { windowControls } from '@/api';
+import { WindowBar } from './WindowBar';
 import { Dynamic } from 'solid-js/web';
 import { titleOf } from '@/layout/panelMenu';
 import { ONE_CELL_GRID } from '@/layout/PanelSlot';
@@ -17,13 +19,17 @@ export function PanelWindow(props: { id: string }) {
   document.title = `${titleOf(props.id)} · ChattyPop`;
   let frame!: HTMLDivElement;
   onMount(() => markSeenWhileShown(frame, () => props.id, view));
+  const controls = windowControls();
   return (
-    // Structural frame only: one cell the panel's root stretches to fill.
+    // Structural frame only: the window's own title bar when frameless, over one cell the panel's root stretches to fill.
     // data-section/-importance: the same theme scope the panel gets in a layout slot.
-    <div ref={frame} class={styles.frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, width: '100%', height: '100%' }}>
-      <view.Watch><Dynamic component={def()?.component ?? (() => <p>Panel unavailable: {props.id}</p>)} /></view.Watch>
-      <Contained name="Plugin windows" shows="block"><PluginWindows /></Contained>
-      <Contained name="Menus and viewers" shows="line"><Overlays /></Contained>
+    <div style={{ display: 'flex', 'flex-direction': 'column', width: '100%', height: '100%' }}>
+      <Show when={controls}>{(c) => <WindowBar controls={c()} title={document.title} />}</Show>
+      <div ref={frame} class={styles.frame} {...panelIdentity(props.id)} data-importance={panelImportance(props.id)} style={{ ...ONE_CELL_GRID, flex: '1 1 0', 'min-height': 0 }}>
+        <view.Watch><Dynamic component={def()?.component ?? (() => <p>Panel unavailable: {props.id}</p>)} /></view.Watch>
+        <Contained name="Plugin windows" shows="block"><PluginWindows /></Contained>
+        <Contained name="Menus and viewers" shows="line"><Overlays /></Contained>
+      </div>
     </div>
   );
 }

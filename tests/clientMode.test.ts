@@ -147,3 +147,19 @@ describe("a server window's preload", () => {
     expect(send).toHaveBeenCalledExactlyOnceWith(PAGE_ERROR_CHANNEL, report);
   });
 });
+
+describe('server window chrome capability', () => {
+  it('defaults old and malformed flags to false and persists only explicit support', () => {
+    const store = memory();
+    const list = new ServerList(store);
+    const origin = list.add('pc.example', 1);
+    expect(list.drawsWindowChrome(origin)).toBe(false);
+    list.setWindowChrome(origin, true);
+    list.add(origin, 2);
+    expect(new ServerList(store).drawsWindowChrome(origin)).toBe(true);
+    list.setWindowChrome(origin, false);
+    expect(new ServerList(store).drawsWindowChrome(origin)).toBe(false);
+    store.write(JSON.stringify([{ origin, lastUsedAt: 2, drawsWindowChrome: 'true' }]));
+    expect(new ServerList(store).drawsWindowChrome(origin)).toBe(false);
+  });
+});

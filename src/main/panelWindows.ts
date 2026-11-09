@@ -4,6 +4,7 @@ import { errorMessage } from '@shared/errors';
 import { diag } from './diagnostics';
 import { profilePath } from './storageLocation';
 import { holdCloseIfUnsaved } from './unsavedChanges';
+import { attachWindowChrome } from './windowChrome';
 import { WindowStateFile, raiseWindow } from './windowState';
 
 /** Where each panel window was last placed, so it reopens there. */
@@ -61,6 +62,7 @@ export class PanelWindows {
       parent: this.owner,
       show: false,
     });
+    attachWindowChrome(win);
     this.states.manage(win, panelId, saved);
     win.on('close', (e) => holdCloseIfUnsaved(win, e));
     win.on('closed', () => {

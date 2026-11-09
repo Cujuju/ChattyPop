@@ -80,6 +80,34 @@ body,
   overflow: hidden;
 }
 
+/* A frameless window's title bar (data-window-drag) moves the window; its controls, and overlays above it, take their own clicks. */
+[data-window-drag] {
+  -webkit-app-region: drag;
+}
+
+[data-window-drag] :is(button, input, select, textarea, a, [role='button'], [tabindex]),
+dialog,
+[popover],
+[role='menu'] {
+  -webkit-app-region: no-drag;
+}
+
+/* A modal's backdrop covers the title bar, and Chromium hit-tests drag regions under it. */
+html:has(:modal) [data-window-drag] {
+  -webkit-app-region: no-drag;
+}
+
+/* The connect page (connect.html): its title bar, when it draws one, above the page. */
+body:has(> #window-bar) {
+  display: flex;
+  flex-direction: column;
+}
+
+body:has(> #window-bar) > #root {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
 /* The iPhone shell's keyboard inset follows the keyboard, at iOS's own pace (sizes.css). */
 html {
   transition: --cp-keyboard-inset var(--cp-keyboard-duration) var(--cp-ease-keyboard);

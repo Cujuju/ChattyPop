@@ -1,6 +1,7 @@
 // The desktop client app's shell around a remote desktop page: what its preload gives the page, and the channels it
 // uses (src/preload/client.ts, src/main/client/). The page is served by the server, so it can be newer or older than
 // the client app: it uses the shell only through this versioned contract, and works without one in a browser.
+import type { WindowControls } from './windowControls';
 import type { PdfPage } from './htmlPage';
 import type { DeliveredNotification } from './notifications';
 import type { AppEvent, ComposeIntent } from './types/ipc';
@@ -14,6 +15,10 @@ export const DESKTOP_SHELL_API_VERSION = 1;
 /** Native features the client app gives a remote desktop page. */
 export interface DesktopShell {
   readonly apiVersion: number;
+  /** Absent in clients predating custom chrome, or with a system frame. */
+  windowControls?: WindowControls;
+  /** Reports title-bar support. Absent in clients predating custom chrome. */
+  reportWindowChrome?(): void;
   /** Shows a notice as a system notification; a click raises the window and opens its target (onLocalEvent). */
   notify(n: DeliveredNotification): void;
   setBadge(unread: UnreadTotals): void;
@@ -42,6 +47,7 @@ export interface DesktopShell {
  * window as it does its own (unsavedChanges.ts).
  */
 export const SHELL_CHANNELS = {
+  reportWindowChrome: 'shell:window-chrome',
   notify: 'shell:notify',
   setBadge: 'shell:set-badge',
   saveMedia: 'shell:save-media',
@@ -71,9 +77,11 @@ export const CONNECT_CHANNELS = {
 export interface SavedServer {
   origin: string;
   lastUsedAt: number;
+  drawsWindowChrome?: boolean;
 }
 /** What the connect page's preload gives it. `add` resolves with the origin it saved, or rejects with why it can't. */
 export interface ConnectApi {
+  window?: WindowControls;
   list(): Promise<SavedServer[]>;
   add(input: string): Promise<string>;
   remove(origin: string): Promise<void>;

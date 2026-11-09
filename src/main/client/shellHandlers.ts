@@ -26,6 +26,9 @@ async function saveAs(win: BrowserWindow, title: string, name: string, filters?:
 }
 
 export function registerShellHandlers(windows: ServerWindows): void {
+  ipcMain.on(SHELL_CHANNELS.reportWindowChrome, (e) => {
+    if (e.senderFrame === e.sender.mainFrame) windows.reportWindowChrome(e.sender);
+  });
   const shownChannels = new Map<string, string | null>();
   /** The server window a message came from; undefined for anything else, which is ignored. */
   const from = (e: IpcMainEvent): ServerWindow | undefined => windows.of(e.sender);

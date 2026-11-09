@@ -20,6 +20,10 @@
   --cp-qr-dark: #000000;
   --cp-qr-light: #ffffff;
 
+  /* Close window button on hover: Windows' own caption red and glyph, in every theme (no theme overrides these). */
+  --cp-window-close-hover: #c42b1c;
+  --cp-window-close-hover-text: #ffffff;
+
   /* Grounds and surfaces, darkest to lightest */
   --cp-ground: #090b10; /* window ground behind all panels */
   /* Custom gradient paint tokens fall back to element-scoped color tokens when unset. Color mixes use colors rather than background paints. */

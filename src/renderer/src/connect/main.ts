@@ -3,6 +3,7 @@
 import '../theme/index.css';
 import { CONNECT_GLOBAL, CONNECT_UNREACHABLE_PARAMS, type ConnectApi } from '@shared/desktopShell';
 import { errorMessage } from '@shared/errors';
+import { mountWindowBar } from './windowBar';
 
 const connect = (window as unknown as Record<string, ConnectApi>)[CONNECT_GLOBAL]!;
 const byId = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -56,5 +57,7 @@ if (unreachable) {
   byId<HTMLElement>('unreachable').hidden = false;
   byId<HTMLButtonElement>('retry').addEventListener('click', () => void connect.open(unreachable).catch((err: unknown) => showError(errorMessage(err))));
 }
+
+if (connect.window) mountWindowBar(byId<HTMLElement>('window-bar'), connect.window);
 
 void render();

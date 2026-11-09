@@ -30,8 +30,8 @@ it('19: only the SDK containment leaf imports raw roots, batches, cleanups and s
 it('20: only containment and snapshot leaves import catchError or ErrorBoundary', () => {
   expect(restricted(['catchError', 'ErrorBoundary'], [LEAF, CONTAINED, SNAPSHOT])).toEqual([]);
 });
-it('21: render is imported only by the three page and snapshot entries', () => {
-  const allowed = ['src/renderer/src/boot.tsx', 'src/plugin-sdk/renderer/shell/page.tsx', SNAPSHOT];
+it('21: render is imported only by the page, connect title bar and snapshot entries', () => {
+  const allowed = ['src/renderer/src/boot.tsx', 'src/plugin-sdk/renderer/shell/page.tsx', 'src/renderer/src/connect/windowBar.tsx', SNAPSHOT];
   const bad = inventory.flatMap(({ file, imports }) => imports.filter((s) => s.source === 'solid-js/web' && s.name === 'render' && !allowed.includes(file)).map((s) => `${file}:${s.line}`));
   expect(bad).toEqual([]);
 });

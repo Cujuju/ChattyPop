@@ -34,7 +34,7 @@ export class ServerList {
     } catch {
       // Unreadable: no saved servers; the owner adds theirs again.
     }
-    this.servers = Array.isArray(parsed) ? parsed.filter(isSaved) : [];
+    this.servers = Array.isArray(parsed) ? parsed.filter(isSaved).map((s) => ({ origin: s.origin, lastUsedAt: s.lastUsedAt, ...(s.drawsWindowChrome === true ? { drawsWindowChrome: true } : {}) })) : [];
   }
 
   /** Most recently used first. */
@@ -51,9 +51,21 @@ export class ServerList {
   add(input: string, now = Date.now()): string {
     const origin = serverOrigin(input);
     if (!origin) throw new Error('Enter the server’s https address, like pc.example.ts.net:8443.');
-    this.servers = [...this.servers.filter((s) => s.origin !== origin), { origin, lastUsedAt: now }];
+    this.servers = [...this.servers.filter((s) => s.origin !== origin), { origin, lastUsedAt: now, ...(this.drawsWindowChrome(origin) ? { drawsWindowChrome: true } : {}) }];
     this.save();
     return origin;
+  }
+
+  drawsWindowChrome(origin: string): boolean {
+    return this.servers.find((s) => s.origin === origin)?.drawsWindowChrome === true;
+  }
+
+  setWindowChrome(origin: string, draws: boolean): void {
+    const server = this.servers.find((s) => s.origin === origin);
+    if (!server || this.drawsWindowChrome(origin) === draws) return;
+    if (draws) server.drawsWindowChrome = true;
+    else delete server.drawsWindowChrome;
+    this.save();
   }
 
   remove(origin: string): void {

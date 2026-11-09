@@ -31,6 +31,9 @@ import styles from './TopBar.module.css';
 import { topBarItems } from '@/plugins/slots';
 import type { TopBarItem } from '@/plugins/frameSlots';
 import type { HostTopBarItemId } from '@shared/anchors';
+import { windowControls } from '@/api';
+import { WindowControls } from './WindowControls';
+import { createWindowFrameState } from './windowFrame';
 
 const PRESET_IDS = Object.keys(PRESETS) as PresetId[];
 
@@ -180,13 +183,17 @@ const HOST_ITEMS: readonly (TopBarItem & { id: HostTopBarItemId })[] = [
 
 /** Fixed app frame contains the panel toolbar (Search among its panels), a live-updates warning, layouts, privacy, settings and plugin items. Window title names app; status bar shows version. */
 export function TopBar() {
+  // In a frameless window the bar is the title bar too: it moves the window and holds the window buttons.
+  const controls = windowControls();
+  const frame = controls && createWindowFrameState(controls);
   return (
-    <header class={styles.root}>
+    <header class={styles.root} data-window-drag={controls ? true : undefined} data-chrome={controls?.chrome} data-full-screen={frame?.().fullScreen || undefined}>
       <div class={styles.start} />
       <PanelToolbar />
       <div class={styles.end}>
         <LiveUpdatesWarning />
         <For each={topBarItems(HOST_ITEMS)}>{(item) => <item.Component />}</For>
+        <Show when={controls?.chrome === 'controls' && controls}>{(c) => <WindowControls controls={c()} />}</Show>
       </div>
     </header>
   );

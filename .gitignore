@@ -22,3 +22,5 @@ release/
 .claude/*.lock
 CLAUDE.local.md
 .env*
+
+native/window-border/build/

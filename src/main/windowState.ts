@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { screen, type BrowserWindow, type Rectangle } from 'electron';
 import { errorMessage } from '@shared/errors';
+import { applyScreenRect, readScreenRect, type ScreenRect } from './nativeWindowAddon';
 import { diag } from './diagnostics';
 import { profilePath } from './storageLocation';
 
@@ -9,6 +10,38 @@ export interface WindowState {
   bounds: Rectangle;
   maximized: boolean;
   fullScreen: boolean;
+  screen?: ScreenPlacement;
+}
+
+export interface SavedDisplay {
+  id: number;
+  scaleFactor: number;
+  bounds: Rectangle;
+  workArea: Rectangle;
+}
+export interface ScreenPlacement { rect: ScreenRect; display: SavedDisplay; }
+
+const snapshotDisplay = (d: SavedDisplay): SavedDisplay => ({
+  id: d.id, scaleFactor: d.scaleFactor, bounds: { ...d.bounds }, workArea: { ...d.workArea },
+});
+
+/** Physical placement is used only on the same unchanged display. */
+export function placementStillValid(placement: ScreenPlacement, displays: readonly SavedDisplay[]): boolean {
+  const was = placement.display;
+  const now = displays.find((d) => d.id === was.id);
+  const sameRect = (a: Rectangle, b: Rectangle): boolean => RECT_KEYS.every((k) => a[k] === b[k]);
+  return !!now && now.scaleFactor === was.scaleFactor && sameRect(now.bounds, was.bounds) && sameRect(now.workArea, was.workArea);
+}
+
+export function parseScreenPlacement(raw: unknown): ScreenPlacement | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const p = raw as Partial<ScreenPlacement>;
+  const rect = asRect(p.rect);
+  const d = p.display;
+  const bounds = asRect(d?.bounds);
+  const workArea = asRect(d?.workArea);
+  if (!rect || !d || !Number.isFinite(d.id) || !Number.isFinite(d.scaleFactor) || d.scaleFactor <= 0 || !bounds || !workArea) return undefined;
+  return { rect, display: { id: d.id, scaleFactor: d.scaleFactor, bounds, workArea } };
 }
 
 const RECT_KEYS = ['x', 'y', 'width', 'height'] as const;
@@ -17,6 +50,7 @@ function asRect(v: unknown): Rectangle | undefined {
   if (typeof v !== 'object' || v === null) return undefined;
   const o = v as Record<string, unknown>;
   if (!RECT_KEYS.every((k) => Number.isFinite(o[k]))) return undefined;
+  if ((o['width'] as number) <= 0 || (o['height'] as number) <= 0) return undefined;
   return { x: o['x'] as number, y: o['y'] as number, width: o['width'] as number, height: o['height'] as number };
 }
 
@@ -32,7 +66,8 @@ function normalize(raw: unknown): WindowState | undefined {
   // Panel records saved before maximized/full-screen were tracked are bare bounds.
   const bounds = asRect(o['bounds']) ?? asRect(o);
   if (!bounds || !onScreen(bounds)) return undefined;
-  return { bounds, maximized: o['maximized'] === true, fullScreen: o['fullScreen'] === true };
+  const placement = parseScreenPlacement(o['screen']);
+  return { bounds, maximized: o['maximized'] === true, fullScreen: o['fullScreen'] === true, ...(placement ? { screen: placement } : {}) };
 }
 
 /** Persists per-window states in profile JSON on close. After crashes, restores the last clean-close position. */
@@ -52,9 +87,25 @@ export class WindowStateFile {
     // Tracked from events: a minimized or hidden window reports neither as it was.
     let maximized = saved?.maximized ?? false;
     let fullScreen = saved?.fullScreen ?? false;
+    let placement: ScreenPlacement | undefined;
+    const capturePlacement = (beforeRestore = false): void => {
+      if (win.isDestroyed() || win.isMinimized()) return;
+      if ((!beforeRestore && (maximized || fullScreen)) || win.isMaximized() || win.isFullScreen()) {
+        if (placement && screen.getDisplayMatching(win.getBounds()).id !== placement.display.id) placement = undefined;
+        return;
+      }
+      const rect = readScreenRect(win);
+      if (rect) placement = { rect, display: snapshotDisplay(screen.getDisplayMatching(win.getBounds())) };
+    };
+    win.on('move', () => capturePlacement());
+    win.on('resize', () => capturePlacement());
     const show = (): void => {
       if (!shown) {
         shown = true;
+        if (saved?.screen && process.platform === 'win32' && placementStillValid(saved.screen, screen.getAllDisplays())) {
+          if (applyScreenRect(win, saved.screen.rect)) placement = saved.screen;
+        }
+        capturePlacement(true);
         if (fullScreen) win.setFullScreen(true);
         else if (maximized) win.maximize();
       }
@@ -73,7 +124,10 @@ export class WindowStateFile {
     win.on('enter-full-screen', () => (fullScreen = true));
     win.on('leave-full-screen', () => (fullScreen = false));
     win.on('close', () => {
-      if (shown) this.save(key, { bounds: win.getNormalBounds(), maximized, fullScreen });
+      if (shown) {
+        capturePlacement();
+        this.save(key, { bounds: win.getNormalBounds(), maximized, fullScreen, ...(placement ? { screen: placement } : {}) });
+      }
     });
   }
 
