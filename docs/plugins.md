@@ -58,7 +58,7 @@ The `renderer` module exports `panels`: `[{ id, title, mount(el, api) }]` (types
 | `openMessage(channelId, messageId)` | Opens that message in the Archive. |
 | `onArchiveChanged(fn)` | Runs when archived messages change; returns an unsubscribe function. |
 
-To show a panel, right-click any panel header → **Add <title> below**; the layout becomes a custom layout. Right-click the plugin panel's header → **Remove … from this layout**. Panels run in the app window with full trust, like the rest of a plugin.
+To show a panel, open the top bar's Layout menu (or right-click any panel header) → **Add a panel** → its title, then click the spot. Right-click the plugin panel's header → **Remove from the layout**. Panels run in the app window with full trust, like the rest of a plugin.
 
 ## Reloading
 **Reload plugins** re-imports each plugin's `main` file. Modules that `main` imports are cached until the app restarts.

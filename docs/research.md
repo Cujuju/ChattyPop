@@ -15,7 +15,7 @@ Researched 2026-09-24. Versions are from npm, nodejs.org and releases.electronjs
 | Summaries | Link back to source messages. |
 | Plugins | **Full trust** (the plugin author is the user). |
 | Right pane | **Embedded live Discord web client.** |
-| Layout | User picks in app: side-by-side, stacked, or tabbed. |
+| Layout | One tiling layout (`@cujuju/solidjs-tiling-window-manager`): any panel docks anywhere, tabs with others, folds to its header; Channels collapses to a rail. Saved per device (`layout.tiles`); the top bar's Layout menu adds panels and resets to the default (F2's stacked arrangement). |
 | Channel scope | **Opt-in per channel.** |
 | Direct messages | The signed-in account's DMs and groups are listed from the live client's gateway, at no extra requests. Archiving stays **opt-in per DM**; an optional setting (**off by default**) archives a DM when it gets a message after the setting was turned on, skipping requests and DMs the owner declined. Starting a DM or group, adding friends, renaming, muting, marking read, closing and leaving happen in the app, each in the live client's own request shape. Removing people and group icons stay in the live client (`docs/dms.md`). |
 | Providers | Claude (Agent SDK → Claude Code), ChatGPT (Codex app-server), **Ollama**, **OpenRouter**. Claude and Codex keep the machine CLI sign-in and allow separate linked sign-ins and API-key accounts; keys stay OS-encrypted in main, in core memory, and reach CLIs through child environments. |
@@ -127,7 +127,7 @@ Topics are UI-created: name, keywords/regex, optional natural-language descripti
 
 ## 6. Architecture
 - **Processes**: main (windows, token capture, `ses.fetch` Discord client, secrets) · utilityProcess "core" (SQLite writer, ingest queue, plugin host, AI calls, CLI child processes) · renderer (Solid; `contextIsolation`, `sandbox`, typed preload bridge) · `WebContentsView` (Discord web client, `persist:discord`).
-- **UI v1**: two main panels, topics/alerts/summaries (with citation chips) and the live Discord client. Layout is user-selectable: side-by-side, stacked or tabbed; the choice persists. The Discord pane is a native `WebContentsView` overlaid on the window, not DOM. The renderer must report the panel's bounds (ResizeObserver → IPC → `view.setBounds`) and hide the view when its tab is inactive. Citation clicks open the message via the in-app client's route `https://discord.com/channels/<g>/<c>/<m>`. Links live in the **Links** panel: every shared link, virtualized and paged, filterable by platform, channel and date, with a "seen up to" watermark (advanced while the panel is on screen) for catch-up.
+- **UI v1**: two main panels, topics/alerts/summaries (with citation chips) and the live Discord client. Panels tile freely (see §0 Layout); the layout persists. The Discord pane is a native `WebContentsView` overlaid on the window, not DOM. The renderer must report the panel's bounds (ResizeObserver → IPC → `view.setBounds`) and hide the view when its tab is inactive. Citation clicks open the message via the in-app client's route `https://discord.com/channels/<g>/<c>/<m>`. Links live in the **Links** panel: every shared link, virtualized and paged, filterable by platform, channel and date, with a "seen up to" watermark (advanced while the panel is on screen) for catch-up.
 - **Media links**: URLs from `content` (linkifyjs 4.3.3; respect `<url>` suppression) plus `embeds[]` (`url`, `type`, `provider.name`, thumbnail; Discord has already unfurled them). Classify by domain (YouTube, X/Twitter + fx/vx mirrors, Instagram, TikTok, Reddit, Bluesky, Threads, Twitch…). Dedupe by URL with first-seen message.
 
 ## 7. Plugins (full trust)
@@ -197,7 +197,7 @@ Principle: a redesign (layout, look, or both) should touch only the view layer: 
 |---|---|---|
 | **Stores** (`src/state/*`) | Typed Solid stores/resources over the preload bridge: channels, summaries, alerts, links, sync, provider usage | No |
 | **Panels** (`src/panels/<id>/`) | One self-contained component per named section. Reads stores only, never IPC. Has no outer margins or fixed size: it fills whatever slot it's given. | Only if that panel's look changes |
-| **Layout** (`src/layout/`) | A layout tree as data: `split` (dir, sizes) / `tabs` / `panel(id)`. Presets `side-by-side`, `stacked`, `tabbed` plus user-saved layouts. Renderer walks the tree. | Yes, and it's the only place |
+| **Layout** (`src/layout/`) | A layout tree as data: the tiling window manager's `TileNode` (`split` with shares / `tabs` / `tile(id)`), one per device, default built from F2's stacked arrangement plus plugin panels' declared spots. `LayoutRoot` hosts the toolkit's `TilingWorkspace`; a panel's header is its tile's grip and tab strip. | Yes, and it's the only place |
 | **Theme** (`src/theme/`) | Design tokens as CSS custom properties: color, type scale, spacing, radius, elevation, motion. One file per theme (F2 dark first). | Yes, for a visual redesign |
 | **Primitives** (`src/ui/`) | Button, Chip, Meter, Tabs, List row, Icon. Styled only from tokens. | Rarely |
 
@@ -209,7 +209,7 @@ Principle: a redesign (layout, look, or both) should touch only the view layer: 
   - Panels talk to each other only through stores or app commands (e.g. `openCitation(messageId)`), never by importing one another.
   - Icons go through one `Icon` component, so the icon set can be swapped.
 - **Live Discord pane**: the `chat` panel reports its slot bounds (ResizeObserver → IPC → `WebContentsView.setBounds`) and visibility, so it follows any layout.
-- **Later**: drag-and-drop docking on the same layout tree (a library would be a new dependency; ask first).
+- **Docking**: drag a header onto a tile's edge to dock, its middle to swap or tab, another header to tab; drag it out of the window to open it in its own window. The status bar is the app frame below the tiles, never a tile. Older saved layouts (`layout.custom`, read only) convert on first load; a built-in preset choice becomes the default.
 
 ## 11. Spikes (before building)
 1. `better-sqlite3-multiple-ciphers` + FTS5 loads in an Electron 44 utilityProcess (and packaged, `asarUnpack`).
