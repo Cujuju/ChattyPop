@@ -17,7 +17,7 @@
 :root {
   /* Layout: app frame */
   --cp-topbar-h: 48px;
-  --cp-topbar-logo: var(--cp-btn-h); /* the app icon at the top bar's left: as tall as the bar's buttons */
+  --cp-topbar-logo-inset: calc((var(--cp-topbar-h) - var(--cp-btn-h)) / 2); /* the app icon's margin to the bar's top, bottom and left: leaves it as tall as the bar's buttons */
   --cp-window-bar-h: 32px; /* a panel or connect window's own title bar: Windows' caption height */
   --cp-window-bar-logo: 16px; /* the app icon in that bar: Windows' caption icon size */
   --cp-window-control-w: 46px; /* minimize, maximize and close: Windows' caption button width */

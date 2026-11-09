@@ -18,6 +18,7 @@ import type { TopBarItem } from '@/plugins/frameSlots';
 import type { HostTopBarItemId } from '@shared/anchors';
 import { windowControls } from '@/api';
 import { AppLogo } from './AppLogo';
+import { OWN_APP_NAME } from '@/state/commands';
 import { WindowControls } from './WindowControls';
 import { createWindowFrameState } from './windowFrame';
 
@@ -134,7 +135,10 @@ export function TopBar() {
   return (
     <header class={styles.root} data-window-drag={controls ? true : undefined} data-chrome={controls?.chrome} data-full-screen={frame?.().fullScreen || undefined}>
       <div class={styles.start}>
-        <Show when={controls}><AppLogo class={styles.logo} /></Show>
+        <Show when={controls}>
+          <AppLogo class={styles.logo} />
+          <span class={styles.appName}>{OWN_APP_NAME}</span>
+        </Show>
       </div>
       <PanelToolbar />
       <div class={styles.end}>

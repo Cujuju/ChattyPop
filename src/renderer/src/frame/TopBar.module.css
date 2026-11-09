@@ -1,4 +1,4 @@
-/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only the layout track outlined. .start stays empty to keep the toolbar centred. */
+/* Top-bar class names match TopBar.tsx. Ghost chrome leaves only the layout track outlined. .start holds only the title bar's icon and name. */
 .root {
   position: relative;
   display: grid;
@@ -45,15 +45,23 @@
 /* Window buttons sit flush with the window's top-right corner at full bar height. */
 .root[data-chrome='controls'] {
   padding-right: 0;
-  /* The app icon's left inset matches its margin above and below. */
-  padding-left: calc((var(--cp-topbar-h) - var(--cp-topbar-logo)) / 2);
+  padding-left: var(--cp-topbar-logo-inset);
 }
 
+/* The app icon: the bar's height less one inset above and below, centred, after the same inset at the left. */
 .logo {
   display: block;
   flex: 0 0 auto;
-  width: var(--cp-topbar-logo);
-  height: var(--cp-topbar-logo);
+  width: calc(var(--cp-topbar-h) - 2 * var(--cp-topbar-logo-inset));
+  height: calc(var(--cp-topbar-h) - 2 * var(--cp-topbar-logo-inset));
+}
+
+.appName {
+  color: var(--cp-text-1);
+  font-family: var(--cp-font-sans);
+  font-size: var(--cp-text-md);
+  font-weight: var(--cp-weight-semibold);
+  white-space: nowrap;
 }
 
 .root[data-chrome='controls'] > .end {
