@@ -263,11 +263,14 @@
   --cp-frost-reach: 0px; /* how far the composer's glass reaches above its box: none until the typing line shows */
   --cp-picker-emoji-cols: 12; /* emoji a row in the desktop picker (unitless): the owner asked to see more at once */
   --cp-scrollbar-w: 10px; /* Chromium's thin scrollbar (base.css), measured on Windows */
-  /* GIF / sticker / emoji picker: its edges, the section rail, the emoji columns, the list's side padding and scrollbar. */
-  --cp-picker-w: calc(
-    2 * var(--cp-border-w) + var(--cp-emoji-rail-w) + var(--cp-picker-emoji-cols) * var(--cp-picker-emoji) + 2 * var(--cp-space-4) + var(--cp-scrollbar-w)
-  );
+  /* GIF / sticker / emoji picker: its edges, the section rail, the list's side padding and scrollbar, then the emoji columns. */
+  --cp-picker-frame-w: calc(2 * var(--cp-border-w) + var(--cp-emoji-rail-w) + 2 * var(--cp-space-4) + var(--cp-scrollbar-w));
+  --cp-picker-w: calc(var(--cp-picker-frame-w) + var(--cp-picker-emoji-cols) * var(--cp-picker-emoji));
   --cp-picker-h: 560px; /* about eleven emoji rows under the tabs, search and preview */
+  /* The least the desktop picker resizes to: its tabs still fit, with a few emoji rows and columns. */
+  --cp-picker-min-emoji-cols: 6; /* unitless */
+  --cp-picker-min-w: calc(var(--cp-picker-frame-w) + var(--cp-picker-min-emoji-cols) * var(--cp-picker-emoji));
+  --cp-picker-min-h: 280px; /* about three emoji rows under the tabs, search and preview */
   --cp-picker-emoji: 36px; /* emoji cell in the picker */
   --cp-picker-emoji-glyph: 26px; /* the emoji inside it */
   --cp-picker-sticker: 88px; /* sticker cell in the picker */

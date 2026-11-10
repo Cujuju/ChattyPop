@@ -315,6 +315,23 @@
   background: var(--cp-surface-2);
 }
 
+/* A resize grip on a popover's edge or corner (data-edge): unseen, its cursor names the direction. */
+.resizeGrip:is([data-edge='n'], [data-edge='s']) {
+  cursor: ns-resize;
+}
+
+.resizeGrip:is([data-edge='e'], [data-edge='w']) {
+  cursor: ew-resize;
+}
+
+.resizeGrip:is([data-edge='nw'], [data-edge='se']) {
+  cursor: nwse-resize;
+}
+
+.resizeGrip:is([data-edge='ne'], [data-edge='sw']) {
+  cursor: nesw-resize;
+}
+
 /* A keyboard-navigable choice in a popover's list: the selected one (aria-selected) raised. */
 .listOption {
   border-radius: var(--cp-radius-md);
