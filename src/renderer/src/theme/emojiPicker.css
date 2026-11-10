@@ -1,7 +1,8 @@
 :root {
   --cp-emoji-rail-w: 52px;
-  --cp-emoji-preview-h: 60px;
   --cp-emoji-preview-glyph: 36px;
+  --cp-emoji-preview-inset: var(--cp-space-4); /* the preview's emoji: this far from the divider before it and the row's top and bottom */
+  --cp-emoji-preview-h: calc(var(--cp-emoji-preview-glyph) + 2 * var(--cp-emoji-preview-inset));
   --cp-emoji-preview-char: 30px; /* Windows' Unicode emoji have a wider advance than their font size. */
   --cp-emoji-source-max-w: 132px;
 }

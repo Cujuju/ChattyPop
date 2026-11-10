@@ -129,7 +129,7 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cp-space-3);
+  gap: var(--cp-emoji-preview-inset);
   min-height: var(--cp-emoji-preview-h);
   border-top: var(--cp-border-w) solid var(--cp-border-subtle);
   background: var(--cp-surface-1);
@@ -181,7 +181,8 @@
   gap: var(--cp-space-2);
   min-width: 0;
   max-width: var(--cp-emoji-source-max-w);
-  margin-right: var(--cp-space-4);
+  /* The server icon as far from the edge as from the row's top and bottom. */
+  margin-right: calc((var(--cp-emoji-preview-h) - var(--cp-picker-emoji-glyph)) / 2);
   color: var(--cp-text-muted);
   font-size: var(--cp-text-2xs);
   --guild-icon-size: var(--cp-picker-emoji-glyph);
