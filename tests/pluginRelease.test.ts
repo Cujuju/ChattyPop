@@ -95,7 +95,7 @@ describe('ensureReleased', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     // The asset, once it exists, is the index; main's copy is not read again.
     expect(w.index().plugins.map((p) => p.id)).toEqual(['gamma', ID]);
     // A rewrite uploads the backup before it replaces the index asset.
-    expect(w.indexWrites().map((c) => `${c.split(' ').slice(0, 2).join(' ')} ${c.split(' ')[3]!.split('/').pop()}`)).toEqual(['release create marketplace.json', 'release upload marketplace.backup.json', 'release upload marketplace.json']);
+    expect(w.indexWrites().map((c) => `${c.split(' ').slice(0, 2).join(' ')} ${c.split(' ')[3]!.split(/[\\/]/).pop()}`)).toEqual(['release create marketplace.json', 'release upload marketplace.backup.json', 'release upload marketplace.json']);
     expect(w.indexWrites()[2]).toContain('--clobber');
   });
 
