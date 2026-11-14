@@ -17,7 +17,8 @@ Design and decisions: `docs/research.md` (read §0 Decisions and §10 UI archite
 - `pnpm typecheck`: TS type-check all targets
 - `pnpm test`: vitest contract tests (`tests/`)
 - `pnpm plugin:check <pluginDir>`: check a plugin folder against this checkout.
-- `pnpm plugin:release-changed <pluginsRepoDir> --repo <owner/name> [--dry-run] [--only ids] [--sdk-rebuild]`: stamp and publish every changed plugin in a plugin repo; CI runs it on each push to the repo's main.
+- `pnpm plugin:release-changed <pluginsRepoDir> --repo <owner/name> --stamp [--dry-run] [--only ids] [--sdk-rebuild]`: in a plugin repo's pull request branch (clean, containing `origin/main`), raise each changed plugin's version and refresh the branch's `marketplace.json` copy, in one commit. **Every plugin-repo pull request runs it before it is opened or merged**; the repo's CI fails a pull request with an unstamped change (`--check`).
+- `pnpm plugin:release-changed <pluginsRepoDir> --repo <owner/name> [--dry-run]` (no `--stamp`): on the repo's `main`, publish every plugin whose version has no release yet and list it in the repo's `marketplace` release. It never commits or pushes. The public plugin repo's CI runs it on each push to `main`.
 
 # Plugins
 - The app holds no plugins. They live in plugin repos (`plugins/<id>/`, e.g. the built-in marketplace `Cujuju/ChattyPop-Plugins-Public`), with their tests; ships install them from a marketplace.
