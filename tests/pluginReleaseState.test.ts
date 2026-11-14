@@ -68,8 +68,9 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     const repo = releasedA();
     const intent = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.0.1') }, 'chore(release): alpha-v1.0.1');
     listed(repo, 'beta', '1.0.0', intent);
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: false });
     commit(repo.other, { 'plugins/alpha/shared/extra.ts': 'export const later = 1;\n' }, 'fix(alpha): later');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: true });
     expect(stateOf(repo.clone, 'beta')).toMatchObject({ kind: 'settled', version: '1.0.0' });
   });
 
@@ -77,7 +78,8 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     const repo = releasedA();
     const intent = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.0.1') }, 'chore(release): alpha-v1.0.1');
     commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '2.0.0') }, 'feat(alpha)!: 2.0');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent });
+    // Raised past the intent by hand: the edit has its own version.
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: false });
     listed(repo, 'alpha', '1.0.1', intent);
     expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null, changedSinceTarget: false });
   });

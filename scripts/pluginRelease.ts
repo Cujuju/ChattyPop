@@ -190,10 +190,17 @@ export async function writeIndex(gh: Gh, repo: string, raw: unknown, store: Inde
   await ghRun(gh, ['release', 'create', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--target', store.target, '--title', 'Marketplace index', '--notes', notes, '--latest=false']);
 }
 
-/** Creates the index release from `store.fallback()` when it is missing; true when it did. Nothing to copy, nothing done. */
+/**
+ * Makes the index asset present: restores it from the backup an interrupted rewrite left (hosts read only the index asset), else creates
+ * the index release from `store.fallback()`. True when it wrote; nothing to copy, nothing done.
+ */
 export async function seedIndex(gh: Gh, repo: string, store: IndexStore, workDir: string): Promise<boolean> {
   const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
-  if (hasAsset(view, MARKETPLACE_INDEX_FILE) || hasAsset(view, INDEX_BACKUP_FILE)) return false;
+  if (hasAsset(view, MARKETPLACE_INDEX_FILE)) return false;
+  if (hasAsset(view, INDEX_BACKUP_FILE)) {
+    await writeIndex(gh, repo, await readIndex(gh, repo, store, workDir), store, workDir);
+    return true;
+  }
   const raw = store.fallback();
   if (raw === null) return false;
   parseMarketplaceIndex(raw);

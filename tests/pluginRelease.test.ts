@@ -110,6 +110,9 @@ describe('ensureReleased', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     // With only a backup holding the published entry, reads use it rather than main's older copy.
     w.fake.addAsset('marketplace', (() => { const f = join(tempDir(), 'marketplace.backup.json'); writeFileSync(f, JSON.stringify(first)); return f; })());
     expect(await readIndex(w.fake.gh, REPO, w.store, tempDir())).toEqual(first);
+    // Hosts read only marketplace.json: the next publish restores it from the backup.
+    expect(await seedIndex(w.fake.gh, REPO, w.store, tempDir())).toBe(true);
+    expect(w.fake.index()).toEqual(first);
     expect(await seedIndex(w.fake.gh, REPO, w.store, tempDir())).toBe(false);
     // A failed upload's placeholder isn't an index: seeding replaces it.
     store.assets.clear();

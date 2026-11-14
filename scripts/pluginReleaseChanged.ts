@@ -126,7 +126,7 @@ async function publish(options: ReleaseChangedOptions, dir: string, workDir: str
   preflightMain(git, dir, repo);
   const head = gitOut(git, dir, ['rev-parse', MAIN]);
   const store: IndexStore = { fallback: () => branchIndex(git, dir), target: head };
-  if (!dryRun && (await seedIndex(gh, repo, store, workDir))) log(`Created the ${MARKETPLACE_INDEX_TAG} release from main's ${MARKETPLACE_INDEX_FILE}`);
+  if (!dryRun && (await seedIndex(gh, repo, store, workDir))) log(`Wrote the ${MARKETPLACE_INDEX_TAG} release's ${MARKETPLACE_INDEX_FILE} (from its backup, or from main's copy)`);
   const release = async (id: string, version: string, target: string): Promise<void> => {
     if (dryRun) return void log(`Would publish ${releaseTag(id, version)} at ${target}`);
     const out = mkdtempSync(join(workDir, `${id}-`));
@@ -170,7 +170,7 @@ async function checkStamps(options: ReleaseChangedOptions, dir: string, workDir:
   for (const s of states) log(summary(s));
   for (const s of states) {
     if (s.kind === 'broken') result.failed.push(`${s.id}: ${s.reason}`);
-    else if (s.kind === 'unstamped' && s.changedSinceTarget) {
+    else if ((s.kind === 'unstamped' || s.kind === 'pending') && s.changedSinceTarget) {
       const message = `${s.id}: changed since ${releaseTag(s.id, s.version)} was tagged without a raised version; ${STAMP_HINT}.`;
       if (git(dir, ['diff', '--quiet', `${MAIN}...HEAD`, '--', `${PLUGINS_DIR}/${s.id}`]).code === 0) log(`Note: ${message}`);
       else result.failed.push(message);
@@ -198,7 +198,7 @@ async function stamp(options: ReleaseChangedOptions, dir: string, workDir: strin
   const planned = states.flatMap((s) =>
     s.kind === 'settled' && (s.changed || needsRebuild(s, sdkRebuild)) ? [{ id: s.id, version: raisedVersion(s.version, s.changed ?? ['patch']) }]
       // A tagged version's content is fixed: later edits go out as the next patch.
-      : s.kind === 'unstamped' && s.changedSinceTarget ? [{ id: s.id, version: raisedVersion(s.version, ['patch']) }]
+      : (s.kind === 'unstamped' || s.kind === 'pending') && s.changedSinceTarget ? [{ id: s.id, version: raisedVersion(s.version, ['patch']) }]
         : []);
   for (const p of planned) log(`${dryRun ? 'Would stamp' : 'Stamping'} ${releaseTag(p.id, p.version)}`);
 

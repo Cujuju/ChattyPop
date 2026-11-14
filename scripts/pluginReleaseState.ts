@@ -20,7 +20,7 @@ export type PluginState =
   /** L == N means released. Changed content accumulates ordered commit bumps; unchanged content returns null. */
   | { id: string; kind: 'settled'; version: string; listed: MarketplaceRelease; changed: Bump[] | null }
   /** Lowest unpublished release intent and its target commit. */
-  | { id: string; kind: 'pending'; version: string; target: string }
+  | { id: string; kind: 'pending'; version: string; target: string; changedSinceTarget: boolean }
   /** Unlisted or raised manifest version without an intent: released at L. Its target is L's tag when an interrupted release made one, else null (the commit being released). */
   | { id: string; kind: 'unstamped'; version: string; target: string | null; changedSinceTarget: boolean }
   /** Its state contradicts the contract; nothing is done for it until a person fixes it. */
@@ -136,6 +136,9 @@ export function readStates(git: Git, dir: string, rawIndex: unknown, only?: read
       const { id: named, version } = manifestAt(git, dir, rev, id);
       if (named !== id) throw new Error(`its descriptor's id is ${named}.`);
       if (!VERSION_PATTERN.test(version)) throw new Error(`its version ${version} is not x.y.z.`);
+      /** Whether the folder changed after `target`, which fixes `fixed`'s content, without `rev` raising its literal past `fixed`. */
+      const editedSince = (target: string, fixed: string): boolean =>
+        compareVersions(version, fixed) <= 0 && !gitTest(git, dir, ['diff', '--quiet', target, rev, '--', `${PLUGINS_DIR}/${id}`]);
       const listed = index.plugins.find((p) => p.id === id)?.releases[0];
       const since = listed ? listedCommit(git, dir, id, listed) : null;
       const order = listed ? compareVersions(version, listed.version) : 1;
@@ -149,13 +152,12 @@ export function readStates(git: Git, dir: string, rawIndex: unknown, only?: read
         if (targets.length > 1) throw new Error(`${targets.length} release-intent commits name ${tag}: ${targets.join(', ')}.`);
         const atTarget = manifestAt(git, dir, targets[0]!, id);
         if (atTarget.version !== intended) throw new Error(`its intent commit ${targets[0]} holds version ${atTarget.version}, not ${intended}.`);
-        return { id, kind: 'pending', version: intended, target: targets[0]! };
+        return { id, kind: 'pending', version: intended, target: targets[0]!, changedSinceTarget: editedSince(targets[0]!, intended) };
       }
       if (order === 0) return { id, kind: 'settled', version, listed: listed!, changed: changedSince(git, dir, id, since!, rev) };
       const target = tagTarget(git, dir, id, version);
       // The tag fixes L's content: later edits to the folder need a version of their own.
-      const changedSinceTarget = target !== null && !gitTest(git, dir, ['diff', '--quiet', target, rev, '--', `${PLUGINS_DIR}/${id}`]);
-      return { id, kind: 'unstamped', version, target, changedSinceTarget };
+      return { id, kind: 'unstamped', version, target, changedSinceTarget: target !== null && editedSince(target, version) };
     } catch (err) {
       return { id, kind: 'broken', reason: (err as Error).message };
     }

@@ -123,6 +123,27 @@ describe('plugin:release-changed publish (CI on main)', { timeout: RUN_TEST_TIME
     expect(await t.run()).toEqual({ released: ['beta-v1.0.1'], stamped: [], failed: [] });
   });
 
+  it('restores the index asset from its backup when replacing it failed after the delete, on the next publish', async () => {
+    const repo = pluginRepo({ alpha: '1.0.0', beta: '1.0.0' });
+    const r = runner(repo);
+    r.fake.failNext('release create beta-v1.0.0', { code: 1, stderr: 'down' });
+    await r.run();
+    // beta's listing: the backup goes up, then --clobber deletes the index asset and the upload fails.
+    const index = r.fake.releases.get('marketplace')!;
+    const gh: typeof r.fake.gh = async (args, input) => {
+      const replacing = args[0] === 'release' && args[1] === 'upload' && args[2] === 'marketplace' && /[\\/]marketplace\.json$/.test(args[3]!);
+      if (!replacing) return r.fake.gh(args, input);
+      index.assets.delete('marketplace.json');
+      return { code: 1, stdout: '', stderr: 'down' };
+    };
+    expect((await r.run({ gh })).failed).toEqual([expect.stringMatching(/^beta-v1\.0\.0: gh release upload failed: down/)]);
+    expect(index.assets.has('marketplace.json')).toBe(false);
+    // The retry restores marketplace.json (what hosts read) from the backup, then has nothing left to release.
+    expect(await r.run()).toEqual({ released: [], stamped: [], failed: [] });
+    expect(r.listedVersions('beta')).toEqual(['1.0.0']);
+    expect(index.assets.has('marketplace.json')).toBe(true);
+  });
+
   it('finishes only the failed plugin of a batch on the next plain run', async () => {
     const repo = pluginRepo({ alpha: '1.0.0', beta: '1.0.0' });
     const r = runner(repo);
@@ -286,6 +307,22 @@ describe('plugin:release-changed --check (pull request CI)', { timeout: RUN_TEST
     const lines: string[] = [];
     expect(await r.run({ mode: 'check', log: (l) => lines.push(l) })).toEqual({ released: [], stamped: [], failed: [] });
     expect(lines).toContainEqual(expect.stringMatching(/^Note: beta: changed since beta-v1\.0\.0/));
+  });
+});
+
+describe('plugin:release-changed with an old pending intent on a pull request', { timeout: RUN_TEST_TIMEOUT_MS }, () => {
+  it('fails an edit made after the intent until it is stamped past it, and accepts a branch that raised it already', async () => {
+    const repo = pluginRepo({ alpha: '1.0.0' });
+    listed(repo, 'alpha', '1.0.0', mainAt(repo));
+    pull(repo.other);
+    commit(repo.other, { [sharedFile('alpha')]: readFileSync(join(repo.other, sharedFile('alpha')), 'utf8').replace("'1.0.0'", "'1.0.1'") }, 'chore(release): alpha-v1.0.1');
+    pull(repo.clone);
+    const r = runner(repo);
+    out(repo.clone, 'checkout', '-q', '-b', 'topic');
+    commit(repo.clone, { 'plugins/alpha/shared/x.ts': 'export const x = 1;\n' }, 'fix(alpha): after the intent', false);
+    expect((await r.run({ mode: 'check' })).failed).toEqual([expect.stringMatching(/^alpha: changed since alpha-v1\.0\.1 was tagged without a raised version/)]);
+    expect((await r.run({ mode: 'stamp' })).stamped).toEqual(['alpha-v1.0.2']);
+    expect(await r.run({ mode: 'check' })).toEqual({ released: [], stamped: [], failed: [] });
   });
 });
 
