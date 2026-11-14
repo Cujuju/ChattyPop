@@ -188,6 +188,9 @@ describe('host boundary', () => {
   /** Host and SDK code; plugin code resides in external or installed folders. */
   const HOST_DIRS = ['src/core', 'src/main', 'src/preload', 'src/renderer/src', 'src/shared', 'src/plugin-sdk'];
   const SOURCE_ROOT = join(ROOT, 'src');
+  // The app's own packaging assets (its icon) live beside the source; they are not plugin code.
+  const APP_ROOTS = [SOURCE_ROOT, join(ROOT, 'build')];
+  const outsideApp = (to: string) => APP_ROOTS.every((root) => relative(root, to).startsWith('..'));
   /** The registries the build generates: the only modules through which host code reaches plugin code. */
   const REGISTRY_PREFIXES = ['virtual:bundled-plugins/', 'virtual:installed-plugins/'];
   const files = (dir: string): string[] =>
@@ -216,7 +219,7 @@ describe('host boundary', () => {
   it('no host module imports a plugin: every import by path stays in the app’s source', () => {
     const offenders = imports
       .map(({ file, spec }) => ({ file, to: target(file, spec) }))
-      .filter((i): i is { file: string; to: string } => i.to !== null && relative(SOURCE_ROOT, i.to).startsWith('..'))
+      .filter((i): i is { file: string; to: string } => i.to !== null && outsideApp(i.to))
       .map(({ file, to }) => `${relative(ROOT, file)} → ${to}`);
     expect(offenders).toEqual([]);
   });
