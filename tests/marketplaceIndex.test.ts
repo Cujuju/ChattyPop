@@ -63,3 +63,15 @@ describe.each([
     await expect(new GitHub(broken.gh.fetch).index(REPO, token)).rejects.toThrow(expected);
   });
 });
+
+describe('GitHub.index with a token when the repo metadata fails', () => {
+  it('still reads the index release asset, and reports the metadata error only when the asset fails too', async () => {
+    const f = fixture();
+    f.indexAsset(newer);
+    f.gh.routes.set(`${API}/repos/${REPO}`, () => new Response('{}', { status: 502 }));
+    expect(newest(await new GitHub(f.gh.fetch).index(REPO, TOKEN))).toBe('1.10.0');
+    const none = fixture();
+    none.gh.routes.set(`${API}/repos/${REPO}`, () => new Response('{}', { status: 502 }));
+    await expect(new GitHub(none.gh.fetch).index(REPO, TOKEN)).rejects.toThrow(`${REPO}: GitHub answered 502.`);
+  });
+});

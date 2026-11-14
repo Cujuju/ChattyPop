@@ -126,14 +126,17 @@ export class GitHub {
    */
   async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
     const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
-    const known = token !== null ? await this.defaultBranch(repo, token) : null;
-    const branch = async (): Promise<string | undefined> => known ?? (await this.defaultBranch(repo, null).catch(() => undefined));
+    // Branch metadata only fills source defaults: its failure doesn't stop the asset read, and is reported only if the asset fails too (as before).
+    let branchError: unknown = null;
+    const known = token !== null ? await this.defaultBranch(repo, token).catch((err: unknown) => ((branchError = err), null)) : null;
+    const branch = async (): Promise<string | undefined> => known ?? (await this.defaultBranch(repo, token).catch(() => undefined));
     try {
       const asset = await this.assetBytes(repo, MARKETPLACE_INDEX_TAG, MARKETPLACE_INDEX_FILE, token, MAX_JSON_BYTES, API_TIMEOUT_MS);
       return parseMarketplaceIndex(parseJson(asset, what), await branch());
     } catch {
       // The default branch's file is the index of repos without the release, and of every release before it.
     }
+    if (branchError) throw branchError;
     const res = token !== null
       ? await this.get(`${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what)
       : await this.get(`${RAW_FILES}/${repo}/HEAD/${MARKETPLACE_INDEX_FILE}`, null, 'application/octet-stream', API_TIMEOUT_MS, what);
