@@ -120,11 +120,14 @@ export interface Fixture {
   index: MarketplaceIndex;
   /** Serves `index` as the listing, through the API (with a token) and the raw host (without). */
   listing(index: MarketplaceIndex | object): void;
+  /** Serves `body` (an index, or raw text) as the index release's asset, through the API and the download host. */
+  indexAsset(body: MarketplaceIndex | object | string): void;
   /** `builtIn`: the repos listed without adding (none by default, so tests add REPO themselves). */
   make(build?: BuildPlugin | null, builtIn?: readonly string[]): Marketplaces;
 }
 
 export const ASSET_ID = 7;
+export const INDEX_ASSET_ID = 9;
 export const COMMIT = 'a'.repeat(40);
 
 /** A marketplace listing plugin `demo` 1.0.0 (a release) with its source at plugins/demo on main. */
@@ -140,6 +143,12 @@ export function fixture(asset = tarGz(filesToTar(builtFiles())), sdk = PLUGIN_SD
     gh.json(RAW_INDEX, i);
   };
   listing(index);
+  const indexAsset = (body: MarketplaceIndex | object | string): void => {
+    const bytes = Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    gh.json(`${API}/repos/${REPO}/releases/tags/marketplace`, { assets: [{ id: INDEX_ASSET_ID, name: 'marketplace.json' }] });
+    gh.redirected(`${API}/repos/${REPO}/releases/assets/${INDEX_ASSET_ID}`, bytes);
+    gh.redirected(`${DOWNLOAD}/marketplace/marketplace.json`, bytes);
+  };
   gh.json(`${API}/repos/${REPO}/releases/tags/demo-v1.0.0`, { assets: [{ id: ASSET_ID, name: 'demo.tar.gz' }] });
   gh.redirected(`${API}/repos/${REPO}/releases/assets/${ASSET_ID}`, asset);
   gh.redirected(`${DOWNLOAD}/demo-v1.0.0/demo.tar.gz`, asset);
@@ -148,5 +157,5 @@ export function fixture(asset = tarGz(filesToTar(builtFiles())), sdk = PLUGIN_SD
   const profile = tempDir();
   const secrets = new Map<string, string>();
   const store: SecretStore = { read: (f) => secrets.get(f) ?? null, write: (f, v) => void secrets.set(f, v), delete: (f) => void secrets.delete(f) };
-  return { gh, profile, secrets, asset, index, listing, make: (build = null, builtIn = []) => new Marketplaces({ profileDir: profile, secrets: store, fetch: gh.fetch, build, builtIn, leftoverFailed: () => undefined, now: () => 1 }) };
+  return { gh, profile, secrets, asset, index, listing, indexAsset, make: (build = null, builtIn = []) => new Marketplaces({ profileDir: profile, secrets: store, fetch: gh.fetch, build, builtIn, leftoverFailed: () => undefined, now: () => 1 }) };
 }

@@ -1,4 +1,4 @@
-// Uses a bare remote, release clone, and fake gh serving releases and marketplace.json. Each call supports failure injection.
+// Uses a bare remote, release clone, and fake gh serving releases (the index release's marketplace.json among them). Each call supports failure injection.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { INSTALLED_FORMAT, INSTALLED_MANIFEST_FILE, PLUGIN_SDK_VERSION, type InstalledManifest } from '@shared/installedPlugins';
@@ -66,7 +66,7 @@ export function pluginRepo(plugins: Record<string, string>): PluginRepo {
 /** Brings `dir` up to the remote's main. */
 export const pull = (dir: string): void => void out(dir, 'pull', '-q', '--ff-only', 'origin', 'main');
 
-/** Records a released version’s tag and marketplace listing commit. */
+/** Records a released version’s tag and its listing in main's marketplace.json (the index before the index release exists). */
 export function listed(repo: PluginRepo, id: string, version: string, at: string, sdk = PLUGIN_SDK_VERSION): void {
   const tag = `${id}-v${version}`;
   out(repo.bare, 'tag', tag, at);
@@ -116,6 +116,10 @@ export interface FakeGh {
   failNext(prefix: string, reply: Reply, times?: number): void;
   /** Stores `file` as an asset of `tag`'s release. */
   addAsset(tag: string, file: string): void;
+  /** The index release's marketplace.json, parsed; null without one. */
+  index(): unknown;
+  /** Replaces the index release's marketplace.json (creating the release) with `raw`. */
+  setIndex(raw: unknown): void;
 }
 
 const notFound: Reply = { code: 1, stderr: 'gh: Not Found (HTTP 404)' };
@@ -127,8 +131,6 @@ const flag = (args: readonly string[], name: string): string | undefined => {
 /** A gh over `bare`: releases in memory, tags and marketplace.json in the bare repo. */
 export function fakeGh(bare: string): FakeGh {
   const store = tempDir();
-  const scratch = join(tempDir(), 'gh');
-  out(dirname(scratch), 'clone', '-q', bare, scratch);
   const releases = new Map<string, FakeRelease>();
   const calls: string[] = [];
   const failures: { prefix: string; reply: Reply; times: number }[] = [];
@@ -141,23 +143,17 @@ export function fakeGh(bare: string): FakeGh {
     copyFileSync(file, copy);
     releases.get(tag)!.assets.set(basename(file), copy);
   };
-  const index = (): { content: string; sha: string } | null => {
-    const sha = runGit(bare, ['rev-parse', '--verify', '--quiet', 'main:marketplace.json']);
-    if (sha.code !== 0) return null;
-    return { content: Buffer.from(out(bare, 'show', 'main:marketplace.json')).toString('base64'), sha: sha.stdout.trim() };
+  const index = (): unknown => {
+    const file = releases.get('marketplace')?.assets.get('marketplace.json');
+    return file ? (JSON.parse(readFileSync(file, 'utf8')) as unknown) : null;
   };
-  const putIndex = (input: string): Reply => {
-    const body = JSON.parse(input) as { message: string; content: string; sha?: string };
-    if (body.sha !== index()?.sha) return { code: 1, stderr: 'gh: is at a different sha (HTTP 409)' };
-    out(scratch, 'fetch', '-q', 'origin');
-    out(scratch, 'reset', '-q', '--hard', 'origin/main');
-    writeFileSync(join(scratch, 'marketplace.json'), Buffer.from(body.content, 'base64'));
-    out(scratch, 'add', '--', 'marketplace.json');
-    out(scratch, ...IDENTITY, 'commit', '-q', '-m', body.message);
-    out(scratch, 'push', '-q', 'origin', 'HEAD:main');
-    return { code: 0, stdout: '{}' };
+  const setIndex = (raw: unknown): void => {
+    if (!releases.has('marketplace')) releases.set('marketplace', { isDraft: false, targetCommitish: out(bare, 'rev-parse', 'main'), assets: new Map() });
+    const file = join(tempDir(), 'marketplace.json');
+    writeFileSync(file, typeof raw === 'string' ? raw : JSON.stringify(raw));
+    addAsset('marketplace', file);
   };
-  const run = (args: readonly string[], input?: string): Reply => {
+  const run = (args: readonly string[]): Reply => {
     const [cmd, sub, tag] = args;
     if (cmd === 'api') {
       const path = args.find((a) => a.startsWith('repos/'))!;
@@ -166,9 +162,7 @@ export function fakeGh(bare: string): FakeGh {
         const sha = tagSha(tagRef);
         return sha ? { code: 0, stdout: JSON.stringify({ object: { type: 'commit', sha } }) } : notFound;
       }
-      if (args.includes('PUT')) return putIndex(input!);
-      const file = index();
-      return file ? { code: 0, stdout: JSON.stringify(file) } : notFound;
+      throw new Error(`fake gh: unexpected ${args.join(' ')}`);
     }
     const release = releases.get(tag!);
     if (cmd !== 'release') throw new Error(`fake gh: unexpected ${args.join(' ')}`);
@@ -187,7 +181,7 @@ export function fakeGh(bare: string): FakeGh {
     }
     if (!release) return { code: 1, stderr: 'release not found' };
     if (sub === 'upload') {
-      if (release.assets.has(basename(args[3]!))) return { code: 1, stderr: 'asset already exists' };
+      if (release.assets.has(basename(args[3]!)) && !args.includes('--clobber')) return { code: 1, stderr: 'asset already exists' };
       addAsset(tag!, args[3]!);
       return { code: 0 };
     }
@@ -220,12 +214,17 @@ export function fakeGh(bare: string): FakeGh {
       failure.times--;
       return { code: failure.reply.code, stdout: failure.reply.stdout ?? '', stderr: failure.reply.stderr ?? '' };
     }
-    const r = run(args, input);
+    void input;
+    const r = run(args);
     return { code: r.code, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
   };
-  return { gh, releases, calls, failNext: (prefix, reply, times = 1) => void failures.push({ prefix, reply, times }), addAsset };
+  return { gh, releases, calls, failNext: (prefix, reply, times = 1) => void failures.push({ prefix, reply, times }), addAsset, index, setIndex };
 }
 
 /** gh calls that change GitHub state. */
-export const writes = (calls: readonly string[]): string[] =>
-  calls.filter((c) => /^release (create|upload|edit|delete-asset)\b/.test(c) || c.includes('-X PUT'));
+export const writes = (calls: readonly string[]): string[] => calls.filter((c) => /^release (create|upload|edit|delete-asset)\b/.test(c) || c.includes('-X '));
+/** Real git that records every command's args, joined with spaces. */
+export function recordingGit(): { git: Git; commands: string[] } {
+  const commands: string[] = [];
+  return { commands, git: (dir, args) => (commands.push(args.join(' ')), git(dir, args)) };
+}

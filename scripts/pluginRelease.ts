@@ -1,11 +1,12 @@
 // Publishes a plugin version through injectable git and gh calls. Resumes tags, releases, assets, and marketplace listings; replaces only failed uploads’ empty placeholders.
+// The index is the asset of the MARKETPLACE_INDEX_TAG release, so publishing never commits to the repo's branches.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { create, extract } from 'tar';
 import { INSTALLED_MANIFEST_FILE, compareVersions, parseInstalledManifest, type InstalledManifest } from '../src/shared/installedPlugins';
-import { MARKETPLACE_FORMAT, MARKETPLACE_INDEX_FILE, parseMarketplaceIndex, type MarketplaceRelease } from '../src/shared/marketplace';
+import { MARKETPLACE_FORMAT, MARKETPLACE_INDEX_FILE, MARKETPLACE_INDEX_TAG, parseMarketplaceIndex, type MarketplaceRelease } from '../src/shared/marketplace';
 import { releaseTag } from './pluginReleaseState';
 
 /** Runs `gh` with `args` (and `input` on stdin). */
@@ -32,10 +33,7 @@ export const runGit: Git = (dir, args) => {
   return { code: r.status ?? 1, stdout: r.stdout, stderr: r.stderr };
 };
 
-/** Maximum retries for concurrent marketplace writes. */
-const INDEX_WRITE_ATTEMPTS = 3;
 const NOT_FOUND = /HTTP 404/;
-const CONFLICT = /HTTP 409/;
 /** `gh release view`'s answer for a tag with no release, draft or published. */
 const NO_RELEASE = /release not found/i;
 
@@ -107,6 +105,8 @@ export interface EnsureOptions {
   buildAsset: (workDir: string) => Promise<BuiltAsset>;
   /** An empty folder for the build and the downloaded asset. */
   workDir: string;
+  /** Where the release is listed. */
+  index: IndexStore;
   gh?: Gh;
   log?: (line: string) => void;
 }
@@ -138,24 +138,91 @@ async function viewRelease(gh: Gh, repo: string, tag: string): Promise<ReleaseVi
   throw failed(`gh release view ${tag}`, r);
 }
 
-/** Writes marketplace.json using its SHA, retrying conflicts. Returns false for an identical existing version; conflicting tag or checksum throws. */
-export async function listRelease(gh: Gh, repo: string, manifest: Pick<InstalledManifest, 'id' | 'name' | 'description'>, entry: MarketplaceRelease): Promise<boolean> {
-  const path = `repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`;
-  for (let attempt = 1; ; attempt++) {
-    const current = await ghApi(gh, [path], true);
-    const file = current === null ? null : (JSON.parse(current) as { content: string; sha: string });
-    const raw = file ? (JSON.parse(Buffer.from(file.content, 'base64').toString('utf8')) as unknown) : null;
-    const listed = raw === null ? undefined : parseMarketplaceIndex(raw).plugins.find((p) => p.id === manifest.id)?.releases.find((r) => r.version === entry.version);
-    if (listed) {
-      if (listed.tag !== entry.tag || listed.sha256 !== entry.sha256) throw new Error(`${MARKETPLACE_INDEX_FILE} lists ${manifest.id} ${entry.version} as ${listed.tag} ${listed.sha256}, not the published ${entry.tag} ${entry.sha256}.`);
-      return false;
-    }
-    const content = Buffer.from(`${JSON.stringify(withRelease(raw, manifest, entry), null, 2)}\n`).toString('base64');
-    const body = { message: `release: ${entry.tag}`, content, ...(file ? { sha: file.sha } : {}) };
-    const r = await gh(['api', '-X', 'PUT', path, '--input', '-'], JSON.stringify(body));
-    if (r.code === 0) return true;
-    if (!CONFLICT.test(r.stderr) || attempt >= INDEX_WRITE_ATTEMPTS) throw failed(`Writing ${MARKETPLACE_INDEX_FILE}`, r);
+/** Where a plugin repo's index is read and written. */
+export interface IndexStore {
+  /** The default branch's marketplace.json (parsed; null when it has none): the index until the index release exists. */
+  fallback: () => unknown;
+  /** The commit the index release's tag is made at, when a write creates it. */
+  target: string;
+}
+
+let indexReads = 0;
+/** Written before each rewrite of the index asset, so a rewrite interrupted after GitHub removed the old asset loses nothing. */
+export const INDEX_BACKUP_FILE = 'marketplace.backup.json';
+
+/** Whether the index release holds `name`, fully uploaded. */
+const hasAsset = (view: ReleaseView | null, name: string): boolean => !!view?.assets.some((a) => a.name === name && a.state === UPLOADED);
+
+/** The index: the index release's asset, else its backup (a rewrite interrupted between delete and upload), else `store.fallback()` while there is no release. A malformed asset throws. */
+export async function readIndex(gh: Gh, repo: string, store: IndexStore, workDir: string): Promise<unknown> {
+  const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
+  const name = hasAsset(view, MARKETPLACE_INDEX_FILE) ? MARKETPLACE_INDEX_FILE : hasAsset(view, INDEX_BACKUP_FILE) ? INDEX_BACKUP_FILE : null;
+  if (!name) return store.fallback();
+  const dir = join(workDir, `index-${++indexReads}`);
+  await ghRun(gh, ['release', 'download', MARKETPLACE_INDEX_TAG, '--repo', repo, '--pattern', name, '--dir', dir]);
+  try {
+    const raw = JSON.parse(readFileSync(join(dir, name), 'utf8')) as unknown;
+    parseMarketplaceIndex(raw);
+    return raw;
+  } catch (err) {
+    throw new Error(`The ${MARKETPLACE_INDEX_TAG} release's ${MARKETPLACE_INDEX_FILE} is unreadable; fix it by hand. ${(err as Error).message}`);
   }
+}
+
+/** The index as its file holds it: two-space JSON and a final newline. */
+export const indexText = (raw: unknown): string => `${JSON.stringify(raw, null, 2)}\n`;
+
+/** Replaces the index release's asset with `raw`, creating the release (at `store.target`, never marked latest) when there is none. */
+export async function writeIndex(gh: Gh, repo: string, raw: unknown, store: IndexStore, workDir: string): Promise<void> {
+  const dir = join(workDir, 'index-out');
+  mkdirSync(dir, { recursive: true });
+  const file = join(dir, MARKETPLACE_INDEX_FILE);
+  writeFileSync(file, indexText(raw));
+  if (await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG)) {
+    // --clobber deletes before it uploads: the backup holds the new index first, and readIndex reads it while the index asset is gone.
+    const backup = join(dir, INDEX_BACKUP_FILE);
+    writeFileSync(backup, indexText(raw));
+    await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, backup, '--repo', repo, '--clobber']);
+    await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--clobber']);
+    return;
+  }
+  const notes = `The plugin index ChattyPop reads. Releases rewrite this asset; the default branch's ${MARKETPLACE_INDEX_FILE} is a copy pull requests refresh.`;
+  await ghRun(gh, ['release', 'create', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--target', store.target, '--title', 'Marketplace index', '--notes', notes, '--latest=false']);
+}
+
+/**
+ * Makes the index asset present: restores it from the backup an interrupted rewrite left (hosts read only the index asset), else creates
+ * the index release from `store.fallback()`. True when it wrote; nothing to copy, nothing done.
+ */
+export async function seedIndex(gh: Gh, repo: string, store: IndexStore, workDir: string): Promise<boolean> {
+  const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
+  if (hasAsset(view, MARKETPLACE_INDEX_FILE)) return false;
+  if (hasAsset(view, INDEX_BACKUP_FILE)) {
+    // Only marketplace.json is uploaded: the backup stays until it exists, so a failed upload here loses nothing either.
+    const dir = join(workDir, 'index-restore');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, MARKETPLACE_INDEX_FILE);
+    writeFileSync(file, indexText(await readIndex(gh, repo, store, workDir)));
+    await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--clobber']);
+    return true;
+  }
+  const raw = store.fallback();
+  if (raw === null) return false;
+  parseMarketplaceIndex(raw);
+  await writeIndex(gh, repo, raw, store, workDir);
+  return true;
+}
+
+/** Adds `entry` to the index. Returns false for an identical existing version; a conflicting tag or checksum throws. */
+export async function listRelease(gh: Gh, repo: string, manifest: Pick<InstalledManifest, 'id' | 'name' | 'description'>, entry: MarketplaceRelease, store: IndexStore, workDir: string): Promise<boolean> {
+  const raw = await readIndex(gh, repo, store, workDir);
+  const listed = raw === null ? undefined : parseMarketplaceIndex(raw).plugins.find((p) => p.id === manifest.id)?.releases.find((r) => r.version === entry.version);
+  if (listed) {
+    if (listed.tag !== entry.tag || listed.sha256 !== entry.sha256) throw new Error(`${MARKETPLACE_INDEX_FILE} lists ${manifest.id} ${entry.version} as ${listed.tag} ${listed.sha256}, not the published ${entry.tag} ${entry.sha256}.`);
+    return false;
+  }
+  await writeIndex(gh, repo, withRelease(raw, manifest, entry), store, workDir);
+  return true;
 }
 
 export interface Ensured {
@@ -167,7 +234,7 @@ export interface Ensured {
 }
 
 /** Drives `id` `version` to a published release with its asset at `target`, listed in marketplace.json. */
-export async function ensureReleased({ repo, id, version, target, buildAsset, workDir, gh = runGh, log = console.log }: EnsureOptions): Promise<Ensured> {
+export async function ensureReleased({ repo, id, version, target, buildAsset, workDir, index, gh = runGh, log = console.log }: EnsureOptions): Promise<Ensured> {
   const tag = releaseTag(id, version);
   const name = assetName(id, version);
   const tagAt = await tagCommit(gh, repo, tag);
@@ -211,7 +278,7 @@ export async function ensureReleased({ repo, id, version, target, buildAsset, wo
   const manifest = await assetManifest(file, join(downloads, 'manifest'));
   if (manifest.id !== id || manifest.version !== version) throw new Error(`${tag}'s asset holds ${manifest.id} ${manifest.version}, not ${id} ${version}.`);
   const entry: MarketplaceRelease = { version, tag, asset: name, sha256: sha256Of(file), sdk: manifest.sdk };
-  const listed = await listRelease(gh, repo, manifest, entry);
-  log(listed ? `Listed ${id} ${version} in ${repo}/${MARKETPLACE_INDEX_FILE}` : `${id} ${version} was listed already`);
+  const listed = await listRelease(gh, repo, manifest, entry, index, workDir);
+  log(listed ? `Listed ${id} ${version} in ${repo}'s ${MARKETPLACE_INDEX_TAG} release` : `${id} ${version} was listed already`);
   return { tag, sha256: entry.sha256, sdk: entry.sdk, listed };
 }

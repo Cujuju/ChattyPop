@@ -1,4 +1,4 @@
-// Compares manifest version L on origin/main with newest marketplace version N.
+// Compares manifest version L at a commit (origin/main, or a pull request's branch) with N, the newest version the index lists.
 import { FEATURE_SUBJECT } from '../appVersion';
 import { SHARED_ENTRY } from '../src/main/pluginBuild/descriptor';
 import { VERSION_PATTERN, compareVersions } from '../src/shared/installedPlugins';
@@ -10,7 +10,7 @@ import { manifestVersion } from './pluginScan/manifest';
 export const MAIN = 'origin/main';
 /** A plugin repo's plugin folders, each named by its id. */
 export const PLUGINS_DIR = MARKETPLACE_PLUGINS_DIR;
-/** A release-intent commit's subject: this, then the tags it stamped (`a-v1.0.1, b-v1.1.0`). */
+/** A release-intent commit's subject: this, then the tags it stamped (`a-v1.0.1, b-v1.1.0`). Releases pushed these to main before versions were stamped in pull requests; one still unpublished is finished at its commit. Never title a commit or a pull request this way. */
 export const INTENT_PREFIX = 'chore(release): ';
 const INTENT_SEPARATOR = ', ';
 
@@ -20,9 +20,9 @@ export type PluginState =
   /** L == N means released. Changed content accumulates ordered commit bumps; unchanged content returns null. */
   | { id: string; kind: 'settled'; version: string; listed: MarketplaceRelease; changed: Bump[] | null }
   /** Lowest unpublished release intent and its target commit. */
-  | { id: string; kind: 'pending'; version: string; target: string }
-  /** Unlisted or increased manifest version without an intent; stamps at L. */
-  | { id: string; kind: 'unstamped'; version: string }
+  | { id: string; kind: 'pending'; version: string; target: string; changedSinceTarget: boolean }
+  /** Unlisted or raised manifest version without an intent: released at L. Its target is L's tag when an interrupted release made one, else null (the commit being released). */
+  | { id: string; kind: 'unstamped'; version: string; target: string | null; changedSinceTarget: boolean }
   /** Its state contradicts the contract; nothing is done for it until a person fixes it. */
   | { id: string; kind: 'broken'; reason: string };
 
@@ -90,35 +90,55 @@ function listedCommit(git: Git, dir: string, id: string, listed: MarketplaceRele
   return commit;
 }
 
-/** Counts non-merge commits since the prior release: features increment minor. Unchanged content returns null; merge-only changes increment patch once. */
-function changedSince(git: Git, dir: string, id: string, since: string): Bump[] | null {
+/** Counts non-merge commits since the prior release up to `rev`: features increment minor. Unchanged content returns null; merge-only changes increment patch once. */
+function changedSince(git: Git, dir: string, id: string, since: string, rev: string): Bump[] | null {
   const folder = `${PLUGINS_DIR}/${id}`;
-  if (gitTest(git, dir, ['diff', '--quiet', since, MAIN, '--', folder])) return null;
-  const log = gitOut(git, dir, ['log', '--no-merges', '--topo-order', '--reverse', '--format=%s', `${since}..${MAIN}`, '--', folder]);
+  if (gitTest(git, dir, ['diff', '--quiet', since, rev, '--', folder])) return null;
+  const log = gitOut(git, dir, ['log', '--no-merges', '--topo-order', '--reverse', '--format=%s', `${since}..${rev}`, '--', folder]);
   const bumps = log ? log.split('\n').map((s): Bump => (FEATURE_SUBJECT.test(s) ? 'minor' : 'patch')) : [];
   return bumps.length ? bumps : ['patch'];
 }
 
-/** The plugin ids on MAIN: folders with a shared entry. */
-export function pluginIds(git: Git, dir: string): string[] {
-  const files = gitOut(git, dir, ['ls-tree', '-r', '--name-only', MAIN, '--', PLUGINS_DIR]).split('\n');
+/** The plugin ids at `rev`: folders with a shared entry. */
+export function pluginIds(git: Git, dir: string, rev = MAIN): string[] {
+  const files = gitOut(git, dir, ['ls-tree', '-r', '--name-only', rev, '--', PLUGINS_DIR]).split('\n');
   const entry = new RegExp(`^${PLUGINS_DIR}/([^/]+)/${SHARED_ENTRY}$`);
   return files.flatMap((f) => entry.exec(f)?.[1] ?? []).sort();
 }
 
-/** Each plugin's state on MAIN (all, or `only`), as of the last fetch. */
-export function readStates(git: Git, dir: string, only?: readonly string[]): PluginState[] {
-  const all = pluginIds(git, dir);
+/** `rev`'s marketplace.json (parsed; null when it has none): the index until the index release exists, and a copy of it after. */
+export function branchIndex(git: Git, dir: string, rev = MAIN): unknown {
+  const has = gitOut(git, dir, ['ls-tree', '--name-only', rev, '--', MARKETPLACE_INDEX_FILE]) !== '';
+  return has ? (JSON.parse(gitOut(git, dir, ['show', `${rev}:${MARKETPLACE_INDEX_FILE}`])) as unknown) : null;
+}
+
+/** The commit of `id`'s tag for `version` (fetched), which must be on MAIN and hold that version; null when there is no tag. */
+function tagTarget(git: Git, dir: string, id: string, version: string): string | null {
+  const tag = releaseTag(id, version);
+  const r = git(dir, ['rev-parse', '--verify', '--quiet', `refs/tags/${tag}^{commit}`]);
+  if (r.code !== 0) return null;
+  const commit = r.stdout.trim();
+  if (!gitTest(git, dir, ['merge-base', '--is-ancestor', commit, MAIN])) throw new Error(`tag ${tag} is not on main.`);
+  const at = manifestAt(git, dir, commit, id);
+  if (at.id !== id || at.version !== version) throw new Error(`tag ${tag}'s descriptor is ${at.id} ${at.version}, not ${id} ${version}.`);
+  return commit;
+}
+
+/** Each plugin's state at `rev` (all, or `only`) against `rawIndex` (null: none yet), as of the last fetch. Listed tags and intents are read on MAIN. */
+export function readStates(git: Git, dir: string, rawIndex: unknown, only?: readonly string[], rev = MAIN): PluginState[] {
+  const all = pluginIds(git, dir, rev);
   const unknown = (only ?? []).filter((id) => !all.includes(id));
-  if (unknown.length) throw new Error(`No plugin folder on main for ${unknown.join(', ')}.`);
-  const hasIndex = gitOut(git, dir, ['ls-tree', '--name-only', MAIN, '--', MARKETPLACE_INDEX_FILE]) !== '';
-  const index = parseMarketplaceIndex(hasIndex ? JSON.parse(gitOut(git, dir, ['show', `${MAIN}:${MARKETPLACE_INDEX_FILE}`])) : { format: MARKETPLACE_FORMAT, plugins: [] });
+  if (unknown.length) throw new Error(`No plugin folder at ${rev === MAIN ? 'main' : rev} for ${unknown.join(', ')}.`);
+  const index = parseMarketplaceIndex(rawIndex ?? { format: MARKETPLACE_FORMAT, plugins: [] });
   const intents = intentCommits(git, dir);
   return (only ?? all).map((id): PluginState => {
     try {
-      const { id: named, version } = manifestAt(git, dir, MAIN, id);
+      const { id: named, version } = manifestAt(git, dir, rev, id);
       if (named !== id) throw new Error(`its descriptor's id is ${named}.`);
       if (!VERSION_PATTERN.test(version)) throw new Error(`its version ${version} is not x.y.z.`);
+      /** Whether the folder changed after `target`, which fixes `fixed`'s content, without `rev` raising its literal past `fixed`. */
+      const editedSince = (target: string, fixed: string): boolean =>
+        compareVersions(version, fixed) <= 0 && !gitTest(git, dir, ['diff', '--quiet', target, rev, '--', `${PLUGINS_DIR}/${id}`]);
       const listed = index.plugins.find((p) => p.id === id)?.releases[0];
       const since = listed ? listedCommit(git, dir, id, listed) : null;
       const order = listed ? compareVersions(version, listed.version) : 1;
@@ -132,10 +152,12 @@ export function readStates(git: Git, dir: string, only?: readonly string[]): Plu
         if (targets.length > 1) throw new Error(`${targets.length} release-intent commits name ${tag}: ${targets.join(', ')}.`);
         const atTarget = manifestAt(git, dir, targets[0]!, id);
         if (atTarget.version !== intended) throw new Error(`its intent commit ${targets[0]} holds version ${atTarget.version}, not ${intended}.`);
-        return { id, kind: 'pending', version: intended, target: targets[0]! };
+        return { id, kind: 'pending', version: intended, target: targets[0]!, changedSinceTarget: editedSince(targets[0]!, intended) };
       }
-      if (order === 0) return { id, kind: 'settled', version, listed: listed!, changed: changedSince(git, dir, id, since!) };
-      return { id, kind: 'unstamped', version };
+      if (order === 0) return { id, kind: 'settled', version, listed: listed!, changed: changedSince(git, dir, id, since!, rev) };
+      const target = tagTarget(git, dir, id, version);
+      // The tag fixes L's content: later edits to the folder need a version of their own.
+      return { id, kind: 'unstamped', version, target, changedSinceTarget: target !== null && editedSince(target, version) };
     } catch (err) {
       return { id, kind: 'broken', reason: (err as Error).message };
     }

@@ -1,12 +1,13 @@
 // Compares manifest and marketplace versions against real plugin-repository history.
 import { describe, expect, it } from 'vitest';
-import { nextVersion, raisedVersion, readStates } from '../scripts/pluginReleaseState';
+import { branchIndex, nextVersion, raisedVersion, readStates } from '../scripts/pluginReleaseState';
 import { GIT_TEST_TIMEOUT_MS, commit, git, listed, out, pluginRepo, pull, sharedFile, sharedSource } from './pluginReleaseHarness';
 
 const fetch = (dir: string): void => void out(dir, 'fetch', '-q', '--tags', 'origin');
-const stateOf = (dir: string, id: string) => {
+/** `id`'s state on origin/main (or `rev`), against main's marketplace.json as the index. */
+const stateOf = (dir: string, id: string, rev?: string) => {
   fetch(dir);
-  return readStates(git, dir, [id])[0]!;
+  return readStates(git, dir, branchIndex(git, dir), [id], rev)[0]!;
 };
 
 /** A repo with plugin alpha released at 1.0.0 (beta beside it, unreleased). */
@@ -67,8 +68,9 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     const repo = releasedA();
     const intent = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.0.1') }, 'chore(release): alpha-v1.0.1');
     listed(repo, 'beta', '1.0.0', intent);
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: false });
     commit(repo.other, { 'plugins/alpha/shared/extra.ts': 'export const later = 1;\n' }, 'fix(alpha): later');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: true });
     expect(stateOf(repo.clone, 'beta')).toMatchObject({ kind: 'settled', version: '1.0.0' });
   });
 
@@ -76,16 +78,44 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     const repo = releasedA();
     const intent = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.0.1') }, 'chore(release): alpha-v1.0.1');
     commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '2.0.0') }, 'feat(alpha)!: 2.0');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent });
+    // Raised past the intent by hand: the edit has its own version.
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent, changedSinceTarget: false });
     listed(repo, 'alpha', '1.0.1', intent);
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0' });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null, changedSinceTarget: false });
   });
 
   it('is unstamped when unlisted or raised by hand, without an intent commit', () => {
     const repo = releasedA();
     commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '2.0.0') }, 'feat(alpha)!: 2.0');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0' });
-    expect(stateOf(repo.clone, 'beta')).toEqual({ id: 'beta', kind: 'unstamped', version: '1.0.0' });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null, changedSinceTarget: false });
+    expect(stateOf(repo.clone, 'beta')).toEqual({ id: 'beta', kind: 'unstamped', version: '1.0.0', target: null, changedSinceTarget: false });
+  });
+
+  it("resumes an unstamped version at the tag an interrupted release made, whatever lands on main later", () => {
+    const repo = releasedA();
+    const raised = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.1.0') }, 'feat(alpha): raised in a pull request');
+    out(repo.bare, 'tag', 'alpha-v1.1.0', raised);
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '1.1.0', target: raised, changedSinceTarget: false });
+    commit(repo.other, { 'plugins/alpha/shared/extra.ts': 'export const later = 1;\n' }, 'fix(alpha): later');
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '1.1.0', target: raised, changedSinceTarget: true });
+    const off = releasedA();
+    out(off.other, 'checkout', '-q', '-b', 'side');
+    const side = commit(off.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.1.0') }, 'feat(alpha): side', false);
+    out(off.other, 'push', '-q', 'origin', 'side');
+    out(off.bare, 'tag', 'alpha-v1.1.0', side);
+    out(off.other, 'checkout', '-q', 'main');
+    commit(off.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.1.0') }, 'feat(alpha): main');
+    expect(stateOf(off.clone, 'alpha')).toMatchObject({ kind: 'broken', reason: expect.stringMatching(/tag alpha-v1\.1\.0 is not on main/) });
+  });
+
+  it("reads a pull request's branch: its plugins, versions and commits since main's releases", () => {
+    const repo = releasedA();
+    out(repo.clone, 'checkout', '-q', '-b', 'topic');
+    commit(repo.clone, { 'plugins/alpha/shared/extra.ts': 'export const x = 1;\n' }, 'feat(alpha): on the branch', false);
+    commit(repo.clone, { [sharedFile('gamma')]: sharedSource('gamma', '0.1.0') }, 'feat(gamma): new', false);
+    expect(stateOf(repo.clone, 'alpha', 'HEAD')).toMatchObject({ kind: 'settled', changed: ['minor'] });
+    expect(stateOf(repo.clone, 'gamma', 'HEAD')).toEqual({ id: 'gamma', kind: 'unstamped', version: '0.1.0', target: null, changedSinceTarget: false });
+    expect(stateOf(repo.clone, 'alpha')).toMatchObject({ kind: 'settled', changed: null });
   });
 
   it('is broken when its version or newest listed tag contradicts the index', () => {
@@ -116,6 +146,6 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
   it('refuses an unknown --only id', () => {
     const repo = pluginRepo({ alpha: '1.0.0' });
     pull(repo.clone);
-    expect(() => readStates(git, repo.clone, ['zz'])).toThrow(/No plugin folder on main for zz/);
+    expect(() => readStates(git, repo.clone, null, ['zz'])).toThrow(/No plugin folder at main for zz/);
   });
 });
