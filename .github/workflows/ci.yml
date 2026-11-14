@@ -1,4 +1,5 @@
 # Type-checks, tests and builds every push to main and every pull request.
+# The solidjs-toolkit packages are `link:` dependencies at ../solidjs-toolkit, so both repositories are checked out side by side.
 name: CI
 
 on:
@@ -10,27 +11,49 @@ jobs:
   check:
     # The app and its tests are Windows-first.
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ChattyPop
     steps:
       - uses: actions/checkout@v5
         with:
+          path: ChattyPop
           # appVersion() counts the whole history; the build and its tests read it.
           fetch-depth: 0
 
+      - uses: actions/checkout@v5
+        with:
+          repository: Cujuju/solidjs-toolkit
+          path: solidjs-toolkit
+
       - name: Set up pnpm (packageManager)
         uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: ChattyPop/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: |
+            ChattyPop/pnpm-lock.yaml
+            solidjs-toolkit/pnpm-lock.yaml
 
       - name: Cache Electron's download
         uses: actions/cache@v4
         with:
           path: ~\AppData\Local\electron\Cache
-          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: electron-${{ runner.os }}-${{ hashFiles('ChattyPop/pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
+
+      # The linked packages' `types` export is their dist/, so build them before type-checking.
+      - name: Install the toolkit
+        working-directory: solidjs-toolkit
+        run: pnpm install --frozen-lockfile
+      - name: Build the toolkit
+        working-directory: solidjs-toolkit
+        run: pnpm build
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
@@ -40,26 +63,48 @@ jobs:
   check-mac:
     # The same checks on macOS. Its own job, not a matrix leg: release-on-sdk-change waits on `check` alone.
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ChattyPop
     steps:
       - uses: actions/checkout@v5
         with:
+          path: ChattyPop
           fetch-depth: 0
+
+      - uses: actions/checkout@v5
+        with:
+          repository: Cujuju/solidjs-toolkit
+          path: solidjs-toolkit
 
       - name: Set up pnpm (packageManager)
         uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: ChattyPop/package.json
 
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: |
+            ChattyPop/pnpm-lock.yaml
+            solidjs-toolkit/pnpm-lock.yaml
 
       - name: Cache Electron's download
         uses: actions/cache@v4
         with:
           path: ~/Library/Caches/electron
-          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: electron-${{ runner.os }}-${{ hashFiles('ChattyPop/pnpm-lock.yaml') }}
           restore-keys: electron-${{ runner.os }}-
+
+      # The linked packages' `types` export is their dist/, so build them before type-checking.
+      - name: Install the toolkit
+        working-directory: solidjs-toolkit
+        run: pnpm install --frozen-lockfile
+      - name: Build the toolkit
+        working-directory: solidjs-toolkit
+        run: pnpm build
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
