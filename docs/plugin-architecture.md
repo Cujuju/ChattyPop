@@ -851,7 +851,7 @@ Nothing reaches a plugin repo's `main` except through a pull request, so a relea
 
 **Publish** (the default: on `main`, clean and at the fetched `origin/main`; CI on each push). It creates the index release if missing, then publishes each pending version at its intent commit, then each unstamped one at its tag or at `origin/main`. A settled plugin that changed, or whose newest release is built for an SDK this host can't run (any other SDK with `--sdk-rebuild`), is reported as needing a stamp in a pull request. It commits and pushes nothing.
 
-**Check** (`--check`, pull-request CI, at the checked-out commit). It fails for each changed plugin whose version wasn't raised, and for broken ones, and notes a stale `marketplace.json` copy and SDK rebuilds without failing. It writes nothing.
+**Check** (`--check`, pull-request CI, at the checked-out commit). It fails for each plugin the pull request changed (its folder differs from `origin/main...HEAD`) whose version wasn't raised, and for broken ones. Changes `main` already holds, a stale `marketplace.json` copy and SDK rebuilds are noted without failing. It writes nothing.
 
 Every mode exits non-zero naming each plugin not released (or stamped, or ready). `--dry-run` prints the state and the plan. A stamp dry run still installs and checks. No dry run writes anything.
 

@@ -254,6 +254,20 @@ describe('plugin:release-changed --check (pull request CI)', { timeout: RUN_TEST
     expect(await r.run({ mode: 'check' })).toEqual({ released: [], stamped: [], failed: [] });
     expect(writes(r.fake.calls.slice(calls))).toEqual([]);
   });
+
+  it("notes, without failing, a change main already holds that this pull request didn't make", async () => {
+    const repo = pluginRepo({ alpha: '1.0.0', beta: '1.0.0' });
+    const r = runner(repo);
+    await r.run();
+    pull(repo.other);
+    commit(repo.other, { 'plugins/beta/shared/x.ts': 'export const x = 1;\n' }, 'fix(beta): landed unstamped');
+    pull(repo.clone);
+    out(repo.clone, 'checkout', '-q', '-b', 'topic');
+    commit(repo.clone, { 'README.md': 'Docs.\n' }, 'docs: readme', false);
+    const lines: string[] = [];
+    expect(await r.run({ mode: 'check', log: (l) => lines.push(l) })).toEqual({ released: [], stamped: [], failed: [] });
+    expect(lines).toContainEqual(expect.stringMatching(/^Note: beta: changed since beta-v1\.0\.0/));
+  });
 });
 
 describe('plugin:release-changed arguments', () => {

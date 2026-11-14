@@ -155,7 +155,7 @@ async function publish(options: ReleaseChangedOptions, dir: string, workDir: str
   }
 }
 
-/** Pull request CI: fails for each plugin changed without a raised version. Writes nothing. */
+/** Pull request CI: fails for each plugin this commit changed (against the fetched main) without a raised version. Writes nothing. */
 async function checkStamps(options: ReleaseChangedOptions, dir: string, workDir: string, result: ReleaseChangedResult): Promise<void> {
   const { repo, only, sdkRebuild, gh = runGh, git = runGit, log = console.log } = options;
   fetchMain(git, dir, repo);
@@ -165,8 +165,13 @@ async function checkStamps(options: ReleaseChangedOptions, dir: string, workDir:
   for (const s of states) log(summary(s));
   for (const s of states) {
     if (s.kind === 'broken') result.failed.push(`${s.id}: ${s.reason}`);
-    else if (s.kind === 'settled' && s.changed) result.failed.push(`${s.id}: changed since ${releaseTag(s.id, s.version)} without a raised version; ${STAMP_HINT}.`);
-    // Not this pull request's doing: the publish run on main reports it.
+    else if (s.kind === 'settled' && s.changed) {
+      const message = `${s.id}: changed since ${releaseTag(s.id, s.version)} without a raised version; ${STAMP_HINT}.`;
+      // Changes main already holds aren't this pull request's doing: the publish run on main reports them.
+      if (git(dir, ['diff', '--quiet', `${MAIN}...HEAD`, '--', `${PLUGINS_DIR}/${s.id}`]).code === 0) log(`Note: ${message}`);
+      else result.failed.push(message);
+    }
+    // Not this pull request's doing either.
     else if (s.kind === 'settled' && needsRebuild(s, sdkRebuild)) log(`Note: ${releaseTag(s.id, s.version)} is built for SDK ${s.listed.sdk}; ${rebuildHint(sdkRebuild)}.`);
   }
   if (index !== null && branchText(git, dir, 'HEAD') !== indexText(index)) log(`Note: this commit's ${MARKETPLACE_INDEX_FILE} is older than the ${MARKETPLACE_INDEX_TAG} release's; --stamp refreshes it.`);
