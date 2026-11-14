@@ -140,7 +140,7 @@ describe('release installs', () => {
     const m = f.make();
     await m.add(REPO, null);
     await expect(m.install(REPO, 'demo', release)).rejects.toThrow(/plugin SDK 99.0.0/);
-    expect(f.gh.calls.some((c) => c.url.includes('/releases/'))).toBe(false);
+    expect(f.gh.calls.some((c) => c.url.includes('/releases/') && !c.url.includes('marketplace'))).toBe(false);
   });
 
   it.each([

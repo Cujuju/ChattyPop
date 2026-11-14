@@ -190,7 +190,8 @@ describe('a failed swap and concurrent operations', () => {
     });
     return { hits: () => hits, release };
   }
-  const indexCalls = (f: ReturnType<typeof fixture>): number => f.gh.calls.filter((c) => c.url.endsWith('/marketplace.json')).length;
+  // Each index read tries the index release's asset, then the default branch's file; this counts the file reads.
+  const indexCalls = (f: ReturnType<typeof fixture>): number => f.gh.calls.filter((c) => c.url.endsWith('/marketplace.json') && !c.url.includes('/releases/')).length;
 
   it('runs a second install of one id only after the first ends', async () => {
     const f = fixture();

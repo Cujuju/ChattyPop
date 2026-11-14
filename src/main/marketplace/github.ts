@@ -1,7 +1,7 @@
 // GitHub tokens reach api.github.com only on initial hops. Redirects omit tokens; anonymous public files bypass REST’s hourly quota.
 import { timeFormat } from '@shared/hourCycle';
 import { COMMIT_PATTERN } from '@shared/installedPlugins';
-import { MARKETPLACE_INDEX_FILE, parseMarketplaceIndex, type MarketplaceIndex } from '@shared/marketplace';
+import { MARKETPLACE_INDEX_FILE, MARKETPLACE_INDEX_TAG, parseMarketplaceIndex, type MarketplaceIndex } from '@shared/marketplace';
 import { BYTES_PER_MB, MS_PER_MIN, MS_PER_S } from '@shared/units';
 
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
@@ -119,25 +119,37 @@ export class GitHub {
     return meta.default_branch;
   }
 
-  /** Reads default-branch marketplace.json. Anonymous reads use raw HEAD despite REST quota exhaustion; source fallbacks still need branch metadata. */
+  /**
+   * Reads marketplace.json: the index release's asset first, else the default branch's file (repos without one, or a release
+   * missing, unreadable or malformed), both parsed the same way. When both fail, the file's error is the one reported.
+   * Anonymous reads use GitHub's file hosts despite REST quota exhaustion; source fallbacks still need branch metadata.
+   */
   async index(repo: string, token: string | null): Promise<MarketplaceIndex> {
     const what = `${repo} ${MARKETPLACE_INDEX_FILE}`;
-    if (token !== null) {
-      const branch = await this.defaultBranch(repo, token);
-      const res = await this.get(`${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what);
-      return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), branch);
+    const known = token !== null ? await this.defaultBranch(repo, token) : null;
+    const branch = async (): Promise<string | undefined> => known ?? (await this.defaultBranch(repo, null).catch(() => undefined));
+    try {
+      const asset = await this.assetBytes(repo, MARKETPLACE_INDEX_TAG, MARKETPLACE_INDEX_FILE, token, MAX_JSON_BYTES, API_TIMEOUT_MS);
+      return parseMarketplaceIndex(parseJson(asset, what), await branch());
+    } catch {
+      // The default branch's file is the index of repos without the release, and of every release before it.
     }
-    const res = await this.get(`${RAW_FILES}/${repo}/HEAD/${MARKETPLACE_INDEX_FILE}`, null, 'application/octet-stream', API_TIMEOUT_MS, what);
-    const index = parseJson(await readCapped(res, MAX_JSON_BYTES, what), what);
-    return parseMarketplaceIndex(index, await this.defaultBranch(repo, null).catch(() => undefined));
+    const res = token !== null
+      ? await this.get(`${GITHUB_API}/repos/${repo}/contents/${MARKETPLACE_INDEX_FILE}`, token, 'application/vnd.github.raw+json', API_TIMEOUT_MS, what)
+      : await this.get(`${RAW_FILES}/${repo}/HEAD/${MARKETPLACE_INDEX_FILE}`, null, 'application/octet-stream', API_TIMEOUT_MS, what);
+    return parseMarketplaceIndex(parseJson(await readCapped(res, MAX_JSON_BYTES, what), what), await branch());
   }
 
   /** Asset `name` of the release tagged `tag`: by its download URL without a token, through the API with one (a private repo's only way). */
   async releaseAsset(repo: string, tag: string, name: string, token: string | null): Promise<Buffer> {
-    if (token !== null) return this.downloadAsset(repo, await this.releaseAssetId(repo, tag, name, token), token);
+    return this.assetBytes(repo, tag, name, token, MAX_DOWNLOAD_BYTES, DOWNLOAD_TIMEOUT_MS);
+  }
+
+  private async assetBytes(repo: string, tag: string, name: string, token: string | null, max: number, timeoutMs: number): Promise<Buffer> {
+    if (token !== null) return this.downloadAsset(repo, await this.releaseAssetId(repo, tag, name, token), token, max, timeoutMs);
     const what = `${repo} release ${tag} ${name}`;
-    const res = await this.get(`${RELEASE_DOWNLOADS}/${repo}/releases/download/${refPath(tag)}/${encodeURIComponent(name)}`, null, 'application/octet-stream', DOWNLOAD_TIMEOUT_MS, what);
-    return readCapped(res, MAX_DOWNLOAD_BYTES, what);
+    const res = await this.get(`${RELEASE_DOWNLOADS}/${repo}/releases/download/${refPath(tag)}/${encodeURIComponent(name)}`, null, 'application/octet-stream', timeoutMs, what);
+    return readCapped(res, max, what);
   }
 
   private async releaseAssetId(repo: string, tag: string, name: string, token: string): Promise<number> {
@@ -148,10 +160,10 @@ export class GitHub {
     return asset.id as number;
   }
 
-  private async downloadAsset(repo: string, assetId: number, token: string): Promise<Buffer> {
+  private async downloadAsset(repo: string, assetId: number, token: string, max: number, timeoutMs: number): Promise<Buffer> {
     const what = `${repo} asset ${assetId}`;
-    const res = await this.get(`${GITHUB_API}/repos/${repo}/releases/assets/${assetId}`, token, 'application/octet-stream', DOWNLOAD_TIMEOUT_MS, what);
-    return readCapped(res, MAX_DOWNLOAD_BYTES, what);
+    const res = await this.get(`${GITHUB_API}/repos/${repo}/releases/assets/${assetId}`, token, 'application/octet-stream', timeoutMs, what);
+    return readCapped(res, max, what);
   }
 
   /** The latest commit's sha on `branch`. */

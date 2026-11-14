@@ -1,9 +1,11 @@
-// Owner-added GitHub marketplaces list plugins on default branches. Main fetches/verifies/stages installs for next startup.
+// Owner-added GitHub marketplaces list plugins in an index release's asset, or on default branches. Main fetches/verifies/stages installs for next startup.
 import { PLUGIN_ID_PATTERN } from './plugins';
 import { SHA256_PATTERN, VERSION_PATTERN, compareVersions, type InstalledSource } from './installedPlugins';
 
-/** The index file at a marketplace repo's root, on its default branch. */
+/** The index file: the asset of the MARKETPLACE_INDEX_TAG release, else the file of that name at the repo's root on its default branch. */
 export const MARKETPLACE_INDEX_FILE = 'marketplace.json';
+/** The release whose MARKETPLACE_INDEX_FILE asset is the index. Releases rewrite it, so they never commit to the default branch. */
+export const MARKETPLACE_INDEX_TAG = 'marketplace';
 /** The index format this host reads. */
 export const MARKETPLACE_FORMAT = 1;
 /** Where a marketplace repo keeps each plugin, as `plugins/<id>`: what a source install builds unless the index names another folder. */
