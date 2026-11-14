@@ -198,7 +198,12 @@ export async function seedIndex(gh: Gh, repo: string, store: IndexStore, workDir
   const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
   if (hasAsset(view, MARKETPLACE_INDEX_FILE)) return false;
   if (hasAsset(view, INDEX_BACKUP_FILE)) {
-    await writeIndex(gh, repo, await readIndex(gh, repo, store, workDir), store, workDir);
+    // Only marketplace.json is uploaded: the backup stays until it exists, so a failed upload here loses nothing either.
+    const dir = join(workDir, 'index-restore');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, MARKETPLACE_INDEX_FILE);
+    writeFileSync(file, indexText(await readIndex(gh, repo, store, workDir)));
+    await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--clobber']);
     return true;
   }
   const raw = store.fallback();
