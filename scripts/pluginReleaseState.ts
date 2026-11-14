@@ -22,7 +22,7 @@ export type PluginState =
   /** Lowest unpublished release intent and its target commit. */
   | { id: string; kind: 'pending'; version: string; target: string }
   /** Unlisted or raised manifest version without an intent: released at L. Its target is L's tag when an interrupted release made one, else null (the commit being released). */
-  | { id: string; kind: 'unstamped'; version: string; target: string | null }
+  | { id: string; kind: 'unstamped'; version: string; target: string | null; changedSinceTarget: boolean }
   /** Its state contradicts the contract; nothing is done for it until a person fixes it. */
   | { id: string; kind: 'broken'; reason: string };
 
@@ -152,7 +152,10 @@ export function readStates(git: Git, dir: string, rawIndex: unknown, only?: read
         return { id, kind: 'pending', version: intended, target: targets[0]! };
       }
       if (order === 0) return { id, kind: 'settled', version, listed: listed!, changed: changedSince(git, dir, id, since!, rev) };
-      return { id, kind: 'unstamped', version, target: tagTarget(git, dir, id, version) };
+      const target = tagTarget(git, dir, id, version);
+      // The tag fixes L's content: later edits to the folder need a version of their own.
+      const changedSinceTarget = target !== null && !gitTest(git, dir, ['diff', '--quiet', target, rev, '--', `${PLUGINS_DIR}/${id}`]);
+      return { id, kind: 'unstamped', version, target, changedSinceTarget };
     } catch (err) {
       return { id, kind: 'broken', reason: (err as Error).message };
     }

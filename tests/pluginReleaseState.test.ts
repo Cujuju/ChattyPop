@@ -79,22 +79,23 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '2.0.0') }, 'feat(alpha)!: 2.0');
     expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'pending', version: '1.0.1', target: intent });
     listed(repo, 'alpha', '1.0.1', intent);
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null, changedSinceTarget: false });
   });
 
   it('is unstamped when unlisted or raised by hand, without an intent commit', () => {
     const repo = releasedA();
     commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '2.0.0') }, 'feat(alpha)!: 2.0');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null });
-    expect(stateOf(repo.clone, 'beta')).toEqual({ id: 'beta', kind: 'unstamped', version: '1.0.0', target: null });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '2.0.0', target: null, changedSinceTarget: false });
+    expect(stateOf(repo.clone, 'beta')).toEqual({ id: 'beta', kind: 'unstamped', version: '1.0.0', target: null, changedSinceTarget: false });
   });
 
   it("resumes an unstamped version at the tag an interrupted release made, whatever lands on main later", () => {
     const repo = releasedA();
     const raised = commit(repo.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.1.0') }, 'feat(alpha): raised in a pull request');
     out(repo.bare, 'tag', 'alpha-v1.1.0', raised);
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '1.1.0', target: raised, changedSinceTarget: false });
     commit(repo.other, { 'plugins/alpha/shared/extra.ts': 'export const later = 1;\n' }, 'fix(alpha): later');
-    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '1.1.0', target: raised });
+    expect(stateOf(repo.clone, 'alpha')).toEqual({ id: 'alpha', kind: 'unstamped', version: '1.1.0', target: raised, changedSinceTarget: true });
     const off = releasedA();
     out(off.other, 'checkout', '-q', '-b', 'side');
     const side = commit(off.other, { [sharedFile('alpha')]: sharedSource('alpha', '1.1.0') }, 'feat(alpha): side', false);
@@ -111,7 +112,7 @@ describe('plugin release state', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     commit(repo.clone, { 'plugins/alpha/shared/extra.ts': 'export const x = 1;\n' }, 'feat(alpha): on the branch', false);
     commit(repo.clone, { [sharedFile('gamma')]: sharedSource('gamma', '0.1.0') }, 'feat(gamma): new', false);
     expect(stateOf(repo.clone, 'alpha', 'HEAD')).toMatchObject({ kind: 'settled', changed: ['minor'] });
-    expect(stateOf(repo.clone, 'gamma', 'HEAD')).toEqual({ id: 'gamma', kind: 'unstamped', version: '0.1.0', target: null });
+    expect(stateOf(repo.clone, 'gamma', 'HEAD')).toEqual({ id: 'gamma', kind: 'unstamped', version: '0.1.0', target: null, changedSinceTarget: false });
     expect(stateOf(repo.clone, 'alpha')).toMatchObject({ kind: 'settled', changed: null });
   });
 

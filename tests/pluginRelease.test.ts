@@ -1,12 +1,12 @@
 // Release assets contain build outputs at the archive root. Marketplace entries sort newest-first in the index release's asset; interrupted releases resume without replacing completed artifacts.
-import { cpSync, existsSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { list, extract } from 'tar';
 import { describe, expect, it } from 'vitest';
 import { parseInstalledManifest, PLUGIN_SDK_VERSION } from '@shared/installedPlugins';
 import { parseMarketplaceIndex, type MarketplaceRelease } from '@shared/marketplace';
 import { buildReleaseAsset } from '../scripts/pluginAsset';
-import { ensureReleased, readIndex, withRelease, type BuiltAsset, type IndexStore } from '../scripts/pluginRelease';
+import { ensureReleased, readIndex, seedIndex, withRelease, type BuiltAsset, type IndexStore } from '../scripts/pluginRelease';
 import { branchIndex } from '../scripts/pluginReleaseState';
 import { tempDir } from './helpers';
 import { GIT_TEST_TIMEOUT_MS, REPO, commit, fakeAsset, fakeGh, git, listed, out, pluginRepo, writes } from './pluginReleaseHarness';
@@ -94,8 +94,30 @@ describe('ensureReleased', { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await w.run();
     // The asset, once it exists, is the index; main's copy is not read again.
     expect(w.index().plugins.map((p) => p.id)).toEqual(['gamma', ID]);
-    expect(w.indexWrites().map((c) => c.split(' ').slice(0, 2).join(' '))).toEqual(['release create', 'release upload']);
-    expect(w.indexWrites()[1]).toContain('--clobber');
+    // A rewrite uploads the backup before it replaces the index asset.
+    expect(w.indexWrites().map((c) => `${c.split(' ').slice(0, 2).join(' ')} ${c.split(' ')[3]!.split('/').pop()}`)).toEqual(['release create marketplace.json', 'release upload marketplace.backup.json', 'release upload marketplace.json']);
+    expect(w.indexWrites()[2]).toContain('--clobber');
+  });
+
+  it('keeps a backup of each rewrite, read while an interrupted rewrite left the index asset missing; a starter asset is no index', async () => {
+    const w = world();
+    await w.run();
+    const first = w.fake.index();
+    const store = w.fake.releases.get('marketplace')!;
+    // Neither asset (and main has no file): nothing to read.
+    store.assets.clear();
+    expect(await readIndex(w.fake.gh, REPO, w.store, tempDir())).toBeNull();
+    // With only a backup holding the published entry, reads use it rather than main's older copy.
+    w.fake.addAsset('marketplace', (() => { const f = join(tempDir(), 'marketplace.backup.json'); writeFileSync(f, JSON.stringify(first)); return f; })());
+    expect(await readIndex(w.fake.gh, REPO, w.store, tempDir())).toEqual(first);
+    expect(await seedIndex(w.fake.gh, REPO, w.store, tempDir())).toBe(false);
+    // A failed upload's placeholder isn't an index: seeding replaces it.
+    store.assets.clear();
+    w.fake.addAsset('marketplace', (() => { const f = join(tempDir(), 'marketplace.json'); writeFileSync(f, ''); return f; })());
+    store.starters = new Set(['marketplace.json']);
+    listed(w.repo, 'beta', '1.0.0', w.target);
+    expect(await seedIndex(w.fake.gh, REPO, w.store, tempDir())).toBe(true);
+    expect(w.fake.calls.at(-1)).toMatch(/^release upload marketplace .*marketplace\.json .*--clobber$/);
   });
 
   it('creates the release on an existing tag at the target', async () => {

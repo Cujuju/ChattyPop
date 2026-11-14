@@ -147,15 +147,21 @@ export interface IndexStore {
 }
 
 let indexReads = 0;
+/** Written before each rewrite of the index asset, so a rewrite interrupted after GitHub removed the old asset loses nothing. */
+export const INDEX_BACKUP_FILE = 'marketplace.backup.json';
 
-/** The index: the index release's asset, else `store.fallback()` while there is no release (or an interrupted rewrite left it without the asset). A malformed asset throws. */
+/** Whether the index release holds `name`, fully uploaded. */
+const hasAsset = (view: ReleaseView | null, name: string): boolean => !!view?.assets.some((a) => a.name === name && a.state === UPLOADED);
+
+/** The index: the index release's asset, else its backup (a rewrite interrupted between delete and upload), else `store.fallback()` while there is no release. A malformed asset throws. */
 export async function readIndex(gh: Gh, repo: string, store: IndexStore, workDir: string): Promise<unknown> {
   const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
-  if (!view?.assets.some((a) => a.name === MARKETPLACE_INDEX_FILE && a.state === UPLOADED)) return store.fallback();
+  const name = hasAsset(view, MARKETPLACE_INDEX_FILE) ? MARKETPLACE_INDEX_FILE : hasAsset(view, INDEX_BACKUP_FILE) ? INDEX_BACKUP_FILE : null;
+  if (!name) return store.fallback();
   const dir = join(workDir, `index-${++indexReads}`);
-  await ghRun(gh, ['release', 'download', MARKETPLACE_INDEX_TAG, '--repo', repo, '--pattern', MARKETPLACE_INDEX_FILE, '--dir', dir]);
+  await ghRun(gh, ['release', 'download', MARKETPLACE_INDEX_TAG, '--repo', repo, '--pattern', name, '--dir', dir]);
   try {
-    const raw = JSON.parse(readFileSync(join(dir, MARKETPLACE_INDEX_FILE), 'utf8')) as unknown;
+    const raw = JSON.parse(readFileSync(join(dir, name), 'utf8')) as unknown;
     parseMarketplaceIndex(raw);
     return raw;
   } catch (err) {
@@ -173,6 +179,10 @@ export async function writeIndex(gh: Gh, repo: string, raw: unknown, store: Inde
   const file = join(dir, MARKETPLACE_INDEX_FILE);
   writeFileSync(file, indexText(raw));
   if (await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG)) {
+    // --clobber deletes before it uploads: the backup holds the new index first, and readIndex reads it while the index asset is gone.
+    const backup = join(dir, INDEX_BACKUP_FILE);
+    writeFileSync(backup, indexText(raw));
+    await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, backup, '--repo', repo, '--clobber']);
     await ghRun(gh, ['release', 'upload', MARKETPLACE_INDEX_TAG, file, '--repo', repo, '--clobber']);
     return;
   }
@@ -183,7 +193,7 @@ export async function writeIndex(gh: Gh, repo: string, raw: unknown, store: Inde
 /** Creates the index release from `store.fallback()` when it is missing; true when it did. Nothing to copy, nothing done. */
 export async function seedIndex(gh: Gh, repo: string, store: IndexStore, workDir: string): Promise<boolean> {
   const view = await viewRelease(gh, repo, MARKETPLACE_INDEX_TAG);
-  if (view?.assets.some((a) => a.name === MARKETPLACE_INDEX_FILE)) return false;
+  if (hasAsset(view, MARKETPLACE_INDEX_FILE) || hasAsset(view, INDEX_BACKUP_FILE)) return false;
   const raw = store.fallback();
   if (raw === null) return false;
   parseMarketplaceIndex(raw);

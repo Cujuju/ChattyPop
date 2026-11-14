@@ -86,7 +86,8 @@ describe('plugin:release-changed publish (CI on main)', { timeout: RUN_TEST_TIME
     pull(repo.other);
     commit(repo.other, { 'plugins/alpha/shared/extra.ts': 'export const later = 1;\n' }, 'fix(alpha): later');
     pull(repo.clone);
-    expect(await r.run()).toEqual({ released: ['alpha-v1.0.0'], stamped: [], failed: [] });
+    // The tagged content is released as it was; the later edit is reported for a stamp, not shipped under the old version.
+    expect(await r.run()).toEqual({ released: ['alpha-v1.0.0'], stamped: [], failed: [expect.stringMatching(/^alpha: changed since alpha-v1\.0\.0 was tagged without a raised version; stamp it/)] });
     expect(tagAt(repo, 'alpha-v1.0.0')).toBe(first);
     expect((await r.run()).failed).toEqual([expect.stringMatching(/^alpha: changed since alpha-v1\.0\.0 without a raised version; stamp it in a pull request/)]);
     expect(mainWrites(r.commands)).toEqual([]);
@@ -102,6 +103,24 @@ describe('plugin:release-changed publish (CI on main)', { timeout: RUN_TEST_TIME
     const r = runner(repo);
     expect(await r.run()).toEqual({ released: ['alpha-v1.0.1'], stamped: [], failed: [] });
     expect(tagAt(repo, 'alpha-v1.0.1')).toBe(intent);
+  });
+
+  it('reports a pending intent its release left pending once, and a stamp raises an edit made after an unpublished tag', async () => {
+    const repo = pluginRepo({ alpha: '1.0.0' });
+    listed(repo, 'alpha', '1.0.0', mainAt(repo));
+    pull(repo.other);
+    commit(repo.other, { [sharedFile('alpha')]: readFileSync(join(repo.other, sharedFile('alpha')), 'utf8').replace("'1.0.0'", "'1.0.1'") }, 'chore(release): alpha-v1.0.1');
+    pull(repo.clone);
+    const r = runner(repo);
+    r.fake.failNext('release create alpha-v1.0.1', { code: 1, stderr: 'down' });
+    expect((await r.run()).failed).toEqual([expect.stringMatching(/^alpha-v1\.0\.1: gh release create failed: down/)]);
+
+    const tagged = pluginRepo({ beta: '1.0.0' });
+    const t = runner(tagged);
+    t.fake.failNext('release download beta-v1.0.0', { code: 1, stderr: 'down' });
+    await t.run();
+    expect(await t.land('later', () => void commit(tagged.clone, { 'plugins/beta/shared/x.ts': 'export const x = 1;\n' }, 'fix(beta): later', false))).toMatchObject({ stamped: ['beta-v1.0.1'] });
+    expect(await t.run()).toEqual({ released: ['beta-v1.0.1'], stamped: [], failed: [] });
   });
 
   it('finishes only the failed plugin of a batch on the next plain run', async () => {

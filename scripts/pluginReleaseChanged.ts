@@ -149,7 +149,12 @@ async function publish(options: ReleaseChangedOptions, dir: string, workDir: str
   }
   for (const s of states) {
     if (s.kind === 'broken') result.failed.push(`${s.id}: ${s.reason}`);
-    else if (s.kind === 'unstamped') await release(s.id, s.version, s.target ?? head);
+    else if (s.kind === 'unstamped') {
+      await release(s.id, s.version, s.target ?? head);
+      if (s.changedSinceTarget) result.failed.push(`${s.id}: changed since ${releaseTag(s.id, s.version)} was tagged without a raised version; ${STAMP_HINT}.`);
+    }
+    // A pending intent left after the reread: its release failed above (already reported), or another lower intent remains.
+    else if (s.kind === 'pending' && !dryRun && !result.failed.some((f) => f.startsWith(`${releaseTag(s.id, s.version)}:`))) result.failed.push(`${releaseTag(s.id, s.version)}: still pending; the next run publishes it.`);
     else if (s.kind === 'settled' && s.changed) result.failed.push(`${s.id}: changed since ${releaseTag(s.id, s.version)} without a raised version; ${STAMP_HINT}.`);
     else if (s.kind === 'settled' && needsRebuild(s, sdkRebuild)) result.failed.push(`${s.id}: ${releaseTag(s.id, s.version)} is built for SDK ${s.listed.sdk}; ${rebuildHint(sdkRebuild)}.`);
   }
@@ -165,7 +170,11 @@ async function checkStamps(options: ReleaseChangedOptions, dir: string, workDir:
   for (const s of states) log(summary(s));
   for (const s of states) {
     if (s.kind === 'broken') result.failed.push(`${s.id}: ${s.reason}`);
-    else if (s.kind === 'settled' && s.changed) {
+    else if (s.kind === 'unstamped' && s.changedSinceTarget) {
+      const message = `${s.id}: changed since ${releaseTag(s.id, s.version)} was tagged without a raised version; ${STAMP_HINT}.`;
+      if (git(dir, ['diff', '--quiet', `${MAIN}...HEAD`, '--', `${PLUGINS_DIR}/${s.id}`]).code === 0) log(`Note: ${message}`);
+      else result.failed.push(message);
+    } else if (s.kind === 'settled' && s.changed) {
       const message = `${s.id}: changed since ${releaseTag(s.id, s.version)} without a raised version; ${STAMP_HINT}.`;
       // Changes main already holds aren't this pull request's doing: the publish run on main reports them.
       if (git(dir, ['diff', '--quiet', `${MAIN}...HEAD`, '--', `${PLUGINS_DIR}/${s.id}`]).code === 0) log(`Note: ${message}`);
@@ -186,7 +195,11 @@ async function stamp(options: ReleaseChangedOptions, dir: string, workDir: strin
   const states = readStates(git, dir, index, only, 'HEAD');
   for (const s of states) log(summary(s));
   for (const s of states) if (s.kind === 'broken') result.failed.push(`${s.id}: ${s.reason}`);
-  const planned = states.flatMap((s) => (s.kind === 'settled' && (s.changed || needsRebuild(s, sdkRebuild)) ? [{ id: s.id, version: raisedVersion(s.version, s.changed ?? ['patch']) }] : []));
+  const planned = states.flatMap((s) =>
+    s.kind === 'settled' && (s.changed || needsRebuild(s, sdkRebuild)) ? [{ id: s.id, version: raisedVersion(s.version, s.changed ?? ['patch']) }]
+      // A tagged version's content is fixed: later edits go out as the next patch.
+      : s.kind === 'unstamped' && s.changedSinceTarget ? [{ id: s.id, version: raisedVersion(s.version, ['patch']) }]
+        : []);
   for (const p of planned) log(`${dryRun ? 'Would stamp' : 'Stamping'} ${releaseTag(p.id, p.version)}`);
 
   // Every changed plugin passes before anything is written.
