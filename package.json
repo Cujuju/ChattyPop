@@ -22,7 +22,7 @@
     "release": "node scripts/runTs.mjs scripts/release.ts",
     "shell:sync": "vite build --config mobile/vite.config.ts && cap sync ios"
   },
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "pnpm@12.21.0",
   "dependencies": {
     "@cujuju/electron-updates": "link:../solidjs-toolkit/packages/electron-updates",
     "@cujuju/solid-reorder-list": "github:Cujuju/solid-reorder-list#v0.3.0-rc.4",
