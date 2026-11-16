@@ -18,6 +18,8 @@ minimumReleaseAgeExclude:
   - '@cujuju/solidjs-seg-buttons@0.3.0'
   - '@cujuju/solidjs-virtual-log@0.2.0'
   - '@cujuju/solidjs-hooks@2.1.0'
+  # Node 24.22.3 TLS/http2 security release, installed before pnpm's minimum release age (#334).
+  - electron@45.3.3
 
 # Security floors for transitive deps, each bounded to the fixed major.
 overrides:
