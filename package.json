@@ -7,6 +7,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "node scripts/dev.mjs",
+    "dev:shortcut": "node scripts/dev-shortcut.mjs",
     "build": "node scripts/ensure-window-border-native.mjs --require && electron-vite build",
     "preview": "electron-vite preview",
     "lint": "oxlint",
