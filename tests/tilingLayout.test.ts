@@ -1,6 +1,5 @@
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
-import { expect, it, vi } from 'vitest';
-import { findSlot, normalize, resizeSplit, setActiveTab, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { expect, it } from 'vitest';
+import { findSlot, normalize, resizeSplit, setActiveTab, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager/model';
 import { DEFAULT_TILES, buildDefaultTiles } from '../src/renderer/src/layout/presets';
 import { foldPanel, restoreHidden, shownTree } from '../src/renderer/src/layout/tiles';
 import type { LayoutNode } from '../src/renderer/src/layout/types';

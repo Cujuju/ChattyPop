@@ -1,4 +1,3 @@
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Renderer ordering contracts: live-label snapshots, template and panel-menu order, preset splits (fixture plugins).
 import { expect, it, vi } from 'vitest';
 import { definePlugin } from '@plugin-sdk/shared';
@@ -7,7 +6,7 @@ import { anchorCatalog, catalogSlotAnchor } from '@shared/bundledCheck';
 import { labelRefresher } from '../src/main/plugins/labelAvailability';
 import { declaredItems, placeSlot } from '../src/renderer/src/plugins/slotItems';
 import { optionalPanelsFirst } from '../src/renderer/src/layout/menuOrder';
-import { tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager/model';
 import { buildDefaultTiles } from '../src/renderer/src/layout/presets';
 import { collapseSingles, removePanel } from '../src/renderer/src/layout/tree';
 import { PANEL_TITLES } from '../src/renderer/src/panels/titles';

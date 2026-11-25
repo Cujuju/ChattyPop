@@ -1,8 +1,7 @@
 import { createRequire } from 'node:module';
 import { beforeEach, expect, it, vi } from 'vitest';
-import type { TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import type { TileNode } from '@cujuju/solidjs-tiling-window-manager/model';
 
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 vi.mock('solid-js', () => createRequire(import.meta.url)('solid-js/dist/solid.cjs'));
 vi.mock('@plugin-sdk/renderer/containment', () => ({ containedRoot: (fn: () => unknown) => fn() }));
 const host = vi.hoisted(() => ({ settings: new Map<string, unknown>(), writes: [] as string[] }));

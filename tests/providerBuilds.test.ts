@@ -1,10 +1,9 @@
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Subset-build fixtures validate providers and layouts; usage and Digest panels appear only for included plugins.
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { providerDeclarations } from '@shared/aiProviders';
 import { anchorCatalog, checkBundled } from '@shared/bundledCheck';
 import { buildDefaultTiles } from '../src/renderer/src/layout/presets';
-import { tileIds } from '@cujuju/solidjs-tiling-window-manager';
+import { tileIds } from '@cujuju/solidjs-tiling-window-manager/model';
 import type { PluginDescriptor } from '@shared/bundledTypes';
 import { DIGEST_PANEL, FIXTURE_PLUGINS, USAGE_PANEL, alpha, beta, digest, panelsOf, usage } from './p2Fixtures';
 

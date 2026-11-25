@@ -3,6 +3,7 @@
     "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "customConditions": ["cujuju-source"],
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "types": [],
     "jsx": "preserve",
