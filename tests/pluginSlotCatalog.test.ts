@@ -1,12 +1,11 @@
 // Slot items: host-stamped ids, one catalog over every plugin folder, and ids a phone or a layout stored before stamping.
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 import { describe, expect, it, vi } from 'vitest';
 import { definePlugin, type Adoption, type SlotDecls } from '@plugin-sdk/shared';
 import { HOST_PANELS } from '@shared/anchors';
 import { anchorCatalog, catalogSlotAnchor, checkBundled } from '@shared/bundledCheck';
 import { adoptedPhoneSection, bundledPanel, slotAnchor } from '@shared/bundledPlugins';
 import { frameSlots, phoneSectionOf, type FrameSlotEntry, type PhoneSection } from '../src/renderer/src/plugins/frameSlots';
-import { normalize, tileIds } from '@cujuju/solidjs-tiling-window-manager';
+import { normalize, tileIds } from '@cujuju/solidjs-tiling-window-manager/model';
 import { panelOwnerOff } from '../src/renderer/src/layout/visibility';
 import { P1_PLUGINS, digest, inbox, labels } from './p1Plugins';
 

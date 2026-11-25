@@ -1,7 +1,7 @@
 import {
   appendTile, canCollapse, findSlot, insertTile, moveTab, removeTile, setActiveTab, setSlotCollapsed, tileIds,
   type TileNode, type TileSlot, type TileSplit,
-} from '@cujuju/solidjs-tiling-window-manager';
+} from '@cujuju/solidjs-tiling-window-manager/model';
 
 /** Projects inactive owners without changing the persisted tree. */
 export function shownTree(root: TileNode, hidden: ReadonlySet<string>): TileNode | undefined {

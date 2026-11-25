@@ -1,4 +1,3 @@
-vi.mock('@cujuju/solidjs-tiling-window-manager', () => import('./tilingToolkitMock').then((m) => m.loadToolkit()));
 // Tests bundled-plugin selection, import isolation, routing, and adoption of retained host data.
 import { ProviderRegistry } from '../src/core/ai/registry';
 import { RuleKinds } from '../src/core/rules/kinds';
@@ -22,7 +21,7 @@ import { JEV_QUERIES, JEV_QUERY_GROUPS } from '@shared/jevQueries';
 import type { Plugin } from 'vite';
 import { bundledPlugins, pluginDirs, pluginFolders, selectedPlugins } from '../bundledPlugins';
 import { DEFAULT_TILES } from '../src/renderer/src/layout/presets';
-import { tileIds } from '@cujuju/solidjs-tiling-window-manager';
+import { tileIds } from '@cujuju/solidjs-tiling-window-manager/model';
 import { ARRIVAL, type TextMessage } from '../src/core/arrival';
 import { getSetting, setSetting, type Db } from '../src/core/db';
 import type { DerivedText, TextSource } from '../src/core/plugins/bundled';

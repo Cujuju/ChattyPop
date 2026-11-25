@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { defaultServerConditions } from 'vite';
 import { configDefaults, defineConfig } from 'vitest/config';
 import { appVersion } from './appVersion';
 import { NO_PLUGIN_SOURCE, bundledPlugins, type PluginSource } from './bundledPlugins';
@@ -22,6 +23,8 @@ export const testConfig = (plugins: PluginSource = NO_PLUGIN_SOURCE) => defineCo
       { find: '@', replacement: resolve(import.meta.dirname, 'src/renderer/src') },
     ],
   },
+  // Linked @cujuju packages run from their src/, as typecheck reads it: their gitignored dist/ may be stale or unbuilt.
+  ssr: { resolve: { conditions: ['cujuju-source', ...defaultServerConditions] } },
   plugins: [bundledPlugins(import.meta.dirname, 'node', plugins)],
   define: { __APP_VERSION__: JSON.stringify(appVersion(import.meta.dirname)) },
   // tests/fixtures: plugin folders pnpm plugin:check runs (tests/pluginCheck.test.ts).

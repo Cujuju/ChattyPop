@@ -3,7 +3,7 @@ import { bundledPanels } from '@shared/bundledPlugins';
 import type { PanelDecl } from '@shared/bundledTypes';
 import { placePresetPanels } from './presetPanels';
 import { collapseSingles } from './tree';
-import { normalize, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager';
+import { normalize, tileIds, type TileNode } from '@cujuju/solidjs-tiling-window-manager/model';
 import { removePanel, panelIds } from './tree';
 import { PANEL_TITLES } from '../panels/titles';
 import type { LayoutNode, LayoutPanelId, PanelRef, SplitSize } from './types';

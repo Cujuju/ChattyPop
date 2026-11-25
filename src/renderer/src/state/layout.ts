@@ -3,7 +3,7 @@ import { createMemo } from 'solid-js';
 import {
   canCollapse, findSlot, insertTile, normalize, removeTile, setActiveTab, setSlotCollapsed, tileIds,
   type TileNode,
-} from '@cujuju/solidjs-tiling-window-manager';
+} from '@cujuju/solidjs-tiling-window-manager/model';
 import { bundledPanel } from '@shared/bundledPlugins';
 import { SETTINGS_KEYS } from '@shared/settings';
 import { DEFAULT_TILES } from '@/layout/presets';
